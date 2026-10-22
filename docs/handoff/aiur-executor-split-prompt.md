@@ -1,0 +1,66 @@
+# Prompt: aiur executor, split the build order across two machines
+
+You are the aiur Executor for the aiur build order that is currently in motion. Kevin wants a plan, not execution yet: re-cut the remaining work so a second aiur instance on a second machine can take an independent slice. The slice should put first the aiur components that a new consumer, **Open Game Maker 2000**, will need anyway.
+
+## Context
+
+Open Game Maker 2000 is Kevin's web game-creation platform for families. Its research lives in the private repo `its-everdred/open-game-maker-2000`, on branch `research`. If it isn't cloned on this machine, read it with `gh`.
+
+Read in this order. Stop when you have enough; you don't need everything.
+
+1. `docs/research/v0.4/B8-aiur-integration-budgets-bugs.md`: how hosted Game Maker would drive aiur, and a ranked **gap list of upstream aiur work**.
+2. `docs/research/v0.4/B2-voice-stack.md`: what aiur's voice component actually is today, and what Game Maker needs from it. The gaps are labeled G1–G7: child-safe providers, no-transcript mode, alignment/usage frames, narration render path, and others.
+3. `docs/research/v0.4/B4-sandboxing.md` §2 and §7: aiur execution today and the changes needed for hosted, sandboxed runs. These are a sandbox-VM execution target, no credentials in the sandbox, and push/PR moved to the orchestrator. Also read the **likely GitHub-token exposure** finding.
+4. `docs/research/v0.4/B1-provider-credentials.md` §2.3 and §4: aiur's account and credential routing, and hosted-mode credential requirements.
+5. `docs/spec/game-maker-2000-spec-v0.4.md` §7.1–7.2 and §7.10–7.11: the two uses of aiur, and the delivery principle.
+
+The research was done against aiur `ad084b1f` and `46bda0020`. Recheck everything against current `main` before relying on it.
+
+## What to do
+
+1. **Establish the current plan.**
+   - Find the build order(s) in motion and the remaining tickets, with their states and dependencies. Use the `aiur-build` / `aiur-run` artifacts and GitHub.
+   - Find the refactor roadmap and component plans. Include the MP-E6 voice plan on `research/refactor-findings` and epic #4083 (`voice_converse`).
+   - Estimate the remaining effort. Kevin believes it is a few weeks of work.
+
+2. **Map Game Maker's needs onto planned aiur components.**
+   - For each need below, name the existing ticket, epic or package that covers it, or mark it as a gap. Don't invent APIs.
+   - **Voice, one-way and two-way.** The reusable `voice_converse` component: session API, wire codec, a provider seam with a self-hosted cascade (STT → LLM → TTS), a no-store transcript mode, alignment (word-timing) and usage frames, a batch narration render path, and a host-supplied token issuer, so an external TypeScript app can embed it.
+   - **Model usage data as one component.** Per-ticket usage read API, per-ticket spend caps, external progress/phase reads, outbound events, a cancel that confirms the agent stopped, and account/rate-limit snapshots. Treat these as one coherent usage and observability surface where the roadmap allows.
+   - **Hosted execution.** A sandbox-VM execution target, a model-call proxy with per-job tokens, the commit service / orchestrator-side push, and a hosted mode that fails closed. Also enforcement that the hosted instance uses API-key profiles only.
+   - Lower priority: per-ticket skill injection, a job-create API, per-tenant concurrency, versioned status schemas.
+
+3. **Split the work across two instances.**
+   - **Stay the course:** keep the planned refactor and component work; don't reorder for its own sake.
+   - Partition the remaining tickets into two lanes:
+     - **Machine A:** the current instance.
+     - **Machine B:** a new instance on another machine.
+   - Choose lanes by code surface, so the lanes rarely touch the same files.
+   - Kevin's hypothesis is that the voice component is the most independent and should be Machine B's first lane. Verify or refute that from the code.
+   - Within each lane, order Game Maker-critical components first: voice, usage data, hosted execution.
+   - For every cross-lane dependency or shared file, state the contract that unblocks it and which lane owns it.
+   - Keep the continuously testable rule: every merge leaves something Kevin can try.
+
+4. **Prepare coordination.**
+   - Kevin will invite both machines' Executors into a shared channel.
+   - Draft the kickoff message for that channel. It should cover: lane ownership, the shared contracts, the files each lane must not touch without asking, merge and rebase etiquette, how to hand a ticket across lanes, and when to escalate to Kevin.
+
+## Deliverable
+
+Write one plan document in the aiur repo's usual place for build-order planning, but don't merge it. It should contain:
+
+- the current-state summary;
+- a needs → component map, marked covered, partial or gap;
+- the two-lane split, with a ticket list per lane in order;
+- the cross-lane contracts and conflict hotspots;
+- proposed new tickets for gaps (titles and one-line scope only);
+- the channel kickoff message;
+- open questions for Kevin.
+
+Then reply to Kevin with a 10-line summary and the path.
+
+## Boundaries
+
+- **Planning only.** Don't relabel, re-parent, create or close tickets, start the second instance, or change a running build order until Kevin approves the plan.
+- **Don't copy Game Maker material into public places.** That covers family details, children's ages, product specifics and the research text. If you draft aiur tickets, phrase needs generically, e.g. "an external app embedding voice for minors needs a no-transcript mode".
+- **Raise the security finding first.** If the GitHub-token exposure in B4 §2 still holds on current `main`, flag it to Kevin as its own item. It affects aiur today regardless of Game Maker.
