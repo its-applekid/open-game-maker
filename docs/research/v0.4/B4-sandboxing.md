@@ -118,6 +118,10 @@ Claim tags: **[V]** verified on a primary source or in code; **[I]** inferred; *
 - **Fullscreen:**
   - iPadOS has the unprefixed API since Safari 16.4 [V]; iPhone is video-only [I].
   - Have the **parent** call `iframe.requestFullscreen()` from its own button, which avoids delegation [I].
+  - **Added 2026-10-22:** MDN compat data (`api/Element.json`) says iOS Safari fullscreen is "Only available on iPad, not on iPhone" and "Shows an overlay button which can not be disabled. Swiping down exits fullscreen mode, making it unsuitable for some use cases like games." [V]
+    - Don't rely on fullscreen on iPad. A home-screen web app or a layout that fills the viewport is the likely route [I, untested].
+    - The device test should check whether an accidental swipe-down exit breaks play.
+  - Firefox 66+ blocks `getUserMedia()` in sandboxed iframes [V, MDN]. This is consistent with D3-A (no mic in games).
 - **Focus:** the parent calls `iframe.focus()` after load; the game calls `window.focus()` on its first pointerdown; fall back to a "tap to play" overlay [I].
 - **Storage:** an opaque origin (no `allow-same-origin`) has no localStorage or IndexedDB [I, spec]. Third-party storage is partitioned anyway [V]. Saves should go through the bridge to the backend, which matches spec §5.16.
 
