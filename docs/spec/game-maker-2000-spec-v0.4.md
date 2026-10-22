@@ -12,6 +12,8 @@ This is the standalone successor to game-maker-2000-full-spec-v0.3.md. It incorp
 
 Specification v0.4 is not product release V4. Product releases are V1 = MVP, V2, and V3. There is no "V1E" milestone.
 
+> Renamed 2026-10-21: the product and repo are now **Open Game Maker 2000** (`its-everdred/open-game-maker-2000`). Older names below are kept as written.
+>
 > Repository note: transcribed from ChatGPT's v0.4 output as pasted by Kevin on 2026-10-21. Only Markdown heading/code-fence/bullet formatting was added; wording is unchanged.
 
 ---

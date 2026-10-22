@@ -1,4 +1,4 @@
-# Uncle Kevin's Game Maker 2000
+# Open Game Maker 2000
 ## v0.4 research results and question bank, the companion to spec v0.3
 
 **Date:** October 21, 2026  

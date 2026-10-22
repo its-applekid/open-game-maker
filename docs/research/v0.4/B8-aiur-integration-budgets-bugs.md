@@ -154,7 +154,7 @@ This keeps A6's Option A+C and narrows it to the current interfaces.
 - The acceptance criteria include a failing replay "promise" test where one can be built (A9).
 
 **Platform route.**
-- A second GitHub App, `gm-reporter`, has **Issues: write only** on `its-everdred/uncle-kevins-game-maker-2000`. That repo is private today (V, `gh repo view`) but may be open-sourced later, so the same redaction applies.
+- A second GitHub App, `gm-reporter`, has **Issues: write only** on `its-everdred/open-game-maker-2000`. That repo is private today (V, `gh repo view`) but may be open-sourced later, so the same redaction applies.
 - It files issues **without** `agent:todo`. Kevin's listener does not dispatch them until Kevin, a trusted account, triages and labels them.
 - This keeps user-written text, a prompt-injection surface, from auto-driving a daemon with platform write access. Kevin reads bundles through Game Maker's operator view.
 
