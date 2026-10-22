@@ -1,5 +1,7 @@
 # B3 — Child accounts, consent, oversight, retention, and public-source leakage (U03 / U07 / U17)
 
+> **Scope note (2026-10-22):** Open Game Maker 2000 is a general, all-ages game maker. Parental controls apply only to child accounts, and under-18 vendor routing applies to teens. Where this report applies a child rule product-wide, B9 (legal) and B10 (product, incl. §8) rescope it.
+
 - **Spec inputs:** v0.4 §4.1–4.5, §5.2, §5.13–5.14, §5.19, §9.2, §10.1–10.7, §14.1 U03/U07, §14.2 U14–U17.
 - **Prior inputs:** A7 (R04 auth matrix, R07 leakage vectors), A8 (§4 COPPA, §5 retention map), A5 (analytics), A6 (aiur tickets are GitHub issues/PRs), B2 (voice), B6 (assets).
 - **Primary sources accessed:** 2026-10-21 (listed in §7).

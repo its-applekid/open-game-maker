@@ -1,5 +1,7 @@
 # B5 — V1 generative toolchain: 2D sprites, low-poly 3D, music, SFX, image upload (U05 / R16)
 
+> **Scope note (2026-10-22):** Open Game Maker 2000 is a general, all-ages game maker. Parental controls apply only to child accounts, and under-18 vendor routing applies to teens. Where this report applies a child rule product-wide, B9 (legal) and B10 (product, incl. §8) rescope it.
+
 Research spike B5, v0.4 pass. All sources accessed **2026-10-21**. Markers: **[V]** = the claim was read today on the primary page, license file or `gh api`. **[I]** = inferred from verified facts. **[U]** = unverified (secondary source, page not reachable, or recalled). This is research, not legal advice, and it authorizes no spending.
 
 Inputs: spec v0.4 §5.3, §5.13, §9.6, §10.7, §11.1, §12, §14.1 U05; v0.3 A2, A3 and A8; the editor mockups. The racetrack mockup is chunky, flat-shaded, vertex-coloured low-poly in the same family as the Kenney and KayKit kits. The dungeon mockup is cute, stylized and toy-like.

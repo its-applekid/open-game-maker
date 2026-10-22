@@ -1,5 +1,7 @@
 # B2 — Voice stack (U02 / R03)
 
+> **Scope note (2026-10-22):** Open Game Maker 2000 is a general, all-ages game maker. Parental controls apply only to child accounts, and under-18 vendor routing applies to teens. Where this report applies a child rule product-wide, B9 (legal) and B10 (product, incl. §8) rescope it.
+
 Access date for all sources: 2026-10-21. Labels: **[V]** verified against the primary source today, **[I]** inferred, **[U]** unverified. **[aiur-R]** marks a fact taken from aiur's own dated research (`talk/research.md`, 2026-10-10, with primary URLs). I did not re-fetch those facts.
 
 ## 1. TL;DR
