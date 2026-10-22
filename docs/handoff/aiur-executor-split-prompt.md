@@ -25,9 +25,16 @@ The research was done against aiur `ad084b1f` and `46bda0020`. Recheck everythin
 
 2. **Map Game Maker's needs onto planned aiur components.**
    - For each need below, name the existing ticket, epic or package that covers it, or mark it as a gap. Don't invent APIs.
-   - **Voice, one-way and two-way.** The reusable `voice_converse` component: session API, wire codec, a provider seam with a self-hosted cascade (STT → LLM → TTS), a no-store transcript mode, alignment (word-timing) and usage frames, a batch narration render path, and a host-supplied token issuer, so an external TypeScript app can embed it.
+   - **Voice, one-way and two-way.** The reusable `voice_converse` component. Kevin's provider order is ElevenLabs first, then OpenAI. The component also needs:
+     - a session API and wire codec;
+     - a provider seam that also takes a self-hosted cascade (STT → LLM → TTS), for minors until a vendor approves child use;
+     - a no-store transcript mode;
+     - alignment (word-timing) and usage frames;
+     - a batch narration render path;
+     - a host-supplied token issuer, so an external TypeScript app can embed it.
    - **Model usage data as one component.** Per-ticket usage read API, per-ticket spend caps, external progress/phase reads, outbound events, a cancel that confirms the agent stopped, and account/rate-limit snapshots. Treat these as one coherent usage and observability surface where the roadmap allows.
    - **Hosted execution.** A sandbox-VM execution target, a model-call proxy with per-job tokens, the commit service / orchestrator-side push, and a hosted mode that fails closed. Also enforcement that the hosted instance uses API-key profiles only.
+   - **Many repositories.** Each Game Maker user connects GitHub at setup and gets their own repo. One hosted aiur therefore has to serve many repos, but aiur runs one daemon per repository today.
    - Lower priority: per-ticket skill injection, a job-create API, per-tenant concurrency, versioned status schemas.
 
 3. **Split the work across two instances.**
