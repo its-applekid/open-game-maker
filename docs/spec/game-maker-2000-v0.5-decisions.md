@@ -26,6 +26,8 @@ Sources:
 | Art and audio | V1 starts with **skills and code tools only**. Paid generators are a later optimization. | §5.3, §11.1, §12 |
 | AI funding | Hosted builds use **aiur with API-key profiles**. Build nothing new for this. | §8.1 |
 | Spending | **Admins configure all spending limits.** The plan sets only the starting defaults. | §8.3–8.4 |
+| Stack | **TypeScript only**, frontend (React) and backend (Node on Railway). Rust was considered and set aside (2026-10-23). The only Elixir is aiur and the thin voice_converse host. | §3 |
+| aiur dependencies | aiur consumed as modular packages: voice_converse (git dep pinned to tags), the voice wire contract (JSON Schema), a TS voice client (npm), and hosted aiur over HTTP with versioned schemas. All tracked in Aiur-NUC's lane, including #5936 releases, #5937 per-job scoping (post-v1) and #5938 multi-repo hosting (v1). | §7 |
 | Process | No tickets or aiur build order yet. aiur's in-flight build order will be split across two machines, with Game Maker components first (`docs/handoff/aiur-executor-split-prompt.md`). | — |
 
 ## Picked by Kevin on the decision page (2026-10-22, 17:45–18:00)
