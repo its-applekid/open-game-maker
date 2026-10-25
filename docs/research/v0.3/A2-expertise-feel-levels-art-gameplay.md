@@ -4,6 +4,11 @@
 **Access date for all sources:** 2026-10-21. **Out of scope:** Donchitos/Claude-Code-Game-Studios, which another agent is mining.
 **Status labels:** *Verified* means checked this session through `gh api`, a clone, or a fetch. *Recalled* means taken from well-known canonical material that I did not re-fetch. *Proposal* means my recommendation.
 
+> **Version scope (2026-10-25):** The S04/S06/S07/S08 skills, tunables manifest, rubrics and art calibration are **V1**. Editable voxel worlds and any paid asset tiers are later (V2 at the earliest). Children in evaluations and play sessions are **V3**, tagged inline.
+> The kid-first framing is superseded: V1 is for adult creators (18+). The `kid` knob tier and "kid" presets are renamed `basic`/"beginner"; a kid-friendly presentation is a V3 parental-controls setting (B10).
+> Superseded in part: skill sourcing by **B14** (awesome-gamedev adapted, Phaser official and CloudAI three.js adopted); art and asset sources and licensing (incl. §6–§7) by **B5**, **B11** and **B12**; the knob/editor contract by **B7**.
+> Canonical scope: `docs/spec/release-plan.md`.
+
 ---
 
 ## 1. Bottom line
@@ -14,7 +19,7 @@
    - `gm-feel` (tunables plus juice bound to SDK events),
    - `gm-level` (metrics, beats, and a reachability/soft-lock validator contract),
    - `gm-art-style` (one style-preset card per art option and an asset-family lock),
-   - `gm-design-brief` (core loop, verbs, and a kid-fit design checklist).
+   - `gm-design-brief` (core loop, verbs, and a beginner-fit design checklist).
    Each should be 1.5–3k tokens and loaded per job, never all together.
 4. **Most feel and balance quality can be enforced deterministically in the SDK, not through prompts.** Jump knobs in designer units (tiles, seconds) feed Pittman-derived physics. A reachability check re-runs whenever a knob moves. Juice tiers fire from standard events, with one platform-wide "reduce motion" multiplier. This follows §3.2 (deterministic work before agent work).
 5. **Art-difficulty calibration (§5.3):** most labels hold. Three changes:
@@ -49,7 +54,7 @@
 | **Kyle Pittman, "Math for Game Programmers: Building a Better Jump", GDC 2016** (gdcvault.com/play/1023148) | Verified listing; formulas recalled | Derive physics from design inputs: `g = 2h·vx²/xh²`, `v0 = 2h·vx/xh` (h = peak height, xh = horizontal distance to the peak, vx = run speed). Use a separate, heavier falling gravity, and handle variable height by raising gravity when the button is released. **This is the core of the tunables manifest:** knobs in tiles, physics derived by the SDK. |
 | **Jan Willem Nijman, "The Art of Screenshake"** (INDIGO 2013) | Recalled | A list of cheap feedback layers: bigger and faster projectiles, muzzle flash, hit flash, enemy knockback, player recoil, **sleep/hit-stop**, screen shake, permanence (debris and corpses stay), camera lerp and look-ahead, more enemies with fewer HP, sound layers. It maps onto the juice-tier presets. |
 | **Steve Swink, *Game Feel* (2008)** | Recalled | Defines feel as real-time control + simulated space + polish. Metrics: response latency (felt as instant below ~100 ms), input→response mappings, and context (the space gives the movement meaning). **Use: the S06 rubric axes** and "test feel in a context room, not empty space". |
-| **Hayashida / Nintendo, kishōtenketsu (Super Mario 3D Land)** | Secondary coverage verified; the original Gamasutra text was not retrieved | One gimmick per level: **introduce safely → develop → twist → final test**, then retire it. This is the template for `gm-level` beats, and short kid-sized levels suit it well. |
+| **Hayashida / Nintendo, kishōtenketsu (Super Mario 3D Land)** | Secondary coverage verified; the original Gamasutra text was not retrieved | One gimmick per level: **introduce safely → develop → twist → final test**, then retire it. This is the template for `gm-level` beats, and short levels suit it well. |
 | **MDA** (Hunicke, LeBlanc, Zubek 2004) and **Koster, *Theory of Fun*** | Recalled | MDA chain: design mechanics → dynamics → target aesthetics (the 8 kinds of fun). Koster: fun = mastering patterns, so boredom means the pattern was solved or never seen. **Use:** in the design brief, name the target aesthetic first, then the mechanics. |
 | **Schell, *The Art of Game Design* lenses** | Recalled; **copyrighted** | Paraphrase the *question style* only (for example: "what does the player do every 10 seconds?"). Don't copy the lens text or the deck into skills. |
 | **GMTK (Mark Brown)** | Recalled | Episode-level heuristics: "teach without text", "how to make a good boss", coyote time, and similar. Useful as agent reading suggestions. Video transcripts are copyrighted, so cite them rather than embed them. |
@@ -63,9 +68,9 @@ These skills are short and load per job. Each one tells the agent to *emit SDK d
 
 | Skill | Loaded for | Contents | Est. tokens |
 |---|---|---|---|
-| `gm-design-brief` (S04) | Narrowing (§5.4) and the new-game mechanics specialist | Brief schema: target aesthetic (MDA) → ≤3 core verbs → 10-second loop / 1-minute loop / session loop → success and fail signals visible without reading → challenge source → progression/rewards → "what you like about [reference]" → mechanic translation (no IP). A kid-fit checklist: cheap failure, generous checkpoints, sessions under 5 minutes, one new idea at a time, no reading needed to understand state. A 1-page **genre card** for each of RPG, platformer, adventure, craft, puzzle, battle, strategy, roguelike (core loop, must-have systems, 3 canonical references, 3 classic failure modes), adapted from awesome-gamedev genre skills and expanded for the missing genres. | ~2.0k base + ~0.4k per genre card loaded |
-| `gm-feel` (S06) | Any feature touching movement, combat, pickups, or camera | SDK `feel` presets (kid / standard / expert-Celeste) per controller type; Pittman derivation (SDK-owned, so the agent only picks design units); juice tiers (small/medium/large) bound to SDK events `onLand/onHit/onPickup/onDeath`; rules from the adapted game-feel skill (shake the camera not the body, real-time hit-stop, ease everything, return to rest); touch-specific rules (bigger buffers, auto-run options, on-screen control sizing handed to S09); the manifest entries the agent must declare. | ~2.5k |
-| `gm-level` (S07) | New level, level edit, difficulty change, balance review | Metrics come from the feel manifest (no hand-typed gap sizes); kishōtenketsu beat table; tension/rest sawtooth; key/ability gating graph; required SDK validators (`reachability`, `softlock`, `solvable` for puzzles); balance knobs and a "difficulty" macro; kid defaults (no blind jumps, telegraphed one-way drops, death → respawn in under 2 s). | ~2.5k |
+| `gm-design-brief` (S04) | Narrowing (§5.4) and the new-game mechanics specialist | Brief schema: target aesthetic (MDA) → ≤3 core verbs → 10-second loop / 1-minute loop / session loop → success and fail signals visible without reading → challenge source → progression/rewards → "what you like about [reference]" → mechanic translation (no IP). A beginner-fit checklist: cheap failure, generous checkpoints, sessions under 5 minutes, one new idea at a time, no reading needed to understand state. A 1-page **genre card** for each of RPG, platformer, adventure, craft, puzzle, battle, strategy, roguelike (core loop, must-have systems, 3 canonical references, 3 classic failure modes), adapted from awesome-gamedev genre skills and expanded for the missing genres. | ~2.0k base + ~0.4k per genre card loaded |
+| `gm-feel` (S06) | Any feature touching movement, combat, pickups, or camera | SDK `feel` presets (beginner / standard / expert-Celeste) per controller type; Pittman derivation (SDK-owned, so the agent only picks design units); juice tiers (small/medium/large) bound to SDK events `onLand/onHit/onPickup/onDeath`; rules from the adapted game-feel skill (shake the camera not the body, real-time hit-stop, ease everything, return to rest); touch-specific rules (bigger buffers, auto-run options, on-screen control sizing handed to S09); the manifest entries the agent must declare. | ~2.5k |
+| `gm-level` (S07) | New level, level edit, difficulty change, balance review | Metrics come from the feel manifest (no hand-typed gap sizes); kishōtenketsu beat table; tension/rest sawtooth; key/ability gating graph; required SDK validators (`reachability`, `softlock`, `solvable` for puzzles); balance knobs and a "difficulty" macro; beginner defaults (no blind jumps, telegraphed one-way drops, death → respawn in under 2 s). | ~2.5k |
 | `gm-art-style` (S08) | Art-direction specialist; any asset add/replace | A one-page **style card** per §5.3 option: palette lock, resolution/filtering, renderer preset ID, approved asset families, forbidden mixes, animation timing (e.g., clay animates on twos at 12 fps), outline rules, silhouette checks. Workflow adapted from `create-game-assets`: lock the frame → approve a hero target → produce families → normalize deterministically → validate at three distances → record provenance. | ~1.2k base + ~0.5k per style card |
 | `gm-editor-api` (shared with S11/S01) | Every implementing agent | The manifest contract below. Owned by the S11/S01 agent; this report only defines the feel/balance entries. | — |
 
@@ -75,17 +80,17 @@ Principles:
 - Knobs use **designer units** (tiles, seconds, "×").
 - **Derived physics is computed by the SDK.**
 - Every knob declares the **invariants it can break**, so the SDK re-runs validators after an edit.
-- Each knob gets an **audience tier**: `kid` (visible by default) or `advanced` (behind "more"), per §5.6 "not every internal variable".
+- Each knob gets an **audience tier**: `basic` (visible by default) or `advanced` (behind "more"), per §5.6 "not every internal variable".
 
 ```ts
 // Proposal — shape only; final schema belongs to the editor-contract owner.
 { id: "player.jump.height", label: "Jump height", icon: "arrow-up", type: "slider",
-  unit: "tiles", min: 1, max: 8, step: 0.5, default: 3.5, tier: "kid", group: "feel",
+  unit: "tiles", min: 1, max: 8, step: 0.5, default: 3.5, tier: "basic", group: "feel",
   derives: ["physics.gravityUp", "physics.jumpVelocity"],   // SDK applies Pittman
   invalidates: ["level.reachability"] }                      // SDK re-validates; editor warns/blocks
 ```
 
-| Genre/system | `kid` knobs | `advanced` knobs |
+| Genre/system | `basic` knobs | `advanced` knobs |
 |---|---|---|
 | Platformer | Jump height (tiles), Run speed, "Floaty ↔ Snappy" (time-to-apex + fall multiplier), Extra jumps (0–2), "Forgiving ↔ Tricky" (macro: coyote 0.06–0.2 s, buffer 0.08–0.2 s, checkpoint spacing) | Jump distance-to-peak, fall gravity ×, max fall speed, ground/air accel time, air control ×, variable-jump cut, apex half-gravity, dash speed/time, corner-correction px |
 | Top-down / adventure | Walk speed, "Slippery" (accel/decel time), Dash on/off | Diagonal normalization, knockback distance, i-frames |
@@ -95,7 +100,7 @@ Principles:
 | Level | Placement tool (tiles/objects), Checkpoint placement | Beat-intensity table, gate/key graph |
 
 **Platform-level, not per game:** "Reduce motion/flashing", which multiplies shake, flash, and hit-stop. It belongs to S09 accessibility and the SDK owns it.
-**Kid preset starting values (Proposal, to be playtested):** jump 3 tiles, coyote 0.15 s, buffer 0.15 s, run speed about 60% of Celeste's, hurtbox 70% of the sprite, pickup radius 130%.
+**Beginner preset starting values (Proposal, to be playtested):** jump 3 tiles, coyote 0.15 s, buffer 0.15 s, run speed about 60% of Celeste's, hurtbox 70% of the sprite, pickup radius 130%.
 
 ---
 
@@ -129,7 +134,7 @@ Principles:
 - Landmarks or lighting guide the path.
 - Death→retry takes ≤2 s.
 - Difficulty macro is monotonic across its range.
-- A scripted bot completes on "kid".
+- A scripted bot completes on "beginner".
 
 **S08 Art direction**
 - (must) Single palette and asset family, or approved mixes only.
@@ -144,7 +149,7 @@ Principles:
 **Automated vs human checks:**
 - *Automated:* reachability/soft-lock/solvability validators; bot completion through `step/input`; frame-latency probe; palette conformance (quantize the screenshot, measure out-of-palette pixel %); grayscale-contrast check between the player's and the hazards' sprite regions; texel-density/pixel-scale check (fractional scaling detection); juice-event coverage (each gameplay event has a bound tier).
 - *Model critique:* rubric scoring from screenshots + short capture + metrics.
-- *Human:* "fun", "feels good", and style appeal. Short Kevin/kid sessions, comparing two builds side by side (§7.3).
+- *Human:* "fun", "feels good", and style appeal. Short Kevin/adult-tester sessions (kid sessions: V3), comparing two builds side by side (§7.3).
 
 ---
 
@@ -154,8 +159,8 @@ Principles:
 |---|---|---|---|---|
 | 8-bit | Phaser 4 `pixelArt:true`, integer scale; Lospec NES palette (55 entries; verified) | Kenney pixel packs (CC0, verified site-wide) | Generated sprites drift off grid and palette, so they need a quantize/grid-snap step | Easy → **Easy** (library) / **Medium** (custom characters) |
 | 16-bit | Same, plus parallax layers (trivial in Phaser) | Fewer cohesive CC0 16-bit families; Kenney skews simpler | Keeping consistency across richer generated sprites | Easy → **Easy–Medium** |
-| 32-bit, GBA-style 2D | Same pipeline at 240×160 native, 15-bit color | Same as 16-bit | Hard for kids to tell apart from 16-bit | Open → **Easy–Medium** ("16-bit+") |
-| 32-bit, PS1 3D | Three.js r186: low-res render target + NearestFilter, vertex-snap shader, optional dither/affine approximation (~100 lines; no ≥1k web library found, so build it as an SDK style preset) | Quaternius/KayKit low-poly glTF fit well (licenses checked per pack) | **3D camera and controls**, 3D platforming feel, and depth readability for kids. The shader is cheap. | Open → **Medium**. Not recommended as the *default* "32-bit" for young kids. |
+| 32-bit, GBA-style 2D | Same pipeline at 240×160 native, 15-bit color | Same as 16-bit | Hard for players to tell apart from 16-bit | Open → **Easy–Medium** ("16-bit+") |
+| 32-bit, PS1 3D | Three.js r186: low-res render target + NearestFilter, vertex-snap shader, optional dither/affine approximation (~100 lines; no ≥1k web library found, so build it as an SDK style preset) | Quaternius/KayKit low-poly glTF fit well (licenses checked per pack) | **3D camera and controls**, 3D platforming feel, and depth readability for beginners. The shader is cheap. | Open → **Medium**. Not recommended as the *default* "32-bit" for beginners. |
 | 64-voxel | Static scenery: InstancedMesh/merged geometry (easy). Editable world: chunking, greedy meshing, block raycast (hard). MagicaVoxel `.vox` loader in three.js examples (*recalled, unverified*). | Kenney voxel packs (CC0) | Editing and terrain systems, not visuals | Medium → **Medium** (look) / **Hard** (Minecraft-like building) |
 | Cartoon | Standard/Toon materials | Kenney, KayKit, Quaternius are natively cartoon | Mixing packs breaks cohesion; lock one family per game | Easy → **Easy** |
 | Paper | 2D sprites as billboards/planes in 3D, paper-grain texture, drop-shadow edge, flip/fold tweens | No dedicated CC0 paper library found (*unverified*); restyle 2D packs | Restyling and cutout animation | Medium → **Medium** |
@@ -201,7 +206,7 @@ Every style becomes an **SDK style preset** (renderer config + palette + filter 
 4. **Scoring:**
    - (a) Deterministic: validator pass rate, frame-latency probe, palette conformance, juice-event coverage, manifest completeness (knobs declared with tiers and invariants).
    - (b) Blind pairwise model judge on screenshot strips + 10 s capture + metrics, against the §5 rubric, with randomized order and both orderings judged.
-   - (c) Human: Kevin plus the kids play 2 tasks blind, A vs C, and pick a favorite.
+   - (c) Human: Kevin (plus the kids: V3) plays 2 tasks blind, A vs C, and picks a favorite.
 5. **Decision rule:** adopt a skill if C beats A on ≥65% of non-tie pairwise judgments, has no regression in deterministic pass rate, and adds ≤15% median tokens per *successful* task (retries included, per §8.1). If B ≈ C, keep the cheaper or shorter one.
 6. **Pre-registration:** this fits Kevin's existing `aiur-experiment` workflow for hypotheses and metrics.
 
@@ -248,13 +253,13 @@ Skill text belongs in the cacheable prompt prefix. Caching behavior per provider
 3. Build the platformer fixture and run the **2-task pilot** A/B under a cap Kevin sets.
 4. Prototype the `ps1` and `cel` style presets on one KayKit pack, and measure phone FPS.
 5. Resolve the Quaternius license conflict per pack, and curate ~20 Lospec palettes with provenance.
-6. Write the missing genre cards (adventure, battle, strategy) and add kid-fit rules.
+6. Write the missing genre cards (adventure, battle, strategy) and add beginner-fit rules.
 
 ## 12. Decisions that belong to Kevin
 
 1. **32-bit card:** split it into "Pocket 2D (GBA-ish)" and "PS1 3D", pick one default, or relabel all options without bit numbers (e.g., "Classic pixels", "Chunky 3D")?
 2. **Clay and voxel expectations:** offer "clay-ish" with a visible "experimental" badge? Should voxel mean *look* only in MVP, with editable building later?
-3. **Kid-visible knob set:** is the `kid`/`advanced` split right? Should forgiveness knobs (coyote/buffer) be hidden behind "Forgiving ↔ Tricky"?
-4. **Pilot evaluation budget:** the token/quota cap for the 18-run pilot, and whether the kids take part in blind side-by-side play.
+3. **Default-visible knob set:** is the `basic`/`advanced` split right? Should forgiveness knobs (coyote/buffer) be hidden behind "Forgiving ↔ Tricky"?
+4. **Pilot evaluation budget:** the token/quota cap for the 18-run pilot, (whether the kids take part in blind side-by-side play is V3).
 5. **Paid asset tiers:** may we buy KayKit "Extra" packs, or stay strictly with free CC0?
 6. **Asset redistribution posture:** if forks or source views expose raw asset files, adopt the stricter Quaternius terms by default?

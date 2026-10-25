@@ -4,6 +4,11 @@
 **Access date for all sources:** 2026-10-21.
 **Status:** Research proposal. All interfaces below are **illustrative**, not selected APIs. Saves, releases, achievements, analytics and rewind are covered by a sibling report. This report defines only the **hook points** those systems plug into.
 
+> **Version scope (2026-10-25):** The SDK, trust boundary, capability map, editor and undo model, overrides (§7a), NL routing, extensible architecture and cross-device input are **V1**. The `rewind` and `multiplayer` capabilities, and collaborative editing (Yjs/Automerge), are **V2**. Adult approval of a child's capability request and child-authored text handling are **V3**, tagged inline.
+> The kid-first framing is superseded: V1 is for adult creators (18+). "Kid-readable" and "child-facing" now read as plain-language and beginner-facing.
+> Superseded in part by **B7** (input: mouse/keyboard, touch and controllers; palette rail, gizmos, placement validity, override handoff and the user-text options) and **B14** (sourcing the `gm-editor-sdk` skill; `gm-verify` built on `develop-web-game`). Repo visibility is now the creator's own public/private choice (decision log).
+> Canonical scope: `docs/spec/release-plan.md`.
+
 ---
 
 ## 1. Requirement (traced)
@@ -29,7 +34,7 @@ All figures below come from `npm view` and `gh api` on 2026-10-21.
 | valibot | 1.5.0 | MIT | 9.0k | active | Smaller alternative to Zod. Not needed. |
 | @standard-schema/spec | 1.1.0 | MIT | 3.7k | active | Keeps validators swappable |
 | vite | **8.3.5** | MIT | 83.4k | daily | Build and HMR |
-| tweakpane | 4.0.5 (last npm publish 2024-11) | MIT | 4.6k | 2026-03 | Developer-only debug panel; **not** the child-facing editor |
+| tweakpane | 4.0.5 (last npm publish 2024-11) | MIT | 4.6k | 2026-03 | Developer-only debug panel; **not** the creator-facing editor |
 | leva | 0.10.1 | MIT | 6.3k | 2025-11 | React-only, pre-1.0. Reject for the creator UI. |
 | lil-gui | 0.21.0 | MIT | 1.65k | 2025-10 | Debug only |
 | nipplejs | 1.0.4 | MIT | 1.95k | 2026-05 | Virtual joystick |
@@ -48,12 +53,12 @@ Phaser 4 includes Scale Manager modes `FIT`, `ENVELOP`, `RESIZE` and `EXPAND`, `
 | **Unity** `[SerializeField]`, `[Range]`, `[Header]`, `[Tooltip]`, PropertyDrawers, `Undo.RecordObject` (from documentation knowledge, not re-fetched) | Opt-in serialization, attribute-driven widgets, custom drawers for unusual types, explicit undo recording | Exposure is opt-in. Undo is **explicitly recorded**, never automatic. Custom drawers are the escape hatch for rich types. |
 | **Roblox** Attributes, CollectionService tags, ChangeHistoryService (`TryBeginRecording`/`FinishRecording`/`SetWaypoint`, docs fetched) | Typed key/value data on any instance. Tags select groups. Undo is recorded as named transactions. | This is the closest analogue to "make all enemies blue": **tags as selectors**, typed attributes as controls, **named recording transactions**. Copy this model. |
 | **Construct 3** behaviors | Reusable attachable logic with its own properties panel | A feature module = behavior + properties. This maps onto the "feature module" pattern (§10). |
-| **Mario Maker / Game Builder Garage / Dreams** | Fixed part palettes with modifiers. Nodons have settings panels. Dreams' "tweak" menus and scope-in. | The child-facing UX is **place, select, tweak**. A few big obvious widgets beat a dense inspector. Mario Maker shows that a narrow palette caps game range. The spec forbids that ceiling, so the vocabulary is shared but **declarations are per game**. |
+| **Mario Maker / Game Builder Garage / Dreams** | Fixed part palettes with modifiers. Nodons have settings panels. Dreams' "tweak" menus and scope-in. | The beginner-facing UX is **place, select, tweak**. A few big obvious widgets beat a dense inspector. Mario Maker shows that a narrow palette caps game range. The spec forbids that ceiling, so the vocabulary is shared but **declarations are per game**. |
 | **Scratch** | Sprites with per-sprite variables; everything visible and manipulable | Selection is per object, and the inspector shows the selected thing's controls. |
 | **Core (Manticore, closed 2023)** | Script "custom properties" exposed on templates in the editor | Same pattern as Godot. The platform shut down, so there is no reuse. |
 | **Immer patches** (docs fetched) | `produceWithPatches` → `[next, patches, inversePatches]`. Paths are arrays and the format is close to RFC 6902. Patches are correct but **not minimal**. | Undo and redo come almost for free on a **JSON document**, but only for state that lives in that document. |
 | **Vite HMR** (`import.meta.hot.accept/dispose/data`) | Module-level hot-swap boundaries | Fine for creator drafts on **data and leaf modules**. Unsafe for arbitrary sim code with live closures. A full scene restart from the design doc plus a snapshot is the reliable boundary (§9). |
-| **Tweakpane / Leva / lil-gui** | Developer tweak panels | Good evidence for widget vocabulary. Wrong audience and wrong touch targets for kids, and Leva is React-only and pre-1.0. Build platform widgets. Keep Tweakpane as an optional `?debug` panel for agents and Kevin. |
+| **Tweakpane / Leva / lil-gui** | Developer tweak panels | Good evidence for widget vocabulary. Wrong audience and wrong touch targets for beginners, and Leva is React-only and pre-1.0. Build platform widgets. Keep Tweakpane as an optional `?debug` panel for agents and Kevin. |
 
 ## 4. Trust boundary
 
@@ -143,13 +148,13 @@ export interface HostApi {
 // ---- Control manifest ----
 export type ControlDecl<D> = {
   id: string;                       // stable forever: "enemy.color". Renames need an alias entry.
-  label: string; icon?: string; help?: string;  // icon/help are kid-readable, voice-readable
+  label: string; icon?: string; help?: string;  // icon/help are plain-language, voice-readable
   group?: string;                   // "Enemies", "Physics"
   scope: "global" | { selector: Selector };     // which targets it applies to
   path: string;                     // JSON pointer into design doc, relative to each target: "/color"
   widget: Widget;                   // shared vocabulary below
   default: unknown;                 // "reset to default"
-  tier?: "basic" | "advanced";      // progressive disclosure for kids
+  tier?: "basic" | "advanced";      // progressive disclosure for beginners
   aliases?: string[];               // NL hints: ["colour","paint"]
 };
 
@@ -188,7 +193,7 @@ export type Transaction = {
 2. **One transaction per user intent.** A drag is one transaction, coalescing pointer-move patches until pointer-up. This mirrors Roblox `TryBeginRecording`/`FinishRecording`. A slider scrub is one transaction. An NL request is **one** transaction even when it touches 40 enemies, so one tap undoes it.
 3. **Undo stack** = `Transaction[]` with a cursor. Undo applies `inverse`; redo re-applies `patches`. Cap it at about 200 entries per session. Persist the doc, not the stack. Optionally persist the last 20 transactions with the draft so undo survives reload.
 4. **Scope of undo:** design doc only. Play-mode progress, saves and published releases are **outside** editor undo. Releases have their own rollback (sibling report). The UI must say so: "Undo changes your game's design, not your progress."
-5. **Validation failure** → the whole transaction is rejected and nothing partial is applied. The message is kid-readable ("Speed can be 1–10").
+5. **Validation failure** → the whole transaction is rejected and nothing partial is applied. The message is plain-language ("Speed can be 1–10").
 6. **Persistence (revised for Kevin's 2026-10-21 decision, see §7a):** the *base* doc lives in the game repo (`design/*.json`) and ships with each build. Creator edits are **not** commits. Each transaction writes immediately to a **database override layer**, so edits survive while a coding job is building and get re-applied to the next build. Overrides are folded into source only at Publish. No agent, no tokens. Transaction labels feed changelog inputs.
 7. **Reset to default** is an ordinary `reset` command, so it is also undoable.
 8. **Code changes** made by agents are *not* in the undo stack. They become a new draft build. "Undo" for code is draft version history (the release report covers this).
@@ -281,9 +286,9 @@ Why not fold on every edit: it races the build branch, costs a CI/build cycle pe
 Consequences:
 - **Forks** copy source plus the effective override snapshot, folded into the fork's first commit.
 - **Rollback** to an old release restores that release's `{buildId, snapshot}`. The draft override layer is untouched unless the creator chooses "start editing from this version".
-- **Privacy:** kid-authored dialogue text sits in the DB until Publish, then enters Git through the fold. This inherits the §9.3 public/private decision. An alternative is for text-bearing controls to stay DB-only even after publish (§21).
+- **Privacy:** creator-authored dialogue text sits in the DB until Publish, then enters Git through the fold. In V1 that is the creator's own repo, public or private by their choice. Child-authored text is V3 (see B7). An alternative is for text-bearing controls to stay DB-only even after publish (§21).
 
-**Scale note:** tilemap painting is stored as cell overrides (`tilemap@level/layer` → sparse cell map). It is fine at kid scale. `ponytail:` revisit if a single override exceeds about 256 KB.
+**Scale note:** tilemap painting is stored as cell overrides (`tilemap@level/layer` → sparse cell map). It is fine at Game Maker scale. `ponytail:` revisit if a single override exceeds about 256 KB.
 
 **Cost:** zero tokens. One DB write per transaction and a re-apply pass per build switch, which is milliseconds for hundreds of entries.
 
@@ -316,7 +321,7 @@ Consequences:
 **Walkthrough B: "Add a grappling hook."**
 1. The census and manifest contain no matching control, command or prefab. The agent **must not** fake it by abusing existing controls (e.g. huge jump height).
 2. It calls `request_new_capability({summary:"Player can fire a grappling hook at ceilings and swing", examples:[...], affected_controls:["player.*"]})`.
-3. The host (deterministic code, not the agent) checks the role. Proposal: a child's request goes to a pending approval or a budget check. The host attaches a cost estimate band and shows "This needs a builder. It will take a few minutes."
+3. The host (deterministic code, not the agent) checks the role. Proposal: the request goes to a budget check against the admin's limits (a pending adult approval for a child's request is V3). The host attaches a cost estimate band and shows "This needs a builder. It will take a few minutes."
 4. On approval, an aiur job with a **feature handoff contract** (§10) is created for the game repo only. The coding agent must deliver the feature module *and* its controls (`grapple.range`, `grapple.pullSpeed`, `grapple.enabled`), input action `grapple` with a touch button, save-state fields with a migration if needed, and tests.
 5. The output is a new draft build, and the creator gets a notification. The new controls appear in the editor automatically because they come from the manifest.
 
@@ -478,7 +483,7 @@ Backend touchpoints: only the host calls the Railway API. The SDK has no network
 ## 16. Findings and limitations
 
 - Phaser 4 is stable (4.0.0 on 2026-04-10, now 4.2.1). Three is at r186. Zod 4's native JSON Schema output lets one Zod source feed the TS types, the host validator *and* the LLM tool schema.
-- No off-the-shelf kid-grade editor-widget library meets the stars rule and fits the brief. Tweakpane, Leva and lil-gui are developer panels. The widget set must be built (about 10 widgets), in the platform UI framework, which is still unselected.
+- No off-the-shelf beginner-grade editor-widget library meets the stars rule and fits the brief. Tweakpane, Leva and lil-gui are developer panels. The widget set must be built (about 10 widgets), in the platform UI framework, which is still unselected.
 - iPad specifics (gamepad policy in iframes, fullscreen, audio unlock, orientation lock) are **unverified** and need a device test.
 - The routing accuracy and token figures in §8 are **estimates**. Nothing was benchmarked, per the no-paid-benchmark rule.
 - The prior-art rows for Unity, Construct, Mario Maker, Dreams and Core come from documentation knowledge, not re-fetched (Godot, Roblox and Immer were fetched).
@@ -493,7 +498,7 @@ Backend touchpoints: only the host calls the Railway API. The SDK has no network
 
 ## 18. Licensing and data handling
 
-Everything recommended is MIT. comlink (Apache-2.0) is not recommended. bitECS is MPL-2.0, which matters only for Alternative C. Nothing in this design sends children's data to new vendors. The routing agent sees the manifest digest, the census and the transcript. The transcript goes to the selected LLM and STT providers, which falls under the vendor register (§10.5). Creator overrides (including kids' dialogue text) live in the backend DB until Publish. The fold then puts them in Git, which ties into the public/private decision (§9.3).
+Everything recommended is MIT. comlink (Apache-2.0) is not recommended. bitECS is MPL-2.0, which matters only for Alternative C. Nothing in this design sends children's data to new vendors. The routing agent sees the manifest digest, the census and the transcript. The transcript goes to the selected LLM and STT providers, which falls under the vendor register (§10.5). Creator overrides (including dialogue text) live in the backend DB until Publish. The fold then puts them in Git, which ties into the public/private decision (§9.3).
 
 ## 19. Evaluation method
 
@@ -502,7 +507,7 @@ Everything recommended is MIT. comlink (Apache-2.0) is not recommended. bitECS i
 3. A follow-up-agent A/B: 10 feature tasks, with and without the feature-module template and skill, measuring conformance pass, files touched, tokens and rework.
 4. iPad (real device) plus desktop Playwright profiles: screenshots, touch overlay, letterbox.
 5. An undo fuzz test: random command sequences → undo all → byte-equal doc.
-6. Override re-apply fixtures: scripted build N→N+1 changes (rename, re-range, remove control, remove target, builder-changed-same-value) → expected `ReapplyReport`. A creator test asks whether a child understands the "couldn't carry over" card.
+6. Override re-apply fixtures: scripted build N→N+1 changes (rename, re-range, remove control, remove target, builder-changed-same-value) → expected `ReapplyReport`. A creator test asks whether a first-time creator understands the "couldn't carry over" card.
 
 ## 20. Next steps
 
@@ -515,9 +520,9 @@ Everything recommended is MIT. comlink (Apache-2.0) is not recommended. bitECS i
 ## 21. Decisions for Kevin
 
 1. **Non-opt-out HUD set:** is "pause, exit, bug report, mute/settings, safety/account controls are always present" right?
-2. **Child capability requests:** when NL escalates to new code ("grappling hook"), does a supervised child's request run within a budget automatically, or wait for adult approval?
+2. **(V3)** **Child capability requests:** (In V1, an adult's request runs within the admin's budget.) when NL escalates to new code ("grappling hook"), does a supervised child's request run within a budget automatically, or wait for adult approval?
 3. **Override carry-over semantics (§7a):** should a past "all enemies" edit also apply to enemies a *later build* adds ("sticky" selectors), or only to the ones that existed (recommended: only existing, which is more predictable)? And on conflict with a builder change, does the creator's value win by default (recommended)?
 4. **Publish behavior:** Publish pins build + override snapshot instantly, then deterministically folds overrides into source (recommended). Or should Publish require a full rebuild from folded source first, which is slower but has a single code path?
 5. **Architecture A** (host-owned design document + DB override layer + feature modules) as the default for all generated games, accepting a modest up-front template cost?
-6. **Kid-authored text:** the post-Publish fold puts dialogue and labels into Git, which inherits the public/private source decision. Is that acceptable, or should text-bearing controls stay DB-only even after Publish?
+6. **Creator-authored text** (child text: V3)**:** the post-Publish fold puts dialogue and labels into Git, which inherits the public/private source decision. Is that acceptable, or should text-bearing controls stay DB-only even after Publish?
 7. **Dropped-edit archive retention:** is 30 days right?

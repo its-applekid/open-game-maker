@@ -4,6 +4,11 @@
 **Scope:** This report covers platform capabilities that plug into the Engine SDK. The SDK and editor contract itself belongs to A4. Where a capability needs something from the SDK, it is marked **[SDK hook]** and not designed further here.
 **Spec anchors:** §5.12–5.17, §7.6, §9.4, §11.4 (R08/R09/R10/R11/R14), §15.4.
 
+> **Version scope (2026-10-25):** Releases (R08), saves (R09), basic achievements (R10) and aggregate creator analytics (R11) are **V1**. Gameplay rewind (R14, §6) is **V2** (Decided), as are multiplayer upgrades, friends' achievements and cross-game analytics. Child saves, the child column of the analytics matrix, supervisor views and COPPA retention are **V3**, tagged inline.
+> The kid-first framing is superseded: V1 players and creators are all adults (18+). Since this report, Kevin decided cloud autosave plus three manual slots (D2) and creator-only forks that copy the design but no runtime data (D5).
+> Superseded in part: build storage, `assetManifest` and retention (D3) by **B6**; §2.9 overrides while builds run by **B7**; child analytics, saves and retention by **B3** (now V3).
+> Canonical scope: `docs/spec/release-plan.md`.
+
 ---
 
 ## 0. Summary of recommendations
@@ -14,7 +19,7 @@
 | R09 Saves | Each slot is a sequence of **revisions**. Writes are **optimistic-concurrency (OCC)** compare-and-set on a revision number, plus a **device lease** per user and game. An **IndexedDB outbox** queues saves locally. Migration is **lazy, one step, at load time**, and runs only from the previous release's save schema. The raw pre-migration revision is kept. | Autosave plus N manual slots, If-Match revisions, lease takeover, "Saved on this device" vs "Saved to cloud" status, previous-release migration with fixture tests, rollback marks saves incompatible but deletes nothing | Long offline play, export, conflict-merge UI |
 | R10 Achievements | **Permanent account-level awards** (Steam, Xbox and PlayStation model). Keys are stable slugs declared in a game manifest. Awards are idempotent through a unique key. The client reports an award and the server validates it against the published catalog. | Manifest, award API, per-game catalog UI, award toast, no awards in drafts | Browsing friends' achievements, progress achievements, room-authoritative awards in multiplayer, global unlock percentages |
 | R11 Analytics | **Plain Postgres event table plus daily rollups.** The platform emits session, time and version events automatically. The SDK adds a small `attempt`/`marker` vocabulary that works across genres. Do not use PostHog. | Automatic platform events, attempt/marker API, one creator dashboard | Admin cross-game views, comparing releases, cohort charts |
-| R14 Rewind | **Ring buffer of state snapshots** of the SDK's logical state, plus a Rapier `takeSnapshot()` when Rapier is used. Do not rely on input replay, because agent-generated games will not be deterministic. | Post-MVP. In the MVP, only reserve the hooks: seeded RNG, fixed timestep, explicit logical state. | The whole feature |
+| R14 Rewind | **Ring buffer of state snapshots** of the SDK's logical state, plus a Rapier `takeSnapshot()` when Rapier is used. Do not rely on input replay, because agent-generated games will not be deterministic. | V2 (Decided). In the MVP, only reserve the hooks: seeded RNG, fixed timestep, explicit logical state. | The whole feature |
 
 ---
 
@@ -33,7 +38,7 @@
 | GGPO (`pond3r/ggpo` @7ddadef, MIT, 3.6k★, last push 2024-06) | The callback contract is `save_game_state(buffer,len,checksum,frame)`, `load_game_state`, `advance_frame`, `free_buffer`. | Even input-replay rollback needs save and load of state. So **state capture is needed no matter which rewind approach we pick**. Determinism is what makes replay possible, and our games won't have it. |
 | Rapier (`dimforge/rapier` @475caa3, Apache-2.0, 5.9k★) | The JS repo `dimforge/rapier.js` is **archived** and moved to `rapier/bindings/typescript`. `World.takeSnapshot(): Uint8Array` and `static World.restoreSnapshot(data): World`, which returns a **new** World. The docs say Rapier is "locally deterministic" by default, and cross-platform deterministic only with the `enhanced-determinism` build plus IEEE-754 targets. | Snapshots work. When a world is restored, the game must re-bind its references to the new World and free the old one. |
 | vite-plugin-pwa prompt-for-update docs | Prompting is the default `registerType`. `onNeedRefresh` shows the prompt, `updateSW()` applies it, and the docs say keep `cleanupOutdatedCaches` on. | Copy the UX ("new version, see what changed, update"). We don't need a service worker to get it (§2.4). |
-| PostHog self-host docs, LICENSE | The code is MIT except `ee/`. The hobby deploy needs "4 vCPU, 16GB RAM, >30GB" and runs ClickHouse, Kafka, ZooKeeper, Redis, Postgres and MinIO. It is "officially unsupported". | Too heavy for an invite-only Railway project. PostHog Cloud would send children's gameplay data to a new vendor, which §10 forbids without separate approval. |
+| PostHog self-host docs, LICENSE | The code is MIT except `ee/`. The hobby deploy needs "4 vCPU, 16GB RAM, >30GB" and runs ClickHouse, Kafka, ZooKeeper, Redis, Postgres and MinIO. It is "officially unsupported". | Too heavy for an invite-only Railway project. PostHog Cloud would send gameplay data to a new vendor, which needs separate approval (for children's data, §10 forbids it: V3). |
 
 **Libraries checked (via `gh api` and `npm view`, 2026-10-21)**
 
@@ -315,7 +320,7 @@ A rollback (§2.6) does not delete or reverse-migrate anything. On load, any slo
 | Server accepts but the ack is lost | Retry with the same idempotency key returns the original revision. |
 | Corrupt or oversized payload | 413/422 from the server. The local copy is kept, the error is reported, and the bug button is pre-filled. |
 | Migration throws | Not saved. The original revision is untouched, the status becomes `unsupported_old`, and an error event is sent to R11. |
-| Child account | Saves are private to the user and their supervisor (§10). They are never copied on fork. |
+| Child account (V3) | Saves are private to the user and their supervisor (§10). They are never copied on fork. |
 
 ---
 
@@ -368,7 +373,7 @@ achievement_progress(user_id, game_id, key, value, PRIMARY KEY(user_id, game_id,
 - **Forks.** A fork gets a new `game_id`, and its definitions are copied with the source recorded. **No awards, progress, saves or analytics are copied** (§5.13 safeguard). This is the recommendation, and Kevin decides it (D5).
 - **Multiplayer (later).** The room server is the awarding authority (`source: 'room'`). Each participant receives their own award.
 - **Trust.** The client is trusted, plus validation of key, catalog and published release, a rate limit, and admin revoke (`DELETE`, with an audit row). There is no anti-cheat. For an invite-only product that is proportionate. Upgrading later to server-evaluated, event-based unlocks (Xbox-style, **unverified**) needs no schema change.
-- **Visibility.** A user sees their own awards. Friends see them if the friend relationship (R12/R04) and child controls allow it. Hidden achievements show "???" until earned.
+- **Visibility.** A user sees their own awards. Friends see them if the friend relationship (R12/R04) allows it (and, for child accounts, parental controls: V3). Hidden achievements show "???" until earned.
 
 **MVP vs later.** The MVP needs the manifest, award/progress API, catalog page in game info, toast and lint. Friends' views, global unlock percentages (Steam's `GetAchievementAchievedPercent` idea) and room awards come later.
 
@@ -386,7 +391,7 @@ achievement_progress(user_id, game_id, key, value, PRIMARY KEY(user_id, game_id,
 ### 5.1 Requirement
 - Mario Maker-style creator insight: attempts, time spent, completions, drop-off and stuck points.
 - Admins see activity for the people they invited.
-- Child and adult rules are separate.
+- Child and adult rules are separate (child rules: V3).
 - Data is minimized and retention is defined.
 - Gameplay analytics are separate from billing and from social presence.
 - The deliverable is a dashboard information model.
@@ -434,17 +439,17 @@ Raw position traces and replays are **not collected**. §5.15 asks whether repla
 | | **A. Postgres events plus rollups (recommended)** | B. PostHog Cloud | C. PostHog self-host / Umami |
 |---|---|---|---|
 | Fit | A table partitioned by month, `analytics_events(id, ts, game_id, release_id, pseudo_user_id, session_id, name, scope, marker, outcome, props jsonb≤1KB)`, plus a nightly `analytics_daily` rollup job | Feature-rich | PostHog: 4 vCPU and 16 GB, ClickHouse and Kafka, unsupported. Umami counts page views, not attempts. |
-| Children's data | Stays in our DB | Sent to a new vendor. Not allowed without separate authorization (§10). | Stays local |
+| Player data (children's: V3) | Stays in our DB | Sent to a new vendor. Not allowed without separate authorization (§10). | Stays local |
 | Volume | 50 users × 5 sessions × ~150 events ≈ 40k rows a day (estimate), which is trivial | — | — |
 | Cost | Same Railway Postgres | Free tier up to a point (**unverified**) | A large extra service |
 
 ### 5.4 Access and minimization model (proposal. Decision D7 is Kevin's.)
 
-| Viewer | Adult player of my game | Child player of my game |
+| Viewer | Adult player of my game (V1) | Child player of my game (V3) |
 |---|---|---|
 | Game owner (creator) | Per-player rows are *proposed* to show display names when both are friends or in the same household. Otherwise, aggregates only. | **Aggregates only, with at least 3 distinct players per cell** (small-cell suppression). There is no per-child drill-down unless the creator is that child's supervisor. |
 | Admin (inviter) | Activity of people *they invited*: sessions, games played, time | Same, plus anything the supervisor role grants |
-| Child's supervisor | — | Full activity for their child across games |
+| Child's supervisor (V3) | — | Full activity for their child across games |
 | Platform maintainer (Kevin) | All of it, as a privileged and audited capability (§4.1) | Same |
 
 - **Minimization.**
@@ -464,18 +469,18 @@ Raw position traces and replays are **not collected**. §5.15 asks whether repla
 4. **Releases.** Metrics per release side by side, with crash and error counts. This fits the "compare versions" intent without A/B cohorts (§5.16).
 5. **Players.** Gated by §5.4.
 
-**Admin view.** For each invited person: last active, games played, sessions, time. **Supervisor view.** The same for each child, plus links into parental controls (R04).
+**Admin view.** For each invited person: last active, games played, sessions, time. **Supervisor view (V3).** The same for each child, plus links into parental controls (R04).
 
 **SDK overhead.** Events are batched to the outbox and flushed every 10 s or on hide. The budget is under 1 KB per event and under 20 events a minute in steady state, enforced by a client-side cap with a counter for dropped events.
 
 **Tests.**
 - Run a scripted playthrough on a fixture game and assert the rollup values.
-- A small-cell test: a child cohort of 2 renders as suppressed.
+- A small-cell test (V3): a child cohort of 2 renders as suppressed.
 - A test that draft sessions are excluded.
 
 ---
 
-## 6. R14: local ephemeral rewind (post-MVP)
+## 6. R14: local ephemeral rewind (post-MVP; V2)
 
 ### 6.1 Requirement
 - Hold to rewind through about 10 s of local history, and release to resume.
@@ -540,7 +545,7 @@ GGPO's API shows that even replay-based rollback is built on `save_game_state`/`
 
 ## 8. Licensing and data-handling questions
 - Every library proposed is MIT, ISC or Apache-2.0. PostHog `ee/` is proprietary, which is moot since we don't use it. Plausible is AGPL, which is avoided.
-- Saves, awards and analytics for child accounts are personal data. Retention, deletion on account removal, and supervisor access need legal review under COPPA (R19). This report does **not** settle them.
+- **(V3)** Saves, awards and analytics for child accounts are personal data. Retention, deletion on account removal, and supervisor access need legal review under COPPA (R19). This report does **not** settle them.
 - Pseudonymized events are still personal data while we hold the key.
 - Saves are never exposed in the open-source game repo (§10.4). Release changelogs *are* public game metadata, so the agent's change notes must not include prompts or personal details. Add a publish lint for that.
 
@@ -549,7 +554,7 @@ GGPO's API shows that even replay-based rollback is built on `save_game_state`/`
 2. Prototype spike, about 1 day and no paid services: build the save outbox (idb) plus the OCC/lease endpoints. Run a Playwright test with two browser contexts for a stale tab and offline-then-reconnect.
 3. Rapier spike: snapshot size and timing for 100 and 500 bodies, and confirm handles are kept across `restoreSnapshot`.
 4. Write the fixture-recording mode in the playtest harness (R17) and the migration gate.
-5. Draft the analytics access matrix together with R04 (supervision).
+5. Draft the analytics access matrix (V1: adult rows; the R04 supervision part: V3).
 
 ## 10. Decisions for Kevin
 - **D1.** Should rollback publish a **new, higher version number** ("2.0.0 restores 1.2.0")? The alternative is to move the pointer back to the old number. The recommendation is a new number.
@@ -558,9 +563,9 @@ GGPO's API shows that even replay-based rollback is built on `save_game_state`/`
 - **D4.** Should achievements be permanent account awards that rewind, reload and rollback never remove? (Recommended.)
 - **D5.** Forks copy achievement definitions but **no** awards, saves or analytics. Confirm.
 - **D6.** Should creators get "(test)" toasts with no record in drafts, or should draft play record real awards?
-- **D7.** The analytics visibility matrix (§5.4). In particular: may a creator ever see a named child's play data if they are not that child's supervisor? (The proposal is no, aggregates only, with at least 3 players per cell.)
+- **D7.** The analytics visibility matrix (§5.4). V1 needs only the adult column. In particular (V3): may a creator ever see a named child's play data if they are not that child's supervisor? (The proposal is no, aggregates only, with at least 3 players per cell.)
 - **D8.** Retention: raw gameplay events 90 days and rollups indefinitely? Should there be any opt-out for adults?
-- **D9.** Rewind (later): does using rewind count toward "stuck" analytics, and should creators be able to turn rewind off per game?
+- **D9.** Rewind (V2): does using rewind count toward "stuck" analytics, and should creators be able to turn rewind off per game?
 - **D10.** If an agent job changes a control the creator has manually overridden, which wins? The proposal is that the creator's override wins, unless the job's request explicitly targeted that control.
 - **D11.** On rollback, should the creator's in-progress draft edits be kept (proposed) or reset to the restored release?
 - **D12.** Should forks of someone else's game get only the published override snapshot (proposed)? Should the published snapshot also be committed to Git so source alone reproduces a release (proposed)?

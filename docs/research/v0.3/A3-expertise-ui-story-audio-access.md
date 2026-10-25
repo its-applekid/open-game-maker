@@ -7,11 +7,16 @@
 
 Status labels used below: **[V]** checked against a primary source this session · **[U]** not verified · **[K]** canonical practice cited from background knowledge, not re-fetched this session.
 
+> **Version scope (2026-10-25):** UI, story, narrative, dialogue, audio, `SpokenText` read-along and the WCAG/Game Accessibility Guidelines/XAG baseline are **V1**. Child-specific guidance (NN/g age bands, 64 px child targets, reading-grade and words-per-beat limits for ages 5–7, age profiles, child testers) is **V3** and tagged inline. Nothing here is V2-specific.
+> The kid-first framing is superseded: V1 is for adult creators and players (18+). A kid-friendly presentation is a V3 parental-controls setting (B10). Where advice for kids still helps beginners, it now says "beginners".
+> Superseded in part: voice providers, narration and highlighting by **B2** (ElevenLabs first, OpenAI second, Kokoro until approval); music and SFX tooling by **B5** (code-composed audio and free packs; no GPU server, so ACE-Step is off); touch input by **B7**; skill sourcing (`gm-audio`, `gm-dialogue-narration`) by **B14**.
+> Canonical scope: `docs/spec/release-plan.md`.
+
 ---
 
 ## 0. Bottom line
 
-1. **Of the six areas, only UI design has established skills with more than 1k stars.** Storytelling, narrative, dialogue, music and child accessibility have no skill above the ≥1k-star bar that fits a children's web game. The gamedev pack (`awesome-gamedev-agent-skills`) has solid engine-neutral `audio-design`, `dialogue-systems` and `game-ui-ux` skills, but their code examples are Godot/Unity. **Adapt these; do not adopt them as they are.** Most of the value in these areas will come from **four custom skills** built on canonical guidelines (§7).
+1. **Of the six areas, only UI design has established skills with more than 1k stars.** Storytelling, narrative, dialogue, music and child accessibility have no skill above the ≥1k-star bar that fits a beginner-friendly web game. The gamedev pack (`awesome-gamedev-agent-skills`) has solid engine-neutral `audio-design`, `dialogue-systems` and `game-ui-ux` skills, but their code examples are Godot/Unity. **Adapt these; do not adopt them as they are.** Most of the value in these areas will come from **four custom skills** built on canonical guidelines (§7).
 2. **Read-along word highlighting is solved through server-side timing data, not through the browser.** Azure, Amazon Polly, ElevenLabs and Cartesia return word or character timings [V]. Google returns timings only for SSML `<mark>` tags [V]. OpenAI TTS returns none (forum evidence only, not an official statement) [V/U]. Browser `speechSynthesis` boundary events are not reliable enough to be the main path on iPad: support depends on the voice, `charLength` was historically missing in Safari, and Android fires no events [V for Android and old Safari; **current iPadOS behavior is unverified, so test on a device**]. Make one platform data type, `SpokenText`: text plus audio plus word timings. Every speech path, including cached RPG dialogue, produces it.
 3. **For narrative state, use a small typed fact store with storylets and quests in the Engine SDK, not Yarn Spinner.** Yarn Spinner has no maintained JS/TS runtime [V]. inkjs is MIT and maintained, but has 659 stars (an exception to the 1k rule) and is optional for dialogue-heavy RPGs. Continuity after updates comes from stable IDs, retired (never reused) facts, and a deterministic reachability/continuity validator.
 4. **Music:** Tone.js (MIT), Tonal (MIT) and VCSL (CC0) are confirmed [V]. ACE-Step 1.5 code and weights are MIT [V], but it needs a GPU and Python, so it is build-time only and off the live path. BeepBox (MIT, 1.2k stars) stays optional. Do not use **smplr** (328 stars, and it loads remote sample sets by default [K]). Use `Tone.Sampler` with self-hosted VCSL instead. For SFX use ZzFX (MIT, 806 stars, an exception) or jsfxr (Unlicense).
@@ -22,7 +27,7 @@ Status labels used below: **[V]** checked against a primary source this session 
 
 | Repo (commit read) | Stars / last push / license | What I read | Quality verdict | Recommendation |
 |---|---|---|---|---|
-| anthropics/skills `frontend-design` (dbd4588f9e) | 182,793 / 2026-10-09 / no SPDX at repo level (per-skill license file) | The full SKILL.md, ~1.5k words (≈2k tokens) | Strong on aesthetic direction and a quality floor (responsive, focus, reduced motion). Says nothing about children, touch sizes, or low reading. | **Reuse** for platform UI work (HUD, editor shell). Pair it with the custom child-UX skill. |
+| anthropics/skills `frontend-design` (dbd4588f9e) | 182,793 / 2026-10-09 / no SPDX at repo level (per-skill license file) | The full SKILL.md, ~1.5k words (≈2k tokens) | Strong on aesthetic direction and a quality floor (responsive, focus, reduced motion). Says nothing about children, touch sizes, or low reading. | **Reuse** for platform UI work (HUD, editor shell). Pair it with the custom beginner-UX skill. |
 | pbakaus/impeccable v4.7.0 (e132b1e7a8) | 84,495 / 2026-10-22 / Apache-2.0 | SKILL.md (1.6k words) plus its command table | The most complete design-workflow skill found: modes ("Operate" fits the editor), `critique`, `audit`, `onboard`, `clarify`, `adapt`. **Risk: its setup runs a launcher that downloads a self-contained binary on first run.** That is a supply-chain item for review, and it adds more token weight for each command reference. | **Adapt for platform-team use only** (`critique` and `audit` on HUD and editor PRs). Do not load it into per-game agents. Pin a commit and vendor it. Do not let the binary auto-download in CI without review. |
 | nextlevelbuilder/ui-ux-pro-max-skill (623a9a9037) | 138,536 / 2026-10-21 / MIT | SKILL.md (2.1k words) | A good priority table (accessibility, then touch, then performance). Touch minimum 44×44 px with 8 px spacing. Depends on a Python search script and a large style database aimed at web/marketing products. | **Reference only.** Lift its priority ordering into our rubric. Don't load it. |
 | vercel-labs/agent-skills `web-design-guidelines` (063bee94c3) | 32,779 / 2026-10-14 / none at repo level; guidelines repo is MIT (1,026 stars) | The whole SKILL.md | Small (≈250 tokens), but **it fetches the rules from a mutable `main` URL on every run**: unpinned remote instructions. | **Adapt.** Vendor `web-interface-guidelines` at a pinned commit and use it as a lint-style reviewer for platform UI. |
@@ -38,8 +43,11 @@ Status labels used below: **[V]** checked against a primary source this session 
 ## 2. Transferable canonical expertise
 
 ### S09 Accessibility for young children (drives the requirements for S02 and S13)
-- **NN/g, "Children (Ages 3–12) on the Web"** (Sherwin and Nielsen, article dated 2019-01-13, 156 guidelines) [V]. Design for **narrow age bands: 3–5, 6–8, 9–12**. The two first users fall in different bands, and content a band too young reads as "for babies". Young children don't read, or read tentatively. Suggested font size is 14 pt for young children. **Redundant navigation is "very confusing" for children.** They ignore the browser Back button but use a prominent Back button inside the app. They avoid scrolling. They cannot tell ads from content. The article gives no touch-target figure.
-- **WCAG 2.2:** SC 2.5.8 sets a **24×24 CSS px** minimum at level AA, with spacing, equivalent, inline, user-agent and essential exceptions [V]. SC 2.5.5 sets 44×44 at level AAA [K]. Apple HIG says 44 pt [K]. Material says 48 dp [K]. **Proposal (Kevin decides, §10):** 44 px minimum on the platform; **at least 64 px for primary child-facing play and HUD controls**, with 8 px or more spacing. The 64 px figure is a design heuristic, not a cited standard [U]. Also follow SC 2.5.7 (alternatives to dragging) and do not rely on hover, because iPad has none [K].
+
+*Child-specific items in this subsection (NN/g age bands, 64 px child targets) are V3. The WCAG, Game Accessibility Guidelines and XAG items apply in V1.*
+
+- **(V3)** **NN/g, "Children (Ages 3–12) on the Web"** (Sherwin and Nielsen, article dated 2019-01-13, 156 guidelines) [V]. Design for **narrow age bands: 3–5, 6–8, 9–12**. The two first users fall in different bands, and content a band too young reads as "for babies". Young children don't read, or read tentatively. Suggested font size is 14 pt for young children. **Redundant navigation is "very confusing" for children.** They ignore the browser Back button but use a prominent Back button inside the app. They avoid scrolling. They cannot tell ads from content. The article gives no touch-target figure.
+- **WCAG 2.2:** SC 2.5.8 sets a **24×24 CSS px** minimum at level AA, with spacing, equivalent, inline, user-agent and essential exceptions [V]. SC 2.5.5 sets 44×44 at level AAA [K]. Apple HIG says 44 pt [K]. Material says 48 dp [K]. **Proposal (Kevin decides, §10):** 44 px minimum on the platform; **at least 64 px for primary child-facing play and HUD controls (V3)**, with 8 px or more spacing. The 64 px figure is a design heuristic, not a cited standard [U]. Also follow SC 2.5.7 (alternatives to dragging) and do not rely on hover, because iPad has none [K].
 - **Game Accessibility Guidelines** [V]. Basic tier: simple, clear language and formatting; large, well-spaced interactive elements; interactive tutorials; adjustable game speed; **separate volume controls for effects, speech and music**; no flicker. Intermediate: reinforce essential text with visuals and/or speech; remind players of objectives and controls; contextual help; practice without failure; a visual cue for who is speaking; alternatives to holding buttons. Advanced: **pre-recorded voiceover for all text, including menus**; replay of all narrative and instructions; **subtitle pacing suited to the target age group (words per minute)**; precise timing never essential.
 - **Xbox Accessibility Guidelines v3.2 (2023-06-08), XAG 104 Subtitles and captions** [V]. Subtitles on by default or before any sound plays. **No more than 40 characters per line and no more than two lines.** Break lines by hand. Mixed case and a sans-serif option. Name the speaker when the speaker changes. A configurable solid background with 0–100 % opacity. Scale up to at least 200 %. A live preview. Separate toggles for dialogue, barks and ambient captions. XAG 101 (text display) sets the minimum size [K].
 
@@ -47,7 +55,7 @@ Status labels used below: **[V]** checked against a primary source this session 
 - **Emily Short, "Beyond Branching: quality-based, salience-based, and waypoint narrative structures" (2016)** [V for existence and definitions], plus her later "storylets" essays [K]. A storylet is a piece of content with preconditions on world state. **Quality-based:** the player picks among the storylets that are currently legal. **Salience-based:** the system picks the most applicable one. For agent-generated games, storylets have two advantages: they compose under later additions (new content doesn't rewire a branch tree), and they validate cheaply.
 - **Ink** (inkle/ink: MIT, 4,985 ⭐, pushed 2026-05-05) and **inkjs 2.4.0** (MIT, 659 ⭐, 2026-02-17) [V]. Prose-first. Tracks visit counts for free. Writers and LLMs produce it compactly. **Yarn Spinner** (MIT, 2,857 ⭐) is C#, with Unity, Godot and Rust ports, and **no official JS runtime**. The only JS runtimes are community ports `bondage.js` (62 ⭐) and `yarn-bound` (35 ⭐) [V]. Take Yarn's line IDs and `Speaker:` convention; skip the runtime.
 - Ideas from the gamedev `dialogue-systems` skill [V]: line IDs, not literal strings. Keep variables separate from flow. Every node must end or branch. Apply `set` effects on the transition so they are not applied twice.
-- Story craft for young audiences [K]: one clear want per character; concrete, visible stakes; a strong pattern of setup and payoff (rule of three); jokes that land without irony. Children aged 5–7 often read sarcasm literally, so avoid it in essential lines [U as a quantified claim].
+- **(V3)** Story craft for young audiences [K]: one clear want per character; concrete, visible stakes; a strong pattern of setup and payoff (rule of three); jokes that land without irony. Children aged 5–7 often read sarcasm literally, so avoid it in essential lines [U as a quantified claim].
 
 ### S05 Music and audio
 - **Practice [K]:** Koji Kondo's approach of short memorable motifs fitted to the rhythm of play; loops that reward repetition. Vertical layering (stems by intensity) versus horizontal re-sequencing (segment swaps on bar boundaries). Stingers for win, lose and pickup. Duck music under speech. Vary pitch and choose among samples so repeated SFX don't sound mechanical. The gamedev `audio-design` skill encodes all of this correctly, including mixing in dB and a loudness target of about −14 to −16 LUFS [V as skill content; the LUFS target is industry practice, not a standard].
@@ -75,7 +83,7 @@ Status labels used below: **[V]** checked against a primary source this session 
 - Pre-render game dialogue at build time. Helper speech is created per request. **Every path normalizes to `words[]`.**
 - The renderer drives highlighting from `audio.currentTime` (or `AudioContext.currentTime`) inside `requestAnimationFrame`, never `setTimeout`.
 - Draw highlights with the CSS Custom Highlight API where it is available, and fall back to one span per word. Safari support version is [U].
-- Follow read-along practice: tap a word to hear that word (play `t0..t1`); show the whole caption before audio starts; offer slower playback (≈0.85×) for the 5-year-old.
+- Follow read-along practice: tap a word to hear that word (play `t0..t1`); show the whole caption before audio starts; offer slower playback (≈0.85×) for beginners (originally for the 5-year-old; V3).
 - This also covers "always show the text" (§5.10): text comes first and audio is an enhancement.
 
 ---
@@ -120,7 +128,7 @@ Each rubric scores pass/fail on deterministic items and 1–4 on judged items. "
 - Automated:
   - Playwright at 1366×768, 1024×1366 (iPad portrait), 1366×1024 and 390×844.
   - axe-core (MPL-2.0, 7,683 ⭐).
-  - A script that checks every interactive element's box against ≥44 px, and ≥64 px for elements tagged `child-primary`.
+  - A script that checks every interactive element's box against ≥44 px, and ≥64 px for elements tagged `child-primary` (V3).
   - No text below 16 px in the HUD.
   - Every icon button has a label and a spoken label.
   - No hover-only affordances.
@@ -130,11 +138,11 @@ Each rubric scores pass/fail on deterministic items and 1–4 on judged items. "
   - The edit toggle is prominent but cannot be hit by accident.
   - Back is always present.
   - Each screen works with the text hidden (the "squint plus no-reading" test).
-- Human: the 5-year-old completes "start a game → pause → resume → find achievements" without help. Three tries, record time and taps.
+- Human: a first-time player (V1: an adult; the 5-year-old: V3) completes "start a game → pause → resume → find achievements" without help. Three tries, record time and taps.
 
 **S03 Story**
 - Judged, LLM with the rubric plus Kevin:
-  - The creator's own drawn or spoken ideas appear by name: count how many child-supplied elements survive into the brief.
+  - The creator's own drawn or spoken ideas appear by name: count how many creator-supplied elements survive into the brief.
   - A clear want and stakes.
   - Setup and payoff.
   - Tone fits the audience.
@@ -149,11 +157,11 @@ Each rubric scores pass/fail on deterministic items and 1–4 on judged items. "
 **S13 Dialogue**
 - Deterministic:
   - At most 40 characters per line and at most 2 lines per beat.
-  - At most about 12 words per beat in play aimed at ages 5–7 [U heuristic].
-  - Flesch-Kincaid grade of 2 or below for child-tagged games [U threshold].
+  - **(V3)** At most about 12 words per beat in play aimed at ages 5–7 [U heuristic].
+  - **(V3)** Flesch-Kincaid grade of 2 or below for child-tagged games [U threshold].
   - Speaker named on change; every line has a `LineId`.
   - At most 3 choices, each with an icon.
-  - Words per minute of the rendered audio are within a band set per age profile.
+  - Words per minute of the rendered audio are within a band (V1: one default band; per age profile: V3).
 - Spoken check: render with TTS, re-transcribe with a free local tool, and flag lines whose transcript diverges (homographs, mispronounced names).
 
 **S05 Audio**
@@ -163,7 +171,7 @@ Each rubric scores pass/fail on deterministic items and 1–4 on judged items. "
   - transition events that land on bar boundaries (from scheduler logs);
   - voice-over-music level difference during ducking;
   - motif range within the instrument's range (Tonal).
-- Human: a 30-second listen per state, thumbs up or down from Kevin and the children; fatigue checked after 5 minutes of looping.
+- Human: a 30-second listen per state, thumbs up or down from Kevin (the children: V3); fatigue checked after 5 minutes of looping.
 
 **S09 Accessibility**
 - A checklist derived from the Game Accessibility Guidelines basic and intermediate tiers plus XAG 104 and WCAG 2.2 AA, applied per platform surface. The platform owns most items, so each game inherits them.
@@ -182,8 +190,8 @@ Total cost: CI minutes plus a few dollars of TTS for fixtures, run once and cach
 
 | Custom skill | Contents (built from) | Est. tokens | Loaded by |
 |---|---|---|---|
-| `gm-child-ux` | Age bands, targets, low-reading patterns (icon + label + speaker button), no redundant navigation, Back button, onboarding by doing, editor vs. HUD separation; WCAG, NN/g, Game Accessibility Guidelines, XAG | ≈2.5k | Platform UI work; per-game agents only when they build game-specific UI |
-| `gm-story-brief` | A story brief built from the child's input (preserve named ideas verbatim), want/stakes/payoff, word budget, tone per audience profile | ≈1.5k | The design specialist during narrowing (§5.4) |
+| `gm-child-ux` (V1 as a beginner-UX skill; age bands and child targets: V3) | Age bands, targets, low-reading patterns (icon + label + speaker button), no redundant navigation, Back button, onboarding by doing, editor vs. HUD separation; WCAG, NN/g, Game Accessibility Guidelines, XAG | ≈2.5k | Platform UI work; per-game agents only when they build game-specific UI |
+| `gm-story-brief` | A story brief built from the creator's input (preserve named ideas verbatim), want/stakes/payoff, word budget, tone per audience profile | ≈1.5k | The design specialist during narrowing (§5.4) |
 | `gm-narrative-dialogue` | The SDK fact/quest/storylet schema, line rules (40 characters, 2 lines, speaker), choice rules, voiceability, hint authoring within the rules, migration and retire rules | ≈2.5k | RPG, adventure and visual-novel builds and later edits that touch content |
 | `gm-audio` | song.json schema, bus layout, ducking, adaptive layers, stingers, SFX via ZzFX, iOS unlock, the evaluation script (adapted from the gamedev `audio-design` skill) | ≈2k | Any build that adds or changes audio |
 
@@ -218,9 +226,9 @@ Total cost: CI minutes plus a few dollars of TTS for fixtures, run once and cach
 5. Pin Tone.js (15.1.22 vs 15.5.x next) after a compatibility check; curate a VCSL subset.
 
 ## 11. Decisions for Kevin
-1. **Child touch-target floor:** keep 44 px across the platform, or raise child-primary play/HUD controls to about 64 px (bigger and safer for a 5-year-old, but it uses more screen on phones)?
-2. **Age profiles:** should a game (or the player) carry an audience profile ("5–7", "8–12", "all ages") that tightens text and words-per-minute limits, or should one adult-default rule set apply with read-along always on?
-3. **Read-along default:** auto-play narration of every new text for the youngest profile, or only when the speaker button is tapped?
+1. **(V3)** **Child touch-target floor:** keep 44 px across the platform, or raise child-primary play/HUD controls to about 64 px (bigger and safer for a 5-year-old, but it uses more screen on phones)?
+2. **(V3)** **Age profiles:** (V1 uses one adult-default rule set with read-along available.) Should a game (or the player) carry an audience profile ("5–7", "8–12", "all ages") that tightens text and words-per-minute limits, or should one adult-default rule set apply with read-along always on?
+3. **Read-along default:** auto-play narration of every new text (for the youngest profile: V3), or only when the speaker button is tapped?
 4. **Dialogue engine:** SDK JSON graph only for MVP (simplest, editable in the editor), or also allow inkjs for prose-heavy RPGs (better writing ergonomics, but it is an exception to the 1k-star rule)?
 5. **Free fallback voice:** accept browser `speechSynthesis` with only sentence-level highlighting when offline or over budget, or always use paid pre-rendered speech for highlighted text?
 6. **ACE-Step:** keep it as an optional offline generator (needs a GPU host outside Railway), or drop generated music from MVP and use Tone.js composition only?
