@@ -78,7 +78,7 @@ This runs as a Railway job or on Kevin's machine. It is CPU-only and never runs 
 | `assets.preview(id)` | Signed preview URL (agents with vision can look at it) |
 | `assets.use(id, {dest})` | Writes the file into the job's repo checkout, adds a lockfile entry, or refuses with a reason |
 
-- **How agents reach it:** an HTTPS endpoint on the backend, allowlisted in the E2B sandbox network policy (B4), with a token scoped to that job, its game and its repo visibility. It is wrapped as a skill or CLI (`gm-assets search ...`) so any agent harness can call it.
+- **How agents reach it:** an HTTPS endpoint on the backend, allowlisted in the E2B sandbox network policy (B4), through the `gm` CLI (§4.7). Auth is either (a) a short-lived token scoped to one job and game that can call only this API, or (b) the egress proxy adding the job's identity, as the model proxy (#5702) does, so the sandbox holds nothing. Use (a) until #5702 exists, then (b).
 - **Pre-staging:** when the scope chat settles, the backend pre-stages the style-locked packs' previews and index into the job, so most searches never leave the sandbox.
 - **Policy check inside `use`, not in the agent:** it reads the license class, repo visibility and account. That decides allow, allow with a credit line, or refuse. Agents cannot override it.
 
@@ -123,11 +123,95 @@ The backend queries these, never the sandbox. It caches each fetched file under 
 
 Not used as tier 2: Kenney, Quaternius and itch.io packs. They are download-button sites with no official repo or API, so install them as tier 1 instead. OpenGameArt and Sketchfab are also excluded, because licenses are mixed and there's no clean license API.
 
+### 4.7 Agent interface: the `gm` CLI
+
+**Shape.** There is one backend HTTP API, and one CLI (`gm`) preinstalled in the sandbox image. A skill doc (`AGENTS.md` or an aiur skill) teaches the soft rules: tier order, kit-bash before creating, and stay inside the game's locked packs. The API enforces the hard rules: license, visibility and account. An MCP server is an optional later adapter over the same API, worth it mainly for returning preview images inline. Everything here is design, not built.
+
+**Namespaces.** Each command group is a namespace: `gm assets`, `gm audio`, `gm run`, and so on. Asset kinds use a fixed `kind/subkind` taxonomy, and the importer assigns one to every asset.
+
+| Kind | Subkinds |
+|---|---|
+| `model` | `character`, `creature`, `prop`, `vehicle`, `building`, `nature`, `kit` (modular walls, floors, roads), `weapon`, `food` |
+| `anim` | `humanoid`, `creature`, `vehicle` (clips listed with their rig) |
+| `sprite` | `character`, `tile`, `item`, `prop`, `background`, `fx` |
+| `texture` | `material` (PBR set), `hdri`, `decal`, `palette` |
+| `vfx` | `particle`, `flipbook`, `trail` |
+| `audio` | `sfx/ui`, `sfx/impact`, `sfx/footstep`, `sfx/pickup`, `sfx/explosion`, `sfx/magic`, `sfx/vehicle`, `sfx/creature`, `ambience`, `music/loop`, `music/stinger` |
+| `ui` | `icon`, `font`, `panel`, `button`, `cursor` |
+
+**IDs:** `<tier>:<source>/<path>@<version>`, for example:
+- `t1:kenney-racing/cars/sedan@1.2`
+- `t2:kaykit/adventurers/knight@3f9c2e1`
+- `t3:<game>/boss-door`
+
+Search output also gives a short handle such as `a7f3`, valid for the job, so agents don't repeat long ids.
+
+#### Asset commands (`gm assets`, `gm audio`)
+
+| Command | Purpose |
+|---|---|
+| `gm assets search <words> [--kind model/prop] [--pack p] [--tier 1\|2] [--style low-poly\|pixel\|toon\|realistic] [--max-tris N] [--animated] [--rig humanoid] [--license cc0]` | Ranked hits. Tier 1 and the game's locked packs by default |
+| `gm assets facets [same filters]` | Counts by kind, pack, tag and style, so an agent narrows a search without listing everything |
+| `gm assets browse <pack>[/path] [--depth 2]` | Folder tree with counts, never full file lists |
+| `gm assets info <id...>` | One line each: kind, size, tris, bounding box in metres, pivot, anims, license |
+| `gm assets sheet <id...> [--out f.png]` | **One contact-sheet image** of up to 24 assets with labels, so a vision check is one image read, not 24 |
+| `gm assets similar <id> [--same-pack]` | Matching style or the next variant (other colors, damaged versions) |
+| `gm assets kit <pack> <theme>` | A curated set in one call, e.g. `dungeon`: floor, wall, corner, door, torch, chest |
+| `gm assets use <id...> \| -f picks.txt [--dest assets/]` | Copies files into the repo and updates the lockfile and CREDITS. A refusal gives the reason and CC0 substitutes |
+| `gm assets register <path> --made-by-agent [--from <id>]` | Records tier 3 or modified assets, so the lockfile stays complete |
+| `gm assets list` | What this game already uses, so agents reuse before searching again |
+| `gm assets why <id>` | Explains a license decision |
+| `gm audio search <words> [--dur 0.1-2s] [--loop] [--bpm 90-120] [--mood calm]` | Audio-specific filters |
+| `gm audio sprite <id...>` | Packs short SFX into one audio sprite with a JSON map |
+
+**Normalized at import, so agents never fix it:** 1 unit = 1 metre, Y-up, origin at the feet or base, consistent forward axis, textures under a size cap, and audio loudness-normalized. This removes the most common reason an agent opens a model file or writes fix-up code.
+
+#### Token savers built into every command
+
+- **Compact by default.** Output is one line per result with a fixed column order, and `--limit 10` is the default. `--json` and `--fields a,b` are for when the agent needs structure. No banners, progress bars or colors when stdout isn't a terminal.
+- **The index is local.** The catalog index for the locked packs (and tier 1 tags) is pre-staged into the sandbox. Search runs offline in milliseconds, so the agent doesn't retry slow calls.
+- **Facets before lists, sheets before single previews, kits before item-by-item picks, batch `use`** for everything else.
+- **Errors say what to do next.** An error has one line of cause and one suggested command, never a stack trace.
+- **`gm help <command>`** prints at most 15 lines. The skill doc carries the policy, so the agent doesn't need to re-read the help text.
+
+#### Other `gm` namespaces agents would use often
+
+| Command | Purpose | Saves tokens because |
+|---|---|---|
+| `gm scope` | Prints the agreed scope, acceptance criteria and locked packs for this job | One short file instead of the whole chat history |
+| `gm new <template>` | Scaffolds a genre starter (platformer, top-down, racer, RPG, puzzle) wired to the SDK | Agents start from working code |
+| `gm docs <symbol\|topic>` | SDK reference for one symbol, offline | No reading SDK source |
+| `gm check` | Typecheck, SDK lint, manifest and lockfile validation; deduplicated, failures only | Short output, no wall of logs |
+| `gm test [--changed]` | Game tests, failures only, with file:line | Same |
+| `gm run --headless [--inputs script.json] [--frames 1,60,300] [--out shots/]` | Plays the game and captures frames, console errors (deduplicated) and FPS | Agents verify by looking, not by guessing |
+| `gm shot --sheet` | Captured frames as one contact sheet | One image read |
+| `gm perf` | Bundle size, draw calls, texture memory and triangles against the budget for the target device | Catches problems before a repair cycle |
+| `gm narrate <line-id\|text> [--voice v]` | Requests narration through the backend; cached by B6's narration hash | Keys stay out of the sandbox; no regeneration |
+| `gm music new\|check\|render-preview` | Tone.js `song.json` (tier 3) | Validated data instead of free-form audio code |
+| `gm sfx zzfx <preset\|params> [--preview]` | ZzFX SFX (tier 3), registered automatically | Same |
+| `gm progress "<plain message>"` | A creator-friendly progress line for the build status UI | Separates status from logs |
+
+#### Tier 2 adapters
+
+Every tier 2 source is a backend adapter with the same three calls: `search(query, filters)`, `fetch(id)` and `license(id)`. Every result is mapped into the tier 1 schema: kind and subkind, tags, an SPDX license id (`CC0-1.0`, `CC-BY-4.0`, `CC-BY-SA-4.0`, `MIT`, `OFL-1.1`) and attribution text. The agent sees one `gm assets search --tier 2`, or `--source freesound`.
+
+| Mode | Sources | How it works |
+|---|---|---|
+| **Mirror** (git or npm, pinned) | KayKit, LPC, game-icons.net, Fluent Emoji, Lucide, Tabler, Fontsource | The admin runs `gm packs sync <source>`, which fetches a pinned commit or version and runs the normal importer. Mirrors are searched locally like tier 1 but keep the `t2` label and their own licenses. No live calls during jobs |
+| **Live** (REST API) | Freesound, Openverse, ambientCG; Poly Haven only if its API terms allow | The backend queries the source, caches search results for 24 hours, and caches fetched files permanently under `packs/online/`. Each source has a rate limit and a daily quota. API keys stay in backend env. Fetched files go through the same converter before `use` |
+
+Per-adapter license mapping:
+- **LPC:** parse `CREDITS.csv` per image.
+- **Freesound and Openverse:** map the license URL field to SPDX.
+- **game-icons.net:** read the author table (CC BY 3.0, or CC0 for listed authors).
+- **Any asset without a machine-readable license is dropped.**
+
 ## 5. Options considered
 
 | Option | Verdict |
 |---|---|
 | Agents generate everything (the B5 default) | Rejected as the default: inconsistent style, slow, and the hardest to review. Kept as tier 3 |
+| MCP server as the primary agent interface | Deferred: needs per-job MCP support in aiur's hosted tool loop (unverified). The CLI works in every harness and locally. MCP can wrap the same API later |
 | Live web search of any site | Rejected: unclear licenses and click-through downloads. Tier 2 is a fixed allowlist of sources with machine-readable licenses |
 | Full library in Git or Git LFS | Rejected: GitHub limits, bandwidth billed on every clone (B6), and paid packs exposed |
 | Library mounted read-only into sandboxes | Workable on a self-hosted VM. E2B sandboxes would download gigabytes per job [I]. Pre-staging only the style-locked packs gets most of the benefit |
@@ -140,7 +224,7 @@ Not used as tier 2: Kenney, Quaternius and itch.io packs. They are download-butt
 3. **Poly Haven.** The assets are CC0, but the official API page says commercial use of the live API needs a license, which conflicts with its GitHub README. Recommended: download Poly Haven assets as a one-time tier 1 install, or ask Poly Haven first.
 4. **Vision tagging at import.** Approve a small one-time model spend per pack for better search, or start with filename tags only?
 5. **Off-Railway backup** of `packs/originals/`: B6's nightly copy to a second provider, or your local copies?
-6. **aiur angle.** Hosted aiur jobs need a per-job tool endpoint and token, which is related to #5937 (per-job read scoping). No ticket until you say so.
+6. **aiur angle.** Hosted aiur jobs need the `gm` CLI in the sandbox image and a per-job token or proxy identity, which is related to #5937 (per-job read scoping) and #5702. An optional MCP adapter would need aiur's hosted tool loop to accept a per-job MCP config; that isn't verified. No ticket until you say so.
 
 ## 7. Next research steps (no spend)
 
