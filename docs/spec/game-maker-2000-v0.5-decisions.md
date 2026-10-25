@@ -9,7 +9,8 @@ Sources:
 ## Positioning (owner direction)
 
 - **A general game maker for everyone, with parental controls.** The product is not kid-focused. Child rules live in one parental-controls module that applies only to child accounts. (Kevin, 2026-10-22; restates spec §1.1.)
-- **All child-account and parental-control scope moves to V3** (Kevin, 2026-10-25). That covers child accounts, guardian consent, parental controls, child-specific voice and vendor rules, and COPPA work. V1 and V2 are for creators who aren't children. V1 still needs an age screen that turns away under-13 sign-ups, since knowingly collecting a child's data triggers COPPA. Family roles that aren't about children stay in V1: admins, spending limits and invite-only play.
+- **All child-account and parental-control scope moves to V3** (Kevin, 2026-10-25). That covers child accounts, guardian consent, parental controls, child-specific voice and vendor rules, and COPPA work. V1 and V2 are for creators who aren't children. V1 still needs an age screen that turns away under-18 sign-ups (see the next bullet); knowingly collecting a child's data would trigger COPPA. Family roles that aren't about children stay in V1: admins, spending limits and invite-only play.
+- **V1 is adults only (18+)** (Kevin, 2026-10-25: "adults only"). This removes every vendor rule for minors from V1, including ElevenLabs approval. Teens (13–17) come later, when vendor approvals arrive.
 - **Name:** Open Game Maker 2000. The repo is `its-everdred/open-game-maker-2000`. (Kevin, 2026-10-21.)
 - *Recommended, not yet confirmed (the child-account parts are now V3):* legally, build as **mixed audience by design**, per B9. A neutral age screen comes first. Under-13 users go to a parent-created child account. COPPA duties apply to child accounts only.
 - *Recommended:* three age bands.
@@ -68,12 +69,11 @@ Picks marked **(V3)** concern child accounts and are deferred with them. They st
 
 ## Recommended, awaiting Kevin
 
-- **Teens (13–17) in V1? New question after the V3 move.** Option (a): adults only (18+) in V1, which removes every vendor rule for minors, including ElevenLabs approval. Option (b): adults and teens, with the B9 vendor rules for teens. Recommended: (a) for V1, with teens added when vendor approvals arrive.
 - **(V3)** **Positioning:** mixed audience by design. Ask a neutral age question at signup; children get a parent-created child account (B9).
-- **(V3, if teens wait)** **Teens (13–17):** ordinary creators who count as minors when picking vendors; supervision is optional.
+- **(Post-V1)** **Teens (13–17):** ordinary creators who count as minors when picking vendors; supervision is optional.
 - **Sign-in:** passkey and Google on every account, never Google alone. **(V3)** Child accounts use a passkey the guardian sets up, with Google off until a test on a real Family Link device passes.
 - **(V3)** **Child games' repo:** a separate repo per child in the guardian's GitHub, private by default.
-- **Launch order:** adults (and possibly teens) in V1; child accounts in V3, after the COPPA document set is drafted.
+- **Launch order:** adults only in V1; teens after vendor approvals; child accounts in V3, after the COPPA document set is drafted.
 - **Admin takeover of an adult member's game:** not allowed. Takeover applies only to supervised accounts.
 - **Gemini/Vertex generative AI and fal.ai:** stay excluded until each confirms in writing.
 
