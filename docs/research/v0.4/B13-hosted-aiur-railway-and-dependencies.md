@@ -66,7 +66,7 @@ Every hosted build feature waits on the sandbox VM target (#5703) and the model 
 ## 7. Process findings (from the aiur channel)
 
 - **Local coverage runs block PRs on a busy host.** Running full-coverage pre-PR checks locally on a saturated CPU cost agents about 5 hours before a PR opened. Without a PR, the green-CI trigger can't fire. Proposed: run only the affected tests locally and leave coverage to CI (#6099, #6143).
-- **Pending accessibility decision for Kevin** (aiur decision dec_41ae387c720c5978, blocks #3175). Graph lines overlap card text, so the accessibility checker can't grade the contrast there. Option (a): keep the visuals and add an arithmetic contrast check for those spots. Option (b): redesign the board. Aiur-NUC recommends (a).
+- **Pending accessibility decision for Kevin** (aiur decision dec_41ae387c720c5978, blocks #3175). Graph lines overlap card text, so the accessibility checker can't grade the contrast there. Option (a): keep the visuals and add an arithmetic contrast check for those spots. Option (b): redesign the board. Aiur-NUC recommends (a). **Answered 2026-10-25: (a)**, `preserve_visuals_revise_matrix`, with a ≥4.5:1 token-contrast check per theme (relayed by Aiur-PC).
 
 ## 8. Khala behavior notes
 
