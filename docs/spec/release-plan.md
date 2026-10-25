@@ -74,7 +74,7 @@ The product has to make sense on its own at every version. V1 is a complete game
 | Child repos | A separate repo per child in the guardian's GitHub, private by default | Working |
 | Parent help overlay | Parent-only help and an advanced-settings gate | Decided (V3) |
 | Child data rules | Child uploads aren't redistributable, guardian deletion overrides forks, and no named child play data in analytics | Working |
-| Other | Player-to-player voice chat; native packaging; offline play (optional, or never) | Decided |
+| Other | Player-to-player voice chat; native packaging (revisit Godot as a second runtime here, Working); offline play (optional, or never) | Decided |
 
 ## 5. Constraints that hold in every version
 
