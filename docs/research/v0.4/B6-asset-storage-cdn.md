@@ -6,11 +6,17 @@
 - **Evidence labels:** **[V]** verified against a primary source today; **[I]** inferred from verified facts; **[U]** unverified, an assumption, or a third-party figure.
 - **Scope:** research only. Nothing was bought, signed up for, or deployed.
 
+> **Version scope (2026-10-25):** Read this report through `docs/spec/release-plan.md`.
+> - **V1 (adults only):** the bucket origin, hash keys, signed URLs, backup, license fields and narration reuse (§3, §5, §6 "V1 minimum"). Kevin decided: Railway bucket (D1) and no CDN in V1.
+> - **V2:** the CDN path (§6 "V2 path", D2), added when evidence calls for it.
+> - **V3:** child uploads, guardian erasure and child-name checks (rows and rules marked V3 in §4 and §5).
+> - **Changed:** B11 supersedes "bytes never in Git": the pack library stays in the bucket, but a game's own assets are committed to its repo with a lockfile. Kevin picked "forks keep their copy" for deleted uploads (D3). Repos are the user's own GitHub, public or private by the user's choice, so source is not always public.
+
 ## 1. TL;DR
 
 - Keep code and a small asset manifest in Git. Store every binary asset (images, models, audio, narration) in one S3-compatible bucket, keyed by content hash. Do not use Git LFS.
-- At family scale the storage cost is trivial: about $0–2 a month even at 1,000 games. The real costs are delivery bandwidth through the wrong host (Netlify or a Railway service proxy) and child-privacy leaks. Neither is storage price.
-- **V1 ships basic delivery, not a configurable CDN.** That means immutable hash keys and backend-issued signed URLs for everything. Browser caching does the rest. Cloudflare-fronted public delivery is a V2 switch over the same keys.
+- At family scale the storage cost is trivial: about $0–2 a month even at 1,000 games. The real costs are delivery bandwidth through the wrong host (Netlify or a Railway service proxy) and privacy leaks. Neither is storage price.
+- **V1 ships basic delivery, not a configurable CDN.** That means immutable hash keys and backend-issued signed URLs for everything. Browser caching does the rest. Cloudflare-fronted public delivery is a V2 switch over the same keys. Kevin decided: no CDN in V1.
 - The bucket is the origin. A CDN is a cache. A nightly copy to a second bucket is the backup. Cached copies are not a backup.
 - **Narration identity** is the hash of a canonical JSON of (normalized text, language, provider, model plus version, voice, delivery settings, output format, take). An unchanged line is never regenerated. Releases and forks carry the keys and reuse the same audio.
 - Every asset records its license and whether it may be redistributed. That record decides what a public source export or a fork may carry. Moving an asset into a bucket does not make it private.
@@ -27,14 +33,14 @@ All per-asset sizes are **[U] planning assumptions**, not measurements. They sho
 | Music | Pattern data in Git (KB) | 4 rendered tracks × 2 MB | 8 × 3 MB | Only if rendered to OGG/Opus |
 | SFX | 20 × 20 KB | 40 × 25 KB | 60 × 30 KB | Short OGG |
 | Narrated dialogue lines | 0–30 | 200 | 1,500 | ~80 characters, ~5 s, Opus about 32 kbps, so ~25 KB per line |
-| Child uploads (derived only) | 0–3 × 200 KB | 5 × 200 KB | 10 × 200 KB | Re-encoded, EXIF stripped |
+| Uploads (derived only) | 0–3 × 200 KB | 5 × 200 KB | 10 × 200 KB | Re-encoded, EXIF stripped |
 | **Live set, one release** | **≈2 MB** | **≈20 MB** | **≈100 MB** | |
 | **Lifetime incl. versions and rejected generations** | **≈5 MB** | **≈60 MB** | **≈300 MB** | ×2–3 multiplier [U] |
 
 The narration volume is the main driver for RPGs:
 
 - **Storage:** 1,500 lines × 25 KB is about 38 MB per take.
-- **Generation cost:** 1,500 × 80 characters is 120k characters per full voicing. At an assumed $15–30 per 1M characters [U; Google and OpenAI list prices not confirmed today, and ElevenLabs is blocked per A6], one full voicing costs about **$2–4**.
+- **Generation cost:** 1,500 × 80 characters is 120k characters per full voicing. At an assumed $15–30 per 1M characters [U; Google and OpenAI list prices not confirmed today. ElevenLabs was blocked per A6 for minors; V1 is adults only, and ElevenLabs is now the first voice provider], one full voicing costs about **$2–4**.
 - **Retained audio pays for itself.** Retained audio makes the cost per play zero (A6 H5). One accidental "regenerate everything on every build" policy would cost more than years of storage.
 
 **Projection** (blend of 50% light, 40% typical, 10% heavy, so about 55 MB lifetime per game; round up to **100 MB** to allow for growth):
@@ -95,7 +101,7 @@ The narration volume is the main driver for RPGs:
 | 10 games | Workable (~1 GB, near guidance) | $0 | ~$0 | ~$0 |
 | 100 games | ~10 GB, over the 5 GB guidance [I]; every clone and sandbox checkout pulls all history | Storage at the free limit; sandbox and fork pulls exceed 10 GiB of bandwidth → ~$3–10/mo [I] | R2 $0 (free tier) / Railway $0.15/mo | Same as C |
 | 1,000 games | Infeasible: history never shrinks | ~$6.30/mo storage plus bandwidth billed to Kevin for every clone or fork | R2 ~$1.35/mo / Railway ~$1.50/mo, plus B2 backup ~$0.70 | Same |
-| Deletion / child-data erasure | Requires rewriting history; forks and clones keep it | Same, and LFS objects linger | Delete the blob; the manifest keeps a tombstone | Same |
+| Deletion / erasure | Requires rewriting history; forks and clones keep it | Same, and LFS objects linger | Delete the blob; the manifest keeps a tombstone | Same |
 | Reproducible release | Commit SHA | Commit SHA | Commit SHA plus a manifest of hashes (immutable keys) | Needs a versioned manifest outside Git, which is weaker |
 | Sandbox build cost | Full checkout | LFS smudge, billed bandwidth | Fetch only the hashes the build needs | Same |
 | Readable source / diffs | Yes | Yes | Yes: level JSON, music patterns and dialogue text stay in Git | Dialogue and design data leave Git, so diffs and reviews get worse |
@@ -135,7 +141,9 @@ Spec v0.4 sets the frame for this section:
 - Hosted play always needs authentication.
 - Private means hidden from discovery only.
 - Game source is meant to be open and forkable.
-- Child data must never leak through that openness.
+- Private data must never leak through that openness.
+
+V1 update: the creator connects their own GitHub and picks a public or private repo, and paid-pack assets need private repos (decision log). The rules below still hold for public repos.
 
 Assets therefore carry two independent fields:
 
@@ -147,16 +155,18 @@ Assets therefore carry two independent fields:
 | Draft or preview assets | private prefix | Signed, ≤24 h, only after `canView(user, game, build)` | That one file, until it expires |
 | Invite-only published game | V1: same as drafts. V2: public immutable only if `redistributable` | V1 signed / V2 hash URL | V1: one file for ≤24 h. V2: that file permanently, but it is unguessable (SHA-256) and already listed in public source if the repo is public [I] |
 | Private-in-discovery game | Same as invite-only; hiding is an index concern (A7 P1) | Same | Same, plus nothing about the title or owner (keys are hashes, not slugs) |
-| Child upload | Original deleted after preprocessing (EXIF and GPS stripped, re-encoded). Only the derived asset is kept, `private`, `redistributable=false` until a guardian approves publishing | Signed only | The derived image for ≤24 h. **Never public in V1** |
+| Upload (V1, adults) | Original deleted after preprocessing (EXIF and GPS stripped, re-encoded). Only the derived asset is kept, `private`, `redistributable=false` until the creator publishes it | Signed only | The derived image for ≤24 h |
+| Child upload **(V3)** | As above, but `redistributable=false` until a guardian approves publishing | Signed only | The derived image for ≤24 h. Never public without guardian approval |
 | Public licensed library asset (CC0/CC-BY) | Shared blob, `redistributable=true` | Signed (V1) or public (V2) | Nothing private |
 | Fork | Copies manifest entries by reference (same hash); new game ID | Per the fork's own access | None beyond the fork. Private originals and unpublished drafts never get copied (§5.17) |
 
 **Rules:**
 
-- **Opaque keys.** No game, child or file names appear in object keys, so a shared URL reveals nothing about who made what.
+- **Opaque keys.** No game, person or file names appear in object keys, so a shared URL reveals nothing about who made what.
 - **No bucket listing.** List permission is never granted to clients.
 - **Cache-friendly signing.** A signature that changes on every request defeats browser caching, because caches key on the full URL [I]. To avoid this, the backend signs with an expiry rounded to a fixed window, such as the next UTC midnight plus 24 h. Then a day's URLs stay identical and cacheable.
-- **Erasure.** A guardian deletion request hard-deletes the blob, even when forks reference it. The manifests keep a tombstone so the game renders a placeholder. Erasure beats fork integrity.
+- **Erasure (V1).** Kevin picked "forks keep their copy" (D3). Deleting an upload removes it from the creator's game, and forks keep the copy they took.
+- **Erasure (V3, child accounts).** A guardian deletion request hard-deletes the blob, even when forks reference it. The manifests keep a tombstone so the game renders a placeholder. Erasure beats fork integrity.
 - **Garbage collection.** Unreferenced blobs, meaning those not reachable from any game manifest, retained release or narration-cache row, are collected after a 30-day grace period [proposal]. Retained releases follow A5's proposal: current, the two previous, and anything under 14 days old.
 
 ## 5. Narration reuse scheme
@@ -199,15 +209,15 @@ narrationKey = 'nk1:' + sha256(canonicalJson(spec))   // RFC 8785 JCS-style cano
 - **Cache scope.** The cache is scoped per family (`scope_id`), not global. A global cache would reveal through hit/miss timing or cost that some other family once voiced a given string [I].
 - **Cross-family reuse** happens only through forks of published games, which hold the published release's lines and audio, not drafts.
 - **Privacy.** Narration is generated game content. It is not conversational input. Raw microphone audio and scoping transcripts never enter this table (§9.7).
-- **Pre-publish lint.** The A7 lint that catches children's names in dialogue applies to narration text before publish.
+- **Pre-publish lint.** The A7 lint that catches personal names in dialogue applies to narration text before publish. Children's names are its V3 case.
 
 ## 6. Recommendation
 
 ### V1 minimum
 
 1. **Storage layout.** A single S3-compatible bucket with write-once `blobs/sha256/<hex>` keys, a private prefix for everything, and Postgres `asset` and `narration_cache` tables.
-2. **Manifest in Git.** `games/<id>/assets.manifest.json` lives in Git, while bytes never do. Design data stays in Git as text: levels, music patterns, dialogue scripts, small SVGs.
-3. **Commit-service check.** The commit service rejects binary media files and any file over 256 KB under `games/**` (a proposed threshold).
+2. **Manifest in Git.** `games/<id>/assets.manifest.json` lives in Git, while bytes never do. *Superseded by B11 (2026-10-25):* a game's own assets are committed to its repo with `assets.lock.json`; the pack library and large narration stay in the bucket. Design data stays in Git as text: levels, music patterns, dialogue scripts, small SVGs.
+3. **Commit-service check.** The commit service rejects binary media files and any file over 256 KB under `games/**` (a proposed threshold). *Revise for B11:* allow lockfile-listed assets and keep a size cap.
 4. **Delivery.** Signed GET URLs issued by the API after an authorization check, with day-rounded expiry and immutable Cache-Control. No CDN product.
 5. **Sandbox uploads.** Builds upload new blobs through the worker. They are never given bucket credentials.
 6. **Backup.** A nightly copy of new blobs to a second account, and a restore drill once.
@@ -263,7 +273,7 @@ Environment configuration (§9.5) needs only four variables: `ASSET_S3_ENDPOINT`
 - (b) Cloudflare R2: second vendor plus a domain zone on Cloudflare; gains bucket locks and the CDN path.
 - (c) AWS S3: not recommended, because egress costs money [U].
 
-**Recommended: (a).** Railway is already the backend vendor, and its private-only buckets with presigned URLs fit V1's auth-everything model exactly. *Consequence:* the backup copy is mandatory because Railway has no versioning, and V2 public CDN means copying to R2, which is cheap because keys are hashes.
+**Decided (Kevin, 2026-10-22): (a), Railway.** Railway is already the backend vendor, and its private-only buckets with presigned URLs fit V1's auth-everything model exactly. *Consequence:* the backup copy is mandatory because Railway has no versioning, and V2 public CDN means copying to R2, which is cheap because keys are hashes.
 
 **D2. Do invite-only published games eventually get public, unguessable hash URLs (V2 CDN), or stay signed forever?**
 
@@ -272,12 +282,12 @@ Environment configuration (§9.5) needs only four variables: `ASSET_S3_ENDPOINT`
 
 **Recommended: (a).** The assets are already in public source, and edge caching needs it. *Consequence:* anyone holding a link keeps that one file permanently. That is acceptable only because uploads and drafts are excluded.
 
-**D3. When a guardian deletes a child upload that forks reuse, does erasure override forks?**
+**D3. When an upload that forks reuse is deleted, does erasure override forks?**
 
 - (a) Yes: forks get a placeholder.
 - (b) No: forks keep a copy.
 
-**Recommended: (a).** Child-data erasure has to be real. *Consequence:* forks can visibly break, and the UI must explain it.
+**Kevin picked (b), forks keep their copy (2026-10-22).** That is the V1 rule. The original recommendation was (a), because child-data erasure has to be real. That conflict is moot until V3; revisit (a) for child uploads then (release plan §4). *Consequence of (a):* forks can visibly break, and the UI must explain it.
 
 ## 8. Uncertainty
 
@@ -286,7 +296,7 @@ Environment configuration (§9.5) needs only four variables: `ASSET_S3_ENDPOINT`
 - Not verified: whether Railway/Tigris stores and returns `Cache-Control` on objects; Railway presigned-URL maximum expiry; Railway bucket durability figures.
 - The LFS overage prices came from a search summary of GitHub docs, not a direct page read.
 - The Netlify credit-to-dollar conversion is inferred from plan prices.
-- Whether the games repository is public (§9.2) is still open. It changes how much a public hash URL reveals, but not the V1 design.
+- Whether the games repository is public (§9.2) is now the creator's choice per repo (decision log). It changes how much a public hash URL reveals, but not the V1 design.
 - Not verified: R2 object versioning (no doc found today) and Super Slurper/Sippy details.
 
 ### Sources (accessed 2026-10-21)

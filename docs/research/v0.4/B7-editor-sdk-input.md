@@ -4,13 +4,19 @@
 **Access date for all sources:** 2026-10-21. **Tags:** [V] verified against a primary source or the registry today; [I] inferred; [U] unverified, needs a device test or a decision.
 **Status:** Research proposal. All shapes are illustrative. Nothing was purchased, deployed, or sent to vendors. The mockups in `docs/reference/editor-mockups/` were used only to test what the contract can express. They are not a design spec.
 
+> **Version scope (2026-10-25):** Read this report through `docs/spec/release-plan.md`.
+> - **V1 (adults only):** the command core (§2), mockup contract (§3), override rules and the publication gate (§4), controllers, touch and input (§5), and the edit lease (§6). Kevin allowed Norigin as an exception (Q1) and picked "either side takes over instantly" (Q4).
+> - **V2:** multiplayer hooks (§9), the observer stream and owner-driven shared editing.
+> - **V3:** child text rules, the child-game Publish review, and parent/child takeover (marked V3 below).
+> - **Changed:** repos are the creator's own GitHub, public or private by their choice, so "game source is public" holds only for public repos. Admins cannot edit or take over another adult's game in V1 (release plan §2, Working); admin edits and takeover apply to child games in V3.
+
 ---
 
 ## 1. TL;DR
 
 - A4's natural-language control agent goes (§8 routing, its tools, its eval set, NL synonyms on controls). The command and transaction core stays because undo, validation, overrides, conformance tests, and admin edits all depend on it.
 - Both mockups fit the A4 model with five additions: a **palette and category rail** declaration, a fixed **tool-mode** vocabulary (including terrain brushes), **inspector scope** (this one, all of this kind, whole game), **socket snapping and placement validity**, and **editor preferences** (snap and grid) kept outside the design document.
-- Public source changes the text question. Build commits can carry children's text into Git even if overrides never do, so making overrides "DB-only" alone does not keep text private. The leading option is one **publication content gate** over every write to the public repo, with an opt-in "keep private" flag for text controls.
+- Public source changes the text question. Build commits can carry creators' private text into Git even if overrides never do, so making overrides "DB-only" alone does not keep text private. The leading option is one **publication content gate** over every write to the public repo, with an opt-in "keep private" flag for text controls.
 - No spatial-navigation library meets the ~1k-star rule. Norigin (491 stars, MIT, active, framework-agnostic core) is the best candidate for an explicit exception. The host should be the **only** gamepad reader and forward actions into the game iframe.
 - Controller placement should use a **grid-stepping reticle** when snapping is on and a **free cursor** when it is off. Touch uses tap-to-place as well as drag, which WCAG 2.5.7 requires anyway. On-screen text entry: simple-keyboard (2.4k stars, MIT), with voice and pickers preferred.
 - Owner/admin handoff: a **single-writer edit lease** per game with a visible "Take over". Every write is checked against a fencing token, so a stale tab can never overwrite. This is not co-editing.
@@ -22,7 +28,7 @@
 | §8 NL routing: control-operating agent, `find_targets`, `propose_transaction`, `ask_clarification`, `explain_controls` | **Drop** | The spec removes it (§5.7, §14.3). |
 | §8 deterministic fuzzy pre-pass, 150-utterance eval, routing cost estimate | **Drop** | These existed only to serve the agent. |
 | `ControlDecl.aliases` used as NL synonyms ("colour", "paint") | **Drop** | NL-only. Keep the *rename* alias map from §7a, which serves a different purpose. |
-| `Transaction.origin: "voice" \| "text" \| "agent"` | **Replace** with `actor` (userId) and `kind: "manual" \| "system"` (re-apply, fold, reset-on-switch) | Admin edits need attribution (§6). There is no agent origin anymore. |
+| `Transaction.origin: "voice" \| "text" \| "agent"` | **Replace** with `actor` (userId) and `kind: "manual" \| "system"` (re-apply, fold, reset-on-switch) | Edits need attribution (§6); admin edits of a child's game are V3. There is no agent origin anymore. |
 | `@modelcontextprotocol/sdk` as a manifest transport | **Drop** | No agent consumes the manifest at runtime. Coding agents read it from source and the skill. |
 | `request_new_capability` | **Move**: an "Ask a builder" button in the editor opens the V1 voice/feature-scoping flow with the selected control/target as context | Scoping new code is V1. Operating controls by voice is not. |
 | Control manifest, widget vocabulary, `EditorCommand`, `Transaction`, Immer patches and inverse patches, one transaction per intent, ~200-entry undo | **Keep** | Undo, validation, and persistence. |
@@ -59,7 +65,7 @@ Primitives: **M** = manifest declaration (game supplies), **H** = host-owned UI/
 | Inspector header (name + large preview image) | H from `palette.items[].thumbnail` | OK |
 | "How many?" − 3 + stepper | A4 `count` widget | **Semantic gap.** Is it the number of *placed* skeletons in this room, or a spawn parameter? If it is derived from placed entities, + must auto-place (needs `validatePlacement` + a free-spot finder) and − must choose which instance to remove. The manifest needs `count.semantics: "param" \| "instances"`. |
 | Strength: Easy / Medium / Tough | A4 `choice`; host renders segmented when ≤4 options, dropdown otherwise | OK. **Gap:** scope. Does it apply to *this* skeleton or *all* skeletons? See next row. |
-| Inspector mixes instance and type settings (Copy/Remove = this one; How many = all skeletons) | M: `control.scope: "instance" \| "prefab" \| "global"` | **Gap.** A4 had `global \| selector`. Host must label scope visibly ("This skeleton" / "All skeletons") or children will be confused [I]. |
+| Inspector mixes instance and type settings (Copy/Remove = this one; How many = all skeletons) | M: `control.scope: "instance" \| "prefab" \| "global"` | **Gap.** A4 had `global \| selector`. Host must label scope visibly ("This skeleton" / "All skeletons") or creators will be confused [I]. |
 | Copy / Remove buttons | Built-in commands `duplicate`, `delete` (entity create/tombstone overrides) | OK. A4 §7a already has create/delete overrides. |
 | Sliders with units (Width 8 m, Banking 12°, Elevation 2 m) | A4 `slider {min,max,step,unit}` | OK |
 | Surface dropdown with swatch | A4 `choice` with icon | OK |
@@ -81,20 +87,22 @@ Primitives: **M** = manifest declaration (game supplies), **H** = host-owned UI/
 | Bulk edits | Manual only now. A bulk action resolves to concrete targets at edit time, with no sticky behavior. Unchanged proposal (B1). |
 | Builder vs creator conflict | Creator wins unless the job explicitly targeted the control. With no NL agent, "explicitly" must be **structured**: the scoped feature request records `targetControls[]`, and the build may emit `supersedes: [controlId]` only for IDs in that list. The host enforces it. A build cannot claim supersession on its own. |
 | Out-of-range | Do not clamp silently. Show "Speed can only go up to 10 now. Use 10?" The build's value applies until the creator answers. Unchanged. |
-| Removed control/target | Orphan and keep it, as A5 says. Retention is a policy choice (B5). Orphans can hold child text, so they fall under the content rules below. |
+| Removed control/target | Orphan and keep it, as A5 says. Retention is a policy choice (B5). Orphans can hold creator text, so they fall under the content rules below. |
 | Coding agent input | Read-only effective snapshot. Note that this already sends creator text to the coding model and the build's commits, which matters below [I]. |
-| Fold on Publish | Pin `(buildId, overrideSnapshot)` instantly, then deterministically fold. **What** gets folded is now the open question (4.2). Fold commits use a bot author with no child name or email in Git metadata (spec §9.2). |
-| Admin edits | Overrides record `actor`. Owner-facing change summary: "Mom changed 3 things". This is the least intrusive oversight record (§4.5) and needs no transcript. |
+| Fold on Publish | Pin `(buildId, overrideSnapshot)` instantly, then deterministically fold. **What** gets folded is now the open question (4.2). Fold commits use a bot author with no personal name or email in Git metadata (spec §9.2). |
+| Admin edits | Overrides record `actor`. Owner-facing change summary: "Mom changed 3 things". This is the least intrusive oversight record (§4.5) and needs no transcript. In V1 the actor is the owner on any device; admin edits of a child's game are **V3**. |
 
-### 4.2 Where child-authored labels and dialogue live
+### 4.2 Where creator-authored labels and dialogue live
 
-The key fact [I, from spec §9.2/§9.3]: game source is public, and builds merge to it continuously. Kid text reaches Git **through build commits**, not only through the fold. Examples: the creation interview's character names, and dialogue the coding agent writes from the scoping conversation. So any option that guards only the override fold leaves a hole.
+V1 note: this matters only for public repos. The creator picks public or private at setup. In V1 the text is an adult's own; the child-account case is **V3**.
+
+The key fact [I, from spec §9.2/§9.3]: game source is public, and builds merge to it continuously. Creator text reaches Git **through build commits**, not only through the fold. Examples: the creation interview's character names, and dialogue the coding agent writes from the scoping conversation. So any option that guards only the override fold leaves a hole.
 
 | Option | How it works | Pros | Cons |
 |---|---|---|---|
-| **A. Fold everything** (A4/A5 default) | Overrides, text included, go into `design/*.json` at Publish | Simplest. Source is self-contained and forkable outside the product. | Kid text is permanent and public in Git history. Recall needs a history rewrite, which cannot reach existing clones. Build commits are ungated. |
+| **A. Fold everything** (A4/A5 default) | Overrides, text included, go into `design/*.json` at Publish | Simplest. Source is self-contained and forkable outside the product. | Creator text is permanent and public in Git history. Recall needs a history rewrite, which cannot reach existing clones. Build commits are ungated. |
 | **B. Text controls DB-only** | `widget: text` values never fold. Source holds keys and defaults. The runtime fetches text from the platform with auth. | Text stays revocable and private. | Does **not** cover build-authored text. Public source is not playable as authored outside the product. Forks must copy DB text (fine in-product per §5.17). Adds a runtime text service. |
-| **C. Publication content gate** (recommended) | Every write to the public repo (build merge and fold) passes one deterministic gate: a PII screen against known family names, emails, addresses, and school terms, plus the existing content filter. A per-control or per-line flag `private: true` keeps flagged text DB-only, as in B. Child-account games show "these words will be public" at Publish, with an admin approval setting. | Covers both paths. Keeps source mostly self-contained. Privacy is opt-in where it matters. | A screen can miss things [I]. Needs a review UX. Still irreversible once merged. |
+| **C. Publication content gate** (recommended) | Every write to the public repo (build merge and fold) passes one deterministic gate: a PII screen against known family names, emails, addresses, and school terms, plus the existing content filter. A per-control or per-line flag `private: true` keeps flagged text DB-only, as in B. Public games show "these words will be public" at Publish. Child-account games add an admin approval setting **(V3)**. | Covers both paths. Keeps source mostly self-contained. Privacy is opt-in where it matters. | A screen can miss things [I]. Needs a review UX. Still irreversible once merged. |
 | **D. Separate private content store per game** | All dialogue and labels live in a private repo or bucket. The public repo holds code only. | Strongest privacy | Revives the rejected "private monorepo" idea in another form. Public source becomes a hollow shell, which conflicts with "open/forkable" intent. |
 
 **Recommendation: C**, because it is the only option that also catches build-authored text. B's flag is folded into it as the escape hatch. Gate timing is a real question: gating at merge means drafts carrying flagged text cannot merge to the public branch until resolved [I]. One way out is to keep draft builds on an unpublished branch and gate only at Publish. That depends on A7/aiur branch mechanics, and this report did not inspect aiur code.
@@ -126,7 +134,7 @@ The key fact [I, from spec §9.2/§9.3]: game source is public, and builds merge
 | WICG/spatial-navigation polyfill | 224 | — | **archived** | Reject. The CSS spatnav proposal is not a shipping path. |
 | bbc/lrud | 103 | Apache-2.0 | **archived** 2023 | Reject |
 | NoriginMedia/react-spatial-navigation | 226 | MIT | **archived** | Reject (superseded) |
-| hodgef/simple-keyboard | **2,456** | MIT | pushed 2026-10-20; ~28k weekly downloads | **On-screen keyboard: adopt.** Framework-agnostic, custom layouts (a big-key ABC layout for kids). Focusable keys work with spatial nav [I]. |
+| hodgef/simple-keyboard | **2,456** | MIT | pushed 2026-10-20; ~28k weekly downloads | **On-screen keyboard: adopt.** Framework-agnostic, custom layouts (a big-key ABC layout, also useful for children in V3). Focusable keys work with spatial nav [I]. |
 | alvaromontoro/gamecontroller.js, joypad.js | 275, 168 | MIT | stale since 2023 | Reject. The raw Gamepad API is ~100 lines in the host. |
 
 **Fallback if Kevin refuses the exception:** build a small spatial-nav module in the host (nearest focusable in a direction within a zone, using `getBoundingClientRect`, with remembered last focus per zone) [I: a few hundred lines]. Norigin's algorithm is the reference.
@@ -147,7 +155,7 @@ The key fact [I, from spec §9.2/§9.3]: game source is public, and builds merge
   2. iPad touch → the native keyboard (the iOS system keyboard appears on focus; the VirtualKeyboard API is unavailable).
   3. Controller → simple-keyboard in a host modal, large-key layout, focus-navigable.
   4. Physical keyboard → native.
-- **External auth screens** (Google sign-in) are outside Game Maker's focus system. Show "use touch or ask a grown-up", and test it (§5.9).
+- **External auth screens** (Google sign-in) are outside Game Maker's focus system. Show "use touch or a keyboard", and test it (§5.9). The "ask a grown-up" wording is for child accounts **(V3)**.
 
 ## 6. Owner and admin edit handoff (U11)
 
@@ -155,41 +163,41 @@ The key fact [I, from spec §9.2/§9.3]: game source is public, and builds merge
 
 - `editLease {gameId, holderUserId, sessionId, token (monotonic), expiresAt}` in the backend. The host acquires it on entering edit mode and heartbeats it (e.g. every 15 s, expiry around 2–3 min) [I].
 - **Fencing:** every override write carries `token` and `baseRev`. The server rejects writes from a stale token. A backgrounded or reconnecting tab cannot overwrite a takeover, whatever its heartbeat did. This is the correctness guarantee. The lease UI is only a courtesy.
-- **Entering a held game:** "Mom is editing *My Dungeon*." Actions: *Play*, *Watch changes* (read-only, live), and *Take over* for those authorized (owner, or a family admin per §4.1/§4.2 policy).
+- **Entering a held game:** "Mom is editing *My Dungeon*." Actions: *Play*, *Watch changes* (read-only, live), and *Take over* for those authorized. In V1 that is the owner only: admins cannot take over another adult's game (release plan, Working). A family admin taking over a child's game is **V3**.
 - **On takeover:** the previous holder drops to read-only with "Mom took over editing". Saved transactions are already persisted, since the "Saved" indicator means the server acknowledged them. Only an in-progress drag or stroke is lost. The previous session's undo stack is discarded, because its inverse patches are against a stale rev.
 - **Same user, second device:** silent takeover.
 - **Builds hold no lease.** They never write overrides (§4.1).
 - **Owner record:** a change summary attributed by `actor`, as in §4.1.
 
-Open policy (§7 Q4): can a child owner take the lease back from a parent immediately?
+Open policy (§7 Q4, **V3**): can a child owner take the lease back from a parent immediately?
 
 ## 7. Decisions for Kevin
 
 **Q1. Spatial navigation library below the ~1k-star rule.**
 Options: (a) Norigin core as an explicit exception; (b) build a ~300-line host module; (c) roving-tabindex grids only, with no directional geometry.
-**Recommend (a):** it is actively maintained, MIT, framework-agnostic, has the exact programmatic API a gamepad poller needs, and no ≥1k alternative exists.
+**Decided (Kevin, 2026-10-22): (a), Norigin allowed as an exception.** Original reasoning: it is actively maintained, MIT, framework-agnostic, has the exact programmatic API a gamepad poller needs, and no ≥1k alternative exists.
 Consequences: (a) one small dependency, pinned, wrapped behind a host interface so (b) remains possible; (b) costs about a week and needs its own edge-case tests; (c) gets awkward for spatial palettes and the inspector.
 
-**Q2. Where children's labels and dialogue live given public source.**
+**Q2. Where creators' labels and dialogue live given public source** (public repos only in V1).
 Options: (A) fold everything; (B) text controls DB-only; (C) one publication gate over build merges and fold, with an opt-in private flag; (D) a separate private content store.
 **Recommend (C):** only C covers text that builds write, not just text the editor writes.
-Consequences: C needs a PII screen and a Publish review step for child games; anything that passes is permanent in public history. B and D keep text revocable but make public source incomplete.
+Consequences: C needs a PII screen and a Publish review step (the child-game review is V3); anything that passes is permanent in public history. B and D keep text revocable but make public source incomplete.
 
 **Q3. When is a game's in-progress work public?**
 Options: (a) drafts merge to the public repo continuously, gate at merge; (b) drafts live on an unpublished branch or store, gate and publish at Publish only.
-**Recommend (b)** if aiur's branch model allows it: a child's half-finished work and dialogue only become public by a deliberate act.
+**Recommend (b)** if aiur's branch model allows it: a creator's half-finished work and dialogue only become public by a deliberate act.
 Consequences: (b) needs a confirmed aiur/repo mechanism (not inspected here). (a) blocks merges on gate failures.
 
-**Q4. Edit takeover between parent and child.**
+**Q4. Edit takeover between parent and child (V3).**
 Options: (a) either side takes over instantly; (b) an admin takes over instantly, and the child owner must "Ask to edit"; (c) takeover always requests consent from the current holder, with a timeout.
-**Recommend (b):** it matches §4.2's admin assistance and keeps a parent's in-flight help from being yanked mid-stroke.
+**Kevin picked (a), either side takes over instantly (2026-10-22).** It applies in V3, when child accounts and admin takeover arrive. The original recommendation was (b): it matches §4.2's admin assistance and keeps a parent's in-flight help from being yanked mid-stroke.
 Consequences: (b) needs a request/notify path; with (a), parent and child can ping-pong.
 
 ## 8. Uncertainty
 
 - **Real iPad behavior is unverified [U]:** controller pairing → `gamepadconnected`, `standard` mapping for DualSense and Xbox pads, polling while a cross-origin iframe is present, and focus behavior. BCD's iOS rows are mirrored from desktop. Needs a real-device spike on desktop Chrome, iPad Safari, and iPad Chrome with two controllers.
 - **Chromium's secure-context restriction:** the final shipped state was not confirmed. Irrelevant in production (HTTPS) but matters for LAN dev.
-- **Child comprehension is untested [I]:** instance vs prefab scope labels, "How many?" with `instances` semantics, and the reticle model.
+- **Comprehension is untested [I]** (child comprehension is a V3 test): instance vs prefab scope labels, "How many?" with `instances` semantics, and the reticle model.
 - **PII screening quality is unknown [I].** Option C reduces risk but does not eliminate it.
 - **Not inspected:** aiur branch and merge code (Q3), A7's multiplayer room design (§9 hooks are only reservations), and the A3/A5 citations beyond the sections used.
 - **UI framework is unselected.** Norigin core is framework-agnostic and the React binding is optional.

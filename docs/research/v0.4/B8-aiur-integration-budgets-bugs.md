@@ -7,6 +7,10 @@
 
 **Labels:** **V** = verified in code or docs at `46bda0020`. **I** = inferred from verified facts. **U** = unverified. **P** = proposal.
 
+> **Version scope (2026-10-25):** Read this report through `docs/spec/release-plan.md`. Almost all of it is **V1** (adults only). Nothing here is V2-only. The child wording is **V3** (marked below).
+> - **Decided since:** dedicated accounts for the platform listener (D1 b); reproducible crashes auto-repair (D2 b); repairs share the edit slots (D3 a); work around aiur gaps for V1, then file upstream (D4 b); repair attempts decided after measurement (D5 c).
+> - **Changed:** there is no platform-owned "games repo". Each user connects their own GitHub, and Game Maker creates one repo per game, public or private (decision log, "Repos"). Read "the games repo" below as "the creator's game repo". Hosted aiur therefore needs multi-repo hosting (aiur #5938, V1), and `gm-intake` must be installed on each creator's repo. The coding agent in the sandbox is aiur's own tool loop (Kevin's pick, still to confirm), not Claude Code.
+
 ---
 
 ## 1. TL;DR
@@ -15,7 +19,7 @@
 - What a creator should see (stage, waiting reason, CI) is readable today from labels and `GET /api/v1/:issue`. aiur offers no ETA. Its percent comes from the agent's own rough guess, in 10% steps, and only on aiur's internal event bus. Game Maker must work out ETA and the friendly stage names itself.
 - aiur has no dollar or token budget per ticket or per tenant. Game Maker must own admission: the 1 new-game + 3 edit slots, the money reservation, and when to stop a job. aiur supplies turn, time, and retry limits, provider-window waits, and a usage ledger with per-ticket attribution. The ledger has no HTTP read path.
 - Skills are not chosen per ticket. aiur copies one fixed bundle into every workspace and leaves alone any skills the repo ships itself. Game Maker should ship its skill pack in the games repo, or fetch it with an `after_create` hook, and name the relevant skills in the ticket body.
-- The two aiur uses separate cleanly, by host and by GitHub App. Hosted aiur runs on its own host with an App installed only on the games repo. Kevin's listener is a second daemon on the private Game Maker repo. On one machine, the two daemons share provider accounts unless `agent.accounts` restricts them.
+- The two aiur uses separate cleanly, by host and by GitHub App. Hosted aiur runs on its own host with an App installed only on the creators' game repos. Kevin's listener is a second daemon on the private Game Maker repo. On one machine, the two daemons share provider accounts unless `agent.accounts` restricts them.
 - Bug reports: deterministic sorting first; a private store for diagnostics; only an opaque id in issues; dedupe on Game Maker's side by signature. A player's report never spends money freely: the recommended starting point is auto-repair only for reproducible crashes, and an admin approves anything else.
 
 ## 2. aiur today
@@ -36,7 +40,7 @@
 | Ticket text to the agent | Liquid `prompt_file` with `{{ issue.title }}` and `{{ issue.description }}`, wrapped in `src/prompts/shared-agent-instructions.md` | **V** |
 | Per-job setup | `hooks.after_create` / `before_run` / `after_run`, with `AIUR_HOOK_TICKET_IDENTIFIER` and `AIUR_TICKET_BRANCH` set (`src/lib/aiur/workspace/hooks.ex:286-308`) | **V** |
 | Status | `GET /api/v1/:issue` returns `state`, `turn_count`, `runtime_seconds`, `work_state`, `waiting_reason`/`waiting` (capacity, provider limit, backoff), `ci`, `review`, `pause_reason` (`src/lib/aiur_web/presenter/entries.ex:10-39`). It returns **no tokens, cost, percent, or ETA**. | **V** |
-| Events | `GET /api/v1/:issue/events` returns the transcript (raw agent messages and diffs) (`observability_api_controller.ex:38`). Not suitable for children. | **V** |
+| Events | `GET /api/v1/:issue/events` returns the transcript (raw agent messages and diffs) (`observability_api_controller.ex:38`). Not suitable for players. | **V** |
 | Percent | The agent emits `progress` as 10, 20 … 100 at phase boundaries, as a time-based self-estimate (`shared-agent-instructions.md:217-240`). These events live on the internal bus (`concepts/message-bus.md:36`), with no stable external read. | **V** exists; **I** no external API |
 | ETA | None; a grep for ETA fields found nothing | **V** absent |
 | Pause / resume | `POST /api/v1/:issue/pause` and `/resume` (Basic auth, write pipeline) (`routes/api.ex:14-18`) | **V** |
@@ -66,7 +70,7 @@ This keeps A6's Option A+C and narrows it to the current interfaces.
 1. **Admission happens before GitHub.** Game Maker validates the §7.2 plan by checking it against the game ID, the caller's role, an allowlisted set of roles and skills, and an acyclic, size-capped `dependsOn` list. It then writes a `job` row and reserves budget. Only once a slot is free does it file issues. Queued jobs never appear in GitHub at all, so aiur's queue holds only admitted work.
 2. **Filing is deterministic.** Game Maker's own GitHub App, `gm-intake`, is listed in the hosted daemon's `trusted_accounts`; it is not the daemon's own identity. It creates one issue per plan ticket with:
    - **Title:** the validated `title`.
-   - **Body:** rendered from structured fields only: summary, included and excluded scope, acceptance criteria, a "Load skills: …" list, and hidden markers `gm-job:<uuid>`, `gm-ticket:<key>`, `gm-sig:<hash>`. The body never contains a raw child transcript.
+   - **Body:** rendered from structured fields only: summary, included and excluded scope, acceptance criteria, a "Load skills: …" list, and hidden markers `gm-job:<uuid>`, `gm-ticket:<key>`, `gm-sig:<hash>`. The body never contains a raw creator transcript.
    - **Labels:** `complexity:N` and `model:` as needed, then `agent:todo` last.
    - **Dependencies:** GitHub blocked-by edges.
    - **Idempotency:** the `gm-job`/`gm-ticket` pair is the key. Before creating anything, Game Maker checks its own database, then GitHub.
@@ -150,7 +154,7 @@ This keeps A6's Option A+C and narrows it to the current interfaces.
 **Game route.** A repair is a `requestType: game_repair` job on the hosted aiur, filed in the games repo.
 - **Issue body:** only redacted metadata: release, signature, a reproduction class (crash with error, wrong behaviour without error, or not reproducible), and the opaque `gm-report` id.
 - **Diagnostics** reach the agent only through the `after_create` hook.
-- Because generated-game source is public (§3.5, §9.2), the issue and PR text are public too. No speech, names, saves, or screenshots go in them.
+- When the creator chose a public repo (§3.5, §9.2), the issue and PR text are public too. Redact the same way for private repos. No speech, names, saves, or screenshots go in them.
 - The acceptance criteria include a failing replay "promise" test where one can be built (A9).
 
 **Platform route.**
@@ -161,7 +165,7 @@ This keeps A6's Option A+C and narrows it to the current interfaces.
 **Who may trigger a repair** is decision D2. **Retry and escalation (P, numbers are configuration):**
 - Each repair job gets 2 automatic attempts. Attempt 2 is a rework comment from `gm-intake` on the same ticket, so it keeps the PR and context.
 - The reservation is about one-third of a feature's.
-- After that, the job stops with the friendly message and goes into Kevin's operator queue. A parent is notified only when a budget or permission decision is needed (§5.11).
+- After that, the job stops with the friendly message and goes into Kevin's operator queue. The creator or an admin is notified only when a budget or permission decision is needed (§5.11).
 - Not-reproducible reports spend no tokens. They are stored and counted, and a repair is triggered at N matching reports or by admin request.
 - A failed repair never replaces the published release.
 
@@ -173,7 +177,7 @@ Options:
 - (b) Dedicated accounts, set through `agent.accounts` in the Game Maker repo's config.
 - (c) API key only.
 
-Recommended: **(b)**. Why: platform fixes then cannot starve aiur dev work, and the reverse holds too; aiur has no budget per instance. Consequences: (a) costs nothing extra but both fleets compete for the same 5-hour and weekly windows. (b) needs another account. (c) has a measurable dollar cost and no subscription-terms question.
+**Decided (Kevin, 2026-10-22): (b), dedicated accounts.** Why: platform fixes then cannot starve aiur dev work, and the reverse holds too; aiur has no budget per instance. Consequences: (a) costs nothing extra but both fleets compete for the same 5-hour and weekly windows. (b) needs another account. (c) has a measurable dollar cost and no subscription-terms question.
 
 **D2. Who may trigger a repair from a player's report?**
 Options:
@@ -181,7 +185,7 @@ Options:
 - (b) Automatic only for reproducible crashes with an error, within a small per-game daily repair allowance charged to the family; everything else needs approval.
 - (c) Every report from a family member is automatic.
 
-Recommended: **(b)**. Why: crashes are cheap to verify and have a clear fix target, and it meets §5.10's rule that a player gets no free budget. Consequences: (a) is the safest but slowest. (c) lets a child's repeated taps or a guest drain the budget, and dedupe becomes the only guard.
+**Decided (Kevin, 2026-10-22): (b), reproducible crashes auto-repair.** Why: crashes are cheap to verify and have a clear fix target, and it meets §5.10's rule that a player gets no free budget. Consequences: (a) is the safest but slowest. (c) lets one player's repeated taps drain the budget, and dedupe becomes the only guard.
 
 **D3. Do repairs take one of the 3 edit slots?**
 Options:
@@ -189,7 +193,7 @@ Options:
 - (b) A separate repair slot (default 1).
 - (c) No slot limit, only the reservation.
 
-Recommended: **(a)**. Why: §8.3 forbids hidden extra caps and adds no repair category; repairs are edits with context. Consequences: (a) can block feature work during a burst of bugs. (b) adds a new limit you would need to approve. (c) weakens the concurrency control.
+**Decided (Kevin, 2026-10-22): (a), repairs share the edit slots.** Why: §8.3 forbids hidden extra caps and adds no repair category; repairs are edits with context. Consequences: (a) can block feature work during a burst of bugs. (b) adds a new limit you would need to approve. (c) weakens the concurrency control.
 
 **D4. What should Game Maker do about the upstream aiur gaps?**
 Options:
@@ -197,7 +201,7 @@ Options:
 - (b) Work around them for V1 with a sidecar and a watchdog; file later.
 - (c) Work around them permanently.
 
-Recommended: **(b) for V1, then (a) for gaps 1–2**. Why: the V1 prototype must not wait on aiur, but an outside spend watchdog is the weakest part of the design. Consequences: (b) means a ledger-reading sidecar on the hosted host and stops that lag by minutes. (a) adds aiur work to your own queue.
+**Decided (Kevin, 2026-10-22): (b) for V1, then file upstream.** Why: the V1 prototype must not wait on aiur, but an outside spend watchdog is the weakest part of the design. Consequences: (b) means a ledger-reading sidecar on the hosted host and stops that lag by minutes. (a) adds aiur work to your own queue.
 
 **D5. Repair numbers.** Accept 2 automatic attempts at about ⅓ of a feature's reservation, then escalation to you, as the *starting configuration*?
 Options:
@@ -205,7 +209,7 @@ Options:
 - (b) 1 attempt.
 - (c) Decide after the R15 benchmark.
 
-Recommended: **(a), marked provisional**. Why: there is no measured repair cost yet; config can change it without code. Consequences: (b) halves the worst-case spend but sends more to your queue.
+**Kevin picked (c), decide after measurement (2026-10-22).** The 2-attempt numbers above stay as a placeholder only. The original recommendation was (a), marked provisional: there is no measured repair cost yet; config can change it without code. Consequences: (b) halves the worst-case spend but sends more to your queue.
 
 ## 8. Uncertainty
 
@@ -217,4 +221,4 @@ Recommended: **(a), marked provisional**. Why: there is no measured repair cost 
 - **Unchecked — bypassPermissions:** I did not recheck the `bypassPermissions` default, since A6.
 - **Unchecked — Railway:** whether aiur runs on Railway at all is R05/A7's question, unchanged here.
 - **Workflow overhead:** the bundled `aiur-agent` workflow (brainstorm, plan, work, review) runs on every game ticket. On small edits that is likely cost overhead. Complexity routing lets `complexity:1` skip phases; not measured.
-- **Public-repo fit:** a children's product filing issues in a public games repo needs the §10.7 publication-boundary ruling. This report assumes only redacted metadata is public.
+- **Public-repo fit:** filing issues in a creator's public game repo needs the §10.7 publication-boundary ruling. Child games are V3. This report assumes only redacted metadata is public.
