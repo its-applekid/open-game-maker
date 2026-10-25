@@ -18,5 +18,6 @@ Product: **Open Game Maker 2000**, a general game maker. V1 is adults only (18+)
 | **B12** | **Asset sources, bundles and licensing (own games vs platform library)** |
 | **B13** | **Hosted aiur on Railway and Game Maker's aiur dependencies (Khala coordination)** |
 | **B14** | **Sourcing agent skills: adopt Phaser official + CloudAI three.js, adapt awesome-gamedev, build gm-verify on develop-web-game** (details in `B14-skills/`) |
+| **B15** | **Open-source games as references: no whole games in agent context; theme-free pattern cards, scaffold-only templates, a sameness eval, four tier 2 asset candidates** (details in `B15-open-source-games/`) |
 
 Owner decisions so far: `../../spec/game-maker-2000-v0.5-decisions.md`. Version scope: `../../spec/release-plan.md`.
