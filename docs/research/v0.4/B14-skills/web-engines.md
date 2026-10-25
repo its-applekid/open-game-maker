@@ -2,6 +2,8 @@
 
 Date: 2026-10-24. Target stack: TypeScript, Three.js r186 (+ Rapier, postprocessing), Phaser 4.2.
 
+> **Version scope (2026-10-25):** V1 skills; gm-multiplayer-ready is V1 rules only, with gameplay in V2; see `docs/spec/release-plan.md`.
+
 Evidence labels: **[V]** verified by reading files / running read-only checks on the clones; **[U]** unverified (inferred or from memory).
 
 Clones (shallow, read-only, no scripts run) live under

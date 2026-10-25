@@ -5,6 +5,8 @@
 - **Evidence labels:** **[V]** verified against a primary source; **[S]** secondary source (guide, news or listing), not checked against the primary; **[U]** unverified.
 - **Scope:** research only. Nothing was bought or downloaded by the agent. Kevin downloads packs himself. Not legal advice.
 
+> **Version scope (2026-10-25):** everything here is V1 (packs, free sources and license rules, for adult creators). Paid generators are V2. See `docs/spec/release-plan.md`.
+
 ## 1. Licensing model for Game Maker
 
 There are two different uses, and each has its own rules.
@@ -16,7 +18,7 @@ There are two different uses, and each has its own rules.
 
 Two conditions apply even to Kevin's own games:
 1. **Repo visibility.** A Game Maker game lives in a GitHub repo. Raw paid files in a public repo (or a fork into another account) publish the assets, which most licenses forbid. So paid assets require private game repos. The deployed playable game is fine. (B11 §4.4 enforces this in `gm assets use`.)
-2. **Other accounts.** Another family member building with Kevin's paid pack is a second user. That's allowed only if the license covers seats or household use. Owner-only until the EULA is read.
+2. **Other accounts.** Another adult family member building with Kevin's paid pack is a second user. That's allowed only if the license covers seats or household use. Owner-only until the EULA is read.
 
 Kevin's resulting setup (2026-10-25): the engine repo is open source and ships no packs. Kevin's game repos are closed. The full library lives in object storage, and only the assets each game uses are committed to its repo.
 

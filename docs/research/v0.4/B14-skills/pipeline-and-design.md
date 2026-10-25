@@ -6,6 +6,8 @@ installed or executed. Labels: **[V]** = verified by reading the file or the API
 unverified (inference, or something I did not open).
 Token estimates use bytes/4.
 
+> **Version scope (2026-10-25):** V1 skills; gm-multiplayer-ready is V1 rules only, with gameplay in V2; see `docs/spec/release-plan.md`.
+
 ## 0. Bottom line
 
 1. **No single repo gives us a verification loop we can drop in.** The best pieces are:
@@ -312,7 +314,7 @@ unchanged. [V]
 | **gm-editor-tuning** | gamedev platformer knob table ("tune by outcome, not raw numbers"); CCGS tunables-as-data (A1 #12) | **Borrow ideas**, write new |
 | **gm-verify** | openai `develop-web-game` (contract + client); godogen three.js capture rules + old visual-qa taxonomy/verdict format + old `capture.mjs` renderer detection; anthropic `webapp-testing` server lifecycle | **Adapt** develop-web-game as the spine; **borrow** the rest. Make the SDK expose `render_game_to_text`/`advanceTime` |
 | **gm-repair** | godogen silent-failure trap lists; develop-web-game "fix the first new console error"; gamedev Pitfalls sections | **Borrow ideas**, write new |
-| **gm-multiplayer-ready** | gamedev has only `godot-multiplayer` / `roblox-networking` (engine-specific, skipped) | **Write new** |
+| **gm-multiplayer-ready** (V1 rules; gameplay V2) | gamedev has only `godot-multiplayer` / `roblox-networking` (engine-specific, skipped) | **Write new** |
 | **gm-scope-options** | gamedev `prototype-fast` (one question, keep/kill), `game-jam` (scope cuts), `level-design`; CCGS game-brief (A1 #5) | **Adapt** prototype-fast + borrow |
 | *(internal)* skill evals | anthropic `skill-creator` | **Adopt as-is** as a dev tool (not shipped to game agents) |
 

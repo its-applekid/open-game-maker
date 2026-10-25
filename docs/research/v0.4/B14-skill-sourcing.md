@@ -8,6 +8,8 @@
   - `B14-skills/gaps.md`: openai/plugins game-studio, webgpu-claude-skill, Blender MCP and scripting, Rapier, Tone.js, multiplayer, and the skill directories.
 - **Evidence labels:** **[V]** the file was read, or the check was run on a clone; **[U]** listing only. No third-party script was run.
 
+> **Version scope (2026-10-25):** the skills here are V1, for adult creators. `gm-multiplayer-ready` in V1 covers only the architecture rules; multiplayer gameplay (Colyseus) is V2. Paid-API generator scripts stay out (paid generators are V2 at the earliest). Child-account skills are V3. See `docs/spec/release-plan.md`.
+
 ## 1. Bottom line
 
 1. **Two layers.**
@@ -61,7 +63,7 @@
 | `gm-editor-tuning` | Borrow, write | majid lil-gui live tuning; awesome-gamedev "tune by outcome" knob tables; CCGS tunables-as-data |
 | `gm-verify` | Adapt (spine) | See §1.4 |
 | `gm-repair` | Borrow, write | majid debug playbook; CloudAI "Common Mistakes" lists; Phaser `v3-to-v4-migration` as the fixer for models that write Phaser 3 code; godogen silent-failure lists |
-| `gm-multiplayer-ready` | Write | game-creator rules (single-player still works offline, the server is authoritative): ideas only, no license |
+| `gm-multiplayer-ready` (V1 rules; gameplay V2) | Write | game-creator rules (single-player still works offline, the server is authoritative): ideas only, no license |
 | `gm-scope-options` | Adapt | awesome-gamedev `prototype-fast` and `game-jam`; majid scope discipline |
 | `gm-pack-import` (admin) | Adapt | TerminalSkills `blender-scripting` CLI section (Apache-2.0, 179 stars, accurate for Blender 5.x, including `--python-exit-code 1`); game-studio's Blender → GLB → glTF Transform outline; CloudAI `threejs-asset-pipeline` |
 | Skill evaluations (internal) | Adopt | anthropic `skill-creator` (Apache-2.0), a dev tool and not shipped to game agents |

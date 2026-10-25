@@ -4,6 +4,8 @@
 - **Related:** B1 (credentials), B4 (sandboxing; Railway constraints in §3.2), B8 (aiur integration), and the v0.5 decision-log rows "Stack" and "aiur dependencies".
 - **Live status:** the Game Maker Feature Map artifact (claude.ai, private) shows each V1 feature with its aiur tickets, colored by merge state. This file records the reasoning, not live state.
 
+> **Version scope (2026-10-25):** hosted aiur on Railway, voice_converse, the voice contract and client, release tags (#5936) and multi-repo hosting (#5938) are V1. Per-job read scoping (#5937) is post-V1, and the self-hosted voice cascade (#4113, #4114) is V3, for child accounts. See `docs/spec/release-plan.md`.
+
 ## 1. Directives from Kevin
 
 - aiur dependencies are built as **independent, modular packages** Game Maker can consume (2026-10-23).

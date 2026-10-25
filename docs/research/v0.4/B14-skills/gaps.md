@@ -2,6 +2,8 @@
 
 Date: 2026-10-24. Scope: skills outside the repos other researchers already cover (CloudAI-X, majidmanzarpour, Phaser official, pixijs, gamedev-skills/awesome-gamedev-agent-skills, godogen, openai/skills, anthropics/skills).
 
+> **Version scope (2026-10-25):** V1 skills, except that Colyseus networking in gm-multiplayer-ready is V2 (V1 keeps only the multiplayer-ready rules); see `docs/spec/release-plan.md`.
+
 Evidence labels: **[V]** means I read the actual file from a shallow clone or via `gh api contents`. **[U]** means the information comes only from a search result or a directory listing.
 
 The star, license and push data all came from `gh api repos/...` on 2026-10-24.
@@ -203,7 +205,7 @@ Note: `dimforge/rapier.js` is **archived**. The JS bindings moved to `dimforge/r
 2. **gm-music-compose (Tone.js 15).** The existing skills use the deprecated Transport API. Ours needs `getTransport()`, scheduling with `time`, `Part`/`Sequence`, dispose discipline, adaptive layers and stems, the autoplay gesture, and offline render to WAV for verification.
 3. **gm-audio (ZzFX / jsfxr).** No skill exists anywhere. Ours needs a parameter-array schema, presets (jump, coin, hit, explosion, power-up), seedable variation, the "vocabulary bridge" from #8, and mixing buses and ducking (bus list from the CCGS accessibility checklist).
 4. **gm-input.** Nothing current exists for one action map spanning keyboard, mouse, Gamepad API (standard mapping, deadzones, polling in the loop, hot-plug), touch (virtual stick, `touch-action: none`, multitouch) and Phaser 4 input. Ours should also cover remapping and toggle-instead-of-hold accessibility. Seeds: openai `web-game-foundations` (action map) and CCGS (accessibility).
-5. **gm-multiplayer-ready (Colyseus 0.18).** There is no trustworthy Colyseus skill. Base it on game-creator's rules (offline-first, a single seam, server authority, backend-agnostic client) and target Colyseus rooms, schema, and reconnection.
+5. **gm-multiplayer-ready (Colyseus 0.18; networking is V2).** There is no trustworthy Colyseus skill. Base it on game-creator's rules (offline-first, a single seam, server authority, backend-agnostic client) and target Colyseus rooms, schema, and reconnection.
 6. **gm-pack-import (headless Blender → glTF → gltf-transform).** No end-to-end skill exists. Combine:
    - TerminalSkills CLI hygiene;
    - export flags;

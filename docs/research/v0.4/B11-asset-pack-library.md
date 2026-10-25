@@ -5,6 +5,8 @@
 - **Evidence labels:** **[V]** verified against a primary source; **[I]** inferred; **[U]** unverified or assumed.
 - **Scope:** research and design only. Nothing was downloaded, bought or deployed. Not legal advice.
 
+> **Version scope (2026-10-25):** the three tiers, the bucket library, the `gm` CLI and the core skills are V1, for adult (18+) creators. Later: paid generators (V2), multiplayer gameplay (V2; V1 only keeps games multiplayer-ready), the optional MCP adapter (post-V1), and `gm-child-account` (V3). See `docs/spec/release-plan.md`.
+
 ## 1. TL;DR
 
 - **One pack library per Game Maker instance**, stored in the instance's S3-compatible bucket under its own prefix. Railway Storage Buckets are the default (B6 D1). The engine code speaks only the S3 API, so R2, AWS S3 or MinIO also work.
@@ -284,7 +286,7 @@ Skills load on demand. Only `gm-core` is always in context, so an agent pays tok
 
 ## 6. Open questions for Kevin
 
-1. **Family members and `personal` packs.** Can other family accounts use Synty assets (child accounts are V3) in their games on your instance? It depends on Synty's EULA (seats, household use). Until it's read, the default is owner-only.
+1. **Family members and `personal` packs.** Can other adult family accounts use Synty assets (V1 accounts are adults only; child accounts are V3) in their games on your instance? It depends on Synty's EULA (seats, household use). Until it's read, the default is owner-only.
 2. **Tier 2 licenses.** Recommended: allow CC0, CC-BY, OGA-BY and MIT/OFL, with credits generated automatically. Allow CC-BY-SA with a "share-alike" flag. Block NC, ND and GPL-only art. Tier 2 assets a game uses are recorded on a "pack wishlist" for the admin, so popular gaps can become tier 1 packs.
 3. **Poly Haven.** The assets are CC0, but the official API page says commercial use of the live API needs a license, which conflicts with its GitHub README. Recommended: download Poly Haven assets as a one-time tier 1 install, or ask Poly Haven first.
 4. **Vision tagging at import.** Approve a small one-time model spend per pack for better search, or start with filename tags only?
