@@ -40,6 +40,25 @@ The download links contain personal keys. Never commit them or post them anywher
 | Humble, October 2026 | Game-key bundles only, no asset bundles [S] | — |
 | Fab (Epic) free rotation | Free packs every two weeks, under the Fab Standard License, which allows commercial use [S] | Mostly Unreal. Claim them while free; they stay in your library [S] |
 
+### Live deals snapshot, 2026-10-25 (expires fast; prices and end dates are secondary [S])
+
+| Offer | Price | Ends | Fit |
+|---|---|---|---|
+| Best of Synty Game Dev Assets 6 (Humble) | $30 | ~2026-10-27 | Already chosen |
+| Sidetrax "The Complete Works" audio (Humble) | $15 for 128 items | ~2026-11-09 | Good: engine-neutral audio |
+| FunctionLoops Ultimate SFX (Humble) | $25 for 38 items | ~2026-10-29 | Good: audio |
+| heyheythere Stylized Complete, low-poly 3D (itch) | $24.99 for 13 kits | 2026-11-04 | Good if FBX/glTF |
+| heyheythere 2D Complete, pixel UI/VFX/SFX (itch) | $29.99 for 44 items | 2026-11-04 | Good |
+| heyheythere SFX Bundle (itch) | $9.99 for 14 packs | 2026-11-04 | Good |
+| heyheythere PSX Horror / PSX City (itch) | $19.99 each | 2026-11-04 | Niche, web-light |
+| Craftpix mega bundle (itch) | $49 | not shown | Good for 2D; Craftpix license, no redistribution |
+| ELV Games mega bundle, 200+ pixel packs (itch) | ~$84 | unclear | Good for 2D; credit required |
+| KitBash3D Mega Cities (Humble) | $25 | ~2026-10-27 | Realistic and heavy; skip for V1 |
+| Unreal bundles (Laya, Leartes, BEFOUR "Premium Assets") | $25–30 | 1–11 days | Skip: realistic, Unreal-first |
+| Fab giveaway (desert kit, VFX, golem) | free | 2026-11-03 | Claim only if FBX is offered |
+
+Sources: nerdydeals.net/bundle-deals (captured 2026-10-25), itch.io/bundles, gamefromscratch.com October free-asset round-up #2.
+
 ### Engine-specific bundles (Unreal/Fab, Unity) — 2026-10-25
 
 - **License:** Fab's Standard License summary says assets may be used with any compatible tool, not only Unreal. Exceptions [S]:
