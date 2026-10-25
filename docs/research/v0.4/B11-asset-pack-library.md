@@ -255,7 +255,7 @@ Skills load on demand. Only `gm-core` is always in context, so an agent pays tok
 
 | Skill | Covers |
 |---|---|
-| `gm-child-account` | Content and feature rules applied only when the game belongs to a child account (parental-controls layer) |
+| `gm-child-account` **(V3)** | Content and feature rules applied only when the game belongs to a child account. Deferred with all child scope |
 | `gm-multiplayer-ready` | V1 architecture rules that keep a game multiplayer-capable later (deterministic state, input separated from simulation) |
 
 **Scope chat agent (not a build agent)**
@@ -284,7 +284,7 @@ Skills load on demand. Only `gm-core` is always in context, so an agent pays tok
 
 ## 6. Open questions for Kevin
 
-1. **Family members and `personal` packs.** Can child or other family accounts use Synty assets in their games on your instance? It depends on Synty's EULA (seats, household use). Until it's read, the default is owner-only.
+1. **Family members and `personal` packs.** Can other family accounts use Synty assets (child accounts are V3) in their games on your instance? It depends on Synty's EULA (seats, household use). Until it's read, the default is owner-only.
 2. **Tier 2 licenses.** Recommended: allow CC0, CC-BY, OGA-BY and MIT/OFL, with credits generated automatically. Allow CC-BY-SA with a "share-alike" flag. Block NC, ND and GPL-only art. Tier 2 assets a game uses are recorded on a "pack wishlist" for the admin, so popular gaps can become tier 1 packs.
 3. **Poly Haven.** The assets are CC0, but the official API page says commercial use of the live API needs a license, which conflicts with its GitHub README. Recommended: download Poly Haven assets as a one-time tier 1 install, or ask Poly Haven first.
 4. **Vision tagging at import.** Approve a small one-time model spend per pack for better search, or start with filename tags only?
