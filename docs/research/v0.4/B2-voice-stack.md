@@ -4,12 +4,14 @@
 
 Access date for all sources: 2026-10-21. Labels: **[V]** verified against the primary source today, **[I]** inferred, **[U]** unverified. **[aiur-R]** marks a fact taken from aiur's own dated research (`talk/research.md`, 2026-10-10, with primary URLs). I did not re-fetch those facts.
 
+> **Version scope (2026-10-25):** Read this through `docs/spec/release-plan.md`. This report was written when child accounts were in V1, so most of its picks are driven by child-data rules. Those rules are now **V3** (child accounts only). **V1 (adults only, 18+):** voice is the aiur `voice_converse` package (an Elixir host, per the decision log), with **ElevenLabs first and OpenAI second**, a no-transcript mode, and narration rendered once and cached by content hash (§5.1 caching still applies). ElevenLabs' under-18 approval is not needed in V1, so the "Blocked" verdicts on ElevenLabs below apply only to minors. Gaps G2–G7 still apply to V1. **V2 (teens):** any vendor without approval for minors is off for teens (ElevenLabs approval, OpenAI ZDR). **V3 (child accounts):** self-hosted speech only (Kevin's pick), plus everything about child voice, COPPA, iPad dictation and the child-speech benchmark. **Changed:** D3's "TypeScript relay now" is superseded by Kevin's decision that voice is an aiur package regardless.
+
 ## 1. TL;DR
 
 - aiur's reusable voice component **does not exist yet as something Game Maker can embed.** What runs today is an ElevenLabs-only speech-to-text (STT) and text-to-speech (TTS) seam inside the aiur app, tied to aiur's dashboard login. The standalone `voice_converse` package is a skeleton: 4 of 66 tickets are closed.
-- Treat any **child's voice** as COPPA personal information. Of the vendors checked, only OpenAI (with *approved* zero data retention, ZDR) clearly permits it. Google generative AI and Gemini forbid under-18 services. ElevenLabs needs written approval. Microsoft, AWS, Deepgram and Cartesia have no child clause at all, so you would be relying on silence in their terms.
-- Split the stack. **Narration** carries no child data: generate it at build time with self-hosted **Kokoro-82M** (Apache-2.0, has word timestamps, runs on CPU) and cache it by content hash. **Kid speech input** goes to a self-hosted STT on Railway first, with OpenAI under ZDR as the upgrade path.
-- Build two-way scoping as a **cascade**: speech-to-text, then Claude, then TTS, using push-to-talk. Do not use a hosted speech-to-speech agent. That same cascade is a provider family aiur already plans for `voice_converse`.
+- **(V3)** Treat any **child's voice** as COPPA personal information. Of the vendors checked, only OpenAI (with *approved* zero data retention, ZDR) clearly permits it. Google generative AI and Gemini forbid under-18 services. ElevenLabs needs written approval. Microsoft, AWS, Deepgram and Cartesia have no child clause at all, so you would be relying on silence in their terms.
+- **(V3; the V1 adult default is ElevenLabs then OpenAI through the aiur package, see the scope note)** Split the stack. **Narration** carries no child data: generate it at build time with self-hosted **Kokoro-82M** (Apache-2.0, has word timestamps, runs on CPU) and cache it by content hash. **Kid speech input** goes to a self-hosted STT on Railway first, with OpenAI under ZDR as the upgrade path.
+- Build two-way scoping as a **cascade**: speech-to-text, then Claude, then TTS, using push-to-talk. Do not use a hosted speech-to-speech agent (a child-data rule; for V1 adults, ElevenLabs Agents or OpenAI speech-to-speech are allowed). That same cascade is a provider family aiur already plans for `voice_converse`.
 - **Word highlighting:** Kokoro, Azure, Polly, ElevenLabs and Cartesia return timings. OpenAI TTS, OpenAI Realtime, GPT-Live and Gemini Live do not. Use sentence-level highlighting as the fallback.
 - **Browser Web Speech is not a privacy fallback on iPad.** Safari appears to send audio to Apple (secondary sources only). Chrome is safe only with `processLocally = true` and an installed language pack.
 
@@ -60,11 +62,11 @@ Access date for all sources: 2026-10-21. Labels: **[V]** verified against the pr
 2. **TypeScript reimplementation** of the same wire frames in Game Maker's backend. This is A6's "small TS relay".
 3. **Wait for MP-E6.**
 
-Option 2 or a minimal version of option 1 is the only path to V1 that does not wait on 60+ aiur tickets.
+Option 2 or a minimal version of option 1 is the only path to V1 that does not wait on 60+ aiur tickets. *Note (2026-10-25): Kevin decided voice is an aiur package regardless, with a thin `voice_converse` host as the only Elixir besides aiur. That makes option 1 the V1 path; option 2 is off.*
 
 **Gaps that matter for Game Maker** [V from code and plan, consequences I]:
 
-- **G1. No child-permitted provider.** The only adapter is ElevenLabs, and the planned default (ElevenLabs Agents) is barred for under-18 experiences without written approval.
+- **G1. (V2/V3 only; not a V1 gap for adults) No child-permitted provider.** The only adapter is ElevenLabs, and the planned default (ElevenLabs Agents) is barred for under-18 experiences without written approval.
 - **G2. Transcripts.** `transcript_root` is required, and the plan says "full local transcripts" (D17). Spec §10.4 says full transcripts are *not* approved. Game Maker needs a no-store or ephemeral transcript mode, which `Config.privacy` does not offer.
 - **G3. No alignment frame and no usage frame.** The current TTS drops timing data, and spec §7.2 requires usage reporting.
 - **G4. No batch or narration path.** It has streaming TTS only: no "render line → file + timings", no cache key.
@@ -76,13 +78,15 @@ Option 2 or a minimal version of option 1 is the only path to V1 that does not w
 
 ### 3.1 Permission to serve minors, retention, training
 
+The minors clauses here apply from V2 (teens) and V3 (children). Retention and training facts apply in every version.
+
 - **OpenAI.**
   - Serving minors under 18 requires "additional safeguards": age-appropriate disclosures, content filters, monitoring, and age assurance where needed.
   - Developers "should not use OpenAI services to process any personal data of children under 13 … without first implementing zero data retention." [V] https://developers.openai.com/api/docs/guides/safety-checks/under-18-api-guidance
   - ZDR "requires prior approval" through sales.
   - Abuse-monitoring retention by endpoint: `/v1/audio/transcriptions` none; `/v1/audio/speech` 30 days; `/v1/realtime` 30 days; `/v1/live/sessions` 30 days. All are ZDR-eligible, `/v1/live/sessions` "with limitations".
   - API data is not used for training by default. [V] https://developers.openai.com/api/docs/guides/your-data
-- **ElevenLabs.** "Apps, products, or experiences directed at individuals under 18 are prohibited unless we have assessed and approved them in writing." Parental-consent records are required. The policy was updated 09 Oct 2026. [V] https://elevenlabs.io/use-policy. Zero Retention Mode is Enterprise-only (A8 V3). This bars narration as well, because the game is the experience directed at minors [I].
+- **ElevenLabs.** "Apps, products, or experiences directed at individuals under 18 are prohibited unless we have assessed and approved them in writing." Parental-consent records are required. The policy was updated 09 Oct 2026. [V] https://elevenlabs.io/use-policy. Zero Retention Mode is Enterprise-only (A8 V3). Once minors are users (V2+), this bars narration as well, because the game is the experience directed at minors [I]. In V1 (adults only) it does not apply.
 - **Google Cloud.**
   - Generative AI Services §20(d): no use in a service "directed towards or is likely to be accessed by individuals under the age of 18." [V] https://cloud.google.com/terms/service-terms
   - Whether classic Cloud TTS/STT (Chirp) falls under "Generative AI Services" is **[U]**. The services list did not render.
@@ -94,7 +98,7 @@ Option 2 or a minimal version of option 1 is the only path to V1 that does not w
   - The only child clause, §50.4, covers Amazon Lex. [V] https://aws.amazon.com/service-terms/ ; https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_ai-opt-out.html
 - **Deepgram.** The account holder must be 18+. There is no child clause. "We may also use Your Content to improve our Services." You can opt out of training per request. No retention period is stated, and the license is "perpetual". [V] https://deepgram.com/legal/terms (updated 6 Aug 2026)
 - **Cartesia.** The account holder must be 18+. There is no under-13 clause. Inputs and outputs may be used to train its models unless you opt out with a form, and the opt-out only applies going forward. No ZDR is mentioned. [V] https://cartesia.ai/legal/terms. That page says it was revised 14 Jun 2024, so it may be stale **[U]**.
-- **COPPA.** A child's voice in an audio file is personal information. The audio exception is narrow and very likely does not cover signed-in accounts (A8 V11, V13). Every vendor that receives child audio is a disclosure.
+- **COPPA (V3).** A child's voice in an audio file is personal information. The audio exception is narrow and very likely does not cover signed-in accounts (A8 V11, V13). Every vendor that receives child audio is a disclosure.
 
 ### 3.2 Word timings, latency, price
 
@@ -119,15 +123,17 @@ Option 2 or a minimal version of option 1 is the only path to V1 that does not w
 - **VoxCPM2.** Apache-2.0, 2B parameters, about 8 GB VRAM, RTF 0.13–0.30 on an RTX 4090 [V] https://huggingface.co/openbmb/VoxCPM2. It needs a GPU, so it does not fit Railway.
 - **OmniVoice.** The weights are **CC-BY-NC** (non-commercial) [V] https://huggingface.co/k2-fsa/OmniVoice. Exclude it.
 - **STT options.** faster-whisper is MIT, runs int8 on CPU, and works in batch, which suits push-to-talk. Moonshine v2 is MIT, streams on CPU, and has a JS/WASM build [aiur-R]. Parakeet is CC-BY-4.0 and needs a GPU for speed [aiur-R].
-- **Children's speech.** Recognition of children aged 5–7 is worse for every ASR engine [I, general literature, not measured here]. Benchmark on real family recordings before picking an engine. Keep those recordings local and get consent.
+- **Children's speech (V3).** Recognition of children aged 5–7 is worse for every ASR engine [I, general literature, not measured here]. Benchmark on real family recordings before picking an engine. Keep those recordings local and get consent.
 
 ### 3.4 Browser Web Speech
 
 - **Recognition.** MDN: recognition is server-based by default. `processLocally = true` together with `available()` and `install()` keeps audio on the device in Chrome 139+ [aiur-R].
-- **Safari and iPad.** `webkitSpeechRecognition` exists from iOS 14.5, but `available()` is unsupported [aiur-R]. Developer reports say Safari uses Apple's server recognizer and that Apple's on-device SpeechAnalyzer has no web surface [U, secondary] https://blog.addpipe.com/apple-speechanalyzer-api/. **On iPad, the main child device, there is no verifiable on-device web dictation.**
+- **Safari and iPad.** `webkitSpeechRecognition` exists from iOS 14.5, but `available()` is unsupported [aiur-R]. Developer reports say Safari uses Apple's server recognizer and that Apple's on-device SpeechAnalyzer has no web surface [U, secondary] https://blog.addpipe.com/apple-speechanalyzer-api/. **On iPad (the main child device in V3) there is no verifiable on-device web dictation.**
 - **`speechSynthesis`.** Free and on-device, but its boundary events are unreliable on iPad (A3). It is acceptable only as an offline fallback with sentence-level highlighting.
 
 ## 4. Options table
+
+The verdicts below were judged on child-data posture, so they are the **V3** child-account view. For V1 adults, ElevenLabs (TTS, Scribe STT, Agents) and OpenAI are the decided providers, in that order.
 
 | Need | Option | Child-data posture | Timing | Railway fit | Verdict |
 |---|---|---|---|---|---|
@@ -148,12 +154,14 @@ Option 2 or a minimal version of option 1 is the only path to V1 that does not w
 
 ## 5. Recommendation
 
+**V1 adult default (2026-10-25):** two-way creation voice through the aiur `voice_converse` package, ElevenLabs first and OpenAI second, push-to-talk, with a no-transcript mode (G2). Narration uses the same providers, rendered once at build or publish time and cached as in item 1 below. Items 1, 4 and the frame list still apply to V1. The self-hosted parts (Kokoro, self-hosted STT, the cascade as the only path) and items 2 and 5 are **V3**, for child accounts.
+
 1. **Narration pipeline (no child data).**
    - At game build or publish time, a Kokoro-FastAPI service on Railway renders each dialogue line to Opus plus word timings, producing A3's `SpokenText`.
    - Store each line under `sha256(normalized_text, voice_id, engine, engine_version, speed, lang)` (spec §9.7). A changed line or voice gives a new hash and a regeneration; an unchanged line is reused across publishes and forks.
    - Captions always show. Highlighting is word-level from the stored timings and falls back to sentence level.
    - Run the generator **outside** aiur's coding loop: deterministic first (spec §3.2).
-2. **Kid input.**
+2. **(V3) Kid input.**
    - Push-to-talk.
    - The browser streams PCM16 at 16 kHz, the same frame format as `Aiur.Voice.Transcriber`, to a Game Maker relay. The relay forwards it to a self-hosted STT on Railway.
    - Audio lives in memory only. The transcript is shown to the child to confirm. Nothing is stored beyond the structured request (spec §7.2).
@@ -166,11 +174,12 @@ Option 2 or a minimal version of option 1 is the only path to V1 that does not w
    - Mirror aiur's frames now: `audio`, `stop`, `transcript{partial|final}`, `audio`, `audio_done`, `error`. Add `alignment{words:[{w,t0,t1}]}` and `usage{provider,model,audio_ms|chars|tokens}`. Do this in a small TypeScript relay.
    - Feed these back to aiur as requests: G2 (a no-store transcript mode), G3 (alignment and usage frames), and adapters for a self-hosted `cascade` and for Azure/OpenAI-ZDR.
    - Switch to the `voice_converse` sidecar only once its session API and wire codec ship (C11-T02).
-5. **Keep vendor approvals open in parallel at no cost:** OpenAI ZDR and Azure terms review. Use them if self-hosted STT accuracy on 5–7-year-olds fails the benchmark.
+   - *Superseded (2026-10-25): voice is an aiur package from V1, not a TS relay first. The frame additions and G2/G3 requests still stand.*
+5. **(V2/V3) Keep vendor approvals open in parallel at no cost:** OpenAI ZDR and Azure terms review. Use them if self-hosted STT accuracy on 5–7-year-olds fails the benchmark.
 
 ## 6. Decisions for Kevin
 
-**D1. Where does a child's voice go in V1?**
+**D1. (V3) Where does a child's voice go?** *Kevin's pick: always the self-hosted provider; ElevenLabs and OpenAI for adults only. Deferred to V3 with child accounts.*
 
 - (a) Self-hosted STT only (our Railway).
 - (b) Apply for OpenAI ZDR and use OpenAI STT.
@@ -179,7 +188,7 @@ Option 2 or a minimal version of option 1 is the only path to V1 that does not w
 
 **Recommended: (a), with (b) applied for in parallel.** No third-party disclosure means the simplest consent story.
 
-Consequences: (a) costs CPU and may be less accurate for 5-year-olds. (b) depends on OpenAI approving the account, on an unknown timeline. (d) contradicts the "V1 core" voice requirement.
+Consequences: (a) costs CPU and may be less accurate for 5-year-olds. (b) depends on OpenAI approving the account, on an unknown timeline. (d) contradicts the core voice requirement.
 
 **D2. Narration voice quality versus vendor exposure.**
 
@@ -191,6 +200,8 @@ Consequences: (a) costs CPU and may be less accurate for 5-year-olds. (b) depend
 
 Consequences: (c) adds an Enterprise contract and consent-record duties.
 
+*Kevin's pick: ElevenLabs once approved; Kokoro until then. Since V1 is adults only, ElevenLabs needs no under-18 approval, so V1 narration reads as ElevenLabs. Kokoro stays the V3 fallback for minors.*
+
 **D3. Embed aiur's component now or later?**
 
 - (a) Game Maker TypeScript relay speaking aiur-compatible frames now; adopt `voice_converse` later.
@@ -201,7 +212,9 @@ Consequences: (c) adds an Enterprise contract and consent-record duties.
 
 Consequences: there will be two hosts until convergence, which matching frames keep cheap.
 
-**D4. Authorize a small paid benchmark?** It would cover child-speech word error rate (WER) across self-hosted, OpenAI and Azure on consented family clips, and a narration listening test.
+*Superseded (2026-10-25): Kevin decided voice is an aiur package regardless, plus a self-hosted provider and a no-transcript mode. The "barred for minors" reason no longer applies in V1.*
+
+**D4. (V3) Authorize a small paid benchmark?** *Kevin's answer on all research spends: not yet. Child-speech accuracy no longer blocks V1.* It would cover child-speech word error rate (WER) across self-hosted, OpenAI and Azure on consented family clips, and a narration listening test.
 
 - (a) Up to about $10.
 - (b) Free/self-hosted arms only.
@@ -216,5 +229,5 @@ Consequences: the clips are recordings of a child's voice and must be deleted af
 - Safari/iPad Web Speech data flow (secondary sources only). iPadOS `speechSynthesis` boundary behavior (test on a device).
 - CPU latency of faster-whisper or Moonshine on Railway, and their accuracy on children's speech: not measured.
 - Azure and OpenAI STT per-minute prices: not rendered [U]. GPT-Live ZDR "with limitations": scope unknown.
-- Whether COPPA applies to a free, family-only service, and whether self-hosted STT is still a "collection": needs counsel (A8 §4).
+- **(V3)** Whether COPPA applies to a free, family-only service, and whether self-hosted STT is still a "collection": needs counsel (A8 §4).
 - aiur facts reflect `main` at `ad084b1f3` and the research branch at `e9785e0ee`. MP-E6 may change.

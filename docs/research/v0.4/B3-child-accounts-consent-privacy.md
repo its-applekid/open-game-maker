@@ -8,6 +8,12 @@
 - **Labels:** **[V]** verified against a primary source today. **[I]** inferred from verified facts. **[U]** unverified, secondary, or untested.
 - **Scope:** research only. Nothing was signed up for, deployed, or sent to any vendor. **I am not a lawyer, and this memo is not legal advice or a compliance determination.**
 
+> **Version scope (2026-10-25): this whole report is V3.** See `docs/spec/release-plan.md`. V1 is adults only (18+) and V2 adds teens (13–17). Neither has child accounts, guardians, consent forms or COPPA duties. Keep this report for V3 planning. Where it says "V1", read "the first release with child accounts". **What still applies earlier:** V1 needs a neutral age screen that turns away under-18s (decision log). Google's rule that mixed-audience apps must not *require* Google sign-in (A1) matters again only in V3. **Changed since this report:**
+> - Email is mandatory on every account and is the recovery path (decided). §3.1's "Google or an email link" for adults is replaced by email plus passkey and/or Google.
+> - Repos: there is no platform-owned games repo. Each user connects their own GitHub and picks public or private. For V3, the working recommendation is a separate repo per child in the guardian's GitHub, private by default. §D's two-repo export design should be re-read against that.
+> - Kevin's V3 picks: consent by signed form plus confirmation email (K2 a); admins may turn on anything the guardian pre-approved (K4 b); child voice is always self-hosted.
+> - "The first users are 5 and 7" no longer holds: V1 users are adults.
+
 ## 1. TL;DR
 
 - **Google's own developer policy conflicts with "Google sign-in for everyone."** Google says apps aimed mainly at children "should not use Google Sign-In". Mixed-audience apps "shouldn't require" it and must work fully without it. So Game Maker needs a second, non-Google way to sign in. Passkeys or email links would do. Google can stay as an option for adults.
@@ -28,7 +34,7 @@
 The policy points to FTC guidance on what "mixed audience" means.
 
 - **Consequence [I]:** §4.4, "Use Sign in with Google for adults and children" as the only method, does not comply under either reading.
-- **Risk [I]:** The first users are 5 and 7. Under the FTC factors (animated characters, child-oriented activities, music, intended audience), Game Maker could be seen as *primarily* child-directed. If so, Google's text says not to use Google Sign-In at all. The practical risk is Google suspending the OAuth client, not a fine.
+- **Risk [I] (V3):** The first child users would be 5 and 7. Under the FTC factors (animated characters, child-oriented activities, music, intended audience), Game Maker could be seen as *primarily* child-directed. If so, Google's text says not to use Google Sign-In at all. The practical risk is Google suspending the OAuth client, not a fine.
 - **Fix:** A full non-Google sign-in path removes that risk. Google sign-in then becomes a convenience that can be switched off without stranding any account.
 
 **A2. Family Link and third-party apps [V, with gaps].**
@@ -154,7 +160,7 @@ Full transcripts add surveillance and storage risk, and they make the §312.6 re
 | Structured brief and change summaries | Build the game; parent oversight | Private DB | Game lifetime | Owner, guardian, authorized admin | No (§D) |
 | Refusal and moderation events | Parent oversight | Private DB | 90 days | Guardian, admins in that family | Never |
 | Generated narration (TTS of agent text) | Reusable game asset | Bucket, keyed by content hash (B6) | Game lifetime plus asset GC | Players of the game | Only if its text passes the D-scrub |
-| Child-recorded voice assets | (Not in V1, §5.13) | — | Requires a separate guardian scope if ever added | — | Never by default |
+| Child-recorded voice assets | (Not planned, §5.13) | — | Requires a separate guardian scope if ever added | — | Never by default |
 | Uploads and photos | Game input or asset | Re-encoded in the browser (EXIF and GPS removed); raw original never uploaded; faces rejected or blurred (FAQ F.3) | Stripped copy kept privately for game lifetime; derived sprite treated as a game asset | Owner, guardian, admins | Derived asset only with guardian scope |
 | Design data and overrides | The game itself | DB | Game lifetime | Owner, guardian, editors | Yes, after scrub |
 | Cloud saves | Resume play | DB | Until game or account deletion; inactive child accounts get a guardian notice at 12 months and are deleted at 18 months | That player, their guardian | Never |
@@ -171,6 +177,8 @@ aiur needs changes for this to work [I]:
 - a redaction step before any ticket is created, which removes family-roster names and contact strings.
 
 ### D. Public-source leakage
+
+*Note (2026-10-25): Kevin decided against a platform-owned games repo. Each user brings their own GitHub and picks public or private (V1). For child games (V3) the working pick is a private repo per child in the guardian's GitHub. The leakage findings below still hold for any public repo; the two-repo design in D3 would apply only if a child's game is published publicly.*
 
 **D1. Why this reopens the "private monorepo" question.**
 
@@ -213,7 +221,7 @@ Child-written in-game text is a **gated** item, not an always or never one. "The
 
 1. **Sign-in.**
    - Keep Better Auth.
-   - Adults choose Google or an email link.
+   - Adults choose Google or an email link. *(Superseded: email is mandatory for every account; adults add passkey and/or Google.)*
    - Children sign in with a guardian-enrolled passkey. Children with Family Link accounts may also use Google.
    - No account depends on Google. This satisfies Google's mixed-audience rule, and Google can be turned off without stranding anyone.
 2. **Consent.**
@@ -235,6 +243,8 @@ Child-written in-game text is a **gated** item, not an always or never one. "The
 7. **Test:** one real Family Link account through the flow on Kevin's iPad, in Safari and as a home-screen app (A3 [U] items).
 
 ## 4. Decisions for Kevin
+
+All four are V3. Kevin's picks so far: K2 (a), K4 (b). K1 and K3 are open; K3 should be re-asked against the bring-your-own-GitHub decision.
 
 **K1 — How do children sign in, given Google's mixed-audience rule?**
 

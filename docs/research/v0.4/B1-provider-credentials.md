@@ -4,10 +4,12 @@ Spike: **U01** (spec v0.4 §8.1, §10.6, §14.1). Research only. Sources accesse
 
 Labels: **Verified** means I read it in the primary source today. **Inferred** is my reading of verified text. **Unverified** means I could not reach the source or it does not say.
 
+> **Version scope (2026-10-25):** Read this through `docs/spec/release-plan.md`. **V1:** §1–§4 apply as written for adults: API keys only, paid by Kevin, through hosted aiur profiles; a separate hosted aiur instance; no subscription logins. V1 is adults only (18+), so each vendor's ordinary adult terms apply and the minors rules (AN10, OA3 parental consent, OA6 ZDR) do not. **V2:** teens bring back the under-18 rules (AN10, OA3, OA7); bring-your-own provider credentials (D4) is V2. **V3:** under-13 data and OpenAI ZDR (OA6) apply only to child accounts. **Changed since this report:** Kevin's "Build Agent SDK worker now" pick for D1 is superseded: hosted builds use aiur with API-key profiles and build nothing new. His pick for the sandbox coding agent is aiur's own tool loop with Kimi, DeepSeek or OpenRouter models (awaiting confirmation; see option G). Admins set spending limits; the plan sets only defaults (D3).
+
 ## 1. TL;DR
 
 - **No subscription may power the hosted multi-user builder.** That covers Claude Free, Pro, Max, Team and Enterprise sign-in, and ChatGPT Plus, Pro and Business sign-in for Codex. Anthropic says so in plain words. OpenAI's terms ban account sharing and programmatic extraction of output. Keeping the credential on the server does not change this.
-- **API keys paid by Kevin are allowed** under both vendors' business terms: Anthropic's Commercial Terms and OpenAI's Services Agreement. Both require extra safeguards when minors use the product.
+- **API keys paid by Kevin are allowed** under both vendors' business terms: Anthropic's Commercial Terms and OpenAI's Services Agreement. Both require extra safeguards when minors use the product. That matters from V2 (teens); V1 is adults only.
 - **New since A8:** Anthropic's Claude Code page has a clause for *hosting Claude Code* in your own product: "Customers may not pay for… Claude usage on their end users' behalf." aiur's Claude backend runs the Claude Code CLI. The Agent SDK route, which runs the same binary, is explicitly allowed for products used by end users. Until Anthropic confirms in writing, treat **aiur + Claude Code CLI + Kevin's API key for family jobs** as unconfirmed.
 - **Kevin's own development sessions can stay on his Max and ChatGPT subscriptions.** Hosted jobs must never fall back to those profiles.
 - **Cost gap (estimate):** at the §8.6 sizes, a medium family month (4 new games and 40 features) costs about **$190 on the API**. One Max 20x seat costs about **$200**. The API is cheaper at light use and about 2.4× at heavy use. This is not the order-of-magnitude gap Kevin expects. The token mixes behind these numbers are unmeasured.
@@ -59,9 +61,11 @@ Labels: **Verified** means I read it in the primary source today. **Inferred** i
 
 - Kevin may use his own Max subscription and ChatGPT login for his own Claude Code and Codex sessions (AN2, OA1). Verified.
 - Caveat: limits "assume ordinary, individual usage" (AN11). The Consumer Terms ban automated access other than through an API key (AN8). Heavy multi-agent aiur orchestration on a Max login is his own account, but it strains both clauses. This is Kevin's existing risk, not something this product introduces. Inferred.
-- A platform bug a child reports must reach Kevin as a ticket. It must not trigger a subscription-backed run for that child. If an automated run would happen because of a child's request, that run belongs to the hosted side. Inferred from spec §7.1.
+- A platform bug a user reports must reach Kevin as a ticket. It must not trigger a subscription-backed run for that user. If an automated run would happen because of a user's request, that run belongs to the hosted side. Inferred from spec §7.1.
 
 ## 3. Options compared
+
+The minors part of the second column applies from V2 (teens) and V3 (children). In V1, only the adult terms apply.
 
 | Option | Allowed for hosted multi-user + minors? | Fits aiur today? | Who pays | Notes |
 |---|---|---|---|---|
@@ -71,7 +75,7 @@ Labels: **Verified** means I read it in the primary source today. **Inferred** i
 | D. Kevin's Claude Pro/Max/Team/Enterprise OAuth | **No** (AN1, AN2, AN4) | Yes technically | Flat | Allowed only for Kevin's own sessions |
 | E. Kevin's ChatGPT Plus/Pro/Business sign-in for Codex | **No** (OA2, OA3, OA4) | Yes technically | Flat | Allowed only for Kevin's own sessions |
 | F. Each user's own credentials (BYO) | Anthropic: adults only, via an unmodified hosted Claude Code and Anthropic's own sign-in (AN1, AN4, AN9). OpenAI: BYO API key is plausible; BYO ChatGPT login is not documented | Partly | Each user | V2+ (U20). Children cannot hold Claude accounts |
-| G. Kimi, DeepSeek, OpenRouter, Muse | Unverified (terms not reviewed) | Yes | Kevin, metered | Not for V1 without a terms check |
+| G. Kimi, DeepSeek, OpenRouter, Muse | Unverified (terms not reviewed) | Yes | Kevin, metered | Not for V1 without a terms check. Kevin's sandbox pick (aiur's own tool loop) uses these, so the check is now needed before V1 |
 
 ### Cost gap (estimates, not quotes)
 
@@ -108,9 +112,9 @@ Takeaway (Inferred): the API looks expensive mainly compared with heavy, subsidi
 ## 4. Recommendation
 
 1. **Hosted V1 uses API keys only, paid by Kevin.** Subscriptions stay with Kevin's own development sessions. This follows from the evidence (AN1–AN4, OA2–OA4); it is not a preference. In spec §8.1 terms, the desired subscription route is unavailable, for a specific reason, for every provider checked.
-2. **Default Anthropic path:** ask Anthropic sales to confirm in writing that option B is allowed. Option B is aiur's unmodified Claude Code CLI, on Kevin's Console key, run by Kevin's free family service for invited family users, including minors. If Anthropic says no, or does not answer, use option A (an Agent SDK or Messages API worker), which is clearly allowed. Codex on an API key (C) is usable today as the first or a fallback provider, with no confirmation needed. Keep it away from under-13 personal data unless OpenAI approves ZDR.
+2. **Default Anthropic path:** ask Anthropic sales to confirm in writing that option B is allowed. Option B is aiur's unmodified Claude Code CLI, on Kevin's Console key, run by Kevin's free family service for invited adult users in V1 (and minors from V2). If Anthropic says no, or does not answer, use option A (an Agent SDK or Messages API worker), which is clearly allowed. *Note (2026-10-25): Kevin has since said to use aiur with API keys and build nothing new, so option A is no longer the planned fallback; C or G would be.* Codex on an API key (C) is usable today as the first or a fallback provider, with no confirmation needed. **(V3)** Keep it away from under-13 personal data unless OpenAI approves ZDR.
 3. **Separate the hosted aiur instance:** its own state directory, API-key profiles only, no subscription logins on that host, and fallback targets limited to API-key profiles. aiur records the auth mode but does not enforce it, so the hosted instance should fail closed if a subscription profile appears.
-4. **Minors obligations for whichever provider is used:** AI disclosure, safety measures, parental consent (OA3), and Anthropic's minors guidelines (AN10). These overlap with U03 and U07.
+4. **(V2 teens, V3 children) Minors obligations for whichever provider is used.** V1 has no minors, so only the adult terms apply. From V2: AI disclosure, safety measures, parental consent (OA3), and Anthropic's minors guidelines (AN10). These overlap with U03 and U07.
 
 ## 5. Decisions for Kevin
 
@@ -119,21 +123,23 @@ Takeaway (Inferred): the API looks expensive mainly compared with heavy, subsidi
 - (b) Build an Agent SDK or Messages API worker now and skip the question.
 - (c) Use Codex on an API key as the hosted primary and leave Claude for later.
 - **Recommended: (a), with (b) as the fallback.** It reuses aiur as it is, and the confirmation is cheap to ask for.
-- Consequences: (a) blocks hosted Claude jobs until Anthropic replies, which could take weeks. (b) means building and maintaining a second agent runner beside aiur, with less reuse. (c) needs bubblewrap on Railway, OpenAI's under-13 ZDR approval, and parental-consent handling, and gives up Claude.
+- Consequences: (a) blocks hosted Claude jobs until Anthropic replies, which could take weeks. (b) means building and maintaining a second agent runner beside aiur, with less reuse. (c) needs bubblewrap on Railway and gives up Claude; from V2/V3 it also needs parental-consent handling and OpenAI's under-13 ZDR approval.
+- **Kevin's pick (2026-10-22):** (b). **Superseded** by his later comment: use aiur with API-key profiles and build nothing new. So (b) is off; (a) waits on the Anthropic email (decision log, open question 3).
 
 **D2 — Add a second API-key provider (Codex) in V1?**
 - (a) Claude only.
 - (b) Claude primary, Codex as rate-limit and outage fallback.
 - (c) Choose per job by measured cost and quality.
 - **Recommended: (b).** aiur already supports fallback, and a second provider avoids a single point of failure.
-- Consequences: (a) is simplest, but a Claude outage or rate limit stops all builds. (b) means two sets of vendor terms, two minors regimes, two budgets, and the extra OpenAI ZDR question for children's data. (c) is the same as (b) plus benchmarking work before launch.
+- Consequences: (a) is simplest, but a Claude outage or rate limit stops all builds. (b) means two sets of vendor terms and two budgets; from V2 it also means two minors regimes, and in V3 the OpenAI ZDR question for children's data. (c) is the same as (b) plus benchmarking work before launch.
 
 **D3 — Monthly API spend cap for V1 (feeds U08).**
 - (a) About $100 a month (light use).
 - (b) About $200 a month (medium use, roughly one Max seat).
 - (c) Set the cap after the ≈$150 measurement spike.
 - **Recommended: (c), with a provisional hard stop at (b).** The per-job figures are unmeasured guesses.
-- Consequences: (a) may pause builds mid-month and frustrate kids. (b) is about the subscription price Kevin is used to, with medium headroom. (c) delays the final number but bases it on real data.
+- *Note (2026-10-25): Kevin decided admins configure all spending limits; this cap is only the starting default.*
+- Consequences: (a) may pause builds mid-month and frustrate users. (b) is about the subscription price Kevin is used to, with medium headroom. (c) delays the final number but bases it on real data.
 
 **D4 — Bring-your-own credentials later (V2, U20).**
 - (a) Adults may bring their own API key only.
@@ -145,11 +151,11 @@ Takeaway (Inferred): the API looks expensive mainly compared with heavy, subsidi
 ## 6. Uncertainty and unverified items
 
 - **AN4 against AN5:** whether aiur running the Claude Code CLI on Kevin's key for family users counts as "paying on end users' behalf". Only Anthropic can answer this, ideally in writing.
-- Whether Claude Team or Enterprise seats can be issued to minors. The support page says Claude accounts are 18+ but does not mention Team.
+- **(V2+)** Whether Claude Team or Enterprise seats can be issued to minors. The support page says Claude accounts are 18+ but does not mention Team.
 - Max 20x price (the pricing page shows "From $100"), and the real token capacity of any subscription.
 - OpenAI text came from Wayback snapshots dated today, because openai.com returns 403 to direct fetches. The wording should be rechecked in a browser.
-- OpenAI ZDR approval route and timing; whether a game prompt from a child under 13 counts as "personal data" (see A8, A-voice).
+- **(V3)** OpenAI ZDR approval route and timing; whether a game prompt from a child under 13 counts as "personal data" (see A8, A-voice).
 - Terms for Muse (Meta), Kimi, DeepSeek and OpenRouter, including minors and resale, were not reviewed. aiur supports these backends, but they are not cleared.
 - The cost token mixes are A6 assumptions. They leave out retries, repairs, specialists, voice and infrastructure. The Codex equivalents assume similar caching behaviour.
 - The Anthropic AUP version is dated 12 Nov 2026, in the future. Recheck it after that date (as A8 already noted).
-- Not legal advice. The consent and COPPA questions belong to U03 and counsel.
+- Not legal advice. The consent and COPPA questions (V3) belong to U03 and counsel.

@@ -4,6 +4,12 @@ Research spike, 2026-10-21. Research only: nothing was bought, signed up for, de
 Inputs: spec v0.4 §7.6, §7.7, §9.1, §10.9, §14.1 U04; v0.4 companion conflict C1; A6; A7; aiur source at `~/github/everdred/aiur` @ `ad084b1f3` (read-only).
 Claim tags: **[V]** verified on a primary source or in code; **[I]** inferred; **[U]** unverified. All web sources accessed 2026-10-21.
 
+> **Version scope (2026-10-25):** Read this through `docs/spec/release-plan.md`. Almost all of it is **V1**: VM per job (E2B) with an egress allowlist, a model proxy, a commit service, and games in a separate-site iframe on a separate custom domain. Sandboxing is required from day one in every version. "Kid text" in the threats means any user's text; V1 users are adults. **V3:** children's-data terms for vendors and the microphone question for child accounts. **Changed since this report:**
+> - **D3 (microphone):** Kevin picked **B**, games may use the mic directly. So the V1 iframe needs `allow-same-origin`, `allow="microphone"` and per-game subdomains (§5 note). The child-account case is reopened in V3.
+> - **D1 (coding agent):** Kevin picked **A**, aiur's own tool loop (Kimi, DeepSeek or OpenRouter), not the recommended B. This awaits his confirmation and a terms check of those vendors (B1 option G). Option C (Agent SDK) is off: Kevin said to use aiur with API keys and build nothing new.
+> - **D2 and D4:** Kevin picked A for both (E2B with an allowlist; a separate custom domain).
+> - **Repos:** there is no platform-owned games repo. Each user connects their own GitHub and Game Maker creates the game's repo. Read "the games repo" and `games/<gameId>/` below as "that game's own repo".
+
 ## 1. TL;DR
 
 - "Proper sandboxing" means four things. (1) Generated code, installs, shell commands and Playwright run in a **per-job microVM**, never in a Railway service. (2) **No real secret ever enters that VM**: model keys, the GitHub App key and the database stay with the orchestrator. (3) The VM's **network is deny-by-default**, with a short allowlist. (4) The game runs in the browser in a **sandboxed iframe on a separate site**.
@@ -41,7 +47,7 @@ Claim tags: **[V]** verified on a primary source or in code; **[I]** inferred; *
 |---|---|---|
 | T1 | A malicious or wrong `postinstall`, generated code, or an agent shell command | VM isolation (own kernel); nothing co-located |
 | T2 | Secret exfiltration (model keys, GitHub key, DB URL, other families' data) | No real secret in the VM; egress allowlist; per-job token only |
-| T3 | Prompt injection from kid text, voice transcripts or drawings telling the agent to "curl X" or "edit platform/" | Egress allowlist plus orchestrator path validation. The prompt is not the control. |
+| T3 | Prompt injection from user text, voice transcripts or drawings telling the agent to "curl X" or "edit platform/" | Egress allowlist plus orchestrator path validation. The prompt is not the control. |
 | T4 | Cross-family leakage | One VM per job, destroyed afterwards; the workspace contains only that game; no shared volume |
 | T5 | Writes outside the game (platform, SDK, `.github/`, other games) | Commit service path allowlist; App token limited to the games repo |
 | T6 | Resource exhaustion (fork bombs, disk fill, crypto-mining, endless loops) | VM size cap, wall-clock timeout, idle timeout, per-family admission (§8.3) |
@@ -121,7 +127,7 @@ Claim tags: **[V]** verified on a primary source or in code; **[I]** inferred; *
   - **Added 2026-10-22:** MDN compat data (`api/Element.json`) says iOS Safari fullscreen is "Only available on iPad, not on iPhone" and "Shows an overlay button which can not be disabled. Swiping down exits fullscreen mode, making it unsuitable for some use cases like games." [V]
     - Don't rely on fullscreen on iPad. A home-screen web app or a layout that fills the viewport is the likely route [I, untested].
     - The device test should check whether an accidental swipe-down exit breaks play.
-  - Firefox 66+ blocks `getUserMedia()` in sandboxed iframes [V, MDN]. This is consistent with D3-A (no mic in games).
+  - Firefox 66+ blocks `getUserMedia()` in sandboxed iframes [V, MDN]. This is consistent with D3-A (no mic in games). *Kevin picked D3-B, so the game frame must allow the mic; test this in Firefox too.*
 - **Focus:** the parent calls `iframe.focus()` after load; the game calls `window.focus()` on its first pointerdown; fall back to a "tap to play" overlay [I].
 - **Storage:** an opaque origin (no `allow-same-origin`) has no localStorage or IndexedDB [I, spec]. Third-party storage is partitioned anyway [V]. Saves should go through the bridge to the backend, which matches spec §5.16.
 
@@ -172,11 +178,13 @@ Rules:
 - The sandbox API key lives only in the orchestrator.
 - Model-generated paths and commands never become authority (§7.2).
 
+*Note (2026-10-25):* the iframe in the diagram follows the recommended D3-A. Kevin picked D3-B, so V1 adds `allow-same-origin` to `sandbox` and `microphone` to `allow`, and serves each game from its own subdomain of the games domain so games cannot read each other's storage. Likewise, "GitHub App key (games repo)" means a token for the one game repo the user connected, not a shared games repo.
+
 The `SandboxProvider` seam stays at four calls (create, exec, files, destroy), as A7 proposed. Railway Sandboxes remain a drop-in fallback if Kevin accepts open egress (D2).
 
 ## 6. Proof-of-sandboxing tests
 
-Run these against the real hosted configuration. Each test passes only if the stated outcome is observed and logged. Tests are run as a generated `postinstall`, as an agent `exec`, and as text injected into a kid prompt.
+Run these against the real hosted configuration. Each test passes only if the stated outcome is observed and logged. Tests are run as a generated `postinstall`, as an agent `exec`, and as text injected into a user prompt.
 
 **Escape and isolation**
 1. `uname -a`, `/proc/cpuinfo` and `dmesg` show a guest kernel that differs from the orchestrator's.
@@ -196,7 +204,7 @@ Run these against the real hosted configuration. Each test passes only if the st
 
 **Write boundary**
 11. A patch touching `platform/`, `.github/workflows/`, `games/<otherId>/`, a symlink pointing outside the game, `../` paths, or a file over the size limit is rejected by the commit service, with nothing pushed.
-12. A patch containing a fake secret or a child's name from the profile is rejected by the scan.
+12. A patch containing a fake secret or a user's real name from the profile is rejected by the scan.
 13. The agent has no git remote credentials. `git push` from the VM fails.
 
 **Resources and cancellation**
@@ -217,24 +225,28 @@ Run these against the real hosted configuration. Each test passes only if the st
 - C: A new backend that runs the Claude Agent SDK in the orchestrator with built-in tools disabled and MCP tools proxied to the VM.
 - **Recommended: B.** It keeps the harness quality Kevin's own aiur already gets, and a leaked token is worth at most one job's budget.
 - *Consequences:* the model proxy, the transport and the egress allowlist entry for the proxy all become aiur or Game Maker work. A is the cheap fallback if B slips.
+- **Kevin's pick:** A (awaiting confirmation). It drops Claude Code and Codex from hosted builds, and the Kimi, DeepSeek and OpenRouter terms are not yet checked. C is off (build nothing new).
 
 **D2. Is a network allowlist required for V1, or is "no secrets inside" enough?**
 - A: Allowlist required → E2B (or Cloudflare).
 - B: Open egress accepted → Railway Sandboxes, one vendor.
-- **Recommended: A.** With open egress, T3 and T7 succeed: an injected prompt can still send kid text and private context out, or attack third parties. The spec asks for a network boundary.
-- *Consequences:* a second vendor and processor for A8 (DPA, children's data), plus about $0.04/build or E2B Pro at $150/month if 20 concurrent or 1-hour sessions become limits.
+- **Recommended: A.** With open egress, T3 and T7 succeed: an injected prompt can still send user text and private context out, or attack third parties. The spec asks for a network boundary.
+- **Kevin's pick:** A.
+- *Consequences:* a second vendor and processor for A8 (a DPA; children's data only from V3), plus about $0.04/build or E2B Pro at $150/month if 20 concurrent or 1-hour sessions become limits.
 
 **D3. Can generated games use the microphone directly?**
 - A: No. Voice stays in the host app, and games get only derived events over the bridge. The iframe has an opaque origin (no `allow-same-origin`).
 - B: Yes. Add `allow-same-origin` and `allow="microphone"`, which is safe only on a separate site, and per-game subdomains are needed to stop games reading each other's storage.
 - **Recommended: A.** It is the stronger boundary, keeps kid audio out of untrusted code, and saves already go through the backend.
 - *Consequences:* a "shout to jump" mechanic needs a host-provided voice event API. Revisit in V2.
+- **Kevin's pick:** B, games may use the mic directly (V1, adults). Per-game subdomains become a V1 need (D4). The question is reopened for child accounts in V3, where A's "keeps kid audio out of untrusted code" argument applies again.
 
 **D4. Games origin.**
 - A: A separate custom domain.
 - B: A second `*.netlify.app` site.
 - **Recommended: A.** Both are separate sites [V], but a custom domain survives a host change and supports per-game subdomains later.
 - *Consequences:* one domain purchase, which is Kevin's spend to approve.
+- **Kevin's pick:** A.
 
 ## 8. Uncertainty
 
@@ -244,5 +256,5 @@ Run these against the real hosted configuration. Each test passes only if the st
 - **[I]** That Claude Code and Codex run correctly in an E2B template behind a model proxy (`ANTHROPIC_BASE_URL`-style override) is not tested here. D1-B depends on it.
 - **[I]** Whether the agent can read the token file is inferred from code paths, not demonstrated. It is irrelevant once hosted mode mounts nothing.
 - **[U]** iPad Safari behaviour for audio unlock, gamepad focus, iframe fullscreen, mic prompts and ITP storage expiry needs a real-device test (§6 test 19).
-- **[U]** Vendors' children's-data terms (A8) were not reviewed. Daytona's and Cloudflare's isolation internals rely on vendor statements.
+- **[U]** Vendors' children's-data terms (A8) were not reviewed. This matters from V2 (teens) and V3 (children). Daytona's and Cloudflare's isolation internals rely on vendor statements.
 - Not checked: the GitHub plan matrix for private-repo push rulesets; the Railway SDK source; Fly per-second prices.
