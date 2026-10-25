@@ -2,6 +2,10 @@
 
 Research agent A8, v0.3 research pass. Access date for all sources: **2026-10-21**, unless a row says otherwise.
 
+> **Version scope (2026-10-25):** Read through `docs/spec/release-plan.md`. V1 is adults only (18+), so each vendor's ordinary adult terms apply and no minors' rules bind V1. V1: §0 items 1 and 5, the credentials route (§8), the asset licence table (§7), IP guidance (§6), adult rows of the retention map (§5) and the leakage checklist. V2 (teens): the under-18 vendor clauses in §2–3. V3 (child accounts): COPPA (§4), parental consent, child-voice and child-upload rules.
+> Kid-first framing ("the primary child device", children as the main users) is superseded: this is a general game maker.
+> Superseded where they differ: vendor terms and legal posture → **B9** (vendor table by age band) and **B12** (asset sources, bundles, licensing); asset strategy → **B11** (three tiers: installed packs, free online sources, agent-made; `gm` CLI). Drawing tools and paper capture are V2; image upload with EXIF stripping is V1.
+
 > **This is research, not legal advice.** Below, "verified" means a quote was read on the vendor's or regulator's current page on the access date. It does not mean the product complies with anything. The items in §9 need qualified counsel or written vendor confirmation.
 
 ---
@@ -9,9 +13,9 @@ Research agent A8, v0.3 research pass. Access date for all sources: **2026-10-21
 ## 0. Bottom line (read this first)
 
 1. **Running the service on Kevin's Claude Pro/Max subscription is not permitted.** Anthropic's Claude Code legal page says it directly. The supported routes are an **Anthropic API key** under the Commercial Terms (Kevin pays; this is allowed), or each end user signing in with their own subscription inside an *unmodified* Claude Code binary. Children cannot do the second: consumer accounts require age 18+.
-2. **Every speech, image, music and 3D vendor checked is closed by default to services likely to be used by under-18s**, except Anthropic and OpenAI. Those two allow it with extra safeguards; OpenAI additionally requires **approved Zero Data Retention** before any under-13 personal data is sent. Google (Gemini API, Vertex, and so Lyria and YouTube video understanding) **prohibits** it outright. ElevenLabs prohibits it **unless approved in writing**. fal.ai requires end users to be 18+. Deepgram has no child clause but trains on content by default.
-3. **COPPA very likely applies to child accounts.** The inviter marking an account as a child's is *actual knowledge*. The amended rule has been enforceable since **2026-04-22**. It requires a written retention policy, separate consent for disclosure to third parties, and a written security program. Whether a free, family-run service counts as "operated for commercial purposes" is a question for counsel. Design as if it does.
-4. **Process locally, never on vendors, for anything that captures a child.** That covers drawings, paper photos, background removal and EXIF stripping (browser canvas plus jscanify/OpenCV.js, or rembg on our own server). Fixed-language dictation can use the browser's *on-device* recognition where available. The fewer vendors that touch child data, the fewer approvals are needed.
+2. **(V2, teens / V3)** **Every speech, image, music and 3D vendor checked is closed by default to services likely to be used by under-18s**, except Anthropic and OpenAI. Those two allow it with extra safeguards; OpenAI additionally requires **approved Zero Data Retention** before any under-13 personal data is sent. Google (Gemini API, Vertex, and so Lyria and YouTube video understanding) **prohibits** it outright. ElevenLabs prohibits it **unless approved in writing**. fal.ai requires end users to be 18+. Deepgram has no child clause but trains on content by default.
+3. **(V3)** **COPPA very likely applies to child accounts.** The inviter marking an account as a child's is *actual knowledge*. The amended rule has been enforceable since **2026-04-22**. It requires a written retention policy, separate consent for disclosure to third parties, and a written security program. Whether a free, family-run service counts as "operated for commercial purposes" is a question for counsel. Design as if it does.
+4. **(V3)** **Process locally, never on vendors, for anything that captures a child.** *(V1 keeps local EXIF stripping on uploads as general privacy hygiene.)* That covers drawings, paper photos, background removal and EXIF stripping (browser canvas plus jscanify/OpenCV.js, or rembg on our own server). Fixed-language dictation can use the browser's *on-device* recognition where available. The fewer vendors that touch child data, the fewer approvals are needed.
 5. **Asset-first is legally clean.** Kenney, Quaternius, KayKit and VCSL are CC0. Phaser, Three.js, Tone.js, BeepBox, Colyseus and Better Auth are MIT. Watch two traps: smplr's *sample* repos have mixed or no licenses (one is GPL-2.0), and TRELLIS depends on NVIDIA's **non-commercial** nvdiffrast.
 
 ---
@@ -53,6 +57,8 @@ Research agent A8, v0.3 research pass. Access date for all sources: **2026-10-21
 
 ## 3. Vendor feasibility matrix for child and mixed-age use
 
+> **V1 reading:** the "Child-account path" column and every "blocked/exclude" verdict that rests on under-18 users do not bind an adults-only V1. ElevenLabs and OpenAI are V1 voice providers under adult terms (decision log). The Google and fal.ai exclusions existed because of minors; the decision log still keeps them excluded until each confirms in writing. Those rows apply again for teens **(V2)** and child accounts **(V3)**; see B9.
+
 Legend: **OK** = permitted with obligations; **Approval** = needs written vendor approval; **No** = prohibited by default; **Adult-only** = acceptable only in flows no child can reach.
 
 | Vendor / product | Child-account path | Retention / training default | Zero-retention route | Verdict |
@@ -71,11 +77,13 @@ Legend: **OK** = permitted with obligations; **Approval** = needs written vendor
 | Browser Web Speech API | — | Default is server-based: "Your audio is sent to a web service for recognition" (MDN). `processLocally = true` keeps audio and text on device once a language pack is installed (https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API/Using_the_Web_Speech_API) | n/a | **Chrome:** use `processLocally` with `available()`/`install()`, and **never fall back to cloud automatically** for child accounts. **Safari/iPad:** `webkitSpeechRecognition` uses Apple's Siri/Dictation service and needs a network (developer reports and WebKit bug 225298, *secondary*). That is a third-party disclosure we cannot control, so treat it as a vendor flow. |
 | Pipecat | Orchestration only (BSD-2-Clause) | — | — | Neutral. Each provider it connects to brings its own row in this table. |
 
-**Implication for iPad, the primary child device:** no free, verified on-device dictation path exists in Safari. Choices: (a) OpenAI Transcribe with approved ZDR; (b) a self-hosted open model on our server (for example Whisper-class; not evaluated here, and A-voice owns that); (c) the parent records consent covering Apple dictation, with counsel's view on whether that is our "disclosure".
+**(V3)** **Implication for iPad, the primary child device:** no free, verified on-device dictation path exists in Safari. Choices: (a) OpenAI Transcribe with approved ZDR; (b) a self-hosted open model on our server (for example Whisper-class; not evaluated here, and A-voice owns that); (c) the parent records consent covering Apple dictation, with counsel's view on whether that is our "disclosure".
 
 ---
 
-## 4. COPPA applicability to this product (analysis; needs counsel)
+## 4. COPPA applicability to this product (analysis; needs counsel) (V3)
+
+*V1 has no minors' data. Its only COPPA-related duty is the neutral age screen that turns away under-18 sign-ups (B9).*
 
 - **Operator test.** "Operator" requires a service "operated for commercial purposes involving commerce among the several States" (§312.2). Kevin is in a different state from the children, and the spec says this is "a general product, not only a family project". Whether a free family deployment is commercial is **not settled by the text**; counsel should decide. Recommendation: **design to comply**, because the design cost is small at this scale and the product is meant to grow.
 - **Actual knowledge.** §312.3 covers "any operator that has actual knowledge that it is collecting or maintaining personal information from a child". The invite flow's **child-account flag is actual knowledge** for that account, so mixed-audience status does not help there. For accounts *not* flagged, the mixed-audience definition requires age screening "in a neutral manner that does not default to a set age". Ask every invitee's age neutrally, or have the inviting adult attest to it.
@@ -95,23 +103,23 @@ Principles: **process locally first**, keep only what is needed to fulfil the pu
 |---|---|---|---|---|---|
 | Transient mic audio (dictation) | On device if possible; else approved STT vendor | Only an approved, zero-retention vendor | **Not stored**; held in memory until the transcript returns | Never | Never |
 | Voice-chat media (multiplayer, post-MVP) | WebRTC peer-to-peer or SFU, not recorded | SFU provider if used (separate review) | **Never recorded** | Never | Never |
-| Transcripts / raw prompts | Server | Model vendor (Anthropic API) | 30 days in private job context, then summarized into a non-identifying design brief; parent can delete | **No**: only the agent-written spec/brief, reviewed for PII | Brief only, if the creator allows |
+| Transcripts / raw prompts | Server | Model vendor (Anthropic API) | 30 days in private job context, then summarized into a non-identifying design brief; parent can delete (V3; the owner deletes in V1) | **No**: only the agent-written spec/brief, reviewed for PII | Brief only, if the creator allows |
 | Drawings (canvas) | Browser | No; the PNG goes to our storage | Keep as an **original-in-private-context** while the game exists; derived sprites are game assets | Derived sprite yes (if published); original **no** by default | Derived asset yes; original no |
 | Camera photos of paper | Browser: jscanify/OpenCV.js finds and crops; canvas re-encode **drops EXIF/GPS** | No | **Raw photo never uploaded**; only the crop is kept (spec §5.9) | Crop treated as a drawing | As drawing |
 | Photos containing faces / real people | Should not be accepted | — | Local face check (on-device face detection, not evaluated) → reject or blur before upload | Never | Never |
 | Background removal for sprites | rembg on our Railway worker (u2net/isnet Apache-2.0, BiRefNet MIT) or in-browser | No | As derived asset | Yes | Yes |
 | Generated assets (AI) | Vendor | Adult-only vendors or Anthropic-written procedural assets | Lifetime of game; keep a provenance record | Yes, with a provenance manifest | Yes |
-| User-recorded dialogue / SFX (child voice) | Browser record; server stores | No vendor; **no voice cloning ever** (ElevenLabs bars minors' voices for models) | Opt-in, with **separate parental consent**; deleted with the game or on request; flagged `contains_child_voice` | **Default private**: a published game swaps in TTS/placeholder unless the parent opts in | **Not copied** into others' forks |
+| **(V3)** User-recorded dialogue / SFX (child voice) | Browser record; server stores | No vendor; **no voice cloning ever** (ElevenLabs bars minors' voices for models) | Opt-in, with **separate parental consent**; deleted with the game or on request; flagged `contains_child_voice` | **Default private**: a published game swaps in TTS/placeholder unless the parent opts in | **Not copied** into others' forks |
 | Gameplay previews / screenshots / video | Our headless playtest | No | Latest N per build; 30 days | Thumbnails of game art only; no webcam, no names | No |
 | Diagnostics / bug bundles | Server | No (unless an error tracker; review) | 30 days; scrub transcripts, names, voice | Never | Never |
-| Analytics | Our DB, first-party only | **No third-party analytics SDKs on child accounts** (avoids disclosure and persistent identifiers going to third parties) | Raw events 90 days, then aggregates | Never | Never |
+| Analytics | Our DB, first-party only | **No third-party analytics SDKs on child accounts (V3)** (avoids disclosure and persistent identifiers going to third parties) | Raw events 90 days, then aggregates | Never | Never |
 | Cloud saves | Our DB | No | Until the game or account is deleted | Never | Never (a fork starts fresh) |
-| Account and supervision records, consents | Our DB | Auth provider only if hosted (Better Auth is self-hosted) | Account lifetime; **consent records kept** for the vendor duty (V2) and as COPPA evidence | Never | Never |
+| Account and supervision records, consents (supervision and consents V3) | Our DB | Auth provider only if hosted (Better Auth is self-hosted) | Account lifetime; **consent records kept** for the vendor duty (V2) and as COPPA evidence | Never | Never |
 | Provider credentials | Secret store | — | — | Never | Never |
 
 **Metadata leakage checklist for public game source:** git author name and email (use a pseudonymous per-creator bot identity, never a child's real name or email); asset filenames ("emmas-dog.png"); EXIF in any committed image (re-encode at ingest); comments or changelogs quoting raw child prompts; save files; the timezone in commit timestamps (minor). The repo layout is decided elsewhere (R07). This list is the input A8 hands to it.
 
-**Image-generation candidates, as a group:** none of fal, Meshy or Google can take child-originated inputs. OpenAI gpt-image is the only checked vendor whose child terms allow it (with approved ZDR for under-13 personal data; a drawing of a dragon is arguably not personal information, but a child's handwriting or name on paper might be). The safest MVP is **Kenney/Quaternius/KayKit assets plus local cleanup of the child's own drawing**, with AI restyling left for later.
+**Image-generation candidates, as a group:** none of fal, Meshy or Google can take child-originated inputs. OpenAI gpt-image is the only checked vendor whose child terms allow it (with approved ZDR for under-13 personal data; a drawing of a dragon is arguably not personal information, but a child's handwriting or name on paper might be). The safest MVP is **Kenney/Quaternius/KayKit assets plus local cleanup of the child's own drawing**, with AI restyling left for later. *(V1 now: packs per B11, uploads with EXIF stripped; restyling and drawing tools are V2.)*
 
 ---
 
@@ -158,29 +166,29 @@ Tetris v. Xio makes clear that "rules are free" is not a safe harbor: the *expre
 
 **Build credentials (§8.5).** *Option A (recommended):* an Anthropic Console org with an API key held by the Railway backend and aiur. Kevin pays, Commercial Terms apply, no training on content; request ZDR (availability not guaranteed). *Option B:* bring-your-own key. Adults may supply their own Anthropic API key, which the Claude Code legal page permits ("the resulting usage is billed to the key owner"). *Option C:* per-user subscription sign-in inside an unmodified hosted Claude Code. This is allowed for adults through Anthropic's own flow only, and impossible for children. Never collect or store tokens. **Not allowed:** Kevin's Max OAuth token serving other users. aiur's provider-credential layer (R06) should make "API key" the only kind available for multi-user jobs.
 
-**Voice (R03).** MVP: text-first with on-device dictation where supported. Child voice to a vendor only after (1) vendor approval or ZDR and (2) separate parental consent. Kid-facing TTS is lower risk in data terms (only agent text is sent), but ElevenLabs still requires approval for "experiences directed at" minors. OpenAI TTS falls under the under-18 guidance.
+**Voice (R03).** *Superseded for V1:* adult voice uses the aiur `voice_converse` package with ElevenLabs first and OpenAI second (B2). The rest of this paragraph is **(V2, teens / V3)**. MVP: text-first with on-device dictation where supported. Child voice to a vendor only after (1) vendor approval or ZDR and (2) separate parental consent. Kid-facing TTS is lower risk in data terms (only agent text is sent), but ElevenLabs still requires approval for "experiences directed at" minors. OpenAI TTS falls under the under-18 guidance.
 
 **Costs.** Vendor list prices were not retrieved in this pass. The spec defers pricing, and other agents own cost (R15). One stated figure: the Gemini YouTube URL feature is "available at no charge" while in preview. Legal review and vendor Enterprise plans (ElevenLabs ZRM, Meshy retention control) are the likely non-trivial costs. **No quotes were obtained.**
 
-**Output-quality evaluation (R16).** Run the local drawing pipeline on 20 consented household drawings, *offline and never sent anywhere*. Measure crop success rate and background-removal edge quality on a 1–5 scale, judged by Kevin and the child.
+**Output-quality evaluation (R16).** Run the local drawing pipeline on 20 consented household drawings, *offline and never sent anywhere*. Measure crop success rate and background-removal edge quality on a 1–5 scale, judged by Kevin and the child. *(Capture UI is V2; use adult drawings, or children's only in V3.)*
 
 ---
 
 ## 9. Items needing written vendor approval or qualified legal review
 
 **Written vendor approval or contract**
-1. ElevenLabs: written approval under "Use by and for Minors", the approval route (unknown), whether platform-voice TTS alone needs it, and the cost of Enterprise ZRM.
-2. OpenAI: ZDR approval for Realtime/Transcribe/TTS/gpt-image on the project, plus written confirmation of what OpenAI counts as "personal data of children under 13" in transcribed speech.
-3. Anthropic: ZDR availability for the org; confirmation that a hosted aiur running Claude Code or the Agent SDK *with Kevin's API key* for invited family users is fine under the Commercial Terms (it appears permitted; confirm in writing because the service includes minors).
-4. Google: written confirmation that adult-only, offline reference research (Gemini video understanding run by Kevin) is outside "part of a … service likely to be accessed by individuals under 18". Otherwise drop Google.
-5. Any STT fallback (AssemblyAI or Speechmatics): DPA, retention, training opt-out, and acceptance of child audio.
+1. **(V2, teens)** ElevenLabs: written approval under "Use by and for Minors", the approval route (unknown), whether platform-voice TTS alone needs it, and the cost of Enterprise ZRM.
+2. OpenAI: ZDR approval for Realtime/Transcribe/TTS/gpt-image on the project, plus written confirmation of what OpenAI counts as "personal data of children under 13" in transcribed speech **(V3)**. ZDR is still needed before adult image restyling (V2).
+3. Anthropic: ZDR availability for the org; confirmation that a hosted aiur running Claude Code or the Agent SDK *with Kevin's API key* for invited family users is fine under the Commercial Terms (it appears permitted; confirm in writing because the service includes minors; V1 has no minors, but the hosting-clause question stays open in the decision log).
+4. **(Minors-driven; moot for an adults-only V1 under B9, but the decision log keeps Google excluded until confirmed)** Google: written confirmation that adult-only, offline reference research (Gemini video understanding run by Kevin) is outside "part of a … service likely to be accessed by individuals under 18". Otherwise drop Google.
+5. Any STT fallback (AssemblyAI or Speechmatics): DPA, retention, training opt-out, and acceptance of child audio **(V3)**.
 
 **Qualified legal review**
-6. Whether a free, invite-only, family-run service is a COPPA "operator … for commercial purposes", and whether that changes if it opens to other families.
-7. Who can give verifiable parental consent when the inviter is an uncle; which consent method to use.
-8. Whether sending child audio or images to a model vendor is a "disclosure" needing separate consent, or "integral"; whether §312.5(c)(9) can ever apply to signed-in children.
+6. **(V3)** Whether a free, invite-only, family-run service is a COPPA "operator … for commercial purposes", and whether that changes if it opens to other families.
+7. **(V3)** Who can give verifiable parental consent when the inviter is an uncle; which consent method to use.
+8. **(V3)** Whether sending child audio or images to a model vendor is a "disclosure" needing separate consent, or "integral"; whether §312.5(c)(9) can ever apply to signed-in children.
 9. Safari/Apple dictation as a third-party flow.
-10. The publication model for child-authored content (drawings, voice) in public repositories.
+10. **(V3)** The publication model for child-authored content (drawings, voice) in public repositories.
 11. Applicable state laws for the households' states; the UK AADC only if UK users are invited.
 12. IP: a review of the agent rules in §6 against the full Tetris v. Xio opinion and later case law (the opinion was **not read** here).
 
@@ -189,9 +197,9 @@ Tetris v. Xio makes clear that "rules are free" is not a safe harbor: the *expre
 ## 10. Next steps
 
 1. Kevin creates an Anthropic Console org and API key. Keep OAuth only for his own dev sessions.
-2. Draft three short documents now (they are cheap): a **COPPA-style online notice with the retention table from §5**, a parental-consent flow with per-vendor toggles, and a one-page security program.
-3. Build the MVP creative-input path entirely locally: canvas drawing, camera capture → jscanify crop → canvas re-encode (EXIF gone) → upload of the crop only → rembg/BiRefNet on our worker.
-4. Ship text-first; enable on-device Chrome dictation; gate iPad voice on decision D3.
+2. **(V3)** Draft three short documents now (they are cheap): a **COPPA-style online notice with the retention table from §5**, a parental-consent flow with per-vendor toggles, and a one-page security program.
+3. Build the creative-input path entirely locally (V1: image upload with EXIF stripped; canvas drawing and camera capture are V2): canvas drawing, camera capture → jscanify crop → canvas re-encode (EXIF gone) → upload of the crop only → rembg/BiRefNet on our worker.
+4. ~~Ship text-first; enable on-device Chrome dictation; gate iPad voice on decision D3.~~ *Superseded for V1:* ElevenLabs/OpenAI voice under adult terms (B2); D3 is V3.
 5. Ingest assets through an allowlist with provenance manifests; drop smplr's unlicensed samples and use VCSL.
 6. Re-fetch the OpenAI usage policies (403 here) and the Anthropic AUP after 12 Nov 2026.
 
@@ -200,11 +208,11 @@ Tetris v. Xio makes clear that "rules are free" is not a safe harbor: the *expre
 ## 11. Decisions for Kevin
 
 - **D1 — Credentials:** confirm an API-key-only backend (Kevin-paid) and drop the subscription-backed idea. BYOK for adults: yes or no?
-- **D2 — Consent authority:** for the niece and nephew, will their **parents** create or approve the child accounts (needed for verifiable consent), with Kevin as admin only?
-- **D3 — Child voice in MVP:** (a) text and on-device only, with no voice on iPad yet; (b) pursue OpenAI ZDR approval; (c) pursue ElevenLabs written approval. A and B can run in parallel.
+- **(V3)** **D2 — Consent authority:** for the niece and nephew, will their **parents** create or approve the child accounts (needed for verifiable consent), with Kevin as admin only?
+- **(V3)** **D3 — Child voice in MVP:** *(Decided for V3: self-hosted provider for child voice.)* (a) text and on-device only, with no voice on iPad yet; (b) pursue OpenAI ZDR approval; (c) pursue ElevenLabs written approval. A and B can run in parallel.
 - **D4 — AI art in MVP:** asset packs plus local drawing cleanup only (recommended), or wait for an approved generator?
-- **D5 — Child-recorded dialogue and SFX:** allowed in private games only, or also publishable with parent opt-in?
-- **D6 — Legal budget:** engage counsel for §9 items 6–8 before inviting any family beyond Kevin's own, or at all?
+- **(V3)** **D5 — Child-recorded dialogue and SFX:** allowed in private games only, or also publishable with parent opt-in?
+- **D6 — Legal budget:** engage counsel for §9 items 6–8 before inviting any family beyond Kevin's own, or at all? *(Decided: a lawyer reviews before any outside family joins; items 6–8 are V3.)*
 - **D7 — Google:** drop it entirely, or keep it as an adult-only research tool pending item 4?
 
 *Not checked:* full OpenAI usage policies (403), the full Tetris opinion, bria-rmbg's model license, AssemblyAI/Speechmatics full terms, Apple's Web Speech data handling (secondary sources only), US state laws, and vendor prices.

@@ -2,6 +2,10 @@
 
 Spikes covered: **R06** (aiur lifecycle, job orchestration, provider credentials), **R15** (unified costs, quotas, caching, limits), **R03** (reusable one-way and two-way voice package). Research date: 2026-10-21. Read-only inspection; nothing in aiur was modified, run, or deployed.
 
+> **Version scope (2026-10-25):** Read through `docs/spec/release-plan.md`. V1 (adults only, 18+): §3–9 and §11–16 (aiur intake, cost ledger, admission and limits) and the dictation and two-way voice boundary in §10. V2: human voice chat (with multiplayer). V3: anything about children's voice, data or consent.
+> Kid-first framing ("the kid", children's data deciding the provider) is superseded: this is a general game maker.
+> Superseded where they differ: credentials and funding → **B1** (API keys via hosted aiur profiles; no subscriptions); voice stack and provider choice → **B2** (aiur `voice_converse` package, ElevenLabs first, OpenAI second); aiur integration, budgets and bug routing → **B8** (and B13 for hosted aiur on Railway).
+
 Status labels used below: **Verified** (read in code or docs at the commit cited), **Inferred** (my reading of verified facts), **Unverified** (not checked, or from a secondary source), **Proposal** (a recommendation, not a decision).
 
 ---
@@ -89,7 +93,7 @@ The legal and vendor questions are out of scope here and belong to the sibling l
 | Stage | aiur today | Status | Notes / gap |
 |---|---|---|---|
 | **Request intake** | Issue labelled `agent:todo` (GitHub, Linear). `aiur --todo`; label writes by trusted accounts or a GitHub App. | **Partial** | No job-create API. Game Maker would create an issue through a GitHub App. Dispatch latency is bounded by polling (default 120 s, stretched 5× when idle) unless webhooks are proven. |
-| **Clarify** (talk with the kid) | Agents can raise *Commands*: durable questions with options, answerable via `POST /api/v1/decisions/:id/decide`. Native question capture (MP-E2) is planned. | **Partial / wrong shape** | Commands come up mid-run, which is too slow and too costly for pre-build narrowing. Clarification belongs in Game Maker as a direct cheap-model call (§8). |
+| **Clarify** (talk with the creator) | Agents can raise *Commands*: durable questions with options, answerable via `POST /api/v1/decisions/:id/decide`. Native question capture (MP-E2) is planned. | **Partial / wrong shape** | Commands come up mid-run, which is too slow and too costly for pre-build narrowing. Clarification belongs in Game Maker as a direct cheap-model call (§8). |
 | **Specialist design** (parallel, dynamic) | Build Orders: typed members, lanes, phases, dependencies, complexity routing. The `aiur-build` skill produces planning packs. Complexity labels route model and effort. | **Partial** | Every member is a PR-producing ticket. Design specialists that only produce documents would have to commit design files, which is awkward but workable. Picking which specialists to use, and the cost of combining their work, is not automated. |
 | **Plan → tasks** | Build queue with `blocked_by`, stacked PRs, optimistic dependents, start-trigger ladder. | **Exists** | Strong. More than MVP needs. |
 | **Build** | Per-issue worktree. Claude/Codex/OpenAI-compatible agents. Turn loop, retries, rate-limit fallback, resume of session handles. | **Exists** | Needs a Linux host with tmux, git, the agent CLIs, and bubblewrap for Codex. Railway's support for those is Unverified (R05). |
@@ -97,7 +101,7 @@ The legal and vendor questions are out of scope here and belong to the sibling l
 | **Draft / preview** | Agent opens a (draft) PR; `human-review` state. | **Partial** | "Draft" in Game Maker means a playable preview. aiur gives a PR head; Game Maker must build and serve that head as a preview (R08). |
 | **Publish** | Operator merge command with merge policy (full CI, premerge checks). `done` on merge. No self-merge by agents. | **Partial** | Creator-controlled Publish should be Game Maker's own deterministic action (merge plus release tag plus deploy), not an aiur step. aiur's policy that agents never self-merge fits that. |
 | **Repair / bug button** | Rework loop, PR review findings checklist, main-watch fixer tickets. | **Exists** | A bug report becomes a new issue (deterministic) and goes through the same pipeline. |
-| **Progress board** | `/api/v1/state`, `/api/v1/:issue`, `/api/v1/:issue/events`, message-bus `ticket.<id>.agent.progress`, Units projection, `aiur units --json`. | **Exists (operator-shaped)** | Game Maker polls or subscribes and turns this into kid-friendly cards. All of it sits behind dashboard Basic auth. |
+| **Progress board** | `/api/v1/state`, `/api/v1/:issue`, `/api/v1/:issue/events`, message-bus `ticket.<id>.agent.progress`, Units projection, `aiur units --json`. | **Exists (operator-shaped)** | Game Maker polls or subscribes and turns this into creator-friendly cards. All of it sits behind dashboard Basic auth. |
 | **Cost per job** | `mix aiur.cost_report --ticket N --json`, `--build SLUG`. Ledger and aggregate on disk. Cost shown in the LiveView UI. | **Partial** | No JSON HTTP endpoint for cost. The mix task needs the source tree. |
 | **Budgets / limits** | Concurrency (global, per state, per SSH host), `max_turns`, `max_turns_by_complexity`, `max_agent_duration_minutes` (default 60), `turn_timeout_ms`, `stall_timeout_ms`, no-op-turn bound, `max_dispatches_per_ticket`, retries, provider usage windows. | **Partial** | No per-tenant concurrency and no spend reservation or cap. Game Maker must do admission control. |
 | **Experiments / benchmarks** | `aiur experiments` (pre-registered A/B or before/after over recorded attributes such as backend, model, complexity) plus the `aiur-experiment` skill. | **Exists** | Directly useful for the R15 heavy-versus-light benchmark. |
@@ -260,14 +264,14 @@ Layered, with Game Maker as the primary gate:
 | **Dictation** (describe a game, bug report, NL edit) | **Yes** | Browser mic → PCM16 16 kHz → Game Maker relay | Streaming STT only | Push-to-talk; the user reviews the text before submitting | Live partial and final text | None | audio-seconds | Shared client + GM TypeScript relay |
 | **Live agent conversation** (clarify by voice, editor coaching) | Later | Same | Speech-to-speech *or* cascade | Barge-in, eagerness, idle timeout | Agent text always shown (§5.10); highlighting where timing exists | Briefing ≤4k tokens; optional costed fork | minutes + tokens | `voice_converse` (Elixir) *or* a GM TS host speaking the same wire protocol |
 | **Narrated in-game dialogue** | Later / optional | n/a | TTS at **build time**, stored as assets keyed by `hash(text, voice, model, settings)` | n/a (playback) | Read-along from stored timestamps | Script lines | characters | Game build pipeline + Engine SDK player |
-| **User-recorded voice assets** | Later | MediaRecorder upload | None (optional moderation) | n/a | Optional STT for captions | n/a | storage | Asset service (R16). A child's voice is sensitive personal data and needs consent. |
+| **User-recorded voice assets** | Later | MediaRecorder upload | None (optional moderation) | n/a | Optional STT for captions | n/a | storage | Asset service (R16). A child's voice is sensitive personal data and needs consent **(V3)**. |
 | **Human voice chat** | Later (with multiplayer) | WebRTC | None (not AI) | Human | Optional | n/a | bandwidth/SFU | Multiplayer runtime (R12). **Not part of the voice-AI package.** |
 
 **The reusable boundary is the wire protocol plus the browser client, not one server language.**
 - Mirror `Aiur.Voice.Transcriber`'s events (`partial`, `final`, `error`, `closed`) and `voice_converse`'s planned frame codec. Add a `usage` frame `{provider, model, audio_ms|chars|tokens, cost_basis}` and an `alignment` frame.
 - Package the browser side (mic permission UX, AudioWorklet capture, echo-cancelled playback through a media element, caption and highlight renderer) as an npm package. Game Maker and aiur's dashboard could both use it. aiur's plan currently ships one JS file in `priv/` and defers the npm package (E6-OQ16).
 - For MVP, Game Maker runs a **small TypeScript relay** (one websocket route that holds the vendor key) so that dictation never waits on MP-E6.
-- Pick the provider only after the legal agent rules on children's data. ElevenLabs is blocked unless written approval is obtained. Candidates to evaluate later: OpenAI, Google, Deepgram, and Azure STT (all Unverified for under-13 terms).
+- ~~Pick the provider only after the legal agent rules on children's data.~~ *Superseded for V1 (adults only):* ElevenLabs first, OpenAI second, under ordinary adult terms (B2; decision log). ElevenLabs written approval matters only for teens **(V2, teens)**; under-13 terms and self-hosted child voice are **(V3)**. Original note: ElevenLabs is blocked unless written approval is obtained. Candidates to evaluate later: OpenAI, Google, Deepgram, and Azure STT (all Unverified for under-13 terms).
 - Do not use the browser Web Speech API by default. On Chrome it sends audio to Google, and its retention is not under Game Maker's control (Unverified for current terms).
 
 ## 11. Caching and model tiers — hypotheses and a bounded benchmark
@@ -321,10 +325,10 @@ Cache writes cost 1.25× input with the 5-minute TTL and 2× with the 1-hour TTL
 ## 13. Licensing and data questions
 
 - **Licences:** aiur is Apache-2.0 (`LICENSE`, `NOTICE`); `@aiur/contracts` and `aiur-style` are MIT. `voice_converse` declares no licence in its `mix.exs`, so whether it can be reused standalone is **Unverified**.
-- **Children's text reaching agents:** aiur sends ticket bodies to coding-agent providers, and transcripts and session files land on the worker disk and in provider retention.
+- **Children's text reaching agents** (child data is **V3**; the same minimisation applies to adult creators' text in V1): aiur sends ticket bodies to coding-agent providers, and transcripts and session files land on the worker disk and in provider retention.
   - What tickets may contain: R04 and R10 must define the minimum. Use no real names, and never put raw audio in tickets.
   - The game repository is GitHub-hosted, so issue text and PR bodies are stored by GitHub. Private-repository requirements belong to R07.
-- **Voice:** aiur's voice rules (key on the server, no audio stored, provider-side storage off where possible) are a good baseline. Vendor terms for under-13 and under-18 users decide the provider (legal agent).
+- **Voice:** aiur's voice rules (key on the server, no audio stored, provider-side storage off where possible) are a good baseline. Vendor terms for under-13 **(V3)** and under-18 **(V2, teens)** users decide the provider for those bands; V1 uses adult terms (B2).
 - **Subscription for multi-user use:** see §5. Treat it as blocked until the legal agent rules.
 
 ## 14. Stack integration (TypeScript ↔ Elixir, Railway)
@@ -356,11 +360,11 @@ These figures are wide hypotheses for setting the size of reservations. Replace 
   - whether pause and cancel take effect within 10 seconds;
   - whether cost-report JSON can be joined to the job.
 - **Cost model:** check that the Game Maker ledger reconciles with `aiur.cost_report` to within 1% for API-key runs.
-- **Voice MVP:** word error rate on 30 adult-recorded kid-style prompts (no children's audio until legal approval), time from audio end to final text, and microphone-permission success on iPad Safari and desktop Chrome.
+- **Voice MVP:** word error rate on 30 adult-recorded prompts (kid-style prompts and any children's audio are **V3**), time from audio end to final text, and microphone-permission success on iPad Safari and desktop Chrome.
 
 ## 17. Next steps
 
-1. Legal agent: rule on subscription-backed hosted use and on STT providers for children.
+1. Legal agent: rule on subscription-backed hosted use (answered by B1: API keys only) and on STT providers for children **(V3)**.
 2. R07: confirm the games-monorepo shape (one aiur daemon) versus per-game repositories.
 3. File small upstream aiur tickets for Kevin to approve:
    - `GET /api/v1/usage?ticket=`;

@@ -6,16 +6,20 @@
 **Status:** research only. I ran no benchmark and no prototype. Every number below is either cited, a labeled estimate, or a proposal to measure.
 **Sibling reports:** A4 covers the SDK and editor contract, A5 covers saves and releases, and A2/A3 cover design-expertise skills. This report refers to them and does not repeat them.
 
+> **Version scope (2026-10-25):** Read through `docs/spec/release-plan.md`. V1 (adults only, 18+): §3–5 and §7.1–7.4 (test hooks, determinism, layered gates, bug-button repair; Decided: reproducible crashes auto-repair within the admin's allowance, sharing edit slots), plus §6.2 variants and the age-neutral parts of §6.3. V2: drawing during the wait (drawing tools are V2) and multiplayer playtests. V3: the ages 5–7 picture-only design in §6.1, child observation sessions, and child bug-bundle data rules.
+> Kid-first framing (pre-reader UX as the default, "the child" as the creator) is superseded: this is a general game maker.
+> Superseded where they differ: SDK test hooks and editor → **B7** (`render_game_to_text`, `advanceTime`); bug routing and repair budgets → **B8**; agent skills incl. `gm-verify` → **B14**.
+
 ---
 
 ## 0. Summary of conclusions
 
 1. **Playwright 1.64.1 is the test backbone. Reuse it, do not build our own.** It has a fake clock that drives `requestAnimationFrame`, WebKit and device profiles, video and trace capture, and a bundled MCP server and CLI. The work Game Maker must build is the **in-game test hook** (`window.__gm`), not the harness.
 2. **Determinism comes from the SDK, not from the browser.** Fixed-timestep simulation, a seeded RNG owned by the SDK, and input recorded as *logical actions per simulation tick* make replay work. A seed plus timed raw DOM events does not. This must be an A4 SDK requirement. Without it, replay-based bug repair and regression "promises" both fall apart.
-3. **Layered gates.** Every draft build runs a cheap deterministic layer (about 2–6 CPU-minutes, no LLM). Publish adds an exploration bot, a WebKit/iPad-profile pass, save-migration fixtures, and one LLM visual review. Human or specialist review covers fun, story, and child accessibility. Automation cannot establish those (§4).
+3. **Layered gates.** Every draft build runs a cheap deterministic layer (about 2–6 CPU-minutes, no LLM). Publish adds an exploration bot, a WebKit/iPad-profile pass, save-migration fixtures, and one LLM visual review. Human or specialist review covers fun, story, and accessibility (child accessibility is V3). Automation cannot establish those (§4).
 4. **Performance budgets cannot be set from CI.** Headless Chromium on Railway renders WebGL on the CPU through SwiftShader, so its frame rates say nothing about an iPad. CI can catch *regressions* (main-thread script time per simulated frame, Long Animation Frames, asset bytes, load time) relative to the previous release. Absolute FPS budgets need a calibration run on Kevin's actual iPads and desktops. I propose that methodology, not numbers (§3.5).
 5. **LLM-as-judge is a smoke detector, not a verdict.** Benchmarks show vision models catch obvious static glitches unreliably and temporal glitches at near-chance rates. Use the judge to flag, not to block, except on a few binary checks it does well, such as "is the screen blank" or "is the text unreadable" (§3.7).
-6. **First-build wait (R18).** The evidence favors *"keep making while it builds"*: drawing characters, choosing music, and tuning a prebuilt **genre demo kit**. A passive progress screen is worse. Web push on iPad works **only after the site is installed to the Home Screen** (iPadOS 16.4+). Plan an install prompt, or accept email and parent notifications as the fallback.
+6. **First-build wait (R18).** The evidence favors *"keep making while it builds"*: drawing characters, choosing music, and tuning a prebuilt **genre demo kit**. A passive progress screen is worse. Web push on iPad works **only after the site is installed to the Home Screen** (iPadOS 16.4+). Plan an install prompt, or accept email notifications (to the creator; to a parent only for child accounts, V3) as the fallback.
 7. **Variants should come from tunables, not agent builds.** About three variants shown as presets of an existing demo kit cost close to nothing and are playable instantly. Variants built by an agent cost a full build each, so they belong only to truly divergent concepts.
 
 ---
@@ -185,7 +189,7 @@ Railway compute: Playwright's Docker image needs about 1–2 GB RAM per browser 
 - Seed, last state keyframe, ~30 s action ring buffer from the keyframe, and the current `state()`
 - Last 50 console errors and unhandled rejections with source-mapped stack traces (keep source maps server-side)
 - `probes()`, the last ~200 `events()`, and the editor operations log since the last load
-- One downscaled screenshot (~480 px WebP) **plus** the child's words: text, or a transcript if voice was used. Audio is not kept by default.
+- One downscaled screenshot (~480 px WebP) **plus** the creator's words (the child's, in V3): text, or a transcript if voice was used. Audio is not kept by default.
 
 **Flow (deterministic until diagnosis is needed):**
 1. The bundle is uploaded to private storage (not GitHub). A deterministic job creates an issue in the private game repo with **redacted metadata only**: version, error signature, and a link to the private bundle. A public source repo (§9.3) never gets screenshots, speech, names, or saves.
@@ -197,16 +201,18 @@ Railway compute: Playwright's Docker image needs about 1–2 GB RAM per browser 
 **Proposed budgets and limits (Kevin decides; these are defaults):**
 - A repair job's budget is smaller than a feature job's, for example about 1/3, because the scope is narrow. Allow 2 automatic attempts. On the 2nd failure, stop and escalate.
 - Wall-clock target: 10 minutes or less to a fixed draft for reproducible errors.
-- **Fallback message** (shown as a picture plus spoken text): "The robots couldn't fix this one yet. Uncle Kevin will take a look. You can keep playing the last version, or try a different idea!" Then escalate to Kevin's admin queue with the bundle.
+- **Fallback message** (shown as a picture plus spoken text): "The robots couldn't fix this one yet. Uncle Kevin will take a look. You can keep playing the last version, or try a different idea!" *(Kid-voiced copy is V3; V1 uses plain adult wording and the admin's queue.)* Then escalate to Kevin's admin queue with the bundle.
 - Non-reproducible reports: keep the bundle, add a probe and logging promise, and don't burn tokens guessing.
 
-**Data questions:** retention period for bundles and screenshots of children's play; whether transcripts are kept; and whether bundles can ever be sent to an LLM provider at all. Bundles include child-generated content, so this needs a ruling under R19 and §10.4.
+**Data questions:** *(the child-data parts are V3; V1 bundles hold adult data under the vendor's adult terms)* retention period for bundles and screenshots of children's play; whether transcripts are kept; and whether bundles can ever be sent to an LLM provider at all. Bundles include child-generated content, so this needs a ruling under R19 and §10.4.
 
 ---
 
 ## 6. Creation guidance, waiting, and learning (R18)
 
-### 6.1 Clarifying with minimal reading (ages 5–7)
+### 6.1 Clarifying with minimal reading (ages 5–7) (V3)
+
+*V1 reading: adults clarify by voice, text or images and agree a scope (release plan §2). The question budget, "surprise me" default, plan card and verbatim-quote rule below are age-neutral and carry over; picture-only, no-reading flows are for V3 child accounts.*
 
 Evidence: pre-readers can't read and early readers read tentatively. Kids skip instruction text; avoid scrolling; familiar icons work even at age 3 (NN/g). Toca Boca succeeded with no text and no tutorials. ScratchJr shows novices can engage unguided, but do better with support.
 
@@ -232,23 +238,23 @@ Recommendation: build a **demo kit per MVP genre** once, platform-owned, with ed
 What comparable products do: Game Builder Garage and Yamamura's Dojo use short, demonstrative lessons. Mario Maker makes *making* the activity itself. Roblox offers editable templates first. None of them makes a child wait an hour. Our wait has no direct precedent, so design it as **parallel creation**, not as a distraction.
 
 Candidate activities, ranked by how much they feed the build or the child's authorship:
-1. **Draw or approve characters and objects.** These feed the asset pipeline (A-assets) while the code builds. The child's drawing appears in the game: authorship and real progress at once.
+1. **Draw (V2: drawing tools) or approve characters and objects.** These feed the asset pipeline (A-assets) while the code builds. The child's drawing appears in the game: authorship and real progress at once.
 2. **Tune and play the genre demo kit** using the same editor controls the real game will have. This teaches the editor before the game exists, and the choices (jump height, colors) carry over as defaults where they map.
 3. **Pick music and sounds** from a picture grid (moods). This feeds the audio brief.
 4. **"Watch it being built" storytelling:** the progress board (§5.5) as a picture timeline with the child's hero ("the builders are making your volcano… now testing jumps"). Stage changes come from deterministic job events, never from an agent narrating (§5.5). Show a screenshot from L1 smoke tests as soon as one exists. That is real progress, not a fake bar.
 5. Play the other games on the wall.
 
 **Closing the browser:** jobs are durable (§5.5). On return, Home shows the game card with "Ready! ▶". For notifications:
-- **iPad web push requires Home Screen installation** (iPadOS 16.4+; verified). In the first-session flow, add a parent-assisted "Add to Home Screen" step (Safari share sheet; iPadOS has no programmatic install prompt).
-- Fallbacks: an email or SMS to the parent or Kevin (account-level; R04), and an in-app badge on return. On desktop Chrome and Edge, standard web push works without install.
-- Notification text is picture-forward and never includes the child's name on the lock screen (privacy default; **Kevin decides**).
+- **iPad web push requires Home Screen installation** (iPadOS 16.4+; verified). In the first-session flow, add an "Add to Home Screen" step (parent-assisted for child accounts, V3) (Safari share sheet; iPadOS has no programmatic install prompt).
+- Fallbacks: an email or SMS to the creator (to the parent for child accounts, V3) or Kevin (account-level; R04), and an in-app badge on return. On desktop Chrome and Edge, standard web push works without install.
+- Notification text is picture-forward and never includes the creator's (or child's) name on the lock screen (privacy default; **Kevin decides**).
 
 ### 6.4 Lightweight learning-validation evidence (§13.2)
 
 Collect these without homework:
 - **Automatic (analytics, R11):** genres tried versus their first choice; % of changes made through editor controls versus new-feature requests; returns to the same game; voice versus tap usage; "Other" usage; plan-card "change" taps (an idea-fidelity proxy); repair outcomes.
-- **Observation protocol for family sessions** (Kevin or a parent, about 5 minutes, a one-page form): Did they complete creation without adult reading? (yes / with help, at which step) Did they recognize their idea? (the child's own words) Could they say what's different about a new genre? (one prompt: "how is this game different from your other one?") What did they try to do that the UI didn't allow?
-- **Optional child reflection:** one tap, "how did making feel?" with 3 faces, skippable (§6.3 says it must not become mandatory).
+- **Observation protocol for family sessions** (V1: adult creators observed by Kevin; child sessions V3) (Kevin or a parent, about 5 minutes, a one-page form): Did they complete creation without adult reading? (yes / with help, at which step) Did they recognize their idea? (the child's own words) Could they say what's different about a new genre? (one prompt: "how is this game different from your other one?") What did they try to do that the UI didn't allow?
+- **(V3)** **Optional child reflection:** one tap, "how did making feel?" with 3 faces, skippable (§6.3 says it must not become mandatory).
 - Record observations as session notes in Kevin's admin area. Do not record audio or video of children by default.
 
 ---
@@ -259,7 +265,7 @@ Collect these without homework:
 2. **Bot spike:** inject 10 known defects (unreachable goal, soft-lock pit, missing quest flag) into the three representative games. Measure the bot detection rate and time. Target: catch at least 8 of 10 with explorers costing under 5 CPU-minutes. That target is a hypothesis, not a promise.
 3. **Judge calibration:** a labeled set of about 60 frames from our own games (blank, overflow, wrong style, clean). Measure precision and recall per binary check on Haiku 5.5 versus Sonnet 5.5. Only checks with ≥90% precision may block publish (bounded cost: under $5).
 4. **Perf calibration:** §3.5 on Kevin's devices.
-5. **R18 family test:** 2 sessions each with the niece and nephew. Use the observation form. Compare a 2-question versus a 4-question narrowing flow; compare waiting with the demo kit versus drawing.
+5. **R18 family test:** *(V1: run with adult creators; the niece-and-nephew sessions are V3)* 2 sessions each with the niece and nephew. Use the observation form. Compare a 2-question versus a 4-question narrowing flow; compare waiting with the demo kit versus drawing.
 
 ---
 
@@ -293,11 +299,11 @@ Licensing: everything listed is Apache-2.0, MIT, or ISC. seedrandom's license me
 ## 11. Decisions for Kevin
 
 1. **Repair budget and retries:** accept the default of 2 automatic attempts at about 1/3 of a feature budget, then escalate to you?
-2. **Bug-bundle data:** may screenshots and transcripts of the kids' play go to the LLM provider for repair? How long are they retained?
-3. **iPad Home Screen install:** make "Add to Home Screen" a parent-assisted first-run step (it enables push), or rely on email or badges only?
+2. **Bug-bundle data:** may screenshots and transcripts of the kids' play go to the LLM provider for repair? *(Kids' data is V3; V1 bundles are adult data.)* How long are they retained?
+3. **iPad Home Screen install:** make "Add to Home Screen" a first-run step (parent-assisted only for V3 child accounts) (it enables push), or rely on email or badges only?
 4. **Narrowing cap:** start with at most 2–3 picture questions plus a plan card, and adjust after the family tests?
-5. **Draft playability:** may kids play drafts that passed smoke tests but have unresolved robot findings (the tolerable-chaos zone)?
+5. **Draft playability:** may creators (kids in V3) play drafts that passed smoke tests but have unresolved robot findings (the tolerable-chaos zone)?
 6. **Performance targets:** approve a calibration session on your actual iPads and desktops before any FPS or latency targets are set?
-7. **Clear Check:** require the creator (or a parent) to beat a new level or game before it is shared with others, as Mario Maker does?
+7. **Clear Check:** require the creator (or a parent, V3) to beat a new level or game before it is shared with others, as Mario Maker does?
 
 **Unverified items:** `performance.now` under the Playwright clock; Railway GPU availability; the image-token formula; Minecraft Education onboarding (not researched); the full findings of the ScratchJr 2013 paper; all wall-clock and CPU estimates.

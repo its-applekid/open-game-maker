@@ -2,14 +2,16 @@
 
 You are the aiur Executor for the aiur build order that is currently in motion. Kevin wants a plan, not execution yet: re-cut the remaining work so a second aiur instance on a second machine can take an independent slice. The slice should put first the aiur components that a new consumer, **Open Game Maker 2000**, will need anyway.
 
+> **Version scope (2026-10-25):** Game Maker V1 is adults only (18+); teens are V2 and child accounts with parental controls are V3. So the self-hosted voice cascade and child-safe provider work are **(V3)** and are not V1 dependencies; V1 voice needs only `voice_converse` with ElevenLabs then OpenAI, the no-transcript mode, alignment/usage frames and narration render. Multi-repo hosting (#5938) is V1; per-job scoping (#5937) is post-V1 (decision log). Kid-first framing ("for families") is superseded: it is a general game maker. See `docs/spec/release-plan.md` for V1/V2/V3 scope.
+
 ## Context
 
-Open Game Maker 2000 is Kevin's web game-creation platform for families. Its research lives in the private repo `its-everdred/open-game-maker-2000`, on branch `research`. If it isn't cloned on this machine, read it with `gh`.
+Open Game Maker 2000 is Kevin's general web game-creation platform (V1: adults only; parental controls for child accounts come in V3). Its research lives in the private repo `its-everdred/open-game-maker-2000`, on branch `research`. If it isn't cloned on this machine, read it with `gh`.
 
 Read in this order. Stop when you have enough; you don't need everything.
 
 1. `docs/research/v0.4/B8-aiur-integration-budgets-bugs.md`: how hosted Game Maker would drive aiur, and a ranked **gap list of upstream aiur work**.
-2. `docs/research/v0.4/B2-voice-stack.md`: what aiur's voice component actually is today, and what Game Maker needs from it. The gaps are labeled G1–G7: child-safe providers, no-transcript mode, alignment/usage frames, narration render path, and others.
+2. `docs/research/v0.4/B2-voice-stack.md`: what aiur's voice component actually is today, and what Game Maker needs from it. The gaps are labeled G1–G7: child-safe providers **(V3)**, no-transcript mode, alignment/usage frames, narration render path, and others.
 3. `docs/research/v0.4/B4-sandboxing.md` §2 and §7: aiur execution today and the changes needed for hosted, sandboxed runs. These are a sandbox-VM execution target, no credentials in the sandbox, and push/PR moved to the orchestrator. Also read the **likely GitHub-token exposure** finding.
 4. `docs/research/v0.4/B1-provider-credentials.md` §2.3 and §4: aiur's account and credential routing, and hosted-mode credential requirements.
 5. `docs/spec/game-maker-2000-spec-v0.4.md` §7.1–7.2 and §7.10–7.11: the two uses of aiur, and the delivery principle.
@@ -27,7 +29,7 @@ The research was done against aiur `ad084b1f` and `46bda0020`. Recheck everythin
    - For each need below, name the existing ticket, epic or package that covers it, or mark it as a gap. Don't invent APIs.
    - **Voice, one-way and two-way.** The reusable `voice_converse` component. Kevin's provider order is ElevenLabs first, then OpenAI. The component also needs:
      - a session API and wire codec;
-     - a provider seam that also takes a self-hosted cascade (STT → LLM → TTS), for minors until a vendor approves child use;
+     - a provider seam that also takes a self-hosted cascade (STT → LLM → TTS), for minors until a vendor approves child use **(V3; keep the seam open, but the cascade is not a V1 dependency)**;
      - a no-store transcript mode;
      - alignment (word-timing) and usage frames;
      - a batch narration render path;
@@ -69,5 +71,5 @@ Then reply to Kevin with a 10-line summary and the path.
 ## Boundaries
 
 - **Planning only.** Don't relabel, re-parent, create or close tickets, start the second instance, or change a running build order until Kevin approves the plan.
-- **Don't copy Game Maker material into public places.** That covers family details, children's ages, product specifics and the research text. If you draft aiur tickets, phrase needs generically, e.g. "an external app embedding voice for minors needs a no-transcript mode".
+- **Don't copy Game Maker material into public places.** That covers family details, children's ages, product specifics and the research text. If you draft aiur tickets, phrase needs generically, e.g. "an external app embedding voice needs a no-transcript mode" (the minors angle is V3).
 - **Raise the security finding first.** If the GitHub-token exposure in B4 §2 still holds on current `main`, flag it to Kevin as its own item. It affects aiur today regardless of Game Maker.

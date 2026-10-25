@@ -94,6 +94,23 @@ The product has to make sense on its own at every version. V1 is a complete game
    - (c) Bring forward a play-only child account. That would pull COPPA into V1.
    Recommended: (a). Option (b) is less safe than it looks: a planned child use may count as actual knowledge, and play still collects device IDs, saves and any game microphone audio. It waits on lawyer question Q8 in B9 [I].
 3. **Family use of personal-license packs** (B11 §6). This is now only a question about adult family members.
+4. **V1 narration provider.** "ElevenLabs once approved, Kokoro until then": the approval was for minors, so V1 can use ElevenLabs from the start (B2).
+5. **Edit takeover.** "Either side takes over instantly" conflicts with "admins cannot take over another adult's game". In V1 that leaves takeover only between the owner's own devices (B7, B10).
+6. **Per-user GitHub repos.** Bring-your-own GitHub means:
+   - the commit service is redesigned per user repo, since B4 assumed one games repo;
+   - `gm-intake` is installed on each creator's repo;
+   - CI minutes, issues and LFS fall on the creator's account (B4, B6, B8).
+7. **Microphone in games** needs per-game subdomains, so V1 needs wildcard DNS and TLS on the games domain (B4).
+8. **Child-only rules still applied to adults. Keep or drop each:**
+   - the Gemini and fal.ai exclusions;
+   - local-only image processing;
+   - no third-party analytics;
+   - analytics cells with fewer than 3 players suppressed;
+   - 64 px touch targets;
+   - reading-grade limits and read-along on by default;
+   - gentle default presets (A3, A5, A8).
+9. **ElevenLabs music and SFX.** Do they count as "paid generators" when ElevenLabs is already paid for voice? (B5)
+10. **Public copy.** Should V1 copy avoid naming the V3 child-account plans? Published plans can count as evidence of the intended audience (B9, lawyer question Q7).
 
 ## 7. Where the research sits
 

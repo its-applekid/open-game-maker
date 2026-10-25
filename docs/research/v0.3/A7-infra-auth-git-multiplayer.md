@@ -6,6 +6,10 @@ Legend: **[V]** verified against a primary source today · **[C]** community/sta
 
 Out of scope here: aiur internals (A6) and vendor/legal policy, including COPPA and verifiable parental consent (A8). Where this report depends on those, it says so.
 
+> **Version scope (2026-10-25):** Read through `docs/spec/release-plan.md`. V1 (adults only, 18+): R05 sandboxing and topology (E2B with an egress allowlist is now Decided, B4), R04 for adult roles and invites, R07 leakage and fork rules. V2: R12 multiplayer gameplay, spectators and room guests (V1 reserves the architecture only). V3: every supervision, guardian, child-flag and parent-claim element of R04, and child rules in R07.
+> Kid-first framing is superseded: this is a general game maker, and child rules live only in the V3 parental-controls module.
+> Superseded where they differ: auth and accounts → **B9** (age screen, sign-in by age band) and **B10** (adult defaults, parental-controls module); sign-in is email plus passkey and/or Google (decision log). Repo strategy (S1 private monorepo) → Decided: the user connects their own GitHub and Game Maker creates a repo per game, public or private. Multiplayer → **V2** (B7 hooks).
+
 ---
 
 ## 0. Bottom line
@@ -16,7 +20,7 @@ Out of scope here: aiur internals (A6) and vendor/legal policy, including COPPA 
 4. **GitHub cannot enforce "user A writes only folder A".** App tokens are scoped to repositories and permissions, not paths. Push rulesets are path-based, but they apply to every pusher and work only on private or internal repositories [V]. So folder ownership must be enforced in the backend. Neither agents nor users ever hold a GitHub token; only the deterministic commit service does.
 5. **"Private" should mean two things now and one thing later:** hidden from discovery, and play restricted to owner plus named invitees. Source confidentiality comes from a **private system-of-record repo**. Open source becomes an explicit, per-game **"Publish source"** export of a scrubbed snapshot. A UI toggle on a public repo cannot honestly promise secrecy.
 6. **Colyseus 0.18 (released 2026-08-20) now includes prediction, rollback, interpolation and lag compensation [V].** They need a deterministic step function shared with the server, and that is the catch: server authority means running *agent-generated game code inside the multiplayer server*. Recommendation: a **platform-owned generic room** (Colyseus) that enforces roles, pause, the editor-spectator view and version pinning. Gameplay stays host-authoritative in the owner's sandboxed browser iframe for invite-only co-op. One Railway replica, no sticky sessions needed.
-7. **Use Better Auth (1.7.12) for authentication only.** Write the authorization layer (invites, grants, supervision, game ownership) as a small, tested policy module of our own. The organization plugin's invitations need the accepting session's email to match the invitation, which does not fit no-email child accounts [V].
+7. **Use Better Auth (1.7.12) for authentication only.** Write the authorization layer (invites, grants, supervision, game ownership) as a small, tested policy module of our own. The organization plugin's invitations need the accepting session's email to match the invitation, which does not fit no-email child accounts [V]. *(Child accounts are V3; in V1 every account has a mandatory email, so this objection is V3-only.)*
 
 ---
 
@@ -92,7 +96,7 @@ Cancellation means destroying the sandbox; the idle timeout catches leaks. The `
 
 **Why the agent loop lives in the worker:** the egress that cannot be disabled is only dangerous if something valuable is inside the sandbox. With no provider keys, GitHub token or database URL inside, a malicious or simply wrong `postinstall` script can waste compute (capped by size and timeout) or try to attack the internet from Railway's IPs (abuse risk; mitigate with short lifetimes and an npm allow-list *policy* checked before install). It cannot steal platform credentials.
 
-Kill-switch upgrade path: if child-safety review (A8) or abuse requires **blocked egress**, move the sandbox call behind an interface (`SandboxProvider`) and switch to E2B with a domain allow-list (registry.npmjs.org, the pinned CDN). Keep the interface to the four calls used: create, exec, put/get files, destroy. That is not a speculative abstraction; it is the seam the threat model needs.
+Kill-switch upgrade path *(now moot: E2B with an allowlist is the Decided V1 sandbox, B4)*: if child-safety review (A8) or abuse requires **blocked egress**, move the sandbox call behind an interface (`SandboxProvider`) and switch to E2B with a domain allow-list (registry.npmjs.org, the pinned CDN). Keep the interface to the four calls used: create, exec, put/get files, destroy. That is not a speculative abstraction; it is the seam the threat model needs.
 
 ### Home worker (optional)
 - **Pattern.** A home daemon makes an **outbound-only** HTTPS/WebSocket connection to `api`. It authenticates with a per-worker credential: a long random secret, rotated and revocable, bound to a worker record, never a user session. It *pulls* jobs and pushes back diffs and artifacts. Nothing listens at home, and no tailnet, port forward or Cloudflare Tunnel is needed. Kids' devices only ever talk to Railway.
@@ -132,6 +136,8 @@ In a throwaway Railway `builds` environment:
 ---
 
 ## R04 — Accounts, invitations, child supervision, and permissions
+
+> **V1 reading:** use the maintainer/admin, creator/player and game-owner dimensions with adult invites. The `supervision` edge, `isChild`, the Guardian column, the "Mark invitee as child" and "Configure parental controls" rows, and the guardian recommendations below are **(V3)**.
 
 ### Requirement
 An authorization matrix that keeps **platform authority, creation permission, game ownership and supervision** as separate dimensions (§4.1). Covers invite rules (§4.2), guardian authority and parent-claim, upgrades and revocation, accountless guests, and abuse cases.
@@ -174,7 +180,7 @@ user.isChild (derived: exists active-or-pending supervision OR flagged at invite
 
 Precedence: deny wins. Supervision restrictions apply *on top of* any role, including a child creator. Platform role never implies game ownership; maintainer edit of another's game is an audited "help" action visible to the owner (and guardian).
 
-### Guardian authority, child inviters, parent claim (recommendations)
+### Guardian authority, child inviters, parent claim (recommendations) (V3)
 - **Inviter ≠ guardian.** A creator who ticks "child account" creates a **pending supervision** with themselves as *provisional supervisor* only if they are an adult account that has completed a guardian attestation. The child account is limited to safe defaults (no public discovery, no friend presence, no voice chat, no free-text sharing) until an adult accepts guardianship. Which verification method counts as "legitimate guardian authority" is **A8's call** (COPPA / VPC). This report only supplies the state machine: `pending → active (attested|verified) → transferred | revoked`.
 - **Child inviters.** Child accounts get **no invitation capability** by default, even if they are creators. A child's "invite a friend" becomes a *request* their guardian approves, and the guardian becomes the inviter of record. This closes "child marks another child as child and becomes supervisor".
 - **Parent claim.** A parent claims through an admin-mediated flow, or a claim link the provisional supervisor or Kevin issues, plus the A8 verification method. Supervision **transfers**: the provisional supervisor loses supervisor views, audit is retained, and the parent can re-set controls. The child's games, saves and achievements are untouched because they key to `childId`, not to the inviter.
@@ -187,19 +193,19 @@ Precedence: deny wins. Supervision restrictions apply *on top of* any role, incl
 ### Invitation implementation
 Use **own `invitations` table plus policy**, not the organization plugin:
 - **Token.** 128-bit random, stored hashed, single-use, 48–72 h expiry, revocable.
-- **Bound to the recipient.** Either an email the recipient must verify (adults), or, for no-email children, a guardian-accepted redemption: the guardian signs in and creates the child profile (household/picture-PIN candidate, §4.3).
+- **Bound to the recipient.** Either an email the recipient must verify (adults), or, for no-email children **(V3)**, a guardian-accepted redemption: the guardian signs in and creates the child profile (household/picture-PIN candidate, §4.3).
 - **Payload.** Capability, child flag and inviter are server-side fields; the link never carries role claims.
 - **Rate limits.** Per inviter, plus an audit log.
 
 Better Auth supplies sessions, email OTP/magic link, passkey (`@better-auth/passkey`), admin ban/impersonate/session revoke for Kevin, and anonymous sessions for room guests. The organization plugin stays a later option for "household" grouping if ever needed.
 
 ### Accountless guests
-Recommend **supporting them only as room guests**:
+*(V2 at the earliest: V1 has no guest play; room guests arrive with multiplayer.)* Recommend **supporting them only as room guests**:
 - They join through an owner-issued, expiring, single-room code and get a Better Auth anonymous session.
 - They can play and spectate in that room only, with no saves beyond the session, no achievements (or "pending until you sign in", migrated in `onLinkAccount`), no presence, no voice, and no forks.
 - A shared URL never grants more than "request to join", which the owner approves.
 
-Children joining as guests is an A8 question: guests cannot carry a child flag, so supervised children should join with their account.
+**(V3)** Children joining as guests is an A8 question: guests cannot carry a child flag, so supervised children should join with their account.
 
 ### Abuse and edge cases to test
 1. A stolen invite link is used by someone else. Email binding or guardian redemption blocks it, and the token is single-use.
@@ -273,14 +279,14 @@ P1 alone is easy but **must not be labelled "private"** if anyone with the URL c
 | Matches Kevin's folder preference | ✓ (`games/<id>/`) | ✓ (two trees) | ✗ |
 | P3 truthfully available | ✓ default | ✓ only for games *born* private | ✓ |
 | Public → private toggle honest | ✓ (source never public unless exported) | ✗ history already public | ✗ same |
-| Open source story | "Publish source" exports a scrubbed snapshot to a public repo (shared or per game), opt-in, off by default for children | Automatic for shared games | Flip repo visibility |
+| Open source story | "Publish source" exports a scrubbed snapshot to a public repo (shared or per game), opt-in, off by default for children (V3) | Automatic for shared games | Flip repo visibility |
 | Enforcement | Commit service (plus private push rulesets) | Commit service; no push rulesets on the public repo | Repo-scoped token gives real GitHub isolation |
 | Ops cost | 1–2 repos, one lock | 2 repos, moving games between them is messy | Hundreds of repos, App install lists, per-repo setup |
 | Cost | GitHub Free org: private repos free [M] | Same | Same |
 
 **Recommendation:** use S1.
 - The **"Private" toggle means P1 + P2.**
-- P3 is the platform default, because nothing is public until an owner (with guardian approval for children) runs "Publish source".
+- P3 is the platform default, because nothing is public until an owner (with guardian approval for children, V3) runs "Publish source".
 - This keeps the open-source desire as a deliberate, reviewable act and never makes the toggle lie.
 - Keep large binaries in object storage referenced by hash, not Git or LFS, to keep the repo small.
 - Re-evaluate S3 only if bring-your-own-GitHub (§9.5) arrives, because a per-game repo is what a household would connect.
@@ -361,11 +367,11 @@ Prototype with two demo games (platformer, top-down):
 ---
 
 ## Licensing and data-handling questions
-- Railway, E2B, Modal and Cloudflare all process **generated game code and possibly kid-authored text, drawings or voice-derived prompts**. Which processors are acceptable for children's data, and under what DPA, is for A8.
+- **(V3)** Railway, E2B, Modal and Cloudflare all process **generated game code and possibly kid-authored text, drawings or voice-derived prompts**. Which processors are acceptable for children's data, and under what DPA, is for A8.
 - The Daytona open-source line is frozen; avoid.
 - Colyseus, Better Auth and the Railway SDK are MIT. PartyServer is ISC. E2B runtime, gVisor and Firecracker are Apache-2.0. No copyleft concerns found.
-- The GitHub org holding children's games: whether a *private* GitHub repo is an acceptable store for child-created content (GitHub as a processor) is an A8 question.
-- Publishing source under an open licence on a child's behalf: who grants the licence (guardian), and which licence? Kevin/A8.
+- **(V3)** The GitHub org holding children's games: whether a *private* GitHub repo is an acceptable store for child-created content (GitHub as a processor) is an A8 question.
+- **(V3)** Publishing source under an open licence on a child's behalf: who grants the licence (guardian), and which licence? Kevin/A8.
 
 ## Stack integration summary
 - **TypeScript throughout:** Better Auth in `api`; Colyseus server and client; `railway` SDK (or `e2b`) behind a four-method `SandboxProvider` in `worker`; Octokit Git Data API in the commit service.
@@ -375,15 +381,15 @@ Prototype with two demo games (platformer, top-down):
 1. Kevin approves an approximately $5 Railway Sandbox and E2B Hobby isolation spike (R05 evaluation).
 2. Write the `authorize(actor, action, resource)` policy module with this matrix as table-driven tests before any UI.
 3. Create a private `games` repo plus GitHub App (contents:write on that repo only) and implement the commit service with path validation and CAS ref updates.
-4. Lay down the invitation and supervision state machine pending A8's guardian-verification method.
+4. Lay down the invitation state machine (V1, adults); the supervision part waits for A8's guardian-verification method **(V3)**.
 5. Spike a Colyseus relay room post-MVP with the spectator-filtering assertion.
 
 ## Decisions for Kevin
 1. **Sandbox vendor:** Railway Sandboxes (one vendor, egress open, no secrets inside) **vs** E2B (egress allow-lists, second vendor, $150/mo if over 1 h sessions).
 2. **Meaning of "Private":** accept P1 + P2 for the toggle, with source confidential by default and open source via an explicit "Publish source"?
-3. **Open-source default:** may adults' games auto-publish source, or is it always opt-in? For children, guardian approval required?
+3. **Open-source default:** may adults' games auto-publish source, or is it always opt-in? For children, guardian approval required? **(V3)**
 4. **Forking:** can players fork (token-free, uneditable until upgraded)? Does access to a private game include fork rights?
-5. **Child invite power:** confirm child accounts cannot invite; friend invites go through the guardian.
+5. **(V3)** **Child invite power:** confirm child accounts cannot invite; friend invites go through the guardian.
 6. **Admin visibility scope** over invitees: everything, activity only, or aggregate for adults?
 7. **Accountless room guests:** allow (room-only, no saves), or require accounts for everyone?
 8. **Owner disconnect in multiplayer:** end the session and save to owner, or migrate the host to another player (no editing)?

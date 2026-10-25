@@ -4,6 +4,8 @@ Date: 2026-10-21 · Status: **awaiting owner review** (no decisions made)
 
 Stats verified with `gh api` on 2026-10-21. Verdicts are based on GitHub metadata and READMEs only; nothing was installed or run.
 
+> **Version scope (2026-10-25):** Kid-first framing ("kids' drawing tool", "kid-sized requests", "kid-friendly UI") is superseded: this is a general game maker, and V1 is adults only (18+). Tool verdicts are age-neutral and stand. Version placement: rembg and drawing tools are V2 (drawing and paper capture); local TTS (VoxCPM, OmniVoice) is not V1 (V1 voice is ElevenLabs/OpenAI via aiur, B2; self-hosted child voice is V3). Assets → **B11** (packs first, no paid generators); voice → **B2**; skills → **B14**. See `docs/spec/release-plan.md` for V1/V2/V3 scope.
+
 ## How the scan was done
 
 - Source: the RSS feeds for the subreddit's top posts. The JSON endpoints returned 403 and old.reddit returned redirects.
@@ -33,9 +35,9 @@ Stats verified with `gh api` on 2026-10-21. Verdicts are based on GitHub metadat
 - It exports React/Tailwind, HTML and Vue, and has a read-only embeddable viewer.
 
 **Fit for our needs:**
-- **Kids' drawing tool:** no. It's precision layout, not freehand. Stay with perfect-freehand or Excalidraw.
+- **Drawing tool (V2):** no. It's precision layout, not freehand. Stay with perfect-freehand or Excalidraw.
 - **Edit-mode knobs overlay:** no. It has no game runtime, and its SDK is view-only.
-- **Designing the platform's own UI (Create wizard, Play wall):** maybe. It would be a dev-time tool only, never shown to kids. If we try one, prefer open-pencil/open-pencil (more contributors, a web app with nothing to install).
+- **Designing the platform's own UI (Create wizard, Play wall):** maybe. It would be a dev-time tool only, never shown to end users. If we try one, prefer open-pencil/open-pencil (more contributors, a web app with nothing to install).
 - **Game assets:** no. It only produces UI.
 
 **Risks:**
@@ -48,11 +50,11 @@ Stats verified with `gh api` on 2026-10-21. Verdicts are based on GitHub metadat
 
 | Name | Repo | Stars | License | Need | Verdict |
 |---|---|---|---|---|---|
-| rembg | [danielgatis/rembg](https://github.com/danielgatis/rembg) | 25.2k | MIT | Photo of a paper drawing → sprite (background removal) | **Adopt.** Mature (2020), runs server-side. The in-browser alternative, imgly, is AGPL, so avoid it. |
-| OpenSpec | [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) | 72.7k | MIT | Kid's idea → spec the agents build from | **Trial.** Overlaps with the CE brainstorm/plan skills and aiur. Use it only if those are too heavy for kid-sized requests. |
+| rembg | [danielgatis/rembg](https://github.com/danielgatis/rembg) | 25.2k | MIT | Photo of a paper drawing → sprite (background removal; capture UI is V2) | **Adopt.** Mature (2020), runs server-side. The in-browser alternative, imgly, is AGPL, so avoid it. |
+| OpenSpec | [Fission-AI/OpenSpec](https://github.com/Fission-AI/OpenSpec) | 72.7k | MIT | Creator's idea → spec the agents build from | **Trial.** Overlaps with the CE brainstorm/plan skills and aiur. Use it only if those are too heavy for small requests. |
 | Caveman | [JuliusBrussee/caveman](https://github.com/JuliusBrussee/caveman) | 114k | Apache-2.0 | Token cost (shorter agent output) | **Trial.** Began as a joke repo, so measure the savings before relying on it. |
 | MCP for Blender | [ahujasid/mcp-for-blender](https://github.com/ahujasid/mcp-for-blender) | 31.9k | MIT | Agent-built low-poly models exported to glTF | Consider. Needs Blender running on the server. |
-| VoxCPM | [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) | 39.7k | Apache-2.0 | Local TTS and character voices | Consider. Needs a GPU. |
+| VoxCPM | [OpenBMB/VoxCPM](https://github.com/OpenBMB/VoxCPM) | 39.7k | Apache-2.0 | Local TTS and character voices | Consider. Needs a GPU (no GPU server is planned; self-hosted voice is V3 for child accounts). |
 | OmniVoice | [k2-fsa/OmniVoice](https://github.com/k2-fsa/OmniVoice) | 15.5k | Apache-2.0 | Local TTS | Consider. An alternative to VoxCPM, not an addition. |
 | OpenUI | [thesysdev/openui](https://github.com/thesysdev/openui) | 12.9k | MIT | Agent-generated UI | Consider. React-centric; Tweakpane/Leva may already cover it. |
 | Tabler Icons | [tabler/tabler-icons](https://github.com/tabler/tabler-icons) | 22.4k | MIT | UI icons | Consider. A plain, solid icon set. |
@@ -63,7 +65,7 @@ Stats verified with `gh api` on 2026-10-21. Verdicts are based on GitHub metadat
 
 - **REA:** reverse-engineers binaries, far deeper than shallow "make it like X". Its star count isn't credible.
 - **token-optimizer:** a custom license, not permissive.
-- **anti-slop / Taste Skill:** push an adult "premium" look, not kid-friendly UI.
+- **anti-slop / Taste Skill:** push a "premium" look that doesn't fit a playful game-maker UI.
 - **Agent workflow packs** (gstack, mattpocock/skills, addyosmani/agent-skills, The Agency): overlap with aiur and the CE skills.
 - **Agent memory tools** (Hindsight, agentmemory, Cognee): not a current need.
 - **Browser agents** (jev-ultrafast, Moli): new and hyped. Playwright stays our playtest base.
@@ -76,6 +78,6 @@ Stats verified with `gh api` on 2026-10-21. Verdicts are based on GitHub metadat
 
 ## Open for owner
 
-- Try OpenSpec vs CE brainstorm/plan on a real kid game idea?
+- Try OpenSpec vs CE brainstorm/plan on a real game idea?
 - Measure Caveman's token savings on a feature build?
 - Is a dev-time UI mockup tool (open-pencil) wanted at all, or is Claude Design enough?
