@@ -2,6 +2,8 @@
 
 Draft of 21 October 2026, written by Claude from Kevin's notes and a day of research. Kevin owns every decision in it.
 
+> **Version scope (2026-10-25):** this is a historical draft. Its kid-first and child-in-V1 scope is superseded. The current V1/V2/V3 split is in `release-plan.md`: V1 (MVP) is adults only (18+); teens are V2 (working); child accounts, parental controls and COPPA work are V3. Owner decisions since then are in `game-maker-2000-v0.5-decisions.md`.
+
 ---
 
 ## Instructions for ChatGPT (read this first)

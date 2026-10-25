@@ -2,6 +2,8 @@
 
 This file is the input for spec v0.5. It records the owner's decisions since v0.4 (2026-10-21 → 2026-10-22), the research recommendations still waiting on him, and the open questions. It is not a full spec; the full spec is v0.4 plus these changes.
 
+What ships in each version (V1 = MVP, V2, V3) is in `release-plan.md`, derived from this log.
+
 Sources:
 - Kevin's chat messages and comments on the decision page (claude.ai artifact "Game Maker v0.4 Decisions").
 - Research reports B1–B10 in `docs/research/v0.4/`.
