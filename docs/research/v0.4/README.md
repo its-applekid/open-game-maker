@@ -17,6 +17,6 @@ Product: **Open Game Maker 2000**, a general, all-ages game maker with an option
 | **B11** | **Asset pack library: three tiers, `gm` CLI, namespaces, tier 2 adapters, agent skills list** (2026-10-25) |
 | **B12** | **Asset sources, bundles and licensing (own games vs platform library)** |
 | **B13** | **Hosted aiur on Railway and Game Maker's aiur dependencies (Khala coordination)** |
-| **B14** | **Sourcing agent skills from existing game-dev skill libraries** (in progress) |
+| **B14** | **Sourcing agent skills: adopt Phaser official + CloudAI three.js, adapt awesome-gamedev, build gm-verify on develop-web-game** (details in `B14-skills/`) |
 
 Owner decisions so far: `../../spec/game-maker-2000-v0.5-decisions.md`.
