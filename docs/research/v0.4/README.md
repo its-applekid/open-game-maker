@@ -14,5 +14,6 @@ Product: **Open Game Maker 2000**, a general, all-ages game maker with an option
 | B8 | aiur integration, budgets, bug routing |
 | **B9** | **Legal positioning: mixed audience, Google sign-in, vendor terms by age band** |
 | **B10** | **General-first product reframe and parental-controls module** (§8 reconciles with B9) |
+| **B11** | **Asset pack library: packs-first, bucket-hosted, license-gated agent access** (2026-10-25) |
 
 Owner decisions so far: `../../spec/game-maker-2000-v0.5-decisions.md`.

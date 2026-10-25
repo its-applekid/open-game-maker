@@ -23,7 +23,8 @@ Sources:
 | Sign-in | Email is **mandatory** on every account and is the recovery path. Options under consideration: passkey only, Google only, or both. | §4.4 |
 | Repos | No multi-repo setup and no games monorepo owned by the platform. At setup, the user connects GitHub, Game Maker creates the repo, and the user picks public or private in GitHub. | §3.5, §9.2; bring-your-own GitHub moves from V3 to V1 |
 | Voice | Voice is an **aiur package** regardless. Providers: ElevenLabs first, OpenAI second. | §5.14, §7.2 |
-| Art and audio | V1 starts with **skills and code tools only**. Paid generators are a later optimization. | §5.3, §11.1, §12 |
+| Art and audio | ~~V1 starts with skills and code tools only.~~ **Superseded 2026-10-25:** V1 is **pack-first**. Agents get standardized access to an installed pack library, and creators are offered only what the installed packs contain. Code tools adapt pack assets. Paid generators are still a later optimization. See B11. | §5.3, §11.1, §12 |
+| Asset packs | One pack library per instance, in the instance's S3-compatible bucket (Railway bucket by default). It is never in GitHub. A game repo holds only the assets it uses, plus a lockfile with license data. The engine repo is open source and ships no packs; Kevin's game repos are closed. The first packs are Kenney (CC0) and Synty (personal license, Kevin's instance only). The license policy is enforced when an asset is added to a game. (2026-10-25, B11) | §5.3, §9.6, §10.7 |
 | AI funding | Hosted builds use **aiur with API-key profiles**. Build nothing new for this. | §8.1 |
 | Spending | **Admins configure all spending limits.** The plan sets only the starting defaults. | §8.3–8.4 |
 | Stack | **TypeScript only**, frontend (React) and backend (Node on Railway). Rust was considered and set aside (2026-10-23). The only Elixir is aiur and the thin voice_converse host. | §3 |
@@ -74,7 +75,7 @@ Sources:
 
 ## Open questions for Kevin
 
-1. Do the free CC0 art kits (Kenney, KayKit) count as "tools" for V1?
+1. ~~Do the free CC0 art kits count as "tools" for V1?~~ Answered: yes, packs are the default (B11). New questions: may family accounts use personal-license packs; what happens when no installed pack fits; and is code-composed music allowed (B11 §6).
 2. Does "admin" for spending limits mean any family admin, or only Kevin as operator? If any family admin, should a platform-wide ceiling sit above them?
 3. Email Anthropic to confirm whether aiur's Claude Code can run on Kevin's API key for family jobs, given the hosting clause in Claude Code's terms.
 4. All research spends are "not yet". Should any run before planning, given that budgets and voice accuracy for child accounts depend on them?
