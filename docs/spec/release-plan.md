@@ -92,7 +92,7 @@ The product has to make sense on its own at every version. V1 is a complete game
    - (a) Accept it.
    - (b) Allow play on a parent's signed-in device with no child profile and no data about the child.
    - (c) Bring forward a play-only child account. That would pull COPPA into V1.
-   Recommended: (a) or (b); ask the lawyer about (b).
+   Recommended: (a). Option (b) is less safe than it looks: a planned child use may count as actual knowledge, and play still collects device IDs, saves and any game microphone audio. It waits on lawyer question Q8 in B9 [I].
 3. **Family use of personal-license packs** (B11 §6). This is now only a question about adult family members.
 
 ## 7. Where the research sits

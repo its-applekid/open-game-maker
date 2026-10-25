@@ -5,47 +5,56 @@
 - **Companion:** B9 (`B9-general-audience-reframe-legal.md`) covers the legal and vendor-terms side. It did not exist when this was written. §7 lists every conclusion that depends on it.
 - **Labels:** [V] verified in a primary source or cited B-report; [I] inferred or design proposal; [U] unverified. Research only: nothing was bought, filed, committed or sent. This is not legal advice.
 
+> **Version scope (2026-10-25):** Read this report through `docs/spec/release-plan.md`; the decision log wins on conflict. The three age bands now arrive one per version: **V1 is adults only (18+)**, **V2 adds teens (13–17)**, **V3 adds children (under 13)** with parental controls. What applies where:
+> - **V1:** §2 column (b) for adults, the "survives for everyone" notes in §2, §4 copy rules, the adult parts of §5 and §6.
+> - **V2 (teens):** column (b) for teens, with B9's under-18 vendor routing (§8); teen supervision (opt-in); A5, A7.
+> - **V3 (children):** §2 column (c), all of §3 (parental-controls module), child items in §5 and §6, A3's child-narration question.
+> - **Changed assumptions:** V1 has no child or teen accounts, so the "adult and teen" default is now the adult default. V1 assets come from three tiers (packs, free online sources, agent-made), not "skills and code only". Games may use the microphone. Kevin's later picks settle several §6 decisions; they are noted inline.
+
 ## 1. TL;DR
 
 - **The spec is already general-first. The research round was not.** §1.1 and Appendix A say all-ages, with child supervision layered on. B2, B3 and B5 and the decision page then applied child-data rules to every account. This report puts those rules back inside one parental-controls module that turns on only for child accounts [I].
-- **One account model, three age bands:** adult (18+), teen (13–17) and child (under 13). The module is on for child accounts and cannot be switched off. A family can opt a teen in. Adults never inherit it (§1.1) [I].
-- **Most B1–B8 engineering survives unchanged:** API-key funding, the E2B sandbox, bucket storage, bug routing and the edit lease. Their reasons were security and cost, not age. What changes is wording, plus three product-wide rules that become child-only: self-hosted-only speech, the publication gate and private-by-default repos, and signed-form consent [I].
-- **Sign-in:** recommend **both** passkey and Google for every account, with email mandatory as the recovery path. Child accounts use a passkey the guardian enrolls. Google stays off for them unless a guardian turns it on after the Family Link device test [I].
-- **Under the owner's decisions,** voice uses the aiur package (ElevenLabs first, OpenAI second) and V1 art uses skills and code only. This removes most vendor-exclusion debate from the default product. The open question narrows to which voice provider a child account may use [I].
-- **A possible sequencing win:** adult and teen creators can go live without the COPPA document set. That set gates the first *child* account, not the product [I; depends on B9].
+- **One account model, three age bands:** adult (18+, V1), teen (13–17, V2) and child (under 13, V3). The module (V3) is on for child accounts and cannot be switched off. A family can opt a teen in. Adults never inherit it (§1.1) [I].
+- **Most B1–B8 engineering survives unchanged:** API-key funding, the E2B sandbox, bucket storage, bug routing and the edit lease. Their reasons were security and cost, not age. What changes is wording, plus three product-wide rules that become child-only (V3): self-hosted-only speech, the publication gate and private-by-default repos, and signed-form consent [I].
+- **Sign-in:** recommend **both** passkey and Google for every account, with email mandatory as the recovery path. (V3) Child accounts use a passkey the guardian enrolls. Google stays off for them unless a guardian turns it on after the Family Link device test [I].
+- **Under the owner's decisions,** voice uses the aiur package (ElevenLabs first, OpenAI second) and V1 art uses skills and code only (*superseded 2026-10-25:* three tiers, packs then free online sources then agent-made, still no paid generators; B11). This removes most vendor-exclusion debate from the default product. The open question narrows to which voice provider a child account may use [I].
+- **A possible sequencing win:** adult and teen creators can go live without the COPPA document set. That set gates the first *child* account, not the product [I; depends on B9]. *Now decided (2026-10-25):* V1 adults only, teens in V2, child accounts in V3.
 
 ## 2. Per-area decisions
 
-| # | Area | (a) Question for every user | (b) Default for adult and teen creators | (c) What changes for a child account |
+Column (b) is the V1 default for adults. Teens get the same in V2, except for B9's under-18 vendor routing (§8). Column (c) is V3.
+
+| # | Area | (a) Question for every user | (b) Default for adults (V1) and teens (V2) | (c) What changes for a child account (V3) |
 |---|---|---|---|---|
 | 1 | Sign-in | How does anyone sign in, and how do they recover a lost device? | Passkey or Google, the user's choice. Email is required and serves as the magic-link recovery path. | The guardian enrolls a passkey per device. The guardian's email is the recovery address. Google is off by default. |
-| 2 | Consent and authority | Who can agree to terms, and who can turn on features that collect data? | Users accept terms and toggle their own features, each with a short notice. Admins manage family settings, not other adults' data. | Only the guardian grants data scopes (voice, uploads, publishing the child's words). Admins can only make settings stricter. |
+| 2 | Consent and authority | Who can agree to terms, and who can turn on features that collect data? | Users accept terms and toggle their own features, each with a short notice. Admins manage family settings, not other adults' data. | Only the guardian grants data scopes (voice, uploads, publishing the child's words). Admins can only make settings stricter (*Kevin picked: anything the guardian has pre-approved*). |
 | 3 | Repos and public source | Where does my game's source live, and who can see it? | Connect GitHub at setup. Game Maker creates the repo. Visibility is the user's own GitHub choice, with a plain disclosure. | A guardian-owned GitHub hosts the repo. Private by default. Public needs the guardian's publishing scope, and the publication gate runs. |
-| 4 | Voice | Can I talk to the builder, and how do my games speak? | aiur voice package, ElevenLabs first, OpenAI second. No-transcript mode. Narration rendered once and reused. | Voice input is off until the guardian grants the scope. It then routes only to a provider cleared for children's data. |
-| 5 | Art and audio | What makes my game's art and sound? | V1 uses skills and code tools: CC0 kits, code-built props and sprites, code-composed music and SFX. Paid generators come later. | Uploads need the guardian's scope. Faces are rejected. Derived assets stay private until the guardian approves publishing them. |
+| 4 | Voice | Can I talk to the builder, and how do my games speak? | aiur voice package, ElevenLabs first, OpenAI second. No-transcript mode. Narration rendered once and reused. (V2) Teens use minor-cleared providers until approvals arrive (§8). | Voice input is off until the guardian grants the scope. It then routes only to a provider cleared for children's data. |
+| 5 | Art and audio | What makes my game's art and sound? | ~~V1 uses skills and code tools: CC0 kits, code-built props and sprites, code-composed music and SFX.~~ *Superseded 2026-10-25:* three tiers: installed packs, free online sources (API, git, npm), then agent-made (B11). Paid generators come later. | Uploads need the guardian's scope. Faces are rejected. Derived assets stay private until the guardian approves publishing them. |
 | 6 | Storage and CDN | Where do files live, and who can fetch them? | Hash-keyed bucket, signed links, no CDN in V1. Every user gets EXIF stripping. | Child uploads are never redistributable without the scope. A guardian's deletion overrides forks. |
 | 7 | AI funding | Who pays for builds, and on what credentials? | Kevin's API keys through aiur profiles. No subscriptions. AI disclosure for everyone. | Child jobs never fall back to a provider whose children's-data condition is unmet (for example OpenAI before ZDR). |
-| 8 | Sandbox | How is generated code kept from harming anyone? | VM per job with an egress allowlist, model proxy, commit service, separate-site iframe, no microphone in games. | No change. |
+| 8 | Sandbox | How is generated code kept from harming anyone? | VM per job with an egress allowlist, model proxy, commit service, separate-site iframe on a separate custom domain. ~~No microphone in games.~~ *Superseded:* games may use the microphone (Kevin's pick). | The microphone question is reopened for child accounts. |
 | 9 | Bug reports | What happens when someone reports a bug? | One report button. Reproducible crashes auto-repair within the admin's allowance. Diagnostics stay private, and issues carry only IDs. | No auto-repair spend from a child's report unless the admin allows it. Voice reports need the voice scope. |
 | 10 | Edit handoff | What if two people want to edit one game? | Single-writer lease. The owner moves between their own devices. Admins cannot take over an adult's game. | The guardian or an admin takes over instantly. The child taps "Ask to edit." |
-| 11 | Legal review | What review do we need before whom joins? | Ordinary terms and privacy policy, a neutral age screen, and a lawyer before opening beyond invited families. | COPPA document set and design-to-comply plan before the first child account. Lawyer before any outside family's child joins. |
+| 11 | Legal review | What review do we need before whom joins? | Ordinary terms and privacy policy, a neutral age screen (in V1 it turns away under-18s), and a lawyer before any outside family joins (Kevin's pick). | COPPA document set and design-to-comply plan before the first child account. Lawyer before any outside family's child joins. |
 | 12 | Spending | Who sets spending limits? | Admins set all limits: family cap, per-member caps, slots, repair allowance. | Child cannot raise or approve spend. A per-child sub-cap applies. |
 
 ### Notes by area
 
 **1. Sign-in.**
-- *(d)* B3 is right on substance: Google must never be the only way in. Google's policy says mixed-audience apps "shouldn't require" Google sign-in [V via B3 A1]. B3 framed this as a child problem. Under general positioning it is simply the mixed-audience rule. "Kids default to passkey" survives as a module setting.
+- *(d)* B3 is right on substance: Google must never be the only way in. Google's policy says mixed-audience apps "shouldn't require" Google sign-in [V via B3 A1]. B3 framed this as a child problem. Under general positioning it is simply the mixed-audience rule. "Kids default to passkey" survives as a module setting (V3).
 - *(e)* Owner options:
   - (a) Passkey only. Cleanest on Google policy, but every adult enrolls each device.
   - (b) Google only. Simplest, but it breaks the mixed-audience rule, and a client suspension would lock out every account.
   - (c) **Both (recommended).** No account depends on Google, and turning Google off strands nobody.
-- *(e)* Open question: may a guardian switch on Google for a child who has Family Link? Recommend not until the iPad device test passes [U per B3 A3].
+- *(e)* Email is mandatory (Decided). The method choice above is still open.
+- *(e)* (V3) Open question: may a guardian switch on Google for a child who has Family Link? Recommend not until the iPad device test passes [U per B3 A3].
 
 **2. Consent and authority.**
 - *(d)* B3's split between safety controls (admins) and consent scopes (guardian) survives exactly, and it is the core of the module (§3). B3's K4 recommendation (a) becomes the spec rule.
 - *(d)* Over-scoped: the decision page posed consent as a product-wide question. Adults and teens decide for themselves.
-- *(e)* Remaining choice for the consent method: (a) **signed form plus confirmation email (recommended)**, (b) email-plus "I approve", (c) video call. This applies only when a child account is created.
-- *(e)* Open: do teens need a parent's agreement to the terms? A B9 question.
+- *(e)* (V3) Remaining choice for the consent method: (a) **signed form plus confirmation email (recommended)**, (b) email-plus "I approve", (c) video call. This applies only when a child account is created. *Kevin picked (a), for V3.*
+- *(e)* (V2) Open: do teens need a parent's agreement to the terms? A B9 question.
 
 **3. Repos and public source.**
 - *(d)* Superseded by the owner's decision (no multi-repo, no platform monorepo):
@@ -56,35 +65,35 @@
   - issue and PR bodies carry only redacted briefs and IDs, never transcripts (B8);
   - the commit-service path checks (B4);
   - opaque creator handles in public credit.
-- *(d)* Child-only: B7's publication content gate and B3's never-public list. They are needed only where a child's words could reach a public repo.
-- *(e)* Remaining choice for child games. Recommend (a).
+- *(d)* Child-only (V3): B7's publication content gate and B3's never-public list. They are needed only where a child's words could reach a public repo.
+- *(e)* (V3) Remaining choice for child games. Recommend (a).
   - (a) **A dedicated repo per child, in the guardian's GitHub.** Private. The publishing scope is what unlocks public.
   - (b) The child's games go into the guardian's own repo.
   - (c) An admin's GitHub may host them.
 - *(e)* Open questions:
-  - Is a teen (GitHub allows 13+) allowed to connect their own GitHub? Recommend yes [I; B9 to confirm].
-  - aiur serves one repo per daemon today [V via B8]. Do repo-per-user setups need a multi-repo hosted aiur? That is an upstream gap, not an owner choice.
+  - (V2) Is a teen (GitHub allows 13+) allowed to connect their own GitHub? Recommend yes [I; B9 to confirm].
+  - aiur serves one repo per daemon today [V via B8]. Do repo-per-user setups need a multi-repo hosted aiur? That is an upstream gap, not an owner choice. *Now tracked:* aiur #5938 multi-repo hosting, planned for V1 (decision log).
 
 **4. Voice.**
 - *(d)* B2 recommended self-hosted speech-to-text and Kokoro for everyone, and treated ElevenLabs as blocked. That was over-scoped: it applied an under-18 rule to the whole product.
-- *(d)* Owner decision: aiur package, ElevenLabs then OpenAI. Under it, the default is ElevenLabs for adult and teen speech input and narration [assumption A2, A3].
+- *(d)* Owner decision: aiur package, ElevenLabs then OpenAI. Under it, the default is ElevenLabs for adult and teen speech input and narration [assumption A2, A3]. *Corrected by §8:* ElevenLabs is the default for adults (V1). Teens (V2) use minor-cleared providers until approval.
 - *(d)* B2's gap list survives as aiur package work for everyone: no-transcript mode, alignment and usage frames, a narration render path. B2's TypeScript relay recommendation (D3) is superseded.
-- *(e)* Remaining choice: the child-account voice provider. Recommend (a).
+- *(e)* (V3) Remaining choice: the child-account voice provider. Recommend (a). *Kevin picked stricter: child voice input always uses the self-hosted provider; ElevenLabs and OpenAI for adults only.*
   - (a) **Apply now for ElevenLabs written approval and OpenAI ZDR. Use the first approved. Until then, a self-hosted provider inside the same package.**
   - (b) Text and tap only until approval.
   - (c) Self-hosted only, permanently.
-- *(e)* Open question: may a child *play* a game narrated by ElevenLabs? Narration carries no child data, but ElevenLabs' clause covers "experiences directed at" under-18s [V via B2]. See assumption A3.
+- *(e)* (V3) Open question: may a child *play* a game narrated by ElevenLabs? Narration carries no child data, but ElevenLabs' clause covers "experiences directed at" under-18s [V via B2]. See assumption A3.
 
 **5. Art and audio.**
-- *(d)* The owner's decision (skills and code tools first) matches B5's library and code rungs and makes B5's D1 and D4 moot for V1. B5's long vendor-exclusion list was over-scoped. It returns, scoped by account band, when paid generators come back.
-- *(d)* Survives for everyone: the drawing-photo pipeline (crop, strip EXIF, local background removal, palette snap) and provenance records.
-- *(d)* Child-only: the upload scope, face rejection, and "never to a third-party generator."
+- *(d)* The owner's decision (skills and code tools first; *superseded 2026-10-25* by the three-tier rule: packs, free online sources, agent-made) matches B5's library and code rungs and makes B5's D1 and D4 moot for V1. B5's long vendor-exclusion list was over-scoped. It returns, scoped by account band, when paid generators come back.
+- *(d)* Survives for everyone: the drawing-photo pipeline (crop, strip EXIF, local background removal, palette snap) and provenance records. V1 has image upload with EXIF stripping; the crop/flatten capture UI and drawing tools are V2 (release plan).
+- *(d)* Child-only (V3): the upload scope, face rejection, and "never to a third-party generator."
 - *(e)* None in V1. Defer the $30 art benchmark.
 
 **6. Storage and CDN.**
 - *(d)* B6 survives intact: Railway bucket, hash keys, signed links, no V1 CDN, nightly backup. Two items change:
-  - "Erasure beats forks" becomes a child-upload rule. For adults, a published, redistributable asset stays in forks under its license. An adult's deletion removes it from their own game, not from forks [I].
-- *(e)* Remaining choices: (a) Railway bucket (recommended) or (b) R2. For adult erasure against forks: (a) **forks keep published assets (recommended)**, (b) deletion wins everywhere.
+  - "Erasure beats forks" becomes a child-upload rule (V3). For adults, a published, redistributable asset stays in forks under its license. An adult's deletion removes it from their own game, not from forks [I].
+- *(e)* Remaining choices: (a) Railway bucket (recommended) or (b) R2. For adult erasure against forks: (a) **forks keep published assets (recommended)**, (b) deletion wins everywhere. *Kevin picked the Railway bucket and "forks keep their copy".*
 
 **7. AI funding.**
 - *(d)* B1 survives: no subscriptions for hosted multi-user builds [V via B1 AN1–AN4, OA2–OA4]. The owner's decision settles the mechanism: aiur API-key profiles, nothing new built. The open item is still the Anthropic hosting clause (AN4 against AN5).
@@ -92,9 +101,10 @@
 - *(e)* Remaining choices:
   - Claude path: (a) **confirm with Anthropic, with Codex on an API key as fallback (recommended)**.
   - Second provider: **Codex as backup (recommended)**, with the child-routing rule from the table.
+  - *Since then:* Kevin picked aiur's own tool loop (Kimi, DeepSeek or OpenRouter models) as the sandbox coding agent, which drops Claude Code and Codex from hosted builds. The decision log marks this **Confirm**; those vendors' terms are unchecked.
 
 **8. Sandbox.**
-- *(d)* B4 survives entirely. Reword threat T3 from "kid text" to "user text." No-mic-in-games rests on untrusted code, not age.
+- *(d)* B4 survives entirely. Reword threat T3 from "kid text" to "user text." No-mic-in-games rests on untrusted code, not age. *Superseded:* Kevin picked "games may use the mic directly"; the child-account question is deferred to V3.
 - *(e)* B4's choices are unchanged and audience-neutral.
 
 **9. Bug reports.**
@@ -104,7 +114,7 @@
 **10. Edit handoff.**
 - *(d)* The B7 lease and fencing survive. Over-scoped: §4.2's admin assistance was written for supervised members, but B7 and the decision page applied takeover to any family game.
 - *(e)* Remaining choices:
-  - Supervised accounts: (a) **admin takes over instantly, child asks (recommended)**.
+  - (V3) Supervised accounts: (a) **admin takes over instantly, child asks (recommended)**.
   - Adult games: (a) **owner only, plus optional per-game "helper" grant later (recommended)**, (b) any admin may take over.
 
 **11. Legal review.**
@@ -114,24 +124,27 @@
   - (b) Run with your own family's children now under design-to-comply. The decision page's original recommendation.
   - (c) Lawyer now.
 - *(e)* (a) delays the motivating use case (§1.2); (b) stays defensible.
+- *(e)* *Decided 2026-10-25:* a stricter (a). V1 is adults only, teens come in V2, child accounts in V3. (b) is off the table. Kevin also picked "lawyer before any outside family joins". Children playing in V1 is release plan §6 Q2; see B9 §2a and §9 Q8.
 
 **12. Spending.**
 - *(d)* The owner's decision (admins configure all limits) generalizes B1 D3 and B8 §5. Defaults: $200 a month family cap, 1 + 3 slots, repair allowance, all admin-editable. "Pause mid-month frustrates the kids" becomes "pauses builds mid-month."
-- *(e)* Open question: per-member caps for adults. Recommend optional, off by default. A per-child sub-cap is on by default.
+- *(e)* Open question: per-member caps for adults. Recommend optional, off by default. (V3) A per-child sub-cap is on by default.
 
-## 3. Parental controls as one module
+## 3. Parental controls as one module (V3)
+
+Everything in this section is V3, except the teen opt-in, which would come with teens in V2.
 
 **Activation.**
 - An account is a child account when its age band is under 13, either declared at the neutral age screen or set by the admin who creates it.
 - A child account stays in `pending_consent` until a guardian edge with the `core` scope exists. Until then it cannot sign in [I; COPPA requires consent before collection, per B3 B3].
-- A family can opt a teen account into the module (`supervised: true`). Teens then get the same controls, but data scopes are recommended rather than required [I; B9].
+- (V2) A family can opt a teen account into the module (`supervised: true`). Teens then get the same controls, but data scopes are recommended rather than required [I; B9].
 
 **Roles (amends §4.1).**
 
 | Role | Can do in the module | Cannot do |
 |---|---|---|
 | Guardian (edge: parent to child, consent record, scopes) | Grant or revoke data scopes; review, export and delete the child's data; everything an admin can | Act for children it is not linked to |
-| Family owner or admin | Change safety controls, but only stricter, or within granted scopes; take over the child's games; set spend sub-caps | Grant data scopes; read transcripts (none exist) |
+| Family owner or admin | Change safety controls, but only stricter, or within granted scopes (*Kevin picked "anything the guardian has pre-approved"*); take over the child's games; set spend sub-caps | Grant data scopes; read transcripts (none exist) |
 | Inviter | Nothing extra | Gain any oversight by inviting |
 | Child | Use what is enabled; "Ask to edit"; request a setting (which notifies the guardian) | Change any control |
 
@@ -157,7 +170,7 @@ When two guardians disagree, the stricter setting wins [V via B3 B5]. A guardian
 - open or stranger chat;
 - public discovery;
 - the §10.8 always-off content;
-- microphone access inside games;
+- microphone access inside games (proposed; games may use the mic for other accounts, and the release plan reopens this for child accounts);
 - storing raw audio or full transcripts;
 - sending the child's voice, photos or raw prompts to a provider not cleared for children's data;
 - Google generative AI products on child data [V via B2 and B5: barred for under-18 services].
@@ -192,7 +205,7 @@ When two guardians disagree, the stricter setting wins [V via B3 B5]. A guardian
 
 ## 5. Spec deltas for v0.5
 
-- **§1.1:** add the account model: adult, teen and child bands; a parental-controls module on for child accounts and opt-in for teens. Positioning is general-audience [pending B9].
+- **§1.1:** add the account model: adult (V1), teen (V2) and child (V3) bands; a parental-controls module (V3) on for child accounts and opt-in for teens. Positioning is general-audience [pending B9].
 - **§1.4 / Appendix A:** replace "Google sign-in for adults and children" with "passkey or Google; email mandatory." Add rows for the parental-controls module and the guardian edge.
 - **§2.3:** sign-in row; a "parental-controls module" row replacing the split rows. Add "Bring-your-own GitHub: V1" (moved from §2.6, per the owner). CDN: not V1.
 - **§3.5 / §9.2:** no platform games monorepo. The user connects GitHub, Game Maker creates the repo, visibility is the user's choice. Child games go in a guardian-owned, private-by-default repo.
@@ -204,22 +217,27 @@ When two guardians disagree, the stricter setting wins [V via B3 B5]. A guardian
 - **§8.1:** API keys through aiur profiles. Subscriptions are ruled out for hosted builds.
 - **§8.3–8.4:** admins configure all limits. Defaults listed. Per-child sub-cap.
 - **§10.1:** replace the list of proposed categories with the §3 settings table.
-- **§10.5:** the legal gate is per audience: adults and teens get ordinary terms; the first child account needs the COPPA set; an outside family's child needs counsel.
+- **§10.5:** the legal gate is per audience: adults (V1) and teens (V2) get ordinary terms; the first child account (V3) needs the COPPA set; a lawyer reviews before any outside family joins (Kevin's pick, stricter than "an outside family's child").
+- Child-account items in the deltas above (guardian edge, child repos, child sign-in, child voice and uploads, per-child sub-cap, never-public list) are V3.
 - **§10.6:** rescope the vendor table by account band.
 - **§10.7:** the never-public list and the publication gate apply to child-owned content.
 
 ## 6. Decisions for Kevin
 
-1. **Sign-in:** passkey only, Google only, or **both (recommended)**. Also: Google for children only after the device test (recommended)?
-2. **Teens (13–17):** **ordinary creators, with optional supervision (recommended)**, or always supervised?
-3. **Where child games live:** **a dedicated repo per child in the guardian's GitHub (recommended)**, the guardian's own repo, or an admin's.
-4. **Child-account voice:** **apply to ElevenLabs and OpenAI now, self-hosted meanwhile (recommended)**, text only until approval, or self-hosted forever.
-5. **Admin takeover of adult members' games:** **no (recommended)**, or yes.
-6. **Adult erasure against forks:** **forks keep published assets (recommended)**, or deletion wins.
-7. **Launch order:** **adults and teens first, then child accounts once the COPPA set is drafted (recommended)**, or the family's children now under design-to-comply.
+Status as of 2026-10-25 is in italics.
+
+1. **Sign-in:** passkey only, Google only, or **both (recommended)**. Also: Google for children only after the device test (recommended)? *Email mandatory (Decided); method open; the child part is V3.*
+2. **Teens (13–17):** **ordinary creators, with optional supervision (recommended)**, or always supervised? *V2, Working.*
+3. **(V3) Where child games live:** **a dedicated repo per child in the guardian's GitHub (recommended)**, the guardian's own repo, or an admin's.
+4. **(V3) Child-account voice:** **apply to ElevenLabs and OpenAI now, self-hosted meanwhile (recommended)**, text only until approval, or self-hosted forever. *Kevin picked always self-hosted for child voice input.*
+5. **Admin takeover of adult members' games:** **no (recommended)**, or yes. *Working.*
+6. **Adult erasure against forks:** **forks keep published assets (recommended)**, or deletion wins. *Kevin picked "forks keep their copy".*
+7. **Launch order:** **adults and teens first, then child accounts once the COPPA set is drafted (recommended)**, or the family's children now under design-to-comply. *Decided, stricter: adults only in V1, teens in V2, children in V3.*
 8. **Unchanged from the decision page:** D7 Anthropic confirmation, D8 sandbox, D9 repair defaults, spending approvals.
 
 ## 7. Assumptions pending B9
+
+These assumptions are about the V2 and V3 product with teens and children. For the adult-only V1, see B9 §2a.
 
 - **A1:** General-audience positioning with a neutral age screen makes Game Maker "mixed audience" under Google's API policy, so optional Google sign-in is permitted. If B9 finds it child-directed, Google comes off entirely and option (a), passkey only, wins.
 - **A2:** Anthropic, OpenAI and ElevenLabs permit adult-account use in a mixed-audience product with child accounts walled off. Anthropic's minors guidelines (AI disclosure, safety) would still apply product-wide whenever any minor can use it [V via B1 AN10]. That is already adopted.
@@ -244,4 +262,4 @@ B9 has since been written. Where it changes this report:
 - **New owner decisions from B9:**
   - positioning: mixed audience by design;
   - public name: "Open Game Maker 2000", already adopted 2026-10-21.
-- **Signup order (B9 §2):** a neutral age screen comes first, before Google sign-in or any other collection. Under-13 routes to the parent flow.
+- **Signup order (B9 §2):** a neutral age screen comes first, before Google sign-in or any other collection. Under-13 routes to the parent flow (V3). In V1 the screen turns away anyone under 18.
