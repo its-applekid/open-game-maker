@@ -40,6 +40,25 @@ The download links contain personal keys. Never commit them or post them anywher
 | Humble, October 2026 | Game-key bundles only, no asset bundles [S] | — |
 | Fab (Epic) free rotation | Free packs every two weeks, under the Fab Standard License, which allows commercial use [S] | Mostly Unreal. Claim them while free; they stay in your library [S] |
 
+### Engine-specific bundles (Unreal/Fab, Unity) — 2026-10-25
+
+- **License:** Fab's Standard License summary says assets may be used with any compatible tool, not only Unreal. Exceptions [S]:
+  - Epic-owned content (Megascans, Paragon, MetaHumans) stays Unreal-only;
+  - use in fully open-source projects is limited.
+
+  Same rule as Synty: Kevin's instance only, in private game repos. The Fab EULA itself wasn't readable (403), so read it before buying.
+- **Format is the real barrier.**
+  - A Fab listing that offers FBX, OBJ or glTF downloads is fine.
+  - An Unreal-only listing delivers `.uasset` content. Getting at it means installing the Unreal Editor (a large install), adding the content to a project and exporting to FBX or glTF. That's a manual step outside our headless Blender importer.
+  - Unity Asset Store `.unitypackage` files are gzip tarballs holding the source FBX and PNG files, so a script can extract them without Unity.
+- **What survives export:** meshes, textures, skeletons and animations.
+- **What doesn't:** Unreal or Unity material graphs (they must be rebuilt as three.js PBR materials from the textures), Niagara or Shuriken VFX, Blueprints and scripts, levels, lighting and landscapes.
+- **Browser fit:** realistic Unreal environment packs (e.g. Dekogon, Meshingun) are usually high-poly, use Nanite, carry 4K textures and look realistic. That's a poor match for web budgets and for low-poly packs like Kenney and Synty.
+- **Rule of thumb:**
+  - Buy when the bundle is stylized or low-poly and ships FBX, glTF or a Unity package.
+  - 2D art and audio are engine-neutral anyway (PNG, WAV).
+  - Skip realistic Unreal-only packs for V1.
+
 ## 4. Free sources found
 
 **CC0 (no restrictions):**
