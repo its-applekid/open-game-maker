@@ -206,6 +206,71 @@ Per-adapter license mapping:
 - **game-icons.net:** read the author table (CC BY 3.0, or CC0 for listed authors).
 - **Any asset without a machine-readable license is dropped.**
 
+### 4.8 Skills for agents
+
+Skills load on demand. Only `gm-core` is always in context, so an agent pays tokens only for the skills a job needs. Each skill is short: rules, the `gm` commands to use, and one worked example. Long references stay behind `gm docs`. The skills live in the open-source engine repo, so they're versioned with the SDK they describe.
+
+**Always loaded**
+
+| Skill | Covers |
+|---|---|
+| `gm-core` | Asset tier order, the `gm` cheat sheet, token rules (facets before lists, sheets before single previews, batch `use`), what "done" means (`gm check`, `gm test` and `gm run` green), and when to post `gm progress` |
+
+**Assets and art**
+
+| Skill | Covers |
+|---|---|
+| `gm-assets` | Picking from locked packs, style consistency, when tier 2 or tier 3 is justified, license basics, registering tier 3 assets |
+| `gm-kitbash-3d` | Building with modular kits: grid snapping, combining props, palette-texture recolors, instancing, and the triangle budget |
+| `gm-sprites-2d` | Atlases, pixel-art scaling and filtering, frame animation, tilemaps |
+| `gm-vfx` | Particles from flipbooks and pack textures, pooling, and the perf budget |
+| `gm-props-procedural` | Tier 3: low-poly Three.js props that match the locked pack's palette and proportions |
+
+**Audio and voice**
+
+| Skill | Covers |
+|---|---|
+| `gm-audio` | Choosing SFX, audio sprites, mix levels, ambience loops, music loops and stingers |
+| `gm-music-compose` | Tier 3: Tone.js `song.json`, intensity layers, matching the mood of the game's packs |
+| `gm-dialogue-narration` | Dialogue data format, `gm narrate`, the narration cache key, captions and word highlighting |
+
+**Game building**
+
+| Skill | Covers |
+|---|---|
+| `gm-genre-platformer`, `-racer`, `-topdown`, `-rpg`, `-puzzle` | The template from `gm new`, core loop patterns, and common pitfalls for that genre |
+| `gm-ui-hud` | The standard HUD and editor framework, fonts and icons, readable text, accessibility |
+| `gm-input` | Mouse, keyboard, touch and controllers through the SDK, including spatial navigation (Norigin) |
+| `gm-saves-achievements` | Autosave, cross-device resume, and achievement definitions |
+| `gm-editor-tuning` | Exposing tunable values to the in-game editor, so creators adjust without a new build |
+
+**Verifying and repairing**
+
+| Skill | Covers |
+|---|---|
+| `gm-verify` | `gm run --headless` input scripts, what to look for in shot sheets, and `gm perf` budgets |
+| `gm-repair` | From a bug report to a reproduction, a fix and a regression test, using the auto-repair flow |
+
+**Conditional**
+
+| Skill | Covers |
+|---|---|
+| `gm-child-account` | Content and feature rules applied only when the game belongs to a child account (parental-controls layer) |
+| `gm-multiplayer-ready` | V1 architecture rules that keep a game multiplayer-capable later (deterministic state, input separated from simulation) |
+
+**Scope chat agent (not a build agent)**
+
+| Skill | Covers |
+|---|---|
+| `gm-scope-options` | Offering styles, characters and sounds from installed packs using `gm assets facets` and `sheet`; saying when a request falls to tier 2 or 3; writing the scope file that `gm scope` prints |
+
+**Admin and operator (Kevin's agents, not game builds)**
+
+| Skill | Covers |
+|---|---|
+| `gm-pack-import` | Running `gm packs import` and `sync`, checking license files, fixing conversion failures |
+| `gm-pack-curate` | Tags, style labels and `kit` definitions, and reviewing the tier 2 pack wishlist |
+
 ## 5. Options considered
 
 | Option | Verdict |
