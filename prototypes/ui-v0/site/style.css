@@ -17,7 +17,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #grain { position: fixed; inset: 0; pointer-events: none; z-index: 50; mix-blend-mode: multiply; opacity: .22; background-size: 256px; }
 
 /* ---------- HOME ---------- */
-.view { position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100lvh; }
+.view { position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: calc(100lvh + env(safe-area-inset-top)); } /* home-screen apps size lvh without the status bar */
 #home { overflow: hidden; }
 .paper-bg { position: absolute; inset: 0; background: url(assets/img/paper-bg.png) center / cover no-repeat, var(--paper); }
 .layer { position: absolute; inset: 0; pointer-events: none; }
@@ -36,7 +36,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #home.out .home-ui { transform: translateY(-60vh); opacity: 0; transition: transform .8s var(--io), opacity .5s linear .3s; }
 #home.out #sound { opacity: 0; }
 
-.home-ui { position: absolute; top: 0; left: 0; right: 0; height: 100vh; height: 100dvh; box-sizing: border-box; padding-top: env(safe-area-inset-top); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding-bottom: calc(14vh + env(safe-area-inset-bottom)); }
+.home-ui { position: absolute; top: 0; left: 0; right: 0; height: 100vh; height: calc(100dvh + env(safe-area-inset-top)); box-sizing: border-box; padding-top: env(safe-area-inset-top); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; padding-bottom: calc(14vh + env(safe-area-inset-bottom)); }
 .logo-wrap { position: relative; width: min(64vw, 820px, 98vh); }
 .logo-wrap img { width: 100%; display: block; filter: drop-shadow(0 6px 0 rgba(58,42,32,.18)); }
 .glint { position: absolute; width: 6%; aspect-ratio: 1; transform: translate(-50%, -50%) scale(0); background: radial-gradient(circle, #fff 0 12%, transparent 13%), conic-gradient(from 0deg, transparent 0 20%, #fff8 22%, transparent 25% 45%, #fff8 47%, transparent 50% 70%, #fff8 72%, transparent 75% 95%, #fff8 97%, transparent); border-radius: 50%; pointer-events: none; }
@@ -55,11 +55,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 /* ---------- EDITOR ---------- */
 #editor { display: grid; gap: 12px; padding: 12px; padding-top: max(12px, env(safe-area-inset-top));
   padding-bottom: max(12px, env(safe-area-inset-bottom)); padding-left: max(12px, env(safe-area-inset-left)); padding-right: max(12px, env(safe-area-inset-right));
-  height: 100vh; height: 100dvh; box-sizing: border-box;
+  height: 100vh; height: calc(100dvh + env(safe-area-inset-top)); box-sizing: border-box;
   grid-template-columns: 200px minmax(0, 1fr) 270px; grid-template-rows: 62px minmax(0, 1fr) 168px;
   grid-template-areas: "top top top" "rail stage insp" "tray tray tray"; }
 /* the editor's box stops at the visible area (dvh); its paper runs full height behind Safari's bars */
-#editor::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: 100lvh; z-index: -1;
+#editor::before { content: ''; position: fixed; top: 0; left: 0; right: 0; height: 100vh; height: calc(100lvh + env(safe-area-inset-top)); z-index: -1;
   background: url(assets/img/paper-bg.png) center / cover, var(--paper); }
 .paper { background: var(--card); border: 3px solid var(--ink); border-radius: 20px; box-shadow: var(--shadow); }
 .topbar { grid-area: top; display: flex; align-items: center; gap: 10px; padding: 0 12px; }
