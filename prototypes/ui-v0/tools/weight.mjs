@@ -1,0 +1,12 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader'] });
+const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+const t0 = Date.now();
+await page.goto(process.argv[2]);
+await page.waitForFunction(() => document.querySelector('#home.in'), null, { timeout: 60000 });
+const tHome = Date.now() - t0;
+await page.waitForFunction(() => performance.getEntriesByType('resource').some(r => r.name.includes('goblinfighter-03')) , null, { timeout: 120000 });
+await page.waitForTimeout(8000);
+const r = await page.evaluate(() => { const g = {}; for (const e of performance.getEntriesByType('resource')) { const k = e.name.includes('/models/') ? 'models' : e.name.includes('/audio/') ? 'audio' : e.name.includes('/img/') ? 'images' : e.name.includes('jsdelivr') ? 'three.js (cdn)' : e.name.includes('fonts') ? 'fonts' : 'code'; g[k] ||= { n: 0, kb: 0 }; g[k].n++; g[k].kb += Math.round((e.encodedBodySize || e.transferSize) / 1024); } return g; });
+console.log(JSON.stringify({ homeVisibleMs: tHome, byType: r }, null, 1));
+await browser.close();

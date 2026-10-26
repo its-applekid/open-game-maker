@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Open Game Maker 2000</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<div id="grain"></div>
+
+<!-- HOME: 2D paper-cut layers, built by js/home.js -->
+<section id="home" class="view">
+  <div class="paper-bg"></div>
+  <div class="layer" id="L-sun" style="--d:.1s"></div>
+  <div class="layer" id="L-clouds" style="--d:.3s"></div>
+  <div class="layer" id="L-far" style="--d:.2s"></div>
+  <div class="layer" id="L-mid" style="--d:.38s"></div>
+  <div class="layer" id="L-near" style="--d:.47s"></div>
+  <div class="layer" id="L-front" style="--d:.56s"></div>
+  <div class="layer" id="L-leaves"></div>
+  <div class="home-ui">
+    <div class="logo-wrap pop" style="--d:.8s">
+      <img id="logo" src="assets/img/logo.png" alt="Open Game Maker 2000">
+      <span class="glint" style="left:22.7%;top:82.5%"></span>
+      <span class="glint" style="left:75.6%;top:81%"></span>
+    </div>
+    <button id="start" class="btn-start pop" style="--d:1.1s"><span>Start</span></button>
+  </div>
+  <button id="sound" class="chip fade" style="--d:1.3s">♪ Tap for sound</button>
+</section>
+
+<!-- EDITOR -->
+<section id="editor" class="view" hidden>
+  <header class="topbar paper">
+    <img class="mini-logo" src="assets/img/logo.png" alt="">
+    <span class="sep"></span>
+    <input id="title" value="Goblin Cellar" aria-label="Game name" spellcheck="false">
+    <span class="spacer"></span>
+    <span class="mode-badge" id="modeBadge">Editing</span>
+    <button id="undo" class="icon-btn" title="Undo (Ctrl+Z)">↶</button>
+    <button id="redo" class="icon-btn" title="Redo (Ctrl+Shift+Z)">↷</button>
+    <button id="mute" class="icon-btn" title="Sound">♪</button>
+    <button id="play" class="btn green"><b>▶</b> Try it!</button>
+  </header>
+
+  <nav id="rail" class="paper">
+    <button data-cat="build"><span class="thumb" data-thumb="wall"></span><span>Walls</span></button>
+    <button data-cat="monsters" class="on"><span class="thumb" data-thumb="goblin1"></span><span>Monsters</span></button>
+    <button data-cat="treasure"><span class="thumb" data-thumb="chest"></span><span>Treasure</span></button>
+    <button data-cat="decor"><span class="thumb" data-thumb="torch"></span><span>Decor</span></button>
+  </nav>
+
+  <main id="stage" class="paper">
+    <canvas id="c3d"></canvas>
+    <div id="hint" class="pill">Pick a goblin, then tap the floor</div>
+    <div id="floaters"></div>
+    <!-- play HUD -->
+    <div id="hud" hidden>
+      <div class="hud-left paper-chip"><span id="hearts"></span></div>
+      <div class="hud-mid paper-chip"><span id="goblinsLeft"></span> · <span id="coins">🪙 0</span></div>
+      <button id="stop" class="btn coral">■ Stop</button>
+      <div id="prompt" class="pill" hidden>Press <b>E</b> to open</div>
+      <div id="stick"><div id="nub"></div></div>
+      <button id="btnAttack" class="touch-btn">⚔</button>
+      <button id="btnUse" class="touch-btn small" hidden>✋</button>
+      <div id="keys" class="pill">WASD / arrows to move · Space to swing · E to open</div>
+      <div id="vignette"></div>
+    </div>
+    <div id="result" class="paper" hidden>
+      <h2 id="resultTitle">Dungeon cleared!</h2>
+      <p id="resultText"></p>
+      <div class="row"><button id="again" class="btn green">Play again</button><button id="backEdit" class="btn">Back to editing</button></div>
+    </div>
+    <div id="loading" class="pill">Loading the dungeon…</div>
+  </main>
+
+  <aside id="inspector" class="paper">
+    <div id="inspEmpty">
+      <h3>Nothing selected</h3>
+      <p>Tap something in your dungeon to change it. Drag it to move it.</p>
+      <ul class="tips"><li><b>R</b> turn</li><li><b>Del</b> remove</li><li><b>Ctrl+Z</b> undo</li></ul>
+    </div>
+    <div id="inspBody" hidden>
+      <h3 id="inspName">Goblin</h3>
+      <div class="insp-thumb"><img id="inspThumb" alt=""></div>
+      <div id="inspProps"></div>
+      <div class="row">
+        <button id="turn" class="btn small">⟳ Turn</button>
+        <button id="copy" class="btn small">⧉ Copy</button>
+        <button id="remove" class="btn small coral">🗑 Remove</button>
+      </div>
+    </div>
+  </aside>
+
+  <footer id="tray" class="paper">
+    <h2 id="trayTitle">Pick a monster</h2>
+    <div id="items"></div>
+  </footer>
+</section>
+
+<div id="wipe"><svg viewBox="0 0 1600 120" preserveAspectRatio="none"><path d="M0 120 L0 40 Q 40 10 80 38 T 160 30 T 240 44 T 330 24 T 420 40 T 520 22 T 610 42 T 700 26 T 800 44 T 890 20 T 980 40 T 1080 26 T 1170 44 T 1260 22 T 1350 40 T 1450 24 T 1530 40 T 1600 30 L1600 120 Z"/></svg></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -1,0 +1,102 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>bake goblin</title>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+// Assemble one Sidekick goblin from its .sk part list into a single skinned mesh + clips, export GLB.
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const q = new URLSearchParams(location.search);
+const kind = q.get('kind') || 'GoblinFighters/GoblinFighter_01';
+const name = kind.split('/')[1];
+const SK = '/assets-local/packs/synty-sidekick-goblin-fighters/1.0.4/extracted/Synty/SidekickCharacters';
+const ANIM = '/assets-local/packs/synty-animation-goblin-locomotion/v2/extracted/Animations/Sidekick/Neutral';
+const CLIPS = {
+  idle: 'Idles/A_MOD_GBL_Idle_Standing_Neut.fbx',
+  walk: 'Locomotion/Walk/A_MOD_GBL_Walk_F_Neut.fbx',
+  run: 'Locomotion/Run/A_MOD_GBL_Run_F_Neut.fbx',
+  attack: 'Idles/A_MOD_GBL_Idle_Fidget_Swipe_Neut.fbx',
+  taunt: 'Idles/A_MOD_GBL_Idle_Fidget_Menacing_Neut.fbx',
+};
+const log = (...a) => { console.log(...a); (window.__log ||= []).push(a.join(' ')); };
+
+async function partPath(p) {
+  // parts live under Species/Goblins or Outfits/GoblinFighters
+  for (const dir of ['Species/Goblins', 'Outfits/GoblinFighters']) {
+    const url = `${SK}/Resources/Meshes/${dir}/${p}.fbx`;
+    if ((await fetch(url, { method: 'HEAD' })).ok) return url;
+  }
+  throw new Error('missing part ' + p);
+}
+
+async function main() {
+  const t0 = performance.now();
+  const sk = await (await fetch(`${SK}/Characters/${kind}/${name}.sk`)).text();
+  const parts = [...sk.matchAll(/Name: (SK_\S+)/g)].map(m => m[1]);
+  log('parts', parts.length);
+  const loader = new FBXLoader();
+  const objs = await Promise.all(parts.map(async p => loader.loadAsync(await partPath(p))));
+  log('loaded parts ms', Math.round(performance.now() - t0));
+
+  // master skeleton = first part's bones; every part is remapped onto it by bone name
+  let master = null; const geos = [];
+  for (const o of objs) {
+    o.updateMatrixWorld(true);
+    o.traverse(m => {
+      if (!m.isSkinnedMesh) return;
+      if (!master) master = { skeleton: m.skeleton, root: o, bindMatrix: m.bindMatrix.clone() };
+      // dynamic (hair/ear/accessory) bones aren't in the master rig: fall back to the nearest ancestor that is
+      const find = b => { for (let x = b; x; x = x.parent) { const i = master.skeleton.bones.findIndex(mb => mb.name === x.name); if (i >= 0) return i; } return 0; };
+      const idx = m.skeleton.bones.map(find);
+      const g = m.geometry.clone();
+      const si = g.attributes.skinIndex;
+      for (let i = 0; i < si.count; i++) for (let c = 0; c < 4; c++) si.setComponent(i, c, Math.max(0, idx[si.getComponent(i, c)]));
+      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'skinIndex', 'skinWeight'].includes(k)) g.deleteAttribute(k);
+      g.morphAttributes = {}; g.clearGroups();
+      geos.push(g);
+    });
+  }
+  const merged = mergeGeometries(geos, false);
+  log('merged verts', merged.attributes.position.count, 'from', geos.length, 'meshes');
+
+  const tex = await new THREE.TextureLoader().loadAsync(`${SK}/Characters/${kind}/Textures/T_${name}ColorMap.png`);
+  tex.colorSpace = THREE.SRGBColorSpace; tex.magFilter = tex.minFilter = THREE.NearestFilter; tex.flipY = true;
+  const mat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.8 });
+
+  const root = new THREE.Group(); root.name = name;
+  const rig = master.root; // keep the first part's bone hierarchy, drop its meshes
+  rig.traverse(m => { if (m.isMesh) m.visible = false; });
+  const toRemove = []; rig.traverse(m => { if (m.isMesh) toRemove.push(m); });
+  toRemove.forEach(m => m.parent.remove(m));
+  const mesh = new THREE.SkinnedMesh(merged, mat); mesh.name = name + '_mesh';
+  rig.add(mesh);
+  mesh.bind(new THREE.Skeleton(master.skeleton.bones, master.skeleton.boneInverses), master.bindMatrix);
+  root.add(rig);
+
+  const clips = [];
+  for (const [clipName, file] of Object.entries(CLIPS)) {
+    const a = await loader.loadAsync(`${ANIM}/${file}`);
+    const c = a.animations[0]; c.name = clipName;
+    // drop root motion translation on the hip/root so clips play in place
+    c.tracks = c.tracks.filter(t => !/^root\.position$/i.test(t.name));
+    clips.push(c);
+  }
+  log('clips', clips.map(c => `${c.name}:${c.duration.toFixed(2)}s/${c.tracks.length}tr`).join(' '));
+  log('bones sample', master.skeleton.bones.slice(0, 6).map(b => b.name).join(','));
+
+  const glb = await new GLTFExporter().parseAsync(root, { binary: true, animations: clips });
+  const bytes = new Uint8Array(glb);
+  let s = ''; for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  window.__result = btoa(s);
+  log('glb bytes', bytes.length, 'total ms', Math.round(performance.now() - t0));
+}
+main().catch(e => { log('ERROR', e.stack || e); window.__result = 'ERROR'; });
+</script>

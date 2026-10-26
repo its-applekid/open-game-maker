@@ -1,2 +1,6 @@
 # Purchased/licensed asset packs: personal licenses, never commit
 assets-local/
+
+# prototype copies of licensed assets
+prototypes/*/site/assets/
+prototypes/*/.netlify/
