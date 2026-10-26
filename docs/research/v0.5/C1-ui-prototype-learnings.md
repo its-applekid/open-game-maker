@@ -21,7 +21,7 @@
   - awesome-gamedev `game-feel` gave the hit-feedback recipe used as-is.
   - design-to-motion gave the intro timings.
   - Generic UI skills added little.
-- **Licensing flag:** the live URL serves Synty-derived GLBs (the three goblins) to anyone who has the link. B11's own policy refuses personal-license assets in public places. **Recommendation: treat this deploy as a short-lived review link, and take it down or put it behind a password after Kevin has looked.** Public demos should use CC0 only. **Resolved 2026-10-26:** the goblins are now Mini Dungeon's own `character-orc`, the same pack, rig and animations as the hero. The Synty files are gone from the live deploy, though the two older deploy permalinks still serve them until those deploys are deleted.
+- **Licensing flag:** the live URL serves Synty-derived GLBs (the three goblins) to anyone who has the link. B11's own policy refuses personal-license assets in public places. **Recommendation: treat this deploy as a short-lived review link, and take it down or put it behind a password after Kevin has looked.** Public demos should use CC0 only. **Resolved 2026-10-26:** the goblins are now Mini Dungeon's own `character-orc`, the same pack, rig and animations as the hero. The Synty files are gone from the live deploy, and the older deploys that served them were deleted.
 
 ## 2. What was built
 
