@@ -2,3 +2,6 @@
   X-Robots-Tag: noindex, nofollow
 /assets/*
   Cache-Control: public, max-age=86400
+
+/site.webmanifest
+  Content-Type: application/manifest+json
