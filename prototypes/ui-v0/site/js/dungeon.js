@@ -91,7 +91,9 @@ let flameTex;
 
 const loadAll = (async () => {
   const L = new GLTFLoader();
-  await Promise.all(Object.entries(MODELS).map(async ([k, f]) => { gltfs[k] = await L.loadAsync(`assets/models/${f}.glb`); }));
+  // ?models=json loads self-contained .gltf JSON copies (the design-doc artifact can't serve .glb)
+  const ext = new URLSearchParams(location.search).get('models') === 'json' ? 'json' : 'glb';
+  await Promise.all(Object.entries(MODELS).map(async ([k, f]) => { gltfs[k] = await L.loadAsync(`assets/models/${f}.${ext}`); }));
   gltfs.coin.scene.scale.setScalar(1);
 })();
 
