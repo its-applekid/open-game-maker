@@ -33,6 +33,9 @@ Sources:
 | Spending | **Admins configure all spending limits.** The plan sets only the starting defaults. | §8.3–8.4 |
 | Stack | **TypeScript only**, frontend (React) and backend (Node on Railway). Rust was considered and set aside (2026-10-23). Reconfirmed 2026-10-25 after comparing Godot, Lua (Defold, LÖVE), C#, C++, Rust and Haxe: browser load size, agent fluency in TS, and in-page editor and test hooks favour TS. Keep the engine–editor contract (manifest, design overrides, test hooks) message-based so a second runtime stays possible. The only Elixir is aiur and the thin voice_converse host. | §3 |
 | aiur dependencies | aiur consumed as modular packages: voice_converse (git dep pinned to tags), the voice wire contract (JSON Schema), a TS voice client (npm), and hosted aiur over HTTP with versioned schemas. All tracked in Aiur-NUC's lane, including #5936 releases, #5937 per-job scoping (post-v1) and #5938 multi-repo hosting (v1). | §7 |
+| Build analytics | **V1.** Surface aiur's built-in analytics to admins in Game Maker with fine-grained detail. Game Maker adds the game-making context aiur lacks (time on animation, playtesting, level building and so on). (2026-10-26, C2) | Admin UI |
+| Style families | **V1.** The style picked at game creation (low poly, fidelity levels, 2D styles) maps to specific packs; one style family per game. (2026-10-26, C1, C2) | §5.3 |
+| Device-tiered assets | **V1.** Assets and textures get pre-processed mobile-friendly variants that load only on mobile. (2026-10-26, C2) | §5.3, §10.7 |
 | Process | No tickets or aiur build order yet. aiur's in-flight build order will be split across two machines, with Game Maker components first (`docs/handoff/aiur-executor-split-prompt.md`). | — |
 
 ## Picked by Kevin on the decision page (2026-10-22, 17:45–18:00)

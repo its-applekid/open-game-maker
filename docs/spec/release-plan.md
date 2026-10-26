@@ -28,9 +28,11 @@ The product has to make sense on its own at every version. V1 is a complete game
 | Sign-in | Email required as the recovery path, plus passkey and/or Google (passkey + Google both recommended, B10). The age screen turns away under-18s | Decided (email, 18+); method Working |
 | Accounts and family | Owner and admins, peer admin management, member invites, invite-only play for adult player accounts. Admins set spending limits and build concurrency (default: 1 creation + 3 edit builds). Admins cannot take over another adult's game | Decided (roles, limits); takeover rule Working |
 | Admin UI | Membership, invites, budgets, concurrency, game oversight (listing and abuse handling, not editing others' games) | Working |
+| Build analytics | Admins see each build's aiur phase timeline (dispatch → implement → test → PR → merge), cost and retries, plus Game Maker's game-activity breakdown (animation, playtesting, level building and so on), per build and rolled up. No prompt or source text is stored (C2) | Decided |
 | Creation | Guided creation by voice, text or images: clarify, agree scope, build and test through aiur. AI feature additions use one coding agent with skills | Decided |
 | Voice | Two-way creation voice via the aiur `voice_converse` package. ElevenLabs first, OpenAI second, with a no-transcript mode. One-way voice snippets where useful | Decided |
 | Narration and captions | Read-aloud narration and captions, rendered once and reused. Word highlighting where the provider supports it | Decided; highlighting Working |
+| Asset style and devices | The style picked at creation maps to a style family of packs; one family per game, enforced by `gm-core`. Every asset gets mobile and desktop variants at import, and the SDK loads only the device's tier (C2) | Decided |
 | Assets | Three tiers: (1) installed packs from the instance bucket, (2) free online sources via API, git or npm, (3) agent-made. The `gm` CLI and its skills (B11, B14). No paid generators | Decided |
 | Image upload | Any image, including a photo of a drawing. EXIF stripped. AI restyling through OpenAI only after zero-retention approval | Decided; restyling is post-MVP (§3) |
 | Editor and play | Standard HUD and editor framework, direct manipulation, edit while builds run (database overrides), editor undo/redo | Decided |
@@ -116,7 +118,7 @@ The product has to make sense on its own at every version. V1 is a complete game
 
 | Report | V1 relevance | Mostly later |
 |---|---|---|
-| B1 credentials, B4 sandbox, B6 storage, B8 aiur integration, B11–B14 | Core V1 | B6 CDN (V2) |
+| B1 credentials, B4 sandbox, B6 storage, B8 aiur integration, B11–B14, C1–C2 | Core V1 | B6 CDN (V2) |
 | B2 voice | aiur package, ElevenLabs/OpenAI, narration | Self-hosted voice for child accounts (V3) |
 | B5 art and audio | Code tools and packs | Paid generators (V2) |
 | B7 editor, SDK, input | Core V1 | Multiplayer hooks (V2) |
