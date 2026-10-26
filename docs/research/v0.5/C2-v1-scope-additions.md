@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). Item 8, branching, is something Kevin is considering ("I wonder if we should fully embrace support for branching"). The recommendation is a branch-aware data model in V1, with a basic branching UI. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). Item 8, branching, is something Kevin is considering ("I wonder if we should fully embrace support for branching"). The recommendation is a branch-aware data model in V1, with a basic branching UI. Item 9, map inspiration, is in scope by Kevin's direction (2026-10-26). It is placed in V1 alongside the Drive intake it depends on. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -16,6 +16,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 6 | **Multiplayer, first-class in V1** | Single player or multiplayer is chosen at creation, and a single-player game can become multiplayer later. Inviting friends is easy: they sign in and land straight in the game. Players without editor access watch the editor's changes exactly as they happen, and join gameplay the moment Play is pressed. Over the network, each player has their own controller and their own character's point of view | Build A7 R12's room design (a generic Colyseus room, with the simulation hosted in the owner's sandboxed browser) in V1. Stream B7's design transactions to watchers so their view matches the editor exactly. Every game follows `gm-multiplayer-ready` rules from day one, so converting to multiplayer is an ordinary edit job |
 | 7 | **Drive watch folder for new assets** | Kevin drops new asset files into a Google Drive folder. A listener notices right away and, after a debounce for uploads in progress, an agent organizes them and makes them available: as a new creation choice, or just as material agents can use. Assets aren't forced into "packs": a drop may be a full pack, a set of sound effects or a few models | A Drive changes listener scoped to one folder, with a quiet-period debounce, feeds a `gm-asset-intake` skill. Its unit is the **collection** (any size). It identifies, checks the license, normalizes (B11 plus the C2 §3 variants), tags and indexes each collection for `gm assets search`. A collection becomes a creation choice only if curation says it completes a style family |
 | 8 | **Branching (code and editor state)** | A branch covers both a Git branch and a branch of the editor state the creator changed. For example: branch the dungeon, make totally different monsters in the branch, pick a branch when choosing a game and play either version, then merge back with a two-way voice conversation to settle state conflicts | **Recommended.** A branch = a Git branch for code + a fork point in the editor's transaction log for design state, built and played independently. Merge = Git merge (agent resolves code) + a three-way merge of design state by stable entity and control id, with only real conflicts walked through by the voice agent alongside side-by-side previews. Make the data model branch-aware in V1 even if the UI starts small: retrofitting it later is the expensive part |
+| 9 | **Map inspiration library** | Upload a bunch of D&D-style tabletop level designs as design inspiration, including for non-D&D levels: a chamber or dungeon becomes the starting point for a 3D level. Add a skill for using them | Maps arrive through the Drive intake as an **inspiration** collection that is never shipped in games. At ingest, each map is turned into a **layout spec**: grid, rooms, connections, doors, stairs, features and tags. The `gm-map-inspiration` skill finds layouts that match a request, adapts them (scale, mirror, remix rooms), translates them into the game's tile system, style family and point of view, and runs a reachability check. Games get derived layouts, never the map images |
 
 ## 1. Build analytics for admins
 
@@ -418,6 +419,55 @@ No spending needed.
 2. **Publishing:** only from `main` after a merge (recommended, keeps one published line), or any branch publishable on its own?
 3. **Version cap:** default 5 active versions per game?
 
+## 9. Map inspiration library
+
+**Kevin's direction (2026-10-26):** upload a set of D&D-style tabletop level designs as design inspiration, also for non-D&D levels. For example, a chamber or dungeon map is a starting point for creating a 3D dungeon. Add a skill for using these map inspiration assets.
+
+**Why it helps:**
+- Tabletop maps are decades of hand-tuned level design: room sizes, loops instead of dead ends, choke points, secret doors, set-piece chambers.
+- The prototype's preset dungeon was a 12×9 grid I typed by hand (C1). A library of real layouts gives agents better starting points than inventing them.
+
+**Mechanism:**
+1. **Intake (C2 §7, new collection kind `inspiration`):**
+   - Maps go into a Drive subfolder (for example `inspiration/maps/`).
+   - The intake skill recognizes them as inspiration, not game assets.
+   - They are stored privately with their provenance (source, author, license if known) and **never added to a game's assets, repo or lockfile**.
+2. **Extract a layout spec once per map, at ingest.** A vision model reads the map; this is the judgment step. Code then validates and normalizes the result into JSON:
+   - **grid:** detected scale (squares per room width), with a confidence;
+   - **rooms:** polygons on the grid, with a size class and a shape (chamber, corridor, cavern, round room);
+   - **connections:** a graph of doors (normal, locked, secret), stairs and level changes, and openings;
+   - **features:** pillars, water, pits, altars, statues, traps, treasure spots;
+   - **tags:** theme (crypt, temple, cave, keep, sewer), size, number of loops, entrances, and a difficulty-flow guess;
+   - plus a thumbnail. Low-confidence extractions are flagged and kept as "image reference only".
+3. **Index** the specs in the catalog, so agents can search by structure: "small crypt, 3–5 rooms, one loop, secret door".
+
+**The `gm-map-inspiration` skill**, for level-building agents and the scope chat:
+1. **Find:** search the layout specs to match the request and the game's genre (a dungeon crawler, a stealth level, a top-down adventure, an arena). Offer 2–3 candidates with thumbnails when the creator is choosing.
+2. **Adapt, don't copy:**
+   - rescale to the game's tile size;
+   - rotate or mirror;
+   - merge or split rooms;
+   - add or remove a loop to tune pacing;
+   - combine pieces of several maps.
+3. **Translate to the game:**
+   - map onto the game's tile system and its style family's pieces (C2 §2). For example, Mini Dungeon's one-unit wall, floor, stairs and gate tiles;
+   - fit the chosen point of view (C2 §4). Isometric needs cutaway walls; first person needs ceilings and enclosed rooms;
+   - place stairs or spawn and exit, encounter spots and treasure using the map's feature hints.
+4. **Check:** run reachability (every room reachable from spawn, the exit reachable) and the game's own `gm-verify` play loop on the result, using the `tick()` hook.
+5. **Record provenance in the game's design notes:** "layout inspired by map X". Nothing from the image itself is included.
+6. **With branching (C2 §8):** "make a version based on this map" is a natural use.
+
+**Licensing (not legal advice):**
+- Many published tabletop maps are copyrighted art. Using them only as private inspiration and shipping derived layouts is much lower risk than redistributing the images, which this design never does.
+- Keep the images private to the instance, record their provenance, and prefer sources whose terms allow derived or commercial use. Some well-known map makers publish free-use maps, and procedural map generators exist; check each source's terms.
+- If a game's layout is a close, recognizable copy of one specific copyrighted map, the skill should vary it more or pick a different source.
+
+**Costs and risks:**
+- Each map costs one vision-model call at ingest. That is small, but it goes through the budget and analytics (C2 §1, §5).
+- Hand-drawn maps without grids extract poorly. The confidence flag and the "image reference only" fallback handle that.
+
+**Open question for Kevin:** where the maps come from (purchased packs, free-use map makers, generator output). This mainly affects which licenses intake will see.
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -507,3 +557,11 @@ When tickets are made, each line below should appear in at least one ticket:
   - saves, rooms, analytics and budget keyed by branch;
   - a version cap and archiving;
   - the publish-from-branch rule.
+- **Map inspiration:**
+  - an `inspiration` collection kind in intake, stored privately and never shipped;
+  - layout-spec extraction at ingest (vision model, then code validation and normalization), with a confidence flag;
+  - a layout-spec schema (grid, rooms, connections, features, tags);
+  - structural search in the catalog;
+  - the `gm-map-inspiration` skill: find, adapt, translate to tiles, style family and point of view, place spawn and encounters, reachability plus `gm-verify`, record provenance;
+  - candidate thumbnails in the scope chat;
+  - the provenance and license policy for inspiration sources.
