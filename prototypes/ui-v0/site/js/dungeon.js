@@ -10,9 +10,12 @@ const MODELS = {
   coin: 'kenney/coin', potion: 'kenney/potion', barrel: 'kenney/barrel', column: 'kenney/column', banner: 'kenney/banner',
   rocks: 'kenney/rocks', stones: 'kenney/stones', table: 'kenney/table', chair: 'kenney/chair', pot: 'kenney/pot', trap: 'kenney/trap',
   sword: 'kenney/weapon-sword', human: 'kenney/character-human', shield: 'kenney/shield-round',
-  goblin1: 'goblinfighter-01', goblin2: 'goblinfighter-02', goblin3: 'goblinfighter-03',
+  goblin1: 'kenney/character-orc', goblin2: 'kenney/character-orc', goblin3: 'kenney/character-orc', spear: 'kenney/weapon-spear',
 };
-const GOBLIN_SCALE = 0.0036;
+// goblins are Mini Dungeon's orc (same pack, rig and clips as the hero); strengths differ by tint and gear
+const GOBLIN_SCALE = 0.85;
+const GOBLIN_LOOK = { goblin1: { tint: '#ffffff' }, goblin2: { tint: '#c4d6a4', spear: true }, goblin3: { tint: '#e2a39a', spear: true } };
+const GOBLIN_CLIPS = { run: 'sprint', attack: 'attack-melee-right', taunt: 'emote-no' };
 const CATALOG = {
   build: { title: 'Build your dungeon', items: [
     { id: 'wall', name: 'Wall', paint: 2, thumb: 'wall' }, { id: 'floor', name: 'Floor', paint: 1, thumb: 'floor' },
@@ -142,6 +145,20 @@ function instance(key) {
   o.traverse(m => { if (m.isMesh) { m.castShadow = true; m.receiveShadow = true; } });
   return o;
 }
+function goblinModel(type) {
+  const g = instance(type), look = GOBLIN_LOOK[type];
+  g.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.color.set(look.tint); } });
+  if (look.spear) { // same hand mount as the hero's sword
+    const w = instance('spear'); w.position.set(-0.25, 0, 0.03); w.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(.75, 0, .66).normalize()); w.scale.setScalar(.8);
+    g.getObjectByName('arm-right').add(w);
+  }
+  return g;
+}
+function goblinClips(type) {
+  const clips = Object.fromEntries(gltfs[type].animations.map(c => [c.name, c]));
+  for (const [k, v] of Object.entries(GOBLIN_CLIPS)) clips[k] = clips[v];
+  return clips;
+}
 function syncTiles() {
   groups.tiles.clear();
   for (let z = 0; z < MH(); z++) for (let x = 0; x < MW(); x++) {
@@ -163,11 +180,11 @@ function makeObject(o) {
   if (o.type === 'torch') root = makeTorch(o);
   else if (o.type.startsWith('goblin')) {
     root = new THREE.Group();
-    const g = instance(o.type); g.scale.setScalar(GOBLIN_SCALE * STRENGTH[o.strength || 'easy'].scale);
-    g.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.frustumCulled = false; } });
+    const g = goblinModel(o.type); g.scale.setScalar(GOBLIN_SCALE * STRENGTH[o.strength || 'easy'].scale);
+    g.traverse(m => { if (m.isMesh) m.frustumCulled = false; });
     root.add(g);
     const mixer = new THREE.AnimationMixer(g); mixers.add(mixer);
-    const clips = Object.fromEntries(gltfs[o.type].animations.map(c => [c.name, c]));
+    const clips = goblinClips(o.type);
     const idle = mixer.clipAction(clips.idle); idle.play(); idle.time = Math.random() * 2;
     root.userData.anim = { mixer, clips, current: idle, model: g };
   } else {
@@ -319,7 +336,7 @@ async function makeThumbs() {
   const cam = new THREE.PerspectiveCamera(28, 1, .01, 50);
   const keys = new Set(Object.values(CATALOG).flatMap(c => c.items.map(i => i.thumb)));
   for (const k of keys) {
-    const o = k === 'torch' ? makeTorch({}) : k.startsWith('goblin') ? (() => { const g = instance(k); g.scale.setScalar(GOBLIN_SCALE); const m = new THREE.AnimationMixer(g); m.clipAction(gltfs[k].animations.find(a => a.name === 'idle')).play(); m.update(.6); return g; })() : instance(k);
+    const o = k === 'torch' ? makeTorch({}) : k.startsWith('goblin') ? (() => { const g = goblinModel(k); g.scale.setScalar(GOBLIN_SCALE); const m = new THREE.AnimationMixer(g); m.clipAction(gltfs[k].animations.find(a => a.name === 'idle')).play(); m.update(.6); return g; })() : instance(k);
     if (k === 'torch') { o.userData.torch.outer.scale.set(.32, .5, 1); o.userData.torch.inner.scale.set(.16, .28, 1); }
     sc.add(o); o.updateMatrixWorld(true);
     const box = new THREE.Box3().setFromObject(o); const c = box.getCenter(new THREE.Vector3()); const s = box.getSize(new THREE.Vector3()).length();
@@ -619,7 +636,7 @@ function hitFoe(f, dir) {
 }
 function killFoe(f) {
   f.state = 'dead'; f.r.userData.dead = true; f.deadT = 0;
-  const A = f.r.userData.anim; A.mixer.stopAllAction(); mixers.delete(A.mixer);
+  clearTimeout(f.r.userData.anim.timer); playOnce(f.r, 'die', 1.2, 'die');
   audio.play('impactSoft_heavy_001', { vol: .9 }); addTrauma(.45); hitStop(.12);
   // drop a coin
   const c = instance('coin'); c.scale.setScalar(.55); c.position.copy(f.r.position).setY(.05); groups.fx.add(c);
@@ -705,9 +722,8 @@ function updatePlay(dt) {
   for (const f of foes) {
     const G = f.r.position;
     if (f.state === 'dead') {
-      f.deadT += dt; const k = Math.min(1, f.deadT / .4);
-      f.r.rotation.x = -Math.PI / 2 * (1 - Math.pow(1 - k, 3)); G.y = Math.max(-.4, -(f.deadT - 1) * .5 * (f.deadT > 1));
-      if (f.deadT > 1.8) f.r.visible = false;
+      f.deadT += dt; G.y = Math.max(-.4, -(f.deadT - 1.4) * .5 * (f.deadT > 1.4)); // play 'die', then sink away
+      if (f.deadT > 2.2) f.r.visible = false;
       continue;
     }
     const to = P.clone().sub(G).setY(0); const d = to.length(); to.normalize();

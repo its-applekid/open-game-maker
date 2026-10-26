@@ -111,6 +111,8 @@ C1 found that the Synty goblins next to the Kenney hero "look like two different
 | Isometric 2D | 2D | Isometric Miniature (Dungeon, Farm, Overworld, Library), Isometric Tiles, Isometric Medieval Town | CC0 |
 | Sketch / hand-drawn | 2D | Sketch Town, Sketch Desert, Scribble Dungeons, Scribble Platformer | CC0 |
 
+**Proof in the prototype (2026-10-26):** swapping the Synty goblins for Mini Dungeon's orc took one small code change, because the orc shares the hero's rig and animations, including a real `die`. That removed the bake step, 12.6 MB of models and the license problem all at once. The three strengths now differ only by tint, size and a spear. A family whose characters share one rig makes variants cheap. `gm-pack-curate` should record which characters share a rig.
+
 Kenney has 156 2D packs in all, so 2D games are already well covered [M].
 
 **Notes:**
