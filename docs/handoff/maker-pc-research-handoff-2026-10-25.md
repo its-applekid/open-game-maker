@@ -1,5 +1,7 @@
 # Handoff: Game Maker research (Maker-PC), 2026-10-25
 
+> **Superseded in part by `handoff-2026-10-26.md`** (V1 scope additions in C2, multiplayer now V1, prototype at https://ogm2000.netlify.app). Read that first.
+
 This is for the agent taking over the Open Game Maker 2000 research from the previous Maker-PC session.
 
 - **Repo:** private, `its-everdred/open-game-maker-2000`.
