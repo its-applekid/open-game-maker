@@ -539,6 +539,7 @@ function playChest(r, which) {
 // ---------------- PLAY MODE ----------------
 let player = null, foes = [], pickups = [], play = null;
 const keys = new Set(); const stick = { x: 0, y: 0 };
+const aim = { dir: null }; // world-space look direction from the right stick or the mouse; null = face where you walk
 function startPlay() {
   if (mode === 'play') return;
   const stairs = map.objects.find(o => o.type === 'stairs');
@@ -569,6 +570,7 @@ function startPlay() {
     if (o.type === 'coin' || o.type === 'potion') pickups.push({ o, r, taken: false });
   }
   play = { t: 0, over: false, total: foes.length, chestOpened: new Set() };
+  aim.dir = null; $('#aimNub').style.transform = '';
   camZoom = Math.min(fitZoom, 2.5); camTarget.copy(root.position);
   updateHud();
   hint(foes.length ? 'Defeat the goblins!' : 'Explore your dungeon!');
@@ -597,7 +599,29 @@ function bindTouch() {
   st.addEventListener('pointermove', e => { if (e.pointerId === pid) move(e); });
   const up = e => { if (e.pointerId !== pid) return; pid = null; stick.x = stick.y = 0; nub.style.transform = ''; };
   st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
-  $('#btnAttack').addEventListener('pointerdown', e => { e.preventDefault(); attack(); });
+  // right stick: a drag sets the look direction; a tap swings. The nub stays where it was left.
+  const as = $('#aim'), an = $('#aimNub'); let apid = null, down = null;
+  const setAim = e => {
+    const r = as.getBoundingClientRect(); let x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
+    const m = Math.hypot(x, y), R = 50; if (m < 6) return; if (m > R) { x *= R / m; y *= R / m; }
+    an.style.transform = `translate(${x}px,${y}px)`; aim.dir = camRight.clone().multiplyScalar(x).addScaledVector(camFwd, -y).normalize();
+  };
+  as.addEventListener('pointerdown', e => { e.preventDefault(); apid = e.pointerId; try { as.setPointerCapture(apid); } catch {} down = { x: e.clientX, y: e.clientY, t: performance.now(), dragged: false }; as.classList.add('tap'); });
+  as.addEventListener('pointermove', e => {
+    if (e.pointerId !== apid) return;
+    if (!down.dragged && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) down.dragged = true;
+    if (down.dragged) setAim(e);
+  });
+  const aimUp = e => { if (e.pointerId !== apid) return; apid = null; as.classList.remove('tap'); if (e.type === 'pointerup' && !down.dragged && performance.now() - down.t < 400) attack(); };
+  as.addEventListener('pointerup', aimUp); as.addEventListener('pointercancel', aimUp);
+  // desktop: the mouse aims, a left click swings
+  const mouseAim = e => {
+    const r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+    ray.setFromCamera(ndc, camera); const pt = new THREE.Vector3();
+    if (player && ray.ray.intersectPlane(plane, pt)) { const v = pt.sub(player.root.position).setY(0); if (v.lengthSq() > .01) aim.dir = v.normalize(); }
+  };
+  canvas.addEventListener('pointermove', e => { if (mode === 'play' && e.pointerType === 'mouse') mouseAim(e); });
+  canvas.addEventListener('pointerdown', e => { if (mode === 'play' && e.pointerType === 'mouse' && e.button === 0) { mouseAim(e); attack(); } });
   $('#btnUse').addEventListener('pointerdown', e => { e.preventDefault(); use(); });
 }
 setTimeout(bindTouch);
@@ -710,10 +734,11 @@ function updatePlay(dt) {
     const dir = camRight.clone().multiplyScalar(ix).addScaledVector(camFwd, -iy).normalize();
     const sp = 2.5 * mag * (player.attackT >= 0 && player.attackT < .25 ? .35 : 1);
     moveWithCollision(P, dir.x * sp * dt, dir.z * sp * dt);
-    player.facing.lerp(dir, Math.min(1, dt * 14)).normalize();
+    if (!aim.dir) player.facing.lerp(dir, Math.min(1, dt * 14)).normalize();
     if (player.root.userData.anim.current.getClip().name === 'idle') loopAnim(player.root, 'walk', 1.3);
     player.step -= dt; if (player.step <= 0) { player.step = .3; audio.playOneOf(['footstep_concrete_000', 'footstep_concrete_001'], { vol: .25, pitch: .1 }); }
   } else if (player.root.userData.anim.current.getClip().name === 'walk') loopAnim(player.root, 'idle');
+  if (aim.dir && !player.dead) player.facing.lerp(aim.dir, Math.min(1, dt * 18)).normalize();
   player.root.rotation.y = Math.atan2(player.facing.x, player.facing.z);
   // sword hit lands a beat into the swing
   if (player.attackT >= 0) {
@@ -805,4 +830,4 @@ function tick(sec) { // test hook: advance the game in fixed 1/60 s steps withou
   for (let i = 0; i < Math.round(sec * 60); i++) { const dt = 1 / 60; perfT += dt; for (const m of mixers) m.update(dt); if (mode === 'play' && player) updatePlay(dt); trauma = Math.max(0, trauma - dt * 1.6); }
   applyCamera(); renderer.render(scene, camera);
 }
-window.__ogm = { tick, zoom(z) { camZoom = z; },  tileToScreen(x, z, y = 0) { const v = new THREE.Vector3(x, y, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get map() { return map; }, startPlay, stopPlay, get mode() { return mode; }, attack, use, get player() { return player; }, get foes() { return foes; } };
+window.__ogm = { tick, zoom(z) { camZoom = z; },  tileToScreen(x, z, y = 0) { const v = new THREE.Vector3(x, y, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get map() { return map; }, startPlay, stopPlay, get mode() { return mode; }, attack, use, aim, get player() { return player; }, get foes() { return foes; } };

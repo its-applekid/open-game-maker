@@ -45,6 +45,7 @@ $('#start').addEventListener('click', async () => {
   ['L-front', 'L-near', 'L-mid', 'L-far', 'L-clouds', 'L-sun'].forEach((id, i) => $('#' + id).style.setProperty('--x', `${i * 0.06}s`));
   home.classList.add('out');
   audio.music(null, { fade: 1.6 });
+  $('#wipe').classList.add('armed');
   setTimeout(() => $('#wipe').classList.add('cover'), 420);
   setTimeout(() => enterEditor(false), 1150);
 });

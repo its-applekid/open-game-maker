@@ -9,8 +9,11 @@
 /* Full-bleed on iOS: backgrounds fill the whole screen (lvh, html background) so they show behind Safari's bars;
    every control lives inside the always-visible area (dvh) and the safe-area insets, so nothing tappable sits under them. */
 html { background: url(assets/img/paper-bg.png) center / cover no-repeat, var(--paper); }
-/* Safari tints the strip behind its toolbar with the page background colour: grass on the home screen, paper in the editor */
-html:has(#home:not([hidden])) { background-color: #9bcb77; }
+/* Safari tints its top bar and toolbar from fixed elements touching those edges (and the page colour): paper on top,
+   grass at the bottom on the home screen, paper in the editor. They sit under the views, so they're never seen. */
+.edge { position: fixed; left: 0; right: 0; height: 48px; pointer-events: none; background: var(--paper); }
+#edgeTop { top: 0; } #edgeBottom { bottom: 0; }
+html:has(#home:not([hidden])) #edgeBottom { background: #9bcb77; }
 html, body { margin: 0; height: 100%; color: var(--ink); font: 700 16px/1.35 Nunito, system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
 button { font: inherit; color: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
@@ -47,6 +50,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chip { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(14px, env(safe-area-inset-right)); border: 3px solid var(--ink); border-radius: 999px; background: var(--card); padding: 6px 14px; box-shadow: 0 3px 0 rgba(58,42,32,.25); font: 600 16px Fredoka; }
 
 /* ---------- WIPE ---------- */
+#wipe:not(.armed) { display: none; } /* parked off-screen it would tint Safari's toolbar */
 #wipe { position: fixed; left: 0; right: 0; top: calc(100% + 80px); height: 130vh; background: var(--paper); z-index: 40; pointer-events: none; filter: drop-shadow(0 -6px 0 rgba(58,42,32,.15)); }
 #wipe svg { position: absolute; left: 0; top: -60px; width: 100%; height: 61px; fill: var(--paper); }
 #wipe.cover { transform: translateY(-120vh); transition: transform .7s var(--io); }
@@ -135,8 +139,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #stick { position: absolute; left: 22px; bottom: 22px; width: 130px; height: 130px; border-radius: 50%; border: 3px solid #fffaf0aa; background: #3a2a2033; pointer-events: auto; touch-action: none; display: none; }
 #nub { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px; border-radius: 50%; background: var(--card); border: 3px solid var(--ink); }
 .touch-btn { position: absolute; right: 26px; bottom: 30px; width: 96px; height: 96px; border-radius: 50%; border: 4px solid var(--ink); background: linear-gradient(#f9cf6e, var(--yellow)); font-size: 44px; pointer-events: auto; box-shadow: 0 5px 0 var(--ink); display: none; touch-action: none; }
-.touch-btn.small { right: 136px; bottom: 40px; width: 70px; height: 70px; font-size: 30px; background: linear-gradient(#a9dbf7, var(--blue)); }
-.touch #stick, .touch .touch-btn { display: block; }
+/* right stick: drag to aim, tap to swing; the nub stays put so taps never change the aim */
+#aim { position: absolute; right: 22px; bottom: 22px; width: 130px; height: 130px; border-radius: 50%; border: 3px solid #fffaf0aa; background: #f8b93a40; pointer-events: auto; touch-action: none; display: none; }
+#aimNub { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; border-radius: 50%; border: 4px solid var(--ink); background: linear-gradient(#f9cf6e, var(--yellow)); box-shadow: 0 4px 0 var(--ink); display: grid; place-items: center; font-size: 30px; }
+#aim.tap #aimNub { box-shadow: 0 1px 0 var(--ink); translate: 0 3px; }
+.touch-btn.small { right: 48px; bottom: 172px; width: 70px; height: 70px; font-size: 30px; background: linear-gradient(#a9dbf7, var(--blue)); }
+.touch #stick, .touch #aim, .touch .touch-btn { display: block; }
 .touch .touch-btn[hidden] { display: none; }
 .touch #keys { display: none; }
 #vignette { position: absolute; inset: 0; box-shadow: inset 0 0 120px 30px rgba(220, 40, 30, .7); opacity: 0; transition: opacity .35s; }

@@ -25,6 +25,8 @@
 </script>
 </head>
 <body>
+<!-- Safari tints its bars from fixed elements touching each edge: paper on top, grass/paper at the bottom -->
+<div id="edgeTop" class="edge"></div><div id="edgeBottom" class="edge"></div>
 <div id="grain"></div>
 
 <!-- HOME: 2D paper-cut layers, built by js/home.js -->
@@ -80,9 +82,9 @@
       <button id="stop" class="btn coral">■ Stop</button>
       <div id="prompt" class="pill" hidden>Press <b>E</b> to open</div>
       <div id="stick"><div id="nub"></div></div>
-      <button id="btnAttack" class="touch-btn">⚔</button>
+      <div id="aim"><div id="aimNub">⚔</div></div>
       <button id="btnUse" class="touch-btn small" hidden>✋</button>
-      <div id="keys" class="pill">WASD / arrows to move · Space to swing · E to open</div>
+      <div id="keys" class="pill">WASD to move · mouse to aim · click or Space to swing · E to open</div>
       <div id="vignette"></div>
     </div>
     <div id="result" class="paper" hidden>

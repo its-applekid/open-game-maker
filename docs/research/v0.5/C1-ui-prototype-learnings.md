@@ -1,7 +1,7 @@
 # C1: Prototyping the home screen and dungeon editor from scratch
 
 - **Source requirement:** Kevin, 2026-10-26. Build throwaway prototypes of (1) an animated home screen in the app's paper style and (2) a dungeon editor with a basic play loop, using our downloaded packs and the skills chosen in B14. Then report what was easy, hard, slow and could be optimized. **The write-up is the deliverable, not the code.**
-- **Live prototype:** https://ogm-proto-b068a4ea.netlify.app (unlisted, `noindex`). Code: `prototypes/ui-v0/` (assets gitignored).
+- **Live prototype:** https://ogm2000.netlify.app (unlisted, `noindex`). Code: `prototypes/ui-v0/` (assets gitignored).
 - **Readable version (artifact):** https://claude.ai/artifact/ErRVsiBGNLY2ikLjuzpjUi
 - **Builds on:** B11 (pack library, `gm` CLI), B12 (asset sources and licensing), B14 (agent skills), B15 (pattern cards, sameness), the local library layout in `docs/reference/local-asset-library.md`.
 - **Evidence labels:** **[M]** measured in this session; **[O]** observed while building; **[I]** inferred.
