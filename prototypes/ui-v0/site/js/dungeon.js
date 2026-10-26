@@ -49,7 +49,7 @@ const PRESET = {
   ],
   objects: [
     { type: 'stairs', x: 3, z: 7, rot: 0 }, { type: 'torch', x: 1, z: 1 }, { type: 'torch', x: 4, z: 1 }, { type: 'torch', x: 6, z: 1 },
-    { type: 'torch', x: 10, z: 4 }, { type: 'torch', x: 2, z: 6 }, { type: 'chest', x: 10, z: 1, rot: 0, coins: 25 },
+    { type: 'torch', x: 10, z: 4 }, { type: 'chest', x: 10, z: 1, rot: 0, coins: 25 },
     { type: 'barrel', x: 1, z: 4 }, { type: 'barrel', x: 6, z: 4 }, { type: 'column', x: 8, z: 2 }, { type: 'banner', x: 8, z: 1, rot: 0 },
     { type: 'goblin1', x: 3, z: 2, rot: 0, strength: 'easy' }, { type: 'goblin2', x: 9, z: 3, rot: 3, strength: 'medium' },
     { type: 'coin', x: 7, z: 4 }, { type: 'coin', x: 2, z: 1 }, { type: 'potion', x: 4, z: 7 }, { type: 'rocks', x: 10, z: 5 }, { type: 'table', x: 3, z: 4 },
@@ -61,6 +61,8 @@ const decode = p => ({ tiles: p.tiles.map(r => [...r].map(c => c === '#' ? 2 : c
 let map, nextId = 100;
 try { map = JSON.parse(localStorage.getItem('ogm-map')); } catch {}
 if (!map?.tiles) map = decode(PRESET);
+// the old preset had a torch blocking the corridor by the spawn stairs; drop it from saved maps too
+map.objects = map.objects.filter(o => !(o.type === 'torch' && o.x === 2 && o.z === 6));
 nextId = Math.max(100, ...map.objects.map(o => o.id + 1));
 const MW = () => map.tiles[0].length, MH = () => map.tiles.length;
 const tileAt = (x, z) => (z >= 0 && z < MH() && x >= 0 && x < MW()) ? map.tiles[z][x] : 0;
