@@ -9,6 +9,8 @@
 /* Full-bleed on iOS: backgrounds fill the whole screen (lvh, html background) so they show behind Safari's bars;
    every control lives inside the always-visible area (dvh) and the safe-area insets, so nothing tappable sits under them. */
 html { background: url(assets/img/paper-bg.png) center / cover no-repeat, var(--paper); }
+/* Safari tints the strip behind its toolbar with the page background colour: grass on the home screen, paper in the editor */
+html:has(#home:not([hidden])) { background-color: #9bcb77; }
 html, body { margin: 0; height: 100%; color: var(--ink); font: 700 16px/1.35 Nunito, system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
 button { font: inherit; color: inherit; cursor: pointer; }
 [hidden] { display: none !important; }
