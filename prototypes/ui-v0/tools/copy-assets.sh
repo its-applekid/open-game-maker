@@ -19,4 +19,6 @@ for n in click_001 select_001 confirmation_001 drop_001 back_001; do cp "$(find_
 for n in 00 03 10; do cp "$(find_ogg kenney-music-jingles jingles-pizzicato_$n)" "$A/audio/"; done
 cp "$(find_ogg kenney-music-loops 'Farm Frolics')" "$A/audio/music-home.ogg"
 cp "$(find_ogg kenney-music-loops 'Mishief Stroll')" "$A/audio/music-play.ogg"
+# iPhone Safari can't decode Ogg Vorbis, so ship MP3 (plays everywhere)
+for f in "$A"/audio/*.ogg; do ffmpeg -loglevel error -y -i "$f" -codec:a libmp3lame -q:a 4 "${f%.ogg}.mp3" && rm "$f"; done
 echo "assets ready in $A"

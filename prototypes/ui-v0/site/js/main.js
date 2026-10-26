@@ -16,9 +16,9 @@ async function ensureAudio() {
   if (inHome && !homeMusic) { audio.music('music-home', { vol: 0.9 }); homeMusic = true; }
   updateChip();
 }
-addEventListener('pointerdown', ensureAudio);
-addEventListener('keydown', ensureAudio);
-chip.addEventListener('click', e => { e.stopPropagation(); if (audio.unlocked()) audio.setMuted(!audio.isMuted()); updateChip(); });
+// iOS only lets a touch start audio on touchend/pointerup, not pointerdown
+for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventListener(ev, ensureAudio);
+chip.addEventListener('click', e => { e.stopPropagation(); if (audio.unlocked()) audio.setMuted(!audio.isMuted()); ensureAudio(); });
 
 let clock = null;
 if (inHome) clock = startHome(buildHome());

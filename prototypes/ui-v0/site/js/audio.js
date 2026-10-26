@@ -13,7 +13,7 @@ const SFX = ['click_001', 'select_001', 'confirmation_001', 'drop_001', 'back_00
 
 async function load(name) {
   if (buffers[name]) return buffers[name];
-  const res = await fetch(`assets/audio/${name}.ogg`);
+  const res = await fetch(`assets/audio/${name}.mp3`);
   buffers[name] = await ctx.decodeAudioData(await res.arrayBuffer());
   return buffers[name];
 }
@@ -28,7 +28,11 @@ export function setMuted(m) {
   try { localStorage.setItem('ogm-muted', m ? '1' : '0'); } catch {}
 }
 export const unlocked = () => ctx.state === 'running';
-export function unlock() { if (ctx.state !== 'running') return ctx.resume(); return Promise.resolve(); }
+export function unlock() {
+  // iOS 17+: 'playback' keeps Web Audio playing when the ringer switch is on silent
+  try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
+  if (ctx.state !== 'running') return ctx.resume(); return Promise.resolve();
+}
 
 export function play(name, { vol = 1, pitch = 0.06, rate = 1, busName = 'sfx' } = {}) {
   const b = buffers[name]; if (!b || ctx.state !== 'running') return;

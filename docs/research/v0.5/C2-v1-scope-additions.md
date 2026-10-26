@@ -148,7 +148,8 @@ Kenney has 156 2D packs in all, so 2D games are already well covered [M].
    - triangles on screen.
 
    Verify runs the mobile tier under phone emulation and fails when a game goes over.
-5. **Game-generated assets** (tier 3, uploads) go through the same variant step when they are registered.
+5. **Audio formats per browser.** Kevin heard no sound on his iPhone (2026-10-26). The prototype shipped Kenney's Ogg Vorbis files, played through Web Audio. The fix shipped MP3 plus `navigator.audioSession.type = 'playback'`, so the ringer switch doesn't mute the game, plus starting audio on `touchend`/`pointerup`. Which of the three was the cause is unconfirmed [I]. Import should write a format every target browser decodes (AAC or MP3, with Opus where supported), and `gm-verify` should check sound on a real iPhone.
+6. **Game-generated assets** (tier 3, uploads) go through the same variant step when they are registered.
 
 **Caveats:**
 - Headless SwiftShader cannot measure real phone performance (C1). Budgets catch download size and memory, but frame-rate claims need a real-device check.
@@ -183,3 +184,4 @@ When tickets are made, each line below should appear in at least one ticket:
   - per-tier budgets in `gm-verify`;
   - run the variant step for tier 3 and uploaded assets;
   - a real-device spike to set tiers and budgets.
+  - audio formats every target browser decodes, an iOS audio-session and unlock helper in the SDK, and a real-iPhone sound check.
