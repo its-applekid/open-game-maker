@@ -1,0 +1,72 @@
+# Local asset library (`assets-local/`)
+
+Purchased and downloaded asset packs live in `assets-local/` at the repo root. Git ignores the folder, because some packs are personal licenses and none of the raw files may be committed. This layout copies the bucket layout in B11 §4.1, so the future `gm packs import` can read straight from it, and the originals here are the off-Railway backup that B11 asks for.
+
+## Layout
+
+```
+assets-local/
+  catalog.json                         # generated: one entry per pack (scripts/assets/build_catalog.py)
+  packs/<pack-id>/
+    pack.json                          # manifest (below)
+    icon.png                           # vendor preview, when there is one
+    <version>/
+      originals/                       # untouched download (zip / unitypackage), for re-import
+      extracted/                       # unpacked content; vendor wrapper folders stripped
+  bundles/<bundle-id>/
+    bundle.json                        # which packs came out of this bundle
+    <version>/originals/               # the bundle archive, stored once
+    <version>/extracted/               # bundle-level leftovers (readme, vendor index, goodies)
+  tools/<tool-id>/<version>/           # vendor apps, e.g. the Kenney launcher AppImage
+```
+
+- **Pack ids** are `<vendor>-<name>` in kebab case, e.g. `synty-polygon-viking-realm` or `kenney-racing-kit`. Kenney's `Archive` and `Early access` copies add `-archive` and `-early-access` suffixes, because their names clash with current packs.
+- **Versions** come from the vendor: the archive name for Synty (`v3`, `1.0.4`), and the pack's `License.txt` for Kenney (`2.0`), falling back to the bundle version. A new version goes in a new folder next to the old one, and `current` in `pack.json` moves to it.
+- **Packs from a bundle** keep no originals of their own. `pack.json` points at the bundle and the path inside it.
+
+## `pack.json`
+
+```json
+{
+  "id": "synty-polygon-shopping-plaza-map",
+  "vendor": "synty",
+  "title": "POLYGON - Shopping Plaza Map",
+  "category": null,
+  "license": "synty-personal",
+  "requires": ["synty-polygon-shops"],
+  "current": "v2",
+  "versions": {
+    "v2": {
+      "format": "source-zip",
+      "originals": ["POLYGON_Shopping_Plaza_Map_SourceFiles_v2.zip", "Read_Me_Shopping_Plaza_Map.txt"],
+      "extracted_files": 464,
+      "file_types": {"fbx": 416, "png": 43, "tga": 3, "txt": 2},
+      "added": "2026-10-25"
+    }
+  }
+}
+```
+
+- `license` is an SPDX id (`CC0-1.0`) or a vendor class (`synty-personal`: personal purchase under the Synty EULA, never committed or redistributed). `license_source` says where the license came from when the pack has no license file.
+- `format` is one of:
+  - `source-zip`: the vendor's engine-neutral FBX/PNG download;
+  - `unitypackage`: unpacked without Unity, with Unity `.meta` files dropped and `.prefab`/`.mat` kept as references;
+  - `bundle`: the pack came out of a bundle (`bundle`, `bundle_path`).
+- `requires` lists packs this one needs, e.g. a map pack that reuses another pack's models.
+
+## Which download to take
+
+| Vendor format | Take it? |
+|---|---|
+| Synty **SourceFiles** / **Source_Sprites** | Yes, first choice. Plain FBX/OBJ/PNG. |
+| Synty **Unity** `.unitypackage` | Only when there is no SourceFiles option. It is a tar.gz with raw FBX/PNG inside. |
+| Synty **Unreal** zip, Sidekick Character Tool (UE) | No. Only `.uasset` files, which need the Unreal Editor (B12). |
+| Kenney All-in-1 | Yes. CC0; each pack already ships GLB/OBJ/FBX/PNG/OGG. |
+
+## Scripts (`scripts/assets/`)
+
+- `import_synty.py`: moves the listed Synty downloads from `~/Downloads` into `packs/`, then unpacks and writes `pack.json`. Add new rows to `PACKS` for new downloads. Packs already extracted are skipped.
+- `import_kenney_bundle.py`: splits the Kenney All-in-1 zip into one pack per folder, reads each `License.txt`, and installs the launcher under `tools/`. Some archive packs ship as a zip inside the bundle; those were unpacked afterwards, and `pack.json` records them in `inner_archives_unpacked`.
+- `build_catalog.py`: rebuilds `catalog.json`. Run it after any import.
+
+Every archive is checked for absolute and `..` paths before it is extracted. Conversion to GLB, tagging and previews (B11 §4.2 steps 2–5) are not done yet; this library is the input for that importer.
