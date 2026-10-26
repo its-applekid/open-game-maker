@@ -49,18 +49,18 @@ The product has to make sense on its own at every version. V1 is a complete game
 | Sandbox | VM per job (E2B) with an egress allowlist, a model proxy and a commit service. Games run in a separate-site iframe on a separate custom domain, and may use the microphone | Decided |
 | Funding | Kevin's API keys through hosted aiur profiles. No subscriptions in hosted builds | Decided |
 | Hosting | Netlify frontend, Railway backend, hosted aiur on Railway, Railway bucket. No CDN | Decided |
-| Multiplayer | Architecture and interfaces reserved only, with no implementation | Decided |
+| Multiplayer | **First-class in V1** (Kevin, 2026-10-26; supersedes "interfaces reserved only"). Single player or multiplayer chosen at creation; single-player games can convert later. Easy invite links: friends sign in and land in the game. Watchers see editor changes exactly as they happen and join play the moment Play is pressed. Each networked player has their own controller, camera and HUD. Host-authoritative generic Colyseus room (A7 R12, C2 §6) | Decided |
 | Stack | TypeScript (React, Node); Three.js r186 + Rapier, Phaser 4.2, Tone.js, ZzFX | Decided |
 | Engineering | Engine SDK with test hooks (`render_game_to_text`, `advanceTime`), shared contracts, automated tests, continuously production-testable delivery | Decided |
 
-**Not in V1:** anything for teens or children, parental controls, the parent help overlay, guardian consent, the self-hosted voice cascade, COPPA documents, multiplayer gameplay, gameplay rewind, drawing tools, a CDN, paid art generators, and self-service credential onboarding.
+**Not in V1:** anything for teens or children, parental controls, the parent help overlay, guardian consent, the self-hosted voice cascade, COPPA documents, same-device split-screen multiplayer, gameplay rewind, drawing tools, a CDN, paid art generators, and self-service credential onboarding.
 
 ## 3. V2
 
 | Area | Scope | Status |
 |---|---|---|
 | Teens (13–17) | Ordinary creators. Any vendor that lacks approval for minors' data is off for them (ElevenLabs approval, OpenAI zero retention). Supervision is optional | Working |
-| Multiplayer | Local and online play on the V1 architecture, with invited draft playtesting, owner-driven shared editing, spectators and session pause | Decided |
+| Multiplayer | Online play, watching the editor, the edit pause and invited draft playtesting moved to V1 (C2 §6). Still here: same-device split screen, more than one editor at once, server-authoritative rooms for competitive play | Working |
 | Gameplay rewind | A short, local experimentation aid, including in drafts | Decided |
 | Drawing | Built-in drawing tools and the paper crop/flatten capture UI | Decided (drawing); capture Working |
 | Image restyling | AI restyling of uploads through OpenAI after zero-retention approval | Working |
@@ -123,7 +123,7 @@ The product has to make sense on its own at every version. V1 is a complete game
 | B1 credentials, B4 sandbox, B6 storage, B8 aiur integration, B11–B14, C1–C2 | Core V1 | B6 CDN (V2) |
 | B2 voice | aiur package, ElevenLabs/OpenAI, narration | Self-hosted voice for child accounts (V3) |
 | B5 art and audio | Code tools and packs | Paid generators (V2) |
-| B7 editor, SDK, input | Core V1 | Multiplayer hooks (V2) |
+| B7 editor, SDK, input | Core V1, including the multiplayer hooks (§9), now V1 | — |
 | B9 legal | Adult vendor terms, the age screen | Teen vendor rules (V2), COPPA (V3) |
 | B10 product reframe | Adult defaults, column (b) | Parental-controls module, column (c) (V3) |
 | B3 child accounts | None | All of it (V3) |

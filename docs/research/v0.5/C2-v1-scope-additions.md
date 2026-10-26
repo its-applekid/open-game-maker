@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -13,6 +13,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 3 | **Device-tiered assets** | Pre-process high-resolution textures and assets into mobile-friendly versions that load only on mobile | `gm packs import` writes a desktop and a mobile variant of every asset. The SDK loader picks one tier at startup and downloads only that tier. `gm-verify` checks a mobile budget |
 | 4 | **Point of view** | Point of view is a choice when creating a game: isometric (as in the prototype), first person, third person, and anything else that suits the chosen style and other choices | One camera-rig module per point of view in the SDK. The scope chat offers only the points of view the chosen style family and genre support. The lockfile records the choice. The editor keeps its own top or isometric camera, plus a "view as player" preview |
 | 5 | **Budget-aware voice agent** | The two-way voice agent knows the creator's remaining resources. When a request is too big for what's left, it says so and offers to queue it for tomorrow or to cut it down to fit today | Give the voice agent read-only budget and estimate tools. Before agreeing to a change, it compares the estimate with what's left and offers four choices: do it now, trim it to fit, split it (part now, the rest queued), or queue it for the reset. Only Game Maker's admission step reserves money |
+| 6 | **Multiplayer, first-class in V1** | Single player or multiplayer is chosen at creation, and a single-player game can become multiplayer later. Inviting friends is easy: they sign in and land straight in the game. Players without editor access watch the editor's changes exactly as they happen, and join gameplay the moment Play is pressed. Over the network, each player has their own controller and their own character's point of view | Build A7 R12's room design (a generic Colyseus room, with the simulation hosted in the owner's sandboxed browser) in V1. Stream B7's design transactions to watchers so their view matches the editor exactly. Every game follows `gm-multiplayer-ready` rules from day one, so converting to multiplayer is an ordinary edit job |
 
 ## 1. Build analytics for admins
 
@@ -235,6 +236,73 @@ All of that happens after a request is agreed. The voice agent that agrees the r
 - **Estimates start out poor.** There is no history at launch, so the first estimates are coarse size classes. Accuracy improves as C2 §1's analytics collect data, so keep the ranges wide until then.
 - **A creator can talk the agent into calling a huge change "small".** Admission's own check is the backstop.
 
+## 6. Multiplayer, first-class in V1
+
+**Kevin's direction (2026-10-26):**
+- Single player or multiplayer is picked at creation, and a single-player game can be made multiplayer later.
+- Multiplayer is "a very robust first class feature" from V1.
+- Inviting friends is easy and intuitive. Friends just sign in and are dropped straight into the game.
+- Players without editor access still see when the main player is editing, "one-to-one exactly" what is being changed. They get gameplay immediately when Play is pressed.
+- Over the network, each player has their own controller, never sees other players' controllers, and sees from their own character's point of view.
+
+**What the research already designed** (now V1 inputs, not V2):
+- **A7 R12** is a room design on Colyseus 0.18 [V]:
+  - **A generic room owned by the platform**, with no game code in it. It handles membership, roles, pause, version pinning, the editor stream and relaying inputs and state.
+  - **The game simulation runs in the owner's sandboxed browser,** the host. The other players send inputs and get snapshots back, which the SDK interpolates.
+  - **Rooms are pinned to a version.** Players reconnect within a time window, and private panels are filtered out of what other players see.
+  - A7 recommends this "host-authoritative" model because running agent-written game code on the multiplayer server would break the sandbox rule (R05).
+- **B7 §9** has hooks that already fit:
+  - design changes go out as a stream that can be broadcast (`{actor, rev, patches}`);
+  - an edit lease gives one person editing authority;
+  - presence (cursor, selection) is kept separate from design state;
+  - input carries `playerIndex`;
+  - entity IDs are minted by the host;
+  - applying a design is deterministic.
+
+**How each part of Kevin's direction maps onto that:**
+
+| Direction | Design |
+|---|---|
+| Choose at creation, convert later | Every game follows `gm-multiplayer-ready` from day one, not only multiplayer games: input separate from simulation, per-player state keyed by player id, host-minted ids, spawn points, a HUD per player. A multiplayer game starts from a template that already has the networking. Converting a single-player game is an ordinary edit job (B8 admission, budget-aware voice): it adds join and spawn, networked entities and per-player HUDs, then runs a two-client `gm-verify` |
+| Easy invites | The owner taps Invite and shares a link (copy, text message, or the phone's share sheet). The friend opens it, signs in (passkey, Google or email), and lands in the room with no other screens. The link carries a room-scoped grant that can expire and be revoked. It replaces A7's anonymous guest codes, because Kevin wants friends signed in |
+| Watch the editor one-to-one | Watchers receive the same design transaction stream the editor saves, so their copy of the level changes exactly as the editor's does: tiles, placed objects, inspector values. Presence adds the editor's cursor, selection and camera. Watchers follow the editor's camera by default and can look around on their own. Agent builds (code-level changes) show as "building…" with progress, then the owner loads the draft into the room (A7's draft preview) |
+| Play the moment Play is pressed | Pressing Play ends the edit pause. Every client already has the design and the build, so they are in gameplay on the same frame. Late joiners load the pinned build and spawn at once |
+| Own controller and own view | Each client reads only its own devices and keeps its own camera rig (C2 §4), following its own character. The HUD is per player. Other players' input is never shown, only its results. The SDK's camera and input contracts are built per player from the start |
+
+**Constraints this creates:**
+1. **The lawyer review moves earlier.** The decision log has the lawyer review "before any outside family joins". Friends are outside the family, so if V1 lets people invite friends, that review is a V1 launch prerequisite. Recommendation: limit invites to the family until the review is done, then open them to friends.
+2. **Every friend must pass the 18+ age screen in V1.** A friend under 18 cannot join until teen and child accounts arrive (V2 and V3). The invite flow must say this kindly.
+3. **When the host drops, the game stops.** With the simulation in the owner's browser, the room pauses if the owner leaves (A7). Kevin still needs to pick between ending the session with progress saved, or migrating the host to another player. Recommendation for V1: end the session with progress saved.
+4. **Fairness.** Host-authoritative play is fine for co-op and casual competition among invited players. It is not cheat-proof. Competitive or physics-heavy genres would need A7 option B (game logic in a sandbox per room, about $50 per vCPU-month while live). That stays later.
+5. **Infrastructure:** one `mp` Colyseus service on Railway with a single replica (no sticky sessions; WebSockets reconnect). A7's evaluation plan (relay latency at p50/p95 with 4 clients, pause and resume, killing the owner's tab, swapping the release mid-room, checking on the wire that private fields never reach watchers) needs a small Railway Hobby spend. **No spending is approved yet,** so that waits for Kevin.
+6. **Privacy in the room.** Watchers never see prompts, the voice conversation with the build agent, budgets or admin panels. They see "Kevin is talking to the builder…" (A7 I3). Whether friends may hear or join the voice conversation is open (below).
+
+**Testing:** the `tick()` hook from C1 extends to several clients. `gm-verify` runs two Playwright browser contexts (host and friend) and checks:
+- invite → sign in → join;
+- the friend's view of the level matches the editor's, design revision for revision;
+- Play starts both clients;
+- each client has its own camera;
+- reconnecting works.
+
+**Moves from V2 to V1:**
+- online play;
+- watching the editor;
+- pausing the room for edits;
+- invited playtesting of drafts.
+
+**Stays later:**
+- same-device multiplayer (split screen);
+- more than one person editing at once;
+- server-authoritative rooms for competitive play;
+- public matchmaking.
+
+**Open questions for Kevin:**
+1. **Friends in V1:** family only until the lawyer review, then friends? (Recommended.) Or friends from V1 launch, which makes the lawyer review a launch blocker?
+2. **When the host drops:** end the session with progress saved (recommended for V1), or hand hosting to another player?
+3. **Can friends hear or talk to the build agent** while the owner edits by voice? Default: no, they see "talking to the builder…".
+4. **Same-device split screen:** later (assumed), or also V1?
+5. **Room size:** Colyseus can handle more, but co-op tuning and testing usually cap a room at 4–8 players. Default 4?
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -280,3 +348,22 @@ When tickets are made, each line below should appear in at least one ticket:
   - queued-at-reset jobs, with notifications and edit or cancel;
   - per-member allocation and reset settings in the admin UI;
   - a friendly unit for creators and dollars for admins.
+- **Multiplayer (V1):**
+  - a single-player or multiplayer choice at creation;
+  - `gm-multiplayer-ready` rules applied to every game;
+  - a multiplayer game template;
+  - a single → multiplayer conversion edit job with two-client verification;
+  - the `mp` Colyseus service on Railway with a generic room (membership, roles, pause, version pin, relay);
+  - host-authoritative simulation, with SDK snapshot interpolation;
+  - invite links with room-scoped grants, and sign-in → straight into the room;
+  - age-screen messaging for friends;
+  - the design transaction stream and presence (cursor, selection, camera) sent to watchers, matching the editor exactly;
+  - a "follow the editor" camera with free look;
+  - draft preview loaded into the room for agent builds;
+  - Play from the edit pause, and late joining;
+  - per-player input, camera and HUD in the SDK;
+  - reconnection, plus the host-drop behaviour Kevin picks;
+  - private-field filtering checked on the wire;
+  - two-client tests in `gm-verify`;
+  - the A7 evaluation run (needs a spending OK);
+  - the lawyer review timing for outside-family invites.

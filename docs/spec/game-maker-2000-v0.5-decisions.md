@@ -37,6 +37,7 @@ Sources:
 | Style families | **V1.** The style picked at game creation (low poly, fidelity levels, 2D styles) maps to specific packs; one style family per game. (2026-10-26, C1, C2) | §5.3 |
 | Point of view | Chosen at game creation: isometric, first person, third person, and others that fit the chosen style and genre. **V1 assumed**, alongside the other creation choices. (2026-10-26, C2) | §5.3, B7 camera gap |
 | Budget-aware voice | The two-way voice agent knows the creator's remaining resources. For a change too large for what's left, it says so and offers to queue it for tomorrow or reduce the scope to fit today. **V1 assumed.** (2026-10-26, C2) | §7.2, §8.3–8.4, B8 §5 |
+| Multiplayer | **V1, first-class** (supersedes "V1 reserves interfaces only"). Single player or multiplayer chosen at creation, convertible later. Invite links: friends sign in and drop straight into the game. Non-editors watch editor changes exactly as they happen and join play when Play is pressed. Each networked player has their own controller and point of view. (2026-10-26, C2 §6; design from A7 R12 and B7 §9) | §5.8, R12 |
 | Device-tiered assets | **V1.** Assets and textures get pre-processed mobile-friendly variants that load only on mobile. (2026-10-26, C2) | §5.3, §10.7 |
 | Process | No tickets or aiur build order yet. aiur's in-flight build order will be split across two machines, with Game Maker components first (`docs/handoff/aiur-executor-split-prompt.md`). | — |
 
