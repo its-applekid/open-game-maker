@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -14,6 +14,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 4 | **Point of view** | Point of view is a choice when creating a game: isometric (as in the prototype), first person, third person, and anything else that suits the chosen style and other choices | One camera-rig module per point of view in the SDK. The scope chat offers only the points of view the chosen style family and genre support. The lockfile records the choice. The editor keeps its own top or isometric camera, plus a "view as player" preview |
 | 5 | **Budget-aware voice agent** | The two-way voice agent knows the creator's remaining resources. When a request is too big for what's left, it says so and offers to queue it for tomorrow or to cut it down to fit today | Give the voice agent read-only budget and estimate tools. Before agreeing to a change, it compares the estimate with what's left and offers four choices: do it now, trim it to fit, split it (part now, the rest queued), or queue it for the reset. Only Game Maker's admission step reserves money |
 | 6 | **Multiplayer, first-class in V1** | Single player or multiplayer is chosen at creation, and a single-player game can become multiplayer later. Inviting friends is easy: they sign in and land straight in the game. Players without editor access watch the editor's changes exactly as they happen, and join gameplay the moment Play is pressed. Over the network, each player has their own controller and their own character's point of view | Build A7 R12's room design (a generic Colyseus room, with the simulation hosted in the owner's sandboxed browser) in V1. Stream B7's design transactions to watchers so their view matches the editor exactly. Every game follows `gm-multiplayer-ready` rules from day one, so converting to multiplayer is an ordinary edit job |
+| 7 | **Drive watch folder for new assets** | Kevin drops new asset files into a Google Drive folder. A listener notices right away and, after a debounce for uploads in progress, an agent organizes them and makes them available: as a new creation choice, or just as material agents can use. Assets aren't forced into "packs": a drop may be a full pack, a set of sound effects or a few models | A Drive changes listener scoped to one folder, with a quiet-period debounce, feeds a `gm-asset-intake` skill. Its unit is the **collection** (any size). It identifies, checks the license, normalizes (B11 plus the C2 §3 variants), tags and indexes each collection for `gm assets search`. A collection becomes a creation choice only if curation says it completes a style family |
 
 ## 1. Build analytics for admins
 
@@ -303,6 +304,61 @@ All of that happens after a request is agreed. The voice agent that agrees the r
 4. **Same-device split screen:** later (assumed), or also V1?
 5. **Room size:** Colyseus can handle more, but co-op tuning and testing usually cap a room at 4–8 players. Default 4?
 
+## 7. Drive watch folder for new assets
+
+**Kevin's direction (2026-10-26):**
+- Kevin sets up a Google Drive folder, and a listener watches just that folder.
+- When he adds new asset files, the system knows immediately and starts organizing them so players' games can use them.
+- A debounce handles uploads that are still in progress.
+- Once a new drop is confirmed, it becomes available automatically, either as a new option for players or as something agents can use at their discretion.
+- Drops are **not forced into "resource packs" tied to player choices.** A drop might be a full pack, just a collection of sound effects, or a few models that don't make up a whole pack.
+- An agent skill handles the listener's output and organizes drops so coding agents can use them sensibly.
+
+**What exists:**
+- B11 defines `gm packs import` (normalize to GLB, PNG/WebP and OGG/Opus, meshopt and KTX2), the bucket library and the license policy. It also names the `gm-pack-import` and `gm-pack-curate` skills.
+- This repo has a working local version: the `assets-local/` layout, `scripts/assets/import_synty.py`, `import_kenney_bundle.py` and `build_catalog.py`, plus 277 packs imported (C1).
+- C1 recorded the intake lessons:
+  - one `.unitypackage` extraction hung for 10 minutes until it was rewritten to extract in a single pass;
+  - nested zips needed a second pass;
+  - Synty characters arrived as part lists that needed a bake step.
+
+**Mechanism:**
+1. **Listener (a small service, no AI):**
+   - **Access:** a Google service account. Kevin shares only the watch folder with its email address, so it can read that folder and nothing else in his Drive. Recommended over user OAuth, which would need Drive's restricted read scope for files Kevin uploads himself.
+   - **Detecting changes:** poll the Drive `changes.list` API with a saved page token every 30–60 s, filtered to the folder and its subfolders. Polling works from the maker PC or Railway with no public endpoint. Drive push notifications (`changes.watch`) need a public HTTPS webhook and still need polling as a fallback, so they can be added later for speed.
+   - **Debounce:** a drop is ready when its top-level item (a file, or a subfolder of related files) has had no new or changed files for a quiet period (default 3 minutes). Every file also has to give the same size and checksum on two polls in a row. Archives must pass an integrity test before intake starts.
+   - **Output:** one intake job per settled drop, containing the Drive ids, names, sizes and checksums. Drive files are downloaded into a fresh, empty quarantine directory.
+2. **Collections, not packs.** The library's unit becomes a **collection** of any size:
+   - a vendor pack;
+   - a set of sound effects;
+   - a handful of models;
+   - one texture set.
+
+   Each collection has an id, a source (a Drive file id, or a vendor and version), a license, item counts by kind, and tags. A vendor pack is just a large collection. `assets-local/packs/` keeps working, generalized to `collections/`.
+3. **The `gm-asset-intake` skill**, for the agent that receives intake jobs:
+   1. **Identify** what arrived. A vendor pack, from its folder layout and license files (we already know the Synty `SourceFiles` and Kenney layouts)? Loose models, audio, sprites or textures? Engine-only files to drop: Unity and Unreal projects, `.meta`, `.mat`, previews?
+   2. **License first.** Read the license files and any vendor marker. Kenney means CC0. Synty means personal, so private repos only (B11). **If the license is unknown, the collection stays in quarantine,** and Kevin gets a note asking what it is. Nothing is exposed until the license is known.
+   3. **Normalize** with B11's pipeline (GLB, PNG/WebP, audio formats every browser decodes) and generate the mobile and desktop variants (C2 §3). Bake step if needed (Sidekick-style part lists).
+   4. **Tag** each item: kind (model, character, prop, tile, SFX, music, UI, texture), style, point of view, rig and animations, scale, and polygon or file size. Thumbnails and audio previews are generated for each item.
+   5. **Index** into the catalog, so `gm assets search` and `facets` find it right away. Agents then use it at their discretion, within the game's style family (C2 §2) and the license policy.
+   6. **Suggest, don't force.** If curation (`gm-pack-curate`) finds that a collection completes or extends a style family (characters, environment, props, UI, SFX), it proposes adding it as a creation choice. Otherwise it stays as agent material. A loose SFX set never turns into a style option.
+   7. **Report** to Kevin with one line per drop: what arrived, its license, how many items, where it's usable, and anything stuck in quarantine.
+4. **Safety:**
+   - Downloads are untrusted data. Unpack them in a fresh directory, with zip-slip and size checks, and never run anything from them (unitypackage scripts, installers).
+   - Run the converters isolated from the agent's credentials.
+   - There is a size cap per drop.
+5. **Where it runs:** the listener and intake can run on the maker PC for Kevin's instance (the bucket sync already exists in B11) or as a Railway worker for hosted instances. It's the same code either way. Configuring the folder is an admin setting.
+
+**Kevin's setup (free):**
+- create the folder;
+- share it with the service account's email (provided when the service account is created).
+
+No spending needed.
+
+**Open questions for Kevin:**
+1. **Should finished files stay in the Drive folder?** Options: (a) leave them, and track what has been processed by Drive id and checksum (recommended, never deletes his files), or (b) move them to a "processed" subfolder.
+2. **Notifications:** a browser notification from Game Maker's admin UI, or a phone push like this session's?
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -367,3 +423,14 @@ When tickets are made, each line below should appear in at least one ticket:
   - two-client tests in `gm-verify`;
   - the A7 evaluation run (needs a spending OK);
   - the lawyer review timing for outside-family invites.
+- **Drive watch folder (V1):**
+  - the service account, plus admin settings for the watch folder;
+  - a `changes.list` polling listener with a saved page token and folder filter;
+  - the quiet-period debounce with checksum stability and archive integrity tests;
+  - intake jobs, with download into quarantine;
+  - generalize packs to **collections** in the library, catalog and lockfile;
+  - the `gm-asset-intake` skill: identify, license first (quarantine if unknown), normalize and generate variants, tag, index, suggest for curation, report;
+  - unpacking safety (zip-slip, size caps, nothing executed);
+  - processed-file tracking by Drive id and checksum;
+  - notifications to Kevin;
+  - optional `changes.watch` push later.
