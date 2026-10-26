@@ -548,7 +548,7 @@ function startPlay() {
   $('#editor').classList.add('playing'); $('#modeBadge').textContent = 'Playing';
   $('#hud').hidden = false; $('#result').hidden = true; hover.visible = false; ring.visible = false;
   stage.classList.toggle('touch', matchMedia('(pointer: coarse)').matches);
-  audio.play('confirmation_001', { vol: .7 }); audio.music('music-play', { vol: .55 }); audio.setFireLevel(.35);
+  audio.play('confirmation_001', { vol: .7 }); audio.music('music-play', { vol: 1 }); audio.setFireLevel(.35);
   // hero
   const root = new THREE.Group(); const body = instance('human'); root.add(body);
   const mixer = new THREE.AnimationMixer(body); mixers.add(mixer);

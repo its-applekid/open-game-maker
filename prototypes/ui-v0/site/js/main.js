@@ -10,7 +10,11 @@ let inHome = !params.has('editor');
 let homeMusic = false;
 
 const chip = $('#sound');
-const updateChip = () => { chip.textContent = !audio.unlocked() ? '♪ Tap for sound' : audio.isMuted() ? '♪ Sound off' : '♪ Sound on'; };
+const updateChip = () => {
+  chip.dataset.s = !audio.unlocked() ? 'tap' : audio.isMuted() ? 'off' : 'on';
+  chip.textContent = { tap: '♪ Tap for sound', off: '♪ Sound off', on: '♪ Sound on' }[chip.dataset.s];
+};
+audio.onStateChange(updateChip); updateChip();
 async function ensureAudio() {
   await audio.unlock(); await audio.ready;
   if (inHome && !homeMusic) { audio.music('music-home', { vol: 0.9 }); homeMusic = true; }
@@ -18,7 +22,16 @@ async function ensureAudio() {
 }
 // iOS only lets a touch start audio on touchend/pointerup, not pointerdown
 for (const ev of ['pointerdown', 'pointerup', 'touchend', 'keydown']) addEventListener(ev, ensureAudio);
-chip.addEventListener('click', e => { e.stopPropagation(); if (audio.unlocked()) audio.setMuted(!audio.isMuted()); ensureAudio(); });
+// a press on "Tap for sound" means sound on; later presses toggle. Go by the label the player saw at press time:
+// the window listeners resume audio before click, and some browsers start it running before any tap at all.
+let chipWasOn = null;
+const noteChip = () => { chipWasOn = chip.dataset.s !== 'tap'; };
+chip.addEventListener('pointerdown', noteChip); chip.addEventListener('keydown', noteChip);
+chip.addEventListener('click', e => {
+  e.stopPropagation();
+  const wasOn = chipWasOn ?? chip.dataset.s !== 'tap'; chipWasOn = null;
+  audio.setMuted(wasOn ? !audio.isMuted() : false); ensureAudio();
+});
 
 let clock = null;
 if (inHome) clock = startHome(buildHome());

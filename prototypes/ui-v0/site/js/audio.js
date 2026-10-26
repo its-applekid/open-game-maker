@@ -28,6 +28,7 @@ export function setMuted(m) {
   try { localStorage.setItem('ogm-muted', m ? '1' : '0'); } catch {}
 }
 export const unlocked = () => ctx.state === 'running';
+export const onStateChange = f => ctx.addEventListener('statechange', f);
 export function unlock() {
   // iOS 17+: 'playback' keeps Web Audio playing when the ringer switch is on silent
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}
