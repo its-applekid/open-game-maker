@@ -146,7 +146,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 #aim { position: absolute; right: 22px; bottom: 22px; width: 130px; height: 130px; border-radius: 50%; border: 3px solid #fffaf0aa; background: #f8b93a40; pointer-events: auto; touch-action: none; display: none; }
 #aimNub { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px; border-radius: 50%; border: 4px solid var(--ink); background: linear-gradient(#f9cf6e, var(--yellow)); box-shadow: 0 4px 0 var(--ink); display: grid; place-items: center; font-size: 30px; }
 #aim.tap #aimNub { box-shadow: 0 1px 0 var(--ink); translate: 0 3px; }
-.touch-btn.small { right: 48px; bottom: 172px; width: 70px; height: 70px; font-size: 30px; background: linear-gradient(#a9dbf7, var(--blue)); }
+.touch-btn.small { right: 40px; bottom: 168px; width: 84px; height: 84px; font-size: 36px; background: linear-gradient(#a9dbf7, var(--blue)); }
 .touch #stick, .touch #aim, .touch .touch-btn { display: block; }
 .touch .touch-btn[hidden] { display: none; }
 .touch #keys { display: none; }

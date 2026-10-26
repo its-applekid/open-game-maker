@@ -541,7 +541,9 @@ function playChest(r, which) {
 // ---------------- PLAY MODE ----------------
 let player = null, foes = [], pickups = [], play = null;
 const keys = new Set(); const stick = { x: 0, y: 0 };
-const aim = { dir: null }; // world-space look direction from the right stick or the mouse; null = face where you walk
+// look direction from the right stick or the mouse: only while held (+ a short linger), otherwise face where you walk
+const aim = { dir: null, held: false, until: 0 };
+const aiming = () => aim.dir && (aim.held || (play && play.t < aim.until));
 function startPlay() {
   if (mode === 'play') return;
   const stairs = map.objects.find(o => o.type === 'stairs');
@@ -572,7 +574,7 @@ function startPlay() {
     if (o.type === 'coin' || o.type === 'potion') pickups.push({ o, r, taken: false });
   }
   play = { t: 0, over: false, total: foes.length, chestOpened: new Set() };
-  aim.dir = null; $('#aimNub').style.transform = '';
+  aim.dir = null; aim.held = false; aim.until = 0; $('#aimNub').style.transform = '';
   camZoom = Math.min(fitZoom, 2.5); camTarget.copy(root.position);
   updateHud();
   hint(foes.length ? 'Defeat the goblins!' : 'Explore your dungeon!');
@@ -604,12 +606,12 @@ function bindTouch() {
   // iOS: cancel the touch defaults on the controls so quick repeated taps never become double-tap zoom
   for (const el of [$('#stick'), $('#aim'), $('#btnUse')]) el.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
   document.addEventListener('gesturestart', e => e.preventDefault()); // Safari pinch-zoom
-  // right stick: a drag sets the look direction; a tap swings. The nub stays where it was left.
+  // right stick: a tap swings; hold and drag to turn while held (snaps back on release, aim lingers briefly)
   const as = $('#aim'), an = $('#aimNub'); let apid = null, down = null;
   const setAim = e => {
     const r = as.getBoundingClientRect(); let x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
     const m = Math.hypot(x, y), R = 50; if (m < 6) return; if (m > R) { x *= R / m; y *= R / m; }
-    an.style.transform = `translate(${x}px,${y}px)`; aim.dir = camRight.clone().multiplyScalar(x).addScaledVector(camFwd, -y).normalize();
+    an.style.transform = `translate(${x}px,${y}px)`; aim.dir = camRight.clone().multiplyScalar(x).addScaledVector(camFwd, -y).normalize(); aim.held = true;
   };
   as.addEventListener('pointerdown', e => { e.preventDefault(); apid = e.pointerId; try { as.setPointerCapture(apid); } catch {} down = { x: e.clientX, y: e.clientY, t: performance.now(), dragged: false }; as.classList.add('tap'); });
   as.addEventListener('pointermove', e => {
@@ -617,22 +619,29 @@ function bindTouch() {
     if (!down.dragged && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) down.dragged = true;
     if (down.dragged) setAim(e);
   });
-  const aimUp = e => { if (e.pointerId !== apid) return; apid = null; as.classList.remove('tap'); if (e.type === 'pointerup' && !down.dragged && performance.now() - down.t < 400) attack(); };
+  const AIM_LINGER = .8;
+  const aimUp = e => {
+    if (e.pointerId !== apid) return; apid = null; as.classList.remove('tap');
+    if (down.dragged) { aim.held = false; aim.until = (play?.t || 0) + AIM_LINGER; an.style.transform = ''; }
+    else if (e.type === 'pointerup' && performance.now() - down.t < 400) attack();
+  };
   as.addEventListener('pointerup', aimUp); as.addEventListener('pointercancel', aimUp);
-  // desktop: the mouse aims, a left click swings
+  // desktop: a click swings toward the cursor; hold the button to aim with the mouse
   const mouseAim = e => {
     const r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
     ray.setFromCamera(ndc, camera); const pt = new THREE.Vector3();
     if (player && ray.ray.intersectPlane(plane, pt)) { const v = pt.sub(player.root.position).setY(0); if (v.lengthSq() > .01) aim.dir = v.normalize(); }
   };
-  canvas.addEventListener('pointermove', e => { if (mode === 'play' && e.pointerType === 'mouse') mouseAim(e); });
-  canvas.addEventListener('pointerdown', e => { if (mode === 'play' && e.pointerType === 'mouse' && e.button === 0) { mouseAim(e); attack(); } });
+  canvas.addEventListener('pointermove', e => { if (mode === 'play' && e.pointerType === 'mouse' && aim.held) mouseAim(e); });
+  canvas.addEventListener('pointerdown', e => { if (mode === 'play' && e.pointerType === 'mouse' && e.button === 0) { mouseAim(e); aim.held = true; player?.facing.copy(aim.dir || player.facing); attack(); } });
+  addEventListener('pointerup', e => { if (e.pointerType === 'mouse' && aim.held) { aim.held = false; aim.until = (play?.t || 0) + .6; } });
   $('#btnUse').addEventListener('pointerdown', e => { e.preventDefault(); use(); });
 }
 setTimeout(bindTouch);
 
 function attack() {
   if (!player || player.dead || player.cool > 0 || play.over) return;
+  if (nearChest()) return use(); // swinging at a closed chest opens it (one button on phones)
   player.cool = .42; player.attackT = 0;
   playOnce(player.root, 'attack-melee-right', 1.7, 'idle');
   audio.playOneOf(['woosh1', 'woosh3'], { vol: .6, pitch: .12 });
@@ -657,7 +666,7 @@ function checkCleared() {
 }
 function nearChest() {
   for (const o of map.objects) if (o.type === 'chest' && !play.chestOpened.has(o.id)) {
-    const r = roots.get(o.id); if (r && r.position.distanceTo(player.root.position) < 1.05) return { o, r };
+    const r = roots.get(o.id); if (r && r.position.distanceTo(player.root.position) < 1.35) return { o, r };
   }
   return null;
 }
@@ -739,11 +748,11 @@ function updatePlay(dt) {
     const dir = camRight.clone().multiplyScalar(ix).addScaledVector(camFwd, -iy).normalize();
     const sp = 2.5 * mag * (player.attackT >= 0 && player.attackT < .25 ? .35 : 1);
     moveWithCollision(P, dir.x * sp * dt, dir.z * sp * dt);
-    if (!aim.dir) player.facing.lerp(dir, Math.min(1, dt * 14)).normalize();
+    if (!aiming()) player.facing.lerp(dir, Math.min(1, dt * 14)).normalize();
     if (player.root.userData.anim.current.getClip().name === 'idle') loopAnim(player.root, 'walk', 1.3);
     player.step -= dt; if (player.step <= 0) { player.step = .3; audio.playOneOf(['footstep_concrete_000', 'footstep_concrete_001'], { vol: .25, pitch: .1 }); }
   } else if (player.root.userData.anim.current.getClip().name === 'walk') loopAnim(player.root, 'idle');
-  if (aim.dir && !player.dead) player.facing.lerp(aim.dir, Math.min(1, dt * 18)).normalize();
+  if (aiming() && !player.dead) player.facing.lerp(aim.dir, Math.min(1, dt * 18)).normalize();
   player.root.rotation.y = Math.atan2(player.facing.x, player.facing.z);
   // sword hit lands a beat into the swing
   if (player.attackT >= 0) {
@@ -809,7 +818,7 @@ function updatePlay(dt) {
     }
   }
   const c = nearChest(); $('#prompt').hidden = !c; $('#btnUse').hidden = !c;
-  if (c) $('#prompt').innerHTML = stage.classList.contains('touch') ? 'Tap ✋ to open the chest' : 'Press <b>E</b> to open the chest';
+  if (c) $('#prompt').innerHTML = stage.classList.contains('touch') ? 'Tap ⚔ or ✋ to open the chest' : 'Press <b>E</b> or click to open the chest';
   // camera follows
   camTarget.lerp(P, Math.min(1, dt * 5));
 }
