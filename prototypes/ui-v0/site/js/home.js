@@ -49,9 +49,20 @@ function bush(parent, x, y, s, c) {
   [[-18, -10, 18], [16, -12, 16], [0, -22, 20]].forEach(([dx, dy, r]) => piece(g, 'circle', { cx: x + dx * s, cy: y + dy * s, r: r * s }, c, 5));
   sways.push({ node: g, x, y, amp: 1.2, phase: rnd(0, 6) });
 }
-function tuft(parent, x, y, s, c) {
+// a fan of thin curved blades: taller in the middle, leaning outward, darker blades behind lighter ones
+function blade(parent, bx, y, h, lean, w, c) {
+  const tx = bx + lean, ty = y - h;
+  piece(parent, 'path', { d: `M${bx - w} ${y} Q${bx - w * .6 + lean * .35} ${y - h * .55} ${tx} ${ty} Q${bx + w * .5 + lean * .45} ${y - h * .5} ${bx + w} ${y} Z` }, c, 3);
+}
+function tuft(parent, x, y, s, [dark, light]) {
   const g = el('g', {}, parent);
-  piece(g, 'path', { d: `M${x - 10 * s} ${y} Q${x - 12 * s} ${y - 20 * s} ${x - 16 * s} ${y - 30 * s} Q${x - 4 * s} ${y - 18 * s} ${x} ${y - 36 * s} Q${x + 4 * s} ${y - 18 * s} ${x + 15 * s} ${y - 28 * s} Q${x + 10 * s} ${y - 14 * s} ${x + 10 * s} ${y} Z` }, c, 4);
+  const n = 4 + Math.floor(rnd(0, 4)), mid = (n - 1) / 2;
+  const blades = Array.from({ length: n }, (_, i) => {
+    const t = (i - mid) / (mid || 1); // -1 .. 1 across the fan
+    return { bx: x + t * 7 * s + rnd(-2, 2) * s, h: (40 - Math.abs(t) * 16 + rnd(-6, 6)) * s, lean: (t * 16 + rnd(-5, 5)) * s, w: (4.6 + rnd(0, 1.8)) * s, back: i % 2 === 0 };
+  });
+  for (const b of blades) if (b.back) blade(g, b.bx, y, b.h * 1.05, b.lean, b.w, dark);
+  for (const b of blades) if (!b.back) blade(g, b.bx, y, b.h, b.lean, b.w, light);
   sways.push({ node: g, x, y, amp: 5 + rnd(0, 3), phase: rnd(0, 6), grass: true });
 }
 function flower(parent, x, y, c) {
@@ -97,7 +108,11 @@ export function buildHome() {
   const front = svgLayer('L-front');
   const frontD = hill(835, 14, 9);
   piece(front, 'path', { d: frontD }, '#9fd07a', 6);
-  for (let x = -10; x < W + 20; x += rnd(36, 70)) tuft(front, x, groundY(frontD, x) + 8, rnd(.8, 1.4), ['#62a548', '#72b455'][Math.round(rnd())]);
+  // clumps: a big tuft with one or two small ones beside it, irregular gaps between clumps
+  for (let x = -10; x < W + 20; x += rnd(55, 140)) {
+    tuft(front, x, groundY(frontD, x) + 8, rnd(.9, 1.35), ['#559a40', '#72b455']);
+    for (let k = Math.floor(rnd(0, 3)); k > 0; k--) { const dx = rnd(14, 30) * (rnd() < .5 ? -1 : 1); tuft(front, x + dx, groundY(frontD, x + dx) + 8, rnd(.5, .8), ['#62a548', '#86c462']); }
+  }
   for (let i = 0; i < 16; i++) { const x = rnd(0, W); if (x > 620 && x < 980) continue; flower(front, x, groundY(frontD, x) + 12, ['#f2726a', '#f8b93a', '#a57fd8', '#3fa6e0'][i % 4]); }
   const leavesSvg = svgLayer('L-leaves', 'xMidYMid slice');
   return { rays, clouds, leavesSvg, sways };
