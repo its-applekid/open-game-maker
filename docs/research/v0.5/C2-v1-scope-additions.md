@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). Item 8, branching, is something Kevin is considering ("I wonder if we should fully embrace support for branching"). The recommendation is a branch-aware data model in V1, with a basic branching UI. Item 9, map inspiration, is in scope by Kevin's direction (2026-10-26). It is placed in V1 alongside the Drive intake it depends on. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). Item 8, branching, is something Kevin is considering ("I wonder if we should fully embrace support for branching"). The recommendation is a branch-aware data model in V1, with a basic branching UI. Item 9, map inspiration, is in scope by Kevin's direction (2026-10-26). It is placed in V1 alongside the Drive intake it depends on. Item 10, asset tagging, is part of the V1 asset pipeline by Kevin's direction (2026-10-26). This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -17,6 +17,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 7 | **Drive watch folder for new assets** | Kevin drops new asset files into a Google Drive folder. A listener notices right away and, after a debounce for uploads in progress, an agent organizes them and makes them available: as a new creation choice, or just as material agents can use. Assets aren't forced into "packs": a drop may be a full pack, a set of sound effects or a few models | A Drive changes listener scoped to one folder, with a quiet-period debounce, feeds a `gm-asset-intake` skill. Its unit is the **collection** (any size). It identifies, checks the license, normalizes (B11 plus the C2 §3 variants), tags and indexes each collection for `gm assets search`. A collection becomes a creation choice only if curation says it completes a style family |
 | 8 | **Branching (code and editor state)** | A branch covers both a Git branch and a branch of the editor state the creator changed. For example: branch the dungeon, make totally different monsters in the branch, pick a branch when choosing a game and play either version, then merge back with a two-way voice conversation to settle state conflicts | **Recommended.** A branch = a Git branch for code + a fork point in the editor's transaction log for design state, built and played independently. Merge = Git merge (agent resolves code) + a three-way merge of design state by stable entity and control id, with only real conflicts walked through by the voice agent alongside side-by-side previews. Make the data model branch-aware in V1 even if the UI starts small: retrofitting it later is the expensive part |
 | 9 | **Map inspiration library** | Upload a bunch of D&D-style tabletop level designs as design inspiration, including for non-D&D levels: a chamber or dungeon becomes the starting point for a 3D level. Add a skill for using them | Maps arrive through the Drive intake as an **inspiration** collection that is never shipped in games. At ingest, each map is turned into a **layout spec**: grid, rooms, connections, doors, stairs, features and tags. The `gm-map-inspiration` skill finds layouts that match a request, adapts them (scale, mirror, remix rooms), translates them into the game's tile system, style family and point of view, and runs a reachability check. Games get derived layouts, never the map images |
+| 10 | **Rich asset tagging** | A robust tagging system so agents don't have to load each asset to find out what it looks like: metadata about environments, uses, objects, descriptions and so on. New assets get tagged as they're organized | Every asset gets a **metadata card** at intake. **Code measures** facts (size and footprint, triangles, animations, rig, attach points, audio length, loudness and brightness). **A vision model reads rendered contact sheets** for descriptions, objects, environments, uses and mood. Cards are cached by content hash and versioned. Agents search the cards (facets, full text and semantic search) and look at contact sheets. They never open the models |
 
 ## 1. Build analytics for admins
 
@@ -468,6 +469,47 @@ No spending needed.
 
 **Open question for Kevin:** where the maps come from (purchased packs, free-use map makers, generator output). This mainly affects which licenses intake will see.
 
+## 10. Rich asset tagging (metadata cards)
+
+**Kevin's direction (2026-10-26):** a robust tagging system for assets, so agents don't have to load every individual asset to work out what it looks like. Tag them with metadata about the types of environment, uses, objects, descriptions and so on. Make it part of the asset pipeline: new resources get tagged when they're organized.
+
+**Evidence from this session [M]:**
+- Choosing darker dungeon music meant measuring loudness and brightness with ffmpeg, because no track said "dark" or "cheerful".
+- Confirming the Kenney orc had `die` and `attack-melee-right` meant parsing the GLB's JSON.
+- The Synty packs have no `category` in the catalog, and no pack has style labels (C2 §2).
+- An agent building a level with 277 untagged packs would have to open files to choose. That is slow, uses a lot of context, and doesn't scale.
+
+**The metadata card**, one per asset and one per collection:
+
+| Group | Fields | Source |
+|---|---|---|
+| Identity | id, collection, file, variants (colours, damaged, LOD), license, provenance | Code |
+| What it is | kind (model, character, prop, tile, modular piece, sprite, SFX, music, UI, texture, inspiration map); **objects depicted**; a one or two sentence **description** | Vision model on the contact sheet, checked against the filename |
+| Where it fits | **environments** (dungeon, forest, town, castle, sci-fi, cave, interior); theme; **uses** (wall piece, floor tile, obstacle, cover, decor, pickup, enemy, hero, NPC, light source, interactable) | Vision model plus the collection's context |
+| Look | style family (C2 §2); point-of-view suitability (C2 §4); dominant palette; mood | Vision model, with the palette measured by code |
+| Geometry (3D) | bounds in game units; tile footprint; pivot and up axis; triangle count; materials and shared texture | Code |
+| Rig and motion | rig type; animation names and durations; attach points such as hand bones; which other assets share the rig (C2 §2) | Code |
+| Modular kits | connects-to rules (wall ↔ wall-corner ↔ gate), grid size | Code from names and bounds, refined by the model |
+| Audio | duration, loops cleanly, loudness, brightness, tempo; category (impact, footstep, UI, ambience, music); **mood** (dark, tense, cheerful, calm) | Code for the measurements; model for mood |
+| Quality | a confidence per model-written field, schema version, who last edited (model or human) | Pipeline |
+
+**Pipeline** (part of intake, C2 §7 step 4):
+1. **Measure with code first.** Bounds, triangles, animations, rig and audio stats are facts and come out of the files directly.
+2. **Render contact sheets.** Each 3D asset gets several angles on one image; each collection gets a grid of its items; audio gets a waveform and spectrum strip. Headless three.js already renders thumbnails in the prototype (C1).
+3. **A vision model writes the descriptive fields** from the sheets plus the measured facts, in batches of about 20–50 items per call. Results are cached by content hash, so a re-import costs nothing.
+4. **Validate with code:** check the vocabulary against a fixed tag list (with a "propose new tag" path for curation), check the fields agree with the measured facts, and flag low confidence.
+5. **Index:** facets for `gm assets facets` (B11), full text, and embeddings over the descriptions for semantic search ("something to block a corridor that fits a crypt").
+6. **Re-tag** when the schema version changes. Humans can edit any field (`gm-pack-curate`), and human edits are never overwritten.
+
+**How agents use it:**
+- `gm assets search` and `facets` return cards and thumbnails, not files. Agents pick from the cards and open a contact sheet only when they need to see the look.
+- `gm-assets` and `gm-map-inspiration` rules: **choose from cards, never by loading models**. Cite the asset id in the plan.
+- The cards also power the scope chat's style choices (C2 §2), point-of-view filtering (C2 §4), rig-sharing variants, and mood-matched music.
+
+**Costs:**
+- Vision calls are a one-time cost per asset, batched.
+- For the current library (277 packs, many thousands of items) the full tagging run should be estimated with a sample first, then approved, since **no spend is approved yet**.
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -565,3 +607,14 @@ When tickets are made, each line below should appear in at least one ticket:
   - the `gm-map-inspiration` skill: find, adapt, translate to tiles, style family and point of view, place spawn and encounters, reachability plus `gm-verify`, record provenance;
   - candidate thumbnails in the scope chat;
   - the provenance and license policy for inspiration sources.
+- **Asset tagging:**
+  - the metadata card schema with a fixed tag vocabulary and versioning;
+  - code measurement (geometry, rig and animations, attach points, kit connections, audio stats, palette);
+  - contact-sheet rendering for 3D, 2D and audio;
+  - batched vision-model tagging, cached by content hash;
+  - validation (vocabulary, consistency with facts, confidence);
+  - search: facets, full text and embeddings;
+  - a human edit path that is never overwritten, and re-tagging on schema changes;
+  - `gm assets` returns cards and thumbnails;
+  - `gm-assets` rule: choose from cards, never load models;
+  - a sample-based cost estimate for tagging the existing library (needs a spending OK).

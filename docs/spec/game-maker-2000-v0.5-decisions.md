@@ -41,6 +41,7 @@ Sources:
 | Drive watch folder | **V1.** An admin-configured Google Drive folder is watched for new asset files. After a debounce, an agent with a dedicated skill organizes each drop and makes it available, as a creation option or as agent material. Drops can be any size (pack, SFX set, a few models), not forced into packs tied to player choices. (2026-10-26, C2 §7) | §5.3, B11 |
 | Branching | **Under consideration (Kevin, 2026-10-26).** A branch covers both a Git branch and a branch of the editor state. Play any branch; merge back with voice-guided conflict resolution. Recommended: branch-aware data model plus basic UI in V1 (C2 §8) | B7 §4, §9.2 |
 | Map inspiration | **In scope.** Upload D&D-style tabletop level designs as design inspiration for any level (a chamber or dungeon as the starting point for a 3D dungeon), plus a skill for using them. Images stay private; games get derived layouts. (2026-10-26, C2 §9) | §5.3, B11, C2 §7 |
+| Asset tagging | **V1 asset pipeline.** Every asset gets rich metadata (environments, uses, objects, description and more) when it's organized, so agents choose without loading assets. (2026-10-26, C2 §10) | §5.3, B11 §4.7 |
 | Device-tiered assets | **V1.** Assets and textures get pre-processed mobile-friendly variants that load only on mobile. (2026-10-26, C2) | §5.3, §10.7 |
 | Process | No tickets or aiur build order yet. aiur's in-flight build order will be split across two machines, with Game Maker components first (`docs/handoff/aiur-executor-split-prompt.md`). | — |
 
