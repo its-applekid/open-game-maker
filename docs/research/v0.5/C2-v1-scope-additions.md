@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. Item 6, multiplayer, is **V1 by Kevin's direction** (2026-10-26: "a very robust first class feature from day one, or from V1"). It supersedes the release plan's earlier "V1 reserves interfaces only, gameplay in V2". Item 7, the Drive watch folder, is **V1 by Kevin's direction** (2026-10-26). Item 8, branching, is something Kevin is considering ("I wonder if we should fully embrace support for branching"). The recommendation is a branch-aware data model in V1, with a basic branching UI. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -15,6 +15,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 5 | **Budget-aware voice agent** | The two-way voice agent knows the creator's remaining resources. When a request is too big for what's left, it says so and offers to queue it for tomorrow or to cut it down to fit today | Give the voice agent read-only budget and estimate tools. Before agreeing to a change, it compares the estimate with what's left and offers four choices: do it now, trim it to fit, split it (part now, the rest queued), or queue it for the reset. Only Game Maker's admission step reserves money |
 | 6 | **Multiplayer, first-class in V1** | Single player or multiplayer is chosen at creation, and a single-player game can become multiplayer later. Inviting friends is easy: they sign in and land straight in the game. Players without editor access watch the editor's changes exactly as they happen, and join gameplay the moment Play is pressed. Over the network, each player has their own controller and their own character's point of view | Build A7 R12's room design (a generic Colyseus room, with the simulation hosted in the owner's sandboxed browser) in V1. Stream B7's design transactions to watchers so their view matches the editor exactly. Every game follows `gm-multiplayer-ready` rules from day one, so converting to multiplayer is an ordinary edit job |
 | 7 | **Drive watch folder for new assets** | Kevin drops new asset files into a Google Drive folder. A listener notices right away and, after a debounce for uploads in progress, an agent organizes them and makes them available: as a new creation choice, or just as material agents can use. Assets aren't forced into "packs": a drop may be a full pack, a set of sound effects or a few models | A Drive changes listener scoped to one folder, with a quiet-period debounce, feeds a `gm-asset-intake` skill. Its unit is the **collection** (any size). It identifies, checks the license, normalizes (B11 plus the C2 §3 variants), tags and indexes each collection for `gm assets search`. A collection becomes a creation choice only if curation says it completes a style family |
+| 8 | **Branching (code and editor state)** | A branch covers both a Git branch and a branch of the editor state the creator changed. For example: branch the dungeon, make totally different monsters in the branch, pick a branch when choosing a game and play either version, then merge back with a two-way voice conversation to settle state conflicts | **Recommended.** A branch = a Git branch for code + a fork point in the editor's transaction log for design state, built and played independently. Merge = Git merge (agent resolves code) + a three-way merge of design state by stable entity and control id, with only real conflicts walked through by the voice agent alongside side-by-side previews. Make the data model branch-aware in V1 even if the UI starts small: retrofitting it later is the expensive part |
 
 ## 1. Build analytics for admins
 
@@ -359,6 +360,64 @@ No spending needed.
 1. **Should finished files stay in the Drive folder?** Options: (a) leave them, and track what has been processed by Drive id and checksum (recommended, never deletes his files), or (b) move them to a "processed" subfolder.
 2. **Notifications:** a browser notification from Game Maker's admin UI, or a phone push like this session's?
 
+## 8. Branching (code and editor state)
+
+**Kevin's idea (2026-10-26):**
+- Fully support branching, tied both to a Git branch and to a database or state branch that tracks the creator's changes in their editor.
+- Example: branch the dungeon and create totally different monsters in the branch.
+- When choosing which game to play, pick the branch, and play both versions.
+- Merge branches back in. A two-way voice conversation settles merge conflicts in state.
+
+**Why it fits what's already designed:**
+- **Editor changes are a transaction log.** Design state is a set of overrides on top of the build, saved as transactions (`{actor, rev, patches}`), against **stable ids**: build-authored entity ids that must never disappear silently, host-minted ids for placed entities, and stable control ids (B7 §4.1). Branching a log is cheap: a branch is a fork point plus its own later transactions, with nothing copied.
+- **aiur already works in branches and PRs**, so code changes are naturally branch-scoped. Agent jobs would target the game branch, not `main`. Whether aiur supports a non-default base branch per ticket needs checking [I].
+- **Publish already pins (build, override snapshot) and folds** overrides into `design/*.json` (B7 §4.1). Per branch, the fold just targets that branch's Git ref.
+
+**Model:**
+
+| Piece | On a branch |
+|---|---|
+| Code | A Git branch (`branch/<id>`) off the parent branch's head |
+| Design state (editor changes) | A fork point `(parentBranch, rev)` plus the branch's own transactions. Reads replay the parent up to the fork point, then the branch's transactions |
+| Builds | Each branch has its own draft builds, so its code and design can be played on their own |
+| Releases | `main` is the published line. Publishing from a branch is a merge first (recommended) or an explicit "publish this branch" |
+| Saves and player progress | **Not branched.** Saves are tagged with the branch and build they came from. A save only loads on a compatible branch, using the save migrations already planned (R09) |
+| Multiplayer rooms | Pinned to `(branch, build)`. Friends can be invited to play a specific version (C2 §6) |
+| Analytics and budget | Recorded per branch (C2 §1). Creating a branch is free. Building on it uses the normal budget (C2 §5) |
+
+**Merging:**
+1. **Code:** a Git merge. If it conflicts, an agent job resolves it (normal admission and budget), then runs `gm-verify` on the merged build.
+2. **Design state:** a three-way merge (base = fork point, ours, theirs), per stable id and per field:
+   - changes to different entities or fields merge automatically;
+   - the same field changed to the same value merges;
+   - **real conflicts** are flagged: the same field changed differently on each side, one side deleting what the other edited, or a code change that removed a control the other side tuned (orphan rules, B7 §4.1).
+3. **The voice agent walks through only the real conflicts,** with side-by-side previews. For example: "In *Spooky monsters* the Chief is Tough with a spear; on main he's Easy. Keep which, or both as two different goblins?" Choices can be per conflict or "keep all of mine". Every decision is one undoable merge transaction with `actor` recorded.
+4. **Preview before committing:** the merged result is built and playable as a temporary draft. The merge only lands when the creator confirms. Rolling back is a revert of the merge.
+
+**UX:**
+- In the product call branches **versions**, with names like "Spooky monsters", not Git words.
+- **Game picker:** the game card shows its versions. Tapping one plays it, with a clear badge showing which version.
+- **Editor:** a version switcher in the top bar, "Make a new version from here", and "Bring changes into…" (merge).
+- **Cap active versions per game** (default 5) to keep cost and confusion down. Old versions can be archived, not deleted.
+- Watchers in a multiplayer room see which version is open.
+
+**How it relates to forks:** a fork (decided: creator-only, copies design but not runtime data) is a branch in a different creator's repo with no automatic way back. Later, "suggest my fork's changes back" could reuse the same merge flow, like a pull request. Not V1.
+
+**Recommendation:**
+- **V1: a branch-aware data model,** costed now:
+  - every design transaction carries `branchId`;
+  - fork points are recorded;
+  - builds, rooms, saves and analytics are keyed by branch.
+
+  Retrofitting branches onto a single linear log and a single build line later would touch every subsystem.
+- **V1 UI:** create a version, switch, play either, merge with voice-guided conflicts.
+- **Later:** merging between forks, more than one editor per branch at once, and visual diffs of code.
+
+**Open questions for Kevin:**
+1. **Branching in V1:** the data model plus the basic UI (recommended), or the data model only, with the UI later?
+2. **Publishing:** only from `main` after a merge (recommended, keeps one published line), or any branch publishable on its own?
+3. **Version cap:** default 5 active versions per game?
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -434,3 +493,17 @@ When tickets are made, each line below should appear in at least one ticket:
   - processed-file tracking by Drive id and checksum;
   - notifications to Kevin;
   - optional `changes.watch` push later.
+- **Branching:**
+  - a `branchId` on every design transaction, with fork points;
+  - replaying from parent to fork point to branch;
+  - a Git branch per version;
+  - aiur jobs targeting a game branch (check base-branch support);
+  - per-branch draft builds;
+  - a three-way design merge by stable id and field, with conflict classification;
+  - code merges through an agent job plus `gm-verify`;
+  - a voice-guided conflict flow with side-by-side previews;
+  - a merge preview build and revert;
+  - a version picker in the game list and editor;
+  - saves, rooms, analytics and budget keyed by branch;
+  - a version cap and archiving;
+  - the publish-from-branch rule.
