@@ -14,6 +14,9 @@ html { background: url(assets/img/paper-bg.png) center / cover no-repeat, var(--
 .edge { position: fixed; left: 0; right: 0; height: 48px; pointer-events: none; background: var(--paper); }
 #edgeTop { top: 0; } #edgeBottom { bottom: 0; }
 html:has(#home:not([hidden])) #edgeBottom { background: #9bcb77; }
+/* no double-tap or pinch zoom anywhere: fast repeated taps on the controls would zoom the page */
+html { touch-action: manipulation; }
+#stage, #stage *, #hud * { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 html, body { margin: 0; height: 100%; color: var(--ink); font: 700 16px/1.35 Nunito, system-ui, sans-serif; overflow: hidden; -webkit-tap-highlight-color: transparent; }
 button { font: inherit; color: inherit; cursor: pointer; }
 [hidden] { display: none !important; }

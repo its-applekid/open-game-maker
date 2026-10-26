@@ -599,6 +599,9 @@ function bindTouch() {
   st.addEventListener('pointermove', e => { if (e.pointerId === pid) move(e); });
   const up = e => { if (e.pointerId !== pid) return; pid = null; stick.x = stick.y = 0; nub.style.transform = ''; };
   st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+  // iOS: cancel the touch defaults on the controls so quick repeated taps never become double-tap zoom
+  for (const el of [$('#stick'), $('#aim'), $('#btnUse')]) el.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
+  document.addEventListener('gesturestart', e => e.preventDefault()); // Safari pinch-zoom
   // right stick: a drag sets the look direction; a tap swings. The nub stays where it was left.
   const as = $('#aim'), an = $('#aimNub'); let apid = null, down = null;
   const setAim = e => {

@@ -1,0 +1,461 @@
+<!--
+  Open Game Maker 2000: product scope + architecture design doc.
+  Source of truth is this file in the repo (docs/architecture/architecture-scope.html). Edit here, then republish
+  the Claude artifact from it. The embedded prototype is published next to this page as prototype/ (copied from
+  prototypes/ui-v0/site/ at publish time); opened straight from the repo, that frame is empty and the live link works.
+  Features live in the FEATURES array near the bottom: add or edit entries there.
+-->
+<title>Open Game Maker 2000</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@500;600;700;800&family=JetBrains+Mono:wght@500&display=swap">
+<style>
+/* Layout: one reading column on paper, sections as cut-paper sheets; the prototype frame and feature list run wider. */
+:root {
+  --paper: #f6ecd8; --sheet: #fffaf0; --ink: #3a2a20; --muted: #7a6656; --rule: #e3d3b8;
+  --blue: #2f8fd0; --yellow: #e9a826; --coral: #e0635a; --purple: #8e67c9; --green: #5f9f43;
+  --shadow: 0 3px 0 rgba(58, 42, 32, .14);
+  --display: "Fredoka", "Nunito", system-ui, sans-serif;
+  --body: "Nunito", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #1f1914; --sheet: #2a221b; --ink: #f1e6d4; --muted: #b9a58f; --rule: #45382c;
+  --blue: #6db8ec; --yellow: #f2c35a; --coral: #f08a80; --purple: #b495ea; --green: #8fca6f;
+  --shadow: 0 3px 0 rgba(0, 0, 0, .35); color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #1f1914; --sheet: #2a221b; --ink: #f1e6d4; --muted: #b9a58f; --rule: #45382c;
+  --blue: #6db8ec; --yellow: #f2c35a; --coral: #f08a80; --purple: #b495ea; --green: #8fca6f;
+  --shadow: 0 3px 0 rgba(0, 0, 0, .35); color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--paper); color: var(--ink); font: 500 16px/1.6 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 28px 64px; }
+.wrap { max-width: 1060px; margin: 0 auto; display: grid; gap: 28px; }
+.col { max-width: 760px; }
+h1, h2, h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(34px, 6vw, 54px); font-weight: 700; }
+h2 { font-size: clamp(24px, 3.4vw, 30px); font-weight: 600; }
+h3 { font-size: 19px; font-weight: 600; }
+p { margin: 0; }
+a { color: var(--blue); text-underline-offset: 3px; }
+code, .mono { font-family: var(--mono); font-size: .86em; }
+code { background: color-mix(in srgb, var(--rule) 55%, transparent); padding: 1px 5px; border-radius: 5px; }
+.eyebrow { font: 700 12px var(--body); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.lede { font-size: 19px; color: var(--ink); max-width: 62ch; }
+.muted { color: var(--muted); }
+section { display: grid; gap: 16px; }
+.sheet { background: var(--sheet); border: 2px solid var(--ink); border-radius: 18px; box-shadow: var(--shadow); padding: 22px clamp(16px, 3vw, 28px); display: grid; gap: 14px; min-width: 0; }
+ul.tight { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+ol.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; }
+
+/* header */
+.masthead { display: grid; gap: 12px; }
+.letters span { display: inline-block; }
+.letters .o { color: var(--blue); } .letters .g { color: var(--yellow); } .letters .m { color: var(--coral); } .letters .n { color: var(--purple); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; color: var(--muted); }
+.meta b { color: var(--ink); font-weight: 700; }
+
+/* chips */
+.chip { display: inline-flex; align-items: center; gap: 6px; font: 700 12px var(--body); letter-spacing: .04em; border: 2px solid currentColor; border-radius: 999px; padding: 1px 9px; white-space: nowrap; }
+.v1 { color: var(--green); } .v2 { color: var(--blue); } .v3 { color: var(--purple); }
+.st-decided { color: var(--ink); } .st-working { color: var(--yellow); } .st-considering { color: var(--coral); } .st-assumed { color: var(--muted); }
+
+/* summary grid */
+.facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.fact { border-top: 3px solid var(--ink); padding-top: 10px; display: grid; gap: 4px; min-width: 0; }
+.fact h3 { font-size: 17px; }
+
+/* decisions */
+.decisions { display: grid; gap: 10px; counter-reset: d; }
+.decision { display: grid; grid-template-columns: auto 1fr; gap: 4px 14px; padding: 12px 0; border-top: 1px dashed var(--rule); }
+.decision:first-child { border-top: 0; }
+.decision::before { counter-increment: d; content: counter(d); grid-row: span 2; font: 700 22px var(--display); color: var(--coral); width: 1.4em; }
+.decision .q { font-weight: 800; }
+.decision .rec { color: var(--muted); }
+.decision .rec b { color: var(--green); }
+
+/* prototype frame */
+.frame { position: relative; width: 100%; aspect-ratio: 16 / 10; max-height: 78vh; border: 3px solid var(--ink); border-radius: 18px; overflow: hidden; background: #f6ecd8; box-shadow: var(--shadow); }
+.frame iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+@media (max-width: 640px) { .frame { aspect-ratio: 9 / 15; } }
+.btnrow { display: flex; flex-wrap: wrap; gap: 10px; }
+.btn { font: 700 15px var(--body); color: var(--ink); background: var(--sheet); border: 2px solid var(--ink); border-radius: 999px; padding: 6px 14px; box-shadow: 0 2px 0 var(--ink); text-decoration: none; cursor: pointer; }
+.btn:hover { transform: translateY(-1px); } .btn:active { transform: translateY(1px); box-shadow: none; }
+.btn:focus-visible, summary:focus-visible, input:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
+.btn[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+
+/* features */
+.toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.toolbar input { font: 600 15px var(--body); color: var(--ink); background: var(--sheet); border: 2px solid var(--ink); border-radius: 999px; padding: 7px 14px; min-width: 0; flex: 1 1 220px; }
+.count { font-size: 14px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.group { display: grid; gap: 8px; }
+.group > h3 { display: flex; align-items: baseline; gap: 10px; padding-top: 10px; }
+.group > h3 .count { font: 600 13px var(--body); }
+details.feat { background: var(--sheet); border: 2px solid var(--ink); border-radius: 14px; box-shadow: var(--shadow); min-width: 0; }
+details.feat > summary { list-style: none; cursor: pointer; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; padding: 12px 16px; align-items: start; }
+details.feat > summary::-webkit-details-marker { display: none; }
+.feat .name { font: 600 17px var(--display); display: flex; align-items: center; gap: 8px; }
+.feat .name::before { content: "+"; font: 700 18px var(--display); color: var(--muted); width: 14px; flex: none; transition: transform .15s; }
+details.feat[open] .name::before { content: "–"; }
+.feat .chips { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.feat .one { grid-column: 1 / -1; color: var(--muted); padding-left: 22px; }
+.feat .body { padding: 2px 16px 16px 38px; display: grid; gap: 10px; border-top: 1px dashed var(--rule); padding-top: 12px; }
+.feat .body ul { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.feat .src { font-size: 13px; color: var(--muted); }
+@media (max-width: 560px) { details.feat > summary { grid-template-columns: 1fr; } .feat .chips { justify-content: flex-start; padding-left: 22px; } .feat .body { padding-left: 16px; } }
+
+/* architecture */
+.diagram { overflow-x: auto; background: var(--sheet); border: 2px solid var(--ink); border-radius: 18px; padding: 16px; box-shadow: var(--shadow); }
+.diagram pre.mermaid { margin: 0; min-width: 640px; background: transparent; }
+.tablewrap { overflow-x: auto; border: 2px solid var(--ink); border-radius: 14px; background: var(--sheet); box-shadow: var(--shadow); }
+table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 15px; }
+th, td { text-align: left; vertical-align: top; padding: 10px 14px; border-bottom: 1px solid var(--rule); }
+th { font: 700 12px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 800; white-space: nowrap; }
+.flows { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.flow h3 { display: flex; gap: 8px; align-items: baseline; }
+.versions { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; }
+.versions .sheet h3 { display: flex; gap: 8px; align-items: center; }
+footer { font-size: 14px; color: var(--muted); display: grid; gap: 6px; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+
+<header class="masthead">
+  <p class="eyebrow">Product scope + architecture · design doc</p>
+  <h1 class="letters"><span class="o">Open</span> <span class="g">Game</span><span class="m">Maker</span> <span class="n">2000</span></h1>
+  <p class="lede">An adult signs in, talks or types a game idea, agrees a scope, and an AI build agent makes it in a sandbox from asset packs and code. They play it, edit it while builds run, branch it, and invite friends to play along.</p>
+  <div class="meta">
+    <span>As of <b>2026-10-26</b></span>
+    <span>Branch <b class="mono">research</b></span>
+    <span>Stage <b>scoping, no tickets yet</b></span>
+    <span>Prototype <a href="https://ogm2000.netlify.app" target="_blank" rel="noopener">ogm2000.netlify.app</a></span>
+  </div>
+</header>
+
+<section class="sheet" aria-labelledby="s-summary">
+  <h2 id="s-summary">The short version</h2>
+  <div class="facts">
+    <div class="fact"><h3>Who V1 is for</h3><p>Adults only (18+): Kevin's instance, his household's adults, and adults they invite. Teens come in V2; child accounts and parental controls in V3.</p></div>
+    <div class="fact"><h3>What makes it different</h3><p>Voice-first creation, real asset packs instead of generated art, editing while the agent builds, versions you can branch and merge, and multiplayer from day one.</p></div>
+    <div class="fact"><h3>How it's built</h3><p>TypeScript everywhere. React on Netlify, Node on Railway, hosted aiur running coding agents in E2B sandboxes, Colyseus rooms, a Railway bucket for assets.</p></div>
+    <div class="fact"><h3>What's safe by design</h3><p>Untrusted game code never sees a secret. Games run on a separate domain. Only the commit service can write to GitHub. Paid packs never reach public repos.</p></div>
+  </div>
+</section>
+
+<section aria-labelledby="s-decisions">
+  <div class="col"><p class="eyebrow">Needs Kevin</p><h2 id="s-decisions">Decisions waiting on you</h2></div>
+  <div class="sheet">
+    <div class="decisions">
+      <div class="decision"><p class="q">Can friends outside the family be invited in V1?</p><p class="rec"><b>Recommend:</b> family only until the lawyer review, then open to friends. The plan already requires that review before anyone outside the family joins.</p></div>
+      <div class="decision"><p class="q">How much of branching ships in V1?</p><p class="rec"><b>Recommend:</b> a branch-aware data model plus basic screens (new version, switch, play either, voice-guided merge). Retrofitting branches later touches every subsystem.</p></div>
+      <div class="decision"><p class="q">Publish from any version, or only from main?</p><p class="rec"><b>Recommend:</b> only from main after a merge, so there's one published line.</p></div>
+      <div class="decision"><p class="q">How does the build allowance work?</p><p class="rec"><b>Recommend:</b> a daily allocation per member set by an admin, reset at local midnight, shown to creators as a friendly unit with a bar (never dollars).</p></div>
+      <div class="decision"><p class="q">What happens when the host leaves a multiplayer game?</p><p class="rec"><b>Recommend:</b> end the session with progress saved. Handing hosting to another player can come later.</p></div>
+      <div class="decision"><p class="q">Room size, split screen, and whether friends hear the build agent</p><p class="rec"><b>Recommend:</b> 4 players per room; split screen later; friends see "talking to the builder…" but don't hear it.</p></div>
+      <div class="decision"><p class="q">What happens to files in the Drive watch folder after import?</p><p class="rec"><b>Recommend:</b> leave them where they are and track what's done. Nothing of yours gets moved or deleted.</p></div>
+      <div class="decision"><p class="q">Two spends to approve when ready</p><p class="rec"><b>Recommend:</b> a small Railway Hobby spend to test multiplayer relay latency, and a priced sample before tagging the whole asset library with a vision model. No spending is approved yet.</p></div>
+      <div class="decision"><p class="q">Where will the tabletop maps come from?</p><p class="rec"><b>Recommend:</b> prefer free-use map makers and generator output; bought packs are fine as private inspiration. It decides which licenses intake sees.</p></div>
+      <div class="decision"><p class="q">Ten older questions in the release plan (§6)</p><p class="rec"><b>Recommend:</b> start with "kids playing in V1" (accept they can't yet) and "which child-only rules to keep for adults". See <code>docs/spec/release-plan.md</code> §6.</p></div>
+    </div>
+  </div>
+</section>
+
+<section aria-labelledby="s-proto">
+  <div class="col"><p class="eyebrow">Throwaway prototype</p><h2 id="s-proto">Try it</h2>
+    <p class="muted">The paper home screen, the dungeon editor and the play loop, built from scratch with Kenney packs. Tap once for sound. Press Start, edit the map, then Try it! On a phone: left stick moves, right stick aims, tap it to swing.</p></div>
+  <div class="frame"><iframe src="prototype/index.html" title="Open Game Maker 2000 prototype" loading="lazy" allow="autoplay; fullscreen"></iframe></div>
+  <div class="btnrow">
+    <a class="btn" href="https://ogm2000.netlify.app" target="_blank" rel="noopener">Open full screen ↗</a>
+    <a class="btn" href="https://ogm2000.netlify.app/?editor" target="_blank" rel="noopener">Skip to the editor ↗</a>
+  </div>
+  <div class="sheet">
+    <h3>What building it taught us</h3>
+    <ul class="tight">
+      <li><b>Assets were hard, game code was easy.</b> Mixed packs looked like two different games, and modular characters needed a bake step. Swapping to one Kenney pack fixed the look, the page weight (13 MB of models to under 1 MB) and the license problem at once.</li>
+      <li><b>Testing was the slowest part.</b> Headless WebGL runs at 1–2 fps. A <code>tick(seconds)</code> hook that steps the game without rendering made the full loop testable on desktop and phone. It belongs in the SDK, and <code>gm-verify</code> builds on it.</li>
+      <li><b>Phones need their own care.</b> Ogg audio, iOS's ringer switch and touch unlocks, safe areas, and Safari's bars each cost a fix. Assets need phone-sized variants.</li>
+      <li><b>Agents need metadata.</b> Choosing darker music meant measuring tracks with ffmpeg; checking an animation meant reading model internals. Hence metadata cards.</li>
+    </ul>
+    <p class="src">Full write-up: <code>docs/research/v0.5/C1-ui-prototype-learnings.md</code></p>
+  </div>
+</section>
+
+<section aria-labelledby="s-features">
+  <div class="col"><p class="eyebrow">Everything planned</p><h2 id="s-features">Features</h2>
+    <p class="muted">Every feature in the plan, grouped by area. Open one for the details and where the research lives.</p></div>
+  <div class="toolbar" role="group" aria-label="Filter features">
+    <input id="q" type="search" placeholder="Search features" aria-label="Search features">
+    <button class="btn" data-ver="all" aria-pressed="true">All</button>
+    <button class="btn" data-ver="V1" aria-pressed="false">V1</button>
+    <button class="btn" data-ver="V2" aria-pressed="false">V2</button>
+    <button class="btn" data-ver="V3" aria-pressed="false">V3</button>
+    <button class="btn" id="toggleAll">Expand all</button>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="meta"><span><span class="chip st-decided">Decided</span> Kevin decided</span><span><span class="chip st-working">Working</span> research recommends</span><span><span class="chip st-assumed">Assumed</span> placed in V1, not yet confirmed</span><span><span class="chip st-considering">Considering</span> Kevin is weighing it</span></div>
+  <div id="features"></div>
+</section>
+
+<section aria-labelledby="s-arch">
+  <div class="col"><p class="eyebrow">How it fits together</p><h2 id="s-arch">Architecture</h2>
+    <p class="muted">Three trust zones. The web app and backend hold secrets. Sandboxes and game pages run untrusted, agent-written code and hold none. The commit service is the only thing that can write to a creator's GitHub.</p></div>
+  <div class="diagram">
+<pre class="mermaid">
+flowchart LR
+  subgraph Client["Player's browser"]
+    APP["Web app<br/>React · Netlify"]
+    GAME["Game iframe<br/>games domain · engine SDK"]
+  end
+  subgraph Railway["Railway (trusted)"]
+    API["Backend API<br/>auth · policy · admission<br/>design log · branches · saves"]
+    AIUR["Hosted aiur<br/>agent orchestration · telemetry"]
+    VOICE["voice_converse<br/>ElevenLabs / OpenAI"]
+    MP["mp rooms<br/>Colyseus · relay only"]
+    COMMIT["Commit service<br/>GitHub App key · content gate"]
+    INTAKE["Drive listener + intake worker<br/>tagging · variants"]
+    BUCKET[("Bucket<br/>collections · builds · uploads")]
+  end
+  subgraph Untrusted["Untrusted"]
+    SBX["E2B sandbox per job<br/>coding agent · npm · gm-verify"]
+  end
+  GH[("Creator's GitHub repo")]
+  DRIVE[("Kevin's Drive folder")]
+  APP -- "voice" --> VOICE
+  APP -- "API" --> API
+  APP -- "hosts" --> GAME
+  GAME -- "inputs / snapshots" --> MP
+  API -- "admitted jobs" --> AIUR
+  AIUR -- "workspace in, diff out" --> SBX
+  SBX -- "model calls via proxy" --> AIUR
+  AIUR -- "diff" --> COMMIT --> GH
+  API --- BUCKET
+  SBX -- "read packs" --> BUCKET
+  DRIVE --> INTAKE --> BUCKET
+  GAME -- "loads build + assets" --> BUCKET
+</pre>
+  </div>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Component</th><th>Owns</th><th>Notes</th></tr></thead>
+      <tbody>
+        <tr><td>Web app</td><td>Home, game picker, editor host, admin, voice UI</td><td>React on Netlify. Talks to the game through a message-based engine–editor contract.</td></tr>
+        <tr><td>Game iframe</td><td>Running the game build</td><td>Separate custom domain, per-game subdomains (microphone), Three.js r186 + Rapier or Phaser 4.2. Engine SDK with test hooks (<code>tick</code>, <code>render_game_to_text</code>).</td></tr>
+        <tr><td>Backend API</td><td>Accounts, policy, admission, budgets, design log, branches, releases, saves, analytics events</td><td>Node on Railway. Better Auth for sign-in; our own tested policy module for permissions.</td></tr>
+        <tr><td>Hosted aiur</td><td>Running coding agents per ticket, retries, telemetry, usage</td><td>Kevin's API keys through aiur profiles. Game Maker owns money and slots; aiur owns turn, time and retry limits.</td></tr>
+        <tr><td>E2B sandbox</td><td>One VM per job: workspace, npm, Playwright checks</td><td>Egress allowlist, model proxy, no secrets inside. Returns a diff plus test results.</td></tr>
+        <tr><td>Commit service</td><td>Every write to GitHub</td><td>Only holder of the GitHub App key. Runs the publication content gate (PII and content checks) on public repos.</td></tr>
+        <tr><td>mp rooms</td><td>Membership, roles, edit pause, version pin, editor stream, input/state relay</td><td>Colyseus, one replica. No game code on the server; the owner's browser hosts the simulation.</td></tr>
+        <tr><td>Intake worker</td><td>Drive watch, license checks, conversion, phone/desktop variants, metadata cards</td><td>Debounced <code>changes.list</code> polling on one shared folder via a service account.</td></tr>
+        <tr><td>Bucket</td><td>Collections, variants, contact sheets, builds, uploads, narration audio</td><td>Railway S3-compatible bucket. Game repos hold only the assets they use plus a license lockfile.</td></tr>
+        <tr><td>voice_converse</td><td>Two-way creation voice, narration</td><td>aiur package. ElevenLabs first, OpenAI second, no-transcript mode. Gets read-only budget and estimate tools.</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="diagram">
+<pre class="mermaid">
+erDiagram
+  FAMILY ||--o{ MEMBER : has
+  MEMBER ||--o{ GAME : owns
+  GAME ||--o{ BRANCH : "has versions"
+  BRANCH ||--o{ DESIGN_TXN : "edit log"
+  BRANCH ||--o{ BUILD : builds
+  BUILD ||--o{ RELEASE : "published as"
+  GAME ||--o{ SAVE : "saves (tagged by branch)"
+  BRANCH ||--o{ ROOM : "played in"
+  GAME }o--o{ COLLECTION : "locks style family"
+  COLLECTION ||--o{ ASSET : contains
+  ASSET ||--|| METADATA_CARD : "described by"
+  BUILD ||--o{ ACTIVITY_EVENT : "analytics"
+  MEMBER ||--o{ JOB : "requests"
+  JOB ||--o{ BUILD : produces
+</pre>
+  </div>
+  <div class="flows">
+    <div class="sheet flow"><h3>Making a game</h3><ol class="steps">
+      <li>Creator talks it through: idea, style family, point of view, single or multiplayer.</li>
+      <li>The voice agent checks the estimate against today's allowance and offers to trim, split or queue if it won't fit.</li>
+      <li>The backend admits the job (slots, money reservation) and hands aiur a scoped ticket.</li>
+      <li>The agent builds in a sandbox from the locked packs, choosing assets from metadata cards, and runs <code>gm-verify</code>.</li>
+      <li>The commit service writes to the creator's repo; the build lands in the bucket and plays in the game iframe.</li>
+    </ol></div>
+    <div class="sheet flow"><h3>Editing while it builds</h3><ol class="steps">
+      <li>Every editor change is a transaction <code>{actor, rev, patches}</code> on the current branch, against stable ids.</li>
+      <li>Overrides apply on top of the latest build instantly, so editing never waits on the agent.</li>
+      <li>Creator edits win over the build unless a job explicitly targeted that control.</li>
+      <li>Publish pins the build and override snapshot, then folds overrides into <code>design/*.json</code> on that branch.</li>
+    </ol></div>
+    <div class="sheet flow"><h3>Playing with friends</h3><ol class="steps">
+      <li>Owner taps Invite and shares a link. A friend signs in and lands in the room.</li>
+      <li>While the owner edits, everyone receives the same design transaction stream and sees the same changes, plus the editor's cursor.</li>
+      <li>Play ends the edit pause; everyone already has the build, so all start together.</li>
+      <li>Each player reads only their own controls and camera; the owner's browser runs the simulation.</li>
+    </ol></div>
+    <div class="sheet flow"><h3>New assets arrive</h3><ol class="steps">
+      <li>Kevin drops files in the Drive folder. The listener waits until uploads settle.</li>
+      <li>Intake identifies the collection and checks its license first; unknown licenses wait in quarantine.</li>
+      <li>It converts formats, makes phone and desktop variants, renders contact sheets and writes a metadata card per asset.</li>
+      <li>Agents can use it immediately. It becomes a creation choice only if it completes a style family.</li>
+    </ol></div>
+    <div class="sheet flow"><h3>Branching and merging</h3><ol class="steps">
+      <li>"Make a new version from here" creates a Git branch and a fork point in the design log. Nothing is copied.</li>
+      <li>Each version builds and plays on its own; the game card shows them all.</li>
+      <li>Merging combines code through Git (an agent resolves conflicts) and design state per id and field.</li>
+      <li>The voice agent walks through only the real conflicts with side-by-side previews; the merge is previewed before it lands.</li>
+    </ol></div>
+  </div>
+</section>
+
+<section aria-labelledby="s-versions">
+  <div class="col"><p class="eyebrow">Release plan</p><h2 id="s-versions">What ships when</h2></div>
+  <div class="versions">
+    <div class="sheet"><h3><span class="chip v1">V1</span> MVP for adults</h3><p>Voice creation, the editor, branching, first-class multiplayer, the asset pipeline with Drive intake and tagging, budgets and admin, sandboxed builds, releases, saves, forks. Adults only, behind an age screen.</p></div>
+    <div class="sheet"><h3><span class="chip v2">V2</span> Teens and polish</h3><p>Teens as creators once vendor approvals arrive, split-screen and multi-editor multiplayer, gameplay rewind, drawing tools, image restyling, a CDN, paid generators if packs fall short, self-service credentials.</p></div>
+    <div class="sheet"><h3><span class="chip v3">V3</span> Kids and families</h3><p>Child accounts with guardian consent, one parental-controls module, self-hosted child voice, child repos, a parent help overlay, player voice chat, and possibly native packaging.</p></div>
+  </div>
+  <div class="sheet">
+    <h3>Rules that hold in every version</h3>
+    <ul class="tight">
+      <li>A general game maker, not a kids' product. Child rules live only in the V3 parental-controls module.</li>
+      <li>The engine is open source and ships no packs. Paid packs stay on Kevin's instance and out of public repos.</li>
+      <li>Sandboxed from day one. Untrusted code never sees secrets.</li>
+      <li>No spending without Kevin's explicit approval.</li>
+      <li>Tools need at least 1k GitHub stars unless an exception is approved.</li>
+      <li>Not legal advice. A lawyer reviews before any outside family joins.</li>
+    </ul>
+  </div>
+</section>
+
+<footer>
+  <p><b>Sources in the repo:</b> <code>docs/spec/release-plan.md</code> (what ships when), <code>docs/spec/game-maker-2000-v0.5-decisions.md</code> (decisions; wins on conflict), <code>docs/research/v0.5/C2-v1-scope-additions.md</code> (V1 additions and the ticketing checklist), <code>docs/research/v0.5/C1-ui-prototype-learnings.md</code>, <code>docs/research/v0.4/</code> (B1–B15), <code>docs/research/v0.3/A7-infra-auth-git-multiplayer.md</code>.</p>
+  <p>Source of this page: <code>docs/architecture/architecture-scope.html</code>. Edit it there and republish.</p>
+</footer>
+</div>
+
+<script>
+// ---- feature list: edit here. ver: V1|V2|V3; status: decided|working|assumed|considering
+const FEATURES = [
+  // Creating a game
+  { g: 'Creating a game', n: 'Guided creation by voice, text or images', ver: 'V1', st: 'decided', one: 'Talk, type or show a picture; the agent clarifies, agrees a scope, then builds and tests it.',
+    d: ['One structured flow with big visual choices, presets and "Other" for anything else.', 'Scope is agreed before any build starts, then aiur builds and tests in a sandbox.', 'Feature additions later use one coding agent with skills (gm-* on top of vendored Phaser and three.js references).', 'Three genuinely different directions are offered at scope time, and gm-core has rules against every game looking alike (B15).'], src: 'Release plan V1 · B10 · B14 · B15' },
+  { g: 'Creating a game', n: 'Style families', ver: 'V1', st: 'decided', one: 'The art style picked at creation chooses a curated set of packs; one style per game.',
+    d: ['Families such as chunky low poly (Kenney 3D), detailed low poly (Synty POLYGON), pixel art, flat cartoon, isometric 2D and sketch.', 'gm-core enforces one family per game; anything outside it needs a logged exception.', 'Characters that share a rig make cheap variants (proved by the prototype\'s orcs).', 'Prerequisite: style and perspective labels on every pack.'], src: 'C2 §2 · C1' },
+  { g: 'Creating a game', n: 'Point of view', ver: 'V1', st: 'assumed', one: 'Isometric, top-down, side, third person, first person, orbit or fixed screen, filtered by style and genre.',
+    d: ['2D styles come with their view built in; 3D packs limit views by their pieces (Mini Dungeon has no ceilings, so no first person).', 'One SDK camera rig per view, each with input mappings for mouse, touch and controller, and its own way of handling walls in front of the player.', 'The editor keeps its own top-down or isometric camera, plus a "view as player" preview.', 'Changeable later, with a warning and a re-verify.'], src: 'C2 §4 · B7 camera gap' },
+  { g: 'Creating a game', n: 'Single player or multiplayer', ver: 'V1', st: 'decided', one: 'Picked at creation; a single-player game can become multiplayer later.',
+    d: ['Every game follows multiplayer-ready rules from the start: input separate from simulation, per-player state, host-minted ids, spawn points.', 'Multiplayer games start from a template with networking built in.', 'Converting later is an ordinary edit job with a two-player verification run.'], src: 'C2 §6' },
+  { g: 'Creating a game', n: 'Map inspiration library', ver: 'V1', st: 'assumed', one: 'Tabletop dungeon maps become layout starting points for any kind of level.',
+    d: ['Maps arrive through the Drive intake and stay private; they are never shipped in games.', 'A vision model reads each map once into a layout spec: grid, rooms, connections, doors, features, tags.', 'The gm-map-inspiration skill finds, adapts and translates layouts into the game\'s tiles, style and point of view, then checks every room is reachable.', 'Games get derived layouts only, with provenance noted.'], src: 'C2 §9' },
+  { g: 'Creating a game', n: 'Image upload', ver: 'V1', st: 'decided', one: 'Any image, including a photo of a drawing, as input for the game.',
+    d: ['EXIF data stripped on upload.', 'AI restyling of uploads waits for OpenAI zero-retention approval (V2).'], src: 'Release plan V1' },
+
+  // Voice and AI help
+  { g: 'Voice and AI help', n: 'Two-way creation voice', ver: 'V1', st: 'decided', one: 'Make games by talking with the build agent.',
+    d: ['The aiur voice_converse package. ElevenLabs first, OpenAI second, with a no-transcript mode.', 'One-way voice snippets where useful.'], src: 'Release plan V1 · B2' },
+  { g: 'Voice and AI help', n: 'Narration and captions', ver: 'V1', st: 'decided', one: 'Read-aloud narration and captions, rendered once and reused.',
+    d: ['Word highlighting where the provider supports it.', 'Rendered audio is stored and reused across releases.'], src: 'Release plan V1 · B2 · B6' },
+  { g: 'Voice and AI help', n: 'Budget-aware voice agent', ver: 'V1', st: 'assumed', one: 'The agent knows what\'s left in your allowance and talks through big requests.',
+    d: ['Read-only tools: budget_status, estimate_change, queue_change.', 'Quiet when a change fits. When it doesn\'t: trim it, split it (part now, rest queued), queue it for the reset, or ask an admin.', 'Admission still reserves the money, so a bad estimate can\'t overspend.', 'Mid-build overruns are explained in the same voice.'], src: 'C2 §5 · B8 §5' },
+  { g: 'Voice and AI help', n: 'One-button bug reports and auto-repair', ver: 'V1', st: 'decided', one: 'Report a bug in one tap; reproducible crashes fix themselves within the allowance.',
+    d: ['Auto-repair only for reproducible crashes with an error, sharing the edit slots.', 'Repair attempt limits decided after measurement.', 'Platform bugs go to the Game Maker repo.'], src: 'Release plan V1 · B8' },
+
+  // Editing and playing
+  { g: 'Editing and playing', n: 'Editor with direct manipulation', ver: 'V1', st: 'decided', one: 'Paint, place, move and tune things directly, even while a build runs.',
+    d: ['Standard HUD and editor framework; editor undo/redo.', 'Edits are database overrides on top of the build, so they apply instantly.', 'Creator edits win unless a job explicitly targeted that control.', 'Publish folds overrides into the game\'s design files.'], src: 'Release plan V1 · B7 §4' },
+  { g: 'Editing and playing', n: 'Branching ("versions")', ver: 'V1', st: 'considering', one: 'Branch a game, change it freely, play either version, merge back with voice help.',
+    d: ['A version is a Git branch plus a fork point in the design log; nothing is copied.', 'Each version builds and plays on its own; saves are tagged with their version.', 'Three-way design merge per stable id and field; the voice agent walks through only real conflicts with side-by-side previews.', 'Recommended: branch-aware data model from day one, basic screens in V1, a cap of 5 active versions.'], src: 'C2 §8' },
+  { g: 'Editing and playing', n: 'Input on every device', ver: 'V1', st: 'decided', one: 'Mouse and keyboard, touch, and USB or Bluetooth controllers.',
+    d: ['Twin-stick style where it fits: move with one stick, aim with the other (mouse on desktop).', 'Norigin spatial navigation allowed as an exception for controller UI.'], src: 'Release plan V1 · B7 · prototype' },
+  { g: 'Editing and playing', n: 'Releases', ver: 'V1', st: 'working', one: 'Test drafts, then publish deliberately, with versions and rollback.',
+    d: ['Semver, a changelog and an update indicator for players.', 'Rollback republishes an older manifest.'], src: 'Release plan V1 · B6' },
+  { g: 'Editing and playing', n: 'Saves', ver: 'V1', st: 'decided', one: 'Cloud autosave, three manual slots and cross-device resume.', d: ['Save migrations between releases (R09).', 'Saves are tagged with the version (branch) and build they came from.'], src: 'Release plan V1 · C2 §8' },
+  { g: 'Editing and playing', n: 'Achievements and creator analytics', ver: 'V1', st: 'working', one: 'Basic achievements, and play analytics for creators as aggregates.', d: ['No third-party analytics.'], src: 'Release plan V1 · A5' },
+  { g: 'Editing and playing', n: 'Forks', ver: 'V1', st: 'decided', one: 'Copy someone\'s game design to make your own.', d: ['Creator-only, forkable by default, copies the design but not runtime data.', 'Forks keep their copy of uploads.', 'Later: suggesting a fork\'s changes back through the merge flow.'], src: 'Release plan V1 · C2 §8' },
+  { g: 'Editing and playing', n: 'Gameplay rewind', ver: 'V2', st: 'decided', one: 'A short, local rewind for experimenting, including in drafts.', d: ['Local only; not a networked feature.'], src: 'Release plan V2' },
+  { g: 'Editing and playing', n: 'Drawing tools', ver: 'V2', st: 'decided', one: 'Built-in drawing, plus a paper crop and flatten capture for photos of drawings.', d: ['The capture UI placement is still a working recommendation.'], src: 'Release plan V2' },
+
+  // Multiplayer
+  { g: 'Multiplayer', n: 'First-class online multiplayer', ver: 'V1', st: 'decided', one: 'Play together over the network, each with your own controls and view.',
+    d: ['A generic Colyseus room run by the platform, with no game code on the server; the owner\'s sandboxed browser runs the simulation.', 'Each player reads only their own devices, has their own camera and HUD, and never sees others\' controls.', 'Rooms are pinned to a version and build; reconnection within a time window.', 'Fine for co-op and friendly play; not cheat-proof (competitive play would need server-side simulation later).'], src: 'C2 §6 · A7 R12' },
+  { g: 'Multiplayer', n: 'Easy invites', ver: 'V1', st: 'decided', one: 'Share a link; friends sign in and land straight in the game.',
+    d: ['Room-scoped, expiring, revocable grants.', 'Every friend must pass the 18+ age screen in V1.', 'Inviting people outside the family depends on the lawyer review.'], src: 'C2 §6' },
+  { g: 'Multiplayer', n: 'Watch the editor live', ver: 'V1', st: 'decided', one: 'Players without editor access see exactly what the editor is changing, as it happens.',
+    d: ['Watchers receive the same design transaction stream the editor saves, plus the editor\'s cursor, selection and camera.', 'Follow the editor\'s camera or look around freely.', 'Private panels (prompts, budgets, admin) never reach watchers.', 'Pressing Play drops everyone into gameplay at once.'], src: 'C2 §6 · B7 §9' },
+  { g: 'Multiplayer', n: 'Split screen, shared editing, competitive rooms', ver: 'V2', st: 'working', one: 'Same-device multiplayer, more than one editor at once, server-side simulation.', d: ['Server-authoritative rooms cost about $50 per vCPU-month while live.'], src: 'Release plan V2 · A7' },
+  { g: 'Multiplayer', n: 'Player voice chat', ver: 'V3', st: 'decided', one: 'Talking to other players during a game.', d: ['Not before V3.'], src: 'Release plan V3' },
+
+  // Assets
+  { g: 'Assets', n: 'Three asset tiers and the gm CLI', ver: 'V1', st: 'decided', one: 'Installed packs first, then free online sources, then agent-made assets.',
+    d: ['Tier 1: packs in the instance bucket. Tier 2: free sources via API, git or npm when the creator asks for something packs lack. Tier 3: agent-made.', 'gm assets search, facets and sheet for agents; gm packs import for intake.', 'No paid generators in V1.'], src: 'B11 · Release plan V1' },
+  { g: 'Assets', n: 'Instance pack library', ver: 'V1', st: 'decided', one: 'One library per instance in its bucket, never in GitHub.',
+    d: ['Game repos hold only the assets they use, plus a lockfile with license data.', 'Kenney (CC0) and Synty (personal license, Kevin\'s instance and private repos only) to start.', 'License policy enforced when an asset is added to a game.'], src: 'B11 · decision log' },
+  { g: 'Assets', n: 'Drive watch folder', ver: 'V1', st: 'decided', one: 'Drop files in a Google Drive folder; they\'re organized and usable automatically.',
+    d: ['A service account reads only that folder; changes are polled every 30–60 s.', 'Debounce: a drop is ready after about 3 quiet minutes with stable sizes and checksums.', 'The gm-asset-intake skill identifies the drop, checks its license first, converts, tags and indexes it.', 'Drops are collections of any size: a pack, a set of sound effects, a few models.'], src: 'C2 §7' },
+  { g: 'Assets', n: 'Metadata cards (rich tagging)', ver: 'V1', st: 'decided', one: 'Every asset is described so agents choose without loading it.',
+    d: ['Code measures facts: size and tile footprint, triangles, rig and animations, attach points, audio length, loudness and brightness.', 'A vision model reads rendered contact sheets for description, objects, environments, uses, style and mood.', 'Search by facets, text and meaning; agents never open models to choose.', 'Tagging the existing library needs a priced sample and Kevin\'s OK first.'], src: 'C2 §10' },
+  { g: 'Assets', n: 'Phone and desktop asset variants', ver: 'V1', st: 'decided', one: 'Lighter textures and meshes load only on phones.',
+    d: ['Import writes a desktop and a mobile variant (KTX2, meshopt, simplified meshes, lower-bitrate audio).', 'The SDK picks one tier at startup from device signals and downloads only that tier.', 'gm-verify checks a size and memory budget per tier; audio formats every browser decodes.'], src: 'C2 §3' },
+  { g: 'Assets', n: 'Paid generators', ver: 'V2', st: 'working', one: 'AI art or audio generators, only if packs and code fall short.', d: ['Whether ElevenLabs music and SFX count as paid generators is still open.'], src: 'Release plan V2 · B5' },
+  { g: 'Assets', n: 'Image restyling', ver: 'V2', st: 'working', one: 'AI restyling of uploads after OpenAI zero-retention approval.', d: ['Depends on vendor approval.'], src: 'Release plan V2' },
+  { g: 'Assets', n: 'CDN', ver: 'V2', st: 'working', one: 'An advanced CDN, added when evidence calls for it.', d: ['V1 serves straight from the bucket.'], src: 'B6' },
+
+  // Accounts, admin and money
+  { g: 'Accounts, admin and money', n: 'Sign-in', ver: 'V1', st: 'decided', one: 'Email is required as the recovery path, plus passkey and Google.', d: ['Passkey and Google both recommended (the method is still a working choice).', 'An age screen turns away under-18s.'], src: 'Release plan V1 · B10' },
+  { g: 'Accounts, admin and money', n: 'Families, admins and invites', ver: 'V1', st: 'decided', one: 'An owner and admins, peer admin management, member invites, invite-only play.', d: ['Admins cannot take over another adult\'s game.'], src: 'Release plan V1' },
+  { g: 'Accounts, admin and money', n: 'Spending limits and build slots', ver: 'V1', st: 'decided', one: 'Admins set every spending limit; default concurrency is 1 new game + 3 edits.', d: ['Money is reserved per job from a p80 estimate; jobs pause at 1× and stop at the hard cap.', 'Rolling-window caps per family plus one platform-wide cap.'], src: 'B8 §5 · decision log' },
+  { g: 'Accounts, admin and money', n: 'Admin UI', ver: 'V1', st: 'working', one: 'Membership, invites, budgets, concurrency and game oversight.', d: ['Oversight means listing and abuse handling, not editing others\' games.'], src: 'Release plan V1' },
+  { g: 'Accounts, admin and money', n: 'Build analytics for admins', ver: 'V1', st: 'decided', one: 'Fine-grained build history: how long animation, playtesting, level building and so on took.',
+    d: ['aiur already records per-phase timings (dispatch, implement, tests, PR, merge) and cost, but agent work is one block and it takes no custom events.', 'Game Maker records game activity at the source: gm CLI commands, skills, file-to-system mapping and human editor actions.', 'Joined to aiur by run id; an upstream request for per-event tags.', 'Categories and timings only, never prompt text or source.'], src: 'C2 §1' },
+  { g: 'Accounts, admin and money', n: 'Funding through Kevin\'s keys', ver: 'V1', st: 'decided', one: 'Hosted builds use aiur API-key profiles; no subscriptions.', d: ['Anthropic\'s hosting clause for Claude Code still needs an email to confirm.'], src: 'Decision log' },
+  { g: 'Accounts, admin and money', n: 'Notifications', ver: 'V1', st: 'decided', one: 'Browser notifications where supported.', d: ['Used for finished builds, queued changes starting, and intake reports.'], src: 'Release plan V1' },
+  { g: 'Accounts, admin and money', n: 'Self-service credentials and a cost dashboard', ver: 'V2', st: 'working', one: 'Bring your own provider keys; see costs and cross-game analytics.', d: ['Also friends\' achievements.'], src: 'Release plan V2' },
+  { g: 'Accounts, admin and money', n: 'Teen creators (13–17)', ver: 'V2', st: 'working', one: 'Teens as ordinary creators once vendor approvals arrive.', d: ['Vendors without approval for minors\' data are off for teens.'], src: 'Release plan V2 · B9' },
+  { g: 'Accounts, admin and money', n: 'Child accounts and parental controls', ver: 'V3', st: 'decided', one: 'Parent-created child accounts with one parental-controls module.',
+    d: ['Guardian consent (signed form plus confirmation email) and the COPPA document set first.', 'Guardian-granted data scopes, a publication gate, and admin takeover of a child\'s game.', 'Self-hosted child voice, a repo per child in the guardian\'s GitHub, a parent help overlay, and strict child data rules.'], src: 'Release plan V3 · B3 · B9' },
+
+  // Platform and engineering
+  { g: 'Platform and engineering', n: 'Sandboxed builds', ver: 'V1', st: 'decided', one: 'One E2B VM per job with an egress allowlist, a model proxy and a commit service.', d: ['The agent loop and every secret stay outside the sandbox.', 'Games run in a separate-site iframe on their own domain and may use the microphone (needs wildcard DNS and TLS).'], src: 'B4 · A7 R05' },
+  { g: 'Platform and engineering', n: 'Hosting', ver: 'V1', st: 'decided', one: 'Netlify frontend, Railway backend, hosted aiur on Railway, a Railway bucket.', d: ['No CDN in V1.', 'The mp room service runs as its own Railway service with one replica.'], src: 'Release plan V1 · B13' },
+  { g: 'Platform and engineering', n: 'Bring-your-own GitHub', ver: 'V1', st: 'decided', one: 'Creators connect their GitHub; Game Maker creates the repo, public or private.', d: ['Paid-pack assets need private repos.', 'A publication content gate screens every write to public repos.'], src: 'Decision log · B7 §4.2' },
+  { g: 'Platform and engineering', n: 'Engine SDK and test hooks', ver: 'V1', st: 'decided', one: 'Shared contracts, automated tests and continuously production-testable delivery.', d: ['Test hooks: render_game_to_text, advanceTime, and a deterministic tick(seconds) proved by the prototype.', 'gm-verify runs the play loop headlessly on desktop and phone sizes, and with two clients for multiplayer.'], src: 'Release plan V1 · C1' },
+  { g: 'Platform and engineering', n: 'TypeScript stack', ver: 'V1', st: 'decided', one: 'React and Node; Three.js r186 + Rapier, Phaser 4.2, Tone.js, ZzFX.', d: ['Reconfirmed after comparing Godot, Lua, C#, C++, Rust and Haxe.', 'The engine–editor contract stays message-based so a second runtime stays possible.'], src: 'Decision log' },
+  { g: 'Platform and engineering', n: 'gm-* agent skills', ver: 'V1', st: 'working', one: 'Workflow skills for build agents on top of vendored Phaser and three.js references.', d: ['gm-core, gm-verify (the spine), gm-assets, gm-asset-intake, gm-map-inspiration, gm-multiplayer-ready, gm-repair and more.', 'Pattern cards fetched on demand instead of loading reference games.'], src: 'B14 · B15 · C2' },
+  { g: 'Platform and engineering', n: 'Native packaging and offline play', ver: 'V3', st: 'decided', one: 'Possibly native apps (revisit Godot as a second runtime); offline play optional or never.', d: ['Not planned before V3.'], src: 'Release plan V3' },
+];
+
+const ST = { decided: 'Decided', working: 'Working', assumed: 'Assumed', considering: 'Considering' };
+const host = document.getElementById('features'), q = document.getElementById('q'), count = document.getElementById('count');
+let ver = 'all';
+const esc = s => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function render() {
+  const term = q.value.trim().toLowerCase();
+  const shown = FEATURES.filter(f => (ver === 'all' || f.ver === ver) && (!term || [f.n, f.one, f.g, ...f.d].join(' ').toLowerCase().includes(term)));
+  const groups = [...new Set(FEATURES.map(f => f.g))];
+  host.innerHTML = groups.map(g => {
+    const items = shown.filter(f => f.g === g); if (!items.length) return '';
+    return `<div class="group"><h3>${esc(g)} <span class="count">${items.length}</span></h3>` + items.map(f => `
+      <details class="feat"><summary>
+        <span class="name">${esc(f.n)}</span>
+        <span class="chips"><span class="chip ${f.ver.toLowerCase()}">${f.ver}</span><span class="chip st-${f.st}">${ST[f.st]}</span></span>
+        <span class="one">${esc(f.one)}</span></summary>
+        <div class="body"><ul>${f.d.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="src">Research: ${esc(f.src)}</p></div>
+      </details>`).join('') + '</div>';
+  }).join('') || '<p class="muted">No features match that search.</p>';
+  count.textContent = `${shown.length} of ${FEATURES.length} features`;
+  toggle.textContent = 'Expand all';
+}
+const toggle = document.getElementById('toggleAll');
+toggle.addEventListener('click', () => {
+  const all = host.querySelectorAll('details.feat'); const open = [...all].some(d => !d.open);
+  all.forEach(d => d.open = open); toggle.textContent = open ? 'Collapse all' : 'Expand all';
+});
+document.querySelectorAll('[data-ver]').forEach(b => b.addEventListener('click', () => {
+  ver = b.dataset.ver; document.querySelectorAll('[data-ver]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); render();
+}));
+q.addEventListener('input', render);
+render();
+</script>
