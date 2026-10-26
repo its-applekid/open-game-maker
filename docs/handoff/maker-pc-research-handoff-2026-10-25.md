@@ -74,10 +74,11 @@ This is for the agent taking over the Open Game Maker 2000 research from the pre
   - #4139, the voice transcript index (PR #6192);
   - #5700, hosted API-key auth on Railway (PR #6173);
   - #5693, spending caps per ticket;
-  - #5715, dictation cancel.
-- **In progress:** #4124, the voice conversation session (draft PR #6298).
-- **Waiting on dependencies, parked on the NUC:** #5690, #5701 and #5729. They were parked to work around dispatch deadlock #6338.
-- **Feature map update:** when one of these merges, mark it on the feature map. The tickets to track are #4124, #4091 and #5690.
+  - #5715, dictation cancel;
+  - #4124, the voice conversation session (PR #6298). The feature map (v7) shows this.
+- **In progress:** #4091, the voice session API plus Wire codec. After it comes #4105, text timing.
+- **Unparked on 2026-10-26** after the #6338 fix merged: #5690 (TS voice client), #5701 and #5729. They still wait on their dependencies.
+- **Feature map update:** when one of these merges, mark it on the feature map. The tickets to track are #4091, #4105 and #5690.
 
 ## 5. Standing rules
 
