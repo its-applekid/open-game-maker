@@ -33,6 +33,7 @@ The product has to make sense on its own at every version. V1 is a complete game
 | Voice | Two-way creation voice via the aiur `voice_converse` package. ElevenLabs first, OpenAI second, with a no-transcript mode. One-way voice snippets where useful | Decided |
 | Narration and captions | Read-aloud narration and captions, rendered once and reused. Word highlighting where the provider supports it | Decided; highlighting Working |
 | Asset style and devices | The style picked at creation maps to a style family of packs; one family per game, enforced by `gm-core`. Every asset gets mobile and desktop variants at import, and the SDK loads only the device's tier (C2) | Decided |
+| Point of view | Chosen at creation (isometric, top-down, side, third person, first person, orbit, fixed screen), filtered by style family and genre. One SDK camera rig per view. The editor keeps its own camera plus a "view as player" preview (C2) | Decided (option); V1 placement assumed |
 | Assets | Three tiers: (1) installed packs from the instance bucket, (2) free online sources via API, git or npm, (3) agent-made. The `gm` CLI and its skills (B11, B14). No paid generators | Decided |
 | Image upload | Any image, including a photo of a drawing. EXIF stripped. AI restyling through OpenAI only after zero-retention approval | Decided; restyling is post-MVP (§3) |
 | Editor and play | Standard HUD and editor framework, direct manipulation, edit while builds run (database overrides), editor undo/redo | Decided |

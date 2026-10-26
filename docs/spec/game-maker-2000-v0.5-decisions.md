@@ -35,6 +35,7 @@ Sources:
 | aiur dependencies | aiur consumed as modular packages: voice_converse (git dep pinned to tags), the voice wire contract (JSON Schema), a TS voice client (npm), and hosted aiur over HTTP with versioned schemas. All tracked in Aiur-NUC's lane, including #5936 releases, #5937 per-job scoping (post-v1) and #5938 multi-repo hosting (v1). | §7 |
 | Build analytics | **V1.** Surface aiur's built-in analytics to admins in Game Maker with fine-grained detail. Game Maker adds the game-making context aiur lacks (time on animation, playtesting, level building and so on). (2026-10-26, C2) | Admin UI |
 | Style families | **V1.** The style picked at game creation (low poly, fidelity levels, 2D styles) maps to specific packs; one style family per game. (2026-10-26, C1, C2) | §5.3 |
+| Point of view | Chosen at game creation: isometric, first person, third person, and others that fit the chosen style and genre. **V1 assumed**, alongside the other creation choices. (2026-10-26, C2) | §5.3, B7 camera gap |
 | Device-tiered assets | **V1.** Assets and textures get pre-processed mobile-friendly variants that load only on mobile. (2026-10-26, C2) | §5.3, §10.7 |
 | Process | No tickets or aiur build order yet. aiur's in-flight build order will be split across two machines, with Game Maker components first (`docs/handoff/aiur-executor-split-prompt.md`). | — |
 

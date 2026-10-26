@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** all three items are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -11,6 +11,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 1 | **Build analytics for admins** | Surface aiur's built-in analytics in Game Maker, with fine-grained detail. Add the game-making context aiur lacks, such as time spent on animation versus playtesting versus level building | Record game-context events from day one through the `gm` CLI and SDK, joined to aiur's run ids. Ask aiur upstream for per-event tags. Admin view: a per-build timeline plus time by activity |
 | 2 | **Style families map to packs** | The style picked at game creation (low poly, other fidelity levels, 2D styles) maps to specific resource packs | A curated `style family → packs` table in the pack library. `gm-core` enforces one family per game. Start with the families below, from packs we already have |
 | 3 | **Device-tiered assets** | Pre-process high-resolution textures and assets into mobile-friendly versions that load only on mobile | `gm packs import` writes a desktop and a mobile variant of every asset. The SDK loader picks one tier at startup and downloads only that tier. `gm-verify` checks a mobile budget |
+| 4 | **Point of view** | Point of view is a choice when creating a game: isometric (as in the prototype), first person, third person, and anything else that suits the chosen style and other choices | One camera-rig module per point of view in the SDK. The scope chat offers only the points of view the chosen style family and genre support. The lockfile records the choice. The editor keeps its own top or isometric camera, plus a "view as player" preview |
 
 ## 1. Build analytics for admins
 
@@ -158,6 +159,38 @@ Kenney has 156 2D packs in all, so 2D games are already well covered [M].
 - Paid device clouds would need Kevin's approval, so V1 relies on Kevin's own phones.
 - The tier detection rules need a short spike on real devices.
 
+## 4. Point of view
+
+The prototype used a fixed isometric camera. It also needed cutaway walls, so walls stop hiding the player, and a closer zoom in play mode (C1) [M]. Each point of view brings its own requirements like these, so the choice has to be made at creation and drive the rest.
+
+**Options:**
+
+| Point of view | Dimension | Fits | Requires |
+|---|---|---|---|
+| Isometric / fixed three-quarter | 2D or 3D | Dungeon crawlers, tactics, builders, cozy games | Cutaway or fading walls (3D); isometric packs (2D) |
+| Top-down | 2D or 3D | Action RPGs, twin-stick shooters, racing, puzzles | Overhead-readable art (2D packs like Tiny Dungeon and Topdown Shooter) |
+| Side view | 2D or 2.5D | Platformers, brawlers | Side-view packs (Pixel Platformer, Platformer Pack); in 3D, a locked camera plane |
+| Third person (follow) | 3D | Adventure, action, exploration | A character with a full animation set; camera collision; touch camera control |
+| First person | 3D | Exploration, shooters, horror, walking sims | Hands or weapon models, ceilings and enclosed spaces, pointer lock on desktop, two-stick touch controls |
+| Free orbit | 3D | Sandbox, strategy, toy-like builders | Orbit, pan and zoom on mouse, touch and controller |
+| Fixed screen | 2D | Single-screen puzzles, arcade games, board and card games | Nothing extra |
+
+**How it narrows by style family:**
+- **2D families come with their point of view built in.** The art is drawn for one view. Pixel splits into top-down packs (Tiny Dungeon, Roguelike) and side-view packs (Pixel Platformer). Isometric 2D allows only isometric. The family record carries `views: [...]`, and the scope chat filters on it.
+- **3D families allow any 3D view in principle, but the pieces limit it** [I]:
+  - Kenney Mini Dungeon is built for viewing from above. It has short walls and no ceilings [M], so first person would look wrong.
+  - Kenney Modular Dungeon Kit has rooms and corridors with `wall-top` pieces but no named ceilings [M]. It would need checking before being offered for first person.
+  - Synty POLYGON sets are built for first and third person [I].
+  - Curation (`gm-pack-curate`) records which views each family supports.
+- **Genre narrows it further.** A platformer offers side view or third person, a shooter first person, third person or top-down. Only valid combinations are offered, and a recommended default is preselected.
+
+**Mechanism:**
+1. **SDK camera rigs**, one module per point of view (`iso`, `topdown`, `side`, `follow`, `fps`, `orbit`, `fixed`). Each comes with its input mapping: what the joystick means relative to the camera, pointer lock, touch look, and controller right stick. This fills B7's open gap, where there is no camera contract in A4.
+2. **Wall and occlusion handling per rig:** cutaway for isometric (proved in the prototype), fade or camera collision for follow, and nothing for top-down.
+3. **The editor camera is separate.** Editing stays top-down or isometric whatever the play view, so placing things is always easy. A "view as player" button previews the game's own camera. B7 already says camera state is not design state.
+4. **Recorded in the lockfile and changeable later, with a warning.** Swapping the rig is cheap in 3D. Level geometry and assets may not suit the new view, so the change runs `gm-verify` and may suggest a different family.
+5. **`gm-verify`** runs the play loop in the chosen rig, on phone and desktop, using the `tick()` hook.
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -187,3 +220,11 @@ When tickets are made, each line below should appear in at least one ticket:
   - run the variant step for tier 3 and uploaded assets;
   - a real-device spike to set tiers and budgets.
   - audio formats every target browser decodes, an iOS audio-session and unlock helper in the SDK, and a real-iPhone sound check.
+- **Point of view:**
+  - a camera-rig contract in the SDK, plus one rig per view with its input mappings for mouse and keyboard, touch and controller;
+  - occlusion handling per rig;
+  - `views` in the style-family record, and curation of which views each family supports;
+  - filtering by view, family and genre in the scope chat, with a recommended default;
+  - recording the view in the lockfile, and a flow for changing it later;
+  - the editor's own camera plus a "view as player" preview;
+  - `gm-verify` runs in each rig.
