@@ -54,7 +54,11 @@ for (let round = 0; round < 12; round++) {
   if (round === 0) await shot('07-fight');
   log('round', round, await page.evaluate(() => window.__ogm.foes.map(f => `${f.o.type}:${f.state}:${f.hp}`).join(' ')), 'hp', await page.evaluate(() => window.__ogm.player.hp));
 }
-await page.evaluate(() => window.__ogm.tick(1.5)); await page.waitForTimeout(300);
+await page.evaluate(() => window.__ogm.tick(1.5)); await page.waitForTimeout(1500);
+// beating the goblins must not end the run: the player keeps control until the chest is opened
+log('after goblins: result visible', await page.evaluate(() => !document.querySelector('#result').hidden), 'hud', await page.evaluate(() => document.querySelector('#goblinsLeft').textContent));
+await page.evaluate(() => { const c = window.__ogm.map.objects.find(o => o.type === 'chest'); window.__ogm.player.root.position.set(c.x, 0, c.z + 1); });
+await page.keyboard.press('e'); await page.evaluate(() => window.__ogm.tick(.5)); await page.waitForTimeout(2500);
 log('result visible', await page.evaluate(() => !document.querySelector('#result').hidden), await page.evaluate(() => document.querySelector('#resultTitle').textContent)); await shot('08-result');
 await page.click('#backEdit'); await page.waitForTimeout(1200);
 log('mode', await page.evaluate(() => window.__ogm.mode), 'goblins in map', await page.evaluate(() => window.__ogm.map.objects.filter(o => o.type.startsWith('goblin')).length));

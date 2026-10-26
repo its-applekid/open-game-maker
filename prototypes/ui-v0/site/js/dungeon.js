@@ -613,8 +613,18 @@ function use() {
   const c = nearChest(); if (!c) return;
   play.chestOpened.add(c.o.id); playChest(c.r, 'open');
   const n = c.o.coins || 25; player.coins += n;
-  setTimeout(() => { audio.play('handleCoins', { vol: .8 }); floater(c.r.position, `+${n} 🪙`, '#ffd76a'); updateHud(); }, 350);
+  setTimeout(() => { audio.play('handleCoins', { vol: .8 }); floater(c.r.position, `+${n} 🪙`, '#ffd76a'); updateHud(); checkCleared(); }, 350);
   addTrauma(.15);
+}
+// beating the goblins doesn't end the run: keep exploring until every chest is open too
+function checkCleared() {
+  if (!play.total || play.over || !foes.every(x => x.state === 'dead')) return;
+  const chestsLeft = map.objects.some(o => o.type === 'chest' && !play.chestOpened.has(o.id));
+  if (!play.allClear) {
+    play.allClear = true; updateHud();
+    if (chestsLeft) { audio.play('jingles-pizzicato_00', { vol: .7, pitch: 0 }); hint('All goblins beaten! Now go open the treasure chest'); }
+  }
+  if (!chestsLeft) setTimeout(() => endPlay(true), 1500);
 }
 function nearChest() {
   for (const o of map.objects) if (o.type === 'chest' && !play.chestOpened.has(o.id)) {
@@ -643,8 +653,7 @@ function killFoe(f) {
   // drop a coin
   const c = instance('coin'); c.scale.setScalar(.55); c.position.copy(f.r.position).setY(.05); groups.fx.add(c);
   pickups.push({ o: { type: 'coin', x: f.r.position.x, z: f.r.position.z }, r: c, taken: false, drop: true, vy: 2.2 });
-  if (foes.every(x => x.state === 'dead') && play.total) setTimeout(() => endPlay(true), 1300);
-  updateHud();
+  updateHud(); setTimeout(checkCleared, 900);
 }
 function hurtPlayer(dmg, from) {
   if (player.inv > 0 || player.dead || play.over) return;
@@ -669,7 +678,7 @@ function updateHud() {
   if (!player) return;
   $('#hearts').textContent = '♥'.repeat(player.hp) + '♡'.repeat(player.maxHp - player.hp);
   const left = foes.filter(f => f.state !== 'dead').length;
-  $('#goblinsLeft').textContent = play.total ? `👺 ${left} left` : 'No goblins';
+  $('#goblinsLeft').textContent = !play.total ? 'No goblins' : left ? `👺 ${left} left` : '✓ All clear';
   $('#coins').textContent = `🪙 ${player.coins}`;
 }
 function flash(r, color, dur) {
@@ -796,4 +805,4 @@ function tick(sec) { // test hook: advance the game in fixed 1/60 s steps withou
   for (let i = 0; i < Math.round(sec * 60); i++) { const dt = 1 / 60; perfT += dt; for (const m of mixers) m.update(dt); if (mode === 'play' && player) updatePlay(dt); trauma = Math.max(0, trauma - dt * 1.6); }
   applyCamera(); renderer.render(scene, camera);
 }
-window.__ogm = { tick, zoom(z) { camZoom = z; },  tileToScreen(x, z, y = 0) { const v = new THREE.Vector3(x, y, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get map() { return map; }, startPlay, stopPlay, get mode() { return mode; }, attack, get player() { return player; }, get foes() { return foes; } };
+window.__ogm = { tick, zoom(z) { camZoom = z; },  tileToScreen(x, z, y = 0) { const v = new THREE.Vector3(x, y, z).project(camera); const r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; }, get map() { return map; }, startPlay, stopPlay, get mode() { return mode; }, attack, use, get player() { return player; }, get foes() { return foes; } };
