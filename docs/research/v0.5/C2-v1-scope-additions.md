@@ -1,6 +1,6 @@
 # C2: V1 scope additions from the prototype review (2026-10-26)
 
-> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
+> **Version scope:** items 1–3 are **V1** (Kevin, 2026-10-26: "Include all of these in our scoping as part of V1"). Item 4, point of view, was asked for later the same day. It is placed in V1 on the assumption that it sits with the other creation-time choices. Item 5, budget-aware voice, is also placed in V1, because voice and spending limits are both V1. This note exists so they become tickets when tickets are made. It is not a ticket list or a build order.
 
 Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, [O] opinion.
 
@@ -12,6 +12,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 2 | **Style families map to packs** | The style picked at game creation (low poly, other fidelity levels, 2D styles) maps to specific resource packs | A curated `style family → packs` table in the pack library. `gm-core` enforces one family per game. Start with the families below, from packs we already have |
 | 3 | **Device-tiered assets** | Pre-process high-resolution textures and assets into mobile-friendly versions that load only on mobile | `gm packs import` writes a desktop and a mobile variant of every asset. The SDK loader picks one tier at startup and downloads only that tier. `gm-verify` checks a mobile budget |
 | 4 | **Point of view** | Point of view is a choice when creating a game: isometric (as in the prototype), first person, third person, and anything else that suits the chosen style and other choices | One camera-rig module per point of view in the SDK. The scope chat offers only the points of view the chosen style family and genre support. The lockfile records the choice. The editor keeps its own top or isometric camera, plus a "view as player" preview |
+| 5 | **Budget-aware voice agent** | The two-way voice agent knows the creator's remaining resources. When a request is too big for what's left, it says so and offers to queue it for tomorrow or to cut it down to fit today | Give the voice agent read-only budget and estimate tools. Before agreeing to a change, it compares the estimate with what's left and offers four choices: do it now, trim it to fit, split it (part now, the rest queued), or queue it for the reset. Only Game Maker's admission step reserves money |
 
 ## 1. Build analytics for admins
 
@@ -191,6 +192,49 @@ The prototype used a fixed isometric camera. It also needed cutaway walls, so wa
 4. **Recorded in the lockfile and changeable later, with a warning.** Swapping the rig is cheap in 3D. Level geometry and assets may not suit the new view, so the change runs `gm-verify` and may suggest a different family.
 5. **`gm-verify`** runs the play loop in the chosen rig, on phone and desktop, using the `tick()` hook.
 
+## 5. Budget-aware voice agent
+
+**What exists:**
+- Admins set spending limits (decision log).
+- B8 §5 has Game Maker reserve money per job, using a p80 estimate by kind and complexity from its own history.
+- B8 also has rolling-window caps per family, the creation and edit slots, a queue, and a pause-and-ask-the-admin step at 1× the reservation.
+
+All of that happens after a request is agreed. The voice agent that agrees the request knows none of it, so today a creator could talk through a big change and then hit a refusal or a pause.
+
+**Kevin's direction:**
+- The voice agent has context about the creator's remaining resources.
+- For a very large change that won't fit the allocation, it talks it over: "this is pretty big".
+- It offers to queue the change for tomorrow, or to reduce the scope so it fits as the day's remaining change.
+
+**Mechanism:**
+1. **Budget context tools for the voice agent** (`voice_converse` tools, served by the Game Maker backend, all read-only):
+   - `budget_status()`: what's left in the creator's allocation today, as a friendly unit and a percent; when it resets; free slots; and jobs already queued.
+   - `estimate_change(summary, game_id)`: a size class (small, medium, large, huge), the p80 cost range in the same unit, and a confidence. It comes from the job history and C2 §1's per-activity analytics: past animation work, level edits and new systems on similar games.
+   - `queue_change(plan, start: "now" | "at_reset")`: hands the agreed plan to Game Maker's normal admission step. The voice agent never reserves money itself. Admission re-checks, so a stale estimate can't overspend.
+2. **Conversation rules** (a gm skill or voice prompt section):
+   - **Don't talk about budget when it isn't relevant.** Small changes that fit go ahead without mentioning cost.
+   - **Bring it up only when the estimate is over what's left, or uses most of it.** Then offer, in plain words:
+     - **(a) Trim it to fit:** the agent proposes a concrete smaller version, such as "one new enemy now instead of three".
+     - **(b) Split it:** build the core part today and queue the rest for the reset.
+     - **(c) Queue the whole change** for when the allocation resets.
+     - **(d) Ask an admin for more,** where the family allows it.
+   - **Be honest about uncertainty.** A low-confidence estimate is described as a range. The agent never promises a change will fit.
+   - **Mid-build overruns use the same voice.** When B8's 1× reservation pause fires, the agent explains it and offers to finish tomorrow, scale back or ask an admin. It doesn't fail silently.
+3. **Queued changes:**
+   - A queued change is a stored plan with `start: at_reset`.
+   - It starts automatically when the allocation resets, sends a browser notification when it begins and ends, and can be edited or cancelled before then.
+   - The admin sees it in the build list.
+4. **Units and visibility.** Creators see a friendly unit, such as "build energy" with a daily bar, not dollars. Admins see dollars, as in B8 and A6. The voice agent uses the friendly unit unless an admin asks.
+
+**Open questions for Kevin:**
+1. **Whose allocation:** a daily allocation per member set by an admin (as described here), or the family's shared pool with per-member limits? Admins already set spending limits; this picks how that's split.
+2. **Reset period:** daily at local midnight, or a rolling 24 hours? "Tomorrow" suggests a daily reset.
+3. **Unit name and display:** what creators see.
+
+**Risks:**
+- **Estimates start out poor.** There is no history at launch, so the first estimates are coarse size classes. Accuracy improves as C2 §1's analytics collect data, so keep the ranges wide until then.
+- **A creator can talk the agent into calling a huge change "small".** Admission's own check is the backstop.
+
 ## For ticketing
 
 When tickets are made, each line below should appear in at least one ticket:
@@ -228,3 +272,11 @@ When tickets are made, each line below should appear in at least one ticket:
   - recording the view in the lockfile, and a flow for changing it later;
   - the editor's own camera plus a "view as player" preview;
   - `gm-verify` runs in each rig.
+- **Budget-aware voice:**
+  - `budget_status`, `estimate_change` and `queue_change` voice tools backed by Game Maker admission;
+  - an estimate model by size class, seeded with coarse values and refined from analytics history;
+  - conversation rules in the voice prompt or a skill: trim, split, queue, ask an admin; quiet when it fits;
+  - voice explanation of mid-build overruns;
+  - queued-at-reset jobs, with notifications and edit or cancel;
+  - per-member allocation and reset settings in the admin UI;
+  - a friendly unit for creators and dollars for admins.
