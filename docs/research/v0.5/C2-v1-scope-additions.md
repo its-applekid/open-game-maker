@@ -467,7 +467,7 @@ No spending needed.
 - Each map costs one vision-model call at ingest. That is small, but it goes through the budget and analytics (C2 §1, §5).
 - Hand-drawn maps without grids extract poorly. The confidence flag and the "image reference only" fallback handle that.
 
-**Open question for Kevin:** where the maps come from (purchased packs, free-use map makers, generator output). This mainly affects which licenses intake will see.
+**Map sources (Kevin, 2026-10-26):** the first source is a purchased ProFantasy Humble Bundle (Campaign Cartographer add-ons such as *Source Maps: Castles*, which has 25 real castles with over 130 floorplans and notes). **These are inspiration only:** agents learn dungeon and map layouts from them, and their images and symbols are never used in a game, not even as placeholder art. Intake should still record each pack's licence. More sources may follow.
 
 ## 10. Rich asset tagging (metadata cards)
 
