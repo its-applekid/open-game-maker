@@ -541,7 +541,7 @@ function playChest(r, which) {
 // ---------------- PLAY MODE ----------------
 let player = null, foes = [], pickups = [], play = null;
 const keys = new Set(); const stick = { x: 0, y: 0 };
-// look direction from the right stick or the mouse: only while held (+ a short linger), otherwise face where you walk
+// look direction: the right stick stays where you leave it until you pull it back to center; the mouse aims while held (+ a short linger); otherwise face where you walk
 const aim = { dir: null, held: false, until: 0 };
 const aiming = () => aim.dir && (aim.held || (play && play.t < aim.until));
 function startPlay() {
@@ -606,12 +606,13 @@ function bindTouch() {
   // iOS: cancel the touch defaults on the controls so quick repeated taps never become double-tap zoom
   for (const el of [$('#stick'), $('#aim'), $('#btnUse')]) el.addEventListener('touchstart', e => e.preventDefault(), { passive: false });
   document.addEventListener('gesturestart', e => e.preventDefault()); // Safari pinch-zoom
-  // right stick: a tap swings; hold and drag to turn while held (snaps back on release, aim lingers briefly)
+  // right stick: a tap swings; drag to aim. Let go off-center and the aim stays; let go near the center to face where you walk again
   const as = $('#aim'), an = $('#aimNub'); let apid = null, down = null;
   const setAim = e => {
     const r = as.getBoundingClientRect(); let x = e.clientX - (r.left + r.width / 2), y = e.clientY - (r.top + r.height / 2);
-    const m = Math.hypot(x, y), R = 50; if (m < 6) return; if (m > R) { x *= R / m; y *= R / m; }
-    an.style.transform = `translate(${x}px,${y}px)`; aim.dir = camRight.clone().multiplyScalar(x).addScaledVector(camFwd, -y).normalize(); aim.held = true;
+    const m = Math.hypot(x, y), R = 50; down.m = m; if (m > R) { x *= R / m; y *= R / m; }
+    an.style.transform = `translate(${x}px,${y}px)`; if (m < 6) return;
+    aim.dir = camRight.clone().multiplyScalar(x).addScaledVector(camFwd, -y).normalize(); aim.held = true;
   };
   as.addEventListener('pointerdown', e => { e.preventDefault(); apid = e.pointerId; try { as.setPointerCapture(apid); } catch {} down = { x: e.clientX, y: e.clientY, t: performance.now(), dragged: false }; as.classList.add('tap'); });
   as.addEventListener('pointermove', e => {
@@ -619,10 +620,10 @@ function bindTouch() {
     if (!down.dragged && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 10) down.dragged = true;
     if (down.dragged) setAim(e);
   });
-  const AIM_LINGER = .8;
+  const AIM_CENTER = 18; // px from the stick's center that counts as "pulled back"
   const aimUp = e => {
     if (e.pointerId !== apid) return; apid = null; as.classList.remove('tap');
-    if (down.dragged) { aim.held = false; aim.until = (play?.t || 0) + AIM_LINGER; an.style.transform = ''; }
+    if (down.dragged) { if (down.m < AIM_CENTER) { aim.dir = null; aim.held = false; an.style.transform = ''; } }
     else if (e.type === 'pointerup' && performance.now() - down.t < 400) attack();
   };
   as.addEventListener('pointerup', aimUp); as.addEventListener('pointercancel', aimUp);
