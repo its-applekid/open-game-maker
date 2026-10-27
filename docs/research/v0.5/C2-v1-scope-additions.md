@@ -484,6 +484,7 @@ No spending needed.
 | Group | Fields | Source |
 |---|---|---|
 | Identity | id, collection, file, variants (colours, damaged, LOD), license, provenance | Code |
+| **Usage rights** | allowed uses, audience, attribution, redistribution, set at collection level with per-asset overrides (see below) | Intake from the license text, confirmed by Kevin; **enforced by code** |
 | What it is | kind (model, character, prop, tile, modular piece, sprite, SFX, music, UI, texture, inspiration map); **objects depicted**; a one or two sentence **description** | Vision model on the contact sheet, checked against the filename |
 | Where it fits | **environments** (dungeon, forest, town, castle, sci-fi, cave, interior); theme; **uses** (wall piece, floor tile, obstacle, cover, decor, pickup, enemy, hero, NPC, light source, interactable) | Vision model plus the collection's context |
 | Look | style family (C2 §2); point-of-view suitability (C2 §4); dominant palette; mood | Vision model, with the palette measured by code |
@@ -492,6 +493,26 @@ No spending needed.
 | Modular kits | connects-to rules (wall ↔ wall-corner ↔ gate), grid size | Code from names and bounds, refined by the model |
 | Audio | duration, loops cleanly, loudness, brightness, tempo; category (impact, footstep, UI, ambience, music); **mood** (dark, tense, cheerful, calm) | Code for the measurements; model for mood |
 | Quality | a confidence per model-written field, schema version, who last edited (model or human) | Pipeline |
+
+**Usage rights (Kevin, 2026-10-26).** What an asset may be used for is part of its card, not a side note. The trigger was the ProFantasy map packs (C2 §9): Kevin owns them but wants them used only as inspiration, never as images in a game. Synty (personal license, never redistribute raw files) and Kenney (CC0, anything goes) need different rules again.
+
+| Field | Values | Example |
+|---|---|---|
+| `uses` (allowed) | `in-game` (can appear in a built game), `placeholder` (in drafts only, swapped before publish), `derive-layout` (agents may turn it into layout specs), `style-reference` (agents may look at it to match a look), `vision-input` (may be sent to a vision model for tagging or extraction) | ProFantasy: `derive-layout`, `vision-input` only. Kenney: all |
+| `audience` | `private` (only on this instance, never in a public build) or `public` | Synty personal: `in-game` but check the EULA before anything public |
+| `redistribution` | `none` (raw files never committed, shared or downloadable as files), `in-build` (only inside a built game), `free` | Synty: `in-build`; ProFantasy: `none` |
+| `attribution` | required credit text, or none | CC-BY packs |
+| `basis` | where the rule came from: the license file, Kevin's decision, or `unknown` | ProFantasy: Kevin, 2026-10-26 |
+
+- **Defaults are strict.** A collection with an unknown license gets `uses: [vision-input]`, `audience: private`, `redistribution: none`, and stays quarantined from games until Kevin or the license says otherwise (C2 §7).
+- **Kevin's decision overrides the license, only to restrict it further.** A license can never be widened by a model. The intake skill proposes rights from the license text; Kevin confirms. A model never writes or changes these fields, and human edits are never overwritten.
+- **Enforced by code, not by agent judgment:**
+  - `gm assets search` filters by the intended use and defaults to `in-game`, so reference-only assets never show up when an agent is picking game assets. `gm-map-inspiration` asks for `derive-layout`.
+  - The build and lockfile check rejects any asset without `in-game` (or `placeholder` in a draft); publish also rejects `placeholder` assets and anything `private` when the audience is public.
+  - A commit check in the game repo rejects files whose content hash belongs to a `redistribution: none` asset.
+  - Credits are generated from `attribution` fields at build time.
+  - Every refusal names the asset and the rule, so the voice agent can explain it ("those castle maps are for inspiration only").
+- **Derived work is tracked.** A layout spec extracted from a reference-only map records its source as provenance (C2 §9); the spec itself can be used in games, the image cannot.
 
 **Pipeline** (part of intake, C2 §7 step 4):
 1. **Measure with code first.** Bounds, triangles, animations, rig and audio stats are facts and come out of the files directly.
@@ -609,6 +630,8 @@ When tickets are made, each line below should appear in at least one ticket:
   - the provenance and license policy for inspiration sources.
 - **Asset tagging:**
   - the metadata card schema with a fixed tag vocabulary and versioning;
+  - usage-rights fields (uses, audience, redistribution, attribution, basis) at collection level with per-asset overrides, strict defaults for unknown licenses, and Kevin-confirmed values that models never change;
+  - code enforcement of usage rights: use-filtered search, build, lockfile and publish checks, a repo commit check by content hash, generated credits, and refusals the voice agent can explain;
   - code measurement (geometry, rig and animations, attach points, kit connections, audio stats, palette);
   - contact-sheet rendering for 3D, 2D and audio;
   - batched vision-model tagging, cached by content hash;
