@@ -18,6 +18,13 @@ assets-local/
     <version>/originals/               # the bundle archive, stored once
     <version>/extracted/               # bundle-level leftovers (readme, vendor index, goodies)
   tools/<tool-id>/<version>/           # vendor apps, e.g. the Kenney launcher AppImage
+  inspiration/<id>/<version>/          # reference-only collections (no in-game rights), same shape as packs/
+  inbox/                               # Drive watch-folder intake (scripts/drive-sync/)
+    queue.jsonl                        # one line per downloaded drop, appended by the listener
+    quarantine/<time>-<slug>-<id8>/
+      manifest.json                    # Drive ids, MD5s, kinds, license files, archive checks, strict default rights
+      files/...                        # downloaded files, read-only, never unpacked or run here
+      intake.json                      # written by the gm-asset-intake skill when the drop is handled
 ```
 
 - **Pack ids** are `<vendor>-<name>` in kebab case, e.g. `synty-polygon-viking-realm` or `kenney-racing-kit`. Kenney's `Archive` and `Early access` copies add `-archive` and `-early-access` suffixes, because their names clash with current packs.
@@ -68,5 +75,9 @@ assets-local/
 - `import_synty.py`: moves the listed Synty downloads from `~/Downloads` into `packs/`, then unpacks and writes `pack.json`. Add new rows to `PACKS` for new downloads. Packs already extracted are skipped.
 - `import_kenney_bundle.py`: splits the Kenney All-in-1 zip into one pack per folder, reads each `License.txt`, and installs the launcher under `tools/`. Some archive packs ship as a zip inside the bundle; those were unpacked afterwards, and `pack.json` records them in `inner_archives_unpacked`.
 - `build_catalog.py`: rebuilds `catalog.json`. Run it after any import.
+
+## Drive inbox (`scripts/drive-sync/`)
+
+`drive_sync.py` watches one shared Google Drive folder with a read-only service account. It waits until each drop (a top-level file or subfolder) has settled, downloads it into a fresh `inbox/quarantine/` folder, verifies MD5s, and tests archives for zip-slip, links, corruption and size limits without unpacking them. Then it writes `manifest.json` with strict default rights (`vision-input` only, private, no redistribution) and queues the drop. It never imports into `packs/`. The `gm-asset-intake` skill (`.claude/skills/gm-asset-intake/`) does that once the license is known and Kevin has confirmed the rights. Setup and details are in `scripts/drive-sync/README.md`.
 
 Every archive is checked for absolute and `..` paths before it is extracted. Conversion to GLB, tagging and previews (B11 §4.2 steps 2–5) are not done yet; this library is the input for that importer.

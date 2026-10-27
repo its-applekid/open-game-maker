@@ -4,3 +4,6 @@ assets-local/
 # prototype copies of licensed assets
 prototypes/*/site/assets/
 prototypes/*/.netlify/
+
+# drive-sync virtualenv
+scripts/drive-sync/.venv/

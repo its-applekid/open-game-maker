@@ -1,0 +1,27 @@
+# Copy to ~/.config/ogm/drive-sync.toml and fill in folder_id.
+# This file holds no secrets; the key lives in its own file (chmod 600), never in the repo.
+
+# The Drive folder id: the part after /folders/ in the folder's URL.
+folder_id = "PASTE_FOLDER_ID_HERE"
+
+# Service-account key (JSON). The env var OGM_DRIVE_SA_KEY overrides this.
+credentials = "~/.config/ogm/drive-sa.json"
+
+poll_seconds = 45        # 30-60 recommended
+quiet_seconds = 180      # a drop is settled after 3 minutes with no changes
+
+max_file_mb = 4096       # bigger files reject the whole drop (nothing downloaded)
+max_drop_mb = 16384
+max_unpacked_mb = 32768  # per archive, from its own listing
+max_archive_members = 200000
+max_compression_ratio = 200
+
+# Defaults (uncomment to change). The inbox must be outside the repo or under assets-local/.
+# inbox = "~/games/open-game-maker-2000/assets-local/inbox"
+# state = "~/.local/state/ogm/drive-sync/state.json"
+# log   = "~/.local/state/ogm/drive-sync/drive-sync.log"
+
+# Notifiers: "log" (always useful), "desktop" (notify-send), "command" (runs notify_command
+# with the title and body appended as two arguments, no shell).
+notify = ["log", "desktop"]
+# notify_command = ["/usr/local/bin/my-push", "--topic", "ogm"]
