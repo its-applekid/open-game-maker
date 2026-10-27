@@ -1,0 +1,434 @@
+{
+  "schema": "ogm.map-layout-spec/1.0",
+  "id": "layout:profantasy-cartographers-annual/example-dungeon-01@illustrative#1",
+  "source": {
+    "card_id": "t1:profantasy-cartographers-annual/example-dungeon-01@illustrative",
+    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "required_use": "derive-layout"
+  },
+  "extraction": {
+    "status": "extracted",
+    "by": {
+      "model": "vision-model-tbd",
+      "tool": "gm-map-extract@0.1"
+    },
+    "at": "2026-10-26T20:00:00-07:00",
+    "confidence": 0.81,
+    "checks": [
+      {
+        "name": "polygons-valid",
+        "passed": true
+      },
+      {
+        "name": "no-room-overlap",
+        "passed": true
+      },
+      {
+        "name": "connections-touch-rooms",
+        "passed": true
+      },
+      {
+        "name": "graph-connected",
+        "passed": true
+      },
+      {
+        "name": "entrance-exists",
+        "passed": true
+      },
+      {
+        "name": "grid-matches-image",
+        "passed": true,
+        "detail": "48x36 cells at 50 px"
+      }
+    ],
+    "edited_by_human": false
+  },
+  "grid": {
+    "type": "square",
+    "cols": 48,
+    "rows": 36,
+    "cell_px": 50,
+    "cell_real": {
+      "value": 5,
+      "unit": "ft"
+    },
+    "confidence": 0.92
+  },
+  "level": {
+    "index": 0,
+    "name": "ground",
+    "site": "example-dungeon-01"
+  },
+  "rooms": [
+    {
+      "id": "entry",
+      "polygon": [
+        [
+          2,
+          16
+        ],
+        [
+          8,
+          16
+        ],
+        [
+          8,
+          20
+        ],
+        [
+          2,
+          20
+        ]
+      ],
+      "shape": "chamber",
+      "size_class": "small",
+      "area_cells": 24,
+      "function": "entrance",
+      "confidence": 0.9
+    },
+    {
+      "id": "hall",
+      "polygon": [
+        [
+          14,
+          10
+        ],
+        [
+          30,
+          10
+        ],
+        [
+          30,
+          26
+        ],
+        [
+          14,
+          26
+        ]
+      ],
+      "shape": "hall",
+      "size_class": "large",
+      "area_cells": 256,
+      "function": "great-hall",
+      "confidence": 0.88
+    },
+    {
+      "id": "c1",
+      "polygon": [
+        [
+          8,
+          17
+        ],
+        [
+          14,
+          17
+        ],
+        [
+          14,
+          19
+        ],
+        [
+          8,
+          19
+        ]
+      ],
+      "shape": "corridor",
+      "size_class": "tiny",
+      "area_cells": 12,
+      "function": "corridor",
+      "confidence": 0.85
+    },
+    {
+      "id": "guard",
+      "polygon": [
+        [
+          16,
+          4
+        ],
+        [
+          30,
+          4
+        ],
+        [
+          30,
+          10
+        ],
+        [
+          16,
+          10
+        ]
+      ],
+      "shape": "chamber",
+      "size_class": "medium",
+      "area_cells": 84,
+      "function": "guard-room",
+      "confidence": 0.7
+    },
+    {
+      "id": "store",
+      "polygon": [
+        [
+          16,
+          26
+        ],
+        [
+          24,
+          26
+        ],
+        [
+          24,
+          32
+        ],
+        [
+          16,
+          32
+        ]
+      ],
+      "shape": "chamber",
+      "size_class": "medium",
+      "area_cells": 48,
+      "function": "storage",
+      "confidence": 0.6
+    },
+    {
+      "id": "crypt",
+      "polygon": [
+        [
+          30,
+          8
+        ],
+        [
+          38,
+          8
+        ],
+        [
+          38,
+          16
+        ],
+        [
+          30,
+          16
+        ]
+      ],
+      "shape": "chamber",
+      "size_class": "medium",
+      "area_cells": 64,
+      "function": "crypt",
+      "confidence": 0.75
+    },
+    {
+      "id": "stair",
+      "polygon": [
+        [
+          30,
+          20
+        ],
+        [
+          34,
+          20
+        ],
+        [
+          34,
+          24
+        ],
+        [
+          30,
+          24
+        ]
+      ],
+      "shape": "stairwell",
+      "size_class": "tiny",
+      "area_cells": 16,
+      "confidence": 0.8
+    }
+  ],
+  "connections": [
+    {
+      "id": "d0",
+      "type": "door",
+      "from": "outside",
+      "to": "entry",
+      "at": [
+        2,
+        18
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "d1",
+      "type": "opening",
+      "from": "entry",
+      "to": "c1",
+      "at": [
+        8,
+        18
+      ],
+      "confidence": 0.9
+    },
+    {
+      "id": "d2",
+      "type": "double-door",
+      "from": "c1",
+      "to": "hall",
+      "at": [
+        14,
+        18
+      ],
+      "confidence": 0.85
+    },
+    {
+      "id": "d3",
+      "type": "door",
+      "from": "hall",
+      "to": "guard",
+      "at": [
+        20,
+        10
+      ],
+      "confidence": 0.85
+    },
+    {
+      "id": "d4",
+      "type": "door",
+      "from": "hall",
+      "to": "store",
+      "at": [
+        20,
+        26
+      ],
+      "confidence": 0.8
+    },
+    {
+      "id": "d5",
+      "type": "secret-door",
+      "from": "hall",
+      "to": "crypt",
+      "at": [
+        30,
+        13
+      ],
+      "confidence": 0.65
+    },
+    {
+      "id": "d6",
+      "type": "door",
+      "from": "hall",
+      "to": "stair",
+      "at": [
+        30,
+        22
+      ],
+      "confidence": 0.8
+    },
+    {
+      "id": "d7",
+      "type": "locked-door",
+      "from": "guard",
+      "to": "crypt",
+      "at": [
+        30,
+        9
+      ],
+      "confidence": 0.55
+    },
+    {
+      "id": "s1",
+      "type": "stairs-down",
+      "from": "stair",
+      "to": {
+        "spec": "layout:profantasy-cartographers-annual/example-dungeon-01-lower@illustrative#1",
+        "room": "landing"
+      },
+      "at": [
+        32,
+        22
+      ],
+      "confidence": 0.85
+    }
+  ],
+  "features": [
+    {
+      "id": "f1",
+      "type": "pillar",
+      "room": "hall",
+      "at": [
+        18,
+        14
+      ],
+      "count": 8,
+      "confidence": 0.9
+    },
+    {
+      "id": "f2",
+      "type": "altar",
+      "room": "hall",
+      "at": [
+        27,
+        18
+      ],
+      "confidence": 0.7
+    },
+    {
+      "id": "f3",
+      "type": "sarcophagus",
+      "room": "crypt",
+      "at": [
+        34,
+        12
+      ],
+      "count": 3,
+      "confidence": 0.75
+    },
+    {
+      "id": "f4",
+      "type": "crate",
+      "room": "store",
+      "at": [
+        20,
+        29
+      ],
+      "count": 4,
+      "confidence": 0.6
+    },
+    {
+      "id": "f5",
+      "type": "spawn-hint",
+      "room": "entry",
+      "at": [
+        4,
+        18
+      ],
+      "confidence": 0.8
+    }
+  ],
+  "tags": {
+    "computed": {
+      "room_count": 7,
+      "connection_count": 9,
+      "loop_count": 1,
+      "entrance_count": 1,
+      "dead_end_count": 1,
+      "secret_count": 1,
+      "level_change_count": 1,
+      "longest_path_rooms": 4,
+      "total_area_cells": 504,
+      "size_class": "medium"
+    },
+    "judged": {
+      "map_type": "dungeon",
+      "themes": [
+        "dungeon",
+        "crypt"
+      ],
+      "flow": "hub-and-spoke",
+      "difficulty_flow": "gated",
+      "suits": [
+        "dungeon-crawler",
+        "action-rpg",
+        "stealth"
+      ],
+      "confidence": 0.7
+    }
+  },
+  "notes": "Hub layout: one big pillared hall feeds every room. The crypt has two ways in (secret door from the hall, locked door from the guard room), which makes the only loop."
+}

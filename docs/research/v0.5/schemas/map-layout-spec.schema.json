@@ -1,0 +1,214 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://open-game-maker-2000.local/schemas/map-layout-spec/1.0.json",
+  "title": "OGM2000 inspiration map layout spec",
+  "description": "Structure extracted once per inspiration map at ingest (C2 §9): grid, rooms, connections, features, tags. A vision model proposes it; code validates, computes the graph metrics and normalizes it. The spec is a derived structure: it holds no pixels, symbols or text copied from the map, and games may use layouts adapted from it. The image itself stays governed by its asset card's rights. Coordinates are in grid cells, origin at the top-left corner of the image, x to the right, y down; half cells are allowed.",
+  "type": "object",
+  "required": ["schema", "id", "source", "extraction", "grid", "rooms", "connections", "tags"],
+  "properties": {
+    "schema": { "const": "ogm.map-layout-spec/1.0" },
+    "id": { "type": "string", "pattern": "^layout:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+#[0-9]+$", "description": "layout:<collection>/<path>@<version>#<extraction revision>. The map card's map.layout_spec.id points here." },
+    "source": {
+      "type": "object",
+      "required": ["card_id", "content_hash"],
+      "properties": {
+        "card_id": { "type": "string", "pattern": "^t[123]:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$" },
+        "content_hash": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "required_use": { "const": "derive-layout", "description": "Code refuses to create or serve a spec unless the source card's effective rights include this use." }
+      },
+      "additionalProperties": false
+    },
+    "extraction": {
+      "type": "object",
+      "required": ["status", "by", "at", "confidence"],
+      "properties": {
+        "status": { "enum": ["extracted", "low-confidence", "image-only"], "description": "image-only: extraction failed checks; the spec keeps tags only and agents may not build from it." },
+        "by": {
+          "type": "object",
+          "required": ["model", "tool"],
+          "properties": { "model": { "type": "string" }, "tool": { "type": "string" } },
+          "additionalProperties": false
+        },
+        "at": { "type": "string", "format": "date-time" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1, "description": "Overall; code lowers it when checks fail." },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "passed"],
+            "properties": {
+              "name": { "enum": ["polygons-valid", "rooms-on-grid", "no-room-overlap", "connections-touch-rooms", "graph-connected", "entrance-exists", "features-inside-rooms", "grid-matches-image"] },
+              "passed": { "type": "boolean" },
+              "detail": { "type": "string", "maxLength": 200 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "edited_by_human": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "grid": {
+      "type": "object",
+      "required": ["type", "cols", "rows", "confidence"],
+      "properties": {
+        "type": { "enum": ["square", "hex", "none"] },
+        "cols": { "type": "integer", "minimum": 1 },
+        "rows": { "type": "integer", "minimum": 1 },
+        "cell_px": { "type": "number", "exclusiveMinimum": 0 },
+        "cell_real": {
+          "type": "object",
+          "required": ["value", "unit"],
+          "properties": { "value": { "type": "number", "exclusiveMinimum": 0 }, "unit": { "enum": ["ft", "m"] } },
+          "additionalProperties": false,
+          "description": "What one cell stands for on the source map (often 5 ft or 10 ft), when the map says or the model infers it."
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "level": {
+      "type": "object",
+      "properties": {
+        "index": { "type": "integer", "description": "0 = ground, negative = below ground." },
+        "name": { "type": "string", "maxLength": 40 },
+        "site": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]*$", "description": "Same value as the map card's map.site; groups floors of one place." }
+      },
+      "additionalProperties": false
+    },
+    "rooms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/room" }
+    },
+    "connections": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/connection" }
+    },
+    "features": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/feature" }
+    },
+    "tags": {
+      "type": "object",
+      "required": ["computed", "judged"],
+      "properties": {
+        "computed": {
+          "type": "object",
+          "description": "Written by code from rooms and connections. Never by the model.",
+          "required": ["room_count", "connection_count", "loop_count", "entrance_count", "dead_end_count", "secret_count", "size_class"],
+          "properties": {
+            "room_count": { "type": "integer", "minimum": 0 },
+            "connection_count": { "type": "integer", "minimum": 0 },
+            "loop_count": { "type": "integer", "minimum": 0, "description": "Independent cycles: connections - rooms + components (outside counted as a node)." },
+            "entrance_count": { "type": "integer", "minimum": 0 },
+            "dead_end_count": { "type": "integer", "minimum": 0 },
+            "secret_count": { "type": "integer", "minimum": 0 },
+            "level_change_count": { "type": "integer", "minimum": 0 },
+            "longest_path_rooms": { "type": "integer", "minimum": 0, "description": "Rooms on the longest shortest path from an entrance." },
+            "total_area_cells": { "type": "number", "minimum": 0 },
+            "size_class": { "$ref": "#/$defs/sizeClass" }
+          },
+          "additionalProperties": false
+        },
+        "judged": {
+          "type": "object",
+          "description": "Written by the model, checked against the asset-card vocabularies.",
+          "required": ["map_type", "confidence"],
+          "properties": {
+            "map_type": { "enum": ["dungeon", "cave", "castle", "keep", "temple", "crypt", "building", "tavern", "town", "city", "ship", "sewer", "mine", "wilderness", "battlemap", "region"] },
+            "themes": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "enum": ["dungeon", "crypt", "cave", "mine", "sewer", "castle", "temple", "ruins", "graveyard", "camp", "town", "village", "city", "interior", "tavern", "shop", "house", "farm", "forest", "jungle", "grassland", "mountain", "snow", "desert", "swamp", "beach", "ocean", "underwater", "sky", "space", "space-station", "industrial", "road", "arena", "neutral"] },
+              "description": "Same list as asset-card environments."
+            },
+            "flow": { "enum": ["linear", "branching", "hub-and-spoke", "loop", "maze", "open"] },
+            "difficulty_flow": { "enum": ["flat", "rising", "gated", "boss-at-end", "unclear"] },
+            "suits": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": { "enum": ["dungeon-crawler", "stealth", "action-rpg", "tactics", "arena", "exploration", "puzzle", "survival-horror", "builder"] }
+            },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "notes": { "type": "string", "maxLength": 400, "description": "Our own words about the structure. Never text copied from the map or its publisher." }
+  },
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": { "properties": { "extraction": { "properties": { "status": { "const": "image-only" } } } } },
+      "then": { "properties": { "rooms": { "maxItems": 0 }, "connections": { "maxItems": 0 } } }
+    }
+  ],
+
+  "$defs": {
+    "point": { "type": "array", "items": { "type": "number" }, "minItems": 2, "maxItems": 2 },
+    "polygon": { "type": "array", "items": { "$ref": "#/$defs/point" }, "minItems": 3 },
+    "localId": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$" },
+    "sizeClass": { "enum": ["tiny", "small", "medium", "large", "huge"] },
+    "endpoint": {
+      "oneOf": [
+        { "$ref": "#/$defs/localId", "description": "A room id in this spec, or 'outside'." },
+        {
+          "type": "object",
+          "description": "A room in another floorplan of the same site.",
+          "required": ["spec", "room"],
+          "properties": {
+            "spec": { "type": "string", "pattern": "^layout:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+#[0-9]+$" },
+            "room": { "$ref": "#/$defs/localId" }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "room": {
+      "type": "object",
+      "required": ["id", "polygon", "shape", "confidence"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "polygon": { "$ref": "#/$defs/polygon" },
+        "shape": { "enum": ["chamber", "corridor", "cavern", "round", "hall", "stairwell", "courtyard", "tower", "irregular"] },
+        "size_class": { "$ref": "#/$defs/sizeClass", "description": "Computed by code from area_cells." },
+        "area_cells": { "type": "number", "minimum": 0, "description": "Computed by code." },
+        "function": { "enum": ["entrance", "hall", "corridor", "throne-room", "great-hall", "barracks", "guard-room", "bedroom", "kitchen", "storage", "armory", "chapel", "shrine", "crypt", "prison", "treasury", "library", "workshop", "stable", "courtyard", "tower", "lair", "unknown"] },
+        "outdoor": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "connection": {
+      "type": "object",
+      "required": ["id", "type", "from", "to", "confidence"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "type": { "enum": ["door", "double-door", "locked-door", "secret-door", "portcullis", "archway", "opening", "stairs-up", "stairs-down", "ladder", "trapdoor", "pit-drop", "bridge", "window"] },
+        "from": { "$ref": "#/$defs/endpoint" },
+        "to": { "$ref": "#/$defs/endpoint" },
+        "at": { "$ref": "#/$defs/point" },
+        "one_way": { "type": "boolean" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "additionalProperties": false
+    },
+    "feature": {
+      "type": "object",
+      "required": ["id", "type", "confidence"],
+      "properties": {
+        "id": { "$ref": "#/$defs/localId" },
+        "type": { "enum": ["pillar", "water", "pit", "chasm", "lava", "altar", "statue", "throne", "tomb", "sarcophagus", "trap", "treasure", "chest", "fireplace", "well", "fountain", "bed", "table", "bookshelf", "barrel", "crate", "rubble", "stalagmite", "cage", "portal", "lever", "light-source", "spawn-hint", "exit-hint"] },
+        "room": { "$ref": "#/$defs/localId" },
+        "at": { "$ref": "#/$defs/point" },
+        "polygon": { "$ref": "#/$defs/polygon" },
+        "count": { "type": "integer", "minimum": 1 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "anyOf": [{ "required": ["at"] }, { "required": ["polygon"] }],
+      "additionalProperties": false
+    }
+  }
+}

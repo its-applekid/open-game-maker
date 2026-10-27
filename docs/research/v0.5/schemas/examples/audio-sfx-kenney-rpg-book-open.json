@@ -1,0 +1,79 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-rpg-audio/audio/book-open@1.0",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Book open",
+  "kind": "audio",
+  "subkind": "sfx/foley",
+  "collection": "t1:kenney-rpg-audio@1.0",
+  "source": {
+    "files": [
+      {
+        "path": "Audio/bookOpen.ogg",
+        "sha256": "sha256:90f96c5be94642bf16ea2e1b082920421e1c85159f0d18e687e3b464e792ad09",
+        "bytes": 10309,
+        "format": "ogg",
+        "role": "primary"
+      }
+    ],
+    "content_hash": "sha256:90f96c5be94642bf16ea2e1b082920421e1c85159f0d18e687e3b464e792ad09"
+  },
+  "previews": {
+    "waveform": "previews/90/90f96c5be94642bf-waveform.webp",
+    "clip": "previews/90/90f96c5be94642bf-clip.webp"
+  },
+  "describe": {
+    "description": "Very short paper rustle of a book being opened; UI feedback for menus, journals or reading a note.",
+    "objects": [
+      "book"
+    ],
+    "environments": [
+      "interior"
+    ],
+    "roles": [
+      "feedback"
+    ],
+    "materials": [
+      "paper"
+    ],
+    "style_family": "any"
+  },
+  "audio": {
+    "duration_s": 0.154,
+    "sample_rate": 48000,
+    "channels": 2,
+    "loudness_lufs": null,
+    "loudness_range_lu": null,
+    "peak_dbfs": -11.5,
+    "spectral_centroid_hz": 6148,
+    "tempo_bpm": null,
+    "loopable": false,
+    "ucs_cat_id": "PAPRHndl"
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "ffmpeg; clip under 0.4 s so no integrated loudness"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.8,
+      "input": "filename + features"
+    },
+    "audio.ucs_cat_id": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.5,
+      "input": "UCS list; verify CatID against the official sheet"
+    }
+  }
+}

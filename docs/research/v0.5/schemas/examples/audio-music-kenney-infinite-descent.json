@@ -1,0 +1,81 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-music-loops/loops/infinite-descent@1.1",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Infinite Descent",
+  "kind": "audio",
+  "subkind": "music/loop",
+  "collection": "t1:kenney-music-loops@1.1",
+  "source": {
+    "files": [
+      {
+        "path": "Loops/Infinite Descent.ogg",
+        "sha256": "sha256:586735f25b5f677979e66206cc6dd1c43aaf9de0043697c67c24c149ec6ba95b",
+        "bytes": 169891,
+        "format": "ogg",
+        "role": "primary"
+      }
+    ],
+    "content_hash": "sha256:586735f25b5f677979e66206cc6dd1c43aaf9de0043697c67c24c149ec6ba95b"
+  },
+  "previews": {
+    "waveform": "previews/58/586735f25b5f6779-waveform.webp",
+    "clip": "previews/58/586735f25b5f6779-clip.webp"
+  },
+  "describe": {
+    "description": "Short 12-second music loop with a steady, even level; a looping background bed for menus or exploration.",
+    "objects": [],
+    "environments": [
+      "dungeon",
+      "cave"
+    ],
+    "roles": [
+      "music-bed"
+    ],
+    "moods": [
+      "tense",
+      "mysterious"
+    ],
+    "style_family": "any"
+  },
+  "audio": {
+    "duration_s": 12.0,
+    "sample_rate": 44100,
+    "channels": 2,
+    "loudness_lufs": -17.3,
+    "loudness_range_lu": 0.3,
+    "peak_dbfs": -0.5,
+    "spectral_centroid_hz": 2789,
+    "tempo_bpm": null,
+    "loopable": null
+  },
+  "flags": [
+    "low-confidence"
+  ],
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "ffmpeg ebur128 + aspectralstats"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.55,
+      "input": "title + measured features + waveform/spectrum strip; mood not heard"
+    },
+    "describe.moods": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.45,
+      "input": "title words 'descent' + features; needs a listen or an audio model"
+    }
+  }
+}

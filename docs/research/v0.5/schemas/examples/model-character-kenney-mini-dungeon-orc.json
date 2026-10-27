@@ -1,0 +1,328 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-mini-dungeon/character-orc@2.0",
+  "card_type": "asset",
+  "status": "reviewed",
+  "title": "Orc",
+  "kind": "model",
+  "subkind": "character",
+  "collection": "t1:kenney-mini-dungeon@2.0",
+  "source": {
+    "files": [
+      {
+        "path": "Models/GLB format/character-orc.glb",
+        "sha256": "sha256:e0b021c98b34a633567ca79f7c129cca48fd7919aa9e959464deba226767c284",
+        "bytes": 199616,
+        "format": "glb",
+        "role": "primary"
+      }
+    ],
+    "content_hash": "sha256:e0b021c98b34a633567ca79f7c129cca48fd7919aa9e959464deba226767c284"
+  },
+  "related": [
+    {
+      "rel": "same-set",
+      "id": "t1:kenney-mini-dungeon/character-human@2.0"
+    }
+  ],
+  "previews": {
+    "thumb": "previews/e0/e0b021c98b34a633-thumb.webp",
+    "sheet": "previews/e0/e0b021c98b34a633-sheet.webp"
+  },
+  "describe": {
+    "description": "Small blocky green orc with a black topknot and orange clothes, chunky toy style, 0.78 m tall; full action set including melee attacks, kicks and a death clip.",
+    "objects": [
+      "orc",
+      "character"
+    ],
+    "environments": [
+      "dungeon",
+      "cave",
+      "camp"
+    ],
+    "settings": [
+      "fantasy"
+    ],
+    "roles": [
+      "enemy",
+      "npc"
+    ],
+    "moods": [
+      "playful"
+    ]
+  },
+  "geometry": {
+    "bounds_m": {
+      "min": [
+        -0.39,
+        0.0,
+        -0.158
+      ],
+      "max": [
+        0.39,
+        0.78,
+        0.175
+      ]
+    },
+    "pivot": "base-center",
+    "triangles": 374,
+    "vertices": 678,
+    "materials": [
+      "colormap"
+    ],
+    "texture_keys": [
+      "Models/GLB format/Textures/colormap.png"
+    ],
+    "normalized": true
+  },
+  "rig": {
+    "rig_type": "humanoid",
+    "rig_id": "rig:2ca4677e40f4",
+    "joint_count": 7,
+    "attach_points": [
+      {
+        "slot": "hand-right",
+        "joint": "arm-right"
+      },
+      {
+        "slot": "hand-left",
+        "joint": "arm-left"
+      },
+      {
+        "slot": "head",
+        "joint": "head"
+      },
+      {
+        "slot": "root",
+        "joint": "root"
+      }
+    ],
+    "clips": [
+      {
+        "name": "static",
+        "duration_s": 0.1,
+        "loop": false
+      },
+      {
+        "name": "idle",
+        "duration_s": 1.33,
+        "loop": true,
+        "canonical": "idle"
+      },
+      {
+        "name": "walk",
+        "duration_s": 0.67,
+        "loop": true,
+        "canonical": "walk"
+      },
+      {
+        "name": "sprint",
+        "duration_s": 0.5,
+        "loop": true,
+        "canonical": "sprint"
+      },
+      {
+        "name": "jump",
+        "duration_s": 0.5,
+        "loop": false,
+        "canonical": "jump"
+      },
+      {
+        "name": "fall",
+        "duration_s": 0.33,
+        "loop": true,
+        "canonical": "fall"
+      },
+      {
+        "name": "crouch",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "crouch"
+      },
+      {
+        "name": "sit",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "sit"
+      },
+      {
+        "name": "drive",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "drive"
+      },
+      {
+        "name": "die",
+        "duration_s": 0.33,
+        "loop": false,
+        "canonical": "die"
+      },
+      {
+        "name": "pick-up",
+        "duration_s": 0.33,
+        "loop": false,
+        "canonical": "pick-up"
+      },
+      {
+        "name": "emote-yes",
+        "duration_s": 0.67,
+        "loop": false,
+        "canonical": "emote"
+      },
+      {
+        "name": "emote-no",
+        "duration_s": 0.67,
+        "loop": false,
+        "canonical": "emote"
+      },
+      {
+        "name": "holding-right",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "hold"
+      },
+      {
+        "name": "holding-left",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "hold"
+      },
+      {
+        "name": "holding-both",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "hold"
+      },
+      {
+        "name": "holding-right-shoot",
+        "duration_s": 0.2,
+        "loop": false,
+        "canonical": "attack-ranged"
+      },
+      {
+        "name": "holding-left-shoot",
+        "duration_s": 0.2,
+        "loop": false,
+        "canonical": "attack-ranged"
+      },
+      {
+        "name": "holding-both-shoot",
+        "duration_s": 0.2,
+        "loop": false,
+        "canonical": "attack-ranged"
+      },
+      {
+        "name": "attack-melee-right",
+        "duration_s": 0.42,
+        "loop": false,
+        "canonical": "attack-melee"
+      },
+      {
+        "name": "attack-melee-left",
+        "duration_s": 0.42,
+        "loop": false,
+        "canonical": "attack-melee"
+      },
+      {
+        "name": "attack-kick-right",
+        "duration_s": 0.53,
+        "loop": false,
+        "canonical": "attack-kick"
+      },
+      {
+        "name": "attack-kick-left",
+        "duration_s": 0.53,
+        "loop": false,
+        "canonical": "attack-kick"
+      },
+      {
+        "name": "interact-right",
+        "duration_s": 0.67,
+        "loop": false,
+        "canonical": "interact"
+      },
+      {
+        "name": "interact-left",
+        "duration_s": 0.67,
+        "loop": false,
+        "canonical": "interact"
+      },
+      {
+        "name": "wheelchair-sit",
+        "duration_s": 0.17,
+        "loop": true,
+        "canonical": "sit"
+      },
+      {
+        "name": "wheelchair-look-left",
+        "duration_s": 0.33,
+        "loop": false,
+        "canonical": "other"
+      },
+      {
+        "name": "wheelchair-look-right",
+        "duration_s": 0.33,
+        "loop": false,
+        "canonical": "other"
+      },
+      {
+        "name": "wheelchair-move-forward",
+        "duration_s": 0.5,
+        "loop": true,
+        "canonical": "other"
+      },
+      {
+        "name": "wheelchair-move-back",
+        "duration_s": 0.5,
+        "loop": true,
+        "canonical": "other"
+      },
+      {
+        "name": "wheelchair-move-left",
+        "duration_s": 0.5,
+        "loop": true,
+        "canonical": "other"
+      },
+      {
+        "name": "wheelchair-move-right",
+        "duration_s": 0.5,
+        "loop": true,
+        "canonical": "other"
+      }
+    ]
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "rig.attach_points": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "no hand bones; arm joints stand in, found via holding-* clips"
+    },
+    "rig.clips": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "canonical and loop from the clip-name synonym table"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.88,
+      "input": "sheet + measured facts"
+    },
+    "describe.roles": {
+      "by": "human",
+      "at": "2026-10-26T20:00:00-07:00",
+      "locked": true,
+      "input": "prototype used it as the goblin enemy (C2 §2)"
+    }
+  }
+}
