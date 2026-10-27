@@ -1,10 +1,11 @@
 """Move Synty downloads into assets-local/packs/<pack-id>/ and extract them."""
 import json, os, shutil, sys, tarfile, zipfile
+from datetime import date
 from pathlib import Path, PurePosixPath
 
 DL = Path.home() / "Downloads"
 LIB = Path.home() / "games/open-game-maker-2000/assets-local/packs"
-TODAY = "2026-10-25"
+TODAY = date.today().isoformat()
 
 # pack-id, title, version, archive (source of truth), format, icon, extra files, requires
 PACKS = [
@@ -14,6 +15,8 @@ PACKS = [
      "INTERFACE_Apocalypse_HUD_Source_Sprites_v3.zip", "source-zip", "INTERFACE_Apocalypse_HUD_ICON.png", [], []),
     ("synty-polygon-generic", "POLYGON - Generic", "v3",
      "POLYGON_Generic_SourceFiles_v3.zip", "source-zip", None, [], []),
+    ("synty-polygon-goblin-war-camp", "POLYGON - Goblin War Camp", "v3",
+     "POLYGON_Goblin_War_Camp_SourceFiles_v3.zip", "source-zip", "POLYGON_Goblin_War_Camp_ICON.png", [], []),
     ("synty-polygon-nature-biomes-alpine-mountain", "POLYGON - Nature Biomes: Alpine Mountain", "v3",
      "POLYGON_NatureBiomes_AlpineMountain_SourceFiles_v3.zip", "source-zip", "POLYGON_NatureBiomes_AlpineMountain_ICON.png", [], []),
     ("synty-polygon-particle-fx", "POLYGON - Particle FX", "1.4.1",
