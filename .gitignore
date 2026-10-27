@@ -7,3 +7,4 @@ prototypes/*/.netlify/
 
 # drive-sync virtualenv
 scripts/drive-sync/.venv/
+__pycache__/
