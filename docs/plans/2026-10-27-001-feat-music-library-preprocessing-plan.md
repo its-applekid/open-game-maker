@@ -31,7 +31,7 @@ It also adds a C2 scope item: audio agents that use the library as inspiration, 
    - the cheap way: folder names plus CLAP text-to-audio scoring;
    - a local audio-language model, Qwen3-Omni.
    - Kevin rates both blind. Qwen3-Omni runs over the whole library only if it clearly wins, otherwise only for captions.
-3. **Kevin decides on AI analysis of Sidetrax audio before any model touches it.** The license is silent on AI and the vendor's site advertises "No AI", so we draft an email for Kevin to send. Stems, MIDI extraction and AI-conditioned generation stay off until the vendor answers.
+3. **Kevin decided (2026-10-27): local AI analysis of Sidetrax audio is OK; no email to the vendor.** It is recorded as an `interpretation` entry. Stems, MIDI extraction and AI-conditioned generation (`derive-audio`) stay off until Kevin grants them.
 
 ---
 
@@ -264,7 +264,7 @@ flowchart LR
 
 ## Implementation Units
 
-- [ ] U7. **Rights decision, vendor email, standards updates** *(first)*
+- [x] U7. **Rights decision, standards updates** *(first; done 2026-10-27)*
 
 **Goal:** Get Kevin's decision on model analysis, draft the vendor email, and write the card and rights changes into C3, C2 and the schema.
 
@@ -278,14 +278,8 @@ flowchart LR
 - Test: `validate.mjs` run over all examples, plus new negative fixtures
 
 **Approach:**
-- **Vendor email** (Kevin sends it; we don't). It asks:
-  1. May we edit, loop, stretch and transpose tracks and ship them in games?
-  2. May we separate stems and extract MIDI or motifs to build new cues, and ship them?
-  3. May the audio be analysed by AI tools, used as conditioning input, or used as training data?
-  4. Is "No AI" a license term?
-  5. Is attribution wanted?
-  6. Is there a limit per title?
-- **Kevin decides:** run model analysis now under an `interpretation` basis, or wait for the answer. Code stages run either way.
+- **Vendor email: dropped** (Kevin, 2026-10-27).
+- **Kevin decided:** model analysis runs now under an `interpretation` basis (local only).
 - **C3 changes:**
   - new code-only fields in `audio.*` (see the decisions);
   - new model fields in `describe.*`;

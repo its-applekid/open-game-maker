@@ -93,7 +93,7 @@ The schema requires more fields as the status rises (§11).
 | Font | `ui/font` | `font` | family, style, weight, `glyph_ranges`, monospace, pixel size, formats |
 | Texture | `texture/material`, `hdri`, `skybox`, `decal`, `palette` | `image`, `texture` | `maps` (albedo, normal…), `tileable` (code seam test), real size, colour space, pattern |
 | VFX | `vfx/particle`, `flipbook`, `trail` | `image`, `vfx` | `blend`, `background`, `tintable`, frames and grid, loop, SDK `emitter_preset` |
-| Audio | `audio/sfx/*`, `ambience`, `music/*`, `voice` | `audio` | duration, rate, channels, `loudness_lufs`, LRA, `peak_dbfs`, `spectral_centroid_hz` (brightness), tempo, `loopable`, optional `ucs_cat_id` |
+| Audio | `audio/sfx/*`, `ambience`, `music/*`, `voice` | `audio` | duration, rate, channels, `loudness_lufs`, LRA, `peak_dbfs`, `spectral_centroid_hz` (brightness), tempo, `loopable`, optional `ucs_cat_id`. **Music (2026-10-27):** `key`, `mode`, `key_strength`, `tempo_alternatives`, `meter`, `energy`, `loop_points`, `cuts[]`, `analysis` (sidecar path). All code-measured; see "Music cards" below |
 | Inspiration map | `inspiration/map` | `image`, `map` | `map_type`, publication, detected grid, levels, `site`, **`layout_spec` {id, status, confidence}** |
 | Collection | (card_type `collection`) | `collection_info` | vendor, version, origin, bundle, requires, `counts`, `family_coverage`, `creation_choice`, `pack_manifest` |
 
@@ -103,6 +103,29 @@ Notes:
 - **Short SFX have no integrated loudness.** EBU R128 gating needs 0.4 s of audio, so ffmpeg reports −70 LUFS for Kenney's 0.15 s `bookOpen.ogg` [M]. The card stores `loudness_lufs: null` and relies on `peak_dbfs` instead.
 - **Synty packs ship a `MaterialList_*.txt`** that names every prefab's meshes, material slots and textures [M]. Intake should parse it (`by: vendor-metadata`). Kenney's `Tilesheet.txt` gives tile size and spacing the same way [M].
 - **Engine-only VFX** (Synty Particle FX are Unity prefabs) get cards for their textures only. Emitters are rebuilt as SDK presets and referenced by `emitter_preset`.
+
+### Music cards (added 2026-10-27, Sidetrax library; plan `docs/plans/2026-10-27-001-feat-music-library-preprocessing-plan.md`)
+
+Music uses the same three depths as inspiration maps:
+
+| Depth | Where | What |
+|---|---|---|
+| 1. Facets | the card | code facts in `audio.*`; model judgments in `describe.*` |
+| 2. Detail | the analysis sidecar (`audio.analysis`) | beat and downbeat times, loudness and energy curves at 1 Hz, sections with start, end and energy, the model's raw output |
+| 3. Listening | the file | what neither captures: timbre, performance, how it feels in the scene |
+
+Rules:
+- **Writers stay split by block.**
+  - `audio.*` is code only. The validator refuses a model provenance entry on any `audio.*` field except `ucs_cat_id`.
+  - Model judgments go in `describe.*`:
+    - `description` is the caption;
+    - existing field `moods`;
+    - new fields `genre`, `instruments`, `has_vocals`, `era`, `game_fit`.
+- **`describe.game_fit`** scores the track 0–1 against fixed situations: combat, boss, chase, stealth, exploration, puzzle, menu, town, dungeon, victory, defeat, sad-scene, ambient-bed.
+- **Key→mood is only a weak prior.** Major/minor carries some valence in Western listeners, but the effect is confounded with tempo and loudness and varies by culture (meta-analysis, bioRxiv 10.1101/2023.03.16.532764). No rule writes a mood from the mode. A model may see the key; its provenance `input` records whether it did.
+- **Cuts of one piece share a card.** The longest file is `role: primary`. The others are `role: companion` in `source.files`, and are described in `audio.cuts[]` with a role: full, cut-60, cut-30, cut-15, loop, stinger, alt-mix. The name `variants` stays reserved for device tiers (§7).
+- **Moods are flagged `mood-unverified`** until a human sample review passes its threshold. A card whose describe step failed gets `describe-failed` and stays at `status: measured`.
+- **Analysis weights must allow commercial use.** Excluded by default (non-commercial weights): Essentia's TensorFlow genre/mood/instrument models, MuQ/MuQ-MuLan, MERT, Skey, madmom's models, Music Flamingo, MusicGen, YuE2. Essentia's AGPL DSP code is allowed as a local tool, never linked into game code.
 
 ## 4. Vocabularies
 
@@ -121,6 +144,10 @@ All of these are enums under `$defs/vocab` in the schema, and the `vocab` date v
 | `style_family` | chunky-low-poly, detailed-low-poly, simple-low-poly, pixel-art, flat-cartoon, isometric-2d, sketch, **photoreal**, **any** | C2 §2's seven, plus photoreal (ambientCG and Poly Haven materials; not a creation choice) and any (style-neutral audio, fonts, masks) |
 | `pov_fit` | iso, topdown, side, follow, fps, orbit, fixed | C2 §4 SDK rig ids |
 | `sprite.drawn_view` | topdown, side, iso, front, three-quarter, none | the view the 2D art was drawn for |
+| `genre` (music, max 3) | orchestral, cinematic, classical, piano, rock, metal, pop, electronic, ambient, acoustic, folk, country, blues, jazz, funk, hip-hop, world, latin, chiptune, experimental | Sidetrax pack themes, 2026-10-27 |
+| `instruments` (music, max 10) | piano, keys, organ, strings, solo-violin, cello, brass, trumpet, horns, woodwinds, flute, sax, choir, lead-vocals, acoustic-guitar, electric-guitar, bass, synth-bass, drums, drum-machine, percussion, taiko, orchestral-percussion, synth-lead, synth-pad, arpeggiator, harp, bells, mallets, accordion, fiddle, banjo, ukulele, sound-design | 2026-10-27 |
+| `era` (music) | timeless, ancient, medieval, renaissance, baroque, 19th-century, 1920s-40s, 1950s … 2000s, contemporary, futuristic | 2026-10-27 |
+| `game_fit` keys | combat, boss, chase, stealth, exploration, puzzle, menu, town, dungeon, victory, defeat, sad-scene, ambient-bed | 2026-10-27 |
 | Type-local enums | kit pieces, edges, clip names, texture maps, glyph ranges, map types, relations, flags | schema |
 
 **Objects (open vocabulary).** What an asset depicts has no fixed list: barrel, sarcophagus, knight, spear. The rules:
@@ -182,6 +209,20 @@ Examples:
 | Synty POLYGON | LicenseRef-synty-personal: all five, private, in-build | none | all five, private, in-build |
 | ProFantasy Cartographer's Annual | LicenseRef-profantasy-eula: derive-layout, style-reference, vision-input, private, none [I: to confirm from the bundle's terms] | Kevin 2026-10-26: derive-layout, vision-input | derive-layout + vision-input, private, none |
 | Drive drop, no license | (none confirmed) → default | none | vision-input, private, none; quarantined |
+| Sidetrax (Humble Complete Works), draft | LicenseRef-sidetrax-royalty-free: in-game, private, in-build (unconfirmed until sign-off) → default applies; plus Kevin's interpretation: vision-input | none | vision-input, private, none. After Kevin confirms the license: in-game + vision-input, private, in-build |
+
+**Interpretations (added 2026-10-27).** Some licenses are silent on a use: Sidetrax's says nothing on editing, derivatives or AI. An `interpretation` basis entry records the admin's reading of that silence. It is separate from the license entry, so audits can tell what was granted from what was inferred.
+- It is set by an admin and needs a `note` giving the reason.
+- It adds uses to the ceiling only. Its audience and redistribution are ignored.
+- It can never add a use listed in a license entry's `forbids`, whether or not that entry is confirmed.
+- It is replaced when the licensor answers.
+- Decisions still narrow afterwards.
+
+**New uses (2026-10-27):**
+- `vision-input` now covers any model analysis, vision or audio. A rename to `model-input` is proposed (§18), not done.
+- `edit-audio`: cut, loop, fade, stretch or transpose whole tracks for a game.
+- `derive-audio`: stems, motifs, MIDI, re-arranging, or AI conditioning on the audio.
+- Neither audio use is granted for Sidetrax yet.
 
 ## 6. Who writes what, confidence and provenance
 
@@ -2529,6 +2570,8 @@ For `gm-asset-intake` after a settled Drive drop or a `gm packs import`:
 5. **Embedding model for semantic search:** a small local model (no spend, runs on the maker PC or Railway CPU), or a hosted embedding API?
 6. **Calibration reviewer:** you, or should an agent do a second-opinion pass and only escalate disagreements to you?
 7. **New vocab additions:** OK for curation agents to accept proposed tags on their own (logged), or should each new enum value wait for your OK?
+9. **Rename `vision-input` to `model-input`?** Audio analysis (Sidetrax, 2026-10-27) is the same kind of use as vision tagging. The rename is a breaking change: the schema enum and quarantine rule, every card, and §5, §13 and §18 would all change, with a schema minor bump. Until you decide, `vision-input` covers both.
+10. ~~AI analysis of Sidetrax audio~~ **Answered (Kevin, 2026-10-27):** yes, by local models only (nothing uploaded, nothing generated). No vendor email. Recorded as an `interpretation` entry on each Sidetrax collection card. `edit-audio` and `derive-audio` are not granted.
 8. ~~ProFantasy `.FCW` maps~~ **Answered (Kevin, 2026-10-26):** a one-time export. Claude installs CC3+ and its add-ons under Wine on Kevin's machine, batch-exports the example maps to PNG, then deletes the installers and duplicates. Agents and the product never run CC3+.
 
 ## For ticketing

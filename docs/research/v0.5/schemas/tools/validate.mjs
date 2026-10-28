@@ -35,6 +35,14 @@ function effective(basis) {
   const ceiling = lic.length ? lic[0] : basis.find((b) => b.type === "default");
   if (!ceiling) throw new Error("no confirmed license and no default entry");
   let e = { uses: new Set(ceiling.uses), audience: ceiling.audience, redistribution: ceiling.redistribution };
+  // An interpretation (admin reading of silent terms) adds uses only, never one the license forbids.
+  // A license's prohibitions apply whether or not the entry is confirmed yet.
+  const forbids = new Set(basis.filter((b) => b.type === "license").flatMap((l) => l.forbids || []));
+  for (const i of basis.filter((b) => b.type === "interpretation")) {
+    const banned = i.uses.filter((u) => forbids.has(u));
+    if (banned.length) throw new Error(`interpretation adds forbidden use(s) ${banned}`);
+    i.uses.forEach((u) => e.uses.add(u));
+  }
   for (const d of basis.filter((b) => b.type === "decision")) {
     e.uses = new Set([...e.uses].filter((u) => d.uses.includes(u)));
     e.audience = minOf("audience", e.audience, d.audience);
@@ -54,7 +62,8 @@ const check = (name, f, cond, msg) => {
 for (const [f, d] of Object.entries(docs)) {
   if (d.schema?.startsWith("ogm.asset-card")) {
     if (d.rights) {
-      const e = effective(d.rights.basis);
+      let e;
+      try { e = effective(d.rights.basis); } catch (err) { check("rights=basis", f, false, err.message); continue; }
       const same = e.audience === d.rights.audience && e.redistribution === d.rights.redistribution &&
         e.uses.size === d.rights.uses.length && d.rights.uses.every((u) => e.uses.has(u));
       check("rights=basis", f, same, `effective ${JSON.stringify({ ...e, uses: [...e.uses] })}`);

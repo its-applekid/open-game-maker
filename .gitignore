@@ -8,3 +8,4 @@ prototypes/*/.netlify/
 # drive-sync virtualenv
 scripts/drive-sync/.venv/
 __pycache__/
+docs/research/v0.5/schemas/tools/node_modules/

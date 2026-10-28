@@ -138,8 +138,8 @@
         "inspiration": { "enum": ["map"] }
       },
       "use": {
-        "enum": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
-        "description": "Allowed uses (C2 §10 Usage rights)."
+        "enum": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input", "edit-audio", "derive-audio"],
+        "description": "Allowed uses (C2 §10 Usage rights). vision-input covers any model analysis of the file, vision or audio. edit-audio: cut, loop, fade, stretch or transpose whole tracks for a game. derive-audio: stems, motifs, MIDI, re-arranging, or AI conditioning on the audio."
       },
       "audience": { "enum": ["private", "public"] },
       "redistribution": { "enum": ["none", "in-build", "free"] },
@@ -166,8 +166,17 @@
       "material": { "enum": ["wood", "stone", "metal", "cloth", "leather", "glass", "bone", "crystal", "plant", "earth", "water", "ice", "fire", "flesh", "plastic", "paper", "fur"] },
       "condition": { "enum": ["new", "worn", "damaged", "broken", "ruined", "overgrown"] },
       "flag": {
-        "enum": ["low-confidence", "conflicts-with-measured", "needs-review", "license-unknown", "image-only", "near-duplicate", "oversized-for-mobile", "missing-preview"]
+        "enum": ["low-confidence", "conflicts-with-measured", "needs-review", "license-unknown", "image-only", "near-duplicate", "oversized-for-mobile", "missing-preview", "mood-unverified", "describe-failed"]
       },
+      "genre": { "enum": ["orchestral", "cinematic", "classical", "piano", "rock", "metal", "pop", "electronic", "ambient", "acoustic", "folk", "country", "blues", "jazz", "funk", "hip-hop", "world", "latin", "chiptune", "experimental"] },
+      "instrument": { "enum": ["piano", "keys", "organ", "strings", "solo-violin", "cello", "brass", "trumpet", "horns", "woodwinds", "flute", "sax", "choir", "lead-vocals", "acoustic-guitar", "electric-guitar", "bass", "synth-bass", "drums", "drum-machine", "percussion", "taiko", "orchestral-percussion", "synth-lead", "synth-pad", "arpeggiator", "harp", "bells", "mallets", "accordion", "fiddle", "banjo", "ukulele", "sound-design"] },
+      "era": { "enum": ["timeless", "ancient", "medieval", "renaissance", "baroque", "19th-century", "1920s-40s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "contemporary", "futuristic"] },
+      "gameFit": {
+        "enum": ["combat", "boss", "chase", "stealth", "exploration", "puzzle", "menu", "town", "dungeon", "victory", "defeat", "sad-scene", "ambient-bed"],
+        "description": "Game situations a music track is scored against in describe.game_fit."
+      },
+      "pitchClass": { "enum": ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"] },
+      "cutRole": { "enum": ["full", "cut-60", "cut-30", "cut-15", "loop", "stinger", "alt-mix"] },
       "provenanceBy": {
         "enum": ["code", "model", "human", "filename", "vendor-metadata", "collection", "license", "default"],
         "description": "code: measured from the file. model: vision/LLM tagger. human: curation edit (always locked). filename: parsed from names/folders. vendor-metadata: e.g. Synty MaterialList, Kenney Tilesheet.txt. collection: inherited. license: from license text. default: strict default."
@@ -229,10 +238,11 @@
     },
     "rightsBasis": {
       "type": "object",
-      "description": "One source of a rule. Effective rights = the confirmed `license` entry (or the `default` entry when no license is confirmed) intersected with every `decision` entry. A decision can only remove uses, keep audience at or below, and keep redistribution at or below; it can never widen.",
+      "description": "One source of a rule. Ceiling = the confirmed `license` entry (or the `default` entry when no license is confirmed), plus the uses of any admin `interpretation` entries. Effective rights = the ceiling intersected with every `decision` entry. A decision can only remove uses, keep audience at or below, and keep redistribution at or below; it can never widen. An interpretation records the admin's reading of terms the license does not address: it may add uses only (its audience and redistribution are ignored), never a use the license `forbids`, and it is replaced when the licensor answers.",
       "required": ["type", "uses", "audience", "redistribution", "set_by", "date"],
       "properties": {
-        "type": { "enum": ["license", "decision", "default"] },
+        "type": { "enum": ["license", "decision", "default", "interpretation"] },
+        "forbids": { "type": "array", "items": { "$ref": "#/$defs/vocab/use" }, "uniqueItems": true, "description": "license entries: uses the license text explicitly forbids. No interpretation may add them." },
         "license": { "$ref": "#/$defs/spdxExpression" },
         "ref": { "type": "string", "maxLength": 200, "description": "Where the rule came from: a license file path inside the collection, a license URL, or a decision note. Never a download link, key or serial." },
         "uses": { "type": "array", "items": { "$ref": "#/$defs/vocab/use" }, "uniqueItems": true },
@@ -254,7 +264,8 @@
       },
       "allOf": [
         { "if": { "properties": { "type": { "const": "license" } } }, "then": { "required": ["license", "ref"] } },
-        { "if": { "properties": { "type": { "const": "decision" } } }, "then": { "properties": { "set_by": { "properties": { "role": { "const": "admin" } } } } } }
+        { "if": { "properties": { "type": { "const": "decision" } } }, "then": { "properties": { "set_by": { "properties": { "role": { "const": "admin" } } } } } },
+        { "if": { "properties": { "type": { "const": "interpretation" } } }, "then": { "required": ["note"], "properties": { "set_by": { "properties": { "role": { "const": "admin" } } } } } }
       ],
       "additionalProperties": false
     },
@@ -332,7 +343,17 @@
         "condition": { "$ref": "#/$defs/vocab/condition" },
         "style_family": { "$ref": "#/$defs/vocab/styleFamily" },
         "pov_fit": { "type": "array", "items": { "$ref": "#/$defs/vocab/pov" }, "uniqueItems": true },
-        "keywords": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "maxItems": 12, "uniqueItems": true, "description": "Free search words that fit no other field (e.g. colour names, vendor naming). Not faceted." }
+        "keywords": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "maxItems": 12, "uniqueItems": true, "description": "Free search words that fit no other field (e.g. colour names, vendor naming). Not faceted." },
+        "genre": { "type": "array", "items": { "$ref": "#/$defs/vocab/genre" }, "uniqueItems": true, "maxItems": 3 },
+        "instruments": { "type": "array", "items": { "$ref": "#/$defs/vocab/instrument" }, "uniqueItems": true, "maxItems": 10 },
+        "has_vocals": { "type": "boolean" },
+        "era": { "$ref": "#/$defs/vocab/era" },
+        "game_fit": {
+          "type": "object",
+          "description": "Music: how well the track suits each game situation, 0-1.",
+          "propertyNames": { "$ref": "#/$defs/vocab/gameFit" },
+          "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
+        }
       },
       "additionalProperties": false
     },
@@ -487,7 +508,7 @@
     },
     "audio": {
       "type": "object",
-      "description": "Measured by code with ffmpeg (ebur128, aspectralstats) and a tempo/loop detector.",
+      "description": "Measured by code only: ffmpeg (ebur128, aspectralstats), key/rhythm/loudness detectors, beat tracking and a loop detector. Model judgments about music live in describe.*.",
       "required": ["duration_s", "sample_rate", "channels", "peak_dbfs"],
       "properties": {
         "duration_s": { "type": "number", "minimum": 0 },
@@ -499,6 +520,36 @@
         "spectral_centroid_hz": { "type": "number", "minimum": 0, "description": "Mean spectral centroid: the 'brightness' measure." },
         "tempo_bpm": { "type": ["number", "null"] },
         "loopable": { "type": ["boolean", "null"], "description": "Code test: seam click and level match between end and start. null = not tested." },
+        "key": { "$ref": "#/$defs/vocab/pitchClass" },
+        "mode": { "enum": ["major", "minor"] },
+        "key_strength": { "type": "number", "minimum": 0, "maximum": 1, "description": "Key detector confidence; below about 0.5 treat the key as unreliable." },
+        "tempo_alternatives": { "type": "array", "items": { "type": "number", "exclusiveMinimum": 0 }, "maxItems": 3, "description": "Half/double readings of tempo_bpm, kept because beat trackers often pick the wrong octave." },
+        "meter": { "type": ["integer", "null"], "minimum": 1, "maximum": 16, "description": "Beats per bar from downbeat tracking (3 = waltz time, 4 = common time)." },
+        "energy": { "type": "number", "minimum": 0, "maximum": 1, "description": "Overall energy from loudness and onset density, normalised across the library." },
+        "loop_points": {
+          "type": "object",
+          "required": ["start_s", "end_s"],
+          "properties": { "start_s": { "type": "number", "minimum": 0 }, "end_s": { "type": "number", "minimum": 0 }, "score": { "type": "number", "minimum": 0, "maximum": 1 } },
+          "additionalProperties": false
+        },
+        "cuts": {
+          "type": "array",
+          "description": "Other files that are cuts of the same piece (a 30 s edit, a loop, a stinger). Also listed in source.files with role companion. Not `variants`, which means device tiers.",
+          "items": {
+            "type": "object",
+            "required": ["path", "role", "duration_s"],
+            "properties": {
+              "path": { "type": "string" },
+              "role": { "$ref": "#/$defs/vocab/cutRole" },
+              "duration_s": { "type": "number", "minimum": 0 },
+              "loudness_lufs": { "type": ["number", "null"] },
+              "peak_dbfs": { "type": "number" },
+              "offset_s": { "type": ["number", "null"], "description": "Where the cut starts inside the primary file, when found by fingerprint." }
+            },
+            "additionalProperties": false
+          }
+        },
+        "analysis": { "type": "string", "description": "Path of the analysis sidecar (beats, downbeats, loudness and energy curves, sections, raw model output), relative to the collection folder." },
         "ucs_cat_id": { "type": "string", "pattern": "^[A-Z]{3,5}[A-Z][a-z]+$", "description": "Optional Universal Category System CatID (e.g. DOORWood), model-proposed, for SFX." }
       },
       "additionalProperties": false
@@ -594,7 +645,7 @@
       "type": "object",
       "required": ["field", "tag"],
       "properties": {
-        "field": { "enum": ["environments", "settings", "roles", "moods", "materials", "condition", "style_family", "pov_fit", "subkind", "kitPiece", "mapType"] },
+        "field": { "enum": ["environments", "settings", "roles", "moods", "materials", "condition", "style_family", "pov_fit", "subkind", "kitPiece", "mapType", "genre", "instruments", "era", "game_fit"] },
         "tag": { "$ref": "#/$defs/tag" },
         "nearest": { "type": "string", "description": "Closest existing tag the tagger used instead, if any." },
         "reason": { "type": "string", "maxLength": 200 }

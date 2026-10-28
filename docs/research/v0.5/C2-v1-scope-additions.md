@@ -18,6 +18,7 @@ Evidence tags: [M] measured in this repo, [V] verified in source, [I] inferred, 
 | 8 | **Branching (code and editor state)** | A branch covers both a Git branch and a branch of the editor state the creator changed. For example: branch the dungeon, make totally different monsters in the branch, pick a branch when choosing a game and play either version, then merge back with a two-way voice conversation to settle state conflicts | **Recommended.** A branch = a Git branch for code + a fork point in the editor's transaction log for design state, built and played independently. Merge = Git merge (agent resolves code) + a three-way merge of design state by stable entity and control id, with only real conflicts walked through by the voice agent alongside side-by-side previews. Make the data model branch-aware in V1 even if the UI starts small: retrofitting it later is the expensive part |
 | 9 | **Map inspiration library** | Upload a bunch of D&D-style tabletop level designs as design inspiration, including for non-D&D levels: a chamber or dungeon becomes the starting point for a 3D level. Add a skill for using them | Maps arrive through the Drive intake as an **inspiration** collection that is never shipped in games. At ingest, each map is turned into a **layout spec**: grid, rooms, connections, doors, stairs, features and tags. The `gm-map-inspiration` skill finds layouts that match a request, adapts them (scale, mirror, remix rooms), translates them into the game's tile system, style family and point of view, and runs a reachability check. Games get derived layouts, never the map images |
 | 10 | **Rich asset tagging** | A robust tagging system so agents don't have to load each asset to find out what it looks like: metadata about environments, uses, objects, descriptions and so on. New assets get tagged as they're organized | Every asset gets a **metadata card** at intake. **Code measures** facts (size and footprint, triangles, animations, rig, attach points, audio length, loudness and brightness). **A vision model reads rendered contact sheets** for descriptions, objects, environments, uses and mood. Cards are cached by content hash and versioned. Agents search the cards (facets, full text and semantic search) and look at contact sheets. They never open the models |
+| 11 | **Audio agents** | Give audio agents tools to use the Sidetrax music library as inspiration and compose their own, or better, pull elements from tracks and augment them (2026-10-27) | Three levels, each behind a C3 rights gate: compose MIDI from the text analysis (allowed now); adapt whole tracks: loops, stingers, tempo (`edit-audio`); stems, MIDI extraction and re-arranging (`derive-audio`, off until Kevin grants it). See §11 |
 
 ## 1. Build analytics for admins
 
@@ -530,6 +531,37 @@ No spending needed.
 **Costs:**
 - Vision calls are a one-time cost per asset, batched.
 - For the current library (277 packs, many thousands of items) the full tagging run should be estimated with a sample first, then approved, since **no spend is approved yet**.
+
+## 11. Audio agents: compose from inspiration, adapt, augment (added 2026-10-27)
+
+**Kevin's direction (2026-10-27):** "Give audio agents the tools to use these as inspiration and compose their own, or even better, pull elements from these and augment them."
+
+"These" is the Sidetrax Complete Works bundle (Humble, 2026-10-27): 128 products of human-made royalty-free music. The pre-processing that makes it searchable is in the plan `docs/plans/2026-10-27-001-feat-music-library-preprocessing-plan.md`, and the card fields are in C3 §3 "Music cards".
+
+**Recommendation:**
+- Build three levels of agent tools, each behind its own rights gate in C3.
+- Start with level 1, which needs nothing new from the licensor.
+- Level 2 needs Kevin to grant `edit-audio`. Level 3 needs `derive-audio`, which the license doesn't address. Kevin chose not to ask Sidetrax (2026-10-27), so level 3 stays off until he decides otherwise.
+
+| Level | What agents do | Tools (local; code and weights licensed for commercial use) | Rights gate |
+|---|---|---|---|
+| 1. Inspiration | Read a track's card and sidecar as text (tempo, key, meter, sections, instruments, energy curve, `game_fit`) and compose new music in that spirit, never taking Sidetrax audio as input | MIDI written with music21 or pretty_midi; rendered with FluidSynth or sfizz using GeneralUser GS (free for commercial use) or VSCO-2 CE (CC0) | none beyond `vision-input`, which produces the analysis |
+| 2. Whole-track adaptation | Cut a loop or stinger at downbeats, crossfade, stretch tempo up to about ±10%, transpose up to ±2 semitones, sequence cues with intensity changes | numpy/soundfile slicing on the beat grid; Rubber Band CLI offline; Signalsmith Stretch (MIT, WASM) in the browser; a small Web Audio cue player | `edit-audio` |
+| 3. Elements and augmentation | Split stems, transcribe melodies and drums to MIDI, reuse motifs, re-arrange, layer new parts, generate guided by a reference | Demucs v4 (MIT) on demand and cached; basic-pitch (Apache-2.0); later an ACE-Step (MIT) spike | `derive-audio` |
+
+**Runtime target.** The game runtime is browser three.js with plain ES modules, so adaptive music is plain Web Audio:
+- **Vertical layering:** stems start together and their gains follow intensity.
+- **Horizontal resequencing:** segments are queued on bar boundaries with lookahead.
+- **Stingers** snap to the next beat.
+- **Gapless loops** use `loopStart`/`loopEnd` on decoded buffers.
+- **Each cue** is a JSON file: bpm, meter, loop points in samples, layers, transitions.
+
+**Rules:**
+- **Off by default:** no Sidetrax audio as input to any generative model, and no shipping of extracted stems or MIDI, until `derive-audio` is granted.
+- **Disclosure:** if AI-altered Sidetrax audio ever ships, don't market it as human-made, and follow store rules on AI disclosure.
+- **Excluded for non-commercial weights:** MusicGen, MusicGen-Stem, YuE2 and madmom's models.
+- **Cost:** Stable Audio Open and ACE-Step stay deferred. Running them well needs a GPU, which costs money and needs Kevin's approval.
+- **One user:** the Sidetrax license allows one user and isn't transferable. Flag this again before other users, or agents acting for them, get access to the library.
 
 ## For ticketing
 
