@@ -133,7 +133,12 @@ def seam_ok(mono, ms=50):
 def loop_points_of(path):
     from pymusiclooper.core import MusicLooper
     ml = MusicLooper(str(path))
-    pairs = ml.find_loop_pairs()
+    try:
+        pairs = ml.find_loop_pairs()
+    except Exception as e:  # pymusiclooper raises LoopNotFoundError when no pair passes its threshold: no loop, not a failure
+        if type(e).__name__ != "LoopNotFoundError":
+            raise
+        return None
     if not pairs:
         return None
     p = pairs[0]
