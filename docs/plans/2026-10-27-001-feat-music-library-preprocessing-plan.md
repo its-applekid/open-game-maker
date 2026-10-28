@@ -33,6 +33,16 @@ It also adds a C2 scope item: audio agents that use the library as inspiration, 
    - Kevin rates both blind. Qwen3-Omni runs over the whole library only if it clearly wins, otherwise only for captions.
 3. **Kevin decided (2026-10-27): local AI analysis of Sidetrax audio is OK; no email to the vendor.** It is recorded as an `interpretation` entry. Stems, MIDI extraction and AI-conditioned generation (`derive-audio`) stay off until Kevin grants them.
 
+### Decisions after the spike (2026-10-27/28; these supersede the model names below)
+
+- **CLAP checkpoint:** `laion/clap-htsat-unfused` (Apache-2.0), not `larger_clap_music`. Under transformers 4.57 and 5.x, `larger_clap_music` gives near-uniform scores (logit scale 1.03, cosines near zero) whatever the weights format.
+- **Audio-language model:** MiDashengLM-7B-1021 (Apache-2.0, GGUF via a llama.cpp fork) replaced Qwen3-Omni for the comparison. It stops itself at about 60 tokens, so long prompts fail; short single questions work. In Kevin's blind check on three tracks and one sound effect, CLAP won all four (MiDashengLM called a door opening an "alarm" and a "shaver"). **CLAP is the tagger for the whole library; MiDashengLM stays off** unless Kevin asks for it again.
+- **Ranking:** CLAP's raw softmax favours some labels on every track ("sunrise", "outer space", "end credits" in the first test), so tags are chosen by lift against the library average (C3 "Music cards").
+- **beat_this:** its weights host returned HTTP 500 throughout. `measure.py` falls back to Essentia beats, records the fallback in the sidecar, and leaves `meter` null. Mirror the weights locally when the host is back, then re-run the beats stage.
+- **Vendor tags:** Sidetrax WAVs carry the composer's project tempo; it settles half/double tempo ties (`audio.vendor`).
+- **Scripts:** `scripts/audio/analyze.py` (code facts, vendor tags, CLAP embeddings, waveform previews, one sidecar per file) and `scripts/audio/build_audio_cards.py` (labels from `labels.py`, lift ranking, cards, validation) replace the planned `judge.py`.
+- **Sidecar depth (Kevin, 2026-10-27):** keep it lean: beats, sections with energy, the 1 Hz loudness curve, loop points, the embeddings. No chords or per-instrument timelines.
+
 ---
 
 ## Problem Frame

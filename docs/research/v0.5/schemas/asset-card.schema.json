@@ -550,6 +550,19 @@
           }
         },
         "analysis": { "type": "string", "description": "Path of the analysis sidecar (beats, downbeats, loudness and energy curves, sections, raw model output), relative to the collection folder." },
+        "vendor": {
+          "type": "object",
+          "description": "Tags the vendor embedded in the file (ID3, RIFF INFO, DAW labels), copied by code. tempo_bpm is the composer's project tempo; it settles half/double ties in the measured tempo_bpm.",
+          "properties": {
+            "title": { "type": "string", "maxLength": 120 },
+            "album": { "type": "string", "maxLength": 120 },
+            "catalog_no": { "type": "integer", "minimum": 0 },
+            "composer": { "type": "string", "maxLength": 120 },
+            "year": { "type": "integer", "minimum": 1900, "maximum": 2100 },
+            "tempo_bpm": { "type": "number", "exclusiveMinimum": 0 }
+          },
+          "additionalProperties": false
+        },
         "ucs_cat_id": { "type": "string", "pattern": "^[A-Z]{3,5}[A-Z][a-z]+$", "description": "Optional Universal Category System CatID (e.g. DOORWood), model-proposed, for SFX." }
       },
       "additionalProperties": false

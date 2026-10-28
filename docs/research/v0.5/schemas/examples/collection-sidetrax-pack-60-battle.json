@@ -1,7 +1,7 @@
 {
   "schema": "ogm.asset-card/1.0",
   "vocab": "2026-10-27",
-  "id": "t1:sidetrax-pack-60-battle@2024-10",
+  "id": "t1:sidetrax-pack-60-battle@v1",
   "card_type": "collection",
   "status": "draft",
   "title": "Pack 60: Battle (Sidetrax)",
@@ -65,7 +65,7 @@
   },
   "collection_info": {
     "vendor": "sidetrax",
-    "version": "2024-10",
+    "version": "v1",
     "origin": "bundle",
     "bundle": "humble-sidetrax-complete-works",
     "counts": {
