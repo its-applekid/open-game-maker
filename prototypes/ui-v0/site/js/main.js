@@ -3,9 +3,12 @@ import { buildHome, startHome, makeGrain } from './home.js';
 
 const $ = s => document.querySelector(s);
 const params = new URLSearchParams(location.search);
+// ?shell: embedded in the studio prototype (prototypes/studio-v0). Start hands off to the parent page instead of opening the
+// editor; ?title= names the game, ?play starts in play mode, and the parent can post {ogm: 'play' | 'edit'}.
+const shell = params.has('shell');
 makeGrain();
 
-const dungeon = import('./dungeon.js'); // three.js + models load while the home screen plays
+const dungeon = shell && !params.has('editor') ? null : import('./dungeon.js'); // three.js + models load while the home screen plays
 let inHome = !params.has('editor');
 let homeMusic = false;
 
@@ -47,6 +50,7 @@ $('#start').addEventListener('click', async () => {
   audio.music(null, { fade: 1.6 });
   $('#wipe').classList.add('armed');
   setTimeout(() => $('#wipe').classList.add('cover'), 420);
+  if (shell) { setTimeout(() => parent.postMessage({ ogm: 'start' }, '*'), 1000); return; }
   setTimeout(() => enterEditor(false), 1150);
 });
 
@@ -60,4 +64,10 @@ async function enterEditor(instant) {
   if (!instant) { wipe.classList.add('away'); setTimeout(() => wipe.remove(), 900); } else wipe.remove();
   requestAnimationFrame(() => requestAnimationFrame(() => ed.classList.remove('pre')));
   audio.ambience(true);
+  if (params.get('title')) $('#title').value = params.get('title');
+  if (params.has('play')) $('#play').click();
 }
+addEventListener('message', e => {
+  if (e.data?.ogm === 'play' && $('#modeBadge').textContent !== 'Playing') $('#play').click();
+  if (e.data?.ogm === 'edit') $('#stop').click();
+});
