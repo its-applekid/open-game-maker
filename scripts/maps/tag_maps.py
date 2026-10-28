@@ -27,6 +27,7 @@ COLL_ID = f"t1:profantasy-cc3@{VERSION}"
 VOCAB = "2026-10-27"
 TOOL = "tag_maps@0.1"
 NOW = datetime.now().astimezone().isoformat(timespec="seconds")
+HASH_MANIFEST = "private/hash-manifests/profantasy-cc3-v1.txt"  # written by hash_manifest.py
 NOT_MAPS = re.compile(r"(^|/)(Parts|Symbols)/")  # grid templates, altitude keys and symbol catalogues: hash-listed, not carded
 
 MAP_TYPES = {"dungeon": "a top-down dungeon map with rooms and corridors", "cave": "a map of natural caves and caverns",
@@ -355,7 +356,8 @@ def write_collection(n, type_counts):
                          "environments": ["dungeon", "castle", "temple", "city", "town"], "settings": ["fantasy", "medieval", "sci-fi"],
                          "roles": ["layout-reference"]},
             "collection_info": {"vendor": "profantasy", "version": VERSION, "origin": "vendor-pack", "counts": {"inspiration/map": n},
-                                "creation_choice": False, "files_total": files_total},
+                                "creation_choice": False, "files_total": files_total,
+                                **({"hash_manifest": HASH_MANIFEST} if (REPO / "assets-local" / HASH_MANIFEST).exists() else {})},
             "provenance": {"*": {"by": "code", "tool": TOOL, "at": NOW},
                            "rights": {"by": "license", "tool": TOOL, "at": NOW, "input": "proposed licence + strict default + Kevin's decision"},
                            "describe": {"by": "code", "tool": TOOL, "at": NOW, "input": "folder list"}}}
