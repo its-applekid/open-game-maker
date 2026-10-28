@@ -338,7 +338,7 @@ Examples:
 **Code enforces** (prototyped in the validator, §15):
 1. Stored `rights` equal the effective rights computed from `basis` (§5).
 2. No provenance entry for `rights*` has `by: model`.
-3. Model provenance appears only on `describe.*` and the allowlist: `kit.open_edges`, `kit.connects_to`, `vfx.blend`, `audio.ucs_cat_id`, plus the subkind correction.
+3. Model provenance appears only on `describe.*` and the allowlist: `kit.open_edges`, `kit.connects_to`, `vfx.blend`, `audio.ucs_cat_id`, `map.map_type` (an image model may judge it when titles and folders do not say; added 2026-10-28), plus the subkind correction.
 4. Inspiration cards never resolve to `in-game` or `placeholder`.
 5. A layout spec's source card resolves to rights including `derive-layout`, and links back to the spec.
 6. The spec's `tags.computed` match the graph: room and connection counts, loops = edges − nodes + components (with `outside` as a node), dead ends, secrets, polygon areas.

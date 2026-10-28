@@ -71,7 +71,7 @@ for (const [f, d] of Object.entries(docs)) {
     const bad = Object.entries(d.provenance).filter(([k, p]) => k.startsWith("rights") && p.by === "model");
     check("no-model-rights", f, bad.length === 0, "model provenance on rights");
     const modelOutsideDescribe = Object.entries(d.provenance).filter(([k, p]) =>
-      p.by === "model" && !(k.startsWith("describe") || /^(kit\.(open_edges|connects_to)|vfx\.blend|audio\.ucs_cat_id|subkind)$/.test(k)));
+      p.by === "model" && !(k.startsWith("describe") || /^(kit\.(open_edges|connects_to)|vfx\.blend|audio\.ucs_cat_id|map\.map_type|subkind)$/.test(k)));
     check("model-writes-allowlist", f, modelOutsideDescribe.length === 0, JSON.stringify(modelOutsideDescribe.map((x) => x[0])));
     if (d.card_type === "asset") {
       const r = resolvedRights(d);
