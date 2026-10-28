@@ -66,11 +66,36 @@ def beats_of(path):
     beats, downbeats = _F2B(str(path))
     beats, downbeats = np.asarray(beats, float), np.asarray(downbeats, float)
     meter = None
-    if len(downbeats) >= 3:
-        counts = [int(((beats >= a - 1e-3) & (beats < b - 1e-3)).sum()) for a, b in zip(downbeats[:-1], downbeats[1:])]
-        counts = [c for c in counts if 2 <= c <= 12]
-        meter = int(np.median(counts)) if counts else None
+    if len(downbeats) >= 3 and len(beats):
+        # snap downbeats to beat indices; beat_this sometimes flags the beat after a downbeat too (bars of 1), so skip those
+        idx = sorted({int(np.abs(beats - d).argmin()) for d in downbeats})
+        kept = idx[:1]
+        for i in idx[1:]:
+            if i - kept[-1] >= 2:
+                kept.append(i)
+        counts = [c for c in np.diff(kept).tolist() if 2 <= c <= 12]
+        # trust the downbeats only when most bars agree (on some 3/4 input beat_this flags nearly every beat)
+        ones = float(np.mean(np.diff(idx) == 1)) if len(idx) > 1 else 0.0  # extra after each downbeat gives 0.5
+        if counts and ones <= 0.55 and counts.count(int(np.median(counts))) >= 0.6 * len(counts):
+            meter = int(np.median(counts))
     return beats, downbeats, meter
+
+
+def accent_meter(mono, beats):
+    """3 or 4 from where the accents fall: the bar length whose best phase stands out most from the other beats.
+    None when the beats are too few or neither length clearly wins (no guessing)."""
+    w = int(0.07 * SR)
+    idx = (np.asarray(beats) * SR).astype(int)
+    idx = idx[(idx >= w) & (idx + w <= len(mono))]
+    if len(idx) < 12:
+        return None
+    e = np.array([np.sqrt(np.mean(mono[i:i + w] ** 2)) - np.sqrt(np.mean(mono[i - w:i] ** 2)) for i in idx])
+    sd = float(np.std(e))
+    if sd <= 0.05 * float(np.mean(np.abs(e))):  # beats all about equally loud: no accent pattern to read
+        return None
+    score = {m: max(float(np.mean(e[p::m]) - np.mean(np.delete(e, np.s_[p::m]))) for p in range(m)) / sd for m in (3, 4)}
+    best, other = sorted(score, key=score.get, reverse=True)
+    return best if score[best] > 0.5 and score[best] > 1.5 * max(score[other], 0) else None
 
 
 def sections_of(mono, curve, duration):
@@ -173,6 +198,8 @@ def measure(path: Path, loop_search=False, music=True):
         except Exception as e:  # weights host down (HTTP 500 seen 2026-10-27): fall back visibly, no downbeats -> no meter
             beats, downbeats, meter = np.asarray(tp["beats"]), np.asarray([]), None
             sidecar["beats_source"] = f"essentia RhythmExtractor2013 (beat_this unavailable: {type(e).__name__})"
+        if meter is None:
+            meter = accent_meter(mono, beats); sidecar["meter_source"] = "beat accents" if meter else None
         audio["meter"] = meter; lap("beats")
         sidecar.update({"beats_s": [round(x, 3) for x in beats], "downbeats_s": [round(x, 3) for x in downbeats]})
         sidecar["sections"] = sections_of(mono, curve, duration); lap("sections")

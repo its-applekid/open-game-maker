@@ -71,6 +71,16 @@ def test_waltz_meter_three(tmp_path):
     assert res["audio"]["meter"] == 3
 
 
+def test_unaccented_clicks_get_no_meter():
+    """With every beat equally loud there is no bar to find: the accent fallback must leave meter null rather than guess."""
+    period, n = 0.5, 40
+    y = np.zeros(int(n * period * SR), np.float32)
+    for i in range(n):
+        s = int(i * period * SR)
+        y[s:s + 1000] += np.random.default_rng(0).standard_normal(1000).astype(np.float32) * 0.5
+    assert m.accent_meter(y, np.arange(n) * period) is None
+
+
 def test_short_stinger_has_no_integrated_loudness(tmp_path):
     """C3 rule: under 0.4 s EBU R128 has no reading, so the card stores null and relies on peak."""
     y = (np.sin(2 * np.pi * 440 * np.arange(int(0.3 * SR)) / SR) * 0.5).astype(np.float32)
