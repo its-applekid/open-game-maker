@@ -1,14 +1,14 @@
 ---
 title: Tag fixes from Kevin's first swipe review
 type: fix
-status: queued
+status: done (round 1); re-check pending
 date: 2026-10-29
-origin: Kevin's swipe review deck (private artifact), first 34 of 106 cards
+origin: Kevin's swipe review deck (private artifact), 93 verdicts
 ---
 
 # Tag fixes from Kevin's first swipe review
 
-**Status: queued.** Run it once Kevin has judged more of the deck, or when he says go. Every fix below re-scores data we already stored (CLAP and CLIP embeddings, measured tempo and energy, CAD symbols). Nothing has to be re-analysed, so a full rebuild takes minutes, not hours.
+**Status: done 2026-10-29** after Kevin's 93 verdicts (commits 317f0ce, 3d1019c). Changed cards went back to the deck as re-check items. The original queued text is kept below. Every fix below re-scores data we already stored (CLAP and CLIP embeddings, measured tempo and energy, CAD symbols). Nothing has to be re-analysed, so a full rebuild takes minutes, not hours.
 
 ## What the review found
 
@@ -65,3 +65,48 @@ Kevin's words, in short:
 
 - **Moods, genres, instruments and the other music tags:** no complaints so far (Helpless, Singularity and Bounce were liked).
 - **Sound events and subkinds:** 7 of 9 sounds were liked.
+
+## Round 1 results (93 verdicts, 2026-10-29)
+
+64 liked, 29 rejected. By type: music 6 liked / 9 rejected; maps 17 / 11; sounds 14 / 3; 2D 17 / 1; 3D 13 / 2.
+
+**Attributes that worked:**
+- measured facts: length, tempo, key, size, grid;
+- sound events and objects taken from filenames;
+- map objects from CAD symbols, and map keywords from labels;
+- map type, when the title or folder says it;
+- 2D/3D pack descriptions, written from vendor text plus Kevin's confirmations.
+
+**Attributes that did not:**
+- every field CLAP ranks by lift against the library. Lift guarantees each label a similar share whatever the track sounds like:
+  - music "best for": wrong in 8 of 9 music rejects;
+  - music settings: on 100% of tracks, with "holiday" on 260;
+  - music genre: agreed with the pack's own genre name about 30% of the time;
+  - map settings and moods: a WWII map tagged "pirate", a crypt "cozy";
+- instruments on unusual timbres: a steel drum heard as ukulele, banjo and sax;
+- material words in synth packs.
+
+### Library-wide audit before and after
+
+| Field | Before | After |
+|---|---|---|
+| Music best for | 2 per track, 11–19% each | 0–2 per track, 24 situations; Kevin's rejected situations kept: 11/14 → 2/14 |
+| Stingers best for | "defeat" on 54 of 85 | victory or menu; defeat on none |
+| Moods | 91 energetic+sad, 116 cozy+energetic | 0 contradictory pairs; energetic and calm checked against measured energy |
+| Music settings | 100% coverage, all 11 spread evenly | not tagged |
+| Genre | CLAP only | pack name first, where the vendor names a genre |
+| Sound materials | 47 in synth packs; "fire" on card slides | 25, each naming the material outright ("Impact metal", "Glass"); no CLAP fire; none on voice lines |
+| Map is a map | not recorded; "map" was an object on 32 cards | `is_map`: 274 non-maps (papercraft 145, tokens 63, standees 50, symbol sheets 10, handouts 3, textures 3) |
+| Map usable | not recorded | 66 near-empty, 86 tutorial steps, 359 zoomed-out (reference-only) |
+| Map view / scale | not recorded | 227 perspective, 54 side; scale from map type |
+| WWII map type | 86 of 125 "mine" | region |
+| Map settings / moods | random | settings only from folder or publication words (medieval 282, modern 125, sci-fi 53); moods dropped |
+
+### Still open (next round)
+
+- **Moods are still wrong on some tracks.** Warsaw is "epic, triumphant" though Kevin hears it as desolate. Romance still gets "combat": its measured energy is high, so the gate passes it.
+- **Instruments.** Unusual timbres are misheard, and 93 tracks put folk instruments on electronic, metal or chiptune.
+- **Map environments are still CLIP lift**, e.g. "tavern" on dungeons. The same fix as settings probably applies.
+- **Dioramas.** Kevin liked "Krom Diorama Barn 01 Walls B" but called the Sages Tower diorama "not a usable map". All 145 diorama sheets are now `is_map: false`. Kevin decides whether papercraft counts as a map.
+- **Map keywords come from the map's own labels.** "priests" on Teotihuacan is a room label, so it stays.
+- **Hidden CAD layers.** The DXF sidecar has no layer visibility, so F4 can only use level words.
