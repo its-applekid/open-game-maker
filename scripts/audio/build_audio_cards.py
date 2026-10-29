@@ -93,6 +93,12 @@ def pick(lift, p, names, min_lift, k):
     return [(names[i], float(lift[i]), float(p[i])) for i in order[:k] if lift[i] >= min_lift]
 
 
+def album_no(album):
+    """Sidetrax numbers its music-pack series in the album tag ("07 Rock Follies"); that number is the catalog number."""
+    m = re.match(r"^(\d{1,3})\s+\S", album or "")
+    return int(m.group(1)) if m else None
+
+
 def settle_tempo(a, vendor):
     """Composer tempo picks between the measured tempo and its half/double readings."""
     v = vendor.get("tempo_bpm")
@@ -269,6 +275,8 @@ def build(rows, sets, means, packs: Path):
             vend = {k: v[k] for k in ("title", "album", "composer") if v.get(k)}
             if v.get("catalog_no") is not None:
                 vend["catalog_no"] = v["catalog_no"]
+            elif album_no(v.get("album")) is not None:
+                vend["catalog_no"] = album_no(v.get("album"))
             if re.fullmatch(r"\d{4}", str(v.get("date", ""))):
                 vend["year"] = int(v["date"])
             if v.get("tempo_bpm"):

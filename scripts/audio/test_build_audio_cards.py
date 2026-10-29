@@ -60,3 +60,9 @@ def test_filename_names_the_source_before_clap():
     """Kenney filenames say what the sound is; 'footstep_carpet' is a footstep on cloth even if CLAP hears a kick."""
     desc, subkind, *_ = _sfx("footstep_carpet_000", "kenney-impact-sounds", top_event="a kick")
     assert subkind == "sfx/footstep" and desc["materials"] == ["cloth"] and "kick" not in desc["objects"]
+
+
+def test_album_series_number_is_the_catalog_number():
+    """Sidetrax files have no title or composer tag; the only catalog number they carry is the series number in the album."""
+    assert b.album_no("07 Rock Follies") == 7
+    assert b.album_no("SideTrax 2024") is None and b.album_no(None) is None
