@@ -44,7 +44,11 @@ Kevin's words, in short:
     - defeat and sad-scene need a minor key or a slow tempo.
   - Allow zero situations, and drop "suits" from the description when none qualify.
   - Re-check: the 5 flagged tracks no longer carry the rejected situation, and "chase" falls from 118 tracks to the fast, high-energy ones.
-- **F2 Map usability.** Add a `map.usable` judgement (yes / reference-only / no) with a reason: blank or near-empty (low ink coverage), standee or token, chart or symbol example, tutorial step. "No" maps keep their card, flagged `not-a-map`, and drop out of default search.
+- **F2 Is it a map, and is it usable.**
+  - Add a separate yes/no field, `map.is_map`, judged from the image and its path. Paper standees, symbol and chart examples, keys and legends, and tutorial frames get `false`.
+  - Today "map" is only an object tag: 32 map cards carry "map" in `objects` or `keywords`, and nothing marks the non-maps. Remove "map" from `objects` and `keywords` everywhere; the new field replaces it (Kevin, 2026-10-29).
+  - For real maps, add a `map.usable` judgement (yes / reference-only / no) with a reason: blank or near-empty (low ink coverage), tutorial step, or too zoomed-out to walk on.
+  - Non-maps and unusable maps keep their card, flagged `not-a-map` or `unusable`, and drop out of default search.
 - **F3 Map view and scale.**
   - Add `map.view` (top-down, side or cross-section, perspective or panorama) and `map.scale` (battlemap, building, settlement, region, world) to C3 §3, scored from the stored CLIP embeddings plus grid and extents.
   - Operation Manna becomes region-scale and reference-only; Drakkenhall becomes a perspective panorama.
