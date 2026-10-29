@@ -21,11 +21,24 @@ INSTRUMENTS = {"piano": "piano", "keys": "electric keyboard", "organ": "organ", 
                "arpeggiator": "arpeggiated synths", "harp": "harp", "bells": "bells", "mallets": "marimba and xylophone",
                "accordion": "accordion", "fiddle": "folk fiddle", "banjo": "banjo", "ukulele": "ukulele", "sound-design": "sound design textures"}
 
-GAME_FIT = {"combat": "music for a battle", "boss": "music for a boss fight", "chase": "music for a chase scene",
-            "stealth": "music for sneaking past guards", "exploration": "music for exploring an open world",
-            "puzzle": "music for solving a puzzle", "menu": "music for a game title menu", "town": "music for a peaceful village",
-            "dungeon": "music for a dark dungeon", "victory": "music for winning", "defeat": "music for a game over screen",
-            "sad-scene": "music for a sad story scene", "ambient-bed": "quiet background ambience"}
+# Situations, each with the tempo/energy/key gate it must also pass (build_audio_cards.fits). Kevin's first review: 13
+# situations were too few, so CLAP forced chase/stealth/boss onto tracks that suit travel, rest or a wasteland.
+GAME_FIT = {"combat": "intense fast music for a battle", "boss": "huge dramatic music for a boss fight",
+            "chase": "fast urgent music for a chase scene", "stealth": "quiet tense music for sneaking past guards",
+            "exploration": "adventurous music for exploring an open world", "travel": "music for a long journey across the land",
+            "wandering": "relaxed music for wandering through a peaceful landscape", "puzzle": "thoughtful light music for solving a puzzle",
+            "menu": "music for a game title menu", "town": "cheerful music for a peaceful village", "tavern": "lively music for a busy tavern",
+            "dungeon": "dark ominous music for a dungeon", "victory": "triumphant fanfare for winning",
+            "defeat": "sad short music for a game over screen", "sad-scene": "sad emotional music for a tragic story scene",
+            "romance": "tender romantic music for a love scene", "desolate": "bleak desolate music for a ruined wasteland",
+            "tension-build": "slowly building suspense music", "celebration": "joyful party music for a celebration",
+            "rest": "calm peaceful music for resting between battles", "montage": "upbeat music for a training montage",
+            "credits": "emotional music for the end credits", "horror": "scary music for a horror scene",
+            "ambient-bed": "quiet background ambience"}
+FAST_FIT = {"combat", "boss", "chase", "montage", "celebration"}        # need high energy and a quick tempo
+QUIET_FIT = {"stealth", "rest", "wandering", "ambient-bed", "desolate", "sad-scene", "romance", "tension-build"}  # need low energy
+SAD_FIT = {"defeat"}                                                   # needs a minor key or a slow tempo
+BRIGHT_FIT = {"victory", "town", "tavern", "celebration"}              # needs a major key unless very energetic
 
 ENVIRONMENTS = {"dungeon": "a dungeon", "crypt": "a crypt", "cave": "a cave", "castle": "a castle", "temple": "a temple",
                 "ruins": "ancient ruins", "graveyard": "a graveyard", "camp": "a campfire camp", "town": "a small town",

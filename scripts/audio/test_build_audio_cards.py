@@ -66,3 +66,44 @@ def test_album_series_number_is_the_catalog_number():
     """Sidetrax files have no title or composer tag; the only catalog number they carry is the series number in the album."""
     assert b.album_no("07 Rock Follies") == 7
     assert b.album_no("SideTrax 2024") is None and b.album_no(None) is None
+
+
+def test_fast_situations_need_fast_loud_tracks():
+    """Kevin: a slow, desolate track was tagged 'chase'. Chase, combat and boss need high measured energy and a quick tempo."""
+    assert not b.fits("chase", eq=0.19, bpm=100, minor=False)
+    assert b.fits("chase", eq=0.89, bpm=128, minor=False)
+
+
+def test_stealth_never_goes_on_a_loud_track():
+    """Kevin flagged 'stealth' on energetic songs again and again; sneaking music is quiet."""
+    assert not b.fits("stealth", eq=0.9, bpm=80, minor=True) and b.fits("stealth", eq=0.2, bpm=80, minor=True)
+
+
+def test_defeat_needs_minor_or_slow():
+    """A cheerful 140 BPM major-key track is not game-over music."""
+    assert not b.fits("defeat", eq=0.7, bpm=140, minor=False) and b.fits("defeat", eq=0.7, bpm=140, minor=True)
+
+
+def test_vendor_genre_comes_from_the_pack_name():
+    """CLAP's genre agreed with the pack's own genre only ~30% of the time; the vendor's pack name wins when it names one."""
+    assert b.pack_genre("sidetrax-pack-16-orchestral-music-02") == ["orchestral", "cinematic"]
+    assert b.pack_genre("sidetrax-pack-30-crimson") is None
+
+
+def test_synth_coin_is_not_metal():
+    """Kevin: a retro 'coin' blip is not metal sounding. In synth packs only a word naming the material outright counts."""
+    desc, *_ = _sfx("coin4", "kenney-retro-sounds-2")
+    assert "materials" not in desc
+    desc, *_ = _sfx("impactMetal_000", "kenney-sci-fi-sounds")
+    assert desc.get("materials") == ["metal"]
+
+
+def test_plate_is_not_a_material_word():
+    """Kevin: 'plates slide' sounds like a blade on a whetstone; 'plate' says nothing reliable about the material."""
+    assert "plate" not in b.MAT_WORDS
+
+
+def test_voice_lines_have_no_material():
+    """'We need wood' is a spoken line, not a wooden sound."""
+    desc, *_ = _sfx("we_need_wood", "kenney-synth-voice-2")
+    assert "materials" not in desc

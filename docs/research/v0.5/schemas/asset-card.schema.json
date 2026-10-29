@@ -172,7 +172,7 @@
       "instrument": { "enum": ["piano", "keys", "organ", "strings", "solo-violin", "cello", "brass", "trumpet", "horns", "woodwinds", "flute", "sax", "choir", "lead-vocals", "acoustic-guitar", "electric-guitar", "bass", "synth-bass", "drums", "drum-machine", "percussion", "taiko", "orchestral-percussion", "synth-lead", "synth-pad", "arpeggiator", "harp", "bells", "mallets", "accordion", "fiddle", "banjo", "ukulele", "sound-design"] },
       "era": { "enum": ["timeless", "ancient", "medieval", "renaissance", "baroque", "19th-century", "1920s-40s", "1950s", "1960s", "1970s", "1980s", "1990s", "2000s", "contemporary", "futuristic"] },
       "gameFit": {
-        "enum": ["combat", "boss", "chase", "stealth", "exploration", "puzzle", "menu", "town", "dungeon", "victory", "defeat", "sad-scene", "ambient-bed"],
+        "enum": ["combat", "boss", "chase", "stealth", "exploration", "travel", "wandering", "puzzle", "menu", "town", "tavern", "dungeon", "victory", "defeat", "sad-scene", "romance", "desolate", "tension-build", "celebration", "rest", "montage", "credits", "horror", "ambient-bed"],
         "description": "Game situations a music track is scored against in describe.game_fit."
       },
       "pitchClass": { "enum": ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"] },
@@ -350,7 +350,7 @@
         "era": { "$ref": "#/$defs/vocab/era" },
         "game_fit": {
           "type": "object",
-          "description": "Music: how well the track suits each game situation, 0-1.",
+          "description": "Music: the situations the track suits (at most two, possibly none), each with a 0-1 strength. Absent situations are not suitable or not judged.",
           "propertyNames": { "$ref": "#/$defs/vocab/gameFit" },
           "additionalProperties": { "type": "number", "minimum": 0, "maximum": 1 }
         }

@@ -6,7 +6,9 @@ writes packs/<id>/cards/<path>.card.json, updates each audio collection card's c
 
 Ranking: CLAP's raw softmax favours some labels on every track ("sunrise", "outer space"), so each label is judged by its
 lift = p(label | track) / mean p(label) over the library (music and sound effects separately). A tag is kept only when its
-lift is high; game_fit stores each situation's percentile across the music library (0-1)."""
+lift is high. game_fit keeps at most two situations, each needing high lift AND agreement from the measured tempo, energy and
+key (fits); a track may suit none. Music settings are not tagged: CLAP cannot hear steampunk or pirate (it spread all 11
+evenly over the library). Genre comes from the pack name when the vendor named one (Orchestral Music 02)."""
 import argparse, json, re, subprocess, sys
 from collections import defaultdict
 from datetime import datetime
@@ -30,14 +32,25 @@ VOICE_PACKS = ("kenney-voiceover-pack", "kenney-voiceover-pack-fighter", "kenney
 UI_PACKS = ("kenney-interface-sounds", "kenney-ui-audio", "kenney-ui-pack")
 OPPOSED = {frozenset(x) for x in [("calm", "energetic"), ("calm", "tense"), ("calm", "epic"), ("calm", "triumphant"), ("cozy", "dark"),
            ("cozy", "tense"), ("cozy", "eerie"), ("cheerful", "dark"), ("cheerful", "sad"), ("cheerful", "eerie"), ("playful", "dark"),
-           ("playful", "sad"), ("sad", "triumphant"), ("cozy", "epic"), ("playful", "epic")]}
+           ("playful", "sad"), ("sad", "triumphant"), ("cozy", "epic"), ("playful", "epic"),
+           ("energetic", "sad"), ("cozy", "energetic"), ("epic", "sad"), ("playful", "eerie")]}
 # Filename words that name a material (C3 materials enum); trusted over CLAP, which hears synthetic sounds as anything.
-MAT_WORDS = {"wood": "wood", "wooden": "wood", "plank": "wood", "metal": "metal", "metallic": "metal", "plate": "metal", "tin": "metal",
+MAT_WORDS = {"wood": "wood", "wooden": "wood", "plank": "wood", "metal": "metal", "metallic": "metal", "tin": "metal",
              "chain": "metal", "sword": "metal", "coin": "metal", "glass": "glass", "stone": "stone", "rock": "stone", "concrete": "stone",
-             "carpet": "cloth", "cloth": "cloth", "leather": "leather", "paper": "paper", "book": "paper", "water": "water",
+             "carpet": "cloth", "card": "paper", "chip": "plastic", "chips": "plastic", "cloth": "cloth", "leather": "leather", "paper": "paper", "book": "paper", "water": "water",
              "snow": "ice", "ice": "ice", "grass": "plant", "leaves": "plant", "bone": "bone", "fire": "fire", "plastic": "plastic"}
+# Synthesised packs: a "coin" or "sword" there is a synth blip, not metal (Kevin, first review). Only a word that names the
+# material outright ("Impact metal", "Glass") counts, and CLAP is not asked.
+SYNTH_PACK = ("kenney-retro-sounds", "kenney-digital-audio", "kenney-sci-fi-sounds", "kenney-interface-sounds", "kenney-ui-audio",
+              "kenney-music-jingles", "kenney-synth-voice")
+MAT_NAMES = {"wood", "wooden", "metal", "metallic", "glass", "stone", "concrete", "cloth", "leather", "paper", "water", "ice", "plastic"}
+CLAP_MATS_NEVER = {"fire", "water", "flesh", "earth"}  # CLAP hears card slides as fire; these must come from the filename
 STOP = {"sfx", "sound", "audio", "the", "and", "small", "large", "big", "short", "long", "high", "low", "light", "medium", "heavy",
         "soft", "hard", "fast", "slow", "alt", "new", "var", "version"}
+FIT_LIFT = 1.6  # tuned on Kevin's first review: rejected situations kept fell from 11/14 to 2/14
+PACK_GENRES = {"orchestral": ["orchestral", "cinematic"], "ambient": ["ambient"], "acoustic": ["acoustic"], "pop": ["pop"],
+               "rock": ["rock"], "country": ["country"], "electronic": ["electronic"], "piano": ["piano"], "jazz": ["jazz"],
+               "blues": ["blues"], "metal": ["metal"], "folk": ["folk"], "chiptune": ["chiptune"]}
 MUSIC_CONF = 0.5  # uncalibrated until Kevin's sample review (plan U6); below 0.6 the card carries low-confidence
 
 
@@ -50,7 +63,6 @@ def prompts():
         "instruments": (list(L.INSTRUMENTS), [f"music featuring {v}" for v in L.INSTRUMENTS.values()]),
         "game_fit": (list(L.GAME_FIT), list(L.GAME_FIT.values())),
         "environments": (list(L.ENVIRONMENTS), [f"music that sounds like {v}" for v in L.ENVIRONMENTS.values()]),
-        "settings": (list(L.SETTINGS), [f"{v} music" for v in L.SETTINGS.values()]),
         "vocals": (["vocals", "instrumental"], list(L.VOCALS)),
         "sfx_event": ([e[0] for e in L.SFX_EVENTS], [f"the sound of {e[0]}" for e in L.SFX_EVENTS]),
         "sfx_material": (L.MATERIALS, [f"the sound of {m}" for m in L.MATERIALS]),
@@ -128,7 +140,7 @@ def score_all(rows, emb, scale, sets):
     """Per file and label set: softmax over the set for each excerpt, averaged over excerpts."""
     for d in rows:
         A = np.array([e["embedding"] for e in d["clap"]["excerpts"]], dtype=np.float32)
-        keys = ["moods", "genre", "instruments", "game_fit", "environments", "settings", "vocals"] if d["music"] else ["sfx_event", "sfx_material"]
+        keys = ["moods", "genre", "instruments", "game_fit", "environments", "vocals"] if d["music"] else ["sfx_event", "sfx_material"]
         d["_p"] = {k: softmax(scale * A @ emb[k].T).mean(0) for k in keys}
 
 
@@ -141,14 +153,30 @@ def library_means(rows):
     return means
 
 
-def percentiles(rows, key):
+def energy_ranks(rows):
+    """Each track's measured energy as a percentile of the music library (0 quietest, 1 most energetic)."""
     group = [d for d in rows if d["music"]]
-    if not group:
-        return
-    M = np.array([d["_p"][key] for d in group])
-    ranks = M.argsort(0).argsort(0) / max(len(group) - 1, 1)
-    for d, r in zip(group, ranks):
-        d["_pct_" + key] = r
+    e = np.array([d["measure"]["audio"].get("energy") or 0.0 for d in group])
+    for d, r in zip(group, e.argsort().argsort() / max(len(group) - 1, 1)):
+        d["_eq"] = float(r)
+
+
+def fits(name, eq, bpm, minor):
+    """The measured facts must agree with a situation CLAP suggests: no chase on a slow, quiet track, no stealth on a loud one."""
+    if name in L.FAST_FIT and not (eq >= 0.6 and ((bpm or 0) >= 100 or eq >= 0.8)):
+        return False
+    if name in L.QUIET_FIT and eq > 0.55:
+        return False
+    if name in L.SAD_FIT and not (minor or (bpm or 999) < 90):
+        return False
+    if name in L.BRIGHT_FIT and minor and eq <= 0.7:
+        return False
+    return True
+
+
+def pack_genre(pid):
+    words = set(pid.replace("-", " ").split())
+    return next((g for w, g in PACK_GENRES.items() if w in words), None)
 
 
 def music_describe(d, lift, sets, a, subkind):
@@ -161,6 +189,8 @@ def music_describe(d, lift, sets, a, subkind):
         else:
             target = L.EXTRA_MOODS[name]
             proposed.append({"field": "moods", "tag": name, "nearest": target, "reason": f"CLAP lift {lf:.1f} vs library"})
+        if (target == "energetic" and d["_eq"] < 0.4) or (target == "calm" and d["_eq"] > 0.6):
+            continue  # measured energy overrules CLAP on the one mood it can check
         if target not in moods and not any(frozenset((target, m)) in OPPOSED for m in moods):
             moods.append(target)
     if not moods:
@@ -169,11 +199,15 @@ def music_describe(d, lift, sets, a, subkind):
         moods = [n if n in L.MOODS else L.EXTRA_MOODS[n]]
     moods = moods[:3]
     genre = [n for n, _, _ in pick(lift["genre"], d["_p"]["genre"], names("genre"), 1.3, 3)] or [names("genre")[int(np.argmax(lift["genre"]))]]
+    vendor_genre = pack_genre(d["_pack"])
+    if vendor_genre:
+        genre = list(dict.fromkeys(vendor_genre + genre))[:3]
     instruments = [n for n, _, _ in pick(lift["instruments"], d["_p"]["instruments"], names("instruments"), 1.8, 4)]
     envs = [n for n, _, _ in pick(lift["environments"], d["_p"]["environments"], names("environments"), 2.0, 2)]
-    settings = [n for n, _, _ in pick(lift["settings"], d["_p"]["settings"], names("settings"), 1.4, 2)]
-    fit = {k: round(float(v), 2) for k, v in zip(names("game_fit"), d["_pct_game_fit"])}
-    top_fit = sorted(fit, key=lambda k: -fit[k])[:2]
+    minor = a.get("mode") == "minor" and a.get("key_strength", 0) >= 0.5
+    fit = {n: round(min(1.0, (lf - 1) / 2), 2) for n, lf, _ in pick(lift["game_fit"], d["_p"]["game_fit"], names("game_fit"), FIT_LIFT, 24)
+           if fits(n, d["_eq"], a.get("tempo_bpm"), minor)}
+    fit = dict(list(fit.items())[:2])
     pv = float(d["_p"]["vocals"][0])
     desc = {"description": "", "objects": [], "roles": ["music-bed"], "moods": moods, "genre": genre, "game_fit": fit,
             "style_family": "any"}
@@ -181,8 +215,6 @@ def music_describe(d, lift, sets, a, subkind):
         desc["instruments"] = instruments
     if envs:
         desc["environments"] = envs
-    if settings:
-        desc["settings"] = settings
     if pv > 0.75 or pv < 0.25:
         desc["has_vocals"] = pv > 0.75
     kind_word = {"music/loop": "loop", "music/stinger": "stinger"}.get(subkind, "track")
@@ -193,7 +225,9 @@ def music_describe(d, lift, sets, a, subkind):
     if a.get("key") and a.get("key_strength", 0) >= 0.5:
         facts.append(f"{a['key']} {a['mode']}")
     facts.append(f"{int(dur // 60)}:{int(dur % 60):02d}" if dur >= 60 else f"{dur:.0f} s" if dur >= 10 else f"{dur:.1f} s")
-    text = f"{moods[0].capitalize()}{', ' + moods[1] if len(moods) > 1 else ''} {genre[0]} {kind_word} ({', '.join(facts)}); suits {top_fit[0].replace('-', ' ')} and {top_fit[1].replace('-', ' ')}"
+    text = f"{moods[0].capitalize()}{', ' + moods[1] if len(moods) > 1 else ''} {genre[0]} {kind_word} ({', '.join(facts)})"
+    if fit:
+        text += "; suits " + " and ".join(k.replace("-", " ") for k in fit)
     if envs:
         text += f"; evokes {L.ENVIRONMENTS[envs[0]]}"
     desc["description"] = (text + ".")[:300]
@@ -219,9 +253,10 @@ def sfx_describe(d, lift, sets, a, stem, pid):
     if clap_obj and clap_obj not in objects:
         objects.append(clap_obj)
     objects = objects[:12]
-    mats = list(dict.fromkeys(MAT_WORDS[w] for w in words if w in MAT_WORDS))[:2]
-    if not mats and pid not in UI_PACKS + VOICE_PACKS and (named and noun_sub[named[0]] or ev[2]) in ("sfx/foley", "sfx/impact", "sfx/footstep"):
-        mats = [n for n, _, pp in pick(lift["sfx_material"], d["_p"]["sfx_material"], sets["sfx_material"][0], 1.5, 1) if pp >= 0.5]
+    synth = pid.startswith(SYNTH_PACK)
+    mats = [] if pid in VOICE_PACKS else list(dict.fromkeys(MAT_WORDS[w] for w in words if w in MAT_WORDS and (w in MAT_NAMES or not synth)))[:2]
+    if not mats and not synth and pid not in UI_PACKS + VOICE_PACKS and (named and noun_sub[named[0]] or ev[2]) in ("sfx/foley", "sfx/impact", "sfx/footstep"):
+        mats = [n for n, _, pp in pick(lift["sfx_material"], d["_p"]["sfx_material"], sets["sfx_material"][0], 1.5, 1) if pp >= 0.5 and n not in CLAP_MATS_NEVER]
     if pid in VOICE_PACKS:
         subkind, roles = "voice", ["voice-line"]
     elif pid in UI_PACKS:
@@ -362,7 +397,7 @@ def main():
     emb, scale = text_embeddings(sets)
     score_all(rows, emb, scale, sets)
     means = library_means(rows)
-    percentiles(rows, "game_fit")
+    energy_ranks(rows)
     n, flags = build(rows, sets, means, a.packs)
     print(json.dumps({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}))
     if not a.no_validate:
