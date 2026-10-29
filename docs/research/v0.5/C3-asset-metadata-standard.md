@@ -94,7 +94,7 @@ The schema requires more fields as the status rises (§11).
 | Texture | `texture/material`, `hdri`, `skybox`, `decal`, `palette` | `image`, `texture` | `maps` (albedo, normal…), `tileable` (code seam test), real size, colour space, pattern |
 | VFX | `vfx/particle`, `flipbook`, `trail` | `image`, `vfx` | `blend`, `background`, `tintable`, frames and grid, loop, SDK `emitter_preset` |
 | Audio | `audio/sfx/*`, `ambience`, `music/*`, `voice` | `audio` | duration, rate, channels, `loudness_lufs`, LRA, `peak_dbfs`, `spectral_centroid_hz` (brightness), tempo, `loopable`, optional `ucs_cat_id`. **Music (2026-10-27):** `key`, `mode`, `key_strength`, `tempo_alternatives`, `meter`, `energy`, `loop_points`, `cuts[]`, `analysis` (sidecar path). All code-measured; see "Music cards" below |
-| Inspiration map | `inspiration/map` | `image`, `map` | `map_type`, publication, detected grid, levels, `site`, **`layout_spec` {id, status, confidence}** |
+| Inspiration map | `inspiration/map` | `image`, `map` | `map_type`, publication, detected grid, levels, `site`, **`layout_spec` {id, status, confidence}**; `is_map` + `sheet_kind` (standee, tokens, symbol-sheet, handout, texture, papercraft), `usable` (yes, reference-only, no) + `usable_reason`, `view` (topdown, side, perspective), `scale` (battlemap, building, settlement, region, world), all from folder and file names plus ink coverage (2026-10-29) |
 | Collection | (card_type `collection`) | `collection_info` | vendor, version, origin, bundle, requires, `counts`, `family_coverage`, `creation_choice`, `pack_manifest` |
 
 Notes:

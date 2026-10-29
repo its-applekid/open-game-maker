@@ -602,6 +602,12 @@
       "required": ["map_type", "layout_spec"],
       "properties": {
         "map_type": { "$ref": "#/$defs/vocab/mapType" },
+        "is_map": { "type": "boolean", "description": "False for standees, token sheets, symbol sheets, handouts, textures and papercraft shipped beside the maps." },
+        "sheet_kind": { "enum": ["standee", "tokens", "symbol-sheet", "handout", "texture", "papercraft"], "description": "What a non-map image is." },
+        "usable": { "enum": ["yes", "reference-only", "no"], "description": "Whether an agent should build from it: reference-only for zoomed-out maps nobody walks on." },
+        "usable_reason": { "enum": ["not-a-map", "near-empty", "tutorial-step", "zoomed-out"] },
+        "view": { "enum": ["topdown", "side", "perspective"], "description": "How the place is drawn: top-down plan, side view or cross-section, or a perspective panorama." },
+        "scale": { "enum": ["battlemap", "building", "settlement", "region", "world"] },
         "publication": { "type": "string", "maxLength": 120, "description": "Product or issue title the map came from." },
         "grid_detected": {
           "type": "object",

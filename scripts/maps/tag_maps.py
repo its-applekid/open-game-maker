@@ -3,10 +3,14 @@
 usage: scripts/audio/.venv/bin/python -I scripts/maps/tag_maps.py analyse [--workers N]   # sha, thumbnail, CLIP embedding per map
        scripts/audio/.venv/bin/python -I scripts/maps/tag_maps.py cards                   # score labels, write cards, validate
 
-Depth 1 (card): map type, setting, environment, mood, objects (from CAD symbol names), keywords (from map labels), grid,
+Depth 1 (card): map type, setting (folder only), environment, objects (from CAD symbol names), keywords (from map labels), grid,
 publication. Depth 2 (sidecar, already written by the export): every symbol and label with coordinates, referenced from
 source.files. Depth 3: the PNG itself. Map type comes from the title and folder words first; CLIP ViT-L/14 (MIT, local)
-decides only when they say nothing, and its judgments are ranked by lift against the whole map library."""
+decides only when they say nothing, and its judgments are ranked by lift against the whole map library.
+
+Kevin's first review (2026-10-29) added map.is_map, map.usable, map.view and map.scale. They come from folder and file names
+plus ink coverage, not CLIP: zero-shot CLIP called a castle plan a "diagram" and a city panorama "top-down". Non-maps (standees,
+tokens, symbol sheets, papercraft) and unusable maps keep their cards so search can filter them out."""
 import argparse, hashlib, json, re, subprocess, sys
 from collections import Counter, defaultdict
 from datetime import datetime
@@ -54,10 +58,6 @@ ENVIRONMENTS = {"dungeon": "a dungeon", "crypt": "a crypt", "cave": "a cave", "m
                 "beach": "a coast", "ocean": "the sea", "underwater": "an underwater place", "sky": "a sky city",
                 "space": "outer space", "space-station": "a space station", "industrial": "an industrial site", "road": "roads",
                 "arena": "an arena"}
-SETTINGS = {"fantasy": "a fantasy", "medieval": "a medieval", "sci-fi": "a science fiction", "modern": "a modern",
-            "post-apocalyptic": "a post-apocalyptic", "western": "a wild west", "pirate": "a pirate", "horror": "a horror",
-            "steampunk": "a steampunk"}
-MOODS = ["dark", "eerie", "mysterious", "cozy", "cheerful", "calm", "epic"]
 SYM_STOP = {"flat", "small", "large", "big", "med", "medium", "shadow", "color", "colour", "top", "var", "alt", "default", "symbol",
             "layer", "new", "left", "right", "half", "full", "dark", "light", "white", "black", "red", "blue", "green", "brown", "grey",
             "gray", "yellow", "and", "the", "with", "block", "bldng", "sheet", "fill", "mask", "base", "copy"}
@@ -78,6 +78,21 @@ SETTLEMENT = {"city", "town", "village", "castle"}
 FLORA = {"tree", "pine", "bush", "forest", "copse", "jungle", "reed", "heather", "scrub", "palm", "fern", "grass", "weed", "marsh", "swamp"}
 INTERIOR = {"door", "window", "wall", "stair", "chair", "table", "bed", "chest", "barrel", "bench", "bookcase", "torch", "sconce", "stool",
             "crate", "pillar", "altar", "throne", "rug", "fireplace"}
+# Folder or file words -> what the image is when it is not a map (checked against the path, first match wins).
+SHEETS = [("standee", r"paper standees"), ("tokens", r"token treasury|\btokens?\b"), ("handout", r"props and handouts"),
+          ("texture", r"textures?\b"), ("papercraft", r"diorama"),
+          ("symbol-sheet", r"symbol catalogs|heraldic|symbol reference|example symbol|chart example|\bkey\b|\blegend\b|tinctures")]
+VIEWS = [("side", r"side views|cross-?sections?|profile view|side ?view"),
+         ("perspective", r"panoramas?|perspectives?|isometric|\d ?3d\b|3d\.png$|3d$")]
+STEP = re.compile(r"(?i)(tutorial|step|wt)[ _-]?\d+$")  # numbered frames of a step-by-step tutorial
+INK_EMPTY = 0.03  # share of thumbnail pixels that differ from the background; below this the image is blank or a bare outline
+SCALES = {"region": "region", "city": "settlement", "town": "settlement", "castle": "building", "keep": "building", "temple": "building",
+          "building": "building", "tavern": "building", "ship": "building", "crypt": "battlemap", "dungeon": "battlemap",
+          "cave": "battlemap", "mine": "battlemap", "sewer": "battlemap", "wilderness": "battlemap", "battlemap": "battlemap"}
+FOLDER_SETTINGS = [("modern", r"^wwii/"), ("medieval", r"^(source maps )?castles/"),
+                   ("sci-fi", r"sci-?fi|starship|space|hispace|cyberpunk|colonial outpost")]
+LEVELS = {"cellar": {"cellar", "cellars", "basement"}, "ground": {"ground"}, "upper": {"upper", "stories", "storey", "floor"},
+          "roof": {"roof", "roofs"}}
 LABEL_STOP = {"scale", "feet", "foot", "miles", "mile", "north", "south", "east", "west", "level", "map", "the", "and", "of"}
 
 
@@ -198,8 +213,12 @@ def symbol_type(c: Counter):
 
 
 def label_keywords(labels):
+    """Words from short labels (place and room names). Longer labels are notes ("rooms for the priests, view of the
+    surroundings") whose words describe the text, not what is drawn."""
     c = Counter()
     for l in labels:
+        if len(l.get("text", "").split()) > 4:
+            continue
         for w in re.findall(r"[A-Za-z][A-Za-z']{3,}", l.get("text", "")):
             w = w.lower().replace("'", "")
             if w not in LABEL_STOP and tag(w):
@@ -212,7 +231,53 @@ def publication(rel: str):
     return parts[-2] if len(parts) > 1 else "CC3+ examples"
 
 
+def sheet_kind(rel: str):
+    low = rel.lower()
+    return next((k for k, rx in SHEETS if re.search(rx, low)), None)
+
+
+def view_of(rel: str):
+    low = rel.lower()
+    return next((k for k, rx in VIEWS if re.search(rx, low)), "topdown")
+
+
+def scale_of(rel: str, map_type: str):
+    low = rel.lower()
+    if re.search(r"\b(world|worlds|continent|atlas|planet)\b", low):
+        return "world"
+    return SCALES.get(map_type, "battlemap")
+
+
+def ink(thumb: Path):
+    from PIL import Image
+    im = Image.open(thumb).convert("L")
+    im.thumbnail((256, 256))
+    a = np.asarray(im, np.float32)
+    bg = np.median(np.concatenate([a[0], a[-1], a[:, 0], a[:, -1]]))
+    return float((np.abs(a - bg) > 24).mean())
+
+
+def usable_of(rel: str, is_map: bool, scale: str, ink_share: float):
+    """(usable, reason). Kevin: blank frames and tutorial steps are useless; a whole-country map is a paper map, not a level."""
+    if not is_map:
+        return "no", "not-a-map"
+    if ink_share < INK_EMPTY:
+        return "no", "near-empty"
+    if STEP.search(Path(rel).stem):
+        return "no", "tutorial-step"
+    if scale in ("region", "world"):
+        return "reference-only", "zoomed-out"
+    return "yes", None
+
+
+def level_of(title: str):
+    words = set(re.findall(r"[a-z]+", title.lower()))
+    return next((k for k, ws in LEVELS.items() if words & ws), None)
+
+
 def text_type(rel: str):
+    if rel.lower().startswith("wwii/"):
+        return "region"  # wargame operation maps: CLIP read their hex grids as mines
     words = (rel.replace("_", " ").replace("-", " ")).lower()
     for t, rx in TYPE_WORDS:
         if re.search(rx, words):
@@ -226,9 +291,7 @@ def cards():
     rows = [json.loads(p.read_text()) for p in sorted(ANALYSIS.rglob("*.analysis.json"))]
     m, p = CLIPModel.from_pretrained(CLIP_ID).eval(), CLIPProcessor.from_pretrained(CLIP_ID)
     sets = {"map_type": (list(MAP_TYPES), list(MAP_TYPES.values())),
-            "environments": (list(ENVIRONMENTS), [f"a map of {v}" for v in ENVIRONMENTS.values()]),
-            "settings": (list(SETTINGS), [f"{v} map" for v in SETTINGS.values()]),
-            "moods": (MOODS, [f"a {x} looking map" for x in MOODS])}
+            "environments": (list(ENVIRONMENTS), [f"a map of {v}" for v in ENVIRONMENTS.values()])}
     with torch.no_grad():
         T = {k: torch.nn.functional.normalize(m.get_text_features(**p(text=v[1], return_tensors="pt", padding=True)), dim=-1).numpy()
              for k, v in sets.items()}
@@ -262,10 +325,23 @@ def cards():
         envs = [names("environments")[i] for i in np.argsort(-lift["environments"])[:2] if lift["environments"][i] >= 1.5]
         if map_type in ENVIRONMENTS and map_type not in envs:
             envs = [map_type] + envs[:1]
-        settings = [names("settings")[i] for i in np.argsort(-lift["settings"])[:1] if lift["settings"][i] >= 1.3] or ["fantasy"]
-        moods = [names("moods")[i] for i in np.argsort(-lift["moods"])[:2] if lift["moods"][i] >= 1.3]
-        objects = symbol_objects(ents["symbols"])
-        keywords = label_keywords(ents["labels"])
+        sheet = sheet_kind(rel)
+        is_map = sheet is None
+        view, scale = view_of(rel), scale_of(rel, map_type)
+        usable, why = usable_of(rel, is_map, scale, ink(PREVIEWS / r["thumb"]))
+        folder_setting = next((st for st, rx in FOLDER_SETTINGS if re.search(rx, rel.lower())), None)
+        # Settings and moods are not judged from the image: on line-art plans CLIP spread all nine settings and seven moods
+        # almost evenly (a WWII map "pirate", a crypt "cozy"). Only a folder or publication that names the setting counts.
+        settings = [folder_setting] if folder_setting else []
+        if not is_map:
+            envs, settings = [], []
+        objects = [o for o in symbol_objects(ents["symbols"]) if o != "map"]
+        keywords = [k for k in label_keywords(ents["labels"]) if k != "map"]
+        lvl = level_of(png.stem)
+        if lvl:  # a cellar's "Map Links" legend names the other floors; those words describe other maps
+            other = set().union(*(ws for k, ws in LEVELS.items() if k != lvl))
+            keywords = [k for k in keywords if k not in other]
+            objects = [o for o in objects if o not in other]
         g = meta.get("grid") or {}
         title = re.sub(r"\s+", " ", png.stem.replace("_", " ")).strip()[:120]
         bits = []
@@ -276,7 +352,14 @@ def cards():
             bits.append("mostly " + ", ".join(objects[:3]))
         if ents["labels"]:
             bits.append(f"{len(ents['labels'])} labels")
-        desc = f"{map_type.capitalize()} map '{title}' from {publication(rel)}: {'; '.join(bits)}."
+        if not is_map:
+            desc = f"{sheet.replace('-', ' ').capitalize()} '{title}' from {publication(rel)}, not a map: {'; '.join(bits)}."
+        else:
+            view_word = {"side": "Side-view ", "perspective": "Perspective "}.get(view, "")
+            desc = f"{view_word}{map_type} map '{title}' from {publication(rel)}: {'; '.join(bits)}."
+            desc = desc[0].upper() + desc[1:]
+            if usable != "yes":
+                desc = desc[:-1] + {"near-empty": "; nearly blank.", "tutorial-step": "; a tutorial step.", "zoomed-out": "; zoomed out, reference only."}[why]
         if len(desc) > 300:
             desc = desc[:297] + "..."
         files = [{"path": f"maps/{rel}", "sha256": "sha256:" + r["sha256"], "bytes": r["bytes"], "format": "png", "role": "primary"}]
@@ -284,24 +367,33 @@ def cards():
             if extra.exists():
                 files.append({"path": f"maps/{extra.relative_to(MAPS).as_posix()}", "sha256": "sha256:" + hashlib.sha256(extra.read_bytes()).hexdigest(),
                               "bytes": extra.stat().st_size, "format": "json", "role": "metadata"})
-        mapb = {"map_type": map_type, "publication": publication(rel)[:120], "levels_shown": 1,
+        mapb = {"map_type": map_type, "is_map": is_map, "usable": usable, "view": view, "scale": scale, "publication": publication(rel)[:120], "levels_shown": 1,
                 "site": kebab(png.stem).replace("/", "-")[:60].strip("-") or "map", "layout_spec": {"status": "pending"}}
+        if why:
+            mapb["usable_reason"] = why
+        if sheet:
+            mapb["sheet_kind"] = sheet
         if g.get("px_per_cell") and g.get("export_cols"):
             mapb["grid_detected"] = {"cell_px": g["px_per_cell"], "cols": g["export_cols"], "rows": g["export_rows"],
                                      "confidence": 0.95 if g.get("source") != "inferred" else 0.7}
-        describe = {"description": desc, "objects": [o for o in objects if tag(o)], "environments": envs, "settings": settings,
-                    "roles": ["layout-reference"]}
-        if moods:
-            describe["moods"] = moods
+        describe = {"description": desc, "objects": [o for o in objects if tag(o)], "roles": ["layout-reference"]}
+        if envs:
+            describe["environments"] = envs
+        if settings:
+            describe["settings"] = settings
         if keywords:
             describe["keywords"] = keywords
         prov = {"*": {"by": "code", "tool": TOOL, "at": NOW, "input": "PNG header, sha256, CC3+ export metadata"},
                 "describe": {"by": "model", "model": CLIP_ID, "tool": TOOL, "at": NOW, "confidence": 0.55,
-                             "input": "CLIP on the whole map and its centre vs environment/setting/mood prompts, lift vs library"},
+                             "input": "CLIP on the whole map and its centre vs environment prompts, lift vs library"},
                 "describe.objects": {"by": "code", "tool": TOOL, "at": NOW, "input": "CAD symbol names from the DXF export (depth 2 sidecar)"},
                 "describe.keywords": {"by": "code", "tool": TOOL, "at": NOW, "input": "words of the map's own text labels"},
                 "describe.description": {"by": "code", "tool": TOOL, "at": NOW, "input": "template from map type, grid and CAD counts"},
-                "map": {"by": "code", "tool": TOOL, "at": NOW, "input": "export JSON grid + folder name"}}
+                "map": {"by": "code", "tool": TOOL, "at": NOW, "input": "export JSON grid + folder name"},
+                "map.is_map": {"by": "filename", "tool": TOOL, "at": NOW, "input": "folder and file words (standees, tokens, symbol sheets, dioramas)"},
+                "map.usable": {"by": "code", "tool": TOOL, "at": NOW, "input": "is_map, thumbnail ink coverage, numbered tutorial-step names, scale"},
+                "map.view": {"by": "filename", "tool": TOOL, "at": NOW, "input": "folder and file words (side views, panoramas, perspective, 3D)"},
+                "map.scale": {"by": "code", "tool": TOOL, "at": NOW, "input": "map type, plus world/continent words"}}
         if tt:
             prov["map.map_type"] = {"by": "filename" if text_type(rel) else "code", "tool": TOOL, "at": NOW,
                                     "input": "title and folder words" if text_type(rel) else "CAD symbol mix (relief + settlements, or mostly flora)"}
