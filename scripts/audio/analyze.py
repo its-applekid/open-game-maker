@@ -86,13 +86,14 @@ def vendor_tags(f: Path) -> dict:
 
 def excerpts(curve, dur, music):
     """Windows to embed. Music: the median-energy 30 s and the loudest 30 s (non-overlapping), each as 3 x 10 s.
-    Short files: the whole file, cut into 10 s windows (at most 3)."""
+    Music of 60 s or less: its two halves, so every track still gets two excerpts.
+    Short sound effects: the whole file, cut into 10 s windows (at most 3)."""
     import numpy as np
-    if not music or dur <= 30:
+    if not music:
         n = max(1, min(3, int(dur // WIN_S)))
         return [("whole", 0.0, min(dur, n * WIN_S) if dur >= WIN_S else dur)]
     if dur <= 60:
-        return [("opening", 0.0, 30.0)]
+        return [("first-half", 0.0, dur / 2), ("second-half", dur / 2, dur)]
     c = np.array(curve, float)
     w = 30
     sums = np.convolve(np.where(c > -70, c, -70), np.ones(w) / w, "valid")
