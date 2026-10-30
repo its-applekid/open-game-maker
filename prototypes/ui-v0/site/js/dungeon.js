@@ -93,9 +93,26 @@ const loadAll = (async () => {
   const L = new GLTFLoader();
   // ?models=json loads self-contained .gltf JSON copies (the design-doc artifact can't serve .glb)
   const ext = new URLSearchParams(location.search).get('models') === 'json' ? 'json' : 'glb';
-  await Promise.all(Object.entries(MODELS).map(async ([k, f]) => { gltfs[k] = await L.loadAsync(`assets/models/${f}.${ext}`); }));
+  await Promise.all(Object.entries(MODELS).map(async ([k, f]) => {
+    const url = `assets/models/${f}.${ext}`;
+    gltfs[k] = ext === 'json' ? await L.parseAsync(await jsonToGlb(url), url.replace(/[^/]*$/, '')) : await L.loadAsync(url);
+  }));
   gltfs.coin.scene.scale.setScalar(1);
 })();
+
+// the artifact viewer blocks fetch() of data: URIs, so decode the embedded buffer here and hand GLTFLoader a GLB
+async function jsonToGlb(url) {
+  const js = await (await fetch(url)).json();
+  const bin = Uint8Array.from(atob(js.buffers[0].uri.split(',')[1]), c => c.charCodeAt(0));
+  delete js.buffers[0].uri;
+  const pad = (b, fill) => { const out = new Uint8Array(Math.ceil(b.length / 4) * 4).fill(fill); out.set(b); return out; };
+  const jc = pad(new TextEncoder().encode(JSON.stringify(js)), 0x20), bc = pad(bin, 0);
+  const glb = new Uint8Array(12 + 8 + jc.length + 8 + bc.length), dv = new DataView(glb.buffer);
+  dv.setUint32(0, 0x46546C67, true); dv.setUint32(4, 2, true); dv.setUint32(8, glb.length, true);
+  dv.setUint32(12, jc.length, true); dv.setUint32(16, 0x4E4F534A, true); glb.set(jc, 20);
+  const o = 20 + jc.length; dv.setUint32(o, bc.length, true); dv.setUint32(o + 4, 0x004E4942, true); glb.set(bc, o + 8);
+  return glb.buffer;
+}
 
 export async function initEditor() {
   stage = $('#stage'); canvas = $('#c3d');

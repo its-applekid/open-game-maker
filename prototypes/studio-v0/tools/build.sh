@@ -32,4 +32,8 @@ cp -r "$U/index.html" "$U/style.css" "$U/js" "$D/"; sed -i '/favicon\|apple-touc
 cp "$U/assets/img/logo.png" "$U/assets/img/paper-bg.png" "$D/assets/img/"; cp -r "$U/assets/audio" "$D/assets/"; rm -f "$D/assets/audio/music-alt.mp3"
 cp "$U/assets/models/kenney/Textures/colormap.png" "$D/assets/models/kenney/Textures/"
 cp "$U/assets/models/kenney/"*.glb "$D/assets/models/kenney/"; python3 -I "$HERE/tools/glb2json.py" "$D/assets/models/kenney/"*.glb >/dev/null; rm "$D/assets/models/kenney/"*.glb
+# the artifact viewer won't run the CDN import map inside the game frame: ship the three.js files the game imports next to it
+for f in build/three.module.js examples/jsm/loaders/GLTFLoader.js examples/jsm/utils/BufferGeometryUtils.js examples/jsm/utils/SkeletonUtils.js; do
+  mkdir -p "$D/vendor/three/$(dirname $f)"; curl -sfL "https://cdn.jsdelivr.net/npm/three@0.170.0/$f" -o "$D/vendor/three/$f"; done
+sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/#./vendor/three/#' "$D/index.html"
 echo "built $HERE (publish index.html with every other file under it)"
