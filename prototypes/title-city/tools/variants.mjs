@@ -31,6 +31,42 @@ for (const [i, f] of TOWERS.entries()) for (const base of ['city/building-e', 'c
   specs.push({ name: `podium-${base.split('-').pop()}-${f.split('-').pop()}`, set: 'tall', op: 'podium', from: [base, f], scale: .7 + (i % 2) * .08 });
 }
 
+// castle town (Kenney Castle Kit + Mini Dungeon): tower houses stacked from a base, floors and a roof; hexagonal guild halls;
+// double-width houses; slum shacks and market stalls put together from Mini Dungeon pieces
+{
+  let s = 7; const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296), pick = a => a[Math.floor(r() * a.length)];
+  const c = n => 'castle/' + n, m = n => 'minidungeon/' + n;
+  const BASES = L('tower-square-base tower-square-base-color tower-square-base-border').map(c);
+  const MIDS = L('tower-square-mid tower-square-mid-windows tower-square-mid-door tower-square-mid-color tower-square-mid-open-simple').map(c);
+  const ROOFS = L('tower-square-top-roof tower-square-top-roof-high tower-square-top-roof-rounded tower-square-top-roof-high-windows tower-slant-roof').map(c);
+  const seen = new Set();
+  for (let n = 0; specs.filter(x => x.set === 'house' || x.set === 'tallhouse').length < 40 && n < 400; n++) {
+    const floors = r() < .45 ? 0 : r() < .75 ? 1 : 2, parts = [pick(BASES), ...Array.from({ length: floors }, () => pick(MIDS)), pick(ROOFS)], k = parts.join();
+    if (seen.has(k)) continue; seen.add(k);
+    specs.push({ name: `house-${String(seen.size).padStart(2, '0')}`, set: floors > 1 ? 'tallhouse' : 'house', op: 'parts', from: parts });
+  }
+  for (let n = 0; n < 6; n++) specs.push({ name: `hall-${n + 1}`, set: 'hall', op: 'parts', from: [c('tower-hexagon-base'), ...Array.from({ length: 1 + n % 3 }, () => c('tower-hexagon-mid')), c(n % 2 ? 'tower-hexagon-roof' : 'tower-hexagon-top')] });
+  for (let n = 0; n < 10; n++) {   // two towers side by side under one roofline
+    const fl = n % 3 === 0 ? 1 : 0, parts = [];
+    for (const x of [-.5, .5]) {
+      parts.push([pick(BASES), x, 0, 0]); for (let f = 0; f < fl; f++) parts.push([pick(MIDS), x, 1.01 * (f + 1), 0]);
+      parts.push([pick(ROOFS.slice(0, 4)), x, 1.01 * (fl + 1), 0]);
+    }
+    specs.push({ name: `wide-${n + 1}`, set: 'wide', op: 'place', parts, from: [...new Set(parts.map(p => p[0]))] });
+  }
+  const Q = Math.PI / 2;
+  for (let n = 0; n < 8; n++) {   // slum shacks: small low huts with slanted or flat roofs, a wooden fence, sometimes a lean-to
+    const k = .6 + (n % 3) * .06, parts = [[c('tower-square-base'), 0, 0, 0, 0, k], [c(n % 2 ? 'tower-slant-roof' : 'tower-square-top-roof'), 0, 1.01 * k, 0, (n % 4) * Q, k]];
+    parts.push([c('wall-narrow-wood-fence'), .1, 0, .75, Q * (n % 2), .7]);
+    if (n > 3) parts.push([c('tower-square-base'), .62, 0, -.1, 0, k * .8], [c('tower-slant-roof'), .62, 1.01 * k * .8, -.1, Q, k * .8]);
+    specs.push({ name: `shack-${n + 1}`, set: 'shack', op: 'place', parts, from: [...new Set(parts.map(p => p[0]))] });
+  }
+  for (let n = 0; n < 4; n++) {   // market stalls
+    const parts = [[m('table'), 0, 0, 0], [m('wood-support'), 0, 0, -.35, 0], [m('banner'), 0, .3, .1 + (n % 2) * .05], [m('barrel'), .7, 0, .1], [m(n % 2 ? 'chest' : 'pot'), -.65, 0, .1]];
+    specs.push({ name: `stall-${n + 1}`, set: 'stall', op: 'place', parts, from: [...new Set(parts.map(p => p[0]))] });
+  }
+}
+
 mkdirSync(OUT, { recursive: true });
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const p = await b.newPage();
@@ -40,11 +76,11 @@ await p.waitForFunction(() => window.ready, null, { timeout: 60000 });
 const manifest = { note: 'Variants made by tools/variants.mjs from cloned Kenney models (CC0). Sources are never modified.', made: new Date().toISOString().slice(0, 10), variants: [] };
 for (const s of specs) {
   const file = join(OUT, s.name + '.glb');
-  if (s.from.some(f => resolve(HERE, 'models', f + '.glb') === file)) throw new Error('refusing to overwrite a source: ' + file);
+  if ((s.from || []).some(f => resolve(HERE, 'models', f + '.glb') === file)) throw new Error('refusing to overwrite a source: ' + file);
   const r = await p.evaluate(spec => window.make(spec), s);
   writeFileSync(file, Buffer.from(r.glb, 'base64'));
   manifest.variants.push({ ...s, size: r.size });
-  console.log(s.name.padEnd(28), s.op, s.from.join(' + '), r.size.join('x'));
+  console.log(s.name.padEnd(28), s.op, (s.from || []).join(' + '), r.size.join('x'));
 }
 writeFileSync(join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 1));
 await b.close();

@@ -51,6 +51,19 @@ function podium(base, top, scale) {
   const t = top.clone().scale(scale, scale, scale).translate(0, bh - .01, 0);
   return mergeGeometries([base.toNonIndexed(), t.toNonIndexed()]);
 }
+// parts stacked bottom to top, each sitting on the one below (a tower house: base, floors, roof)
+async function stackParts(list) {
+  let y = 0; const geos = []; let map = null;
+  for (const name of list) { const a = await load(name); map = map || a.map; geos.push(a.geo.clone().translate(0, y, 0)); y += a.geo.boundingBox.max.y; }
+  return { geo: mergeGeometries(geos), map };
+}
+// parts placed at offsets ([name, x, y, z, rotY, scale]); all from one kit, so they share its texture
+async function place(list) {
+  const geos = []; let map = null;
+  for (const [name, x, y, z, r = 0, s = 1] of list) { const a = await load(name); map = map || a.map; geos.push(a.geo.clone().scale(s, s, s).rotateY(r).translate(x, y, z)); }
+  const g = mergeGeometries(geos); g.computeBoundingBox(); const b = g.boundingBox; g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+  return { geo: g, map };
+}
 async function glb(geo, map) {
   const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0 }));
   const buf = await new GLTFExporter().parseAsync(mesh, { binary: true });
@@ -58,6 +71,10 @@ async function glb(geo, map) {
   return btoa(s);
 }
 window.make = async spec => {
+  if (spec.op === 'parts' || spec.op === 'place') {
+    const r = spec.op === 'parts' ? await stackParts(spec.from) : await place(spec.parts); r.geo.computeBoundingBox(); const b = r.geo.boundingBox;
+    return { glb: await glb(r.geo, r.map), size: [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map(v => +v.toFixed(2)) };
+  }
   const a = await load(spec.from[0]);
   let geo;
   if (spec.op === 'stack') geo = stack(a.geo, spec.mid);

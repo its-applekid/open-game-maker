@@ -16,4 +16,8 @@ cp -r "$K/kenney-city-kit-roads/"*/extracted/Models/GLB\ format/* "$HERE/models/
 cp -r "$K/kenney-city-kit-suburban/"*/extracted/Models/GLB\ format/* "$HERE/models/suburb/"
 cp -r "$K/kenney-train-kit/"*/extracted/Models/GLB\ format/* "$HERE/models/train/"
 mkdir -p "$HERE/models/industrial"; cp -r "$K/kenney-city-kit-industrial/"*/extracted/Models/GLB\ format/* "$HERE/models/industrial/"
+# castle town: Kenney Castle Kit and Mini Dungeon (CC0); then rebuild the cloned variants: node tools/variants.mjs (needs the prototype served on :8792)
+mkdir -p "$HERE/models/castle" "$HERE/models/minidungeon"
+cp -r "$K/kenney-castle-kit/"*/extracted/Models/GLB\ format/* "$HERE/models/castle/"
+cp -r "$K/kenney-mini-dungeon/"*/extracted/Models/GLB\ format/* "$HERE/models/minidungeon/"
 echo "built $HERE"
