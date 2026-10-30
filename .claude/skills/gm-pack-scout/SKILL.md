@@ -17,8 +17,8 @@ effects, Kevin likes them): check them first and never suggest buying an effects
    - Free or pay-what-you-want itch.io pages: `python3 -I scripts/assets/fetch_itch_free.py <page url> ~/Downloads/itch/<slug>`
      (writes `sources.json`; skip engine project zips with `--only`).
    - Paid: list title, price and link; Kevin buys in his browser (no spending without his go), then drops the files
-     in `~/Downloads/` or the Drive watch folder for `gm-asset-intake`. No browser or sign-in here: ask him for each
-     purchase's private download link (My purchases → Download, `…/download/<code>`), keep it in `~/.config/ogm`.
+     in `~/Downloads/` or the Drive watch folder for `gm-asset-intake`. No browser or sign-in here, and purchase download
+     links redirect to a login: use an itch.io API key he generates (Settings → API keys), kept in `~/.config/ogm`.
 4. **Install** per `gm-assets` (originals untouched, `License.txt`, `pack.json`, rebuild the catalog), then show the
    real sheets at true pixel scale (`scripts/assets/sprite_libraries.py`) or a lineup.
 
