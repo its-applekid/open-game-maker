@@ -64,14 +64,6 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 /* library: a spotlight on the paper desk for the selected game (details left, footage right with paint-splatter edges, always in the
    same place), then every game as edge-to-edge live tiles on a dark floor. Selecting a tile only swaps the spotlight. */
 #s-library { --floor: #0b0a07; --hi: #fbf1c7; --lo: rgba(251,241,199,.62); --ease: cubic-bezier(.22,1,.36,1); --c: #fabd2f; padding-bottom: 0; }
-.lib-bar { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 50%; translate: -50% 0; z-index: 30; display: flex; align-items: center; gap: 16px;
-  padding: 4px 16px 4px 4px; border-radius: 999px; background: rgba(19,18,9,.62); border: 1px solid rgba(251,241,199,.16); color: var(--hi);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5); backdrop-filter: blur(18px) saturate(1.5); box-shadow: 0 12px 32px rgba(0,0,0,.3); max-width: calc(100% - 32px); }
-.lib-bar h1 { font: 600 18px/28px var(--display); letter-spacing: .3px; }
-.lib-back { display: inline-flex; align-items: center; gap: 4px; border: 0; border-radius: 999px; padding: 8px 16px 8px 12px; background: rgba(251,241,199,.1); color: var(--hi);
-  font: 600 14px/20px var(--display); white-space: nowrap; transition: background .3s var(--ease), transform .3s var(--ease); }
-.lib-back:hover { background: rgba(251,241,199,.2); } .lib-back:active { transform: scale(.97); }
-.lib-count { font: 700 12px/16px var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--lo); white-space: nowrap; }
 
 /* spotlight: a dark stage lit by a blurred copy of the footage (it shifts colour with the game), details left, footage right */
 #s-library { background: var(--floor); color: var(--hi); --k-genre: #fe8019; --k-vibe: #d3869b; --k-art: #83a598; --k-world: #b8bb26; --k-players: #8ec07c; }
@@ -81,11 +73,9 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 #lib-hero::before { content: ''; position: absolute; inset: 0; z-index: -1; pointer-events: none;
   background: radial-gradient(120% 90% at 70% 45%, transparent 30%, rgba(11,10,7,.75) 80%), linear-gradient(to bottom, transparent 70%, var(--floor)); }
 #lh-text { display: grid; gap: 16px; align-content: center; min-width: 0; }
-.lh-badge { justify-self: start; font: 700 12px/16px var(--display); letter-spacing: .1em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; background: var(--c); color: #131209; }
 .lh-title { font-size: clamp(36px, 4.4vw, 64px); line-height: 1.05; color: var(--hi); position: relative; padding-bottom: 16px; overflow-wrap: anywhere; text-shadow: 0 4px 24px rgba(0,0,0,.4); }
 .lh-title::after { content: ''; position: absolute; left: 0; bottom: 0; width: min(60%, 320px); height: 6px; border-radius: 99px; background: var(--c); box-shadow: 0 0 24px var(--c); }
 .lh-tag { margin: 0; font: 600 20px/28px var(--display); color: var(--hi); text-wrap: pretty; }
-.lh-desc { margin: 0; font: 600 16px/24px var(--body); color: var(--lo); max-width: 52ch; text-wrap: pretty; }
 .lh-icons { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 16px 12px; }
 .lh-icons li { display: grid; justify-items: center; gap: 8px; width: 64px; font: 700 12px/16px var(--body); color: var(--lo); text-align: center; }
 .lh-icons li span { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; color: var(--k); background: color-mix(in srgb, var(--k) 16%, transparent);
@@ -134,20 +124,20 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 .stars { font: 700 14px/20px var(--display); color: var(--c); white-space: nowrap; }
 .badge { position: absolute; top: 16px; left: 16px; z-index: 3; font: 700 12px/16px var(--display); letter-spacing: .08em; text-transform: uppercase;
   padding: 4px 12px; border-radius: 999px; background: var(--c); color: #131209; box-shadow: 0 0 24px color-mix(in srgb, var(--c) 60%, transparent); }
-.tile:hover, .tile:focus-visible { z-index: 5; transform: scale(1.035); outline: none; box-shadow: 0 0 0 2px var(--c), 0 24px 64px -8px color-mix(in srgb, var(--c) 70%, transparent); }
-.tile:hover canvas, .tile:focus-visible canvas { transform: scale(1.08); }
-.tile:hover .shine, .tile:focus-visible .shine { transform: translateX(130%); transition: transform .9s var(--ease); }
-.tile:hover .tile-info, .tile:focus-visible .tile-info, .tile.sel .tile-info { transform: none; }
-.tile:hover .tile-meta, .tile:focus-visible .tile-meta, .tile.sel .tile-meta { opacity: 1; }
-.tile.sel { z-index: 4; box-shadow: inset 0 0 0 4px var(--c), 0 0 48px -8px var(--c); }
-.tile.sel::before { content: 'Selected'; position: absolute; top: 16px; right: 16px; z-index: 3; font: 700 12px/16px var(--display); letter-spacing: .08em; text-transform: uppercase;
-  padding: 4px 12px; border-radius: 999px; background: rgba(19,18,9,.75); color: var(--c); }
-#lib-grid:has(.tile:hover) .tile:not(:hover):not(.sel) { opacity: .5; filter: saturate(.35) brightness(.8); }
+/* hover effects only where there is a real pointer; on touch screens the first tap would otherwise just light the tile up */
+@media (hover: hover) and (pointer: fine) {
+  .tile:hover, .tile:focus-visible { z-index: 5; transform: scale(1.035); outline: none; box-shadow: 0 0 0 2px var(--c), 0 24px 64px -8px color-mix(in srgb, var(--c) 70%, transparent); }
+  .tile:hover canvas, .tile:focus-visible canvas { transform: scale(1.08); }
+  .tile:hover .shine, .tile:focus-visible .shine { transform: translateX(130%); transition: transform .9s var(--ease); }
+  .tile:hover .tile-info, .tile:focus-visible .tile-info { transform: none; }
+  .tile:hover .tile-meta, .tile:focus-visible .tile-meta { opacity: 1; }
+  #lib-grid:has(.tile:hover) .tile:not(:hover):not(.sel) { opacity: .5; filter: saturate(.35) brightness(.8); }
+}
+.tile:focus-visible { z-index: 5; outline: 3px solid var(--c); outline-offset: -3px; }
 @media (hover: none) { .tile-info { transform: none; } .tile-meta { opacity: 1; } }
 .tile.building .cover-title { color: var(--hi) !important; }
 .build-chip { position: absolute; top: 16px; right: 16px; z-index: 3; display: inline-flex; align-items: center; gap: 8px; font: 700 12px/16px var(--display);
   padding: 4px 12px 4px 4px; border-radius: 999px; background: rgba(19,18,9,.7); color: var(--hi); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
-.tile.sel .build-chip { top: 48px; }
 .ring { --p: 0; width: 18px; height: 18px; border-radius: 50%; background: conic-gradient(var(--green-b) calc(var(--p) * 360deg), rgba(251,241,199,.2) 0); display: inline-block; }
 .tile.fresh { animation: fresh 1.2s 2 var(--ease); }
 @keyframes fresh { 50% { box-shadow: 0 0 0 3px var(--c), 0 0 64px var(--c); } }
@@ -158,13 +148,21 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 #new-game:hover { transform: translateY(-3px); box-shadow: 0 24px 64px rgba(250,189,47,.6); }
 #new-game:active { transform: scale(.98); }
 @media (max-width: 900px) {
-  #lib-hero { grid-template-columns: 1fr; gap: 32px; padding: 88px 16px 40px; min-height: 0; }
-  #lh-media { order: -1; margin-inline: 8px; }
-  .lh-stats { grid-template-columns: repeat(2, auto); }
+  #lib-hero { grid-template-columns: 1fr; gap: 12px; padding: 68px 12px 16px; min-height: 0; }
+  #lh-media { order: -1; margin-inline: -4px; }
+  #lh-text { gap: 10px; }
+  .lh-title { font-size: 28px; padding-bottom: 8px; } .lh-title::after { height: 4px; width: 120px; }
+  .lh-tag { font-size: 16px; line-height: 24px; }
+  .lh-icons { flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; } .lh-icons li { width: 52px; flex: none; font-size: 11px; line-height: 14px; gap: 4px; }
+  .lh-icons li span { width: 36px; height: 36px; }
+  .lh-stats { grid-template-columns: repeat(4, auto); gap: 2px 16px; padding: 8px 0; } .lh-stats dt { font-size: 10px; letter-spacing: .04em; } .lh-stats dd { font-size: 16px; line-height: 24px; margin: 0; }
+  .lh-stars svg { width: 13px; height: 13px; } .lh-stars small { display: none; }
+  .lh-acts { gap: 8px; } .lh-acts .act { flex: 1; padding: 8px 16px; font-size: 16px; line-height: 24px; min-width: 0; }
+  .lh-close { top: 72px; right: 16px; }
   .lib-keys { display: none; }
   #new-game { right: auto; left: 50%; translate: -50% 0; }
 }
-@media (max-width: 600px) { .lh-acts .act { flex: 1; } .act.more { flex-basis: 100%; } }
+@media (max-width: 600px) { #lib-hero { padding-top: 16px; } .lh-title { font-size: 26px; } .lh-close { top: 16px; } }
 @media (prefers-reduced-motion: reduce) { .tile, .swap, #lh-text.swap > * { animation: none; } .tile, .tile canvas, .tile-info { transition: opacity .3s; } }
 
 /* game modal */
@@ -396,12 +394,12 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 @media (max-width: 600px) { .opt .ic { width: 56px; height: 56px; padding: 12px; } }
 
 /* glass-pane edges: a 1px gradient border, faint at the top and solid at the bottom */
-.opt, .btn:not(.green):not(.yellow):not(.coral), .sheet-card, #voice-modal .sheet-card, .tr-panel, .pick-sum, #art-pop, .lib-bar, #tr-fab, .vs { border-color: transparent; }
-.opt::before, .btn:not(.green):not(.yellow):not(.coral)::before, .sheet-card::before, .tr-panel::before, .pick-sum::before, #art-pop::before, .lib-bar::before, #tr-fab::before, .vs::before {
+.opt, .btn:not(.green):not(.yellow):not(.coral), .sheet-card, #voice-modal .sheet-card, .tr-panel, .pick-sum, #art-pop, #tr-fab, .vs { border-color: transparent; }
+.opt::before, .btn:not(.green):not(.yellow):not(.coral)::before, .sheet-card::before, .tr-panel::before, .pick-sum::before, #art-pop::before, #tr-fab::before, .vs::before {
   content: ''; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 0;
   background: linear-gradient(to bottom, rgba(242,234,214,.05), rgba(242,234,214,.16) 45%, rgba(242,234,214,.42));
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
-.btn, .pick-sum, .vs, .lib-bar { position: relative; } .lib-bar { position: fixed; }
+.btn, .pick-sum, .vs { position: relative; }
 .opt { background: rgba(255,255,255,.035); } .opt:hover { background: rgba(255,255,255,.065); }
 .opt[aria-pressed="true"] { border-color: transparent; box-shadow: 0 16px 48px -14px var(--kc, var(--ink)); }
 .opt[aria-pressed="true"]::before { background: linear-gradient(to bottom, color-mix(in srgb, var(--kc, var(--ink)) 25%, transparent), var(--kc, var(--ink))); }
@@ -427,11 +425,92 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 .btn.yellow, .act.edit, #new-game { --cta: var(--yellow-b); } .btn.coral { --cta: var(--red-b); }
 .btn.green:hover:not(:disabled), .btn.yellow:hover:not(:disabled), .act.play:hover:not(:disabled), .act.edit:hover:not(:disabled), #new-game:hover { box-shadow: 0 14px 40px -8px var(--cta); filter: brightness(1.12); }
 #new-game .plus { background: var(--cta); color: var(--dark); }
-.tile .badge, .tile.sel::before, .lh-badge { border: 1.5px solid transparent; color: var(--ink); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
+.tile .badge { border: 1.5px solid transparent; color: var(--ink); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
   background: linear-gradient(color-mix(in srgb, var(--c) 28%, rgba(24,22,32,.6)), color-mix(in srgb, var(--c) 28%, rgba(24,22,32,.6))) padding-box,
     linear-gradient(to bottom, rgba(242,234,214,.1), var(--c)) border-box; box-shadow: none; }
+.lh-close { position: absolute; top: 88px; right: max(24px, env(safe-area-inset-right, 0px)); z-index: 3; width: 44px; height: 44px; display: grid; place-items: center;
+  border: 1.5px solid transparent; border-radius: 50%; color: var(--ink); font: 700 16px/1 var(--display); cursor: pointer; -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
+  background: linear-gradient(rgba(24,22,32,.55), rgba(24,22,32,.55)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box;
+  transition: transform .3s cubic-bezier(.22,1,.36,1), background .3s; }
+.lh-close:hover { transform: rotate(90deg) scale(1.06); } .lh-close:active { transform: scale(.95); }
+.lh-close:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.tile.sel { display: none; }
+
+/* spotlight: footage gets more room; the title underline tapers off; tag icons use the glass-pane edge */
+#lib-hero { grid-template-columns: minmax(340px, 3.6fr) minmax(0, 8.4fr); gap: 40px; padding-right: max(12px, env(safe-area-inset-right, 0px)); }
+.lh-title::after { height: 6px; width: min(80%, 420px); border-radius: 99px 0 0 99px; box-shadow: none;
+  background: linear-gradient(90deg, var(--c) 0%, color-mix(in srgb, var(--c) 60%, transparent) 55%, transparent 100%); clip-path: polygon(0 0, 100% 45%, 100% 55%, 0 100%); }
+.lh-icons li span, .ticons i { box-shadow: none; border: 1.5px solid transparent; -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
+  background: linear-gradient(color-mix(in srgb, var(--k) 18%, rgba(15,14,22,.55)), color-mix(in srgb, var(--k) 18%, rgba(15,14,22,.55))) padding-box,
+    linear-gradient(to bottom, color-mix(in srgb, var(--k) 12%, transparent), var(--k)) border-box; }
+@media (max-width: 900px) { #lib-hero { grid-template-columns: 1fr; } #lh-media { margin-inline: -10px; } }
+
+/* CTAs: lighter, brighter gruvbox glass with dark text */
+.btn.green, .btn.yellow, .btn.coral, .act.play, .act.edit, #new-game { color: var(--dark);
+  background: linear-gradient(color-mix(in srgb, var(--cta) 72%, rgba(255,255,255,.12)), color-mix(in srgb, var(--cta) 72%, rgba(255,255,255,.12))) padding-box,
+    linear-gradient(to bottom, color-mix(in srgb, var(--cta) 45%, #fbf1c7), var(--cta)) border-box; box-shadow: 0 10px 30px -10px var(--cta); }
+#new-game .plus { background: var(--dark); color: var(--cta); }
+
+/* the spotlight never fills the screen: the next row of games always peeks out below it */
+#lib-hero { min-height: 0; }   /* content sets the height (nothing clips); the footage cap below keeps the next row in view */
+#lh-media { max-height: calc(80svh - 120px); justify-self: center; width: min(100%, calc((80svh - 120px) * 16 / 9)); }
+/* sideways phones: details left, footage right, all on one screen; three thumbnails across underneath */
+@media (orientation: landscape) and (max-height: 540px) {
+ 
+  #lib-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.3fr); gap: 16px; align-items: center; height: 74svh; max-height: none;
+    padding: 12px max(12px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
+  #lh-media { order: 0; margin: 0; width: min(100%, calc((74svh - 24px) * 16 / 9)); max-height: calc(74svh - 24px); justify-self: end; }
+  #lh-text { gap: 6px; align-content: center; }
+  .lh-title { font-size: 22px; line-height: 1.1; padding-bottom: 6px; } .lh-title::after { height: 4px; }
+  .lh-tag { display: block; font-size: 13px; line-height: 18px; }
+  .lh-icons { flex-wrap: nowrap; overflow-x: auto; gap: 4px; scrollbar-width: none; } .lh-icons li { width: 44px; flex: none; font-size: 10px; line-height: 12px; gap: 2px; }
+  .lh-icons li span { width: 28px; height: 28px; }
+  .lh-stats { grid-template-columns: repeat(4, auto); gap: 0 12px; padding: 4px 0; } .lh-stats dt { font-size: 9px; } .lh-stats dd { font-size: 13px; line-height: 18px; margin: 0; }
+  .lh-stars svg { width: 10px; height: 10px; } .lh-stars small { display: none; }
+  .lh-acts { gap: 8px; } .lh-acts .act { flex: 1; padding: 4px 12px; font-size: 14px; line-height: 20px; min-width: 0; }
+  .lh-close { top: 10px; right: 10px; width: 34px; height: 34px; font-size: 13px; }
+  .lib-keys { display: none; }
+  #lib-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+  #new-game { left: auto; right: max(80px, calc(env(safe-area-inset-right, 0px) + 80px)); translate: none; bottom: 12px; padding: 8px 16px 8px 12px; font-size: 15px; }
+}
+@media (max-width: 1200px) { .lib-keys { display: none; } }
+
+/* the Open Game Maker logo sits top left on every screen (the title screen has its own big one) */
+#logo { position: fixed; z-index: 35; top: calc(env(safe-area-inset-top, 0px) + 12px); left: max(16px, env(safe-area-inset-left, 0px)); height: 52px; width: auto;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); pointer-events: none; }
+body.on-title #logo { display: none; }
+#lib-hero { padding-top: 84px; }
+.wz-head > div:first-child { padding-left: 104px; }
+.play-bar { padding-left: max(112px, calc(env(safe-area-inset-left, 0px) + 112px)); }
+#s-play #logo, .on-play #logo { height: 40px; top: calc(env(safe-area-inset-top, 0px) + 8px); }
+@media (max-width: 900px) { #lib-hero { padding-top: 72px; } .lh-close { top: 76px; } }
+@media (max-width: 600px) { #logo { height: 40px; } #lib-hero { padding-top: 60px; } .lh-close { top: 66px; } .wz-head > div:first-child { padding-left: 0; } #s-wizard .page { padding-top: 64px; } .play-bar { padding-left: max(88px, calc(env(safe-area-inset-left, 0px) + 88px)); } }
+@media (orientation: landscape) and (max-height: 540px) { #logo { height: 34px; top: calc(env(safe-area-inset-top, 0px) + 8px); } #lib-hero { padding-top: 12px; } #lh-text { padding-top: 34px; } .lh-close { top: 10px; } }
+
+.lh-icons, .lh-icons li { overflow: visible; } .lh-icons { flex-wrap: wrap !important; }
+@media (max-width: 900px) { .lh-icons { gap: 6px 2px; } .lh-icons li { width: 48px; } }
+@media (orientation: landscape) and (max-height: 540px) { .lh-icons li { width: 42px; } .lh-icons li span { width: 26px; height: 26px; } }
+#lh-text { min-width: 0; overflow-wrap: anywhere; }
+
+/* bright glass for tag icons and small badges: light top edge fading to the solid colour */
+.lh-icons li span, .ticons i { color: var(--k);
+  background: linear-gradient(color-mix(in srgb, var(--k) 26%, rgba(40,36,52,.5)), color-mix(in srgb, var(--k) 26%, rgba(40,36,52,.5))) padding-box,
+    linear-gradient(to bottom, color-mix(in srgb, var(--k) 40%, #fbf1c7), var(--k)) border-box; }
+.opt[aria-pressed="true"]::after { background: linear-gradient(color-mix(in srgb, var(--kc) 30%, rgba(40,36,52,.6)), color-mix(in srgb, var(--kc) 30%, rgba(40,36,52,.6))) padding-box,
+    linear-gradient(to bottom, color-mix(in srgb, var(--kc) 40%, #fbf1c7), var(--kc)) border-box; }
+.tile .badge { background: linear-gradient(color-mix(in srgb, var(--c) 40%, rgba(40,36,52,.55)), color-mix(in srgb, var(--c) 40%, rgba(40,36,52,.55))) padding-box,
+    linear-gradient(to bottom, color-mix(in srgb, var(--c) 40%, #fbf1c7), var(--c)) border-box; }
+#tr-count { background: linear-gradient(color-mix(in srgb, var(--tc) 45%, rgba(40,36,52,.6)), color-mix(in srgb, var(--tc) 45%, rgba(40,36,52,.6))) padding-box,
+    linear-gradient(to bottom, color-mix(in srgb, var(--tc) 40%, #fbf1c7), var(--tc)) border-box; }
+.opt[aria-pressed="true"]::before { background: linear-gradient(to bottom, color-mix(in srgb, var(--kc) 40%, #fbf1c7), var(--kc)); }
+/* no backdrop blur on the many small badges over live covers: it stalls rendering, and their fills are nearly solid anyway */
+.lh-icons li span, .ticons i, .tile .badge, .build-chip, .opt[aria-pressed="true"]::after { -webkit-backdrop-filter: none; backdrop-filter: none; }
+/* never clip or split stats and tag labels: stats wrap as whole items, labels widen instead of breaking mid-word */
+.lh-stats { display: flex !important; flex-wrap: wrap; gap: 8px 24px; } .lh-stats dt, .lh-stats dd, .lh-icons li { overflow-wrap: normal; white-space: nowrap; }
+.lh-icons li { width: auto !important; min-width: 44px; }
 </style>
 
+<img id="logo" src="art/logo.webp" alt="Open Game Maker 2000">
 <div id="bg" aria-hidden="true"><canvas width="64" height="40"></canvas></div>
 
 <section id="s-title" class="screen" aria-label="Title screen">
@@ -439,8 +518,8 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 </section>
 
 <section id="s-library" class="screen" hidden aria-label="Games">
-  <header class="lib-bar"><button class="lib-back" id="lib-back">← Back</button><h1>Games</h1><span class="lib-count" id="lib-count"></span></header>
-  <div id="lib-hero"><canvas id="lh-ambient" aria-hidden="true"></canvas>
+  
+  <div id="lib-hero"><canvas id="lh-ambient" aria-hidden="true"></canvas><button class="lh-close" id="lh-close" aria-label="Close game">&#x2715;</button>
     <div id="lh-text" aria-live="polite"></div>
     <div id="lh-media"><div id="lh-shot"><canvas id="lh-canvas"></canvas></div></div>
     <div class="lib-keys" aria-hidden="true"><span><kbd>← →</kbd>Browse</span><span><kbd>Enter</kbd>Play</span></div>

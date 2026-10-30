@@ -18,6 +18,7 @@ function show(name) {
   for (const s of $$('.screen')) s.hidden = s.id !== 's-' + name;
   $('#tracker').classList.toggle('hidden', name === 'title');
   $('#tracker').classList.toggle('inbar', name === 'play');
+  document.body.classList.toggle('on-title', name === 'title'); document.body.classList.toggle('on-play', name === 'play');
   scrollTo(0, 0);
 }
 
@@ -25,7 +26,6 @@ function show(name) {
 const titleFrame = $('#titleFrame');
 function loadTitle() { titleFrame.src = DEMO; }
 addEventListener('message', e => { if (e.data?.ogm === 'start' && state.screen === 'title') { show('library'); setTimeout(() => { titleFrame.src = 'about:blank'; }, 400); } });
-$('#lib-back').onclick = () => { loadTitle(); show('title'); };
 
 // ---------------- library ----------------
 // The selected game owns a fixed spotlight at the top (details left, gameplay right with paint-splatter edges);
@@ -33,7 +33,7 @@ $('#lib-back').onclick = () => { loadTitle(); show('title'); };
 const KCOL = {};
 for (const st of STEPS) st.opts?.forEach((op, i, all) => { KCOL[op.icon] = `hsl(${Math.round(i / all.length * 330)} 72% 66%)`; });
 const grid = $('#lib-grid');
-let selId = null;
+let selId;   // undefined until the first render picks the first game; null once the player closes the spotlight
 const STAR = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
 function stars(r) {
   return Array.from({ length: 5 }, (_, i) => {
@@ -72,33 +72,46 @@ function edgePoints(W, H, ix, iy, step) {
 }
 function splatMask(seed, W = 1600, H = 900) {
   const r = rng(seed), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const c = cv.getContext('2d'), ix = W * .08, iy = H * .14, maxS = 2 * (Math.min(ix, iy) - 10);
+  const c = cv.getContext('2d'), ix = W * .055, iy = H * .095, maxS = 2 * (Math.min(ix, iy) - 8);
   // the solid body stops 44px inside the edge line, so the outline is made only of splat shapes, never a straight side
-  c.fillStyle = '#fff'; c.beginPath(); c.roundRect(ix + 44, iy + 44, W - 2 * ix - 88, H - 2 * iy - 88, 24); c.fill();
-  for (const [x, y, nx, ny] of edgePoints(W, H, ix, iy, 46)) {
-    const im = SPLATS[Math.floor(r() * SPLATS.length)], size = Math.min(maxS, 130 + r() * 90), o = (r() - .5) * 16;
+  c.fillStyle = '#fff'; c.beginPath(); c.roundRect(ix + 34, iy + 34, W - 2 * ix - 68, H - 2 * iy - 68, 20); c.fill();
+  for (const [x, y, nx, ny] of edgePoints(W, H, ix, iy, 38)) {
+    const im = SPLATS[Math.floor(r() * SPLATS.length)], size = Math.min(maxS, 100 + r() * 60), o = (r() - .5) * 12;
     stamp(c, im, x + nx * o, y + ny * o, size, r() * 7);
-    stamp(c, SPLATS[Math.floor(r() * SPLATS.length)], x - nx * 40, y - ny * 40, 110, r() * 7);   // backing stamp fills any gap between the shapes
+    stamp(c, SPLATS[Math.floor(r() * SPLATS.length)], x - nx * 30, y - ny * 30, 90, r() * 7);   // backing stamp fills any gap between the shapes
   }
   for (let i = 0; i < 70; i++) {   // droplets just outside, kept off the canvas border
-    const pts = edgePoints(W, H, ix, iy, 40), [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], d = 70 + r() * Math.min(ix, iy) * .5;
+    const pts = edgePoints(W, H, ix, iy, 40), [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], d = 50 + r() * Math.min(ix, iy) * .35;
     const px = Math.min(W - 16, Math.max(16, x + nx * d)), py = Math.min(H - 16, Math.max(16, y + ny * d));
     stamp(c, SPRAY[Math.floor(r() * SPRAY.length)], px, py, 8 + r() * 18, r() * 7);
   }
   return cv.toDataURL();
 }
 const seedOf = id => [...id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 2147483647, 7) || 7;
+// Tiles glide from where they were to where the grid now puts them (FLIP). `from` overrides a tile's start rect: the game
+// that just closed shrinks from the spotlight footage back into its own thumbnail.
+const EASE = 'cubic-bezier(.22,1,.36,1)';
+function glide(el, a, b, ms = 650) {
+  if (!a?.width || !b?.width || reduced) return;
+  const dx = a.left - b.left, dy = a.top - b.top, sx = a.width / b.width, sy = a.height / b.height;
+  if (Math.abs(dx) < 1 && Math.abs(dy) < 1 && Math.abs(sx - 1) < .01 && Math.abs(sy - 1) < .01) return;
+  el.animate([{ transformOrigin: '0 0', transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transformOrigin: '0 0', transform: 'none' }], { duration: ms, easing: EASE });
+}
+function glideTiles(tiles, before, from = new Map()) {
+  for (const t of tiles) { if (t.classList.contains('sel')) continue; glide(t, from.get(t) || before.get(t), t.getBoundingClientRect()); }
+}
 function select(id, scroll) {
+  const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
+  const hero = $('#lib-hero'), media = $('#lh-media'), wasOpen = !hero.hidden && selId, oldMedia = wasOpen ? media.getBoundingClientRect() : null;
+  const oldTile = tiles.find(t => t.dataset.id === selId), newTile = tiles.find(t => t.dataset.id === id), fromRect = before.get(newTile);
   selId = id;
   const g = games.find(x => x.id === id), building = g.status === 'building';
-  for (const t of $$('.tile', grid)) t.classList.toggle('sel', t.dataset.id === id);
-  const hero = $('#lib-hero');
+  for (const t of tiles) t.classList.toggle('sel', t.dataset.id === id);
+  hero.hidden = false;
   hero.style.setProperty('--c', g.color);
   $('#lh-text').innerHTML = `
-    ${g.badge ? `<span class="lh-badge">${esc(g.badge)}</span>` : ''}
     <h2 class="lh-title" style="font-family:'${g.font}',var(--display)">${esc(g.title)}</h2>
     <p class="lh-tag">${esc(g.tagline)}</p>
-    <p class="lh-desc">${esc(g.desc)}</p>
     <ul class="lh-icons">${gameTags(g).map(x => `<li style="--k:${KCOL[x.key]}"><span>${ICONS[x.key]}</span>${esc(x.label)}</li>`).join('')}</ul>
     <dl class="lh-stats">
       <div><dt>Time played</dt><dd>${esc(g.played || '0m')}</dd></div>
@@ -116,8 +129,21 @@ function select(id, scroll) {
   shot.style.maskImage = shot.style.webkitMaskImage = `url(${splatMask(seed)})`;
   for (const el of [$('#lh-text'), $('#lh-media')]) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
   drawHero(performance.now());
-  if (scroll && hero.getBoundingClientRect().bottom < 120) scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+  if (!scroll) return;
+  // the chosen thumbnail grows into the spotlight footage; the old pick shrinks back into its tile
+  scrollTo({ top: 0, behavior: 'auto' });
+  glide(media, fromRect, media.getBoundingClientRect(), 700);
+  glideTiles(tiles, before, new Map(oldTile && oldTile !== newTile && oldMedia ? [[oldTile, oldMedia]] : []));
 }
+function closeSpot() {
+  const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
+  const media = $('#lh-media').getBoundingClientRect(), tile = tiles.find(t => t.dataset.id === selId);
+  selId = null; $('#lib-hero').hidden = true;
+  for (const t of tiles) t.classList.remove('sel');
+  glideTiles(tiles, before, new Map(tile ? [[tile, media]] : []));
+  tile?.focus({ preventScroll: true });
+}
+$('#lh-close').onclick = closeSpot;
 function drawHero(now) {
   const g = games.find(x => x.id === selId), cv = $('#lh-canvas');
   if (!g) return;
@@ -126,13 +152,12 @@ function drawHero(now) {
   const amb = $('#lh-ambient'); if (cv.width) { amb.width = 48; amb.height = 27; amb.getContext('2d').drawImage(cv, 0, 0, 48, 27); }
 }
 function renderLibrary() {
-  if (!selId || !games.some(g => g.id === selId)) selId = games[0].id;
+  if (selId === undefined || (selId && !games.some(g => g.id === selId))) selId = games[0].id;
   grid.innerHTML = '';
   games.forEach((g, i) => grid.append(tileFor(g, i)));
-  $('#lib-count').textContent = `${games.length} games`;
   drawCovers();
   for (const t of $$('.tile', grid)) seen.observe(t);
-  select(selId, false);
+  if (selId) select(selId, false); else $('#lib-hero').hidden = true;
 }
 function drawCovers() {
   for (const t of $$('.tile', grid)) {
@@ -144,8 +169,8 @@ function drawCovers() {
 // arrows browse, Enter plays the selected game
 addEventListener('keydown', e => {
   if (state.screen !== 'library' || !$('#voice-modal').hidden || e.target.closest('input, textarea')) return;
-  const i = games.findIndex(g => g.id === selId);
-  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const n = games[(i + (e.key === 'ArrowRight' ? 1 : -1) + games.length) % games.length]; select(n.id, false); $(`.tile[data-id="${n.id}"]`, grid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  const i = Math.max(0, games.findIndex(g => g.id === selId));
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const n = selId ? games[(i + (e.key === 'ArrowRight' ? 1 : -1) + games.length) % games.length] : games[0]; select(n.id, true); $(`.tile[data-id="${n.id}"]`, grid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   if (e.key === 'Enter' && e.target === document.body && games[i].status !== 'building') enterGame(games[i], 'play');
 });
 // Every cover on screen plays all the time; building tiles animate their blueprint.

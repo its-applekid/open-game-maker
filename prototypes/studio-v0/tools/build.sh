@@ -22,6 +22,7 @@ RP="$K/kenney-racing-pack/1.0/extracted/PNG"
 for f in Cars/car_red_1 Cars/car_blue_1 Cars/car_yellow_1 Cars/car_green_1 Objects/tribune_full Objects/tree_large Objects/tires_red Objects/cone_straight; do cp "$RP/$f.png" "$A/race-$(basename $f).png"; done
 PZ="$K/kenney-puzzle-pack-1/1.1/extracted/PNG/Default"
 for f in element_red_rectangle_glossy element_blue_rectangle_glossy element_green_rectangle_glossy element_yellow_rectangle_glossy element_purple_rectangle_glossy paddleBlu ballBlue particleStar; do cp "$PZ/$f.png" "$A/puz-$f.png"; done
+"$PY" -I -c "import sys; from PIL import Image; im = Image.open(sys.argv[1]); im.thumbnail((400, 400)); im.save(sys.argv[2], quality=90)" "$ROOT/prototypes/ui-v0/site/assets/img/logo.png" "$A/logo.webp"
 # paint splats for the spotlight's footage edge (Kenney Splat Pack, CC0)
 mkdir -p "$A/splats"; cp "$K/kenney-splat-pack/1.0/extracted/PNG/Default (256px)/splat"{00,01,02,03,05,07,10,11,14,16,17,18,19,20,21,24,27,28,29,30,31,33,34,35}.png "$A/splats/"
 "$PY" -I "$HERE/tools/previews.py" "$K" "$A/packs" kenney-1-bit-pack kenney-1-bit-platformer-pack kenney-monochrome-rpg-tileset kenney-pico-8-platformer \
