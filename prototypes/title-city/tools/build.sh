@@ -28,4 +28,6 @@ mkdir -p "$HERE/models/fx"; SM="$(ls -d "$K"/kenney-smoke-particles/*/extracted 
 for f in whitePuff00 whitePuff03 whitePuff07 whitePuff12 blackSmoke02 blackSmoke07 blackSmoke12 flash00 flash03 explosion02; do cp "$(find "$SM" -name "$f.png" | head -1)" "$HERE/models/fx/"; done
 for f in flame_02 flame_04 flame_05 fire_01 fire_02 spark_02 spark_05 dirt_01 dirt_02 scorch_01 scorch_02; do cp "$(find "$PP" -name "$f.png" | head -1)" "$HERE/models/fx/"; done
 for f in PolygonParticles_GroundBreak_01 PolygonParticles_Ring_01; do cp "$(find "$K/synty-polygon-particle-fx" -name "$f.png" | head -1)" "$HERE/models/fx/"; done
+# pixel effects: pixelfx (MIT), vendored at a pinned commit in third_party/pixelfx
+rm -rf "$HERE/vendor/pixelfx"; mkdir -p "$HERE/vendor/pixelfx"; cp -r "$ROOT/third_party/pixelfx/src" "$HERE/vendor/pixelfx/"
 echo "built $HERE"

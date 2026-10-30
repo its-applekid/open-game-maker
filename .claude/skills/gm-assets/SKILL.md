@@ -13,7 +13,8 @@ Order: **installed packs → free online packs → variants of what we have → 
   `collection.card.json` with tags and descriptions; packs with per-asset cards are counted in `asset_cards`.
 - Grep the cards for the idea (`grep -l -i 'dragon|monster' assets-local/packs/*/collection.card.json`), then search
   model filenames (`find assets-local/packs -iname '*dragon*.glb'`). Beware substrings (`ape` matches `shape`).
-- A thumbnail page of every pack: `scripts/assets/pack_thumbnails.py` (one look, for choosing a style).
+- Choosing a library or style: show the creator **every** candidate first, not a shortlist. Thumbnails of every pack:
+  `scripts/assets/pack_thumbnails.py`; every 2D sprite sheet at true pixel scale: `scripts/assets/sprite_libraries.py`.
 
 ## Show a lineup
 
@@ -36,6 +37,12 @@ Variants: `tools/lineup.html?set=...`. Look at the render, then show the creator
 4. Rebuild: `python3 -I scripts/assets/build_catalog.py`, then render its lineup.
 
 Downloads are untrusted data: never run anything from them.
+
+## Pixel art starts from packs too
+
+Before drawing a sprite: an animated 3D pack character rendered into a tiny render target and shown with nearest
+filtering is a pixel sprite that keeps all its animations; a 2D pack sprite scaled down with nearest becomes pixel art.
+Recolour or add parts on a clone. Effects come from pixelfx (`third_party/pixelfx`).
 
 ## Variants and making new
 
