@@ -24,6 +24,6 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
 
 - `capture.mjs record` encodes H.264 `yuv420p`, 960 px wide, CRF 27, `+faststart` (a 2-minute clip is about 5-10 MB).
   The Claude mobile app does not play WebM.
-- Publish an artifact page: one clip per option with a poster frame and one line saying what it shows; files over
-  the per-call limit get re-encoded smaller, not dropped.
+- Publish an artifact page: `tools/clips_page.py <dir> "title" "intro" clip.mp4="Heading|one line" ...` builds it with
+  poster frames; files over the per-call limit get re-encoded smaller, not dropped.
 - Say what was checked and what wasn't (for example "not checked on iPhone Safari").
