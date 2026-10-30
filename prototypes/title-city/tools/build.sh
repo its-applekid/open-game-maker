@@ -20,4 +20,7 @@ mkdir -p "$HERE/models/industrial"; cp -r "$K/kenney-city-kit-industrial/"*/extr
 mkdir -p "$HERE/models/castle" "$HERE/models/minidungeon"
 cp -r "$K/kenney-castle-kit/"*/extracted/Models/GLB\ format/* "$HERE/models/castle/"
 cp -r "$K/kenney-mini-dungeon/"*/extracted/Models/GLB\ format/* "$HERE/models/minidungeon/"
+# rampage monsters: Quaternius Ultimate Monsters (CC0, assets-local/packs/quaternius-ultimate-monsters)
+UM="$K/quaternius-ultimate-monsters/1.0/extracted/glb"; mkdir -p "$HERE/models/monsters"
+cp "$UM/Yeti-ceRHr.glb" "$HERE/models/monsters/yeti.glb"; cp "$UM/Dino.glb" "$HERE/models/monsters/dino.glb"; cp "$UM/Blue-Demon.glb" "$HERE/models/monsters/blue-demon.glb"
 echo "built $HERE"

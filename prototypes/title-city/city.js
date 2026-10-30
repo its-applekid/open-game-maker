@@ -703,8 +703,8 @@ function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
   if (CAM === 'scene' && SC) {   // from the street side of the scene's house, back far enough to see the monster climbing it
-    const [fx, , fz] = SC.focus, [qx, qz] = SC.front, a = TAU * t / 150, side = [qz, -qx], d = 40;
-    camera.fov = aspect < 1 ? 60 : 42; camera.position.set(fx + qx * d + side[0] * 16 + Math.sin(a) * 3, PLAIN + SC.h + 16, fz + qz * d + side[1] * 16);
+    const [fx, , fz] = SC.focus, [qx, qz] = SC.front, a = TAU * t / 150, side = [qz, -qx], d = 26;
+    camera.fov = aspect < 1 ? 60 : 42; camera.position.set(fx + qx * d + side[0] * 30 + Math.sin(a) * 3, PLAIN + SC.h + 14, fz + qz * d + side[1] * 30);   // three-quarter, so the monster shows its face and the house
     camera.lookAt(fx + qx * 4, PLAIN + SC.h * .75, fz + qz * 4); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
@@ -726,7 +726,7 @@ function updateSky(t) {
 // ---------------- scenes ----------------
 // the monster rampage (rampage.js): its target house is taken out of the town's instancing and handed to the scene
 async function setupRampage() {
-  const south = STREETS[2].pts, harbor = SCENE_V === 'c';
+  const south = STREETS[SCENE_V === 'c' ? 3 : 2].pts, harbor = SCENE_V === 'b';   // a: south road, b: from the bay, c: west road
   const near = (x, z, pts) => pts.reduce((b, p) => Math.min(b, Math.hypot(p[0] - x, p[1] - z)), 1e9);
   const cands = houses.filter(h => harbor ? h.dist === 'harbor' : h.set === 'tallhouse' && near(h.x, h.z, south) < 8 && townD(h.x, h.z) > .3 && townD(h.x, h.z) < .8);
   const h = cands.sort((a, b) => harbor ? (b.x - a.x) : (Math.abs(townD(a.x, a.z) - .55) - Math.abs(townD(b.x, b.z) - .55)))[0];
@@ -742,7 +742,7 @@ async function setupRampage() {
     path = south.slice(iN, i0 + 1).reverse(); exit = south.slice(iN, Math.min(south.length, i0 + 4));
   }
   window.__scene = { target: [h.x, h.z, h.rot, target.h], path, exit };
-  return rampage({ scene, camera, target, path, exit, PLAIN, ground: (x, z) => Math.max(height(x, z), -7), scaffold, layers, stepped, steps }, SCENE_V);
+  return await rampage({ scene, camera, target, path, exit, PLAIN, ground: (x, z) => Math.max(height(x, z), -7), scaffold, layers, stepped, steps }, SCENE_V);
 }
 
 // ---------------- go ----------------
