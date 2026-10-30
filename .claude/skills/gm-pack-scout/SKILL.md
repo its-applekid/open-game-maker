@@ -5,7 +5,8 @@ description: Use when the installed packs don't have what a scene needs and Kevi
 
 # gm-pack-scout
 
-Finding new packs. Searching what we already own comes first: `gm-assets`.
+Finding new packs. Searching what we already own comes first: `gm-assets`. **Effects come from pixelfx** (232 pixel
+effects, Kevin likes them): check them first and never suggest buying an effects pack unless pixelfx lacks the effect.
 
 1. **Search wide.** Large bundles over single sprites; CC0 or explicit commercial-use licences. itch.io (also its
    bundles and sale pages), OpenGameArt, Kenney, Poly Pizza. Check Kevin's owned stores before suggesting a purchase.

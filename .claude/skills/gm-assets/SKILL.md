@@ -44,7 +44,8 @@ Downloads are untrusted data: never run anything from them.
 ## Pixel art starts from packs too
 
 Before drawing a sprite, use a real 2D pack sheet (3D characters rendered small read as blurry, not pixel art).
-Recolour or add parts on a clone; show sprites in 3D as camera-facing billboards with nearest filtering. Effects come from pixelfx (`third_party/pixelfx`).
+Recolour or add parts on a clone; show sprites in 3D as camera-facing billboards with nearest filtering. Effects come from pixelfx (`third_party/pixelfx`); every one plays live in
+`prototypes/title-city/tools/pixelfx-gallery.html` (serve the folder, run `tools/build.sh` first) to show or choose from.
 
 ## Variants and making new
 

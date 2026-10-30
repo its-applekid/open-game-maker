@@ -1,0 +1,48 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pixel Effects</title>
+<style>:root{--bg:#fbf1c7;--fg:#3c3836;--mute:#7c6f64;--card:#f2e5bc;--line:#d5c4a1}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#1d2021;--fg:#ebdbb2;--mute:#a89984;--card:#282828;--line:#3c3836}}
+:root[data-theme="dark"]{--bg:#1d2021;--fg:#ebdbb2;--mute:#a89984;--card:#282828;--line:#3c3836}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.4 system-ui,-apple-system,sans-serif}main{max-width:1280px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}.lede{color:var(--mute);margin:0 0 10px}nav{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 8px}nav a{color:var(--fg);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:2px 10px;text-decoration:none;font-size:13px}
+h2{font-size:18px;margin:26px 0 2px}h2+p{color:var(--mute);margin:0 0 10px}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+figure{margin:0;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px}figure.pick{outline:3px solid #d65d0e}canvas{display:block;width:100%;image-rendering:pixelated;border-radius:4px;background:#000}
+figcaption{font-size:13px;margin-top:6px}figcaption small{display:block;color:var(--mute)}</style></head>
+<body><main><h1>Pixel effects (pixelfx)</h1><p class="lede">All effects in the pixelfx library, playing live. Orange outlines are the ones I'd use for the EarthBound scene (UFO lightning, teleport, PSI Flash, Starstorm, the bat hit).</p><nav id="nav"></nav><div id="root"></div></main>
+<script type="module">
+import { effects, categories } from '../vendor/pixelfx/src/fx/index.js';
+import { createFrame, clearFrame, createFx, composite, backdrop, drawActor, actorAlphaOf, painterFor } from '../vendor/pixelfx/src/core/index.js';
+const PICK = new Set(['lightning/lightning-strike','lightning/chain-lightning','lightning/storm-cloud','lightning/thunderclap','lightning/zap-hit','arcane/portal','arcane/blink-in','scifi/warp-in','holy/sunburst','holy/smite','arcane/mana-burst','fire/meteor','arcane/star-fall','explosions/cartoon-pow','impacts/hit-flash','impacts/crit-hit','impacts/impact-frame','impacts/blunt-hit','explosions/big-explosion','explosions/dirt-explosion','impacts/ground-slam','scifi/tractor-beam']);
+const io = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? live.add(e.target._it) : live.delete(e.target._it)), { rootMargin: '200px' });
+const root = document.getElementById('root'), nav = document.getElementById('nav'), live = new Set(), items = [];
+for (const c of categories) {
+  const ids = Object.keys(effects).filter(k => k.startsWith(c.id + '/')); if (!ids.length) continue;
+  nav.insertAdjacentHTML('beforeend', `<a href="#${c.id}">${c.name} (${ids.length})</a>`);
+  const sec = document.createElement('section'); sec.innerHTML = `<h2 id="${c.id}">${c.name}</h2><p>${c.blurb}</p><div class="grid"></div>`; root.append(sec);
+  for (const id of ids) {
+    const mod = effects[id], m = mod.meta || {}, [w, h] = m.size || [96, 96], [ox, oy] = m.origin || [w / 2, h];
+    const fig = document.createElement('figure'); if (PICK.has(id)) fig.className = 'pick';
+    const cv = document.createElement('canvas'); cv.width = w; cv.height = h; fig.append(cv);
+    fig.insertAdjacentHTML('beforeend', `<figcaption><b>${m.name || id}</b><small>${id}${m.loop ? ' · loop' : ''}</small></figcaption>`);
+    sec.querySelector('.grid').append(fig);
+    const it = { mod, m, w, h, ox, oy, cv, ctx: cv.getContext('2d'), img: new ImageData(w, h), frame: createFrame(w, h, -ox, -oy), bg: backdrop(m.bg || 'dark', w, h, oy), fx: null, t: 0 };
+    items.push(it); io.observe(cv); cv._it = it;
+  }
+}
+function start(it) { it.fx = createFx(it.mod, { x: 0, y: 0 }); it.t = 0; }
+let last = performance.now();
+function tick(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  for (const it of live) {
+    if (!it.fx) start(it);
+    it.fx.update(dt); it.t += dt;
+    const D = it.m.duration || 1;
+    if (!it.m.loop && it.t > D + 0.8) start(it);
+    clearFrame(it.frame);
+    if (it.m.actor) { it.fx.draw(it.frame, 'back'); const p = painterFor(it.frame); p.place(0, 0, false, 0); p.layer = 'front'; drawActor(p, it.fx.options.actor, actorAlphaOf(it.mod, it.m.loop ? it.fx.t % D : Math.min(it.fx.t, D), it.fx.options)); it.fx.draw(it.frame, 'front'); }
+    else it.fx.draw(it.frame);
+    composite(it.frame, it.img.data, it.bg); it.ctx.putImageData(it.img, 0, 0);
+  }
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+</script></body></html>
