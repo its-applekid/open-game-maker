@@ -33,6 +33,8 @@ for f in "$K/kenney-music-loops/1.1/extracted/"{Loops,Retro}/*.ogg; do
 # delay/padding header, which decoders use to trim, so the loop points stay sample-accurate (checked in Chromium: decoded
 # length and alignment match the WAV exactly)
 ffmpeg -loglevel error -y -i "$K/sidetrax-loop-pack-15/v1/extracted/Camelot.wav" -t 119.9 -codec:a libmp3lame -q:a 4 "$A/music/camelot.mp3"
+# title track: Sidetrax "Underground", cut the same way just past its loop end (133.898 s)
+ffmpeg -loglevel error -y -i "$K/sidetrax-84-retro-music/v1/extracted/Underground.wav" -t 134.5 -codec:a libmp3lame -q:a 4 "$A/music/underground.mp3"
 for s in foley-sounds/drip1 foley-sounds/drip2 foley-sounds/drip3 foley-sounds/woosh1 foley-sounds/woosh3 foley-sounds/swordMetal1 \
   foley-sounds/swordMetal2 foley-sounds/swordMetal3 impact-sounds/footstep_concrete_000 impact-sounds/footstep_concrete_001 \
   impact-sounds/impactPunch_medium_002 impact-sounds/footstep_grass_000 impact-sounds/footstep_grass_001 impact-sounds/footstep_snow_000 \

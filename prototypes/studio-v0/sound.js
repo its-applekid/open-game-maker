@@ -1,12 +1,12 @@
 // Studio sound: one Web Audio context. Music crossfades between the title and menu tracks; selecting a game in the Games
 // spotlight fades the music out and plays that game's sounds quietly (effects and ambience only, never its music).
-// Effects and the title track are Kenney CC0 (Music Loops + sound packs); the menu track is Sidetrax "Camelot" (Kevin's licence,
-// kept off the public site by tools/deploy.sh, which falls back to a Kenney track). tools/build.sh copies them to art/music, art/sfx.
+// Effects are Kenney CC0 (sound packs); the title track is Sidetrax "Underground" and the menu track Sidetrax "Camelot" (Kevin's
+// licence, personal use). tools/build.sh copies them to art/music, art/sfx.
 
 // Swap a track by changing its file name here: any file in art/music (every Kenney Music Loops track is built there).
-// A track with loop points plays its intro once, then loops seamlessly between them (seconds; Camelot's are from its asset card,
+// A track with loop points plays its intro once, then loops seamlessly between them (seconds; from each track's asset card,
 // audio.loop_points). fallback plays when the file isn't there.
-export const MUSIC = { title: 'space-cadet', menu: { file: 'camelot', loop: [42.983, 119.329], fallback: 'mishief-stroll' } };
+export const MUSIC = { title: { file: 'underground', loop: [55.904, 133.898], fallback: 'space-cadet' }, menu: { file: 'camelot', loop: [42.983, 119.329], fallback: 'mishief-stroll' } };
 
 // Gameplay sounds per game. bed: a quiet looping layer ('fire' and 'wind' are synthesized, anything else is a looped file);
 // each event plays one of `s` every few seconds (`every` = [min, max] s), `n` times in a row `gap` s apart (footsteps), then
