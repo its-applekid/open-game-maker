@@ -9,7 +9,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { rampage } from './rampage.js';
+import { kaiju } from './rampage.js';
 
 const Q = new URLSearchParams(location.search);
 const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed'), SCENE = Q.get('scene'), SCENE_V = Q.get('var') || 'a';
@@ -354,7 +354,8 @@ const kitMat = (map, o = {}) => new THREE.ShaderMaterial({ vertexShader: KIT_V, 
 // instanced placement: put() records a piece, flush() makes one instanced mesh per model
 const INST = new Map();
 const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s: [s, s, s], roof: C(roof) }); };
-const putS = (model, x, y, z, rot, s3) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s: s3, roof: C(ROOFS.castle[0]) }); };
+const putS = (model, x, y, z, rot, s3) => { if (!INST.has(model)) INST.set(model, []); const e = { x, y, z, rot, s: s3, roof: C(ROOFS.castle[0]) }; INST.get(model).push(e); return e; };
+const WALL_SEGS = [];   // the stretched wall pieces, so a scene can claim one to break
 async function flush() {
   for (const [model, list] of INST) {
     const k = await kenney(model), m = new THREE.InstancedMesh(k.geo, kitMat(k.map), list.length);
@@ -416,7 +417,7 @@ function townWall() {
     const A = ring[ball[n].i], B = ring[ball[(n + 1) % ball.length].i];
     if (A.wet || B.wet || wet((A.x + B.x) / 2, (A.z + B.z) / 2, 1)) continue;
     const L = Math.hypot(B.x - A.x, B.z - A.z), yaw = Math.atan2(B.x - A.x, B.z - A.z) + Math.PI / 2;
-    putS('castle/wall', (A.x + B.x) / 2, PLAIN, (A.z + B.z) / 2, yaw, [L, KW, KW]);
+    WALL_SEGS.push({ x: (A.x + B.x) / 2, z: (A.z + B.z) / 2, yaw, L, entry: putS('castle/wall', (A.x + B.x) / 2, PLAIN, (A.z + B.z) / 2, yaw, [L, KW, KW]) });
   }
   for (const b of ball) {
     const p = ring[b.i], q = ring[(b.i + 1) % ring.length], yaw = Math.atan2(q.x - p.x, q.z - p.z) + Math.PI / 2;
@@ -702,10 +703,7 @@ const CAMS = {   // [position, look-at] for landscape; portrait backs off and wi
 function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
-  if (CAM === 'scene' && SC) {   // from the street side of the scene's house, back far enough to see the monster climbing it
-    const [fx, , fz] = SC.focus, [qx, qz] = SC.front, a = TAU * t / 150, side = [qz, -qx], d = 26;
-    camera.fov = aspect < 1 ? 60 : 42; camera.position.set(fx + qx * d + side[0] * 30 + Math.sin(a) * 3, PLAIN + SC.h + 14, fz + qz * d + side[1] * 30);   // three-quarter, so the monster shows its face and the house
-    camera.lookAt(fx + qx * 4, PLAIN + SC.h * .75, fz + qz * 4); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
+  if (CAM === 'scene' && SC) { SC.camera(camera, t, aspect); return; }
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
   camera.position.set(l[0] + (p[0] - l[0]) * back + Math.sin(a) * 10, p[1] * back, l[2] + (p[2] - l[2]) * back + Math.cos(a) * 5);
@@ -726,23 +724,15 @@ function updateSky(t) {
 // ---------------- scenes ----------------
 // the monster rampage (rampage.js): its target house is taken out of the town's instancing and handed to the scene
 async function setupRampage() {
-  const south = STREETS[SCENE_V === 'c' ? 3 : 2].pts, harbor = SCENE_V === 'b';   // a: south road, b: from the bay, c: west road
-  const near = (x, z, pts) => pts.reduce((b, p) => Math.min(b, Math.hypot(p[0] - x, p[1] - z)), 1e9);
-  const cands = houses.filter(h => harbor ? h.dist === 'harbor' : h.set === 'tallhouse' && near(h.x, h.z, south) < 8 && townD(h.x, h.z) > .3 && townD(h.x, h.z) < .8);
-  const h = cands.sort((a, b) => harbor ? (b.x - a.x) : (Math.abs(townD(a.x, a.z) - .55) - Math.abs(townD(b.x, b.z) - .55)))[0];
-  houses.splice(houses.indexOf(h), 1);
-  if (harbor) { h.model = VARIANTS.tallhouse[3]; }
-  const k = await kenney(h.model), m = new THREE.Mesh(k.geo, kitMat(k.map, { tint: C(h.roof) }));
-  m.rotation.y = h.rot; m.scale.setScalar(h.s); scene.add(m);
-  const target = { x: h.x, z: h.z, rot: h.rot, h: k.h * h.s, w: k.w * h.s, d: k.d * h.s, mesh: m, cut: m.material.uniforms.cut };
-  let path, exit;
-  if (harbor) { path = [[h.x + 70, h.z + 6], [h.x + 30, h.z + 4]]; exit = [[h.x + 30, h.z - 6], [h.x + 80, h.z - 14]]; }
-  else {
-    const i0 = south.findIndex(p => townD(...p) > 1.25), iN = south.reduce((b, p, i) => Math.hypot(p[0] - h.x, p[1] - h.z) < Math.hypot(south[b][0] - h.x, south[b][1] - h.z) ? i : b, 0);
-    path = south.slice(iN, i0 + 1).reverse(); exit = south.slice(iN, Math.min(south.length, i0 + 4));
-  }
-  window.__scene = { target: [h.x, h.z, h.rot, target.h], path, exit };
-  return await rampage({ scene, camera, target, path, exit, PLAIN, ground: (x, z) => Math.max(height(x, z), -7), scaffold, layers, stepped, steps }, SCENE_V);
+  // the breach: the wall piece nearest the harbour, on the sea side; the zone: houses within reach of it
+  const seg = WALL_SEGS.filter(s => s.L > 14).sort((a, b) => (b.x - a.x) - (a.x - b.x) * 0 + 0 || 0).sort((a, b) => b.x + b.z * .2 - (a.x + a.z * .2))[0];
+  INST.get('castle/wall').splice(INST.get('castle/wall').indexOf(seg.entry), 1);
+  const toC = [TC.x - seg.x, TC.z - seg.z], l = Math.hypot(...toC), inward = [toC[0] / l, toC[1] / l], zc = [seg.x + inward[0] * 15, seg.z + inward[1] * 15];
+  const zone = houses.filter(h => Math.hypot(h.x - zc[0], h.z - zc[1]) < 30 && townD(h.x, h.z) < .97);
+  for (const h of zone) houses.splice(houses.indexOf(h), 1);
+  window.__scene = { breach: [seg.x, seg.z], L: seg.L, zone: zone.length };
+  return await kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
+    breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps });
 }
 
 // ---------------- go ----------------

@@ -23,4 +23,9 @@ cp -r "$K/kenney-mini-dungeon/"*/extracted/Models/GLB\ format/* "$HERE/models/mi
 # rampage monsters: Quaternius Ultimate Monsters (CC0, assets-local/packs/quaternius-ultimate-monsters)
 UM="$K/quaternius-ultimate-monsters/1.0/extracted/glb"; mkdir -p "$HERE/models/monsters"
 cp "$UM/Yeti-ceRHr.glb" "$HERE/models/monsters/yeti.glb"; cp "$UM/Dino.glb" "$HERE/models/monsters/dino.glb"; cp "$UM/Blue-Demon.glb" "$HERE/models/monsters/blue-demon.glb"
+# effect textures: Kenney Smoke Particles, Kenney Particle Pack (CC0), Synty Particle FX (personal licence)
+mkdir -p "$HERE/models/fx"; SM="$(ls -d "$K"/kenney-smoke-particles/*/extracted | head -1)"; PP="$(ls -d "$K"/kenney-particle-pack/*/extracted | head -1)"
+for f in whitePuff00 whitePuff03 whitePuff07 whitePuff12 blackSmoke02 blackSmoke07 blackSmoke12 flash00 flash03 explosion02; do cp "$(find "$SM" -name "$f.png" | head -1)" "$HERE/models/fx/"; done
+for f in flame_02 flame_04 flame_05 fire_01 fire_02 spark_02 spark_05 dirt_01 dirt_02 scorch_01 scorch_02; do cp "$(find "$PP" -name "$f.png" | head -1)" "$HERE/models/fx/"; done
+for f in PolygonParticles_GroundBreak_01 PolygonParticles_Ring_01; do cp "$(find "$K/synty-polygon-particle-fx" -name "$f.png" | head -1)" "$HERE/models/fx/"; done
 echo "built $HERE"
