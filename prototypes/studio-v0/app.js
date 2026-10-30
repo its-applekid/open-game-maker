@@ -30,6 +30,8 @@ $('#lib-back').onclick = () => { loadTitle(); show('title'); };
 // ---------------- library ----------------
 // The selected game owns a fixed spotlight at the top (details left, gameplay right with paint-splatter edges);
 // the edge-to-edge grid below picks what it shows. Click a tile to select it, click the selected tile for the details window.
+const KCOL = {};
+for (const st of STEPS) st.opts?.forEach((op, i, all) => { KCOL[op.icon] = `hsl(${Math.round(i / all.length * 330)} 72% 66%)`; });
 const grid = $('#lib-grid');
 let selId = null;
 const STAR = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
@@ -49,8 +51,8 @@ function tileFor(g, i) {
     ${g.badge ? `<span class="badge">${esc(g.badge)}</span>` : ''}
     <span class="build-chip" ${building ? '' : 'hidden'}><i class="ring"></i><b class="pct">0%</b> Building</span>
     <span class="tile-info"><span class="cover-title" style="font-family:'${g.font}',var(--display);color:${g.color}">${esc(g.title)}</span>
-      <span class="tile-meta"><span class="ticons">${gameTags(g).filter(x => x.kind === 'genre' || x.kind === 'vibe').slice(0, 4).map(x => `<i class="k-${x.kind}" title="${esc(x.label)}">${ICONS[x.key]}</i>`).join('')}</span><span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span></span>`;
-  t.onclick = () => g.id === selId ? openGame(g) : select(g.id, true);
+      <span class="tile-meta"><span class="ticons">${gameTags(g).filter(x => x.kind === 'genre' || x.kind === 'vibe').slice(0, 4).map(x => `<i style="--k:${KCOL[x.key]}" title="${esc(x.label)}">${ICONS[x.key]}</i>`).join('')}</span><span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span></span>`;
+  t.onclick = () => select(g.id, true);
   return t;
 }
 // splatter-edged mask for the spotlight footage, plus coloured splats behind it (seeded per game so each looks a little different)
@@ -70,15 +72,18 @@ function edgePoints(W, H, ix, iy, step) {
 }
 function splatMask(seed, W = 1600, H = 900) {
   const r = rng(seed), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const c = cv.getContext('2d'), ix = W * .075, iy = H * .1;
-  c.fillStyle = '#fff'; c.beginPath(); c.roundRect(ix, iy, W - 2 * ix, H - 2 * iy, 48); c.fill();
-  for (const [x, y, nx, ny] of edgePoints(W, H, ix, iy, 70)) {
-    const im = SPLATS[Math.floor(r() * SPLATS.length)], size = 110 + r() * 150, o = (r() - .3) * 34;
-    stamp(c, im, x + nx * o + (r() - .5) * 30, y + ny * o + (r() - .5) * 30, size, r() * 7);
+  const c = cv.getContext('2d'), ix = W * .08, iy = H * .14, maxS = 2 * (Math.min(ix, iy) - 10);
+  // the solid body stops 44px inside the edge line, so the outline is made only of splat shapes, never a straight side
+  c.fillStyle = '#fff'; c.beginPath(); c.roundRect(ix + 44, iy + 44, W - 2 * ix - 88, H - 2 * iy - 88, 24); c.fill();
+  for (const [x, y, nx, ny] of edgePoints(W, H, ix, iy, 46)) {
+    const im = SPLATS[Math.floor(r() * SPLATS.length)], size = Math.min(maxS, 130 + r() * 90), o = (r() - .5) * 16;
+    stamp(c, im, x + nx * o, y + ny * o, size, r() * 7);
+    stamp(c, SPLATS[Math.floor(r() * SPLATS.length)], x - nx * 40, y - ny * 40, 110, r() * 7);   // backing stamp fills any gap between the shapes
   }
-  for (let i = 0; i < 70; i++) {   // droplets just outside
-    const pts = edgePoints(W, H, ix, iy, 40), [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], d = 50 + r() * 70;
-    stamp(c, SPRAY[Math.floor(r() * SPRAY.length)], x + nx * d, y + ny * d, 10 + r() * 30, r() * 7);
+  for (let i = 0; i < 70; i++) {   // droplets just outside, kept off the canvas border
+    const pts = edgePoints(W, H, ix, iy, 40), [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], d = 70 + r() * Math.min(ix, iy) * .5;
+    const px = Math.min(W - 16, Math.max(16, x + nx * d)), py = Math.min(H - 16, Math.max(16, y + ny * d));
+    stamp(c, SPRAY[Math.floor(r() * SPRAY.length)], px, py, 8 + r() * 18, r() * 7);
   }
   return cv.toDataURL();
 }
@@ -94,7 +99,7 @@ function select(id, scroll) {
     <h2 class="lh-title" style="font-family:'${g.font}',var(--display)">${esc(g.title)}</h2>
     <p class="lh-tag">${esc(g.tagline)}</p>
     <p class="lh-desc">${esc(g.desc)}</p>
-    <ul class="lh-icons">${gameTags(g).map(x => `<li class="k-${x.kind}"><span>${ICONS[x.key]}</span>${esc(x.label)}</li>`).join('')}</ul>
+    <ul class="lh-icons">${gameTags(g).map(x => `<li style="--k:${KCOL[x.key]}"><span>${ICONS[x.key]}</span>${esc(x.label)}</li>`).join('')}</ul>
     <dl class="lh-stats">
       <div><dt>Time played</dt><dd>${esc(g.played || '0m')}</dd></div>
       <div><dt>Rating</dt><dd class="lh-stars" aria-label="${g.rating ? g.rating + ' out of 5' : 'Not rated yet'}">${stars(g.rating)}<small>${g.rating ? g.rating : 'New'}</small></dd></div>
@@ -104,11 +109,9 @@ function select(id, scroll) {
     <div class="lh-acts">
       <button class="act play" ${building ? 'disabled' : ''}>▶ Play</button>
       <button class="act edit" ${building ? 'disabled' : ''}>✎ Edit</button>
-      <button class="act more">Details</button>
     </div>`;
   $('#lh-text .act.play').onclick = () => enterGame(g, 'play');
   $('#lh-text .act.edit').onclick = () => enterGame(g, 'edit');
-  $('#lh-text .act.more').onclick = () => openGame(g);
   const seed = seedOf(g.id), shot = $('#lh-shot');
   shot.style.maskImage = shot.style.webkitMaskImage = `url(${splatMask(seed)})`;
   for (const el of [$('#lh-text'), $('#lh-media')]) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
@@ -140,7 +143,7 @@ function drawCovers() {
 }
 // arrows browse, Enter plays the selected game
 addEventListener('keydown', e => {
-  if (state.screen !== 'library' || !gm.hidden || e.target.closest('input, textarea')) return;
+  if (state.screen !== 'library' || !$('#voice-modal').hidden || e.target.closest('input, textarea')) return;
   const i = games.findIndex(g => g.id === selId);
   if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const n = games[(i + (e.key === 'ArrowRight' ? 1 : -1) + games.length) % games.length]; select(n.id, false); $(`.tile[data-id="${n.id}"]`, grid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   if (e.key === 'Enter' && e.target === document.body && games[i].status !== 'building') enterGame(games[i], 'play');
@@ -162,64 +165,12 @@ function libraryLoop(now) {
 }
 $('#new-game').onclick = () => startWizard();
 
-// ---------------- game modal ----------------
-const gm = $('#game-modal');
-let montage = null;
-function openGame(g) {
-  state.current = g;
-  const building = g.status === 'building';
-  $('#gm-title').textContent = g.title;
-  $('#gm-title').style.fontFamily = `'${g.font}', var(--display)`;
-  $('#gm-by').textContent = '@' + g.by;
-  $('#gm-tag').textContent = g.tagline;
-  $('#gm-desc').textContent = g.desc;
-  const row = (k, v) => `<div class="kv"><dt>${k}</dt><dd>${v}</dd></div>`;
-  const chips = a => a.map(x => `<span class="chip">${esc(x)}</span>`).join('');
-  $('#gm-facts').innerHTML = row('Genre', chips(g.genres)) + row('Vibe', chips(g.vibe)) + row('Art style', chips([g.art])) + row('Players', esc(g.players))
-    + row('World', esc(g.world)) + row('Controls', esc(g.controls))
-    + row('Rating', g.rating ? `<span class="stars-big">${'★'.repeat(Math.round(g.rating))}${'☆'.repeat(5 - Math.round(g.rating))}</span> ${g.rating} <small>(${g.votes})</small>` : 'Not rated yet')
-    + row('Plays', esc(g.plays)) + row('Updated', `${esc(g.updated)} · v${esc(g.version)}`) + row('Made with', esc(g.packs.join(', ')));
-  $('#gm-play').disabled = $('#gm-edit').disabled = building;
-  $('#gm-building').hidden = !building;
-  const thumbs = $('#gm-thumbs'); thumbs.innerHTML = '';
-  const n = building ? 1 : SCENES[g.scene].scenes.length;
-  for (let i = 0; i < n; i++) {
-    const b = h('button', 'thumb'); b.innerHTML = `<canvas></canvas><span>${esc(building ? 'Blueprint' : g.labels[i] || 'Scene ' + (i + 1))}</span>`;
-    if (building) { const cv = $('canvas', b); cv.width = 320; cv.height = 180; blueprint(cv.getContext('2d'), 0, 320, 180, jobFor(g.id)?.p || 0); }
-    else paint($('canvas', b), g.scene, i, 1.5);
-    b.onclick = () => { montage.scene = i; montage.t0 = performance.now(); };
-    thumbs.append(b);
-  }
-  montage = { g, scene: 0, t0: performance.now(), start: performance.now(), n };
-  gm.hidden = false; document.body.classList.add('modal-open');
-  $('#gm-close').focus();
-}
-function closeGame() { gm.hidden = true; montage = null; document.body.classList.remove('modal-open'); }
-$('#gm-close').onclick = closeGame;
-gm.addEventListener('click', e => { if (e.target === gm) closeGame(); });
-addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#voice-modal').hidden) closeVoice(); else if (!$('#art-pop').hidden) closeArtPop(); else if (!gm.hidden) closeGame(); } });
-const SCENE_LEN = 3.6;
-function montageLoop(now) {
-  if (montage) {
-    const m = montage, cv = $('#gm-video'), el = (now - m.t0) / 1000;
-    if (el > SCENE_LEN) { m.scene = (m.scene + 1) % m.n; m.t0 = now; }
-    const t = (now - m.start) / 1000;
-    if (m.g.status === 'building') { cv.width = 320; cv.height = 180; blueprint(cv.getContext('2d'), t, 320, 180, jobFor(m.g.id)?.p || 0); }
-    else paint(cv, m.g.scene, m.scene, (SCENES[m.g.scene].cover?.[1] || 0) + (reduced ? 0 : t));
-    const cut = (now - m.t0) / 1000; $('#gm-flash').style.opacity = cut < .18 ? String(1 - cut / .18) : '0';
-    $('#gm-scene').textContent = m.g.status === 'building' ? 'Blueprint' : (m.g.labels[m.scene] || '');
-    $('#gm-progress').style.width = `${(m.scene + Math.min(1, el / SCENE_LEN)) / m.n * 100}%`;
-    $$('#gm-thumbs .thumb').forEach((b, i) => b.classList.toggle('on', i === m.scene));
-  }
-  requestAnimationFrame(montageLoop);
-}
-$('#gm-play').onclick = () => enterGame(state.current, 'play');
-$('#gm-edit').onclick = () => enterGame(state.current, 'edit');
+addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#voice-modal').hidden) closeVoice(); else if (!$('#art-pop').hidden) closeArtPop(); } });
 
 // ---------------- play / edit (the dungeon prototype) ----------------
 const gameFrame = $('#gameFrame');
 function enterGame(g, mode) {
-  closeGame(); state.current = g; state.mode = mode;
+  state.current = g; state.mode = mode;
   $('#pb-title').textContent = g.title;
   setModeButtons(mode);
   gameFrame.src = `${DEMO}&editor&title=${encodeURIComponent(g.title)}${mode === 'play' ? '&play' : ''}`;
@@ -254,6 +205,7 @@ function renderStep() {
   const picks = state.picks[st.key] ||= new Set();
   for (const op of st.opts) {
     const b = h('button', 'opt', `<span class="ic">${ICONS[op.icon]}</span><span class="lb">${esc(op.label)}</span>`);
+    b.style.setProperty('--kc', KCOL[op.icon]);
     b.dataset.id = op.id; b.setAttribute('aria-pressed', String(picks.has(op.id)));
     b.onclick = () => togglePick(st, op, b);
     g.append(b);
@@ -520,7 +472,7 @@ function openVoice(opts) {
   m.hidden = false; document.body.classList.add('modal-open');
   modalSession = new VoiceSession($('#vm-body'), { ...opts, onFinish: text => { closeVoice(); opts.onFinish(text); } });
 }
-function closeVoice() { modalSession?.stop(); modalSession = null; $('#voice-modal').hidden = true; if (gm.hidden) document.body.classList.remove('modal-open'); }
+function closeVoice() { modalSession?.stop(); modalSession = null; $('#voice-modal').hidden = true; document.body.classList.remove('modal-open'); }
 $('#vm-close').onclick = closeVoice;
 
 // "Three dots" hand-off, then the build starts.
@@ -611,7 +563,7 @@ renderLibrary();
 addJob('game', SEED_BUILD.title, SEED_BUILD.id, 150);
 addJob('feature', 'Skyward Squadron · Boss rush mode', 'skyward-squadron', 12);
 tr.dataset.state = 'collapsed'; renderTracker();
-requestAnimationFrame(libraryLoop); requestAnimationFrame(montageLoop);
+requestAnimationFrame(libraryLoop);
 const hash = location.hash.slice(1);
 if (hash === 'library') show('library');
 else if (hash === 'new') { show('library'); startWizard(); }
