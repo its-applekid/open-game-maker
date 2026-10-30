@@ -1,5 +1,6 @@
 import { ready, paint, SCENES, blueprint } from './scenes.js';
 import { ICONS, gameTags } from './icons.js';
+import * as sound from './sound.js';
 import { GAMES, SEED_BUILD, STEPS, ART, NEW_GAME_TALK, NEW_GAME_TITLE, featureTalk, FEATURE_NAME, AGENT_ACK, BUILD_STEPS } from './data.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -20,12 +21,67 @@ function show(name) {
   $('#tracker').classList.toggle('inbar', name === 'play');
   document.body.classList.toggle('on-title', name === 'title'); document.body.classList.toggle('on-play', name === 'play');
   scrollTo(0, 0);
+  applySound();
 }
 
-// Title screen is the dungeon prototype's own home screen; its Start posts {ogm:'start'} back to us.
-const titleFrame = $('#titleFrame');
-function loadTitle() { titleFrame.src = DEMO; }
-addEventListener('message', e => { if (e.data?.ogm === 'start' && state.screen === 'title') { show('library'); setTimeout(() => { titleFrame.src = 'about:blank'; }, 400); } });
+// ---------------- sound ----------------
+// Title track on the title screen, menu track on Games and New Game. Picking a game fades the music out under that game's
+// quiet gameplay sounds; closing the spotlight brings the music back. The game frame (play/edit) has its own audio.
+let picked = false;   // the player chose a game; the spotlight opening on the first game by itself keeps the menu music
+function applySound() {
+  const g = picked && state.screen === 'library' && selId && games.find(x => x.id === selId);
+  sound.set(state.screen === 'title' ? { music: 'title' } : g ? { scape: g.status === 'building' ? 'building' : g.scene }
+    : state.screen === 'play' ? {} : { music: 'menu' });
+}
+const soundBtn = $('#sound');
+function drawSound(s) {
+  soundBtn.dataset.s = s; soundBtn.setAttribute('aria-pressed', String(s === 'on'));
+  $('.ic', soundBtn).innerHTML = s === 'on' ? ICONS.soundOn : ICONS.soundOff;
+  $('.lbl', soundBtn).textContent = { tap: 'Tap for sound', on: 'Sound on', off: 'Sound off' }[s];
+}
+sound.onChange(drawSound); drawSound(sound.status());
+soundBtn.onclick = () => sound.setMuted(sound.status() === 'on');
+
+// ---------------- title ----------------
+// The big logo and one Start, in three directions to compare (#title-a is the default):
+// A: centred, over a slow reel of live covers · B: split, beside one big live screen cycling through the games ·
+// C: a frosted glass card over a scattered wall of live covers. Covers repaint about eight times a second while the title shows.
+const titleEl = $('#s-title');
+titleEl.dataset.v = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'a';
+const cv = (id, cls = '') => `<canvas data-id="${id}" class="${cls}${SCENES[id].smooth ? ' smooth' : ''}"></canvas>`;
+const WALL = [[2, 6, -6], [26, 2, 4], [74, 4, -3], [88, 22, 7], [-3, 38, 5], [80, 56, -5], [4, 72, -4], [30, 82, 3], [62, 80, -7], [90, 84, 4], [50, -6, -2], [44, 92, 6]];
+let stageIdx = 0;
+function buildTitle() {
+  const ids = GAMES.map(g => g.id).filter(id => SCENES[id]), v = titleEl.dataset.v;
+  if (v === 'a') $('.t-track').innerHTML = [...ids, ...ids].map(id => `<figure>${cv(id)}</figure>`).join('');
+  if (v === 'b') { $('.t-stage').innerHTML = `<figure>${cv(ids[0])}<figcaption></figcaption></figure>`; stageShow(0); setInterval(() => state.screen === 'title' && stageShow(stageIdx + 1), 6000); }
+  if (v === 'c') $('.t-wall').innerHTML = WALL.map(([x, y, r], i) => `<figure style="left:${x}%;top:${y}%;--r:${r}deg;--d:${-i * 1.3}s">${cv(ids[i % ids.length])}</figure>`).join('');
+  drawTitle(0);
+}
+function stageShow(i) {
+  const ids = GAMES.filter(g => SCENES[g.id]), g = ids[stageIdx = i % ids.length], fig = $('.t-stage figure');
+  fig.querySelector('canvas').outerHTML = cv(g.id);
+  fig.querySelector('figcaption').innerHTML = `${esc(g.title)}<small>by ${esc(g.by)}</small>`;
+  fig.style.setProperty('--sc', g.color);
+  fig.classList.remove('swap'); void fig.offsetWidth; fig.classList.add('swap');
+  drawTitle(performance.now());
+}
+function drawTitle(now) {
+  for (const c of $$('canvas', titleEl)) { if (!c.offsetParent) continue; const id = c.dataset.id, [si, ct] = SCENES[id].cover || [0, 1]; paint(c, id, si, ct + now / 1000 % 60); }
+}
+let titleLast = 0;
+function titleLoop(now) {
+  if (state.screen === 'title' && !reduced && now - titleLast > 120) { titleLast = now; drawTitle(now); }
+  requestAnimationFrame(titleLoop);
+}
+function startFromTitle() {
+  const t = titleEl; if (t.classList.contains('leaving')) return;
+  sound.cue('confirmation_001', .5);
+  t.classList.add('leaving');
+  setTimeout(() => { show('library'); t.classList.remove('leaving'); }, reduced ? 0 : 450);
+}
+$('#t-start').onclick = startFromTitle;
+addEventListener('keydown', e => { if (state.screen === 'title' && (e.key === 'Enter' || e.key === ' ') && e.target === document.body) { e.preventDefault(); startFromTitle(); } });
 
 // ---------------- library ----------------
 // The selected game owns a fixed spotlight at the top (details left, gameplay right with paint-splatter edges);
@@ -104,7 +160,7 @@ function select(id, scroll) {
   const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
   const hero = $('#lib-hero'), media = $('#lh-media'), wasOpen = !hero.hidden && selId, oldMedia = wasOpen ? media.getBoundingClientRect() : null;
   const oldTile = tiles.find(t => t.dataset.id === selId), newTile = tiles.find(t => t.dataset.id === id), fromRect = before.get(newTile);
-  selId = id;
+  selId = id; if (scroll) picked = true;
   const g = games.find(x => x.id === id), building = g.status === 'building';
   for (const t of tiles) t.classList.toggle('sel', t.dataset.id === id);
   hero.hidden = false;
@@ -129,6 +185,7 @@ function select(id, scroll) {
   shot.style.maskImage = shot.style.webkitMaskImage = `url(${splatMask(seed)})`;
   for (const el of [$('#lh-text'), $('#lh-media')]) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
   drawHero(performance.now());
+  applySound();
   if (!scroll) return;
   // the chosen thumbnail grows into the spotlight footage; the old pick shrinks back into its tile
   scrollTo({ top: 0, behavior: 'auto' });
@@ -138,7 +195,7 @@ function select(id, scroll) {
 function closeSpot() {
   const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
   const media = $('#lh-media').getBoundingClientRect(), tile = tiles.find(t => t.dataset.id === selId);
-  selId = null; $('#lib-hero').hidden = true;
+  selId = null; picked = false; $('#lib-hero').hidden = true; applySound();
   for (const t of tiles) t.classList.remove('sel');
   glideTiles(tiles, before, new Map(tile ? [[tile, media]] : []));
   tile?.focus({ preventScroll: true });
@@ -211,7 +268,7 @@ $('#pb-ask').onclick = () => {
 };
 
 // ---------------- New Game wizard ----------------
-function startWizard() { state.step = 0; state.picks = {}; state.other = {}; show('wizard'); renderStep(); }
+function startWizard() { picked = false; state.step = 0; state.picks = {}; state.other = {}; show('wizard'); renderStep(); }
 $('#wz-back').onclick = () => { if (talk) { talk.stop(); talk = null; } if (state.step === 0) show('library'); else { state.step--; renderStep(); } };
 $('#wz-next').onclick = () => { if (state.step < STEPS.length - 1) { state.step++; renderStep(); } };
 let talk = null;
@@ -583,6 +640,7 @@ drawBg(0); requestAnimationFrame(bgLoop);
 // ---------------- boot ----------------
 games.push({ ...SEED_BUILD, status: 'building' });
 await ready;
+buildTitle(); requestAnimationFrame(titleLoop);
 await Promise.all(SPLATS.map(i => i.decode().catch(() => {})));
 renderLibrary();
 addJob('game', SEED_BUILD.title, SEED_BUILD.id, 150);
@@ -592,4 +650,4 @@ requestAnimationFrame(libraryLoop);
 const hash = location.hash.slice(1);
 if (hash === 'library') show('library');
 else if (hash === 'new') { show('library'); startWizard(); }
-else { loadTitle(); show('title'); }
+else show('title');
