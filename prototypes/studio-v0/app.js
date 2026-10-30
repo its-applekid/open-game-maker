@@ -29,25 +29,55 @@ $('#lib-back').onclick = () => { loadTitle(); show('title'); };
 
 // ---------------- library ----------------
 const grid = $('#lib-grid');
-function tileFor(g) {
-  const t = h('button', 'tile' + (g.status === 'building' ? ' building' : ''));
+let openId = games[0].id;
+function tileFor(g, i) {
+  const building = g.status === 'building';
+  const t = h('article', 'tile' + (building ? ' building' : '') + (g.id === openId ? ' open' : ''));
   t.dataset.id = g.id;
-  t.setAttribute('aria-label', `${g.title}: ${g.tagline}`);
-  t.innerHTML = `
-    <div class="cover"><canvas></canvas>
+  t.style.setProperty('--c', g.color); t.style.setProperty('--i', i);
+  const title = `<span class="cover-title" style="font-family:'${g.font}',var(--display);color:${g.color}">${esc(g.title)}</span>`;
+  const meta = `<span class="tile-meta"><span class="genres">${g.genres.map(x => `<i>${esc(x)}</i>`).join('')}</span>
+        <span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span>`;
+  t.innerHTML = `<div class="tile-cover"><canvas></canvas><span class="shine"></span>
       ${g.badge ? `<span class="badge">${esc(g.badge)}</span>` : ''}
-      <span class="cover-title" style="font-family:'${g.font}',var(--display);color:${g.color}">${esc(g.title)}</span>
-      <span class="build-chip" ${g.status === 'building' ? '' : 'hidden'}><i class="ring"></i><b class="pct">0%</b> Building</span>
+      <span class="build-chip" ${building ? '' : 'hidden'}><i class="ring"></i><b class="pct">0%</b> Building</span>
+      <span class="tile-info">${title}<span class="tile-tag">${esc(g.tagline)}</span>${meta}</span>
+      <button class="tile-hit" aria-label="${esc(g.title)}: ${esc(g.tagline)}"></button>
     </div>
-    <div class="tile-meta"><span class="genres">${g.genres.map(x => `<i>${esc(x)}</i>`).join('')}</span>
-      <span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></div>`;
-  t.onclick = () => openGame(g);
+    <div class="tile-strip">
+      <div class="strip-text">${title}<span class="tile-tag">${esc(g.tagline)}</span><p class="strip-desc">${esc(g.desc)}</p>${meta}</div>
+      <div class="strip-acts">
+        <button class="act play" ${building ? 'disabled' : ''}>▶ Play</button>
+        <button class="act edit" ${building ? 'disabled' : ''}>✎ Edit</button>
+      </div>
+    </div>`;
+  $('.tile-hit', t).onclick = () => t.classList.contains('open') ? openGame(g) : openTile(g.id);
+  $('.act.play', t).onclick = () => enterGame(g, 'play');
+  $('.act.edit', t).onclick = () => enterGame(g, 'edit');
   return t;
+}
+// Open a tile to 2×2; every tile glides from where it was to where the grid now puts it (FLIP).
+function openTile(id) {
+  const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
+  openId = id;
+  for (const t of tiles) { t.classList.toggle('open', t.dataset.id === id); t.style.animation = 'none'; }
+  if (reduced) return;
+  for (const t of tiles) {
+    const a = before.get(t), b = t.getBoundingClientRect();
+    const dx = a.left - b.left, dy = a.top - b.top, sx = a.width / b.width, sy = a.height / b.height;
+    if (!dx && !dy && sx === 1 && sy === 1) continue;
+    t.animate([{ transformOrigin: '0 0', transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transformOrigin: '0 0', transform: 'none' }],
+      { duration: 550, easing: 'cubic-bezier(.22,1,.36,1)' });
+  }
+  const open = $('.tile.open', grid), r = open.getBoundingClientRect();
+  if (r.top < 72 || r.bottom > innerHeight - 96) scrollBy({ top: r.top - 88, behavior: 'smooth' });
 }
 function renderLibrary() {
   grid.innerHTML = '';
-  for (const g of games) grid.append(tileFor(g));
+  games.forEach((g, i) => grid.append(tileFor(g, i)));
+  $('#lib-count').textContent = `${games.length} games`;
   drawCovers();
+  for (const t of $$('.tile', grid)) seen.observe(t);
 }
 function drawCovers() {
   for (const t of $$('.tile', grid)) {
@@ -56,14 +86,17 @@ function drawCovers() {
     else { const [si, ct] = SCENES[g.scene].cover || [0, 1]; paint(cv, g.scene, si, ct); }
   }
 }
-// Covers come alive on hover (and building tiles always animate their blueprint).
-let hoverTile = null;
-grid.addEventListener('pointerover', e => { hoverTile = e.target.closest('.tile'); });
-grid.addEventListener('pointerleave', () => { hoverTile = null; drawCovers(); });
+// Every cover on screen plays all the time; building tiles animate their blueprint.
+const onScreen = new Set();
+const seen = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target)));
 function libraryLoop(now) {
   if (state.screen === 'library' && !reduced) {
-    for (const t of $$('.tile.building', grid)) { const cv = $('canvas', t); blueprint(cv.getContext('2d'), now / 1000, 320, 180, jobFor(t.dataset.id)?.p || 0); }
-    if (hoverTile && !hoverTile.classList.contains('building')) { const g = games.find(x => x.id === hoverTile.dataset.id); paint($('canvas', hoverTile), g.scene, 0, (SCENES[g.scene].cover?.[1] || 0) + now / 1000 % 60); }
+    for (const t of onScreen) {
+      if (!t.isConnected) { onScreen.delete(t); continue; }
+      const cv = $('canvas', t), g = games.find(x => x.id === t.dataset.id);
+      if (t.classList.contains('building')) blueprint(cv.getContext('2d'), now / 1000, 320, 180, jobFor(t.dataset.id)?.p || 0);
+      else paint(cv, g.scene, 0, (SCENES[g.scene].cover?.[1] || 0) + now / 1000 % 60);
+    }
   }
   requestAnimationFrame(libraryLoop);
 }
