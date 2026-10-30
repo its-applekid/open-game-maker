@@ -506,103 +506,44 @@ body.on-title #logo { display: none; }
 .lh-stats { display: flex !important; flex-wrap: wrap; gap: 8px 24px; } .lh-stats dt, .lh-stats dd, .lh-icons li { overflow-wrap: normal; white-space: nowrap; }
 .lh-icons li { width: auto !important; min-width: 44px; }
 
-/* title: the big logo and one Start on the living background, over a slow reel of live game covers */
-#s-title { position: fixed; inset: 0; z-index: 5; background: transparent; display: grid; align-content: center; row-gap: 40px; overflow: hidden;
-  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(80px, calc(env(safe-area-inset-bottom, 0px) + 72px)) max(16px, env(safe-area-inset-left, 0px));
+/* title: the big logo at the top, Start at the bottom, and between them an opinionated scene on the living background, in three
+   directions to compare (#title-a default): A a glass city being built and painted in, B a floating island of game worlds (both
+   three.js, title-3d.js), C a layered glass landscape that paint colours in (2D canvas, title-c.js) */
+#s-title { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; overflow: hidden;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px)) max(16px, env(safe-area-inset-left, 0px));
   transition: opacity .5s cubic-bezier(.22,1,.36,1); }
 body:has(#s-title:not([hidden])) #logo { display: none; }
-.t-main { display: grid; justify-items: center; align-content: center; gap: 24px; min-height: 0; text-align: center; }
-.t-logo { margin: 0; line-height: 0; }
-.t-logo img { display: block; width: min(760px, 88vw, calc((100svh - 420px) * 1.777)); min-width: min(240px, 88vw); height: auto;
-  filter: drop-shadow(0 16px 40px rgba(0,0,0,.45)); animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards, t-float 7s ease-in-out 1s infinite alternate; }
-.t-tag { margin: 0; max-width: 680px; font: 600 20px/28px var(--display); color: var(--ink-2); text-wrap: balance; animation: t-up .8s cubic-bezier(.22,1,.36,1) .25s backwards; }
+.t-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s cubic-bezier(.22,1,.36,1); }
+.t-scene.on { opacity: 1; }
+.t-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.t-logo { grid-row: 1; position: relative; z-index: 1; margin: 0; line-height: 0; }
+.t-logo img { display: block; width: min(680px, 84vw, calc(30svh * 1.777)); height: auto;
+  filter: drop-shadow(0 16px 40px rgba(0,0,0,.5)); animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards, t-float 7s ease-in-out 1s infinite alternate; }
+.t-cta { grid-row: 3; position: relative; z-index: 1; display: grid; justify-items: center; gap: 16px; text-align: center; }
+.t-tag { margin: 0; max-width: 640px; font: 600 20px/28px var(--display); color: var(--ink); text-wrap: balance; text-shadow: 0 2px 16px rgba(15,14,22,.9), 0 0 4px rgba(15,14,22,.6);
+  animation: t-up .8s cubic-bezier(.22,1,.36,1) .25s backwards; }
 .btn.t-start { font-size: 20px; line-height: 28px; padding: 12px 48px; min-width: 200px; animation: t-up .8s cubic-bezier(.22,1,.36,1) .4s backwards, t-breathe 3.2s ease-in-out 1.4s infinite; }
 .btn.t-start:active:not(:disabled) { transform: scale(.98); }
 @keyframes t-pop { from { opacity: 0; transform: scale(.9); } }
 @keyframes t-up { from { opacity: 0; transform: translateY(24px); } }
 @keyframes t-float { to { transform: translateY(-8px); } }
 @keyframes t-breathe { 50% { box-shadow: 0 10px 40px -6px var(--cta); } }
-.t-reel { position: relative; margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); overflow: hidden; padding-block: 8px; opacity: .8;
-  -webkit-mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
-  animation: t-up 1s cubic-bezier(.22,1,.36,1) .6s backwards; }
-.t-track { display: flex; gap: 16px; width: max-content; animation: t-scroll 90s linear infinite; }
-.t-track figure { margin: 0; width: 224px; aspect-ratio: 16 / 9; border-radius: 16px; overflow: hidden; border: 1.5px solid transparent; flex: none;
-  background: linear-gradient(#1d2021, #1d2021) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; box-shadow: 0 12px 32px rgba(0,0,0,.35); }
-.t-track canvas { width: 100%; height: 100%; display: block; object-fit: cover; image-rendering: pixelated; border-radius: 14px; }
-.t-track canvas.smooth { image-rendering: auto; }
-@keyframes t-scroll { to { transform: translateX(calc(-50% - 8px)); } }
 #s-title.leaving { opacity: 0; pointer-events: none; }
 #s-title.leaving .t-logo img { transform: scale(1.06); transition: transform .5s cubic-bezier(.22,1,.36,1); animation: none; }
-/* short screens (sideways phones): no reel, a smaller logo */
-@media (max-height: 600px) {
-  .t-reel { display: none; }
-  #s-title { padding-bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 60px)); }
-  .t-main { gap: 16px; }
-  .t-logo img { width: min(560px, 80vw, calc((100svh - 200px) * 1.777)); min-width: 0; }
-  .t-tag { font-size: 16px; line-height: 24px; }
+/* direction checkpoint only: switch A / B / C on a phone without editing the address */
+.t-pick { position: absolute; z-index: 2; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; align-items: center;
+  gap: 2px; padding: 2px 2px 2px 12px; border-radius: 999px; font: 600 13px/20px var(--display); color: var(--muted); border: 1.5px solid transparent;
+  background: linear-gradient(rgba(24,22,32,.6), rgba(24,22,32,.6)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; }
+.t-pick a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 15px; }
+.t-pick a[aria-current="true"] { background: var(--yellow-b); color: var(--dark); }
+@media (max-width: 600px) { .t-tag { font-size: 17px; line-height: 24px; } .t-logo img { width: min(88vw, calc(30svh * 1.777)); } #s-title { padding-top: max(64px, env(safe-area-inset-top, 0px)); } }
+/* short screens (sideways phones): smaller logo and words, Start sits higher */
+@media (max-height: 520px) {
+  #s-title { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 60px)); }
+  .t-logo img { width: min(60vw, calc(36svh * 1.777)); }
+  .t-cta { gap: 8px; } .t-tag { font-size: 15px; line-height: 20px; }
   .btn.t-start { font-size: 18px; padding: 8px 40px; }
 }
-@media (max-height: 400px) { #s-title { padding-top: 16px; padding-bottom: 56px; } .t-main { gap: 12px; } .t-logo img { width: min(440px, 70vw, calc((100svh - 176px) * 1.777)); } }
-@media (max-width: 600px) and (min-height: 601px) { .t-tag { font-size: 18px; } .t-track figure { width: 176px; } .t-logo img { width: min(88vw, calc((100svh - 360px) * 1.777)); } }
-
-/* three title directions (#title-a default, #title-b, #title-c): A centres the logo over a reel of covers; B splits the screen
-   into the logo and Start beside one big live screen that cycles through the games; C floats the logo and Start on a frosted
-   glass card over a scattered wall of live covers */
-#s-title:not([data-v="a"]) .t-reel, #s-title:not([data-v="b"]) .t-stage, #s-title:not([data-v="c"]) .t-wall { display: none; }
-.t-stage figure, .t-wall figure { margin: 0; position: relative; overflow: hidden; border: 1.5px solid transparent;
-  background: linear-gradient(#1d2021, #1d2021) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; }
-.t-stage canvas, .t-wall canvas { width: 100%; height: 100%; display: block; object-fit: cover; image-rendering: pixelated; }
-.t-stage canvas.smooth, .t-wall canvas.smooth { image-rendering: auto; }
-
-/* B: split stage */
-#s-title[data-v="b"] { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); align-items: center; column-gap: 48px;
-  padding-inline: max(48px, env(safe-area-inset-left, 0px)) max(48px, env(safe-area-inset-right, 0px)); }
-#s-title[data-v="b"] .t-main { justify-items: start; text-align: left; }
-#s-title[data-v="b"] .t-logo img { width: min(560px, 100%, calc((100svh - 300px) * 1.777)); min-width: 0; }
-#s-title[data-v="b"] .t-tag { font-size: 24px; line-height: 32px; text-wrap: balance; }
-.t-stage { justify-self: center; width: min(100%, calc((100svh - 200px) * 16 / 9)); animation: t-up 1s cubic-bezier(.22,1,.36,1) .3s backwards; }
-.t-stage figure { aspect-ratio: 16 / 9; border-radius: 24px; box-shadow: 0 30px 80px rgba(0,0,0,.5), 0 0 80px -20px var(--sc, #fabd2f); transition: box-shadow .8s cubic-bezier(.22,1,.36,1); }
-.t-stage canvas { border-radius: 22px; }
-.t-stage figure.swap canvas { animation: t-fade .7s cubic-bezier(.22,1,.36,1); }
-@keyframes t-fade { from { opacity: 0; transform: scale(1.03); } }
-.t-stage figcaption { position: absolute; left: 16px; bottom: 16px; display: inline-flex; align-items: baseline; gap: 8px; padding: 4px 12px; border-radius: 999px;
-  font: 600 14px/20px var(--display); color: var(--ink); border: 1.5px solid transparent;
-  background: linear-gradient(rgba(24,22,32,.72), rgba(24,22,32,.72)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; }
-.t-stage figcaption small { font: 700 12px/16px var(--body); color: var(--muted); }
-@media (orientation: portrait) {
-  #s-title[data-v="b"] { grid-template-columns: 1fr; row-gap: 32px; padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
-  #s-title[data-v="b"] .t-main { justify-items: center; text-align: center; }
-  #s-title[data-v="b"] .t-logo img { width: min(88vw, 560px, calc((100svh - 560px) * 1.777)); min-width: min(240px, 88vw); }
-  #s-title[data-v="b"] .t-tag { font-size: 18px; line-height: 28px; }
-  .t-stage { width: min(100%, 640px); }
-  .t-stage figcaption { left: 12px; bottom: 12px; }
-}
-@media (orientation: landscape) and (max-height: 600px) {
-  #s-title[data-v="b"] { column-gap: 24px; padding-inline: max(24px, env(safe-area-inset-left, 0px)) max(24px, env(safe-area-inset-right, 0px)); }
-  #s-title[data-v="b"] .t-logo img { width: min(100%, calc((100svh - 200px) * 1.777)); }
-  #s-title[data-v="b"] .t-tag { font-size: 16px; line-height: 24px; }
-  .t-stage { width: min(100%, calc((100svh - 96px) * 16 / 9)); }
-  .t-stage figure { border-radius: 16px; } .t-stage canvas { border-radius: 14px; }
-  .t-stage figcaption { left: 8px; bottom: 8px; font-size: 12px; line-height: 16px; } .t-stage figcaption small { display: none; }
-}
-
-/* C: glass card over a wall of covers */
-.t-wall { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
-.t-wall figure { position: absolute; width: clamp(150px, 19vw, 280px); aspect-ratio: 16 / 9; border-radius: 16px; opacity: .55;
-  box-shadow: 0 16px 40px rgba(0,0,0,.4); transform: rotate(var(--r)); animation: t-drift 9s ease-in-out var(--d) infinite alternate; }
-.t-wall canvas { border-radius: 14px; }
-@keyframes t-drift { to { transform: rotate(var(--r)) translateY(-12px); } }
-#s-title[data-v="c"] .t-main { position: relative; z-index: 1; justify-self: center; width: min(640px, 100%); padding: 40px 48px; border-radius: 32px; gap: 24px;
-  border: 1.5px solid transparent; -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); box-shadow: 0 30px 80px rgba(0,0,0,.45);
-  background: linear-gradient(rgba(24,22,32,.55), rgba(24,22,32,.55)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.08), rgba(242,234,214,.5)) border-box;
-  animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards; }
-#s-title[data-v="c"] .t-logo img { width: min(520px, 100%, calc((100svh - 400px) * 1.777)); min-width: 0; }
-@media (max-width: 600px) { #s-title[data-v="c"] .t-main { padding: 32px 24px; border-radius: 24px; } }
-@media (max-height: 600px) {
-  #s-title[data-v="c"] .t-main { width: min(560px, 100%); padding: 16px 32px; border-radius: 24px; gap: 12px; }
-  #s-title[data-v="c"] .t-logo img { width: min(100%, calc((100svh - 220px) * 1.777)); }
-}
-@media (prefers-reduced-motion: reduce) { .t-wall figure { animation: none; } }
 
 /* sound on/off: a labelled glass pill bottom left on the title screen */
 #sound { position: fixed; z-index: 36; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px));
@@ -619,21 +560,19 @@ body:not(.on-title) #sound .lbl { position: absolute; width: 1px; height: 1px; o
 body:not(.on-title) #sound { padding: 0; justify-content: center; left: auto; right: max(25px, calc(env(safe-area-inset-right, 0px) + 9px));
   bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px)); }   /* elsewhere: just the icon, stacked above the build tracker */
 body.on-play #sound { display: none; }   /* the game frame has its own sound control */
-@media (prefers-reduced-motion: reduce) { .t-track { animation: none; } }
 </style>
 
 <img id="logo" src="art/logo.webp" alt="Open Game Maker 2000">
 <div id="bg" aria-hidden="true"><canvas width="64" height="40"></canvas></div>
 
 <section id="s-title" class="screen" aria-label="Title screen">
-  <div class="t-main">
-    <h1 class="t-logo"><img src="art/logo-big.webp" alt="Open Game Maker 2000" width="1400" height="788"></h1>
+  <div class="t-scene" aria-hidden="true"></div>
+  <h1 class="t-logo"><img src="art/logo-big.webp" alt="Open Game Maker 2000" width="1400" height="788"></h1>
+  <div class="t-cta">
     <p class="t-tag">Describe your game out loud. Play it in minutes.</p>
     <button class="btn yellow t-start" id="t-start">Start</button>
   </div>
-  <div class="t-reel" aria-hidden="true"><div class="t-track"></div></div>
-  <div class="t-stage" aria-hidden="true"></div>
-  <div class="t-wall" aria-hidden="true"></div>
+  <nav class="t-pick" aria-label="Title screen direction"><span>Title</span><a href="#title-a">A</a><a href="#title-b">B</a><a href="#title-c">C</a></nav>
 </section>
 <button id="sound" data-s="tap" aria-pressed="false"><span class="ic"></span><span class="lbl">Tap for sound</span></button>
 
@@ -691,6 +630,7 @@ body.on-play #sound { display: none; }   /* the game frame has its own sound con
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script type="importmap">{ "imports": { "three": "./art/three/build/three.module.js", "three/addons/": "./art/three/examples/jsm/" } }</script>
 <script type="module">
 import { ICONS } from './icons.js';
 document.getElementById('pb-mic').innerHTML = ICONS.mic; document.getElementById('tr-hammer').innerHTML = ICONS.hammer;

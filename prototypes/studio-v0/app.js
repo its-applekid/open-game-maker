@@ -22,6 +22,7 @@ function show(name) {
   document.body.classList.toggle('on-title', name === 'title'); document.body.classList.toggle('on-play', name === 'play');
   scrollTo(0, 0);
   applySound();
+  if (name === 'title') titleScene?.wake();
 }
 
 // ---------------- sound ----------------
@@ -43,37 +44,18 @@ sound.onChange(drawSound); drawSound(sound.status());
 soundBtn.onclick = () => sound.setMuted(sound.status() === 'on');
 
 // ---------------- title ----------------
-// The big logo and one Start, in three directions to compare (#title-a is the default):
-// A: centred, over a slow reel of live covers · B: split, beside one big live screen cycling through the games ·
-// C: a frosted glass card over a scattered wall of live covers. Covers repaint about eight times a second while the title shows.
-const titleEl = $('#s-title');
-titleEl.dataset.v = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'a';
-const cv = (id, cls = '') => `<canvas data-id="${id}" class="${cls}${SCENES[id].smooth ? ' smooth' : ''}"></canvas>`;
-const WALL = [[2, 6, -6], [26, 2, 4], [74, 4, -3], [88, 22, 7], [-3, 38, 5], [80, 56, -5], [4, 72, -4], [30, 82, 3], [62, 80, -7], [90, 84, 4], [50, -6, -2], [44, 92, 6]];
-let stageIdx = 0;
-function buildTitle() {
-  const ids = GAMES.map(g => g.id).filter(id => SCENES[id]), v = titleEl.dataset.v;
-  if (v === 'a') $('.t-track').innerHTML = [...ids, ...ids].map(id => `<figure>${cv(id)}</figure>`).join('');
-  if (v === 'b') { $('.t-stage').innerHTML = `<figure>${cv(ids[0])}<figcaption></figcaption></figure>`; stageShow(0); setInterval(() => state.screen === 'title' && stageShow(stageIdx + 1), 6000); }
-  if (v === 'c') $('.t-wall').innerHTML = WALL.map(([x, y, r], i) => `<figure style="left:${x}%;top:${y}%;--r:${r}deg;--d:${-i * 1.3}s">${cv(ids[i % ids.length])}</figure>`).join('');
-  drawTitle(0);
-}
-function stageShow(i) {
-  const ids = GAMES.filter(g => SCENES[g.id]), g = ids[stageIdx = i % ids.length], fig = $('.t-stage figure');
-  fig.querySelector('canvas').outerHTML = cv(g.id);
-  fig.querySelector('figcaption').innerHTML = `${esc(g.title)}<small>by ${esc(g.by)}</small>`;
-  fig.style.setProperty('--sc', g.color);
-  fig.classList.remove('swap'); void fig.offsetWidth; fig.classList.add('swap');
-  drawTitle(performance.now());
-}
-function drawTitle(now) {
-  for (const c of $$('canvas', titleEl)) { if (!c.offsetParent) continue; const id = c.dataset.id, [si, ct] = SCENES[id].cover || [0, 1]; paint(c, id, si, ct + now / 1000 % 60); }
-}
-let titleLast = 0;
-function titleLoop(now) {
-  if (state.screen === 'title' && !reduced && now - titleLast > 120) { titleLast = now; drawTitle(now); }
-  requestAnimationFrame(titleLoop);
-}
+// The big logo and one Start over an opinionated scene, in three directions to compare (#title-a is the default):
+// A: a glass city being built and painted in · B: a floating island of game worlds, each built in glass and then painted
+// (both three.js, title-3d.js) · C: a layered glass landscape that flung paint colours in, characters from different games
+// appearing where it lands (2D canvas, title-c.js). The scene only animates while the title shows and the tab is visible.
+const titleEl = $('#s-title'), titleV = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'a';
+titleEl.dataset.v = titleV;
+for (const a of $$('.t-pick a')) a.setAttribute('aria-current', String(a.hash === '#title-' + titleV));
+addEventListener('hashchange', () => { if (/^#title-[abc]$/.test(location.hash)) location.reload(); });
+let titleScene = null;
+if (!/^#(library|new)$/.test(location.hash)) (titleV === 'c' ? import('./title-c.js') : import('./title-3d.js'))   // skipped title: skip the download
+  .then(m => m.start({ el: $('.t-scene'), v: titleV, reduced, active: () => state.screen === 'title' && !document.hidden, cue: sound.cue }))
+  .then(s => { titleScene = s; }).catch(e => console.warn('title scene', e));
 function startFromTitle() {
   const t = titleEl; if (t.classList.contains('leaving')) return;
   sound.cue('confirmation_001', .5);
@@ -640,7 +622,6 @@ drawBg(0); requestAnimationFrame(bgLoop);
 // ---------------- boot ----------------
 games.push({ ...SEED_BUILD, status: 'building' });
 await ready;
-buildTitle(); requestAnimationFrame(titleLoop);
 await Promise.all(SPLATS.map(i => i.decode().catch(() => {})));
 renderLibrary();
 addJob('game', SEED_BUILD.title, SEED_BUILD.id, 150);

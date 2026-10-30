@@ -29,6 +29,10 @@ for f in element_red_rectangle_glossy element_blue_rectangle_glossy element_gree
 mkdir -p "$A/music" "$A/sfx"
 for f in "$K/kenney-music-loops/1.1/extracted/"{Loops,Retro}/*.ogg; do
   n="$(basename "$f" .ogg | tr 'A-Z ' 'a-z-')"; ffmpeg -loglevel error -y -i "$f" -codec:a libmp3lame -q:a 5 "$A/music/$n.mp3"; done
+# menu track: Sidetrax "Camelot", cut just past its loop end (119.329 s, sound.js MUSIC). MP3 because of iPhone; LAME writes its
+# delay/padding header, which decoders use to trim, so the loop points stay sample-accurate (checked in Chromium: decoded
+# length and alignment match the WAV exactly)
+ffmpeg -loglevel error -y -i "$K/sidetrax-loop-pack-15/v1/extracted/Camelot.wav" -t 119.9 -codec:a libmp3lame -q:a 4 "$A/music/camelot.mp3"
 for s in foley-sounds/drip1 foley-sounds/drip2 foley-sounds/drip3 foley-sounds/woosh1 foley-sounds/woosh3 foley-sounds/swordMetal1 \
   foley-sounds/swordMetal2 foley-sounds/swordMetal3 impact-sounds/footstep_concrete_000 impact-sounds/footstep_concrete_001 \
   impact-sounds/impactPunch_medium_002 impact-sounds/footstep_grass_000 impact-sounds/footstep_grass_001 impact-sounds/footstep_snow_000 \
@@ -57,4 +61,21 @@ cp "$U/assets/models/kenney/"*.glb "$D/assets/models/kenney/"; python3 -I "$HERE
 for f in build/three.module.js examples/jsm/loaders/GLTFLoader.js examples/jsm/utils/BufferGeometryUtils.js examples/jsm/utils/SkeletonUtils.js; do
   mkdir -p "$D/vendor/three/$(dirname $f)"; curl -sfL "https://cdn.jsdelivr.net/npm/three@0.170.0/$f" -o "$D/vendor/three/$f"; done
 sed -i 's#https://cdn.jsdelivr.net/npm/three@0.170.0/#./vendor/three/#' "$D/index.html"
+# title screen (title-3d.js, directions A and B): the same three.js files for the page's import map, and the Kenney models the
+# glass scenes use, as glTF JSON like the dungeon's (art/3d/<kit>/name.json, each kit's colormap at art/3d/<kit>/Textures)
+rm -rf "$A/three" && cp -r "$D/vendor/three" "$A/three"
+M="$A/3d"; rm -rf "$M"
+model() { local pack="$1" kit="$2"; shift 2; local src; src="$(ls -d "$K/$pack"/*/extracted/Models | tail -1)"; mkdir -p "$M/$kit"
+  for n in "$@"; do local f; f="$(find "$src" -name "$n.glb" | head -1)"; [ -n "$f" ] || { echo "missing model $pack/$n" >&2; exit 1; }; cp "$f" "$M/$kit/"; done
+  if [ -f "$src/GLB format/Textures/colormap.png" ]; then mkdir -p "$M/$kit/Textures"; cp "$src/GLB format/Textures/colormap.png" "$M/$kit/Textures/"; fi
+  python3 -I "$HERE/tools/glb2json.py" "$M/$kit/"*.glb >/dev/null; rm "$M/$kit/"*.glb; }
+model kenney-city-kit-commercial city building-a building-b building-c building-d building-f building-g building-h building-l building-m \
+  building-skyscraper-a building-skyscraper-b building-skyscraper-c building-skyscraper-d building-skyscraper-e
+model kenney-city-kit-suburban suburb building-type-a building-type-c building-type-f building-type-k tree-large tree-small
+model kenney-city-kit-roads roads road-straight road-crossroad tile-low construction-cone construction-barrier construction-light light-square
+model kenney-car-kit cars taxi sedan police delivery van
+model kenney-mini-dungeon dungeon floor floor-detail wall wall-opening column chest barrel character-orc character-human banner weapon-sword
+model kenney-castle-kit castle tower-square-base tower-square-mid-windows tower-square-top-roof-high wall wall-corner gate flag tree-large
+model kenney-space-kit space rocket_baseA rocket_fuelA rocket_sidesA rocket_finsA rocket_topA satelliteDish_large terrain rock_crystalsLargeA astronautA
+model kenney-nature-kit nature ground_grass tree_pineTallA tree_pineRoundC tree_default tree_oak rock_largeA mushroom_redGroup flower_yellowA campfire_stones tent_smallOpen
 echo "built $HERE (publish index.html with every other file under it)"
