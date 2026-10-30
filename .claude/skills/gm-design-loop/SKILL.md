@@ -19,6 +19,10 @@ The creator talks; the agent designs. Designing is the product's core loop, so d
    - One step at a time: the creator signs off a scene before the next starts. Don't build several at once.
 4. **Build.** Every moving thing runs on its own loop with its own period. Keep a capture mode (time set from
    outside) so recordings are exact.
+   - Characters: a one-shot clip (punch, swipe, hit) plays **once** and holds; never let it loop over a long slot (an
+     0.8 s punch over 2 s reads as three punches). Slow clips with a rate for big creatures, crossfade ~0.3 s between
+     moves, and fire impacts on the clip's contact frame. Vary the moves and let them react (flinch, knockback).
+   - Sharing a ShaderMaterial's live uniforms: `{ ...mat.uniforms, own: {...} }`; `clone()` copies them frozen.
 5. **Verify by looking** (`gm-verify`) before anything is sent: stills at desktop and phone sizes, a timeline of the
    motion, and a look at every frame you cite.
 6. **Deliver for a phone.** MP4 clips on an artifact page with posters and one line per option, then the specific
