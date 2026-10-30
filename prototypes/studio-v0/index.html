@@ -57,9 +57,6 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
   -webkit-mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); mask: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
 .bar-top .right { justify-self: end; }
 
-/* title: the dungeon prototype's own home screen */
-#s-title { position: fixed; inset: 0; z-index: 5; background: var(--paper); }
-#titleFrame { width: 100%; height: 100%; border: 0; display: block; }
 
 /* library: a spotlight on the paper desk for the selected game (details left, footage right with paint-splatter edges, always in the
    same place), then every game as edge-to-edge live tiles on a dark floor. Selecting a tile only swaps the spotlight. */
@@ -508,14 +505,76 @@ body.on-title #logo { display: none; }
 /* never clip or split stats and tag labels: stats wrap as whole items, labels widen instead of breaking mid-word */
 .lh-stats { display: flex !important; flex-wrap: wrap; gap: 8px 24px; } .lh-stats dt, .lh-stats dd, .lh-icons li { overflow-wrap: normal; white-space: nowrap; }
 .lh-icons li { width: auto !important; min-width: 44px; }
+
+/* title: the big logo at the top, Start at the bottom, and between them an opinionated scene on the living background, in three
+   directions to compare (#title-a default): A a glass city being built and painted in, B a floating island of game worlds (both
+   three.js, title-3d.js), C a layered glass landscape that paint colours in (2D canvas, title-c.js) */
+#s-title { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; overflow: hidden;
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px)) max(16px, env(safe-area-inset-left, 0px));
+  transition: opacity .5s cubic-bezier(.22,1,.36,1); }
+body:has(#s-title:not([hidden])) #logo { display: none; }
+.t-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s cubic-bezier(.22,1,.36,1); }
+.t-scene.on { opacity: 1; }
+.t-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.t-logo { grid-row: 1; position: relative; z-index: 1; margin: 0; line-height: 0; }
+.t-logo img { display: block; width: min(680px, 84vw, calc(30svh * 1.777)); height: auto;
+  filter: drop-shadow(0 16px 40px rgba(0,0,0,.5)); animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards, t-float 7s ease-in-out 1s infinite alternate; }
+.t-cta { grid-row: 3; position: relative; z-index: 1; display: grid; justify-items: center; gap: 16px; text-align: center; }
+.t-tag { margin: 0; max-width: 640px; font: 600 20px/28px var(--display); color: var(--ink); text-wrap: balance; text-shadow: 0 2px 16px rgba(15,14,22,.9), 0 0 4px rgba(15,14,22,.6);
+  animation: t-up .8s cubic-bezier(.22,1,.36,1) .25s backwards; }
+.btn.t-start { font-size: 20px; line-height: 28px; padding: 12px 48px; min-width: 200px; animation: t-up .8s cubic-bezier(.22,1,.36,1) .4s backwards, t-breathe 3.2s ease-in-out 1.4s infinite; }
+.btn.t-start:active:not(:disabled) { transform: scale(.98); }
+@keyframes t-pop { from { opacity: 0; transform: scale(.9); } }
+@keyframes t-up { from { opacity: 0; transform: translateY(24px); } }
+@keyframes t-float { to { transform: translateY(-8px); } }
+@keyframes t-breathe { 50% { box-shadow: 0 10px 40px -6px var(--cta); } }
+#s-title.leaving { opacity: 0; pointer-events: none; }
+#s-title.leaving .t-logo img { transform: scale(1.06); transition: transform .5s cubic-bezier(.22,1,.36,1); animation: none; }
+/* direction checkpoint only: switch A / B / C on a phone without editing the address */
+.t-pick { position: absolute; z-index: 2; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; align-items: center;
+  gap: 2px; padding: 2px 2px 2px 12px; border-radius: 999px; font: 600 13px/20px var(--display); color: var(--muted); border: 1.5px solid transparent;
+  background: linear-gradient(rgba(24,22,32,.6), rgba(24,22,32,.6)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; }
+.t-pick a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 15px; }
+.t-pick a[aria-current="true"] { background: var(--yellow-b); color: var(--dark); }
+@media (max-width: 600px) { .t-tag { font-size: 17px; line-height: 24px; } .t-logo img { width: min(88vw, calc(30svh * 1.777)); } #s-title { padding-top: max(64px, env(safe-area-inset-top, 0px)); } }
+/* short screens (sideways phones): smaller logo and words, Start sits higher */
+@media (max-height: 520px) {
+  #s-title { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 60px)); }
+  .t-logo img { width: min(60vw, calc(36svh * 1.777)); }
+  .t-cta { gap: 8px; } .t-tag { font-size: 15px; line-height: 20px; }
+  .btn.t-start { font-size: 18px; padding: 8px 40px; }
+}
+
+/* sound on/off: a labelled glass pill bottom left on the title screen */
+#sound { position: fixed; z-index: 36; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+  display: inline-flex; align-items: center; gap: 8px; height: 44px; min-width: 44px; padding: 0 12px; border-radius: 999px; color: var(--ink);
+  font: 600 14px/20px var(--display); border: 1.5px solid transparent; -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
+  background: linear-gradient(rgba(24,22,32,.5), rgba(24,22,32,.5)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box;
+  transition: transform .3s cubic-bezier(.22,1,.36,1), background .3s cubic-bezier(.22,1,.36,1); }
+#sound .ic { width: 20px; height: 20px; display: grid; flex: none; } #sound .ic svg { width: 100%; height: 100%; }
+#sound[data-s="on"] .ic { color: var(--yellow-b); } #sound[data-s="tap"] .ic { animation: t-nudge 2.4s ease-in-out infinite; }
+#sound:active { transform: scale(.96); }
+#sound:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+@keyframes t-nudge { 0%, 70%, 100% { transform: none; } 80% { transform: rotate(-12deg); } 90% { transform: rotate(10deg); } }
+body:not(.on-title) #sound .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+body:not(.on-title) #sound { padding: 0; justify-content: center; left: auto; right: max(25px, calc(env(safe-area-inset-right, 0px) + 9px));
+  bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px)); }   /* elsewhere: just the icon, stacked above the build tracker */
+body.on-play #sound { display: none; }   /* the game frame has its own sound control */
 </style>
 
 <img id="logo" src="art/logo.webp" alt="Open Game Maker 2000">
 <div id="bg" aria-hidden="true"><canvas width="64" height="40"></canvas></div>
 
 <section id="s-title" class="screen" aria-label="Title screen">
-  <iframe id="titleFrame" title="Open Game Maker 2000 title screen" allow="autoplay; fullscreen"></iframe>
+  <div class="t-scene" aria-hidden="true"></div>
+  <h1 class="t-logo"><img src="art/logo-big.webp" alt="Open Game Maker 2000" width="1400" height="788"></h1>
+  <div class="t-cta">
+    <p class="t-tag">Describe your game out loud. Play it in minutes.</p>
+    <button class="btn yellow t-start" id="t-start">Start</button>
+  </div>
+  <nav class="t-pick" aria-label="Title screen direction"><span>Title</span><a href="#title-a">A</a><a href="#title-b">B</a><a href="#title-c">C</a></nav>
 </section>
+<button id="sound" data-s="tap" aria-pressed="false"><span class="ic"></span><span class="lbl">Tap for sound</span></button>
 
 <section id="s-library" class="screen" hidden aria-label="Games">
   
@@ -571,6 +630,7 @@ body.on-title #logo { display: none; }
 
 <div id="toast" role="status" aria-live="polite"></div>
 
+<script type="importmap">{ "imports": { "three": "./art/three/build/three.module.js", "three/addons/": "./art/three/examples/jsm/" } }</script>
 <script type="module">
 import { ICONS } from './icons.js';
 document.getElementById('pb-mic').innerHTML = ICONS.mic; document.getElementById('tr-hammer').innerHTML = ICONS.hammer;

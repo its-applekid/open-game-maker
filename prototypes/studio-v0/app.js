@@ -1,5 +1,6 @@
 import { ready, paint, SCENES, blueprint } from './scenes.js';
 import { ICONS, gameTags } from './icons.js';
+import * as sound from './sound.js';
 import { GAMES, SEED_BUILD, STEPS, ART, NEW_GAME_TALK, NEW_GAME_TITLE, featureTalk, FEATURE_NAME, AGENT_ACK, BUILD_STEPS } from './data.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -20,12 +21,49 @@ function show(name) {
   $('#tracker').classList.toggle('inbar', name === 'play');
   document.body.classList.toggle('on-title', name === 'title'); document.body.classList.toggle('on-play', name === 'play');
   scrollTo(0, 0);
+  applySound();
+  if (name === 'title') titleScene?.wake();
 }
 
-// Title screen is the dungeon prototype's own home screen; its Start posts {ogm:'start'} back to us.
-const titleFrame = $('#titleFrame');
-function loadTitle() { titleFrame.src = DEMO; }
-addEventListener('message', e => { if (e.data?.ogm === 'start' && state.screen === 'title') { show('library'); setTimeout(() => { titleFrame.src = 'about:blank'; }, 400); } });
+// ---------------- sound ----------------
+// Title track on the title screen, menu track on Games and New Game. Picking a game fades the music out under that game's
+// quiet gameplay sounds; closing the spotlight brings the music back. The game frame (play/edit) has its own audio.
+let picked = false;   // the player chose a game; the spotlight opening on the first game by itself keeps the menu music
+function applySound() {
+  const g = picked && state.screen === 'library' && selId && games.find(x => x.id === selId);
+  sound.set(state.screen === 'title' ? { music: 'title' } : g ? { scape: g.status === 'building' ? 'building' : g.scene }
+    : state.screen === 'play' ? {} : { music: 'menu' });
+}
+const soundBtn = $('#sound');
+function drawSound(s) {
+  soundBtn.dataset.s = s; soundBtn.setAttribute('aria-pressed', String(s === 'on'));
+  $('.ic', soundBtn).innerHTML = s === 'on' ? ICONS.soundOn : ICONS.soundOff;
+  $('.lbl', soundBtn).textContent = { tap: 'Tap for sound', on: 'Sound on', off: 'Sound off' }[s];
+}
+sound.onChange(drawSound); drawSound(sound.status());
+soundBtn.onclick = () => sound.setMuted(sound.status() === 'on');
+
+// ---------------- title ----------------
+// The big logo and one Start over an opinionated scene, in three directions to compare (#title-a is the default):
+// A: a glass city being built and painted in · B: a floating island of game worlds, each built in glass and then painted
+// (both three.js, title-3d.js) · C: a layered glass landscape that flung paint colours in, characters from different games
+// appearing where it lands (2D canvas, title-c.js). The scene only animates while the title shows and the tab is visible.
+const titleEl = $('#s-title'), titleV = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'a';
+titleEl.dataset.v = titleV;
+for (const a of $$('.t-pick a')) a.setAttribute('aria-current', String(a.hash === '#title-' + titleV));
+addEventListener('hashchange', () => { if (/^#title-[abc]$/.test(location.hash)) location.reload(); });
+let titleScene = null;
+if (!/^#(library|new)$/.test(location.hash)) (titleV === 'c' ? import('./title-c.js') : import('./title-3d.js'))   // skipped title: skip the download
+  .then(m => m.start({ el: $('.t-scene'), v: titleV, reduced, active: () => state.screen === 'title' && !document.hidden, cue: sound.cue }))
+  .then(s => { titleScene = s; }).catch(e => console.warn('title scene', e));
+function startFromTitle() {
+  const t = titleEl; if (t.classList.contains('leaving')) return;
+  sound.cue('confirmation_001', .5);
+  t.classList.add('leaving');
+  setTimeout(() => { show('library'); t.classList.remove('leaving'); }, reduced ? 0 : 450);
+}
+$('#t-start').onclick = startFromTitle;
+addEventListener('keydown', e => { if (state.screen === 'title' && (e.key === 'Enter' || e.key === ' ') && e.target === document.body) { e.preventDefault(); startFromTitle(); } });
 
 // ---------------- library ----------------
 // The selected game owns a fixed spotlight at the top (details left, gameplay right with paint-splatter edges);
@@ -104,7 +142,7 @@ function select(id, scroll) {
   const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
   const hero = $('#lib-hero'), media = $('#lh-media'), wasOpen = !hero.hidden && selId, oldMedia = wasOpen ? media.getBoundingClientRect() : null;
   const oldTile = tiles.find(t => t.dataset.id === selId), newTile = tiles.find(t => t.dataset.id === id), fromRect = before.get(newTile);
-  selId = id;
+  selId = id; if (scroll) picked = true;
   const g = games.find(x => x.id === id), building = g.status === 'building';
   for (const t of tiles) t.classList.toggle('sel', t.dataset.id === id);
   hero.hidden = false;
@@ -129,6 +167,7 @@ function select(id, scroll) {
   shot.style.maskImage = shot.style.webkitMaskImage = `url(${splatMask(seed)})`;
   for (const el of [$('#lh-text'), $('#lh-media')]) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
   drawHero(performance.now());
+  applySound();
   if (!scroll) return;
   // the chosen thumbnail grows into the spotlight footage; the old pick shrinks back into its tile
   scrollTo({ top: 0, behavior: 'auto' });
@@ -138,7 +177,7 @@ function select(id, scroll) {
 function closeSpot() {
   const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
   const media = $('#lh-media').getBoundingClientRect(), tile = tiles.find(t => t.dataset.id === selId);
-  selId = null; $('#lib-hero').hidden = true;
+  selId = null; picked = false; $('#lib-hero').hidden = true; applySound();
   for (const t of tiles) t.classList.remove('sel');
   glideTiles(tiles, before, new Map(tile ? [[tile, media]] : []));
   tile?.focus({ preventScroll: true });
@@ -211,7 +250,7 @@ $('#pb-ask').onclick = () => {
 };
 
 // ---------------- New Game wizard ----------------
-function startWizard() { state.step = 0; state.picks = {}; state.other = {}; show('wizard'); renderStep(); }
+function startWizard() { picked = false; state.step = 0; state.picks = {}; state.other = {}; show('wizard'); renderStep(); }
 $('#wz-back').onclick = () => { if (talk) { talk.stop(); talk = null; } if (state.step === 0) show('library'); else { state.step--; renderStep(); } };
 $('#wz-next').onclick = () => { if (state.step < STEPS.length - 1) { state.step++; renderStep(); } };
 let talk = null;
@@ -592,4 +631,4 @@ requestAnimationFrame(libraryLoop);
 const hash = location.hash.slice(1);
 if (hash === 'library') show('library');
 else if (hash === 'new') { show('library'); startWizard(); }
-else { loadTitle(); show('title'); }
+else show('title');
