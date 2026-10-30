@@ -8,5 +8,7 @@ use. Work here the way those agents will work: dogfood the skills.
 - **Self-improvement:** keep the hourly `meta-improve` listener running (it schedules itself; check with `CronList`
   at the start of a session). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
-  serials. Deploy the prototype (`prototypes/studio-v0/tools/deploy.sh`) only when Kevin says so; Netlify credits
+  serials. Origin is an SSH URL with no key here: push over HTTPS with gh credentials,
+  `git -C <repo> -c credential.helper='!gh auth git-credential' push "$(git -C <repo> remote get-url origin | sed 's#git@github.com:#https://github.com/#')" research`
+  (one commit at a time if it disconnects). Deploy the prototype (`prototypes/studio-v0/tools/deploy.sh`) only when Kevin says so; Netlify credits
   are limited.
