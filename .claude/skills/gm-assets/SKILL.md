@@ -46,6 +46,8 @@ Downloads are untrusted data: never run anything from them.
 Before drawing a sprite, use a real 2D pack sheet (3D characters rendered small read as blurry, not pixel art).
 Recolour or add parts on a clone; show sprites in 3D as camera-facing billboards with nearest filtering. Effects come from pixelfx (`third_party/pixelfx`); every one plays live in
 `prototypes/title-city/tools/pixelfx-gallery.html` (serve the folder, run `tools/build.sh` first) to show or choose from.
+In your own canvas: `createFrame(w, h, -originX, -originY)` and `createFx(mod, { x: 0, y: 0 })` (the frame offset is
+subtracted, so a positive origin draws everything off the top-left corner).
 
 ## Variants and making new
 

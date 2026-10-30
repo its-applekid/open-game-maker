@@ -26,4 +26,6 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   The Claude mobile app does not play WebM.
 - Publish an artifact page: `tools/clips_page.py <dir> "title" "intro" clip.mp4="Heading|one line" ...` builds it with
   poster frames; files over the per-call limit get re-encoded smaller, not dropped.
+- A live JS page with many modules (over 256 files per publish): bundle it into one inline script with esbuild
+  (`npm i esbuild` in the scratchpad, `--bundle --format=esm --minify`).
 - Say what was checked and what wasn't (for example "not checked on iPhone Safari").
