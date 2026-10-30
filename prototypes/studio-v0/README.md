@@ -12,5 +12,5 @@ modal with a gameplay montage and Steam-style details → **Play** / **Edit** in
 Build the publishable folder with `tools/build.sh` (copies sprites and pack previews from `assets-local`, copies ui-v0 into `demo/`
 with models as glTF JSON). Goblin screenshots: run `prototypes/ui-v0/tools/e2e.mjs` at 1280×720 and save `06-play`, `07-fight`,
 `08-result` (cropped to the stage) and `04-placed` as 960 px webp in `art/goblin-{play,fight,result,placed}.webp`.
-Deploy with `tools/deploy.sh` (after `build.sh`) to https://ogm2000-studio.netlify.app.
+Deploy with `tools/deploy.sh` (after `build.sh`) to https://ogm2000.netlify.app.
 Hashes `#library` and `#new` skip the title screen.
