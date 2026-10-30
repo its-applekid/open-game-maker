@@ -9,9 +9,10 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { rampage } from './rampage.js';
 
 const Q = new URLSearchParams(location.search);
-const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed');
+const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed'), SCENE = Q.get('scene'), SCENE_V = Q.get('var') || 'a';
 const DAY = +(Q.get('day') || 120);   // seconds for one day/night cycle (short for the preview)
 const TAU = Math.PI * 2;
 
@@ -701,6 +702,10 @@ const CAMS = {   // [position, look-at] for landscape; portrait backs off and wi
 function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
+  if (CAM === 'scene' && SC) {   // from the street side of the scene's house, back far enough to see the monster climbing it
+    const [fx, , fz] = SC.focus, [qx, qz] = SC.front, a = TAU * t / 150, side = [qz, -qx], d = 40;
+    camera.fov = aspect < 1 ? 60 : 42; camera.position.set(fx + qx * d + side[0] * 16 + Math.sin(a) * 3, PLAIN + SC.h + 16, fz + qz * d + side[1] * 16);
+    camera.lookAt(fx + qx * 4, PLAIN + SC.h * .75, fz + qz * 4); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
   camera.position.set(l[0] + (p[0] - l[0]) * back + Math.sin(a) * 10, p[1] * back, l[2] + (p[2] - l[2]) * back + Math.cos(a) * 5);
@@ -718,15 +723,40 @@ function updateSky(t) {
   for (const m of NIGHT_GLOW) m.opacity = sstep(.3, .9, SKY.night);
 }
 
+// ---------------- scenes ----------------
+// the monster rampage (rampage.js): its target house is taken out of the town's instancing and handed to the scene
+async function setupRampage() {
+  const south = STREETS[2].pts, harbor = SCENE_V === 'c';
+  const near = (x, z, pts) => pts.reduce((b, p) => Math.min(b, Math.hypot(p[0] - x, p[1] - z)), 1e9);
+  const cands = houses.filter(h => harbor ? h.dist === 'harbor' : h.set === 'tallhouse' && near(h.x, h.z, south) < 8 && townD(h.x, h.z) > .3 && townD(h.x, h.z) < .8);
+  const h = cands.sort((a, b) => harbor ? (b.x - a.x) : (Math.abs(townD(a.x, a.z) - .55) - Math.abs(townD(b.x, b.z) - .55)))[0];
+  houses.splice(houses.indexOf(h), 1);
+  if (harbor) { h.model = VARIANTS.tallhouse[3]; }
+  const k = await kenney(h.model), m = new THREE.Mesh(k.geo, kitMat(k.map, { tint: C(h.roof) }));
+  m.rotation.y = h.rot; m.scale.setScalar(h.s); scene.add(m);
+  const target = { x: h.x, z: h.z, rot: h.rot, h: k.h * h.s, w: k.w * h.s, d: k.d * h.s, mesh: m, cut: m.material.uniforms.cut };
+  let path, exit;
+  if (harbor) { path = [[h.x + 70, h.z + 6], [h.x + 30, h.z + 4]]; exit = [[h.x + 30, h.z - 6], [h.x + 80, h.z - 14]]; }
+  else {
+    const i0 = south.findIndex(p => townD(...p) > 1.25), iN = south.reduce((b, p, i) => Math.hypot(p[0] - h.x, p[1] - h.z) < Math.hypot(south[b][0] - h.x, south[b][1] - h.z) ? i : b, 0);
+    path = south.slice(iN, i0 + 1).reverse(); exit = south.slice(iN, Math.min(south.length, i0 + 4));
+  }
+  window.__scene = { target: [h.x, h.z, h.rot, target.h], path, exit };
+  return rampage({ scene, camera, target, path, exit, PLAIN, ground: (x, z) => Math.max(height(x, z), -7), scaffold, layers, stepped, steps }, SCENE_V);
+}
+
 // ---------------- go ----------------
 function size() { const w = innerWidth, h = innerHeight; aspect = w / h; renderer.setSize(w, h, false); }
 addEventListener('resize', size); size();
 terrain();
 await loadVariants();
-streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum(); await buildHouses(); await flush(); await trees(); torches(); makeClouds(); makeBoats();
+streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum();
+let SC = null;
+if (SCENE === 'rampage') SC = await setupRampage();
+await buildHouses(); await flush(); await trees(); torches(); makeClouds(); makeBoats();
 function frame(t) {
   U.phase.value = TAU * mod(t, 60) / 60;
-  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t);
+  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); SC?.update(t);
   renderer.render(scene, camera);
 }
 window.__frame = frame;
