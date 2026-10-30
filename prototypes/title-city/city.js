@@ -97,13 +97,14 @@ function river(x, z) {   // distance to the river's centre line, and its width t
 const wet = (x, z, m = 0) => { const r = river(x, z); return r.d < r.w * .5 + m; };
 
 // ---------------- the town's shape ----------------
-const TC = { x: 6, z: -16 };                       // the market square
-const CASTLE = { x: -96, z: -138 };                // the castle hill, behind the town from the bay
+const TC = { x: 14, z: 14 };                       // the market square, south of the river
+const CASTLE = { x: -40, z: -84 };                 // the castle hill: inside the wall at the back, across the river
 const PLAIN = .8;
 // the wall's radius at each angle: a lumpy ring pulled in so it stays clear of the beach
 const WALL_R = [];
 for (let k = 0; k < 360; k++) {
-  const a = k / 360 * TAU; let r = 84 + (vnoise(Math.cos(a) * 1.3 + 4, Math.sin(a) * 1.3 + 4) - .5) * 20;
+  const a = k / 360 * TAU, ca = Math.atan2(CASTLE.z - TC.z, CASTLE.x - TC.x), toward = Math.max(0, Math.cos(a - ca)) ** 4;
+  let r = 86 + (vnoise(Math.cos(a) * 1.1 + 4, Math.sin(a) * 1.1 + 4) - .5) * 46 + (vnoise(Math.cos(a) * 3 + 9, Math.sin(a) * 3) - .5) * 12 + 54 * toward + 14 * Math.sin(a * 2 + .7);
   while (r > 30 && TC.x + Math.cos(a) * r > coastX(TC.z + Math.sin(a) * r) - 9) r -= 1;
   WALL_R.push(r);
 }
@@ -113,9 +114,10 @@ const angTo = (x, z) => Math.atan2(z - TC.z, x - TC.x), CASTLE_A = angTo(CASTLE.
 const angDiff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
 const slumAt = (x, z) => {   // the slum hugs the wall on the south-west, away from the castle road and the beach
   const d = townD(x, z), a = angTo(x, z);
-  return d > 1.03 && d < 1.45 && angDiff(a, 2.3) < 1.1 && vnoise(x * .05 + 2, z * .05) > .38;
+  return d > 1.03 && d < 1.4 && angDiff(a, 2.2) < 1 && vnoise(x * .05 + 2, z * .05) > .38;
 };
-const PADS = [{ x: CASTLE.x, z: CASTLE.z, r: 30, h: 19 }];
+const PADS = [{ x: CASTLE.x, z: CASTLE.z, r: 20, h: 13 }];
+const CASTLE_FACE = Math.atan2(TC.x - CASTLE.x, TC.z - CASTLE.z);
 const CORRIDORS = [];
 const corridorDist = (x, z) => {
   let best = 1e9;
@@ -136,7 +138,7 @@ function height(x, z) {
     h += (1 - flat) * (fbm(x * .02 + 3, z * .02) * 9 - 2.5) * sstep(4, 30, dc);
     const mw = sstep(-130, -260, x), mb = sstep(-200, -380, z) * .85, m = Math.max(mw, mb) * (1 - flat) * sstep(16, 95, d);
     h += m * (8 + 95 * ridge(x * .011 + 7, z * .011)) * sstep(2, 40, dc);
-    for (const q of PADS) { const pf = 1 - sstep(q.r, q.r + 34, Math.hypot(x - q.x, z - q.z)); h = h * (1 - pf) + q.h * pf; }
+    for (const q of PADS) { const pf = 1 - sstep(q.r, q.r + 22, Math.hypot(x - q.x, z - q.z)); h = Math.max(h * (1 - pf) + q.h * pf, h); }
     const cf = 1 - sstep(4, 12, corridorDist(x, z));
     h = h * (1 - cf) + Math.max(PLAIN, Math.min(h, PLAIN + 4)) * cf;
     h = Math.max(h, PLAIN * sstep(0, 4, dc));
@@ -146,45 +148,66 @@ function height(x, z) {
 }
 
 // ---------------- streets ----------------
-// main streets run from the square out through the gates and on as dirt roads; ring streets and side streets fill the
-// districts. A street is a polyline with a width; houses face it from both sides.
+// Two main roads cross the river (the only two bridges): the castle road and a harbour street. The others leave the market
+// through the gates and go on as dirt roads. Winding lanes branch off them and stop at the river, the wall, the castle hill
+// or another street, so the plan is irregular, like a town that grew.
 const STREETS = [];
-const street = (pts, w, kind) => STREETS.push({ pts, w, kind });
-const at = (a, r) => [TC.x + Math.cos(a) * r, TC.z + Math.sin(a) * r];
-{
-  const gateR = a => wallR(a);
-  // the castle road: out of the north-west gate and up the hill in two bends
-  const ca = CASTLE_A, g1 = at(ca, gateR(ca) + 6);
-  street([[TC.x, TC.z], at(ca, 40), at(ca, gateR(ca)), g1, [g1[0] - 14, g1[1] - 6], [CASTLE.x + 10, CASTLE.z + 26], [CASTLE.x + 14, CASTLE.z + 14]], 4.4, 'main');
-  // north along the coast, south along the coast, west up the valley, east to the harbour
-  const north = [], south = [];
-  for (let z = TC.z - 14; z >= -900; z -= 10) { const w = sstep(TC.z - 60, TC.z - 150, z); north.push([TC.x + 6 * (1 - w) + (coastX(z) - 48) * w * (z < TC.z - 60 ? 1 : 0) + (z >= TC.z - 60 ? 0 : 0), z]); }
-  for (let i = 0; i < north.length; i++) { const z = north[i][1], w = sstep(TC.z - 60, TC.z - 170, z); north[i][0] = (TC.x + 4) * (1 - w) + (coastX(z) - 48) * w; }
-  for (let z = TC.z + 14; z <= 420; z += 10) { const w = sstep(TC.z + 60, TC.z + 170, z); south.push([(TC.x - 2) * (1 - w) + (coastX(z) - 44) * w, z]); }
-  street([[TC.x, TC.z], ...north], 4.4, 'main'); street([[TC.x, TC.z], ...south], 4.4, 'main');
-  const west = [[TC.x, TC.z], at(Math.PI + .25, 50), at(Math.PI + .3, gateR(Math.PI + .3) + 4)];
-  for (let i = RIVER.length - 1; i >= 0; i--) { const [x, z] = RIVER[i]; if (x > west[2][0] - 20 || x < -560) continue; west.push([x, z - 30]); }
-  street(west, 4, 'main');
-  street([[TC.x, TC.z], at(.05, 40), [coastX(TC.z + 4) - 6, TC.z + 4]], 4.4, 'main');
-  // two ring streets and side streets between the main ones
-  for (const rf of [.34, .52, .7, .88]) { const ring = []; for (let k = 0; k <= 48; k++) { const a = k / 48 * TAU; ring.push(at(a, wallR(a) * rf)); } street(ring, rf > .8 ? 3 : 3.4, 'ring'); }
-  for (const a of [.45, .9, 1.35, 1.75, 2.2, 2.75, 3.3, 3.9, 4.25, 4.6, 5.05, 5.5, 5.95]) street([at(a, 16), at(a + .06, 45), at(a + .03, wallR(a + .03) * .88)], 3, 'side');
-}
-CORRIDORS.push(...STREETS.filter(s => s.kind === 'main').map(s => s.pts));
-// segment buckets for "how far to the nearest street"
 const SB = 20, sbuck = new Map();
-STREETS.forEach((s, n) => { for (let i = 0; i < s.pts.length - 1; i++) {
-  const [ax, az] = s.pts[i], [bx, bz] = s.pts[i + 1];
-  for (let x = Math.floor(Math.min(ax, bx) / SB) - 1; x <= Math.floor(Math.max(ax, bx) / SB) + 1; x++)
-    for (let z = Math.floor(Math.min(az, bz) / SB) - 1; z <= Math.floor(Math.max(az, bz) / SB) + 1; z++) { const k = x + ',' + z; if (!sbuck.has(k)) sbuck.set(k, []); sbuck.get(k).push([n, i]); }
-} });
-function streetClear(x, z, m) {   // true when (x, z) is at least m beyond the edge of every street
+function street(pts, w, kind, bridge = false) {
+  const n = STREETS.push({ pts, w, kind, bridge }) - 1;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
+    for (let x = Math.floor(Math.min(ax, bx) / SB) - 1; x <= Math.floor(Math.max(ax, bx) / SB) + 1; x++)
+      for (let z = Math.floor(Math.min(az, bz) / SB) - 1; z <= Math.floor(Math.max(az, bz) / SB) + 1; z++) { const k = x + ',' + z; if (!sbuck.has(k)) sbuck.set(k, []); sbuck.get(k).push([n, i]); }
+  }
+}
+function streetClear(x, z, m, skip = -1) {   // true when (x, z) is at least m beyond the edge of every street
   for (const [n, i] of sbuck.get(Math.floor(x / SB) + ',' + Math.floor(z / SB)) || []) {
+    if (n === skip) continue;
     const s = STREETS[n], [ax, az] = s.pts[i], [bx, bz] = s.pts[i + 1], dx = bx - ax, dz = bz - az;
     const k = clamp01(((x - ax) * dx + (z - az) * dz) / (dx * dx + dz * dz)); if (Math.hypot(x - ax - dx * k, z - az - dz * k) < s.w / 2 + m) return false;
   }
   return true;
 }
+const onHill = (x, z, m = 0) => Math.hypot(x - CASTLE.x, z - CASTLE.z) < PADS[0].r + m;
+const at = (a, r) => [TC.x + Math.cos(a) * r, TC.z + Math.sin(a) * r];
+const wiggle = (pts, amp, seed) => pts.map(([x, z], i) => i === 0 || i === pts.length - 1 ? [x, z] : [x + (vnoise(i * .7 + seed, 3) - .5) * amp, z + (vnoise(3, i * .7 + seed) - .5) * amp]);
+{
+  // the castle road: across the river and up to the castle gate on the hill's town side
+  const gate = [CASTLE.x + Math.sin(CASTLE_FACE) * (PADS[0].r - 2), CASTLE.z + Math.cos(CASTLE_FACE) * (PADS[0].r - 2)];
+  street(wiggle([[TC.x, TC.z], [TC.x - 6, TC.z - 20], [-4, -30], [-14, -50], [gate[0] + 10, gate[1] + 14], gate], 6, 1), 4.4, 'main', true);
+  // a harbour street across the river near its mouth, on to the north gate and the coast road north
+  const north = [[34, TC.z - 4], [40, -20], [44, -44], [40, -70]];
+  for (let z = -90; z >= -900; z -= 12) { const w = sstep(-90, -190, z); north.push([40 * (1 - w) + (coastX(z) - 48) * w, z]); }
+  street(wiggle([[TC.x, TC.z], [22, TC.z - 2], ...north], 4, 2), 4.2, 'main', true);
+  // south along the coast, west up the valley's south bank, east to the quay
+  const south = [[TC.x, TC.z], [TC.x - 4, TC.z + 24]]; for (let z = TC.z + 46; z <= 420; z += 12) { const w = sstep(TC.z + 60, TC.z + 170, z); south.push([(TC.x - 10) * (1 - w) + (coastX(z) - 44) * w, z]); }
+  street(wiggle(south, 5, 3), 4.2, 'main');
+  const west = [[TC.x, TC.z], [-20, TC.z + 6], [-50, 8], [-80, 4]];
+  for (let i = RIVER.length - 1; i >= 0; i--) { const [x, z] = RIVER[i]; if (x > -100 || x < -560) continue; west.push([x + 4, z + 30]); }
+  street(wiggle(west, 5, 4), 4, 'main');
+  street([[TC.x, TC.z], [36, TC.z + 6], [coastX(TC.z + 10) - 6, TC.z + 10]], 4, 'main');
+  // winding lanes off every street in town, both sides, every so often
+  R = rng(17);
+  const grow = (x, z, h, depth) => {
+    const pts = [[x, z]], n = STREETS.length;
+    for (let s = 0; s < 22; s++) {
+      h += (vnoise(x * .05 + depth, z * .05) - .5) * .7; x += Math.sin(h) * 3; z += Math.cos(h) * 3;
+      if (townD(x, z) > .9 || wet(x, z, 3) || onHill(x, z, 6) || (s > 2 && !streetClear(x, z, 2.5))) break;
+      pts.push([x, z]);
+    }
+    if (pts.length > 4) { street(pts, 3, 'lane'); if (depth < 2) for (let i = 3; i < pts.length - 2; i += 5) if (R() < .6) { const [px, pz] = pts[i], [qx, qz] = pts[i + 1], hh = Math.atan2(qx - px, qz - pz) + (R() < .5 ? 1 : -1) * (Math.PI / 2 + rr(-.3, .3)); grow(px + Math.sin(hh) * 2.5, pz + Math.cos(hh) * 2.5, hh, depth + 1); } }
+  };
+  for (const s of STREETS.slice()) for (let i = 0; i < s.pts.length - 1; i++) {
+    const [ax, az] = s.pts[i], [bx, bz] = s.pts[i + 1], L = Math.hypot(bx - ax, bz - az), hd = Math.atan2(bx - ax, bz - az);
+    for (let u = 8 + R() * 10; u < L; u += 14 + R() * 12) {
+      const x = ax + (bx - ax) * u / L, z = az + (bz - az) * u / L; if (townD(x, z) > .85) continue;
+      const side = R() < .5 ? 1 : -1, h = hd + side * (Math.PI / 2 + rr(-.35, .35));
+      grow(x + Math.sin(h) * (s.w / 2 + .5), z + Math.cos(h) * (s.w / 2 + .5), h, 0);
+    }
+  }
+}
+CORRIDORS.push(...STREETS.filter(s => s.kind === 'main').map(s => s.pts));
 
 // ---------------- renderer, scene, camera ----------------
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: CAPTURE });
@@ -336,11 +359,12 @@ const kitMat = (map, o = {}) => new THREE.ShaderMaterial({ vertexShader: KIT_V, 
     seed: { value: R() * 40 }, glass: { value: o.glass ? 1 : 0 }, paint: { value: C('#fff') }, ...U } });
 // instanced placement: put() records a piece, flush() makes one instanced mesh per model
 const INST = new Map();
-const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s, roof: C(roof) }); };
+const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s: [s, s, s], roof: C(roof) }); };
+const putS = (model, x, y, z, rot, s3) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s: s3, roof: C(ROOFS.castle[0]) }); };
 async function flush() {
   for (const [model, list] of INST) {
     const k = await kenney(model), m = new THREE.InstancedMesh(k.geo, kitMat(k.map), list.length);
-    list.forEach((p, i) => { _o.position.set(p.x, p.y, p.z); _o.rotation.set(0, p.rot, 0); _o.scale.setScalar(p.s); _o.updateMatrix(); m.setMatrixAt(i, _o.matrix); m.setColorAt(i, p.roof); });
+    list.forEach((p, i) => { _o.position.set(p.x, p.y, p.z); _o.rotation.set(0, p.rot, 0); _o.scale.set(...p.s); _o.updateMatrix(); m.setMatrixAt(i, _o.matrix); m.setColorAt(i, p.roof); });
     scene.add(m);
   }
   INST.clear();
@@ -361,7 +385,10 @@ function streetMeshes() {
       for (let k = 0; k < n; k++) {
         const u0 = k / n, u1 = (k + 1) / n, x0 = ax + (bx - ax) * u0, z0 = az + (bz - az) * u0, x1 = ax + (bx - ax) * u1, z1 = az + (bz - az) * u1;
         const y0 = yAt(x0, z0), y1 = yAt(x1, z1), inside = townD((x0 + x1) / 2, (z0 + z1) / 2) < 1.02;
-        (inside ? cob : dirt).push(x0 + px * W, y0, z0 + pz * W, x0 - px * W, y0, z0 - pz * W, x1 + px * W, y1, z1 + pz * W, x1 + px * W, y1, z1 + pz * W, x0 - px * W, y0, z0 - pz * W, x1 - px * W, y1, z1 - pz * W);
+        if (!s.bridge && wet((x0 + x1) / 2, (z0 + z1) / 2, .5)) continue;
+        const up = (x, z, y) => onHill(x, z, 24) ? Math.max(y, height(x, z) + .12) : y;
+        const ya = up(x0, z0, y0), yb = up(x1, z1, y1);
+        (inside ? cob : dirt).push(x0 + px * W, ya, z0 + pz * W, x0 - px * W, ya, z0 - pz * W, x1 + px * W, yb, z1 + pz * W, x1 + px * W, yb, z1 + pz * W, x0 - px * W, ya, z0 - pz * W, x1 - px * W, yb, z1 - pz * W);
         if (inside && wet((x0 + x1) / 2, (z0 + z1) / 2, 1.5)) {   // a stone deck and parapets where the street crosses the river
           const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2, cy = (y0 + y1) / 2, yaw = Math.atan2(bx - ax, bz - az), l = L / n + .05;
           bridge.push(new THREE.BoxGeometry(s.w + .6, .6, l).rotateY(yaw).translate(cx, cy - .32, cz));
@@ -379,19 +406,28 @@ function streetMeshes() {
 // ---------------- the wall, its towers and gates ----------------
 const KW = 3.6;   // wall scale (one wall piece = 3.6 units)
 function townWall() {
-  const pts = []; for (let k = 0; k < 360; k += 1) { const a = k / 360 * TAU; pts.push(at(a, wallR(a))); }
-  // walk the ring placing a wall piece every KW; a tower every ~8 pieces; leave gates where main streets cross
-  const gates = STREETS.filter(s => s.kind === 'main').map(s => { for (let i = 0; i < s.pts.length - 1; i++) { const a = s.pts[i], b = s.pts[i + 1]; if (townD(...a) < 1 && townD(...b) >= 1) { for (let u = 0; u <= 1; u += .02) { const x = a[0] + (b[0] - a[0]) * u, z = a[1] + (b[1] - a[1]) * u; if (townD(x, z) >= 1) return [x, z]; } } } return null; }).filter(Boolean);
-  let acc = 0, count = 0;
-  for (let k = 0; k < pts.length; k++) {
-    const [ax, az] = pts[k], [bx, bz] = pts[(k + 1) % pts.length], L = Math.hypot(bx - ax, bz - az); acc += L;
-    if (acc < KW) continue; acc = 0;
-    const x = (ax + bx) / 2, z = (az + bz) / 2, yaw = Math.atan2(bx - ax, bz - az) + Math.PI / 2;
-    if (wet(x, z, 2)) continue;
-    const gate = gates.find(g => Math.hypot(g[0] - x, g[1] - z) < KW * 1.6);
-    if (gate) { if (Math.hypot(gate[0] - x, gate[1] - z) < KW * .6) { put('castle/tower-square-arch', x, PLAIN, z, yaw + Math.PI / 2, KW * 1.15); put('castle/tower-square-top-roof-high', x, PLAIN + KW * 1.15 * 1.31, z, yaw, KW * 1.15); torch(x, PLAIN + KW * 1.2, z); } continue; }
-    if (count++ % 8 === 0 || wet(x, z, 7)) { put('castle/tower-base', x, PLAIN, z, yaw, KW * 1.1); put('castle/tower-square-top-roof', x, PLAIN + KW * 1.1 * 1.31, z, yaw, KW * 1.1); torch(x, PLAIN + KW * 1.6, z); }
-    else put('castle/wall', x, PLAIN, z, yaw, KW);
+  // the ring sampled finely; towers ("ballasts") every 24-40 units, always at the gates and on both river banks;
+  // between two towers one wall piece stretched to span the whole gap
+  const ring = []; for (let k = 0; k < 720; k++) { const a = k / 720 * TAU, [x, z] = at(a, wallR(a)); ring.push({ x, z, wet: wet(x, z, 2) }); }
+  const gates = STREETS.filter(s => s.kind === 'main').map(s => { for (let i = 0; i < s.pts.length - 1; i++) { const a = s.pts[i], b = s.pts[i + 1]; if (townD(...a) < 1 && townD(...b) >= 1) for (let u = 0; u <= 1; u += .02) { const x = a[0] + (b[0] - a[0]) * u, z = a[1] + (b[1] - a[1]) * u; if (townD(x, z) >= 1) return [x, z]; } } return null; }).filter(Boolean);
+  const gateAt = new Set(gates.map(([gx, gz]) => ring.reduce((b, p, i) => Math.hypot(p.x - gx, p.z - gz) < Math.hypot(ring[b].x - gx, ring[b].z - gz) ? i : b, 0)));
+  const ball = []; let run = 0, next = 30;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i], q = ring[(i + 1) % ring.length]; run += Math.hypot(q.x - p.x, q.z - p.z);
+    const bank = p.wet !== ring[(i + ring.length - 1) % ring.length].wet;
+    if (gateAt.has(i)) { ball.push({ i, gate: true }); run = 0; next = 24 + hash2(i, 1) * 16; }
+    else if (!p.wet && (bank || run >= next)) { ball.push({ i }); run = 0; next = 24 + hash2(i, 2) * 16; }
+  }
+  for (let n = 0; n < ball.length; n++) {
+    const A = ring[ball[n].i], B = ring[ball[(n + 1) % ball.length].i];
+    if (A.wet || B.wet || wet((A.x + B.x) / 2, (A.z + B.z) / 2, 1)) continue;
+    const L = Math.hypot(B.x - A.x, B.z - A.z), yaw = Math.atan2(B.x - A.x, B.z - A.z) + Math.PI / 2;
+    putS('castle/wall', (A.x + B.x) / 2, PLAIN, (A.z + B.z) / 2, yaw, [L, KW, KW]);
+  }
+  for (const b of ball) {
+    const p = ring[b.i], q = ring[(b.i + 1) % ring.length], yaw = Math.atan2(q.x - p.x, q.z - p.z) + Math.PI / 2;
+    if (b.gate) { put('castle/tower-square-arch', p.x, PLAIN, p.z, yaw + Math.PI / 2, KW * 1.25); put('castle/tower-square-top-roof-high', p.x, PLAIN + KW * 1.25 * 1.31, p.z, yaw, KW * 1.25); torch(p.x, PLAIN + KW * 1.3, p.z); }
+    else { const s = KW * (1.15 + hash2(b.i, 5) * .25); put('castle/tower-base', p.x, PLAIN, p.z, yaw, s); put(hash2(b.i, 6) < .5 ? 'castle/tower-square-top-roof' : 'castle/tower-top', p.x, PLAIN + s * 1.31, p.z, yaw, s); torch(p.x, PLAIN + s * 1.5, p.z); }
   }
 }
 const TORCHES = [];
@@ -399,7 +435,7 @@ const torch = (x, y, z) => TORCHES.push([x, y, z]);
 
 // ---------------- the castle on the hill ----------------
 function castle() {
-  const K = 4.6, cx = CASTLE.x, cz = CASTLE.z, y0 = height(cx, cz) - .2, face = Math.atan2(TC.x - cx, TC.z - cz);
+  const K = 3.6, cx = CASTLE.x, cz = CASTLE.z, y0 = PADS[0].h + .4 - .2, face = CASTLE_FACE;
   const rot = (lx, lz) => [cx + lx * Math.cos(face) + lz * Math.sin(face), cz - lx * Math.sin(face) + lz * Math.cos(face)];
   const N = 4;   // curtain wall: 2N pieces a side, a tower at each corner, a gatehouse facing the town
   for (let i = -N; i <= N; i++) for (const [lx, lz, r] of [[i, -N, 0], [i, N, 0], [-N, i, Math.PI / 2], [N, i, Math.PI / 2]]) {
@@ -443,7 +479,7 @@ function planHouses() {
       const [ax, az] = s.pts[i], [bx, bz] = s.pts[i + 1], L = Math.hypot(bx - ax, bz - az), px = -(bz - az) / L, pz = (bx - ax) / L;
       for (let u = 0; u < L; u += 3.4) for (const side of [-1, 1]) for (const row of [0, 1]) {
         const off = s.w / 2 + 1.9 + row * 3.6, x = ax + (bx - ax) * u / L + px * side * off, z = az + (bz - az) * u / L + pz * side * off;
-        const td = townD(x, z); if (td > .95 || Math.hypot(x - TC.x, z - TC.z) < 17 || wet(x, z, 4) || !streetClear(x, z, 1.4)) continue;
+        const td = townD(x, z); if (td > .95 || Math.hypot(x - TC.x, z - TC.z) < 17 || wet(x, z, 4) || onHill(x, z, 8) || !streetClear(x, z, 1.4)) continue;
         const dist = district(x, z); if (dist === 'market') continue;
         let set = 'house', roll = R(); for (const [sname, w] of PICK[dist]) { if ((roll -= w) <= 0) { set = sname; break; } }
         const r = set === 'wide' ? 3.2 : set === 'hall' ? 2.4 : 1.6;
@@ -459,7 +495,7 @@ function fillLots() {
   R = rng(43);
   for (let k = 0; k < 6000; k++) {
     const a = rr(0, TAU), r = rr(18, wallR(a) * .93), x = TC.x + Math.cos(a) * r, z = TC.z + Math.sin(a) * r;
-    if (wet(x, z, 4) || !streetClear(x, z, 1.4) || !free(x, z, 1.6)) continue;
+    if (wet(x, z, 4) || onHill(x, z, 8) || !streetClear(x, z, 1.4) || !free(x, z, 1.6)) continue;
     const dist = district(x, z); if (dist === 'market') continue;
     take(x, z, 1.6);
     const list = VARIANTS[R() < .2 ? 'tallhouse' : 'house'], face = Math.round((Math.atan2(TC.x - x, TC.z - z) + rr(-.3, .3)) / (Math.PI / 2)) * Math.PI / 2;
@@ -489,14 +525,14 @@ async function trees() {
   R = rng(5);
   for (let k = 0; k < 900; k++) {   // gardens in the noble quarter and odd trees in town
     const a = rr(0, TAU), r = rr(18, 1) * 0 + rr(18, 80), x = TC.x + Math.cos(a) * r, z = TC.z + Math.sin(a) * r;
-    if (townD(x, z) > .93 || !streetClear(x, z, 1) || !free(x, z, .8) || wet(x, z, 3)) continue;
+    if (townD(x, z) > .93 || !streetClear(x, z, 1) || !free(x, z, .8) || wet(x, z, 3) || onHill(x, z, -2)) continue;
     if (district(x, z) !== 'noble' && R() > .25) continue;
     take(x, z, .8); spots.push([x, z, rr(.5, .75), R() < .4]);
   }
   for (let k = 0; k < 14000 && spots.length < 5200; k++) {
     const x = rr(-430, 70), z = rr(-600, 160), h = height(x, z), td = townD(x, z);
     if (h < 1.5 || h > 48 || td < 1.08 || coastX(z) - x < 6 || corridorDist(x, z) < 5 || slumAt(x, z)) continue;
-    if (Math.hypot(x - CASTLE.x, z - CASTLE.z) < 34 || wet(x, z, 3)) continue;
+    if (onHill(x, z, 8) || wet(x, z, 3)) continue;
     const e = .3, sl = Math.abs(height(x + e, z) - h) + Math.abs(height(x, z + e) - h);
     if (sl > .45 || fbm(x * .03, z * .03) < (td < 2.1 ? .5 : .42)) continue;
     spots.push([x, z, rr(1, 2.1) * (1 + h / 60), R() < .03]);
@@ -556,25 +592,29 @@ async function buildHouses() {
     }
     const per = 70 + r() * 110, s0 = r() * per;
     const ev = [0, 1].map(i => ({ start: mod(s0 + i * (per / 2 + (r() - .5) * per * .2), per), demo: r() < .35 ? 'implode' : 'decon', build: Math.min(10, 2 + Math.ceil(objs[1 - i].userData.h / 2.4) * .75), from: i, to: 1 - i, paint: pk(BRIGHT), seed: r() }));
-    const hs = objs.map(o => o.userData.h), cr = craneMesh(Math.max(...hs) + 3), side = r() < .5 ? 1 : -1;
-    cr.g.position.set(h.x + side * 2.6, PLAIN, h.z - 2.6); cr.yaw = Math.atan2(-(h.z - cr.g.position.z), h.x - cr.g.position.x); cr.mesh.rotation.y = cr.yaw; cr.reach = Math.hypot(h.x - cr.g.position.x, h.z - cr.g.position.z);
-    scene.add(cr.g);
+    const hs = objs.map(o => o.userData.h), ks = await Promise.all([h.model, other].map(kenney));
+    const sc = scaffold(Math.max(...ks.map(k => k.w)) * h.s + .9, Math.max(...ks.map(k => k.d)) * h.s + .9, Math.max(...hs) + .8);
+    sc.position.set(h.x, PLAIN, h.z); sc.rotation.y = h.rot; scene.add(sc);
     const blob = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ color: '#fff' })); blob.visible = false; scene.add(blob);
     const drops = [...Array(8)].map((_, i) => { const d = new THREE.Mesh(blobGeo, blob.material); d.visible = false; scene.add(d); return { d, v: new THREE.Vector3(Math.cos(i * .8) * 2.2, 2 + hash2(i, 1) * 2, Math.sin(i * .8) * 2.2) }; });
-    dyn.push({ l: h, objs, hs, ev, per, cr, dust: dustRig(), blob, drops });
+    dyn.push({ l: h, objs, hs, ev, per, sc, dust: dustRig(), blob, drops });
   }
 }
-function craneMesh(h) {   // a wooden builder's crane
-  const parts = [], box = (w, hh, d, x, y, z) => parts.push(new THREE.BoxGeometry(w, hh, d).translate(x, y, z).toNonIndexed());
-  for (const [ox, oz] of [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]]) box(.12, h, .12, ox, h / 2, oz);
-  for (let y = 1; y < h; y += 1.2) box(.5, .1, .5, 0, y, 0);
-  box(6, .25, .25, 2.4, h + .15, 0); box(.5, .5, .5, -1, h, 0);
+function scaffold(w, d, h) {   // wooden scaffolding around a house: corner and mid poles, plank decks every storey, cross braces
+  const parts = [], wood = (x0, y0, z0, x1, y1, z1, t = .12) => {   // a beam from one point to another
+    const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, L = Math.hypot(dx, dy, dz), g = new THREE.BoxGeometry(t, L, t);
+    g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize())));
+    parts.push(g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2).toNonIndexed());
+  };
+  const xs = [-w / 2, 0, w / 2], zs = [-d / 2, 0, d / 2];
+  for (const x of xs) for (const z of zs) if (Math.abs(x) === w / 2 || Math.abs(z) === d / 2) wood(x, 0, z, x, h, z);
+  for (let y = 1.6; y < h + .1; y += 1.6) {
+    for (const z of [-d / 2, d / 2]) { wood(-w / 2, y, z, w / 2, y, z, .1); parts.push(new THREE.BoxGeometry(w + .3, .08, .55).translate(0, y, z + Math.sign(z) * .3).toNonIndexed()); }
+    for (const x of [-w / 2, w / 2]) { wood(x, y, -d / 2, x, y, d / 2, .1); parts.push(new THREE.BoxGeometry(.55, .08, d + .3).translate(x + Math.sign(x) * .3, y, 0).toNonIndexed()); }
+    wood(-w / 2, y - 1.6, d / 2, 0, y, d / 2, .07); wood(0, y - 1.6, -d / 2, w / 2, y, -d / 2, .07);   // braces
+  }
   const g = mergeGeometries(parts.map(p => { p.deleteAttribute('uv'); return p; }));
-  const mesh = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: '#b08a6e' }));
-  const cable = new THREE.Mesh(new THREE.BoxGeometry(.05, 1, .05).translate(0, -.5, 0), new THREE.MeshLambertMaterial({ color: '#3c3836' }));
-  const load = new THREE.Mesh(new THREE.BoxGeometry(1.8, .35, 1.8), new THREE.MeshLambertMaterial({ color: '#d8cfc4' }));
-  const g2 = new THREE.Group(); g2.add(mesh, cable, load);
-  return { g: g2, mesh, cable, load, h };
+  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: '#b48d6c' })); m.visible = false; return m;
 }
 const dustMat = new THREE.MeshLambertMaterial({ color: '#efe4d6', flatShading: true, transparent: true, emissive: '#efe4d6', emissiveIntensity: .3 });
 function dustRig() {
@@ -592,7 +632,6 @@ function updateDust(d, x, z, k, size) {
 }
 const steps = h => Math.max(2, Math.min(10, Math.round(h / 2.2)));
 function stepped(k, h) { const n = steps(h), x = clamp01(k) * n, f = Math.floor(x); return Math.min(1, (f + smooth((x - f - .55) / .35)) / n); }
-const hookPhase = (k, h) => { const x = clamp01(k) * steps(h); return x - Math.floor(x); };
 const evLen = e => DUR[e.demo] + DUR.empty + e.build + DUR.hold + DUR.fly + DUR.paint;
 function updateChanging(t) {
   const cam = camera.position;
@@ -603,7 +642,6 @@ function updateChanging(t) {
     const tDemo = DUR[e.demo], tEmpty = tDemo + DUR.empty, tBuild = tEmpty + e.build, tFly = tBuild + DUR.hold, tPaint = tFly + DUR.fly;
     const oFrom = D.objs[e.from], oTo = D.objs[e.to], hFrom = D.hs[e.from], hTo = D.hs[e.to], uF = oFrom.material.uniforms, uT = oTo.material.uniforms;
     for (const o of D.objs) { o.visible = false; o.position.set(l.x, PLAIN, l.z); }
-    let craneOn = 0, hookY = null, loadOn = false;
     D.blob.visible = false; D.drops.forEach(q => (q.d.visible = false)); D.dust.g.visible = false;
     if (!active || dt >= tBuild) {
       oTo.visible = true; uT.cut.value = 9999; uT.paint.value.copy(e.paint);
@@ -625,18 +663,15 @@ function updateChanging(t) {
         oFrom.position.y = PLAIN - sink * hFrom * 1.02; oFrom.position.x = l.x + Math.sin(dt * 47) * .1 * (1 - sink) * (k > .05 ? 1 : 0);
         uF.cut.value = PLAIN + hFrom * 1.2;
         updateDust(D.dust, l.x, l.z, (k - .1) / 1.1, 2.6);
-      } else { uF.cut.value = PLAIN + hFrom * (1 - stepped(k, hFrom)); craneOn = 1; hookY = uF.cut.value + .5; loadOn = hookPhase(k, hFrom) > .5; }
+      } else uF.cut.value = PLAIN + hFrom * (1 - stepped(k, hFrom));
     } else if (dt < tEmpty) {
       if (e.demo === 'implode') updateDust(D.dust, l.x, l.z, (dt - DUR.implode * .1) / (DUR.implode * 1.1), 2.6);
-      craneOn = 1;
     } else {
       const k = (dt - tEmpty) / e.build, c = stepped(k, hTo);
-      oTo.visible = true; uT.reveal.value = 0; uT.cut.value = PLAIN + hTo * c; craneOn = 1; hookY = PLAIN + hTo * Math.min(1, c + .12) + .5; loadOn = hookPhase(k, hTo) < .55;
+      oTo.visible = true; uT.reveal.value = 0; uT.cut.value = PLAIN + hTo * c;
     }
-    const cIn = sstep(0, 1, dt + .6), cOut = 1 - sstep(tBuild - .2, tBuild + .8, dt), show = active && (craneOn || dt < tBuild + .8) ? Math.min(cIn, cOut) : 0;
-    D.cr.g.visible = show > .01; D.cr.g.scale.set(1, Math.max(.01, show), 1);
-    const hy = hookY ?? D.cr.h - 2, jibY = D.cr.h + .05, drop = Math.max(.3, jibY - hy), hx = Math.cos(D.cr.yaw) * D.cr.reach, hz = -Math.sin(D.cr.yaw) * D.cr.reach;
-    D.cr.cable.position.set(hx, jibY, hz); D.cr.cable.scale.y = drop; D.cr.load.position.set(hx, jibY - drop - .2, hz); D.cr.load.visible = loadOn;
+    const up = e.demo === 'implode' ? sstep(tDemo, tEmpty, dt) : sstep(-.6, .6, dt), down = 1 - sstep(tBuild, tBuild + 1, dt), show = active ? Math.min(up, down) : 0;
+    D.sc.visible = show > .01; D.sc.scale.set(1, Math.max(.01, show), 1);
   }
 }
 
@@ -673,6 +708,7 @@ const CAMS = {   // [position, look-at] for landscape; portrait backs off and wi
 };
 function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
+  if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 14, PLAIN + 12, h.z + 18); camera.lookAt(h.x, PLAIN + 4, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
   camera.position.set(l[0] + (p[0] - l[0]) * back + Math.sin(a) * 10, p[1] * back, l[2] + (p[2] - l[2]) * back + Math.cos(a) * 5);
@@ -702,7 +738,7 @@ function frame(t) {
   renderer.render(scene, camera);
 }
 window.__frame = frame;
-window.__info = () => ({ houses: houses.length, changing: dyn.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles });
+window.__info = () => ({ ev: dyn.slice(0, 4).map(d => [+d.per.toFixed(1), +d.ev[0].start.toFixed(1), +d.ev[1].start.toFixed(1)]), houses: houses.length, changing: dyn.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles });
 if (!CAPTURE) { const t0 = performance.now(); renderer.setAnimationLoop(() => frame((performance.now() - t0) / 1000)); }
 else frame(Number(Q.get('t') || 0));
 window.__ready = true;
