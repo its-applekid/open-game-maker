@@ -1,9 +1,12 @@
 // Studio sound: one Web Audio context. Music crossfades between the title and menu tracks; selecting a game in the Games
 // spotlight fades the music out and plays that game's sounds quietly (effects and ambience only, never its music).
-// Everything shipped here is Kenney CC0 (Music Loops + sound packs), copied to art/music and art/sfx by tools/build.sh.
+// Effects and the title track are Kenney CC0 (Music Loops + sound packs); the menu track is Sidetrax "Camelot" (Kevin's licence,
+// kept off the public site by tools/deploy.sh, which falls back to a Kenney track). tools/build.sh copies them to art/music, art/sfx.
 
 // Swap a track by changing its file name here: any file in art/music (every Kenney Music Loops track is built there).
-export const MUSIC = { title: 'space-cadet', menu: 'mishief-stroll' };
+// A track with loop points plays its intro once, then loops seamlessly between them (seconds; Camelot's are from its asset card,
+// audio.loop_points). fallback plays when the file isn't there.
+export const MUSIC = { title: 'space-cadet', menu: { file: 'camelot', loop: [42.983, 119.329], fallback: 'mishief-stroll' } };
 
 // Gameplay sounds per game. bed: a quiet looping layer ('fire' and 'wind' are synthesized, anything else is a looped file);
 // each event plays one of `s` every few seconds (`every` = [min, max] s), `n` times in a row `gap` s apart (footsteps), then
@@ -67,14 +70,19 @@ const end = (layer, s) => { ramp(layer.g, 0, s); setTimeout(() => { layer.stop?.
 
 // ---- music: one track at a time
 let track = null;
-async function playMusic(name, fade) {
+const introDone = new Set();   // tracks whose intro has played: coming back to them starts at the loop
+async function playMusic(def, fade) {
+  const name = def?.file || def;
   if (track?.name === name) return;
   if (track) { end(track, fade); track = null; }
   if (!name) return;
   const me = track = { name, g: node(musicBus, 0) };
-  const buf = await load('music', name);
+  let buf = await load('music', name), loop = def.loop;
+  if (!buf && def.fallback) { buf = await load('music', def.fallback); loop = null; }
   if (track !== me || !buf) return;
-  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.connect(me.g); src.start();
+  const src = ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+  if (loop) { [src.loopStart, src.loopEnd] = loop; }
+  src.connect(me.g); src.start(0, loop && introDone.has(name) ? loop[0] : 0); introDone.add(name);
   me.stop = () => src.stop(); ramp(me.g, 1, fade);
 }
 
