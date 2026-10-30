@@ -54,73 +54,33 @@ function tileFor(g, i) {
   return t;
 }
 // splatter-edged mask for the spotlight footage, plus coloured splats behind it (seeded per game so each looks a little different)
-// Paint splatter, drawn in white for the footage mask or in colour for the paint behind it. Everything sits on the very edge:
-// a ragged border (layered noise), splash lobes ringed by satellites, radial spray (stretched drops), drips running down, small bites.
+// Paint splatter from real splat shapes (Kenney Splat Pack, CC0), stamped around the very edge of the footage:
+// white stamps cut the footage mask, with a fine spray of droplets just outside.
+const SPLATS = ['00', '01', '02', '03', '05', '07', '10', '11', '14', '16', '17', '18', '19', '20', '21', '24', '27', '28', '29', '30', '31', '33', '34', '35']
+  .map(n => Object.assign(new Image(), { src: `art/splats/splat${n}.png` }));
+const SPRAY = [2, 12, 13, 18].map(i => SPLATS[i]);   // the spiky ones read as flung droplets when small
 function rng(seed) { let s = seed % 2147483647 || 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
-function blob(c, r, x, y, rad) {
-  const n = 40, ph = [r() * 7, r() * 7, r() * 7];
-  c.beginPath();
-  for (let i = 0; i <= n; i++) {
-    const t = i / n * Math.PI * 2, k = 1 + .14 * Math.sin(t * 3 + ph[0]) + .08 * Math.sin(t * 7 + ph[1]) + .05 * Math.sin(t * 13 + ph[2]) + (r() - .5) * .06;
-    c.lineTo(x + Math.cos(t) * rad * k, y + Math.sin(t) * rad * k);
-  }
-  c.fill();
-}
-function drop(c, x, y, rad, ang, stretch) { c.beginPath(); c.ellipse(x, y, rad * stretch, rad, ang, 0, 7); c.fill(); }
-function splatEdge(c, r, W, H, inset) {
-  // border points around the inset rectangle, pushed in and out by layered noise
-  const pts = [], P = 2 * (W + H - 4 * inset), ph = [r() * 7, r() * 7, r() * 7, r() * 7], spikes = [];
-  for (let i = 0; i < 26; i++) spikes.push([r() * P, 10 + r() * 34, 14 + r() * 40]);
-  const at = d => { const w = W - 2 * inset, h = H - 2 * inset;
-    if (d < w) return [inset + d, inset, 0, -1]; d -= w; if (d < h) return [W - inset, inset + d, 1, 0]; d -= h;
-    if (d < w) return [W - inset - d, H - inset, 0, 1]; d -= w; return [inset, H - inset - d, -1, 0]; };
-  c.beginPath();
-  for (let d = 0; d < P; d += 5) {
-    const [x, y, nx, ny] = at(d), t = d / 60;
-    let o = 7 * Math.sin(t * .9 + ph[0]) + 4 * Math.sin(t * 2.3 + ph[1]) + 2.5 * Math.sin(t * 5.1 + ph[2]) + 1.5 * Math.sin(t * 11 + ph[3]) + (r() - .5) * 3;
-    for (const [sd, sw, sh] of spikes) { const dd = Math.abs(d - sd); if (dd < sw) o += sh * (1 - dd / sw) ** 2; }
-    c.lineTo(x + nx * o, y + ny * o); pts.push([x, y, nx, ny]);
-  }
-  c.closePath(); c.fill();
-  // splash lobes with satellites
-  for (const [sd, , sh] of spikes) {
-    const [x, y, nx, ny] = at(sd); if (r() < .4) continue;
-    const cx = x + nx * sh * .8, cy = y + ny * sh * .8; blob(c, r, cx, cy, 8 + r() * 16);
-    for (let k = 0; k < 10; k++) { const a = Math.atan2(ny, nx) + (r() - .5) * 2.2, d = 18 + r() * 40; drop(c, cx + Math.cos(a) * d, cy + Math.sin(a) * d, .8 + r() * 4, a, 1 + r() * 1.8); }
-  }
-  // radial spray: many small drops just outside the edge, stretched outward, smaller the farther they fly
-  for (let i = 0; i < 900; i++) {
-    const [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], f = r() ** 1.7, d = 4 + f * inset * 1.15, a = Math.atan2(ny, nx) + (r() - .5) * .9;
-    drop(c, x + Math.cos(a) * d + (ny ? (r() - .5) * 8 : 0), y + Math.sin(a) * d + (nx ? (r() - .5) * 8 : 0), .5 + (1 - f) ** 3 * 5 * r(), a, 1 + r() * 2.2);
-  }
-  // drips: paint runs down from the bottom edge and from lobes on the sides
-  for (let i = 0; i < 9; i++) {
-    const x = inset + r() * (W - 2 * inset), w = 3 + r() * 6, len = 18 + r() ** 1.5 * inset * 1.6, y0 = H - inset - 6;
-    c.beginPath(); c.moveTo(x - w, y0); c.quadraticCurveTo(x - w * .6, y0 + len * .6, x - w * .45, y0 + len); c.lineTo(x + w * .45, y0 + len); c.quadraticCurveTo(x + w * .6, y0 + len * .6, x + w, y0); c.fill();
-    drop(c, x, y0 + len, w * .8, Math.PI / 2, 1.25);
-  }
-  for (let i = 0; i < 4; i++) {
-    const side = r() < .5, x = side ? inset * (.55 + r() * .3) : W - inset * (.55 + r() * .3), y = inset + r() * (H * .6), len = 20 + r() * 60, w = 2 + r() * 3;
-    c.fillRect(x - w / 2, y, w, len); drop(c, x, y + len, w * .9, Math.PI / 2, 1.3);
-  }
+function stamp(c, im, x, y, size, rot) { c.save(); c.translate(x, y); c.rotate(rot); c.drawImage(im, -size / 2, -size / 2, size, size); c.restore(); }
+// points around the inset rectangle with their outward normal
+function edgePoints(W, H, ix, iy, step) {
+  const out = [], w = W - 2 * ix, h = H - 2 * iy;
+  for (let d = 0; d < w; d += step) out.push([ix + d, iy, 0, -1], [W - ix - d, H - iy, 0, 1]);
+  for (let d = 0; d < h; d += step) out.push([W - ix, iy + d, 1, 0], [ix, H - iy - d, -1, 0]);
+  return out;
 }
 function splatMask(seed, W = 1600, H = 900) {
   const r = rng(seed), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
-  const c = cv.getContext('2d'); c.fillStyle = '#fff'; splatEdge(c, r, W, H, W * .045);
-  c.globalCompositeOperation = 'destination-out';   // small bites just inside the edge
-  for (let i = 0; i < 60; i++) { const s = Math.floor(r() * 4), u = r(), m = W * .045 + r() * 14;
-    const x = s < 2 ? W * u : s === 2 ? m : W - m, y = s >= 2 ? H * u : s === 0 ? m : H - m; drop(c, x, y, 2 + r() * 7, r() * 3, 1 + r()); }
-  return cv.toDataURL();
-}
-function splatBack(cv, seed, color) {
-  const W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, c = cv.getContext('2d'), r = rng(seed + 11);
-  const cols = [color, color, '#83a598', '#d3869b', '#fe8019'];
-  for (let k = 0; k < 6; k++) {   // coloured splashes that peek out from behind the footage edge
-    c.fillStyle = cols[Math.floor(r() * cols.length)];
-    const a = r() * Math.PI * 2, x = W / 2 + Math.cos(a) * W * .43, y = H / 2 + Math.sin(a) * H * .41;
-    blob(c, r, x, y, W * (.03 + r() * .035));
-    for (let i = 0; i < 70; i++) { const t = a + (r() - .5) * 2.4, d = W * (.03 + r() ** 1.5 * .09); drop(c, x + Math.cos(t) * d, y + Math.sin(t) * d, 1 + r() ** 3 * 9, t, 1 + r() * 2); }
+  const c = cv.getContext('2d'), ix = W * .075, iy = H * .1;
+  c.fillStyle = '#fff'; c.beginPath(); c.roundRect(ix, iy, W - 2 * ix, H - 2 * iy, 48); c.fill();
+  for (const [x, y, nx, ny] of edgePoints(W, H, ix, iy, 70)) {
+    const im = SPLATS[Math.floor(r() * SPLATS.length)], size = 110 + r() * 150, o = (r() - .3) * 34;
+    stamp(c, im, x + nx * o + (r() - .5) * 30, y + ny * o + (r() - .5) * 30, size, r() * 7);
   }
+  for (let i = 0; i < 70; i++) {   // droplets just outside
+    const pts = edgePoints(W, H, ix, iy, 40), [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], d = 50 + r() * 70;
+    stamp(c, SPRAY[Math.floor(r() * SPRAY.length)], x + nx * d, y + ny * d, 10 + r() * 30, r() * 7);
+  }
+  return cv.toDataURL();
 }
 const seedOf = id => [...id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 2147483647, 7) || 7;
 function select(id, scroll) {
@@ -151,7 +111,6 @@ function select(id, scroll) {
   $('#lh-text .act.more').onclick = () => openGame(g);
   const seed = seedOf(g.id), shot = $('#lh-shot');
   shot.style.maskImage = shot.style.webkitMaskImage = `url(${splatMask(seed)})`;
-  splatBack($('#lh-splat'), seed, g.color);
   for (const el of [$('#lh-text'), $('#lh-media')]) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
   drawHero(performance.now());
   if (scroll && hero.getBoundingClientRect().bottom < 120) scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
@@ -627,26 +586,27 @@ setInterval(() => {
 let toastT;
 function toast(msg, good) { const t = $('#toast'); t.textContent = msg; t.className = good ? 'good show' : 'show'; clearTimeout(toastT); toastT = setTimeout(() => t.className = '', 3200); }
 
-// ---------------- paint splatter backdrop ----------------
-function splatters() {
-  const cv = $('#splat'), d = Math.min(2, devicePixelRatio || 1); cv.width = innerWidth * d; cv.height = innerHeight * d;
-  const c = cv.getContext('2d'), cols = ['#fb4934', '#fabd2f', '#b8bb26', '#83a598', '#d3869b', '#8ec07c', '#fe8019'];
-  let s = 7; const r = () => (s = (s * 9301 + 49297) % 233280) / 233280;
-  const blob = (x, y, rad, col) => {
-    c.fillStyle = col; c.globalAlpha = .5; c.beginPath();
-    for (let i = 0; i <= 24; i++) { const a = i / 24 * 6.283, rr = rad * (.75 + r() * .5); i ? c.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : c.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); }
-    c.fill();
-    for (let i = 0; i < 14; i++) { const a = r() * 6.283, dd = rad * (1.2 + r() * 1.8); c.beginPath(); c.arc(x + Math.cos(a) * dd, y + Math.sin(a) * dd, rad * (.04 + r() * .12), 0, 7); c.fill(); }
-  };
-  const W = cv.width, H = cv.height, R = Math.min(W, H) * .11;
-  [[0, 0], [W, 0], [0, H], [W, H], [W * .5, -R * .3], [-R * .4, H * .5], [W + R * .3, H * .55]].forEach(([x, y], i) => { for (let k = 0; k < 3; k++) blob(x + (r() - .5) * R * 2, y + (r() - .5) * R * 2, R * (.5 + r() * .7), cols[(i * 3 + k) % cols.length]); });
+// ---------------- living background ----------------
+// Five soft colour glows drift on slow, unrelated cycles. Drawn on a 64×40 canvas that CSS stretches to the screen, so the
+// browser's upscaling does the Gaussian-like blur for free (no filter: blur). About 15 redraws a second is plenty for this speed.
+const GLOWS = [['214,93,14', .32, .1, .1, 41], ['177,98,134', .3, .9, .15, 53], ['69,133,136', .34, .35, .95, 47], ['215,153,33', .2, .85, .9, 61], ['104,157,106', .16, .55, .45, 37]];
+function drawBg(now) {
+  const cv = $('#bg canvas'), c = cv.getContext('2d'), W = cv.width, H = cv.height, t = reduced ? 0 : now / 1000;
+  c.fillStyle = '#0f0e16'; c.fillRect(0, 0, W, H);
+  GLOWS.forEach(([rgb, a, x0, y0, per], i) => {
+    const p = t / per * Math.PI * 2, x = (x0 + .16 * Math.sin(p + i) + .06 * Math.sin(p * 2.3)) * W, y = (y0 + .14 * Math.cos(p * .8 + i * 2)) * H, r = W * (.42 + .08 * Math.sin(p * 1.7));
+    const g = c.createRadialGradient(x, y, 0, x, y, r); g.addColorStop(0, `rgba(${rgb},${a})`); g.addColorStop(.55, `rgba(${rgb},${a * .45})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    c.fillStyle = g; c.fillRect(0, 0, W, H);
+  });
 }
-addEventListener('resize', () => { clearTimeout(splatters.t); splatters.t = setTimeout(splatters, 150); });
+let bgLast = 0;
+function bgLoop(now) { if (now - bgLast > 66) { bgLast = now; drawBg(now); } requestAnimationFrame(bgLoop); }
+drawBg(0); requestAnimationFrame(bgLoop);
 
 // ---------------- boot ----------------
-splatters();
 games.push({ ...SEED_BUILD, status: 'building' });
 await ready;
+await Promise.all(SPLATS.map(i => i.decode().catch(() => {})));
 renderLibrary();
 addJob('game', SEED_BUILD.title, SEED_BUILD.id, 150);
 addJob('feature', 'Skyward Squadron · Boss rush mode', 'skyward-squadron', 12);
