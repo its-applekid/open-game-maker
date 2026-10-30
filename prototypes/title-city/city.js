@@ -4,13 +4,14 @@
 // Built from Kenney Castle Kit and Mini Dungeon pieces and variants cloned from them (tools/variants.mjs).
 // Every moving thing runs on its own loop (houses rebuilt, boats, clouds, and a pastel day/night cycle), with periods that
 // don't line up, so the view rarely repeats exactly.
-// ?cam=a|b|c picks the framing; ?capture stops the clock and window.__frame(t) draws time t (for recording).
+// ?cam=a|b|c picks the framing; ?capture stops the clock and window.__frame(t) draws time t (for recording); ?embed is the
+// studio title screen's mode (lighter on phones; the parent posts 'pause' and 'resume'; it posts 'town-ready' once drawn).
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 const Q = new URLSearchParams(location.search);
-const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a';
+const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed');
 const DAY = +(Q.get('day') || 120);   // seconds for one day/night cycle (short for the preview)
 const TAU = Math.PI * 2;
 
@@ -210,7 +211,7 @@ CORRIDORS.push(...STREETS.filter(s => s.kind === 'main').map(s => s.pts));
 
 // ---------------- renderer, scene, camera ----------------
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: CAPTURE });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, EMBED && matchMedia('(pointer: coarse)').matches ? 1.25 : 2));
 document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 scene.fog = new THREE.Fog(SKY.fog, 240, 1100);
@@ -730,6 +731,12 @@ function frame(t) {
 }
 window.__frame = frame;
 window.__info = () => ({ ev: dyn.slice(0, 4).map(d => [+d.per.toFixed(1), +d.ev[0].start.toFixed(1), +d.ev[1].start.toFixed(1)]), houses: houses.length, changing: dyn.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles });
-if (!CAPTURE) { const t0 = performance.now(); renderer.setAnimationLoop(() => frame((performance.now() - t0) / 1000)); }
+if (!CAPTURE) {
+  let t = 0, last = performance.now();
+  const loop = () => { const now = performance.now(); t += Math.min(.1, (now - last) / 1000); last = now; frame(t); };
+  renderer.setAnimationLoop(loop);
+  addEventListener('message', e => { if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
+  if (EMBED) { frame(0); parent.postMessage('town-ready', '*'); }
+}
 else frame(Number(Q.get('t') || 0));
 window.__ready = true;

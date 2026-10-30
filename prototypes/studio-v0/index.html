@@ -506,9 +506,8 @@ body.on-title #logo { display: none; }
 .lh-stats { display: flex !important; flex-wrap: wrap; gap: 8px 24px; } .lh-stats dt, .lh-stats dd, .lh-icons li { overflow-wrap: normal; white-space: nowrap; }
 .lh-icons li { width: auto !important; min-width: 44px; }
 
-/* title: the big logo at the top, Start at the bottom, and between them an opinionated scene on the living background, in three
-   directions to compare (#title-a default): A a glass city being built and painted in, B a floating island of game worlds (both
-   three.js, title-3d.js), C a layered glass landscape that paint colours in (2D canvas, title-c.js) */
+/* title: the big logo at the top, Start at the bottom, and behind them the castle town (title-town.js); #title-a/b/c open the
+   earlier directions (a glass city, a floating island: title-3d.js; a glass landscape: title-c.js) */
 #s-title { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; overflow: hidden;
   padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px)) max(16px, env(safe-area-inset-left, 0px));
   transition: opacity .5s cubic-bezier(.22,1,.36,1); }
@@ -531,11 +530,8 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
 #s-title.leaving { opacity: 0; pointer-events: none; }
 #s-title.leaving .t-logo img { transform: scale(1.06); transition: transform .5s cubic-bezier(.22,1,.36,1); animation: none; }
 /* direction checkpoint only: switch A / B / C on a phone without editing the address */
-.t-pick { position: absolute; z-index: 2; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); display: flex; align-items: center;
   gap: 2px; padding: 2px 2px 2px 12px; border-radius: 999px; font: 600 13px/20px var(--display); color: var(--muted); border: 1.5px solid transparent;
   background: linear-gradient(rgba(24,22,32,.6), rgba(24,22,32,.6)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; }
-.t-pick a { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 999px; color: var(--ink); text-decoration: none; font-size: 15px; }
-.t-pick a[aria-current="true"] { background: var(--yellow-b); color: var(--dark); }
 @media (max-width: 600px) { .t-tag { font-size: 17px; line-height: 24px; } .t-logo img { width: min(88vw, calc(30svh * 1.777)); } #s-title { padding-top: max(64px, env(safe-area-inset-top, 0px)); } }
 /* short screens (sideways phones): smaller logo and words, Start sits higher */
 @media (max-height: 520px) {
@@ -572,7 +568,6 @@ body.on-play #sound { display: none; }   /* the game frame has its own sound con
     <p class="t-tag">Describe your game out loud. Play it in minutes.</p>
     <button class="btn yellow t-start" id="t-start">Start</button>
   </div>
-  <nav class="t-pick" aria-label="Title screen direction"><span>Title</span><a href="#title-a">A</a><a href="#title-b">B</a><a href="#title-c">C</a></nav>
 </section>
 <button id="sound" data-s="tap" aria-pressed="false"><span class="ic"></span><span class="lbl">Tap for sound</span></button>
 

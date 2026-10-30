@@ -44,16 +44,13 @@ sound.onChange(drawSound); drawSound(sound.status());
 soundBtn.onclick = () => sound.setMuted(sound.status() === 'on');
 
 // ---------------- title ----------------
-// The big logo and one Start over an opinionated scene, in three directions to compare (#title-a is the default):
-// A: a glass city being built and painted in · B: a floating island of game worlds, each built in glass and then painted
-// (both three.js, title-3d.js) · C: a layered glass landscape that flung paint colours in, characters from different games
-// appearing where it lands (2D canvas, title-c.js). The scene only animates while the title shows and the tab is visible.
-const titleEl = $('#s-title'), titleV = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'a';
+// The big logo and one Start over the castle town (title-town.js, Kevin's pick). The earlier directions stay reachable for
+// comparison: #title-a glass city, #title-b floating island (title-3d.js), #title-c glass landscape (title-c.js).
+const titleEl = $('#s-title'), titleV = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'town';
 titleEl.dataset.v = titleV;
-for (const a of $$('.t-pick a')) a.setAttribute('aria-current', String(a.hash === '#title-' + titleV));
 addEventListener('hashchange', () => { if (/^#title-[abc]$/.test(location.hash)) location.reload(); });
 let titleScene = null;
-if (!/^#(library|new)$/.test(location.hash)) (titleV === 'c' ? import('./title-c.js') : import('./title-3d.js'))   // skipped title: skip the download
+if (!/^#(library|new)$/.test(location.hash)) (titleV === 'town' ? import('./title-town.js') : titleV === 'c' ? import('./title-c.js') : import('./title-3d.js'))   // skipped title: skip the download
   .then(m => m.start({ el: $('.t-scene'), v: titleV, reduced, active: () => state.screen === 'title' && !document.hidden, cue: sound.cue }))
   .then(s => { titleScene = s; }).catch(e => console.warn('title scene', e));
 function startFromTitle() {

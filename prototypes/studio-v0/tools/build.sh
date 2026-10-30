@@ -80,4 +80,14 @@ model kenney-mini-dungeon dungeon floor floor-detail wall wall-opening column ch
 model kenney-castle-kit castle tower-square-base tower-square-mid-windows tower-square-top-roof-high wall wall-corner gate flag tree-large
 model kenney-space-kit space rocket_baseA rocket_fuelA rocket_sidesA rocket_finsA rocket_topA satelliteDish_large terrain rock_crystalsLargeA astronautA
 model kenney-nature-kit nature ground_grass tree_pineTallA tree_pineRoundC tree_default tree_oak rock_largeA mushroom_redGroup flower_yellowA campfire_stones tent_smallOpen
+
+# the title scene: the castle town prototype (build it first: prototypes/title-city/tools/build.sh, then tools/variants.mjs)
+TC="$ROOT/prototypes/title-city"; rm -rf "$HERE/town"; mkdir -p "$HERE/town/models"
+cp "$TC/index.html" "$TC/city.js" "$HERE/town/"; cp -r "$TC/vendor" "$HERE/town/"
+cp -r "$TC/models/castle" "$TC/models/minidungeon" "$HERE/town/models/"
+python3 -I -c 'import json, shutil, sys, pathlib   # only the castle-town variants, and a manifest listing just those
+src, dst = map(pathlib.Path, sys.argv[1:3]); dst.mkdir(parents=True, exist_ok=True); m = json.loads((src / "manifest.json").read_text())
+m["variants"] = [v for v in m["variants"] if v["set"] in ("house", "tallhouse", "hall", "wide", "shack", "stall")]
+for v in m["variants"]: shutil.copy(src / (v["name"] + ".glb"), dst)
+(dst / "manifest.json").write_text(json.dumps(m))' "$TC/models/variants" "$HERE/town/models/variants"
 echo "built $HERE (publish index.html with every other file under it)"
