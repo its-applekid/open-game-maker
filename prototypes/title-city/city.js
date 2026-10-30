@@ -36,7 +36,6 @@ const C = c => new THREE.Color(c);
 // roofs take one of a few pastel tones per building; the kit's own stone, plaster and wood stay, flattened and softened
 const ROOFS = { noble: ['#7d8fb8', '#a58bb0', '#6f7894'], artisan: ['#d98f73', '#c9806a', '#e0a07a', '#9bb08a'], harbor: ['#6f7894', '#7d8fb8', '#9bb08a'], castle: ['#7d8fb8'] };
 const PASTEL = ['#fb4934', '#fabd2f', '#b8bb26', '#83a598', '#d3869b', '#8ec07c', '#fe8019'].map(c => C(c).lerp(C('#fbf1c7'), .35));
-const BRIGHT = ['#fb4934', '#fabd2f', '#b8bb26', '#83a598', '#d3869b', '#8ec07c', '#fe8019'].map(C);
 const TREES = ['#98a86a', '#8ab07f', '#a3b46a', '#7fa38a', '#b0b98a'].map(C), BLOSSOM = ['#eeb2c2', '#e8a0b4', '#e8916e', '#e8c66e'].map(C);
 const FIELDS = ['#e6d39a', '#b9c98f', '#a9bf86', '#cdbbd9', '#d9c48c', '#c2cf96'].map(C);
 const GROUND = { sand: '#ecd9b4', grass: '#b3bf95', grass2: '#a5b58f', forest: '#8aa08a', rock: '#b0a3a8', snow: '#f7f1ee', shallow: '#a3d4c6', deep: '#5d7fa8', cobble: '#d6c8b6', dirt: '#c9b294' };
@@ -321,7 +320,7 @@ async function kenney(path) {   // one merged, base-centred geometry per model; 
   return (LIB[path] = { geo, map, w: b.max.x - b.min.x, d: b.max.z - b.min.z, h: b.max.y - b.min.y });
 }
 // the kit's colours, flat and a little softened; its blue swatches become the building's roof colour (instance colour);
-// dark window slits glow at night; new buildings are frosted until their paint lands
+// dark window slits glow at night; cut hides everything above a height (houses being built or taken down)
 const KIT_V = `uniform vec3 tint; varying vec3 vW, vN, vRoof; varying vec2 vUv;
 void main() { vUv = uv; mat4 m = modelMatrix;
   #ifdef USE_INSTANCING
@@ -334,7 +333,7 @@ void main() { vUv = uv; mat4 m = modelMatrix;
   vRoof = tint;
   #endif
   gl_Position = projectionMatrix * viewMatrix * w; }`;
-const KIT_F = `uniform sampler2D map; uniform vec3 hit, sunD, sunC, amb, paint; uniform float reveal, cut, seed, night, glass;
+const KIT_F = `uniform sampler2D map; uniform vec3 sunD, sunC, amb; uniform float cut, night;
 varying vec3 vW, vN, vRoof; varying vec2 vUv;
 ${NOISE_GLSL} ${FOG_GLSL}
 void main() {
@@ -345,18 +344,11 @@ void main() {
   vec3 col = roof ? vRoof * (.8 + .45 * lum) : mix(base, vec3(.98, .94, .86), .16);
   vec3 c = col * light;
   if (lum < .16 && abs(n.y) < .5) c = mix(c, vec3(1., .78, .48) * 1.1, night * step(.35, h31(floor(vW * 1.3))));
-  if (glass > .5) {
-    float d = distance(vW, hit), rag = (n3(vW * 1.6 + seed) - .5) * 1.6 * (.25 + min(reveal, 3.) / 3.) + (n3(vW * 5. + seed) - .5) * .5;
-    float m = 1. - smoothstep(reveal - .1, reveal, d + rag), wetE = smoothstep(reveal - .8, reveal - .05, d + rag) * m * (1. - smoothstep(6., 14., reveal));
-    c = mix(vec3(.88, .89, .93) * light, c, m); c = mix(c, paint * light * 1.1, wetE * .85);
-  }
-  c = mix(c, vec3(1., .82, .5), (1. - smoothstep(0., .25, cut - vW.y)) * step(cut, 900.));
   gl_FragColor = vec4(fogged(c, vW), 1.);
   #include <colorspace_fragment>
 }`;
 const kitMat = (map, o = {}) => new THREE.ShaderMaterial({ vertexShader: KIT_V, fragmentShader: KIT_F,
-  uniforms: { map: { value: map }, tint: { value: o.tint || C(ROOFS.castle[0]) }, hit: { value: new THREE.Vector3() }, reveal: { value: 99 }, cut: { value: 9999 },
-    seed: { value: R() * 40 }, glass: { value: o.glass ? 1 : 0 }, paint: { value: C('#fff') }, ...U } });
+  uniforms: { map: { value: map }, tint: { value: o.tint || C(ROOFS.castle[0]) }, cut: { value: 9999 }, ...U } });
 // instanced placement: put() records a piece, flush() makes one instanced mesh per model
 const INST = new Map();
 const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s: [s, s, s], roof: C(roof) }); };
@@ -575,10 +567,10 @@ function updateClouds(t) {
 
 // ---------------- houses that come down and go up ----------------
 // each changing house has its own period and two events per period: A comes down and B goes up, later B comes down and
-// A goes up. An event: demolish (taken down floor by floor, or dropped into dust) → empty → build → frosted → paint.
-const DUR = { decon: 4, implode: 2.6, empty: 1.4, hold: 1, fly: .7, paint: 1.8 };
+// A goes up. An event: demolish (taken down storey by storey, or dropped into dust) → empty → built back up storey by storey,
+// in its own colours, inside wooden scaffolding.
+const DUR = { decon: 4, implode: 2.6, empty: 1.4 };
 const dyn = [];
-const blobGeo = new THREE.IcosahedronGeometry(1, 1);
 async function buildHouses() {
   R = rng(33);
   const changing = [];
@@ -587,17 +579,15 @@ async function buildHouses() {
     const r = rng(Math.floor(hash2(h.x, h.z) * 1e9)), list = VARIANTS[h.set], other = list[Math.floor(r() * list.length)];
     const objs = [];
     for (const [n, model] of [h.model, other].entries()) {
-      const k = await kenney(model), m = new THREE.Mesh(k.geo, kitMat(k.map, { glass: true, tint: C(n ? pk(ROOFS[h.dist]) : h.roof) }));
+      const k = await kenney(model), m = new THREE.Mesh(k.geo, kitMat(k.map, { tint: C(n ? pk(ROOFS[h.dist]) : h.roof) }));
       m.position.set(h.x, PLAIN, h.z); m.rotation.y = h.rot; m.scale.setScalar(h.s); scene.add(m); m.userData.h = k.h * h.s; objs.push(m);
     }
     const per = 70 + r() * 110, s0 = r() * per;
-    const ev = [0, 1].map(i => ({ start: mod(s0 + i * (per / 2 + (r() - .5) * per * .2), per), demo: r() < .35 ? 'implode' : 'decon', build: Math.min(10, 2 + Math.ceil(objs[1 - i].userData.h / 2.4) * .75), from: i, to: 1 - i, paint: pk(BRIGHT), seed: r() }));
+    const ev = [0, 1].map(i => ({ start: mod(s0 + i * (per / 2 + (r() - .5) * per * .2), per), demo: r() < .35 ? 'implode' : 'decon', build: Math.min(10, 2 + Math.ceil(objs[1 - i].userData.h / 2.4) * .9), from: i, to: 1 - i }));
     const hs = objs.map(o => o.userData.h), ks = await Promise.all([h.model, other].map(kenney));
     const sc = scaffold(Math.max(...ks.map(k => k.w)) * h.s + .9, Math.max(...ks.map(k => k.d)) * h.s + .9, Math.max(...hs) + .8);
     sc.position.set(h.x, PLAIN, h.z); sc.rotation.y = h.rot; scene.add(sc);
-    const blob = new THREE.Mesh(blobGeo, new THREE.MeshBasicMaterial({ color: '#fff' })); blob.visible = false; scene.add(blob);
-    const drops = [...Array(8)].map((_, i) => { const d = new THREE.Mesh(blobGeo, blob.material); d.visible = false; scene.add(d); return { d, v: new THREE.Vector3(Math.cos(i * .8) * 2.2, 2 + hash2(i, 1) * 2, Math.sin(i * .8) * 2.2) }; });
-    dyn.push({ l: h, objs, hs, ev, per, sc, dust: dustRig(), blob, drops });
+    dyn.push({ l: h, objs, hs, ev, per, sc, dust: dustRig() });
   }
 }
 function scaffold(w, d, h) {   // wooden scaffolding around a house: corner and mid poles, plank decks every storey, cross braces
@@ -630,46 +620,29 @@ function updateDust(d, x, z, k, size) {
     q.p.position.set(Math.cos(q.a) * r, s * .5 + k * size * .8, Math.sin(q.a) * r); q.p.scale.setScalar(s); q.p.material.opacity = (1 - easeIn(k)) * .85;
   }
 }
-const steps = h => Math.max(2, Math.min(10, Math.round(h / 2.2)));
-function stepped(k, h) { const n = steps(h), x = clamp01(k) * n, f = Math.floor(x); return Math.min(1, (f + smooth((x - f - .55) / .35)) / n); }
-const evLen = e => DUR[e.demo] + DUR.empty + e.build + DUR.hold + DUR.fly + DUR.paint;
+const steps = h => Math.max(2, Math.min(8, Math.round(h / (HK * 1.01))));   // one step per storey of kit pieces
+function stepped(k, h) { const n = steps(h), x = clamp01(k) * n, f = Math.floor(x); return Math.min(1, (f + smooth((x - f - .8) / .2)) / n); }
+const evLen = e => DUR[e.demo] + DUR.empty + e.build;
 function updateChanging(t) {
-  const cam = camera.position;
   for (const D of dyn) {
     const lt = mod(t, D.per); let e = D.ev[0], dt = mod(lt - D.ev[0].start, D.per); const dt1 = mod(lt - D.ev[1].start, D.per);
     if (dt1 < dt) { e = D.ev[1]; dt = dt1; }
-    const l = D.l, len = evLen(e), active = dt < len;
-    const tDemo = DUR[e.demo], tEmpty = tDemo + DUR.empty, tBuild = tEmpty + e.build, tFly = tBuild + DUR.hold, tPaint = tFly + DUR.fly;
+    const l = D.l, active = dt < evLen(e), tDemo = DUR[e.demo], tEmpty = tDemo + DUR.empty, tBuild = tEmpty + e.build;
     const oFrom = D.objs[e.from], oTo = D.objs[e.to], hFrom = D.hs[e.from], hTo = D.hs[e.to], uF = oFrom.material.uniforms, uT = oTo.material.uniforms;
     for (const o of D.objs) { o.visible = false; o.position.set(l.x, PLAIN, l.z); }
-    D.blob.visible = false; D.drops.forEach(q => (q.d.visible = false)); D.dust.g.visible = false;
-    if (!active || dt >= tBuild) {
-      oTo.visible = true; uT.cut.value = 9999; uT.paint.value.copy(e.paint);
-      const dir = new THREE.Vector3(cam.x - l.x, 0, cam.z - l.z).normalize();
-      uT.hit.value.set(l.x, PLAIN + hTo * (.45 + e.seed * .3), l.z).addScaledVector(dir, 1.6);
-      uT.reveal.value = !active ? 99 : dt < tPaint ? 0 : (4 + hTo) * 1.3 * ease((dt - tPaint) / DUR.paint);
-      const k = (dt - tFly) / DUR.fly, hit = uT.hit.value;
-      if (active && k > 0 && k < 1) {
-        const from = new THREE.Vector3(hit.x + 18, hit.y + 26, hit.z + 10), p = from.lerp(hit, k); p.y += Math.sin(k * Math.PI) * 6;
-        D.blob.visible = true; D.blob.position.copy(p); D.blob.scale.setScalar(.7); D.blob.material.color.copy(e.paint);
-      }
-      const kd = (dt - tPaint) / .7;
-      if (active && kd > 0 && kd < 1) D.drops.forEach(q => { q.d.visible = true; q.d.position.copy(hit).addScaledVector(q.v, kd * 1.4); q.d.position.y -= 5 * kd * kd; q.d.scale.setScalar(.3 * (1 - kd)); });
-    } else if (dt < tDemo) {
+    D.dust.g.visible = false;
+    if (!active || dt >= tBuild) { oTo.visible = true; uT.cut.value = 9999; }
+    else if (dt < tDemo) {
       const k = dt / DUR[e.demo];
-      oFrom.visible = true; uF.reveal.value = 99;
+      oFrom.visible = true;
       if (e.demo === 'implode') {
         const sink = easeIn((k - .15) / .85);
         oFrom.position.y = PLAIN - sink * hFrom * 1.02; oFrom.position.x = l.x + Math.sin(dt * 47) * .1 * (1 - sink) * (k > .05 ? 1 : 0);
         uF.cut.value = PLAIN + hFrom * 1.2;
         updateDust(D.dust, l.x, l.z, (k - .1) / 1.1, 2.6);
       } else uF.cut.value = PLAIN + hFrom * (1 - stepped(k, hFrom));
-    } else if (dt < tEmpty) {
-      if (e.demo === 'implode') updateDust(D.dust, l.x, l.z, (dt - DUR.implode * .1) / (DUR.implode * 1.1), 2.6);
-    } else {
-      const k = (dt - tEmpty) / e.build, c = stepped(k, hTo);
-      oTo.visible = true; uT.reveal.value = 0; uT.cut.value = PLAIN + hTo * c;
-    }
+    } else if (dt < tEmpty) { if (e.demo === 'implode') updateDust(D.dust, l.x, l.z, (dt - DUR.implode * .1) / (DUR.implode * 1.1), 2.6); }
+    else { oTo.visible = true; uT.cut.value = PLAIN + hTo * stepped((dt - tEmpty) / e.build, hTo); }
     const up = e.demo === 'implode' ? sstep(tDemo, tEmpty, dt) : sstep(-.6, .6, dt), down = 1 - sstep(tBuild, tBuild + 1, dt), show = active ? Math.min(up, down) : 0;
     D.sc.visible = show > .01; D.sc.scale.set(1, Math.max(.01, show), 1);
   }
