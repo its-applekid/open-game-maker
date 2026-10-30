@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Monster Lineup</title>
+<!-- Monster-like characters in our packs: every character mesh in Synty Goblin War Camp's Characters.fbx, plus Kenney's orc and
+     alien. Labelled; window.__ready is set once drawn. -->
+<style>html,body{margin:0;background:#f2e5bc;font:13px system-ui}canvas{display:block}.lab{position:absolute;transform:translate(-50%,0);text-align:center;color:#3c3836;width:170px}.lab b{display:block;font-size:13px}.lab i{color:#7c6f64;font-style:normal;font-size:11px}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { FBXLoader } from 'three/addons/loaders/FBXLoader.js';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#f2e5bc');
+scene.add(new THREE.HemisphereLight('#fff', '#998', 1.7)); const sun = new THREE.DirectionalLight('#fff', 1.3); sun.position.set(3, 6, 5); scene.add(sun);
+const cells = [];
+const tex = await new THREE.TextureLoader().loadAsync('../models/candidates/synty/goblins.png'); tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = true;
+const fbx = await new FBXLoader().loadAsync('../models/candidates/synty/goblins.fbx');
+const meshes = []; fbx.traverse(o => { if (o.isSkinnedMesh || o.isMesh) meshes.push(o.name); });
+for (const name of meshes) {
+  const c = SkeletonUtils.clone(fbx); c.traverse(o => { if (o.isMesh) { o.visible = o.name === name; o.material = new THREE.MeshLambertMaterial({ map: tex }); } });
+  cells.push({ obj: c, name: name.replace(/^SK_Chr_|^SM_Chr_/, ''), pack: 'Synty Goblin War Camp' });
+}
+const gl = new GLTFLoader();
+for (const [p, n] of [['kenney/character-orc', 'orc'], ['kenney2/alien', 'alien']]) cells.push({ obj: (await gl.loadAsync(`../models/candidates/${p}.glb`)).scene, name: n, pack: p.startsWith('kenney/character') ? 'Kenney Mini Dungeon' : 'Kenney Space Kit' });
+const cols = Math.min(8, cells.length), rows = Math.ceil(cells.length / cols), W = cols * 2.6, Hh = rows * 3.1, asp = innerWidth / innerHeight, half = Math.max(W / asp, Hh) / 2 + .4;
+const cam = new THREE.OrthographicCamera(-half * asp, half * asp, half, -half, .1, 100); cam.position.set(W / 2 - 1.3, -Hh / 2 + 1.9, 30); cam.lookAt(W / 2 - 1.3, -Hh / 2 + 1.6, 0);
+cells.forEach((c, i) => {
+  scene.add(c.obj); c.obj.updateMatrixWorld(true);
+  const b = new THREE.Box3(); c.obj.traverse(o => { if (o.isMesh && o.visible) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); } });
+  const s = 2 / Math.max(b.max.y - b.min.y, .01); c.obj.scale.multiplyScalar(s); c.obj.position.set((i % cols) * 2.6 - (b.min.x + b.max.x) / 2 * s, -b.min.y * s - Math.floor(i / cols) * 3.1, 0); c.obj.rotation.y = .4;
+  cam.updateMatrixWorld(); const p = new THREE.Vector3((i % cols) * 2.6, -Math.floor(i / cols) * 3.1 - .15, 0).project(cam);
+  const d = document.createElement('div'); d.className = 'lab'; d.style.left = (p.x + 1) / 2 * innerWidth + 'px'; d.style.top = (1 - p.y) / 2 * innerHeight + 'px'; d.innerHTML = `<b>${c.name}</b><i>${c.pack}</i>`; document.body.appendChild(d);
+});
+renderer.render(scene, cam); window.__ready = true; window.__names = meshes;
+</script>

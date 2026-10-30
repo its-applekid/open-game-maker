@@ -1,0 +1,29 @@
+---
+name: gm-verify
+description: Use before showing the creator anything visual: a scene, a screen, a game change. Check by looking (stills at desktop and phone sizes, a timeline of the motion, close-ups of small events), then deliver clips the creator can play on a phone. Also for "record a video", "send screenshots", "does it look right".
+---
+
+# gm-verify
+
+Never report a visual result you haven't looked at. Reading code or logs is not looking.
+
+## Look
+
+- Headless Chromium on the GPU: `--use-angle=gl-egl --enable-gpu --ignore-gpu-blocklist` (SwiftShader is the slow
+  default). Serve the prototype over HTTP; `file://` breaks module imports.
+- Stills: 1440x900 and 390x844 (phone, `deviceScaleFactor: 2`, `isMobile`). Check the title, the main screen and the
+  first click.
+- Motion: pages expose a capture mode (`?capture`, `window.__frame(t)`) so any time can be drawn exactly.
+  `prototypes/title-city/tools/capture.mjs stills|timeline|record "<query>" <out> ...` draws stills, one tiled
+  timeline in time order, or a phone-ready MP4. (Tiling by hand? sort with `sort -V`; plain `sort` puts t10 before t4.)
+- Small events (a building rebuilt, a monster's punch): add a debug camera that frames the event (`?focus=` /
+  `?cam=scene`) instead of judging from the wide shot.
+- Read each tiled image and say what is wrong before fixing; fix the worst thing first.
+
+## Deliver
+
+- `capture.mjs record` encodes H.264 `yuv420p`, 960 px wide, CRF 27, `+faststart` (a 2-minute clip is about 5-10 MB).
+  The Claude mobile app does not play WebM.
+- Publish an artifact page: one clip per option with a poster frame and one line saying what it shows; files over
+  the per-call limit get re-encoded smaller, not dropped.
+- Say what was checked and what wasn't (for example "not checked on iPhone Safari").

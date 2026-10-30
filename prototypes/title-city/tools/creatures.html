@@ -13,7 +13,7 @@ const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffe
 renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
 const scene = new THREE.Scene(); scene.background = new THREE.Color('#f2e5bc');
 scene.add(new THREE.HemisphereLight('#fff', '#998', 1.7)); const sun = new THREE.DirectionalLight('#fff', 1.4); sun.position.set(3, 6, 5); scene.add(sun);
-const cols = 8, loader = new GLTFLoader(), rows = Math.ceil(list.length / cols), W = cols * 2.6, Hh = rows * 3.1, asp = innerWidth / innerHeight, half = Math.max(W / asp, Hh) / 2 + .4;
+const cols = 9, loader = new GLTFLoader(), rows = Math.ceil(list.length / cols), W = cols * 2.6, Hh = rows * 3.1, asp = innerWidth / innerHeight, half = Math.max(W / asp, Hh) / 2 + .4;
 const cam = new THREE.OrthographicCamera(-half * asp, half * asp, half, -half, .1, 100); cam.position.set(W / 2 - 1.3, -Hh / 2 + 1.9, 30); cam.lookAt(W / 2 - 1.3, -Hh / 2 + 1.6, 0);
 for (const [i, c] of list.entries()) {
   const g = await loader.loadAsync(`../models/candidates/${c.path}.glb`), o = g.scene, b = new THREE.Box3().setFromObject(o), s = 1.6 / Math.max(b.max.y - b.min.y, b.max.x - b.min.x);
