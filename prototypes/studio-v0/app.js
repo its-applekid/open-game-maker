@@ -1,5 +1,5 @@
 import { ready, paint, SCENES, blueprint } from './scenes.js';
-import { ICONS } from './icons.js';
+import { ICONS, gameTags } from './icons.js';
 import { GAMES, SEED_BUILD, STEPS, ART, NEW_GAME_TALK, NEW_GAME_TITLE, featureTalk, FEATURE_NAME, AGENT_ACK, BUILD_STEPS } from './data.js';
 
 const $ = (s, r = document) => r.querySelector(s);
@@ -49,40 +49,78 @@ function tileFor(g, i) {
     ${g.badge ? `<span class="badge">${esc(g.badge)}</span>` : ''}
     <span class="build-chip" ${building ? '' : 'hidden'}><i class="ring"></i><b class="pct">0%</b> Building</span>
     <span class="tile-info"><span class="cover-title" style="font-family:'${g.font}',var(--display);color:${g.color}">${esc(g.title)}</span>
-      <span class="tile-meta"><span class="genres">${g.genres.map(x => `<i>${esc(x)}</i>`).join('')}</span><span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span></span>`;
+      <span class="tile-meta"><span class="ticons">${gameTags(g).filter(x => x.kind === 'genre' || x.kind === 'vibe').slice(0, 4).map(x => `<i class="k-${x.kind}" title="${esc(x.label)}">${ICONS[x.key]}</i>`).join('')}</span><span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span></span>`;
   t.onclick = () => g.id === selId ? openGame(g) : select(g.id, true);
   return t;
 }
 // splatter-edged mask for the spotlight footage, plus coloured splats behind it (seeded per game so each looks a little different)
-function splatMask(seed, W = 800, H = 450) {
-  let s = seed; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); c.fillStyle = '#fff';
-  const dot = (x, y, rad) => { c.beginPath(); c.arc(x, y, rad, 0, 7); c.fill(); };
-  c.beginPath(); c.roundRect(W * .1, H * .14, W * .8, H * .72, 60); c.fill();
-  // ragged edge: a dense spray of small and medium drops along the border
-  for (let i = 0; i < 900; i++) {
-    const side = i % 4, u = .08 + r() * .84, m = (r() - .62) * .1;
-    const x = side < 2 ? W * u : side === 2 ? W * (.1 - m) : W * (.9 + m);
-    const y = side >= 2 ? H * u : side === 0 ? H * (.14 - m * 1.6) : H * (.86 + m * 1.6);
-    dot(x, y, 2 + r() ** 3 * 22);
+// Paint splatter, drawn in white for the footage mask or in colour for the paint behind it. Everything sits on the very edge:
+// a ragged border (layered noise), splash lobes ringed by satellites, radial spray (stretched drops), drips running down, small bites.
+function rng(seed) { let s = seed % 2147483647 || 7; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function blob(c, r, x, y, rad) {
+  const n = 40, ph = [r() * 7, r() * 7, r() * 7];
+  c.beginPath();
+  for (let i = 0; i <= n; i++) {
+    const t = i / n * Math.PI * 2, k = 1 + .14 * Math.sin(t * 3 + ph[0]) + .08 * Math.sin(t * 7 + ph[1]) + .05 * Math.sin(t * 13 + ph[2]) + (r() - .5) * .06;
+    c.lineTo(x + Math.cos(t) * rad * k, y + Math.sin(t) * rad * k);
   }
-  // a few big blots and drips, then fine specks flung outward
-  for (let i = 0; i < 14; i++) { const a = r() * 7, x = W / 2 + Math.cos(a) * W * .4, y = H / 2 + Math.sin(a) * H * .36; dot(x, y, 16 + r() * 24); }
-  for (let i = 0; i < 6; i++) { const x = W * (.1 + r() * .8), len = 20 + r() * 50; c.fillRect(x - 3, H * .84, 6, len); dot(x, H * .84 + len, 6); }
-  for (let i = 0; i < 160; i++) { const a = r() * 7, d = .44 + r() * .08; dot(W / 2 + Math.cos(a) * W * d, H / 2 + Math.sin(a) * H * d, .8 + r() * 3); }
+  c.fill();
+}
+function drop(c, x, y, rad, ang, stretch) { c.beginPath(); c.ellipse(x, y, rad * stretch, rad, ang, 0, 7); c.fill(); }
+function splatEdge(c, r, W, H, inset) {
+  // border points around the inset rectangle, pushed in and out by layered noise
+  const pts = [], P = 2 * (W + H - 4 * inset), ph = [r() * 7, r() * 7, r() * 7, r() * 7], spikes = [];
+  for (let i = 0; i < 26; i++) spikes.push([r() * P, 10 + r() * 34, 14 + r() * 40]);
+  const at = d => { const w = W - 2 * inset, h = H - 2 * inset;
+    if (d < w) return [inset + d, inset, 0, -1]; d -= w; if (d < h) return [W - inset, inset + d, 1, 0]; d -= h;
+    if (d < w) return [W - inset - d, H - inset, 0, 1]; d -= w; return [inset, H - inset - d, -1, 0]; };
+  c.beginPath();
+  for (let d = 0; d < P; d += 5) {
+    const [x, y, nx, ny] = at(d), t = d / 60;
+    let o = 7 * Math.sin(t * .9 + ph[0]) + 4 * Math.sin(t * 2.3 + ph[1]) + 2.5 * Math.sin(t * 5.1 + ph[2]) + 1.5 * Math.sin(t * 11 + ph[3]) + (r() - .5) * 3;
+    for (const [sd, sw, sh] of spikes) { const dd = Math.abs(d - sd); if (dd < sw) o += sh * (1 - dd / sw) ** 2; }
+    c.lineTo(x + nx * o, y + ny * o); pts.push([x, y, nx, ny]);
+  }
+  c.closePath(); c.fill();
+  // splash lobes with satellites
+  for (const [sd, , sh] of spikes) {
+    const [x, y, nx, ny] = at(sd); if (r() < .4) continue;
+    const cx = x + nx * sh * .8, cy = y + ny * sh * .8; blob(c, r, cx, cy, 8 + r() * 16);
+    for (let k = 0; k < 10; k++) { const a = Math.atan2(ny, nx) + (r() - .5) * 2.2, d = 18 + r() * 40; drop(c, cx + Math.cos(a) * d, cy + Math.sin(a) * d, .8 + r() * 4, a, 1 + r() * 1.8); }
+  }
+  // radial spray: many small drops just outside the edge, stretched outward, smaller the farther they fly
+  for (let i = 0; i < 900; i++) {
+    const [x, y, nx, ny] = pts[Math.floor(r() * pts.length)], f = r() ** 1.7, d = 4 + f * inset * 1.15, a = Math.atan2(ny, nx) + (r() - .5) * .9;
+    drop(c, x + Math.cos(a) * d + (ny ? (r() - .5) * 8 : 0), y + Math.sin(a) * d + (nx ? (r() - .5) * 8 : 0), .5 + (1 - f) ** 3 * 5 * r(), a, 1 + r() * 2.2);
+  }
+  // drips: paint runs down from the bottom edge and from lobes on the sides
+  for (let i = 0; i < 9; i++) {
+    const x = inset + r() * (W - 2 * inset), w = 3 + r() * 6, len = 18 + r() ** 1.5 * inset * 1.6, y0 = H - inset - 6;
+    c.beginPath(); c.moveTo(x - w, y0); c.quadraticCurveTo(x - w * .6, y0 + len * .6, x - w * .45, y0 + len); c.lineTo(x + w * .45, y0 + len); c.quadraticCurveTo(x + w * .6, y0 + len * .6, x + w, y0); c.fill();
+    drop(c, x, y0 + len, w * .8, Math.PI / 2, 1.25);
+  }
+  for (let i = 0; i < 4; i++) {
+    const side = r() < .5, x = side ? inset * (.55 + r() * .3) : W - inset * (.55 + r() * .3), y = inset + r() * (H * .6), len = 20 + r() * 60, w = 2 + r() * 3;
+    c.fillRect(x - w / 2, y, w, len); drop(c, x, y + len, w * .9, Math.PI / 2, 1.3);
+  }
+}
+function splatMask(seed, W = 1600, H = 900) {
+  const r = rng(seed), cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const c = cv.getContext('2d'); c.fillStyle = '#fff'; splatEdge(c, r, W, H, W * .045);
+  c.globalCompositeOperation = 'destination-out';   // small bites just inside the edge
+  for (let i = 0; i < 60; i++) { const s = Math.floor(r() * 4), u = r(), m = W * .045 + r() * 14;
+    const x = s < 2 ? W * u : s === 2 ? m : W - m, y = s >= 2 ? H * u : s === 0 ? m : H - m; drop(c, x, y, 2 + r() * 7, r() * 3, 1 + r()); }
   return cv.toDataURL();
 }
 function splatBack(cv, seed, color) {
-  const W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, c = cv.getContext('2d');
-  let s = seed + 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  const cols = [color, color, '#83a598', '#d3869b', '#fe8019', '#458588'];
-  for (let k = 0; k < 7; k++) {   // paint bursts around the footage, each a blob ringed by its own spray
-    const a = r() * Math.PI * 2, cx = W / 2 + Math.cos(a) * W * .38, cy = H / 2 + Math.sin(a) * H * .38, col = cols[Math.floor(r() * cols.length)];
-    c.fillStyle = col; c.globalAlpha = .75;
-    for (let i = 0; i < 26; i++) { const rr = r() * W * .07; c.beginPath(); c.arc(cx + (r() - .5) * W * .12, cy + (r() - .5) * H * .14, 6 + r() ** 2 * W * .035, 0, 7); c.fill(); }
-    for (let i = 0; i < 40; i++) { const t = r() * 7, d = W * (.05 + r() * .09); c.beginPath(); c.arc(cx + Math.cos(t) * d, cy + Math.sin(t) * d * .9, 1.5 + r() * 6, 0, 7); c.fill(); }
+  const W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, c = cv.getContext('2d'), r = rng(seed + 11);
+  const cols = [color, color, '#83a598', '#d3869b', '#fe8019'];
+  for (let k = 0; k < 6; k++) {   // coloured splashes that peek out from behind the footage edge
+    c.fillStyle = cols[Math.floor(r() * cols.length)];
+    const a = r() * Math.PI * 2, x = W / 2 + Math.cos(a) * W * .43, y = H / 2 + Math.sin(a) * H * .41;
+    blob(c, r, x, y, W * (.03 + r() * .035));
+    for (let i = 0; i < 70; i++) { const t = a + (r() - .5) * 2.4, d = W * (.03 + r() ** 1.5 * .09); drop(c, x + Math.cos(t) * d, y + Math.sin(t) * d, 1 + r() ** 3 * 9, t, 1 + r() * 2); }
   }
-  c.globalAlpha = 1;
 }
 const seedOf = id => [...id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 2147483647, 7) || 7;
 function select(id, scroll) {
@@ -91,13 +129,12 @@ function select(id, scroll) {
   for (const t of $$('.tile', grid)) t.classList.toggle('sel', t.dataset.id === id);
   const hero = $('#lib-hero');
   hero.style.setProperty('--c', g.color);
-  const tags = [...g.genres, ...g.vibe, g.art, ...g.world.split(' · '), ...g.players.split(' · ')];
   $('#lh-text').innerHTML = `
     ${g.badge ? `<span class="lh-badge">${esc(g.badge)}</span>` : ''}
     <h2 class="lh-title" style="font-family:'${g.font}',var(--display)">${esc(g.title)}</h2>
     <p class="lh-tag">${esc(g.tagline)}</p>
     <p class="lh-desc">${esc(g.desc)}</p>
-    <div class="lh-tags">${tags.map(x => `<span>${esc(x)}</span>`).join('')}</div>
+    <ul class="lh-icons">${gameTags(g).map(x => `<li class="k-${x.kind}"><span>${ICONS[x.key]}</span>${esc(x.label)}</li>`).join('')}</ul>
     <dl class="lh-stats">
       <div><dt>Time played</dt><dd>${esc(g.played || '0m')}</dd></div>
       <div><dt>Rating</dt><dd class="lh-stars" aria-label="${g.rating ? g.rating + ' out of 5' : 'Not rated yet'}">${stars(g.rating)}<small>${g.rating ? g.rating : 'New'}</small></dd></div>
@@ -124,6 +161,7 @@ function drawHero(now) {
   if (!g) return;
   if (g.status === 'building') { cv.width = 320; cv.height = 180; blueprint(cv.getContext('2d'), now / 1000, 320, 180, jobFor(g.id)?.p || 0); }
   else paint(cv, g.scene, 0, (SCENES[g.scene].cover?.[1] || 0) + (reduced ? 0 : now / 1000 % 60));
+  const amb = $('#lh-ambient'); if (cv.width) { amb.width = 48; amb.height = 27; amb.getContext('2d').drawImage(cv, 0, 0, 48, 27); }
 }
 function renderLibrary() {
   if (!selId || !games.some(g => g.id === selId)) selId = games[0].id;
@@ -250,7 +288,7 @@ function renderStep() {
   $('#wz-hint').textContent = st.hint;
   $('#wz-dots').innerHTML = STEPS.map((s, i) => `<i class="${i < state.step ? 'done' : i === state.step ? 'now' : ''}" title="${esc(s.title)}"></i>`).join('');
   $('#wz-dots').setAttribute('aria-label', `Step ${state.step + 1} of ${STEPS.length}`);
-  const body = $('#wz-body'); body.innerHTML = '';
+  const body = $('#wz-body'); body.innerHTML = ''; body.dataset.step = st.key;
   $('#wz-next').hidden = st.key === 'talk';
   if (st.key === 'talk') return renderTalk(body);
   const g = h('div', 'opt-grid'); g.setAttribute('role', 'group'); g.setAttribute('aria-label', st.ask);
