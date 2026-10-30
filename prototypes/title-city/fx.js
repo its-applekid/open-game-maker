@@ -54,7 +54,7 @@ export class FX {
     const n = Math.floor((end - t) * 9 * s);
     for (let i = 0; i < n; i++) { const b = t + i / (9 * s);
       this.add('flame', { born: b, life: rr(.6, 1.1), p: [x + rr(-1.5, 1.5) * s, y + rr(0, .8), z + rr(-1.5, 1.5) * s], v: [rr(-.3, .3), rr(2, 4), rr(-.3, .3)], size: rr(1.6, 3) * s, grow: -.4, rot: rr(-.3, .3), color: '#ffb067', alpha: 1 });
-      if (i % 4 === 0) this.add('smoke', { born: b, life: rr(4, 6), p: [x + rr(-1, 1), y + 2 * s, z + rr(-1, 1)], v: [rr(.4, 1.4), rr(3, 5), rr(-.4, .4)], drag: .25, size: rr(1.6, 2.6) * s, grow: rr(.5, .9), rot: rr(0, 6), spin: rr(-.3, .3), color: '#a59aa8', alpha: rr(.25, .4) });
+      if (i % 6 === 0) this.add('smoke', { born: b, life: rr(3, 4.5), p: [x + rr(-1, 1), y + 2 * s, z + rr(-1, 1)], v: [rr(.6, 1.6), rr(3.5, 5.5), rr(-.4, .4)], drag: .2, size: rr(1.2, 2) * s, grow: rr(.4, .7), rot: rr(0, 6), spin: rr(-.3, .3), color: '#c2b8c4', alpha: rr(.14, .24) });   // a thin column, so the action stays visible
       if (i % 3 === 0) this.add('spark', { born: b, life: rr(1.5, 2.5), p: [x + rr(-1, 1), y + 1.5, z + rr(-1, 1)], v: [rr(-1, 1), rr(3, 6), rr(-1, 1)], g: -.5, size: rr(.25, .45), rot: 0, color: '#ffcf8a', alpha: 1, wobble: 1 });
     }
   }

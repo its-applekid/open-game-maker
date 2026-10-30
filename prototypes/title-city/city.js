@@ -364,6 +364,15 @@ async function flush() {
   }
   INST.clear();
 }
+// a model kept as its node tree (for parts that move, like a trebuchet's arm), with flat colours and the kit shader
+async function kenneyScene(path) {
+  const g = await loader.loadAsync(`models/${path}.glb`), scene = g.scene;
+  scene.traverse(m => { if (!m.isMesh) return; const geo = m.geometry.index ? m.geometry.toNonIndexed() : m.geometry.clone(), uv = geo.attributes.uv;
+    if (uv) for (let i = 0; i < uv.count; i += 3) { const u = (uv.getX(i) + uv.getX(i + 1) + uv.getX(i + 2)) / 3, v = (uv.getY(i) + uv.getY(i + 1) + uv.getY(i + 2)) / 3; for (let k = 0; k < 3; k++) uv.setXY(i + k, u, v); }
+    const map = m.material.map; if (map) { map.colorSpace = THREE.SRGBColorSpace; map.magFilter = map.minFilter = THREE.NearestFilter; map.generateMipmaps = false; }
+    m.geometry = geo; m.material = kitMat(map, { tint: C('#8c6f5a') }); });
+  return { scene, animations: g.animations };
+}
 let VARIANTS = {};
 async function loadVariants() {
   const m = await (await fetch('models/variants/manifest.json')).json();
@@ -731,7 +740,7 @@ async function setupRampage() {
   const zone = houses.filter(h => Math.hypot(h.x - zc[0], h.z - zc[1]) < 30 && townD(h.x, h.z) < .97);
   for (const h of zone) houses.splice(houses.indexOf(h), 1);
   window.__scene = { breach: [seg.x, seg.z], L: seg.L, zone: zone.length };
-  return await kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
+  return await kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kenneyScene, kitMat, houses: zone, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
     breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps });
 }
 
