@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Variant Lineup</title>
+<!-- Every variant in models/variants/manifest.json in rows, each next to its source, so a stacking or podium seam is easy to
+     spot. ?set=tall|mid limits the rows. window.__ready is set once drawn (for screenshots). -->
+<style>html,body{margin:0;background:#f2e5bc}canvas{display:block}</style>
+<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const set = new URLSearchParams(location.search).get('set');
+const m = await (await fetch('../models/variants/manifest.json')).json();
+const list = m.variants.filter(v => !set || v.set === set);
+const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
+renderer.setSize(innerWidth, innerHeight); document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#f2e5bc');
+scene.add(new THREE.HemisphereLight('#fff', '#998', 1.6)); const sun = new THREE.DirectionalLight('#fff', 1.6); sun.position.set(3, 6, 4); scene.add(sun);
+const loader = new GLTFLoader(), cols = 12;
+let x = 0, z = 0;
+for (const [i, v] of list.entries()) {
+  for (const [k, path] of [`variants/${v.name}`, v.from[v.from.length - 1]].entries()) {
+    const g = (await loader.loadAsync(`../models/${path}.glb`)).scene;
+    g.position.set((i % cols) * 2.6 + k * 1.2, 0, Math.floor(i / cols) * 4); scene.add(g);
+  }
+}
+const cam = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, .1, 500), rows = Math.ceil(list.length / cols);
+cam.position.set(cols * 1.3, 9 + rows * 2.2, rows * 4 + 14); cam.lookAt(cols * 1.3, 1.5, rows * 2 - 1);
+renderer.render(scene, cam); window.__ready = true;
+</script>
