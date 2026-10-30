@@ -569,7 +569,7 @@ function updateClouds(t) {
 // each changing house has its own period and two events per period: A comes down and B goes up, later B comes down and
 // A goes up. An event: demolish (taken down storey by storey, or dropped into dust) → empty → built back up storey by storey,
 // in its own colours, inside wooden scaffolding.
-const DUR = { decon: 4, implode: 2.6, empty: 1.4 };
+const DUR = { decon: 4, implode: 2.6, empty: 1.4, layer: .35 };   // layer: seconds to put up or take down one scaffold layer
 const dyn = [];
 async function buildHouses() {
   R = rng(33);
@@ -577,34 +577,38 @@ async function buildHouses() {
   for (const h of houses) { if (R() < .07) changing.push(h); else put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); }
   for (const h of changing) {
     const r = rng(Math.floor(hash2(h.x, h.z) * 1e9)), list = VARIANTS[h.set], other = list[Math.floor(r() * list.length)];
-    const objs = [];
+    const objs = [], scs = [];
     for (const [n, model] of [h.model, other].entries()) {
       const k = await kenney(model), m = new THREE.Mesh(k.geo, kitMat(k.map, { tint: C(n ? pk(ROOFS[h.dist]) : h.roof) }));
       m.position.set(h.x, PLAIN, h.z); m.rotation.y = h.rot; m.scale.setScalar(h.s); scene.add(m); m.userData.h = k.h * h.s; objs.push(m);
+      const sc = scaffold(k.w * h.s + .9, k.d * h.s + .9, k.h * h.s + .8, steps(k.h * h.s)); sc.position.set(h.x, PLAIN, h.z); sc.rotation.y = h.rot; scene.add(sc); scs.push(sc);
     }
     const per = 70 + r() * 110, s0 = r() * per;
     const ev = [0, 1].map(i => ({ start: mod(s0 + i * (per / 2 + (r() - .5) * per * .2), per), demo: r() < .35 ? 'implode' : 'decon', build: Math.min(10, 2 + Math.ceil(objs[1 - i].userData.h / 2.4) * .9), from: i, to: 1 - i }));
-    const hs = objs.map(o => o.userData.h), ks = await Promise.all([h.model, other].map(kenney));
-    const sc = scaffold(Math.max(...ks.map(k => k.w)) * h.s + .9, Math.max(...ks.map(k => k.d)) * h.s + .9, Math.max(...hs) + .8);
-    sc.position.set(h.x, PLAIN, h.z); sc.rotation.y = h.rot; scene.add(sc);
-    dyn.push({ l: h, objs, hs, ev, per, sc, dust: dustRig() });
+    dyn.push({ l: h, objs, hs: objs.map(o => o.userData.h), scs, ev, per, dust: dustRig() });
   }
 }
-function scaffold(w, d, h) {   // wooden scaffolding around a house: corner and mid poles, plank decks every storey, cross braces
-  const parts = [], wood = (x0, y0, z0, x1, y1, z1, t = .12) => {   // a beam from one point to another
-    const dx = x1 - x0, dy = y1 - y0, dz = z1 - z0, L = Math.hypot(dx, dy, dz), g = new THREE.BoxGeometry(t, L, t);
-    g.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize())));
-    parts.push(g.translate((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2).toNonIndexed());
-  };
-  const xs = [-w / 2, 0, w / 2], zs = [-d / 2, 0, d / 2];
-  for (const x of xs) for (const z of zs) if (Math.abs(x) === w / 2 || Math.abs(z) === d / 2) wood(x, 0, z, x, h, z);
-  for (let y = 1.6; y < h + .1; y += 1.6) {
-    for (const z of [-d / 2, d / 2]) { wood(-w / 2, y, z, w / 2, y, z, .1); parts.push(new THREE.BoxGeometry(w + .3, .08, .55).translate(0, y, z + Math.sign(z) * .3).toNonIndexed()); }
-    for (const x of [-w / 2, w / 2]) { wood(x, y, -d / 2, x, y, d / 2, .1); parts.push(new THREE.BoxGeometry(.55, .08, d + .3).translate(x + Math.sign(x) * .3, y, 0).toNonIndexed()); }
-    wood(-w / 2, y - 1.6, d / 2, 0, y, d / 2, .07); wood(0, y - 1.6, -d / 2, w / 2, y, -d / 2, .07);   // braces
+// wooden scaffolding around a house, one layer per storey (poles, a plank deck on top, a cross brace), so it can go up and
+// come down a layer at a time
+function scaffold(w, d, h, n) {
+  const g = new THREE.Group(), mat = new THREE.MeshLambertMaterial({ color: '#b48d6c' }), lh = h / n;
+  for (let j = 0; j < n; j++) {
+    const parts = [], y0 = j * lh, y1 = (j + 1) * lh, wood = (x0, ya, z0, x1, yb, z1, t = .12) => {
+      const dx = x1 - x0, dy = yb - ya, dz = z1 - z0, L = Math.hypot(dx, dy, dz), b = new THREE.BoxGeometry(t, L, t);
+      b.applyMatrix4(new THREE.Matrix4().makeRotationFromQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(dx, dy, dz).normalize())));
+      parts.push(b.translate((x0 + x1) / 2, (ya + yb) / 2, (z0 + z1) / 2).toNonIndexed());
+    };
+    for (const x of [-w / 2, 0, w / 2]) for (const z of [-d / 2, 0, d / 2]) if (Math.abs(x) === w / 2 || Math.abs(z) === d / 2) wood(x, y0, z, x, y1, z);
+    for (const z of [-d / 2, d / 2]) { wood(-w / 2, y1, z, w / 2, y1, z, .1); parts.push(new THREE.BoxGeometry(w + .3, .08, .55).translate(0, y1, z + Math.sign(z) * .3).toNonIndexed()); }
+    for (const x of [-w / 2, w / 2]) { wood(x, y1, -d / 2, x, y1, d / 2, .1); parts.push(new THREE.BoxGeometry(.55, .08, d + .3).translate(x + Math.sign(x) * .3, y1, 0).toNonIndexed()); }
+    if (j % 2) wood(-w / 2, y0, d / 2, 0, y1, d / 2, .07); else wood(0, y0, -d / 2, w / 2, y1, -d / 2, .07);
+    const m = new THREE.Mesh(mergeGeometries(parts.map(p => { p.deleteAttribute('uv'); return p; })), mat); m.visible = false; g.add(m);
   }
-  const g = mergeGeometries(parts.map(p => { p.deleteAttribute('uv'); return p; }));
-  const m = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ color: '#b48d6c' })); m.visible = false; return m;
+  return g;
+}
+// show the first `count` layers (a fractional count grows the newest layer up from its base)
+function layers(sc, count) {
+  sc.children.forEach((m, j) => { const f = clamp01(count - j); m.visible = f > .02; m.scale.y = Math.max(.02, ease(f)); m.position.y = 0; });
 }
 const dustMat = new THREE.MeshLambertMaterial({ color: '#efe4d6', flatShading: true, transparent: true, emissive: '#efe4d6', emissiveIntensity: .3 });
 function dustRig() {
@@ -622,53 +626,67 @@ function updateDust(d, x, z, k, size) {
 }
 const steps = h => Math.max(2, Math.min(8, Math.round(h / (HK * 1.01))));   // one step per storey of kit pieces
 function stepped(k, h) { const n = steps(h), x = clamp01(k) * n, f = Math.floor(x); return Math.min(1, (f + smooth((x - f - .8) / .2)) / n); }
-const evLen = e => DUR[e.demo] + DUR.empty + e.build;
+// an event: [put up the scaffold] → demolish → empty → build storey by storey → take the scaffold down from the top
+function phases(D, e) {
+  const nF = D.scs[e.from].children.length, nT = D.scs[e.to].children.length;
+  const erect = e.demo === 'decon' ? nF * DUR.layer : 0, tDemo = erect + DUR[e.demo], tEmpty = tDemo + DUR.empty, tBuild = tEmpty + e.build;
+  return { nF, nT, erect, tDemo, tEmpty, tBuild, end: tBuild + nT * DUR.layer + .2 };
+}
 function updateChanging(t) {
   for (const D of dyn) {
     const lt = mod(t, D.per); let e = D.ev[0], dt = mod(lt - D.ev[0].start, D.per); const dt1 = mod(lt - D.ev[1].start, D.per);
     if (dt1 < dt) { e = D.ev[1]; dt = dt1; }
-    const l = D.l, active = dt < evLen(e), tDemo = DUR[e.demo], tEmpty = tDemo + DUR.empty, tBuild = tEmpty + e.build;
-    const oFrom = D.objs[e.from], oTo = D.objs[e.to], hFrom = D.hs[e.from], hTo = D.hs[e.to], uF = oFrom.material.uniforms, uT = oTo.material.uniforms;
+    const l = D.l, P = phases(D, e), active = dt < P.end;
+    const oFrom = D.objs[e.from], oTo = D.objs[e.to], hFrom = D.hs[e.from], hTo = D.hs[e.to], uF = oFrom.material.uniforms, uT = oTo.material.uniforms, sF = D.scs[e.from], sT = D.scs[e.to];
     for (const o of D.objs) { o.visible = false; o.position.set(l.x, PLAIN, l.z); }
-    D.dust.g.visible = false;
-    if (!active || dt >= tBuild) { oTo.visible = true; uT.cut.value = 9999; }
-    else if (dt < tDemo) {
-      const k = dt / DUR[e.demo];
+    layers(sF, 0); layers(sT, 0); D.dust.g.visible = false;
+    if (!active) { oTo.visible = true; uT.cut.value = 9999; continue; }
+    if (dt < P.erect) { oFrom.visible = true; uF.cut.value = 9999; layers(sF, dt / DUR.layer); }   // scaffold goes up around the old house
+    else if (dt < P.tDemo) {
+      const k = (dt - P.erect) / DUR[e.demo];
       oFrom.visible = true;
       if (e.demo === 'implode') {
         const sink = easeIn((k - .15) / .85);
         oFrom.position.y = PLAIN - sink * hFrom * 1.02; oFrom.position.x = l.x + Math.sin(dt * 47) * .1 * (1 - sink) * (k > .05 ? 1 : 0);
         uF.cut.value = PLAIN + hFrom * 1.2;
         updateDust(D.dust, l.x, l.z, (k - .1) / 1.1, 2.6);
-      } else uF.cut.value = PLAIN + hFrom * (1 - stepped(k, hFrom));
-    } else if (dt < tEmpty) { if (e.demo === 'implode') updateDust(D.dust, l.x, l.z, (dt - DUR.implode * .1) / (DUR.implode * 1.1), 2.6); }
-    else { oTo.visible = true; uT.cut.value = PLAIN + hTo * stepped((dt - tEmpty) / e.build, hTo); }
-    const up = e.demo === 'implode' ? sstep(tDemo, tEmpty, dt) : sstep(-.6, .6, dt), down = 1 - sstep(tBuild, tBuild + 1, dt), show = active ? Math.min(up, down) : 0;
-    D.sc.visible = show > .01; D.sc.scale.set(1, Math.max(.01, show), 1);
+      } else { uF.cut.value = PLAIN + hFrom * (1 - stepped(k, hFrom)); layers(sF, P.nF - Math.floor(k * P.nF)); }   // each layer comes off with its storey
+    } else if (dt < P.tEmpty) { if (e.demo === 'implode') updateDust(D.dust, l.x, l.z, (dt - P.erect - DUR.implode * .1) / (DUR.implode * 1.1), 2.6); }
+    else if (dt < P.tBuild) {
+      const k = (dt - P.tEmpty) / e.build;
+      oTo.visible = true; uT.cut.value = PLAIN + hTo * stepped(k, hTo);
+      layers(sT, Math.min(P.nT, k * P.nT + .55) + .45);   // each layer goes up just before its storey appears
+    } else { oTo.visible = true; uT.cut.value = 9999; layers(sT, P.nT - (dt - P.tBuild) / DUR.layer); }   // and comes down a layer at a time, top first
   }
 }
 
 // ---------------- boats ----------------
+// ships share one long loop offshore, evenly spaced; two river barges each keep to their own channel; two small boats circle
+// in the bay on circles that don't touch
 const boats = [];
-function makeBoats() {   // sailing boats: a hull, a mast and a pastel sail
-  const parts = [new THREE.BoxGeometry(1.4, .7, 4.2).translate(0, .2, 0), new THREE.ConeGeometry(.7, 1.6, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, .5, 1).translate(0, .25, 2.9), new THREE.CylinderGeometry(.06, .06, 4.5, 5).translate(0, 2.6, .2)];
-  const hull = mergeGeometries(parts.map(g => { g = g.toNonIndexed(); g.deleteAttribute('uv'); return g; }));
+function makeBoats() {
+  const hullParts = [new THREE.BoxGeometry(1.4, .7, 4.2).translate(0, .2, 0), new THREE.ConeGeometry(.7, 1.6, 4).rotateX(Math.PI / 2).rotateZ(Math.PI / 4).scale(1, .5, 1).translate(0, .25, 2.9)];
+  const strip = g => { g = g.toNonIndexed(); g.deleteAttribute('uv'); return g; };
+  const hull = mergeGeometries(hullParts.map(strip)), mast = mergeGeometries([...hullParts, new THREE.CylinderGeometry(.06, .06, 4.5, 5).translate(0, 2.6, .2)].map(strip));
   const sailG = new THREE.BufferGeometry(); sailG.setAttribute('position', new THREE.Float32BufferAttribute([0, 4.7, .25, 0, .9, .25, 0, .9, -1.9], 3)); sailG.computeVertexNormals();
   for (let i = 0; i < 7; i++) {
-    const g = new THREE.Group(); g.add(new THREE.Mesh(hull, new THREE.MeshLambertMaterial({ color: '#a07a62' })), new THREE.Mesh(sailG, new THREE.MeshLambertMaterial({ color: i % 2 ? '#fbf1c7' : PASTEL[i % PASTEL.length], side: THREE.DoubleSide })));
-    g.scale.setScalar(i < 3 ? 2 : 1.2); scene.add(g); boats.push({ m: g, i, per: 50 + i * 13 });
+    const g = new THREE.Group(), barge = i === 3 || i === 4;
+    g.add(new THREE.Mesh(barge ? hull : mast, new THREE.MeshLambertMaterial({ color: '#a07a62' })));
+    if (!barge) g.add(new THREE.Mesh(sailG, new THREE.MeshLambertMaterial({ color: i % 2 ? '#fbf1c7' : PASTEL[i % PASTEL.length], side: THREE.DoubleSide })));
+    else g.add(new THREE.Mesh(new THREE.BoxGeometry(1.2, .5, 1.6).translate(0, .75, -.6), new THREE.MeshLambertMaterial({ color: PASTEL[i] })));   // a little cabin
+    g.scale.setScalar(i < 3 ? 2 : 1.2); scene.add(g); boats.push({ m: g, i, per: i < 3 ? 150 : 50 + i * 13 });
   }
 }
 function updateBoats(t) {
-  const town = RIVER.filter(([x]) => x > -10);
+  const town = RIVER.filter(([x]) => x > -30);
   for (const b of boats) {
     const k = mod(t / b.per, 1);
     if (b.i < 3) { const a = TAU * (k + b.i / 3); b.m.position.set(190 + Math.cos(a) * 60, .1, -140 + Math.sin(a) * 220); b.m.rotation.y = -a; }
-    else if (b.i < 5) {
-      const kk = mod(k + (b.i - 3) * .5, 1), pp = kk < .5 ? kk * 2 : 2 - kk * 2, s = smooth(pp) * (town.length - 1), f = Math.min(town.length - 2, Math.floor(s)), q = s - f;
-      const [ax, az] = town[f], [bx, bz] = town[f + 1];
-      b.m.position.set(ax + (bx - ax) * q, .05, az + (bz - az) * q); b.m.rotation.y = Math.atan2(bx - ax, bz - az) + (kk < .5 ? 0 : Math.PI);
-    } else { const a = TAU * (k + b.i); b.m.position.set(118 + Math.cos(a) * 18 + (b.i - 5) * 30, .05, 40 + Math.sin(a) * 12); b.m.rotation.y = -a; }
+    else if (b.i < 5) {   // down to the bay and back, each barge in its own channel (a quarter of the width off the centre line)
+      const pp = k < .5 ? k * 2 : 2 - k * 2, s = smooth(pp) * (town.length - 1), f = Math.min(town.length - 2, Math.floor(s)), q = s - f;
+      const [ax, az, aw] = town[f], [bx, bz] = town[f + 1], L = Math.hypot(bx - ax, bz - az), side = b.i === 3 ? 1 : -1, off = aw * .25 * side;
+      b.m.position.set(ax + (bx - ax) * q - (bz - az) / L * off, .05, az + (bz - az) * q + (bx - ax) / L * off); b.m.rotation.y = Math.atan2(bx - ax, bz - az) + (k < .5 ? 0 : Math.PI);
+    } else { const c = b.i === 5 ? [108, 50, 15] : [134, 84, 13], a = TAU * k * (b.i === 5 ? 1 : -1); b.m.position.set(c[0] + Math.cos(a) * c[2], .05, c[1] + Math.sin(a) * c[2]); b.m.rotation.y = -a + (b.i === 5 ? 0 : Math.PI); }
   }
 }
 
@@ -681,7 +699,7 @@ const CAMS = {   // [position, look-at] for landscape; portrait backs off and wi
 };
 function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
-  if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 14, PLAIN + 12, h.z + 18); camera.lookAt(h.x, PLAIN + 4, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
+  if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
   camera.position.set(l[0] + (p[0] - l[0]) * back + Math.sin(a) * 10, p[1] * back, l[2] + (p[2] - l[2]) * back + Math.cos(a) * 5);
