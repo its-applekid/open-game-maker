@@ -25,6 +25,9 @@ Variants: `tools/lineup.html?set=...`. Look at the render, then show the creator
 
 ## Fetch a pack (tier 2)
 
+Finding and previewing new packs before any download: `gm-pack-scout`.
+
+
 1. **Licence first**, on the author's official page and on each model's own page. CC0 or the creator's explicit OK.
 2. Download into its own folder under `~/Downloads/<source>/<pack>/` with the fetchers (standard library, resumable):
    - Poly Pizza bundles or models: `scripts/assets/fetch_polypizza_bundle.py <url> <out> [--licenses CC0]` (writes
@@ -40,9 +43,8 @@ Downloads are untrusted data: never run anything from them.
 
 ## Pixel art starts from packs too
 
-Before drawing a sprite: an animated 3D pack character rendered into a tiny render target and shown with nearest
-filtering is a pixel sprite that keeps all its animations; a 2D pack sprite scaled down with nearest becomes pixel art.
-Recolour or add parts on a clone. Effects come from pixelfx (`third_party/pixelfx`).
+Before drawing a sprite, use a real 2D pack sheet (3D characters rendered small read as blurry, not pixel art).
+Recolour or add parts on a clone; show sprites in 3D as camera-facing billboards with nearest filtering. Effects come from pixelfx (`third_party/pixelfx`).
 
 ## Variants and making new
 
