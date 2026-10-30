@@ -28,56 +28,111 @@ addEventListener('message', e => { if (e.data?.ogm === 'start' && state.screen =
 $('#lib-back').onclick = () => { loadTitle(); show('title'); };
 
 // ---------------- library ----------------
+// The selected game owns a fixed spotlight at the top (details left, gameplay right with paint-splatter edges);
+// the edge-to-edge grid below picks what it shows. Click a tile to select it, click the selected tile for the details window.
 const grid = $('#lib-grid');
-let openId = games[0].id;
+let selId = null;
+const STAR = 'M12 2.5l2.9 6.1 6.6.8-4.9 4.6 1.3 6.6L12 17.3l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z';
+function stars(r) {
+  return Array.from({ length: 5 }, (_, i) => {
+    const f = Math.max(0, Math.min(1, (r || 0) - i)) * 100, id = `st${i}`;
+    return `<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="${id}"><stop offset="${f}%" stop-color="#fabd2f"/><stop offset="${f}%" stop-color="#d5c4a1"/></linearGradient></defs><path d="${STAR}" fill="url(#${id})" stroke="#3c3836" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+  }).join('');
+}
 function tileFor(g, i) {
   const building = g.status === 'building';
-  const t = h('article', 'tile' + (building ? ' building' : '') + (g.id === openId ? ' open' : ''));
+  const t = h('button', 'tile' + (building ? ' building' : '') + (g.id === selId ? ' sel' : ''));
   t.dataset.id = g.id;
   t.style.setProperty('--c', g.color); t.style.setProperty('--i', i);
-  const title = `<span class="cover-title" style="font-family:'${g.font}',var(--display);color:${g.color}">${esc(g.title)}</span>`;
-  const meta = `<span class="tile-meta"><span class="genres">${g.genres.map(x => `<i>${esc(x)}</i>`).join('')}</span>
-        <span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span>`;
-  t.innerHTML = `<div class="tile-cover"><canvas></canvas><span class="shine"></span>
-      ${g.badge ? `<span class="badge">${esc(g.badge)}</span>` : ''}
-      <span class="build-chip" ${building ? '' : 'hidden'}><i class="ring"></i><b class="pct">0%</b> Building</span>
-      <span class="tile-info">${title}<span class="tile-tag">${esc(g.tagline)}</span>${meta}</span>
-      <button class="tile-hit" aria-label="${esc(g.title)}: ${esc(g.tagline)}"></button>
-    </div>
-    <div class="tile-strip">
-      <div class="strip-text">${title}<span class="tile-tag">${esc(g.tagline)}</span><p class="strip-desc">${esc(g.desc)}</p>${meta}</div>
-      <div class="strip-acts">
-        <button class="act play" ${building ? 'disabled' : ''}>▶ Play</button>
-        <button class="act edit" ${building ? 'disabled' : ''}>✎ Edit</button>
-      </div>
-    </div>`;
-  $('.tile-hit', t).onclick = () => t.classList.contains('open') ? openGame(g) : openTile(g.id);
-  $('.act.play', t).onclick = () => enterGame(g, 'play');
-  $('.act.edit', t).onclick = () => enterGame(g, 'edit');
+  t.setAttribute('aria-label', `${g.title}: ${g.tagline}`);
+  t.innerHTML = `<canvas></canvas><span class="shine"></span>
+    ${g.badge ? `<span class="badge">${esc(g.badge)}</span>` : ''}
+    <span class="build-chip" ${building ? '' : 'hidden'}><i class="ring"></i><b class="pct">0%</b> Building</span>
+    <span class="tile-info"><span class="cover-title" style="font-family:'${g.font}',var(--display);color:${g.color}">${esc(g.title)}</span>
+      <span class="tile-meta"><span class="genres">${g.genres.map(x => `<i>${esc(x)}</i>`).join('')}</span><span class="stars">${g.rating ? '★ ' + g.rating : 'New'}</span></span></span>`;
+  t.onclick = () => g.id === selId ? openGame(g) : select(g.id, true);
   return t;
 }
-// Open a tile to 2×2; every tile glides from where it was to where the grid now puts it (FLIP).
-function openTile(id) {
-  const tiles = $$('.tile', grid), before = new Map(tiles.map(t => [t, t.getBoundingClientRect()]));
-  openId = id;
-  for (const t of tiles) { t.classList.toggle('open', t.dataset.id === id); t.style.animation = 'none'; }
-  if (reduced) return;
-  for (const t of tiles) {
-    const a = before.get(t), b = t.getBoundingClientRect();
-    const dx = a.left - b.left, dy = a.top - b.top, sx = a.width / b.width, sy = a.height / b.height;
-    if (!dx && !dy && sx === 1 && sy === 1) continue;
-    t.animate([{ transformOrigin: '0 0', transform: `translate(${dx}px, ${dy}px) scale(${sx}, ${sy})` }, { transformOrigin: '0 0', transform: 'none' }],
-      { duration: 550, easing: 'cubic-bezier(.22,1,.36,1)' });
+// splatter-edged mask for the spotlight footage, plus coloured splats behind it (seeded per game so each looks a little different)
+function splatMask(seed, W = 800, H = 450) {
+  let s = seed; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d'); c.fillStyle = '#fff';
+  const dot = (x, y, rad) => { c.beginPath(); c.arc(x, y, rad, 0, 7); c.fill(); };
+  c.beginPath(); c.roundRect(W * .1, H * .14, W * .8, H * .72, 60); c.fill();
+  // ragged edge: a dense spray of small and medium drops along the border
+  for (let i = 0; i < 900; i++) {
+    const side = i % 4, u = .08 + r() * .84, m = (r() - .62) * .1;
+    const x = side < 2 ? W * u : side === 2 ? W * (.1 - m) : W * (.9 + m);
+    const y = side >= 2 ? H * u : side === 0 ? H * (.14 - m * 1.6) : H * (.86 + m * 1.6);
+    dot(x, y, 2 + r() ** 3 * 22);
   }
-  const open = $('.tile.open', grid), r = open.getBoundingClientRect();
-  if (r.top < 72 || r.bottom > innerHeight - 96) scrollBy({ top: r.top - 88, behavior: 'smooth' });
+  // a few big blots and drips, then fine specks flung outward
+  for (let i = 0; i < 14; i++) { const a = r() * 7, x = W / 2 + Math.cos(a) * W * .4, y = H / 2 + Math.sin(a) * H * .36; dot(x, y, 16 + r() * 24); }
+  for (let i = 0; i < 6; i++) { const x = W * (.1 + r() * .8), len = 20 + r() * 50; c.fillRect(x - 3, H * .84, 6, len); dot(x, H * .84 + len, 6); }
+  for (let i = 0; i < 160; i++) { const a = r() * 7, d = .44 + r() * .08; dot(W / 2 + Math.cos(a) * W * d, H / 2 + Math.sin(a) * H * d, .8 + r() * 3); }
+  return cv.toDataURL();
+}
+function splatBack(cv, seed, color) {
+  const W = cv.width = cv.clientWidth * 2, H = cv.height = cv.clientHeight * 2, c = cv.getContext('2d');
+  let s = seed + 7; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const cols = [color, color, '#83a598', '#d3869b', '#fe8019', '#458588'];
+  for (let k = 0; k < 7; k++) {   // paint bursts around the footage, each a blob ringed by its own spray
+    const a = r() * Math.PI * 2, cx = W / 2 + Math.cos(a) * W * .38, cy = H / 2 + Math.sin(a) * H * .38, col = cols[Math.floor(r() * cols.length)];
+    c.fillStyle = col; c.globalAlpha = .75;
+    for (let i = 0; i < 26; i++) { const rr = r() * W * .07; c.beginPath(); c.arc(cx + (r() - .5) * W * .12, cy + (r() - .5) * H * .14, 6 + r() ** 2 * W * .035, 0, 7); c.fill(); }
+    for (let i = 0; i < 40; i++) { const t = r() * 7, d = W * (.05 + r() * .09); c.beginPath(); c.arc(cx + Math.cos(t) * d, cy + Math.sin(t) * d * .9, 1.5 + r() * 6, 0, 7); c.fill(); }
+  }
+  c.globalAlpha = 1;
+}
+const seedOf = id => [...id].reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 2147483647, 7) || 7;
+function select(id, scroll) {
+  selId = id;
+  const g = games.find(x => x.id === id), building = g.status === 'building';
+  for (const t of $$('.tile', grid)) t.classList.toggle('sel', t.dataset.id === id);
+  const hero = $('#lib-hero');
+  hero.style.setProperty('--c', g.color);
+  const tags = [...g.genres, ...g.vibe, g.art, ...g.world.split(' · '), ...g.players.split(' · ')];
+  $('#lh-text').innerHTML = `
+    ${g.badge ? `<span class="lh-badge">${esc(g.badge)}</span>` : ''}
+    <h2 class="lh-title" style="font-family:'${g.font}',var(--display)">${esc(g.title)}</h2>
+    <p class="lh-tag">${esc(g.tagline)}</p>
+    <p class="lh-desc">${esc(g.desc)}</p>
+    <div class="lh-tags">${tags.map(x => `<span>${esc(x)}</span>`).join('')}</div>
+    <dl class="lh-stats">
+      <div><dt>Time played</dt><dd>${esc(g.played || '0m')}</dd></div>
+      <div><dt>Rating</dt><dd class="lh-stars" aria-label="${g.rating ? g.rating + ' out of 5' : 'Not rated yet'}">${stars(g.rating)}<small>${g.rating ? g.rating : 'New'}</small></dd></div>
+      <div><dt>Version</dt><dd>v${esc(g.version)}</dd></div>
+      <div><dt>Plays</dt><dd>${esc(g.plays)}</dd></div>
+    </dl>
+    <div class="lh-acts">
+      <button class="act play" ${building ? 'disabled' : ''}>▶ Play</button>
+      <button class="act edit" ${building ? 'disabled' : ''}>✎ Edit</button>
+      <button class="act more">Details</button>
+    </div>`;
+  $('#lh-text .act.play').onclick = () => enterGame(g, 'play');
+  $('#lh-text .act.edit').onclick = () => enterGame(g, 'edit');
+  $('#lh-text .act.more').onclick = () => openGame(g);
+  const seed = seedOf(g.id), shot = $('#lh-shot');
+  shot.style.maskImage = shot.style.webkitMaskImage = `url(${splatMask(seed)})`;
+  splatBack($('#lh-splat'), seed, g.color);
+  for (const el of [$('#lh-text'), $('#lh-media')]) { el.classList.remove('swap'); void el.offsetWidth; el.classList.add('swap'); }
+  drawHero(performance.now());
+  if (scroll && hero.getBoundingClientRect().bottom < 120) scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
+}
+function drawHero(now) {
+  const g = games.find(x => x.id === selId), cv = $('#lh-canvas');
+  if (!g) return;
+  if (g.status === 'building') { cv.width = 320; cv.height = 180; blueprint(cv.getContext('2d'), now / 1000, 320, 180, jobFor(g.id)?.p || 0); }
+  else paint(cv, g.scene, 0, (SCENES[g.scene].cover?.[1] || 0) + (reduced ? 0 : now / 1000 % 60));
 }
 function renderLibrary() {
+  if (!selId || !games.some(g => g.id === selId)) selId = games[0].id;
   grid.innerHTML = '';
   games.forEach((g, i) => grid.append(tileFor(g, i)));
   $('#lib-count').textContent = `${games.length} games`;
   drawCovers();
   for (const t of $$('.tile', grid)) seen.observe(t);
+  select(selId, false);
 }
 function drawCovers() {
   for (const t of $$('.tile', grid)) {
@@ -86,11 +141,19 @@ function drawCovers() {
     else { const [si, ct] = SCENES[g.scene].cover || [0, 1]; paint(cv, g.scene, si, ct); }
   }
 }
+// arrows browse, Enter plays the selected game
+addEventListener('keydown', e => {
+  if (state.screen !== 'library' || !gm.hidden || e.target.closest('input, textarea')) return;
+  const i = games.findIndex(g => g.id === selId);
+  if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const n = games[(i + (e.key === 'ArrowRight' ? 1 : -1) + games.length) % games.length]; select(n.id, false); $(`.tile[data-id="${n.id}"]`, grid)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  if (e.key === 'Enter' && e.target === document.body && games[i].status !== 'building') enterGame(games[i], 'play');
+});
 // Every cover on screen plays all the time; building tiles animate their blueprint.
 const onScreen = new Set();
 const seen = new IntersectionObserver(es => es.forEach(e => e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target)));
 function libraryLoop(now) {
   if (state.screen === 'library' && !reduced) {
+    drawHero(now);
     for (const t of onScreen) {
       if (!t.isConnected) { onScreen.delete(t); continue; }
       const cv = $('canvas', t), g = games.find(x => x.id === t.dataset.id);
@@ -118,7 +181,7 @@ function openGame(g) {
   $('#gm-facts').innerHTML = row('Genre', chips(g.genres)) + row('Vibe', chips(g.vibe)) + row('Art style', chips([g.art])) + row('Players', esc(g.players))
     + row('World', esc(g.world)) + row('Controls', esc(g.controls))
     + row('Rating', g.rating ? `<span class="stars-big">${'★'.repeat(Math.round(g.rating))}${'☆'.repeat(5 - Math.round(g.rating))}</span> ${g.rating} <small>(${g.votes})</small>` : 'Not rated yet')
-    + row('Plays', esc(g.plays)) + row('Updated', `${esc(g.updated)} · ${esc(g.version)}`) + row('Made with', esc(g.packs.join(', ')));
+    + row('Plays', esc(g.plays)) + row('Updated', `${esc(g.updated)} · v${esc(g.version)}`) + row('Made with', esc(g.packs.join(', ')));
   $('#gm-play').disabled = $('#gm-edit').disabled = building;
   $('#gm-building').hidden = !building;
   const thumbs = $('#gm-thumbs'); thumbs.innerHTML = '';
@@ -302,7 +365,7 @@ function createGame(title) {
   const g = { id, title, by: 'you', font: 'Lilita One', color: '#fabd2f', badge: 'Yours', tagline: 'A night-shift baker delivers bread across floating islands.',
     genres: genres.length ? genres : ['Adventure'], vibe: vibe.length ? vibe : ['Cozy'], art: label(art) || '16-bit pixel',
     players: [...(state.picks.players || [])].map(label).join(' · ') || 'Single player', world: [...(state.picks.world || [])].map(label).join(' · ') || 'Sky islands',
-    controls: 'Keyboard · Touch', rating: null, votes: '', plays: '0', updated: 'Building', version: 'v0.1', packs: [ART[art]?.packs[0]?.[1] ? 'Kenney ' + ART[art].packs[0][1] : 'Kenney Tiny Town'],
+    controls: 'Keyboard · Touch', rating: null, votes: '', plays: '0', updated: 'Building', version: '0.1.0', played: '0m', packs: [ART[art]?.packs[0]?.[1] ? 'Kenney ' + ART[art].packs[0][1] : 'Kenney Tiny Town'],
     labels: ['First run', 'Islands'], desc: 'Built from your picks and your conversation with the builder. In this prototype it plays in Goblin Cellar.', scene, status: 'building' };
   games.unshift(g);
   addJob('game', title, id);
