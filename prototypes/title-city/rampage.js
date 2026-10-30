@@ -74,7 +74,8 @@ export async function kaiju(ctx) {
   const D = [];
   const addThing = (geo, map, tint, x, z, rot, scale, h, kind) => {
     const g = geo.clone(); g.scale(...scale); g.rotateY(rot);
-    const mat = ctx.kitMat(map, { tint: new THREE.Color(tint) }), chunkMat = mat.clone(); chunkMat.side = THREE.DoubleSide; chunkMat.uniforms.cut.value = 9999;
+    const mat = ctx.kitMat(map, { tint: new THREE.Color(tint) }), chunkMat = mat.clone(); chunkMat.side = THREE.DoubleSide;
+    chunkMat.uniforms = { ...mat.uniforms, cut: { value: 9999 } };   // share the live day/night uniforms; clone() copies them frozen
     const whole = new THREE.Mesh(g, mat); whole.position.set(x, PLAIN, z); scene.add(whole);
     const d = { kind, x, z, h, r: kind === 'wall' ? 0 : Math.max(scale[0], scale[2]) * .7, geo: g, mat, chunkMat, whole, versions: [{ t: -1, mesh: whole }], chunks: [], hits: [], rebuild: 0, burns: false };
     D.push(d); return d;
@@ -117,52 +118,72 @@ export async function kaiju(ctx) {
 
   // ---- the choreography: where he is and what he does, second by second
   const pts = { sea: P(-75, 6), outside: P(-6, 0), gap: P(9, 0), a: P(16, 7), b: P(24, -5), c: P(14, -13), back: P(-6, -2), away: P(-80, -10) };
-  const S = [];   // segments: walk/run between points, or act on the spot (with a facing)
-  const seg = (t0, t1, kind, from, to, clip, face) => S.push({ t0, t1, kind, from, to, clip, face });
-  seg(0, 10, 'move', pts.sea, pts.outside, 'Walk');
-  seg(10, 12.2, 'act', pts.outside, pts.outside, 'Punch', [nx, nz]);                 // through the wall
-  seg(12.2, 15, 'move', pts.outside, pts.gap, 'Walk');
-  seg(15, 17, 'act', pts.gap, pts.gap, 'Punch', null);                               // a house on the left
-  seg(17, 19.5, 'move', pts.gap, pts.a, 'Walk');
-  seg(19.5, 21.5, 'act', pts.a, pts.a, 'Punch', null);                               // a house on the right
-  seg(21.5, 23, 'move', pts.a, pts.b, 'Run');                                        // charge
-  seg(23, 24.2, 'act', pts.b, pts.b, 'Jump', null);                                  // stomp
-  seg(24.2, 25.2, 'act', pts.b, pts.b, 'Jump_Land', null);
-  seg(25.2, 27.5, 'act', pts.b, pts.b, 'Yes', null);                                 // roar
-  seg(27.5, 29.5, 'act', pts.b, pts.b, 'Punch', null);
-  seg(29.5, 32, 'move', pts.b, pts.c, 'Walk');
-  seg(32, 34, 'act', pts.c, pts.c, 'Punch', null);
-  // the castle fights back (see DEFENCE below): hits at 36.4, 38.3 (bolt) and 40.2 make him reel; he roars and flees
-  seg(34, 36.4, 'act', pts.c, pts.c, 'Yes', null);
-  seg(36.4, 37.4, 'act', pts.c, pts.c, 'HitReact', null);
-  seg(37.4, 38.3, 'act', pts.c, pts.c, 'Idle', null);
-  seg(38.3, 39.3, 'act', pts.c, pts.c, 'HitReact', null);
-  seg(39.3, 40.2, 'act', pts.c, pts.c, 'Idle', null);
-  seg(40.2, 41.2, 'act', pts.c, pts.c, 'HitReact', null);
-  seg(41.2, 42.6, 'act', pts.c, pts.c, 'No', null);
-  seg(42.6, 46, 'move', pts.c, pts.back, 'Run');
-  seg(46, LEAVE, 'move', pts.back, pts.away, 'Walk');
+  const C = ctx.castle, cf = [Math.sin(C.face), Math.cos(C.face)], cs = [cf[1], -cf[0]];
+  const fieldFrom = P(-34, 30), fieldTo = P(-15, 24);   // the field trebuchet: pushed across the fields outside the wall, then turned
+  // when a swing connects: the moment the forearm is furthest forward in the clip (so debris and flashes land on the blow)
+  const contact = {};
+  for (const name of ['Punch', 'Weapon']) {
+    const a = M.actions[name]; if (!a) continue; const d = a.getClip().duration; let best = -1e9, bt = d * .5;
+    const arms = []; M.g.traverse(o => { if (/LowerArm/.test(o.name)) arms.push(o); });
+    M.mixer.stopAllAction(); a.play();
+    for (let i = 0; i <= 40; i++) { a.time = d * i / 40; M.mixer.update(0); M.g.updateMatrixWorld(true);
+      for (const o of arms) { const z = o.getWorldPosition(new THREE.Vector3()).z; if (z > best) { best = z; bt = a.time; } } }
+    contact[name] = bt; M.mixer.stopAllAction();
+  }
+  const S = [];   // segments: move between points, act on the spot, get knocked back, turn
+  const seg = (t0, t1, kind, from, to, clip, face, o = {}) => S.push({ t0, t1, kind, from, to, clip, face, ...o });
+  let cur = pts.sea, T = 0;
+  const go = (t1, to, clip = 'Walk') => { seg(T, t1, 'move', cur, to, clip); cur = to; T = t1; };
+  const act = (t1, clip, o = {}) => { seg(T, t1, 'act', cur, cur, clip, o.face || null, o); T = t1; };   // clips play once (rate slows them to his size)
+  const knock = (t1, src, dist, rate = .7) => { const dx = cur[0] - src[0], dz = cur[1] - src[1], L = Math.hypot(dx, dz) || 1, to = [cur[0] + dx / L * dist, cur[1] + dz / L * dist];
+    seg(T, t1, 'knock', cur, to, 'HitReact', null, { rate, yaw: Math.atan2(-dx, -dz) }); cur = to; T = t1; };   // reels back, still facing the blow
+  const turn = (t1, toward) => { seg(T, t1, 'turn', cur, cur, 'Idle', null, { toward }); T = t1; };
+  const castleSrc = [C.x, C.z];
+  go(10, pts.outside);
+  act(11.8, 'Punch', { face: [nx, nz], rate: .6 });           // through the wall
+  go(14.6, pts.gap);
+  act(16, 'Weapon', { rate: .6 });                           // a sweeping swipe at a house on the left
+  go(18.4, pts.a);
+  act(19.9, 'Punch', { rate: .65 });                         // a house on the right
+  go(21.4, pts.b, 'Run');                                    // charge
+  act(22.4, 'Jump', { rate: .35 }); act(23.4, 'Jump_Land', { rate: .33 });   // stomp
+  act(25, 'Yes');                                            // roar (the first boulder lands beside him at 25.4)
+  act(26.4, 'Punch', { rate: .6 });
+  go(29.6, pts.c);                                           // a ballista bolt stings him on the way (27.6, a flinch)
+  act(31, 'Weapon', { rate: .6 });
+  knock(31.8, castleSrc, 3.5);                               // castle trebuchet boulder, 31.0
+  act(33.4, 'Yes');                                          // furious
+  act(34.8, 'Punch', { rate: .6 });                          // still wrecking
+  knock(35.8, castleSrc, 3.5);                               // second castle boulder, 35.0 (a bolt at 36.5 makes him flinch)
+  act(37.6, 'No', { rate: 1.2 });
+  knock(38.7, fieldTo, 5.5, .55);                            // the field trebuchet's boulder, 37.6: the big one
+  turn(39.3, pts.back);
+  go(43.8, pts.back, 'Run'); go(LEAVE, pts.away, 'Run');     // sprints for the bay and keeps running
   const posAt = t => {   // position and heading at time t
     const s = S.find(s => t >= s.t0 && t < s.t1) || S[S.length - 1], k = clamp01((t - s.t0) / (s.t1 - s.t0));
-    const x = lerp(s.from[0], s.to[0], k), z = lerp(s.from[1], s.to[1], k), yaw = s.kind === 'move' ? Math.atan2(s.to[0] - s.from[0], s.to[1] - s.from[1]) : s.yaw ?? 0;
+    const kk = s.kind === 'knock' ? ease(k) : k, x = lerp(s.from[0], s.to[0], kk), z = lerp(s.from[1], s.to[1], kk);
+    let yaw = s.kind === 'move' ? Math.atan2(s.to[0] - s.from[0], s.to[1] - s.from[1]) : s.yaw ?? 0;
+    if (s.kind === 'turn') { let d = s.yaw1 - s.yaw0; d = Math.atan2(Math.sin(d), Math.cos(d)); yaw = s.yaw0 + d * smooth(k); }
     return { s, k, x, z, yaw };
   };
   // facings for punches: the nearest unbroken-enough house in front; stomp hits everything around
   const nearest = (p, exclude = []) => D.filter(d => d.kind === 'house' && !exclude.includes(d)).sort((a, b) => Math.hypot(a.x - p[0], a.z - p[1]) - Math.hypot(b.x - p[0], b.z - p[1]))[0];
   const punched = [];
   for (const s of S) {
-    if (s.kind === 'move') continue;
+    if (s.kind === 'move' || s.kind === 'knock') continue;
     const prev = S[S.indexOf(s) - 1], fallbackYaw = prev ? (prev.kind === 'move' ? Math.atan2(prev.to[0] - prev.from[0], prev.to[1] - prev.from[1]) : prev.yaw) : 0;
     if (s.face) s.yaw = Math.atan2(s.face[0], s.face[1]);
-    else if (s.clip === 'Punch') { const d = nearest(s.from, punched); punched.push(d); s.target = d; s.yaw = Math.atan2(d.x - s.from[0], d.z - s.from[1]); }
+    else if (s.kind === 'turn') { s.yaw0 = fallbackYaw; s.yaw1 = s.yaw = Math.atan2(s.toward[0] - s.from[0], s.toward[1] - s.from[1]); }
+    else if (s.clip === 'Punch' || s.clip === 'Weapon') { const d = nearest(s.from, punched); punched.push(d); s.target = d; s.yaw = Math.atan2(d.x - s.from[0], d.z - s.from[1]); }
     else s.yaw = fallbackYaw;
   }
   // ---- impacts, in time order (so each break works on what the last one left)
   const events = [];
   for (const s of S) {
-    if (s.clip === 'Punch' && s.face) events.push({ t: s.t0 + .9, f: () => { hit(wall, s.t0 + .9, { span: [0, 4.5], dir: [nx, nz], power: 1.4, at: [W.x, PLAIN + 3, W.z] }); fx.ring(s.t0 + .9, [W.x, PLAIN, W.z], .8); } });
-    else if (s.clip === 'Punch') events.push({ t: s.t0 + .8, f: () => { const d = s.target, dir = [Math.sin(s.yaw), Math.cos(s.yaw)]; hit(d, s.t0 + .8, { top: d.h * rr(.25, .45), dir, power: 1.2, side: [-dir[0], -dir[1]], at: [d.x - dir[0] * d.r, PLAIN + d.h * .6, d.z - dir[1] * d.r] });
-      for (const o of D) if (o !== d && o.kind === 'house' && Math.hypot(o.x - d.x, o.z - d.z) < 6) hit(o, s.t0 + .95, { top: o.h * rr(.6, .8), dir, power: .6 }); } });
+    const tc = s.t0 + (contact[s.clip] ?? .5) / (s.rate || 1);   // the blow lands on the clip's contact frame
+    if (s.clip === 'Punch' && s.face) events.push({ t: tc, f: () => { hit(wall, tc, { span: [0, 4.5], dir: [nx, nz], power: 1.4, at: [W.x, PLAIN + 3, W.z] }); fx.ring(tc, [W.x, PLAIN, W.z], .8); } });
+    else if (s.target) events.push({ t: tc, f: () => { const d = s.target, dir = [Math.sin(s.yaw), Math.cos(s.yaw)]; hit(d, tc, { top: d.h * rr(.25, .45), dir, power: 1.2, side: [-dir[0], -dir[1]], at: [d.x - dir[0] * d.r, PLAIN + d.h * .6, d.z - dir[1] * d.r] });
+      for (const o of D) if (o !== d && o.kind === 'house' && Math.hypot(o.x - d.x, o.z - d.z) < 6) hit(o, tc + .12, { top: o.h * rr(.6, .8), dir, power: .6 }); } });
     else if (s.clip === 'Jump_Land') events.push({ t: s.t0 + .1, f: () => { const [x, z] = s.from, t = s.t0 + .1;
       fx.ring(t, [x, PLAIN, z], 1.6); fx.decal(t, 60, 'crack', [x, PLAIN, z], 14); fx.dust(t, [x, PLAIN, z], 1.6); SHAKES.push({ t, a: .7 });
       for (const o of D) { if (o.kind !== 'house') continue; const dd = Math.hypot(o.x - x, o.z - z); if (dd > 14) continue;
@@ -184,20 +205,20 @@ export async function kaiju(ctx) {
     const k = await ctx.kenneyScene(model), o = k.scene; o.scale.setScalar(s); o.position.set(x, y, z); scene.add(o);
     const e = { o, x, z, y, s, arm: o.getObjectByName('arm'), arrow: o.getObjectByName('arrow'), shots: [] }; engines.push(e); return e;
   };
-  const C = ctx.castle, cf = [Math.sin(C.face), Math.cos(C.face)], cs = [cf[1], -cf[0]];
   const tre1 = await engine('castle/siege-trebuchet', C.x + cf[0] * (C.r + 6) + cs[0] * 9, C.z + cf[1] * (C.r + 6) + cs[1] * 9, ground(C.x + cf[0] * (C.r + 6), C.z + cf[1] * (C.r + 6)), 4.5);
   const tre2 = await engine('castle/siege-trebuchet', C.x + cf[0] * (C.r + 6) - cs[0] * 9, C.z + cf[1] * (C.r + 6) - cs[1] * 9, ground(C.x + cf[0] * (C.r + 6), C.z + cf[1] * (C.r + 6)), 4.5);
   const bal = await engine('castle/siege-ballista', ...P(8, 22), PLAIN, 3.6);
-  const fieldFrom = P(-34, 30), fieldTo = P(-15, 24);   // pushed across the fields outside the wall, then turned to face him
   const field = await engine('castle/siege-trebuchet', ...fieldTo, ground(...fieldTo), 4.2);
   for (const e of engines) e.o.rotation.y = Math.atan2(pts.c[0] - e.x, pts.c[1] - e.z) + Math.PI;
-  field.move = { t0: 26, t1: 33, from: fieldFrom, to: fieldTo, turn0: 33, turn1: 35, yaw0: Math.atan2(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]) + Math.PI, yaw1: field.o.rotation.y };
+  field.move = { t0: 24, t1: 31, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: Math.atan2(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]) + Math.PI, yaw1: field.o.rotation.y };
   const chest = (t) => { const p = posAt(t); return [p.x, Math.max(ground(p.x, p.z), 0) + H * .6, p.z]; };
   const missHouse = D.filter(d => d.kind === 'house' && !d.hits.length).sort((a, b) => Math.hypot(a.x - pts.c[0], a.z - pts.c[1]) - Math.hypot(b.x - pts.c[0], b.z - pts.c[1]))[0];
-  const DEFENCE = [   // fire time, engine, what it hits, flight seconds (hits at 36.4, 38.3 and 40.2 make him reel)
-    { t: 33.0, e: tre1, hit: 'dino', fl: 3.4 }, { t: 34.4, e: tre2, hit: 'house', fl: 3.0 }, { t: 36.6, e: field, hit: 'dino', fl: 1.7 },
-    { t: 37.0, e: tre2, hit: 'dino', fl: 3.2 }, { t: 39.0, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 39.0, e: tre1, hit: 'none', fl: 3.6 },
+  const DEFENCE = [   // fire time, engine, what it hits, flight seconds; landings: 25.4 miss, 27.6 bolt, 31.0 boulder, 35.0 boulder, 36.5 bolt, 37.6 field boulder
+    { t: 22.4, e: tre2, hit: 'house', fl: 3.0 }, { t: 26.6, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 27.6, e: tre1, hit: 'dino', fl: 3.4, big: true },
+    { t: 31.8, e: tre2, hit: 'dino', fl: 3.2, big: true }, { t: 35.5, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 35.9, e: field, hit: 'dino', fl: 1.7, big: true },
+    { t: 36.4, e: tre1, hit: 'none', fl: 3.6 },
   ];
+  const FLINCH = DEFENCE.filter(s => s.bolt).map(s => s.t + s.fl);   // small hits: a twitch while he keeps going
   const shots = [];
   for (const s of DEFENCE) {
     const land = s.t + s.fl, from = [s.e.x, s.e.y + s.e.s * (s.bolt ? .6 : 1.6), s.e.z];
@@ -213,7 +234,8 @@ export async function kaiju(ctx) {
       if (k % 2 === 0) fx.add('smoke', { born: s.t + u * s.fl, life: 2.2, p: q, v: [0, 1.5, 0], drag: .5, size: 1.4, grow: .8, rot: rr(0, 6), color: '#b8aeb6', alpha: .35 });
     }
     // the impact
-    fx.flash(land, to, s.bolt ? .8 : 1.4); SHAKES.push({ t: land, a: s.bolt ? .2 : .45 });
+    fx.flash(land, to, s.bolt ? .8 : 1.4); SHAKES.push({ t: land, a: s.bolt ? .2 : s.big ? .8 : .45 });
+    if (s.big) { const p = posAt(land + .3); fx.dust(land + .3, [p.x, PLAIN, p.z], 1.1); fx.debris(land + .2, [p.x, PLAIN + 1, p.z], [0, 0], 1); }   // staggers back, feet scraping
     if (s.hit === 'dino') { fx.dust(land, to, .5, '#d9c9b8'); if (!s.bolt) fx.fire(land, land + 1.2, to, .9); }
     else if (s.hit === 'house' && missHouse) { hit(missHouse, land, { top: missHouse.h * .2, dir: [to[0] - from[0], to[2] - from[2]].map(v => v / Math.hypot(to[0] - from[0], to[2] - from[2])), power: 1.5, at: to }); }
     else { fx.dust(land, to, .9); fx.debris(land, to, [0, 0], 1); fx.ring(land, to, .5); }
@@ -235,18 +257,18 @@ export async function kaiju(ctx) {
   for (const e of engines) for (let i = 0; i < 3; i++) {
     const off = (x, z, r, a) => [x + Math.cos(a) * r, z + Math.sin(a) * r], a0 = e.o.rotation.y + Math.PI / 2 + (i - 1) * .7;
     if (e === field) { const st = off(fieldFrom[0], fieldFrom[1], 3.2, a0), en = off(fieldTo[0], fieldTo[1], 3.2, a0);
-      man([[0, ...st, 'idle'], [26, ...st, 'interact-right'], [33, ...en, 'interact-right'], [35, ...en, 'idle'], [36.6, ...en, 'emote-yes'], [38.5, ...en, 'idle'], [LEAVE, ...en, 'emote-yes']]); }
+      man([[0, ...st, 'idle'], [24, ...st, 'interact-right'], [31, ...en, 'interact-right'], [33, ...en, 'idle'], [36.1, ...en, 'emote-yes'], [38, ...en, 'idle'], [LEAVE, ...en, 'emote-yes']]); }
     else { const p = off(e.x, e.z, 3, a0); man([[0, p[0], p[1], 'idle'], [e.shots[0] - .4, p[0], p[1], 'interact-right'], [e.shots[0] + .3, p[0], p[1], 'emote-yes'], [e.shots[0] + 2, p[0], p[1], 'idle'], [LEAVE - 12, p[0], p[1], 'emote-yes']]); }
   }
   // archers on the wall either side of the breach
   const arrows = [];
   for (let i = 0; i < 4; i++) { const p = [W.x + Math.cos(W.yaw) * (i < 2 ? -9 - i * 2.5 : 9 + (i - 2) * 2.5), W.z - Math.sin(W.yaw) * (i < 2 ? -9 - i * 2.5 : 9 + (i - 2) * 2.5)];
-    const m = man([[0, p[0], p[1], 'idle'], [34, p[0], p[1], 'holding-both-shoot'], [42, p[0], p[1], 'emote-yes'], [LEAVE, p[0], p[1], 'idle']]); m.y = PLAIN + W.KW * 1.25;
-    for (let k = 0; k < 6; k++) { const tf = 34.3 + k * 1.2 + i * .25; arrows.push({ t: tf, from: [p[0], m.y + 1.4, p[1]], fl: .8 }); } }
+    const m = man([[0, p[0], p[1], 'idle'], [26.5, p[0], p[1], 'holding-both-shoot'], [41, p[0], p[1], 'emote-yes'], [LEAVE, p[0], p[1], 'idle']]); m.y = PLAIN + W.KW * 1.25;
+    for (let k = 0; k < 6; k++) { const tf = 27 + k * 1.9 + i * .25; arrows.push({ t: tf, from: [p[0], m.y + 1.4, p[1]], fl: .8 }); } }
   // spearmen: out of the streets, at his feet, stabbing; they scatter when he reels, then cheer and give chase
   for (let i = 0; i < 8; i++) {
     const a = i / 8 * Math.PI * 2, home = P(30 + (i % 3) * 3, -12 + i * 3), ring = [pts.c[0] + Math.cos(a) * 6.5, pts.c[1] + Math.sin(a) * 6.5], back = [pts.c[0] + Math.cos(a) * 11, pts.c[1] + Math.sin(a) * 11];
-    man([[0, ...home, 'idle'], [33 + i * .15, ...home, 'sprint'], [35.6, ...ring, 'attack-melee-right'], [40.2, ...ring, 'sprint'], [41.2, ...back, 'emote-yes'], [42.8, ...back, 'sprint'], [46, ...P(-2, -2 + (i - 4) * 1.5), 'emote-yes'], [LEAVE, ...P(-2, -2 + (i - 4) * 1.5), 'idle']], true);
+    man([[0, ...home, 'idle'], [29.4 + i * .15, ...home, 'sprint'], [32, ...ring, 'attack-melee-right'], [38.7, ...ring, 'sprint'], [40, ...back, 'emote-yes'], [41.5, ...back, 'sprint'], [46, ...P(-2, -2 + (i - 4) * 1.5), 'emote-yes'], [LEAVE, ...P(-2, -2 + (i - 4) * 1.5), 'idle']], true);
   }
   const arrowMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(.04, .04, 1.4, 4).rotateX(Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#5e4a44' }), arrows.length);
   arrowMesh.frustumCulled = false; scene.add(arrowMesh);
@@ -262,17 +284,24 @@ export async function kaiju(ctx) {
   for (const d of wrecked) { d.sc = ctx.scaffold(d.kind === 'wall' ? 10 : d.r * 1.6 + .9, d.kind === 'wall' ? 3 : d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); d.sc.position.set(d.x, PLAIN, d.z); d.sc.rotation.y = d.kind === 'wall' ? W.yaw : 0; scene.add(d.sc); }
   fx.build();
 
-  let current = null;
   return {
     update(t) {
       const lt = ((t % PER) + PER) % PER;
       // the monster
       M.g.visible = lt < LEAVE;
       if (M.g.visible) {
-        const p = posAt(lt), a = M.actions[p.s.clip] || M.actions.Walk;
+        const p = posAt(lt), s = p.s, prev = S[S.indexOf(s) - 1];
         M.g.position.set(p.x, Math.max(ground(p.x, p.z), -5), p.z); M.g.rotation.y = p.yaw;
-        if (current !== a) { M.mixer.stopAllAction(); a.reset().play(); current = a; }
-        a.time = (p.s.kind === 'act' ? lt - p.s.t0 : lt) % a.getClip().duration; M.mixer.update(0);
+        const actOf = g => M.actions[g.clip] || M.actions.Walk;
+        const timeOf = (g, t) => { const d = actOf(g).getClip().duration, r = g.rate || 1;
+          return g.kind === 'move' || g.clip === 'Idle' ? (t * r) % d : Math.min((t - g.t0) * r, d - 1e-3); };   // acts play once and hold
+        M.mixer.stopAllAction();
+        const a = actOf(s), fade = prev ? clamp01((lt - s.t0) / .3) : 1;   // 0.3 s crossfade from the last segment's pose
+        let wa = 1;
+        if (prev && fade < 1 && actOf(prev) !== a) { const b = actOf(prev); b.play(); b.time = timeOf(prev, Math.min(lt, prev.t1 + (prev.kind === 'move' ? lt - s.t0 : 0))); b.setEffectiveWeight(1 - fade); wa = fade; }
+        const fl = FLINCH.find(x => lt >= x && lt < x + .45);
+        if (fl !== undefined && s.clip !== 'HitReact') { const h = M.actions.HitReact, w = .6 * Math.sin(Math.PI * (lt - fl) / .45); h.play(); h.time = Math.min((lt - fl) * 1.3, h.getClip().duration - 1e-3); h.setEffectiveWeight(w); wa *= 1 - w; }
+        a.play(); a.time = timeOf(s, lt); a.setEffectiveWeight(wa); M.mixer.update(0);
       }
       // the destructibles: show the version for this moment, fly the chunks, sink rubble, rebuild in scaffolding
       for (const d of D) {
@@ -331,7 +360,7 @@ export async function kaiju(ctx) {
     camera(cam, t, aspect) {
       const lt = ((t % PER) + PER) % PER, f = P(7, -3);
       let sh = 0; for (const s of SHAKES) { const a = lt - s.t; if (a >= 0 && a < 1.2) sh += s.a * Math.exp(-a * 4); }
-      if (lt >= 29.5 && lt < 45.5) {   // during the defence: from behind the field trebuchet, the Dino and the soldiers at his feet
+      if (lt >= 27 && lt < 39.6) {   // during the defence: from behind the field trebuchet, the Dino and the soldiers at his feet
         const to = [pts.c[0] - field.x, pts.c[1] - field.z], l = Math.hypot(...to), d = [to[0] / l, to[1] / l], sd = [d[1], -d[0]];
         cam.fov = aspect < 1 ? 64 : 46;
         cam.position.set(field.x - d[0] * 12 + sd[0] * 8 + Math.sin(lt * 37) * sh, ground(field.x, field.z) + 21 + Math.sin(lt * 53) * sh, field.z - d[1] * 12 + sd[1] * 8 + Math.cos(lt * 41) * sh);
