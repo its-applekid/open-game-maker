@@ -48,6 +48,9 @@ Recolour or add parts on a clone; show sprites in 3D as camera-facing billboards
 `prototypes/title-city/tools/pixelfx-gallery.html` (serve the folder, run `tools/build.sh` first) to show or choose from.
 In your own canvas: `createFrame(w, h, -originX, -originY)` and `createFx(mod, { x: 0, y: 0 })` (the frame offset is
 subtracted, so a positive origin draws everything off the top-left corner).
+In the 3D town, reuse `billboard`/`pxEffect` from `prototypes/title-city/earthbound.js`: it fades faint glow, which
+otherwise reads as a tinted box, and re-simulates effects for any time. Recoloured pixelfx lightning turns its halo opaque; draw
+a thin bolt (`pxBolt`) instead. Pillow is in `scripts/audio/.venv/bin/python` (not the system Python).
 
 ## Variants and making new
 

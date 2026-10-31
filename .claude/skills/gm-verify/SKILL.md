@@ -20,6 +20,8 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
 - Small events (a building rebuilt, a monster's punch): add a debug camera that frames the event (`?focus=` /
   `?cam=scene`) instead of judging from the wide shot.
 - Read each tiled image and say what is wrong before fixing; fix the worst thing first.
+- When the creator gave a reference image, put it beside your render in one image and compare before showing
+  anything (shape, view angle, palette); record clips only once that pair matches.
 
 ## Deliver
 
