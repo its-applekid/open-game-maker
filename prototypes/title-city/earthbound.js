@@ -154,7 +154,7 @@ export async function earthbound(ctx) {
       if (uv) { const a = new Float32Array(core.attributes.position.count * 2); for (let i = 0; i < a.length; i += 2) { a[i] = uv.getX(0); a[i + 1] = uv.getY(0); } core.setAttribute('uv', new THREE.BufferAttribute(a, 2)); }
       const m = new THREE.Mesh(uv ? mergeGeometries([c.geo, core]) : c.geo, d.chunkMat); m.visible = false; scene.add(m);
       const p = [d.x + c.c[0], PLAIN + c.c[1], d.z + c.c[2]], out = [c.c[0], c.c[2]], ol = Math.hypot(...out) || 1, sp = rr(4, 10) * power;
-      d.chunks.push({ m, t0: t, frames: flight(p, [out[0] / ol * sp + rr(-2, 2), rr(5, 12) * power, out[1] / ol * sp + rr(-2, 2)], [rr(-1, 1), rr(-1, 1), rr(-1, 1)].map(x => x * rr(2, 9)), c.r, ground, fx, t) });
+      d.chunks.push({ m, t0: t, r: c.r, frames: flight(p, [out[0] / ol * sp + rr(-2, 2), rr(5, 12) * power, out[1] / ol * sp + rr(-2, 2)], [rr(-1, 1), rr(-1, 1), rr(-1, 1)].map(x => x * rr(2, 9)), c.r, ground, fx, t) });
     }
     fx.debris(t, [d.x, PLAIN + top + 1, d.z], [0, 0], .5 + power * .3);   // grit only: the dust and fire are pixelfx
     SHAKES.push({ t, a: .35 * power });
@@ -177,7 +177,8 @@ export async function earthbound(ctx) {
   const targets = [...D.filter(blocks), ...D.filter(d => !blocks(d)).sort((a, b) => b.h - a.h)].slice(0, 6).sort((a, b) => ((a.x - cx) * sd[0] + (a.z - cz) * sd[1]) - ((b.x - cx) * sd[0] + (b.z - cz) * sd[1]));
   const keys = [[0, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [.6, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [3, ridgeAt[0], ridgeY + 20, ridgeAt[1]]];   // rises from behind the ridge
   targets.forEach((d, i) => keys.push([STRIKE0 - .45 + i * GAP, d.x, PLAIN + HOVER, d.z], [STRIKE0 + 1.2 + i * GAP, d.x, PLAIN + HOVER, d.z]));   // holds over each target while the bolt falls
-  keys.splice(3, 0, [STRIKE0 - 1.3, lerp(ridgeAt[0], targets[0].x, .92), PLAIN + HOVER + 8, lerp(ridgeAt[1], targets[0].z, .92)]);   // the glide in
+  keys.splice(3, 0, [4.6, lerp(ridgeAt[0], targets[0].x, .5), PLAIN + 85, lerp(ridgeAt[1], targets[0].z, .5)],   // high over the castle hill
+    [STRIKE0 - 1.3, lerp(ridgeAt[0], targets[0].x, .92), PLAIN + HOVER + 8, lerp(ridgeAt[1], targets[0].z, .92)]);   // the glide in
   const ufoAt = t => { let i = 0; while (i < keys.length - 2 && keys[i + 1][0] <= t) i++; const a = keys[i], b = keys[i + 1], k = smooth((t - a[0]) / (b[0] - a[0]));
     return [lerp(a[1], b[1], k), lerp(a[2], b[2], k) + Math.sin(t * 2.2) * .8, lerp(a[3], b[3], k)]; };
   // ---- the strikes: a bolt from the saucer's pod onto each target; the house blows apart as the bolt lands, then burns
@@ -195,16 +196,16 @@ export async function earthbound(ctx) {
     burn(d, land + .3, i);
   });
   // ---- timeline (seconds in the loop): the gag, an active fight, the crash, the bat, the exit
-  const T = { portal: 10.6, out: 10.9, wall: 11.45, jump: 13.95, land: 14.85,
+  const T = { portal: 10.6, out: 10.75, wall: 11.45, jump: 13.95, land: 14.85,
     bolt1: 15.7, roofRun: 16.3, roofJump: 17.0, onRoof: 17.6, a1: 17.9, bolt2: 19.6, leap: 19.45, down: 20.1, a2miss: 20.4, a2: 21.2,
-    bolt3: 22.7, burnt: 22.9, up: 24.7, a3: 25.2, fall: 26.3, crash: 27.7, walk: 28.4, swing: 33.6, run: 35.6, runT: 4.2, sink: 39.4 };
+    bolt3: 22.7, burnt: 22.9, up: 24.7, a3: 25.2, fall: 26.3, crash: 27.7, walk: 28.4, swing: 33.6, run: 35.6, runT: 6, sink: 39.4 };
   T.hit1 = T.a1 + .65; T.hit2 = T.a2 + .65; T.struck = T.bolt3 + .2; T.contact = T.swing + 3 / 8; T.flipEnd = T.contact + 1.2; T.runEnd = T.run + T.runT;
   // ---- Ness: normal, burnt (black, hair up) and the bat swing
   const nessTex = await load('models/sprites/variants/ness.png'), burntTex = await load('models/sprites/variants/ness_burnt.png'), batTex = await load('models/sprites/variants/ness_bat.png');
   const NPX = .1, ness = sheetSprite(scene, U, nessTex, 32, 64, NPX, 16, 62), bat = sheetSprite(scene, U, batTex, 64, 64, NPX, 32, 62);
   // the wall he runs into: a standing house near the square, approached from the open square
   const wallD = D.filter(d => !targets.includes(d) && d.h > 6).sort((a, b) => Math.hypot(a.x - F[0], a.z - F[1]) - Math.hypot(b.x - F[0], b.z - F[1]))[0];
-  const wd = [F[0] - wallD.x, F[1] - wallD.z], wl = Math.hypot(...wd), W = [wallD.x + wd[0] / wl * (wallD.r + .7), wallD.z + wd[1] / wl * (wallD.r + .7)], P0 = [wallD.x + wd[0] / wl * (wallD.r + 6.5), wallD.z + wd[1] / wl * (wallD.r + 6.5)];
+  const wd = [F[0] - wallD.x, F[1] - wallD.z], wl = Math.hypot(...wd), W = [wallD.x + wd[0] / wl * (wallD.r + .7), wallD.z + wd[1] / wl * (wallD.r + .7)], P0 = [wallD.x + wd[0] / wl * (wallD.r + 11), wallD.z + wd[1] / wl * (wallD.r + 11)];   // out of the portal at a full sprint
   const Wk = [W[0] + wd[0] / wl * .8, W[1] + wd[1] / wl * .8];   // knocked back a step
   const gy = (x, z) => Math.max(PLAIN, ground(x, z));
   // the rooftop he fires from: a house still standing near the square; the saucer's second bolt takes its roof off
@@ -231,17 +232,24 @@ export async function earthbound(ctx) {
   const path = pts => { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
     return { len: L[L.length - 1], at(d) { d = Math.max(0, Math.min(L[L.length - 1], d)); let i = 1; while (i < L.length - 1 && L[i] < d) i++; const k = (d - L[i - 1]) / ((L[i] - L[i - 1]) || 1), a = pts[i - 1], b = pts[i];
       return [lerp(a[0], b[0], k), lerp(a[1], b[1], k), b[0] - a[0], b[1] - a[1]]; } }; };
-  const walkP = path([G4, F, [9.4, -2], [11, -6.5], B]);
-  const RUN = [B, [18, -4.6], [20.8, -3.4], [23.7, -2.6], [26.6, -2], [29.6, -1.5], [27, -2.4], [23.9, -3.1], [20.9, -4], [18.1, -5.2], [15.4, -6.6], [12.8, -7.6], [9, -4.7], [10.6, 2.5]];
+  const walkP = path([G4, F, B]);   // straight up to it
+  // the exit: out of the rubble to the market, east along the harbour road, a U-turn, then flat out west past the square
+  const RUN = [B, [16, 8], [14, 14], [25, 17], [40, 20.8], [38, 19.6], [25, 16.4], [14, 14], [-4, 17.1], [-14, 18.9]];
   const runP = path(RUN), acc = 2 * (runP.len - 5 * T.runT) / (T.runT * T.runT), runD = a => 5 * a + .5 * acc * a * a;
   const E = RUN[RUN.length - 1];
+  // how high the rubble is under a point: chunks that have landed (centre plus most of their size), so he stands on it
+  const rubble = (x, z, lt) => { let top = 0;
+    for (const d of D) for (const c of d.chunks) { if (lt < c.t0 + 1.4 || (d.rebuild && lt > d.rebuild - 2)) continue;
+      const f = c.frames, n = f.length - 7, dd = Math.hypot(f[n] - x, f[n + 2] - z); if (dd > c.r + .45) continue;
+      top = Math.max(top, f[n + 1] + c.r * .55 * (1 - dd / (c.r + .45)) - gy(f[n], f[n + 2])); }
+    return Math.min(top, 1.6); };
   // where Ness is and what he's doing at any moment: row (1 idle, 2 run, 13 cast), frame, and the way he faces (the
   // column is picked per camera in update)
   function nessAt(lt) {
     const o = { vis: true, tex: nessTex, row: 1, frame: Math.floor(lt * 6) % 6, dir: null, bat: -1, p: [F[0], 0, F[1]] };
     const toUfo = p => { const u = ufoAt(lt); return [u[0] - p[0], u[2] - p[2]]; };
     if (lt < T.out || lt > T.runEnd) { o.vis = false; return o; }
-    if (lt < T.wall) { const k = (lt - T.out) / (T.wall - T.out); o.p = [lerp(P0[0], W[0], k), 0, lerp(P0[1], W[1], k)]; o.dir = [W[0] - P0[0], W[1] - P0[1]]; o.row = 2; o.frame = Math.floor(lt * 16) % 6; }
+    if (lt < T.wall) { const k = (lt - T.out) / (T.wall - T.out); o.p = [lerp(P0[0], W[0], k), 0, lerp(P0[1], W[1], k)]; o.dir = [W[0] - P0[0], W[1] - P0[1]]; o.row = 2; o.frame = Math.floor(lt * 22) % 6; }
     else if (lt < T.jump) { const k = smooth((lt - T.wall) / .25); o.p = [lerp(W[0], Wk[0], k), 0, lerp(W[1], Wk[1], k)]; o.tex = burntTex; o.dir = [-fwd[0], -fwd[1]]; }
     else if (lt < T.land) { const k = (lt - T.jump) / (T.land - T.jump); o.p = [lerp(Wk[0], F[0], k), Math.sin(k * Math.PI) * 5, lerp(Wk[1], F[1], k)]; o.dir = [F[0] - Wk[0], F[1] - Wk[1]]; o.row = 2; o.frame = 1; }
     else if (lt < T.walk) {
@@ -255,7 +263,7 @@ export async function earthbound(ctx) {
     else if (lt < T.swing + .75) { o.p = [B[0], 0, B[1]]; o.bat = Math.min(5, Math.floor((lt - T.swing) * 8)); o.dir = [C[0] - B[0], C[1] - B[1]]; }
     else if (lt < T.run) { o.p = [B[0], 0, B[1]]; o.dir = [rgt[0], rgt[1]]; }
     else { const a = lt - T.run, d = runD(a), q = runP.at(d); o.p = [q[0], 0, q[1]]; o.dir = [q[2], q[3]]; o.row = 2; o.frame = Math.floor(d / 1.1) % 6; }
-    o.p[1] += gy(o.p[0], o.p[2]); return o;
+    o.p[1] += gy(o.p[0], o.p[2]) + rubble(o.p[0], o.p[2], lt); return o;
   }
   const at3 = (p, y = 0) => [p[0], gy(p[0], p[1]) + y, p[1]];
   const hull = t => { const u = ufoAt(t); return [u[0], u[1] + 2.5, u[2]]; };   // the hull's middle, above the pod
@@ -344,7 +352,7 @@ export async function earthbound(ctx) {
   sn(T.swing + .1, 'woosh1', .8); sn(T.contact, 'impactWood_heavy_003', 1, .9); sn(T.contact + .01, 'impactMetal_heavy_002', .9, .8); sn(T.contact + .02, 'hitHelmet1', .7);
   sn(T.contact + .1, 'woosh3', .6, .7);
   sn(T.flipEnd - .05, 'sinkWater1', 1, .55); sn(T.flipEnd, 'impactSoft_heavy_001', .9); sn(T.flipEnd + .2, 'sinkWater2', .6, .7);
-  for (let i = 0; i < 7; i++) sn(T.sink + .3 + i * .7, 'drip' + (1 + i % 4), .5, .6);   // bubbles as it goes down
+  for (let i = 0; i < 4; i++) sn(T.sink + .3 + i * .5, 'drip' + (1 + i % 4), .45 - i * .08, .6);   // a few bubbles as it goes down
   sn(T.runEnd - 1.1, 'thrusterFire_002', .6); sn(T.runEnd - .5, 'forceField_003', .7);
   for (const d of wrecked) for (let t = d.rebuild + .3; t < d.rebuild + REB; t += rr(.35, .9))   // hammering and planks while each house goes up
     sn(t, rnd() < .25 ? pick('impactPlank_medium', 5) : rnd() < .5 ? 'chop' : pick('impactWood_light', 5), .22, rr(.9, 1.1));
@@ -366,8 +374,8 @@ export async function earthbound(ctx) {
       // facing, from this camera: right, away, left or toward
       const e0 = cam.matrixWorld.elements, cr = [e0[0], e0[2]], cf = [-e0[8], -e0[10]];
       const dirCol = ([vx, vz]) => { const r = vx * cr[0] + vz * cr[1], f = vx * cf[0] + vz * cf[1]; return Math.abs(r) >= Math.abs(f) ? (r > 0 ? 0 : 12) : (f > 0 ? 6 : 18); };
-      ness.material.uniforms.map.value = n.tex; ness.position.set(...n.p); ness.show((n.dir ? dirCol(n.dir) : 18) + n.frame, n.row); face(ness);
-      bat.position.set(...n.p); bat.show(Math.max(0, n.bat), 0); face(bat); bat.scale.x = n.dir && n.dir[0] * cr[0] + n.dir[1] * cr[1] < 0 ? -1 : 1;
+      ness.material.uniforms.map.value = n.tex; ness.position.set(...n.p); ness.show((n.dir ? dirCol(n.dir) : 18) + n.frame, n.row); screen(ness);   // fully facing, so a steep camera doesn't flatten him
+      bat.position.set(...n.p); bat.show(Math.max(0, n.bat), 0); screen(bat); bat.scale.x = n.dir && n.dir[0] * cr[0] + n.dir[1] * cr[1] < 0 ? -1 : 1;
       const pod = ufo.position, v3 = new THREE.Vector3(), camF = new THREE.Vector3(); cam.getWorldDirection(camF);
       for (const e of effects) { e.update(lt); if (!e.mesh.visible) continue;
         if (e.bolt) {   // stretch from the target up to the pod, in the camera's plane, and roll to point at it
@@ -416,7 +424,7 @@ export async function earthbound(ctx) {
         [19.2, () => far(mid(nP(), uP(), .45), 36, 14, 0), 1],               // the roof blown off, reverse angle
         [20.5, () => near(mid(nP(), uP(), .45), 32, 14, 0), 1],              // plasma, the bolt that lands, Starstorm
         [T.crash - .4, () => near(mid(nessAt(lt).p, at3(C), .55), 26, 14, 1)],
-        [T.run - .3, () => near(nessAt(Math.min(lt, T.runEnd - .01)).p, 24, 15, 2)],
+        [T.run - .3, () => near(nessAt(Math.min(lt, T.runEnd - .01)).p, 16, 30, 1)],   // steep, over the roofs of the intact houses
         [T.runEnd + .8, () => near(ufoState(lt, ufoAt(lt)).p.map((v, i) => i === 1 ? Math.max(v, 1) : v), 18, 22, 0)],
         [T.runEnd + 5.4, () => { const k = (lt - T.runEnd - 5.4) / (PER - T.runEnd - 5.4), o = Math.sin(k * Math.PI) * 30; return near([cx + sd[0] * o * .4, PLAIN, cz + sd[1] * o * .4], 62, 30, 4); }],   // the rebuild
       ];
