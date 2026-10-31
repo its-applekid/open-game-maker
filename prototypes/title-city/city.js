@@ -188,6 +188,8 @@ const wiggle = (pts, amp, seed) => pts.map(([x, z], i) => i === 0 || i === pts.l
   const west = [[TC.x, TC.z], [-20, TC.z + 6], [-50, 8], [-80, 4]];
   for (let i = RIVER.length - 1; i >= 0; i--) { const [x, z] = RIVER[i]; if (x > -100 || x < -560) continue; west.push([x + 4, z + 30]); }
   street(wiggle(west, 5, 4), 4, 'main');
+  // a straight road from the harbour bridge south through a gate in the front wall and out (Kevin, 2026-10-31)
+  street([[38.2, -20.3], [38.6, 20], [39, 66], [40, 104]], 4.2, 'main');
   street([[TC.x, TC.z], [36, TC.z + 6], [coastX(TC.z + 10) - 6, TC.z + 10]], 4, 'main');
   // winding lanes off every street in town, both sides, every so often
   R = rng(17);
@@ -290,7 +292,8 @@ async function terrain() {
   }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
-  scene.add(new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })));
+  const ground = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(ground);
+  window.__pick = (nx, ny) => { const r = new THREE.Raycaster(); r.setFromCamera(new THREE.Vector2(nx * 2 - 1, 1 - ny * 2), camera); const h = r.intersectObject(ground)[0]; return h && [+h.point.x.toFixed(1), +h.point.z.toFixed(1)]; };   // debug: the ground under a screen point
 }
 
 // ---------------- ocean ----------------
@@ -316,8 +319,50 @@ const oceanMat = new THREE.ShaderMaterial({ transparent: true, depthWrite: false
 
 // ---------------- models ----------------
 const loader = new GLTFLoader(), LIB = {};
-async function kenney(path) {   // one merged, base-centred geometry per model; each triangle's UVs averaged so it reads one flat swatch colour
-  if (LIB[path]) return LIB[path];
+// Every model the town uses, already processed the way kenney() does it, in one gzipped file (tools/bake.mjs writes
+// models/bake/models.bin.gz): one request instead of ~170, no glTF parsing, no per-triangle work on the phone.
+// Layout: u32 header length, JSON header { maps: [png data URLs], models: [{ path, map, n, box: [min xyz, max xyz] }] },
+// then per model positions as int16 (scaled to its box), normals as int8, UVs as uint16.
+let PACK = null;
+async function loadPack() {
+  if (Q.has('nobake') || Q.has('nopack') || typeof DecompressionStream === 'undefined') return;
+  const r = await fetch('models/bake/models.bin.gz').catch(() => null); if (!r?.ok) return;
+  const buf = await new Response(r.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer(), dv = new DataView(buf), hl = dv.getUint32(0, true);
+  const head = JSON.parse(new TextDecoder().decode(new Uint8Array(buf, 4, hl))); let off = 4 + hl;
+  const maps = head.maps.map(src => { const t = new THREE.TextureLoader().load(src); t.flipY = false; t.colorSpace = THREE.SRGBColorSpace; t.magFilter = t.minFilter = THREE.NearestFilter; t.generateMipmaps = false; return t; });
+  PACK = new Map();
+  for (const m of head.models) {
+    const n = m.n, pos = new Float32Array(n * 3), nor = new Float32Array(n * 3), uv = new Float32Array(n * 2), [x0, y0, z0, x1, y1, z1] = m.box;
+    off = (off + 1) & ~1; const P = new Int16Array(buf, off, n * 3); off += n * 6;
+    const N = new Int8Array(buf, off, n * 3); off += n * 3; off = (off + 1) & ~1;
+    const T = new Uint16Array(buf, off, n * 2); off += n * 4;
+    for (let i = 0; i < n; i++) { pos[i * 3] = x0 + (P[i * 3] + 32767) / 65534 * (x1 - x0); pos[i * 3 + 1] = y0 + (P[i * 3 + 1] + 32767) / 65534 * (y1 - y0); pos[i * 3 + 2] = z0 + (P[i * 3 + 2] + 32767) / 65534 * (z1 - z0); }
+    for (let i = 0; i < n * 3; i++) nor[i] = N[i] / 127;
+    for (let i = 0; i < n * 2; i++) uv[i] = T[i] / 65535;
+    const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3)); geo.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); if (m.map >= 0) geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); geo.computeBoundingBox();
+    PACK.set(m.path, { geo, map: m.map >= 0 ? maps[m.map] : null, w: x1 - x0, d: z1 - z0, h: y1 - y0 });
+  }
+}
+window.__modelsBake = async () => {   // for tools/bake.mjs: everything kenney() has loaded, in the layout above
+  const maps = [], models = [], parts = []; let size = 0;
+  const cv = document.createElement('canvas'), mapIndex = m => { if (!m?.image) return -1; cv.width = m.image.width; cv.height = m.image.height; const g = cv.getContext('2d'); g.clearRect(0, 0, cv.width, cv.height); g.drawImage(m.image, 0, 0); const u = cv.toDataURL('image/png'); let i = maps.indexOf(u); if (i < 0) i = maps.push(u) - 1; return i; };
+  for (const [path, p] of Object.entries(LIB)) {
+    const k = await p, g = k.geo, n = g.attributes.position.count, b = g.boundingBox, box = [b.min.x, b.min.y, b.min.z, b.max.x, b.max.y, b.max.z], q = (v, a, c) => Math.round(((v - a) / ((c - a) || 1)) * 65534 - 32767);
+    const P = new Int16Array(n * 3), N = new Int8Array(n * 3), T = new Uint16Array(n * 2), pa = g.attributes.position, na = g.attributes.normal, ua = g.attributes.uv;
+    for (let i = 0; i < n; i++) { P[i * 3] = q(pa.getX(i), box[0], box[3]); P[i * 3 + 1] = q(pa.getY(i), box[1], box[4]); P[i * 3 + 2] = q(pa.getZ(i), box[2], box[5]);
+      N[i * 3] = Math.round(na.getX(i) * 127); N[i * 3 + 1] = Math.round(na.getY(i) * 127); N[i * 3 + 2] = Math.round(na.getZ(i) * 127);
+      if (ua) { T[i * 2] = Math.round(Math.min(1, Math.max(0, ua.getX(i))) * 65535); T[i * 2 + 1] = Math.round(Math.min(1, Math.max(0, ua.getY(i))) * 65535); } }
+    models.push({ path, map: ua ? mapIndex(k.map) : -1, n, box }); parts.push(P, N, T);
+  }
+  const head = new TextEncoder().encode(JSON.stringify({ maps, models })); let total = 4 + head.length;
+  for (const a of parts) { if (a instanceof Int16Array || a instanceof Uint16Array) total = (total + 1) & ~1; total += a.byteLength; }
+  const out = new Uint8Array(total), dv = new DataView(out.buffer); dv.setUint32(0, head.length, true); out.set(head, 4); let off = 4 + head.length;
+  for (const a of parts) { if (a instanceof Int16Array || a instanceof Uint16Array) off = (off + 1) & ~1; out.set(new Uint8Array(a.buffer), off); off += a.byteLength; }
+  return out;
+};
+function kenney(path) { return LIB[path] ||= kenneyLoad(path); }   // shared per model, so loads started together run in parallel
+async function kenneyLoad(path) {   // one merged, base-centred geometry per model; each triangle's UVs averaged so it reads one flat swatch colour
+  if (PACK?.has(path)) return PACK.get(path);
   const g = await loader.loadAsync(`models/${path}.glb`); g.scene.updateMatrixWorld(true);
   const geos = []; let map = null;
   g.scene.traverse(m => { if (m.isMesh) { const x = m.geometry.clone().applyMatrix4(m.matrixWorld); for (const k of Object.keys(x.attributes)) if (!['position', 'normal', 'uv'].includes(k)) x.deleteAttribute(k); geos.push(x.index ? x.toNonIndexed() : x); map = map || m.material.map; } });
@@ -326,7 +371,7 @@ async function kenney(path) {   // one merged, base-centred geometry per model; 
   const uv = geo.attributes.uv;
   if (uv) for (let i = 0; i < uv.count; i += 3) { const u = (uv.getX(i) + uv.getX(i + 1) + uv.getX(i + 2)) / 3, v = (uv.getY(i) + uv.getY(i + 1) + uv.getY(i + 2)) / 3; for (let k = 0; k < 3; k++) uv.setXY(i + k, u, v); }
   if (map) { map.colorSpace = THREE.SRGBColorSpace; map.magFilter = THREE.NearestFilter; map.minFilter = THREE.NearestFilter; map.generateMipmaps = false; }
-  return (LIB[path] = { geo, map, w: b.max.x - b.min.x, d: b.max.z - b.min.z, h: b.max.y - b.min.y });
+  return { geo, map, w: b.max.x - b.min.x, d: b.max.z - b.min.z, h: b.max.y - b.min.y };
 }
 // the kit's colours, flat and a little softened; its blue swatches become the building's roof colour (instance colour);
 // dark window slits glow at night; cut hides everything above a height (houses being built or taken down)
@@ -364,12 +409,18 @@ const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!I
 const putS = (model, x, y, z, rot, s3) => { if (!INST.has(model)) INST.set(model, []); const e = { x, y, z, rot, s: s3, roof: C(ROOFS.castle[0]) }; INST.get(model).push(e); return e; };
 const WALL_SEGS = [];   // the stretched wall pieces, so a scene can claim one to break
 async function flush() {
+  await Promise.all([...INST.keys()].map(kenney));   // fetch them all at once
   for (const [model, list] of INST) {
     const k = await kenney(model), m = new THREE.InstancedMesh(k.geo, kitMat(k.map), list.length);
     list.forEach((p, i) => { _o.position.set(p.x, p.y, p.z); _o.rotation.set(0, p.rot, 0); _o.scale.set(...p.s); _o.updateMatrix(); m.setMatrixAt(i, _o.matrix); m.setColorAt(i, p.roof); p.mesh = m; p.i = i; });
     scene.add(m);
   }
   INST.clear();
+}
+// does a box (centre x z, half-size r, top height) stand in the line from a to b?
+function sightBlocked(a, b, x, z, r, top) {
+  const dx = b[0] - a[0], dz = b[2] - a[2], k = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[2]) * dz) / (dx * dx + dz * dz)));
+  return k > .02 && Math.hypot(a[0] + dx * k - x, a[2] + dz * k - z) < r && top > a[1] + (b[1] - a[1]) * k;
 }
 const hideEntry = e => { if (!e?.mesh) return; e.mesh.setMatrixAt(e.i, new THREE.Matrix4().makeScale(0, 0, 0)); e.mesh.instanceMatrix.needsUpdate = true; };   // a scene took it over
 // a model kept as its node tree (for parts that move, like a trebuchet's arm), with flat colours and the kit shader
@@ -517,7 +568,7 @@ function fillLots() {
 function market() {   // stalls around the square, a guild hall and trees
   R = rng(8);
   for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + rr(-.1, .1), r = rr(8, 12.5), x = TC.x + Math.cos(a) * r, z = TC.z + Math.sin(a) * r; if (!streetClear(x, z, .6)) continue; put(pk(VARIANTS.stall), x, PLAIN, z, Math.atan2(TC.x - x, TC.z - z), HK * .9); }
-  if (SCENE !== 'earthbound') put(VARIANTS.hall[2], TC.x + 5, PLAIN, TC.z - 5, .4, HK * 1.6, ROOFS.noble[0]);   // the EarthBound fight needs the square open to its camera
+  if (SCENE !== 'earthbound' && SCENE !== 'all') put(VARIANTS.hall[2], TC.x + 5, PLAIN, TC.z - 5, .4, HK * 1.6, ROOFS.noble[0]);   // the EarthBound fight needs the square open to its camera
 }
 function slum() {   // shacks in clumps outside the south-west wall, with barrels and fences
   R = rng(77); let n = 0;
@@ -598,7 +649,7 @@ const dyn = [];
 async function buildHouses() {
   R = rng(33);
   const changing = [];
-  for (const h of houses) { const ch = R() < .07; if (h.claim) h.entry = put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); else if (ch) changing.push(h); else put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); }
+  for (const h of houses) { const ch = R() < .07; if (h.claim) h.entry = put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); else if (ch) changing.push(h); else h.entry = put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); }
   for (const h of changing) {
     const r = rng(Math.floor(hash2(h.x, h.z) * 1e9)), list = VARIANTS[h.set], other = list[Math.floor(r() * list.length)];
     const objs = [], scs = [];
@@ -760,14 +811,15 @@ function claimRampage() {
     // the kaiju shot's angle, pulled back and turned toward the market so the other scenes fit (phones further back)
     view(aspect, also) { const port = aspect < 1, w = port ? .5 : .4, l = also ? [f[0] + (also[0] - f[0]) * w, f[1] + (also[1] - f[1]) * w] : f, k = port ? 2.1 : 1.45;
       return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
-    run: () => kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kenneyScene, kitMat, houses: zone, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
+    run: () => kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(-50) + 10, -50], [coastX(15) + 8, 15]] /* in from the sea beyond the river mouth, toward the camera */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
       breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps }) };
 }
 // The EarthBound homage (earthbound.js): the market quarter's houses, struck by the saucer.
 function claimEarthbound() {
   const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => !h.claim && Math.hypot(h.x - centre[0], h.z - centre[1]) < 26); for (const h of zone) h.claim = true;
-  return { zone, hide: [], centre,
-    run: () => earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
+  const eyes = VIEW_OF() ? [VIEW_OF().view(16 / 9, centre).pos, VIEW_OF().view(.46, centre).pos] : [];   // the menu camera, wide and tall
+  return { zone, hide: [], centre, eyes,
+    run: () => earthbound({ eyes, scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
 }
 // b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
 let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -782,7 +834,7 @@ function renderPixel(lines) {
 function size() { const w = innerWidth, h = innerHeight; aspect = w / h; renderer.setSize(w, h, false); }
 addEventListener('resize', size); size();
 window.__marks = window.__marks || []; const _mk = n => window.__marks.push([n, Math.round(performance.now())]);
-_mk('start'); await terrain(); _mk('terrain');
+_mk('start'); await Promise.all([terrain(), loadPack()]); _mk('terrain');
 await loadVariants(); _mk('variants');
 streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum(); _mk('plan');
 // scene=rampage|earthbound, or all: every scene at once (the menu)
@@ -790,6 +842,7 @@ const CLAIMS = [];
 if (SCENE === 'rampage' || SCENE === 'all') CLAIMS.push(claimRampage());
 if (SCENE === 'earthbound' || SCENE === 'all') CLAIMS.push(claimEarthbound());
 const VIEW = CLAIMS.find(c => c.view);
+function VIEW_OF() { return CLAIMS.find(c => c.view); }
 let SCS = [], SC = null, SFX = null, NOW = 0;
 await buildHouses(); _mk('houses'); await flush(); _mk('flush'); await trees(); torches(); makeClouds(); makeBoats(); _mk('trees');
 // the scenes' sound (live only): cues play as each scene's time passes them; loops follow their spans. Embedded (the
@@ -818,13 +871,21 @@ const makeSfx = SNDS => SNDS.length && !CAPTURE ? (() => {
 // first and EarthBound two thirds of the way through it; outside its window each scene holds its untouched first moment
 async function startScenes(join) {
   const list = [];
-  for (const c of CLAIMS) { list.push(await c.run()); for (const h of c.zone) hideEntry(h.entry); for (const e of c.hide) hideEntry(e); await new Promise(r => setTimeout(r)); }
-  const off = list.length > 1 ? list[0].per * 2 / 3 : 0, cycle = list.length > 1 ? Math.max(list[0].per, off + list[1].per) : 0;
-  list.forEach((s, i) => { s.off = i ? off : 0; s.local = cycle ? t => Math.min(Math.max(mod(t - join, cycle) - s.off, 0), s.per - .001) : t => t - join; });
+  for (const c of CLAIMS) { const sc = await c.run(); list.push(sc); for (const h of c.zone) hideEntry(h.entry); for (const e of c.hide) hideEntry(e);
+    if (sc.spots && c.eyes?.length) for (const h of houses) { if (h.claim || !h.entry) continue; const k = await kenney(h.model), top = PLAIN + k.h * h.s;
+      if (Object.values(sc.spots).some(p => c.eyes.some(e => sightBlocked([p[0], PLAIN + 3, p[1]], e, h.x, h.z, k.w * h.s / 2 + 1, top)))) hideEntry(h.entry); }
+    await new Promise(r => setTimeout(r)); }
+  // EarthBound starts near the end of the kaiju's fight, at a different moment each cycle (38-48 s in)
+  const OFF0 = 38, OFF1 = 48, offAt = k => OFF0 + (OFF1 - OFF0) * hash2(k, 77);
+  const cycle = list.length > 1 ? Math.max(list[0].per, OFF1 + list[1].per) : 0;
+  list.forEach((s, i) => { s.off = i ? offAt(0) : 0;
+    s.local = !cycle ? t => t - join : !i ? t => Math.min(mod(t - join, cycle), s.per - .001)
+      : t => { const u = Math.max(0, t - join), k = Math.floor(u / cycle); return Math.min(Math.max(u - k * cycle - offAt(k), 0), s.per - .001); }; });
   const snds = list.filter(s => s.sounds?.length);
   if (snds.length) window.__sounds = { per: cycle || snds[0].per, cues: snds.flatMap(s => s.sounds.map(c => ({ ...c, t: c.t + (s.off || 0) }))).sort((a, b) => a.t - b.t),   // for tools/mix_sound.mjs
     loops: snds.flatMap(s => s.loops.map(l => ({ ...l, t0: l.t0 + (s.off || 0), t1: l.t1 + (s.off || 0) }))) };
   SCS = list; SC = list[list.length - 1] || null; SFX = makeSfx(snds);
+  window.__scenes = list.map(s => ({ off: s.off, times: s.times }));   // debug: when things happen
 }
 function frame(t) {
   NOW = t; U.phase.value = TAU * mod(t, 60) / 60;
@@ -838,9 +899,9 @@ if (!CAPTURE) {
   const loop = () => { const now = performance.now(); t += Math.min(.1, (now - last) / 1000); last = now; frame(t); };
   renderer.setAnimationLoop(loop);
   addEventListener('message', e => { if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
-  if (EMBED) { frame(0); parent.postMessage('town-ready', '*'); }
+  if (EMBED) { await renderer.compileAsync(scene, camera).catch(() => {}); frame(0); parent.postMessage('town-ready', '*'); }   // shaders compiled before the first frame
   if (CLAIMS.length) setTimeout(() => startScenes(NOW), 100);   // the town first, the scenes join a moment later
 }
-else { await startScenes(0); frame(Number(Q.get('t') || 0)); }
+else { if (!Q.has('noscenes')) await startScenes(0); frame(Number(Q.get('t') || 0)); }   // noscenes: the town as it first appears (tools/poster.mjs)
 _mk('frame0');
 window.__ready = true;

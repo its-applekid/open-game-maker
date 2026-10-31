@@ -117,9 +117,10 @@ export async function kaiju(ctx) {
   }
 
   // ---- the choreography: where he is and what he does, second by second
-  const pts = { sea: P(-75, 6), outside: P(-6, 0), gap: P(9, 0), a: P(16, 7), b: P(24, -5), c: P(14, -13), back: P(-6, -2), away: P(-80, -10) };
+  const [sea, ford] = ctx.approach || [P(-75, 6), P(-40, 3)];   // he wades in from the sea (across the river mouth in the menu)
+  const pts = { sea, ford, outside: P(-6, 0), gap: P(9, 0), a: P(16, 7), b: P(24, -5), c: P(14, -13), back: P(-6, -2), away: P(-80, -10) };
   const C = ctx.castle, cf = [Math.sin(C.face), Math.cos(C.face)], cs = [cf[1], -cf[0]];
-  const fieldFrom = P(-34, 30), fieldTo = P(-15, 24);   // the field trebuchet: pushed across the fields outside the wall, then turned
+  const fieldFrom = P(-40, 90), fieldTo = P(-15, 24);   // the field trebuchet: pushed in from far down the fields, turned, and pushed away again after
   // when a swing connects: the moment the forearm is furthest forward in the clip (so debris and flashes land on the blow)
   const contact = {};
   for (const name of ['Punch', 'Weapon']) {
@@ -138,8 +139,10 @@ export async function kaiju(ctx) {
   const knock = (t1, src, dist, rate = .7) => { const dx = cur[0] - src[0], dz = cur[1] - src[1], L = Math.hypot(dx, dz) || 1, to = [cur[0] + dx / L * dist, cur[1] + dz / L * dist];
     seg(T, t1, 'knock', cur, to, 'HitReact', null, { rate, yaw: Math.atan2(-dx, -dz) }); cur = to; T = t1; };   // reels back, still facing the blow
   const turn = (t1, toward) => { seg(T, t1, 'turn', cur, cur, 'Idle', null, { toward }); T = t1; };
+  const stumble = (t1, dist, toward) => { const f = Math.atan2(toward[0] - cur[0], toward[1] - cur[1]), to = [cur[0] + Math.sin(f) * dist, cur[1] + Math.cos(f) * dist];   // pitched forward, the way he was turning
+    seg(T, t1, 'knock', cur, to, 'HitReact', null, { rate: .6, yaw: f }); cur = to; T = t1; };
   const castleSrc = [C.x, C.z];
-  go(10, pts.outside);
+  go(5, pts.ford); go(10, pts.outside);
   act(11.8, 'Punch', { face: [nx, nz], rate: .6 });           // through the wall
   go(14.6, pts.gap);
   act(16, 'Weapon', { rate: .6 });                           // a sweeping swipe at a house on the left
@@ -155,10 +158,10 @@ export async function kaiju(ctx) {
   act(33.4, 'Yes');                                          // furious
   act(34.8, 'Punch', { rate: .6 });                          // still wrecking
   knock(35.8, castleSrc, 3.5);                               // second castle boulder, 35.0 (a bolt at 36.5 makes him flinch)
-  act(37.6, 'No', { rate: 1.2 });
-  knock(38.7, fieldTo, 5.5, .55);                            // the field trebuchet's boulder, 37.6: the big one
-  turn(39.3, pts.back);
-  go(43.8, pts.back, 'Run'); go(LEAVE, pts.away, 'Run');     // sprints for the bay and keeps running
+  act(37.6, 'No', { rate: 1.2 });                            // the field boulder misses (37.6)
+  turn(38.7, pts.outside);                                   // he turns to go, slowly
+  stumble(39.9, 4.5, pts.outside);                                        // a castle boulder hits his back (38.8): he stumbles forward
+  go(42.6, pts.outside, 'Run'); go(48, pts.ford, 'Run'); go(LEAVE, pts.sea, 'Run');   // and runs back out the way he came
   const posAt = t => {   // position and heading at time t
     const s = S.find(s => t >= s.t0 && t < s.t1) || S[S.length - 1], k = clamp01((t - s.t0) / (s.t1 - s.t0));
     const kk = s.kind === 'knock' ? ease(k) : k, x = lerp(s.from[0], s.to[0], kk), z = lerp(s.from[1], s.to[1], kk);
@@ -210,13 +213,13 @@ export async function kaiju(ctx) {
   const bal = await engine('castle/siege-ballista', ...P(8, 22), PLAIN, 3.6);
   const field = await engine('castle/siege-trebuchet', ...fieldTo, ground(...fieldTo), 4.2);
   for (const e of engines) e.o.rotation.y = Math.atan2(pts.c[0] - e.x, pts.c[1] - e.z) + Math.PI;
-  field.move = { t0: 24, t1: 31, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: Math.atan2(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]) + Math.PI, yaw1: field.o.rotation.y };
+  field.move = { t0: 16, t1: 31, back0: LEAVE + 2, back1: LEAVE + 14, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: Math.atan2(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]) + Math.PI, yaw1: field.o.rotation.y };
   const chest = (t) => { const p = posAt(t); return [p.x, Math.max(ground(p.x, p.z), 0) + H * .6, p.z]; };
   const missHouse = D.filter(d => d.kind === 'house' && !d.hits.length).sort((a, b) => Math.hypot(a.x - pts.c[0], a.z - pts.c[1]) - Math.hypot(b.x - pts.c[0], b.z - pts.c[1]))[0];
-  const DEFENCE = [   // fire time, engine, what it hits, flight seconds; landings: 25.4 miss, 27.6 bolt, 31.0 boulder, 35.0 boulder, 36.5 bolt, 37.6 field boulder
+  const DEFENCE = [   // fire time, engine, what it hits, flight seconds; landings: 25.4 miss, 27.6 bolt, 31.0 boulder, 35.0 boulder, 36.5 bolt, 37.6 field miss, 38.8 castle boulder
     { t: 22.4, e: tre2, hit: 'house', fl: 3.0 }, { t: 26.6, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 27.6, e: tre1, hit: 'dino', fl: 3.4, big: true },
-    { t: 31.8, e: tre2, hit: 'dino', fl: 3.2, big: true }, { t: 35.5, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 35.9, e: field, hit: 'dino', fl: 1.7, big: true },
-    { t: 36.4, e: tre1, hit: 'none', fl: 3.6 },
+    { t: 31.8, e: tre2, hit: 'dino', fl: 3.2, big: true }, { t: 35.5, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 35.9, e: field, hit: 'none', fl: 1.7 },
+    { t: 35.2, e: tre1, hit: 'dino', fl: 3.6, big: true },   // the last one lands on his back as he turns to go
   ];
   const FLINCH = DEFENCE.filter(s => s.bolt).map(s => s.t + s.fl);   // small hits: a twitch while he keeps going
   const shots = [];
@@ -257,7 +260,8 @@ export async function kaiju(ctx) {
   for (const e of engines) for (let i = 0; i < 3; i++) {
     const off = (x, z, r, a) => [x + Math.cos(a) * r, z + Math.sin(a) * r], a0 = e.o.rotation.y + Math.PI / 2 + (i - 1) * .7;
     if (e === field) { const st = off(fieldFrom[0], fieldFrom[1], 3.2, a0), en = off(fieldTo[0], fieldTo[1], 3.2, a0);
-      man([[0, ...st, 'idle'], [24, ...st, 'interact-right'], [31, ...en, 'interact-right'], [33, ...en, 'idle'], [36.1, ...en, 'emote-yes'], [38, ...en, 'idle'], [LEAVE, ...en, 'emote-yes']]); }
+      man([[0, ...st, 'idle'], [16, ...st, 'interact-right'], [31, ...en, 'interact-right'], [33, ...en, 'idle'], [36.1, ...en, 'emote-yes'], [38, ...en, 'idle'], [LEAVE, ...en, 'emote-yes'],
+        [LEAVE + 2, ...en, 'interact-right'], [LEAVE + 14, ...st, 'interact-right'], [LEAVE + 15, ...st, 'idle']]).stays = true; }
     else { const p = off(e.x, e.z, 3, a0); man([[0, p[0], p[1], 'idle'], [e.shots[0] - .4, p[0], p[1], 'interact-right'], [e.shots[0] + .3, p[0], p[1], 'emote-yes'], [e.shots[0] + 2, p[0], p[1], 'idle'], [LEAVE - 12, p[0], p[1], 'emote-yes']]); }
   }
   // archers on the wall either side of the breach
@@ -336,15 +340,16 @@ export async function kaiju(ctx) {
           c.m.position.set(f[i], f[i + 1] - sink * 2, f[i + 2]); c.m.quaternion.set(f[i + 3], f[i + 4], f[i + 5], f[i + 6]);
         }
       }
-      if (field.move) { const mv = field.move, k = smooth((lt - mv.t0) / (mv.t1 - mv.t0)), kt = smooth((lt - mv.turn0) / (mv.turn1 - mv.turn0));
+      if (field.move) { const mv = field.move, back = clamp01((lt - mv.back0) / (mv.back1 - mv.back0)), k = smooth((lt - mv.t0) / (mv.t1 - mv.t0)) - smooth(back), kt = smooth((lt - mv.turn0) / (mv.turn1 - mv.turn0));
         field.o.position.set(lerp(mv.from[0], mv.to[0], k), ground(lerp(mv.from[0], mv.to[0], k), lerp(mv.from[1], mv.to[1], k)), lerp(mv.from[1], mv.to[1], k));
-        field.o.rotation.y = lerp(mv.yaw0, mv.yaw1, kt); field.x = field.o.position.x; field.z = field.o.position.z;
-        field.o.traverse(n => { if (n.name === 'wheel') n.rotation.x = -k * 12; }); }
+        field.o.rotation.y = lt < mv.back0 - 1 ? lerp(mv.yaw0, mv.yaw1, kt) : lerp(mv.yaw1, mv.yaw0 + Math.PI, smooth(lt - mv.back0 + 1));   // turned round to be pushed home
+        field.x = field.o.position.x; field.z = field.o.position.z;
+        field.o.traverse(n => { if (n.name === 'wheel') n.rotation.x = -(k + 2 * smooth(back)) * 12; }); }
       for (const m of men) {
         let i = 0; while (i < m.plan.length - 1 && m.plan[i + 1][0] <= lt) i++;
         const a = m.plan[i], b = m.plan[Math.min(i + 1, m.plan.length - 1)], k = b[0] > a[0] ? clamp01((lt - a[0]) / (b[0] - a[0])) : 0, moving = a[1] !== b[1] || a[2] !== b[2];
         const x = lerp(a[1], b[1], moving ? k : 0), z = lerp(a[2], b[2], moving ? k : 0);
-        m.o.visible = lt < LEAVE + 4; m.o.position.set(x, m.y ?? Math.max(PLAIN, ground(x, z)), z);
+        m.o.visible = m.stays || lt < LEAVE + 4; m.o.position.set(x, m.y ?? Math.max(PLAIN, ground(x, z)), z);
         const tgt = M.g.visible ? M.g.position : { x: pts.away[0], z: pts.away[1] };
         m.o.rotation.y = moving && k < 1 ? Math.atan2(b[1] - a[1], b[2] - a[2]) : a[3] === 'interact-right' ? m.o.rotation.y : Math.atan2(tgt.x - x, tgt.z - z);
         const act = m.acts[moving && k < 1 && a[3] === 'idle' ? 'walk' : a[3]] || m.acts.idle;

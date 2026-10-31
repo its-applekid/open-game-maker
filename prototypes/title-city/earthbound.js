@@ -128,6 +128,31 @@ function wordArt(scene, U, text, t0, t1, at, px) {
   return { mesh, update, word: true, shake: lt => Math.sin(lt * 70) * .04 * Math.max(0, 1 - (lt - t0) * 2) - .1 };
 }
 
+// a window onto a far-off land inside the portal's ring: sky, a sun, hills and a path to the horizon, drawn small with hard
+// edges; after tIn the runner (his back, from the sprite sheet's walking-away row) dwindles up the path; it shuts with the portal
+function portalView(scene, U, sheet, t0, tIn, t1, at) {
+  const w = 52, h = 92, cv = document.createElement('canvas'); cv.width = w; cv.height = h; const g = cv.getContext('2d'); g.imageSmoothingEnabled = false;
+  const land = document.createElement('canvas'); land.width = w; land.height = h; const l = land.getContext('2d'), hz = Math.round(h * .42);
+  const sky = l.createLinearGradient(0, 0, 0, hz); sky.addColorStop(0, '#6fb6f2'); sky.addColorStop(1, '#f6e7c8'); l.fillStyle = sky; l.fillRect(0, 0, w, hz);
+  l.fillStyle = '#fff3b0'; l.fillRect(34, 14, 6, 6); l.fillRect(33, 15, 8, 4); l.fillRect(35, 13, 4, 8);   // the sun
+  l.fillStyle = '#8e88b8'; for (let x = 0; x < w; x++) { const y = hz - 6 - Math.round(5 * Math.abs(Math.sin(x * .21)) + 3 * Math.sin(x * .07 + 1)); l.fillRect(x, y, 1, hz - y); }   // far peaks
+  l.fillStyle = '#7fbf5a'; l.fillRect(0, hz, w, h - hz); l.fillStyle = '#5fa046'; for (let x = 0; x < w; x++) { const y = hz + 3 + Math.round(3 * Math.sin(x * .3)); l.fillRect(x, y, 1, 2); }   // fields
+  l.fillStyle = '#d9b77a'; for (let y = hz; y < h; y++) { const k = (y - hz) / (h - hz), half = 1 + k * 14; l.fillRect(Math.round(w / 2 - half), y, Math.round(half * 2), 1); }   // the path
+  const tex = nearest(new THREE.CanvasTexture(cv)), mesh = billboard(scene, U, tex, w, h, .06, w / 2, h / 2, false); mesh.renderOrder = 7; mesh.position.set(...at); mesh.visible = false;
+  const update = lt => {
+    mesh.visible = lt >= t0 && lt < t1; if (!mesh.visible) return;
+    g.clearRect(0, 0, w, h); g.drawImage(land, 0, 0);
+    if (lt >= tIn && sheet?.complete) {   // his back, running away up the path, getting smaller
+      const k = Math.min(1, (lt - tIn) / 1.1), s = 1 - .8 * Math.sqrt(k), fh = h * .62 * s, fw = fh / 2, x = w / 2 - fw / 2, y = lerp(h * 1.02, hz + 4, Math.sqrt(k)) - fh;
+      g.drawImage(sheet, (6 + Math.floor(lt * 12) % 6) * 32, 2 * 64 + 16, 32, 48, Math.round(x), Math.round(y), Math.round(fw), Math.round(fh * .75));
+    }
+    g.globalCompositeOperation = 'destination-in'; g.beginPath(); g.ellipse(w / 2, h / 2, w / 2 - 1, h / 2 - 1, 0, 0, Math.PI * 2); g.fill(); g.globalCompositeOperation = 'source-over';
+    tex.needsUpdate = true;
+    const open = clamp01((lt - t0) / .3) * clamp01((t1 - lt) / .3); mesh.scale.setScalar(.2 + .8 * open); mesh.material.uniforms.alpha.value = open;
+  };
+  return { mesh, update, word: true, shake: () => 0 };
+}
+
 // ctx: { scene, camera, U, PLAIN, ground(x, z), kenney(path), kitMat(map, o), houses: [{x, z, rot, s, model, roof}], centre: [x, z], mountains: [x, z], square: [x, z], look, ufo }
 export async function earthbound(ctx) {
   const { scene, U, PLAIN, ground } = ctx; seed = 5; reseed(13);
@@ -173,7 +198,9 @@ export async function earthbound(ctx) {
   const B = [C[0] - rgt[0] * 10.5 - fwd[0] * 1.5, C[1] - rgt[1] * 10.5 - fwd[1] * 1.5];   // where Ness swings, at the saucer's left tip
   // the six it strikes: the tallest, but first any tall house standing between the later shots' camera and the fight
   const segD = (p, a, b) => { const dx = b[0] - a[0], dz = b[1] - a[1], k = clamp01(((p[0] - a[0]) * dx + (p[1] - a[1]) * dz) / (dx * dx + dz * dz)); return Math.hypot(p[0] - a[0] - dx * k, p[1] - a[1] - dz * k); };
-  const blocks = d => d.h > 7 && [F, B, C].some(q => segD([d.x, d.z], q, [q[0] - fwd[0] * 26, q[1] - fwd[1] * 26]) < d.r + 2.5);
+  const sightTop = (q, eye, d) => { const dx = eye[0] - q[0], dz = eye[2] - q[1], k = clamp01(((d.x - q[0]) * dx + (d.z - q[1]) * dz) / (dx * dx + dz * dz)); return PLAIN + 3 + (eye[1] - PLAIN - 3) * k; };
+  const blocks = d => d.h > 7 && [F, B, C].some(q => segD([d.x, d.z], q, [q[0] - fwd[0] * 26, q[1] - fwd[1] * 26]) < d.r + 2.5)
+    || (ctx.eyes || []).some(eye => [B, C].some(q => segD([d.x, d.z], q, [eye[0], eye[2]]) < d.r + 1.5 && PLAIN + d.h > sightTop(q, eye, d)));   // and in the menu camera's way
   const targets = [...D.filter(blocks), ...D.filter(d => !blocks(d)).sort((a, b) => b.h - a.h)].slice(0, 6).sort((a, b) => ((a.x - cx) * sd[0] + (a.z - cz) * sd[1]) - ((b.x - cx) * sd[0] + (b.z - cz) * sd[1]));
   const keys = [[0, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [.6, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [3, ridgeAt[0], ridgeY + 20, ridgeAt[1]]];   // rises from behind the ridge
   targets.forEach((d, i) => keys.push([STRIKE0 - .45 + i * GAP, d.x, PLAIN + HOVER, d.z], [STRIKE0 + 1.2 + i * GAP, d.x, PLAIN + HOVER, d.z]));   // holds over each target while the bolt falls
@@ -198,7 +225,7 @@ export async function earthbound(ctx) {
   // ---- timeline (seconds in the loop): the gag, an active fight, the crash, the bat, the exit
   const T = { portal: 10.6, out: 10.75, wall: 11.45, jump: 13.95, land: 14.85,
     bolt1: 15.7, roofRun: 16.3, roofJump: 17.0, onRoof: 17.6, a1: 17.9, bolt2: 19.6, leap: 19.45, down: 20.1, a2miss: 20.4, a2: 21.2,
-    bolt3: 22.7, burnt: 22.9, up: 24.7, a3: 25.2, fall: 26.3, crash: 27.7, walk: 28.4, swing: 33.6, run: 35.6, runT: 4.4, sink: 39.4 };
+    bolt3: 22.7, burnt: 22.9, up: 24.7, a3: 25.2, fall: 26.3, crash: 27.7, walk: 28.4, swing: 33.6, run: 35.6, runT: 4.6, sink: 39.4 };
   T.hit1 = T.a1 + .65; T.hit2 = T.a2 + .65; T.struck = T.bolt3 + .2; T.contact = T.swing + 3 / 8; T.flipEnd = T.contact + 1.2; T.runEnd = T.run + T.runT;
   // ---- Ness: normal, burnt (black, hair up) and the bat swing
   const nessTex = await load('models/sprites/variants/ness.png'), burntTex = await load('models/sprites/variants/ness_burnt.png'), batTex = await load('models/sprites/variants/ness_bat.png');
@@ -235,8 +262,8 @@ export async function earthbound(ctx) {
   const walkP = path([G4, F, B]);   // straight up to it, at a normal walk, then the swing
   { const sh = T.swing - (T.walk + walkP.len / 3.6 + .3); for (const k of ['swing', 'run', 'sink']) T[k] -= sh;
     T.contact = T.swing + 3 / 8; T.flipEnd = T.contact + 1.2; T.runEnd = T.run + T.runT; }
-  // the exit: out of the rubble to the market, east along the harbour road, a U-turn, then flat out west past the square
-  const RUN = [B, [16, 8], [14, 14], [24, 16.7], [31, 18.5], [29.5, 17.6], [22, 15.8], [14, 14], [9, 13]];   // ends in the open market square
+  // the exit: out of the rubble along the harbour street to the new road, then flat out down it toward the gate, into a portal
+  const RUN = [B, [16, 8], [22.3, 12.2], [33.4, 9.9], [38.6, 16], [38.8, 34], [39, 46]];
   const runP = path(RUN), acc = 2 * (runP.len - 5 * T.runT) / (T.runT * T.runT), runD = a => 5 * a + .5 * acc * a * a;
   const E = RUN[RUN.length - 1];
   // how high the rubble is under a point: chunks that have landed (centre plus most of their size), so he stands on it
@@ -304,7 +331,9 @@ export async function earthbound(ctx) {
   // ---- the run out: dust at his feet, fire for the last steps, a portal for a second
   for (let i = 0; i < 26; i++) { const a = i / 26 * T.runT, q = runP.at(runD(a)), late = a > T.runT - 1.1;
     effects.push(pxEffect(scene, U, late ? torchFx : landFx, T.run + a, at3([q[0], q[1]]), late ? .03 : .022, { seed: 40 + i, ...(late ? { until: T.run + a + .7, fadeOut: .4 } : {}) })); }
-  effects.push(pxEffect(scene, U, portalFx, T.runEnd - .5, at3(E), .06, { seed: 8, until: T.runEnd + .5, fadeIn: .15, fadeOut: .35 }));
+  // the portal opens ahead of him; through it, a far-off land, and once he's through, his back running away into it
+  effects.push(pxEffect(scene, U, portalFx, T.runEnd - 1.4, at3(E), .12, { seed: 8, until: T.runEnd + 1.25, fadeIn: .25, fadeOut: .3 }));
+  effects.push(portalView(scene, U, nessTex.image, T.runEnd - 1.3, T.runEnd, T.runEnd + 1.25, at3(E, 5.5)));
   // ---- the saucer after the fight: falls onto the bank, rests tilted; the bat flips it into the river; it drifts and sinks
   let rd = [0]; for (let i = ri + 1; i < ctx.river.length; i++) rd.push(rd[rd.length - 1] + Math.hypot(ctx.river[i][0] - ctx.river[i - 1][0], ctx.river[i][1] - ctx.river[i - 1][1]));
   const downstream = d => { let i = 1; while (i < rd.length - 1 && rd[i] < d) i++; const k = clamp01((d - rd[i - 1]) / (rd[i] - rd[i - 1])), a = ctx.river[ri + i - 1], b = ctx.river[ri + i]; return [lerp(a[0], b[0], k), lerp(a[1], b[1], k)]; };
@@ -365,7 +394,7 @@ export async function earthbound(ctx) {
   fx.build();
 
   return {
-    pixel: LOOKS[ctx.look] ?? 0, per: PER, sounds: SND, loops: LOOPS,
+    pixel: LOOKS[ctx.look] ?? 0, per: PER, sounds: SND, loops: LOOPS, times: T, spots: { B, C },
     update(t) {
       const lt = ((t % PER) + PER) % PER, cam = ctx.camera, yaw = Math.atan2(cam.position.x - cx, cam.position.z - cz); cam.updateMatrixWorld();
       const face = m => { m.rotation.y = Math.atan2(cam.position.x - m.position.x, cam.position.z - m.position.z); };
@@ -427,7 +456,8 @@ export async function earthbound(ctx) {
         [20.5, () => near(mid(nP(), uP(), .45), 32, 14, 0), 1],              // plasma, the bolt that lands, Starstorm
         [T.crash - .4, () => near(mid(nessAt(lt).p, at3(C), .55), 26, 14, 1)],
         [T.run - .3, () => near(nessAt(Math.min(lt, T.runEnd - .01)).p, 16, 30, 1)],   // steep, over the roofs of the intact houses
-        [T.runEnd + .8, () => near(ufoState(lt, ufoAt(lt)).p.map((v, i) => i === 1 ? Math.max(v, 1) : v), 18, 22, 0)],
+        [T.runEnd - 2.2, () => [[E[0] + 1, gy(...E) + 8, E[1] + 15], [E[0], gy(...E) + 4.5, E[1] - 8]], 1],   // down the road from the gate: he runs at us, into the portal
+        [T.runEnd + 1.5, () => near(ufoState(lt, ufoAt(lt)).p.map((v, i) => i === 1 ? Math.max(v, 1) : v), 18, 22, 0)],
         [T.runEnd + 5.4, () => { const k = (lt - T.runEnd - 5.4) / (PER - T.runEnd - 5.4), o = Math.sin(k * Math.PI) * 30; return near([cx + sd[0] * o * .4, PLAIN, cz + sd[1] * o * .4], 62, 30, 4); }],   // the rebuild
       ];
       let i = 0; while (i < SH.length - 1 && SH[i + 1][0] <= lt) i++;
