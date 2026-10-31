@@ -35,6 +35,6 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
 - A live JS page with many modules (over 256 files per publish): bundle it into one inline script with esbuild
   (`npm i esbuild` in the scratchpad, `--bundle --format=esm --minify`).
 - Before deploying anything a phone loads, time it: `prototypes/title-city/tools/loadtime.mjs <url>` (iPhone profile,
-  CPU 4x slower, then a cached reload). Seconds of setup on a phone are usually work that never changes: bake it at build
+  CPU 4x slower, then a cached reload), with nothing else rendering (a recording in the background tripled one result). Seconds of setup on a phone are usually work that never changes: bake it at build
   time (see `title-city/tools/bake.mjs`).
 - Say what was checked and what wasn't (for example "not checked on iPhone Safari").
