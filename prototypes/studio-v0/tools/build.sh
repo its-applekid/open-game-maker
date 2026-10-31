@@ -97,8 +97,8 @@ src, dst = map(pathlib.Path, sys.argv[1:3]); dst.mkdir(parents=True, exist_ok=Tr
 m["variants"] = [v for v in m["variants"] if v["set"] in ("house", "tallhouse", "hall", "wide", "shack", "stall")]
 for v in m["variants"]: shutil.copy(src / (v["name"] + ".glb"), dst)
 (dst / "manifest.json").write_text(json.dumps(m))' "$TC/models/variants" "$HERE/town/models/variants"
-# the baked terrain (prototypes/title-city/tools/bake.mjs) and one bundled script in place of the module tree
-mkdir -p "$HERE/town/models/bake"; cp "$TC/models/bake/"*.bin "$HERE/town/models/bake/"
+# the baked files (prototypes/title-city/tools/bake.mjs, tools/poster.mjs) and one bundled script in place of the module tree
+mkdir -p "$HERE/town/models/bake"; cp "$TC/models/bake/"*.bin "$TC/models/bake/"*.gz "$TC/models/bake/"*.webp "$HERE/town/models/bake/"   # baked terrain, trees, model pack, posters
 node "$TC/tools/bundle.mjs" "$HERE/town" && sed -i 's#<script type="module" src="city.js"></script>#<script type="module" src="city.bundle.js"></script>#' "$HERE/town/index.html"
 rm -rf "$HERE/town/vendor/pixelfx" "$HERE/town/fx-variants" "$HERE/town/"{city,rampage,earthbound,fx}.js; find "$HERE/town/vendor/three" -name "*.js" -delete
 echo "built $HERE (publish index.html with every other file under it)"

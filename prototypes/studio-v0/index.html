@@ -510,12 +510,14 @@ body.on-title #logo { display: none; }
 /* title: the big logo at the top, Start at the bottom, and behind them the castle town (title-town.js); #title-a/b/c open the
    earlier directions (a glass city, a floating island: title-3d.js; a glass landscape: title-c.js) */
 #s-title { position: fixed; inset: 0; z-index: 5; display: grid; grid-template-rows: auto minmax(0, 1fr) auto; justify-items: center; overflow: hidden;
-  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px)) max(16px, env(safe-area-inset-left, 0px));
+  padding: max(24px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(28px, calc(env(safe-area-inset-bottom, 0px) + 20px)) max(16px, env(safe-area-inset-left, 0px));   /* Start near the bottom */
   transition: opacity .5s cubic-bezier(.22,1,.36,1); }
 body:has(#s-title:not([hidden])) #logo { display: none; }
 .t-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s cubic-bezier(.22,1,.36,1); }
 .t-scene.on { opacity: 1; }
 .t-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.t-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.t-scene iframe { opacity: 0; transition: opacity 1.2s cubic-bezier(.22,1,.36,1); } .t-scene.live iframe { opacity: 1; }
 .t-logo { grid-row: 1; position: relative; z-index: 1; margin: 0; line-height: 0; }
 .t-logo img { display: block; width: min(680px, 84vw, calc(30svh * 1.777)); height: auto;
   filter: drop-shadow(0 16px 40px rgba(0,0,0,.5)); animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards, t-float 7s ease-in-out 1s infinite alternate; }

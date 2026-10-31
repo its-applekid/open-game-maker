@@ -1,11 +1,15 @@
 // The title scene: the castle town (prototypes/title-city, copied to town/ by tools/build.sh) in a full-bleed frame behind
 // the logo: a still view with every scene on its own loop. It is loaded only while the title shows: leaving the title
-// removes it (and silences its sounds); coming back loads it again, from the local cache (sw.js).
+// removes it (and silences its sounds); coming back loads it again, from the local cache (sw.js). Until the town has
+// drawn its first frame a looping poster of that same view plays (title-city/tools/poster.mjs), then the town fades in.
 import { ext, extLoop, extSilence } from './sound.js';
 
 export function start({ el, active }) {
   let f = null;
+  let poster = null;
   const load = () => {
+    poster = document.createElement('img'); poster.className = 't-poster'; poster.alt = ''; poster.decoding = 'async';
+    poster.src = `town/models/bake/poster-${innerWidth < innerHeight ? 'portrait' : 'landscape'}.webp`; el.appendChild(poster); el.classList.add('on');
     f = document.createElement('iframe');
     f.src = 'town/index.html?cam=menu&scene=all&embed'; f.title = 'A castle town'; f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
     f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none';
@@ -14,11 +18,11 @@ export function start({ el, active }) {
   const sync = () => {
     const on = active();
     if (on && !f) load();
-    else if (!on && f) { f.remove(); f = null; el.classList.remove('on'); extSilence(); }
+    else if (!on && f) { f.remove(); f = null; poster?.remove(); poster = null; el.classList.remove('on', 'live'); extSilence(); }
   };
   addEventListener('message', e => {
     if (!f || e.source !== f.contentWindow) return;
-    if (e.data === 'town-ready') el.classList.add('on');
+    if (e.data === 'town-ready') { el.classList.add('live'); const p = poster; setTimeout(() => { p?.remove(); if (poster === p) poster = null; }, 1600); }   // fade the town in over the poster
     else if (e.data?.sfx) ext(`town/models/sounds/${e.data.sfx[0]}.mp3`, e.data.sfx[1], e.data.sfx[2]);   // the scenes' effects play on the studio's audio
     else if (e.data?.loop) extLoop(`town/models/sounds/${e.data.loop[0]}.mp3`, e.data.loop[1]);
   });

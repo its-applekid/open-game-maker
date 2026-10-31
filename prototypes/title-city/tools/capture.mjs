@@ -33,7 +33,8 @@ else if (mode === 'timeline') {
 }
 else if (mode === 'record') {
   const secs = +rest[0], fps = +(rest[1] || 30), tmp = out + '.frames'; mkdirSync(tmp, { recursive: true });
-  for (let i = 0; i < secs * fps; i++) await shot(i / fps, join(tmp, `f${String(i).padStart(5, '0')}.jpg`), 'jpeg');
+  const start = +(process.env.START || 0);   // START=<seconds>: begin the clip there
+  for (let i = 0; i < secs * fps; i++) await shot(start + i / fps, join(tmp, `f${String(i).padStart(5, '0')}.jpg`), 'jpeg');
   execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', String(fps), '-i', join(tmp, 'f%05d.jpg'), '-vf', 'scale=960:-2', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'slow', '-crf', '27', '-movflags', '+faststart', out]);
   rmSync(tmp, { recursive: true, force: true });
 }
