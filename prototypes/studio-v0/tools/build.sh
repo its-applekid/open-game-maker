@@ -23,6 +23,7 @@ for f in Cars/car_red_1 Cars/car_blue_1 Cars/car_yellow_1 Cars/car_green_1 Objec
 PZ="$K/kenney-puzzle-pack-1/1.1/extracted/PNG/Default"
 for f in element_red_rectangle_glossy element_blue_rectangle_glossy element_green_rectangle_glossy element_yellow_rectangle_glossy element_purple_rectangle_glossy paddleBlu ballBlue particleStar; do cp "$PZ/$f.png" "$A/puz-$f.png"; done
 "$PY" -I -c "import sys; from PIL import Image; im = Image.open(sys.argv[1]); im.thumbnail((400, 400)); im.save(sys.argv[2], quality=90)" "$ROOT/prototypes/ui-v0/site/assets/img/logo.png" "$A/logo.webp"
+"$PY" -I "$HERE/tools/gm_logo.py" "$ROOT/prototypes/ui-v0/site/icons/icon-512.png" "$A/gm.webp"   # the small logo: the app icon's GM letters, no tile
 "$PY" -I -c "import sys; from PIL import Image; im = Image.open(sys.argv[1]); im.thumbnail((1400, 1400)); im.save(sys.argv[2], quality=88)" "$ROOT/prototypes/ui-v0/site/assets/img/logo.png" "$A/logo-big.webp"
 # sound (sound.js), all Kenney CC0 and MP3 because iPhone Safari can't decode Ogg: every Music Loops track (swap tracks in
 # sound.js MUSIC), plus the effects behind each game's quiet gameplay sounds in the Games spotlight
@@ -96,4 +97,8 @@ src, dst = map(pathlib.Path, sys.argv[1:3]); dst.mkdir(parents=True, exist_ok=Tr
 m["variants"] = [v for v in m["variants"] if v["set"] in ("house", "tallhouse", "hall", "wide", "shack", "stall")]
 for v in m["variants"]: shutil.copy(src / (v["name"] + ".glb"), dst)
 (dst / "manifest.json").write_text(json.dumps(m))' "$TC/models/variants" "$HERE/town/models/variants"
+# the baked terrain (prototypes/title-city/tools/bake.mjs) and one bundled script in place of the module tree
+mkdir -p "$HERE/town/models/bake"; cp "$TC/models/bake/"*.bin "$HERE/town/models/bake/"
+node "$TC/tools/bundle.mjs" "$HERE/town" && sed -i 's#<script type="module" src="city.js"></script>#<script type="module" src="city.bundle.js"></script>#' "$HERE/town/index.html"
+rm -rf "$HERE/town/vendor/pixelfx" "$HERE/town/fx-variants" "$HERE/town/"{city,rampage,earthbound,fx}.js; find "$HERE/town/vendor/three" -name "*.js" -delete
 echo "built $HERE (publish index.html with every other file under it)"

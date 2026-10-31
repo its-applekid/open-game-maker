@@ -254,14 +254,19 @@ const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: fals
 { const s = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), skyMat); s.renderOrder = -10; scene.add(s); }
 
 // ---------------- terrain: flat-shaded, coloured per face ----------------
-function terrain() {
-  const X0 = -780, X1 = 300, Z0 = -1050, Z1 = 280, Sg = 3.2, nx = Math.ceil((X1 - X0) / Sg), nz = Math.ceil((Z1 - Z0) / Sg);
-  const H = new Float32Array((nx + 1) * (nz + 1));
-  for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = height(X0 + i * Sg, Z0 + j * Sg);
+// The ground is the same every time, so tools/bake.mjs saves its heights and face colours (models/bake/terrain.bin);
+// with that file the grid is only assembled, not worked out (seconds on a phone)
+async function terrain() {
+  const X0 = -780, X1 = 300, Z0 = -1050, Z1 = 280, Sg = 3.2, nx = Math.ceil((X1 - X0) / Sg), nz = Math.ceil((Z1 - Z0) / Sg), NH = (nx + 1) * (nz + 1);
+  const bake = Q.has('nobake') ? null : await fetch('models/bake/terrain.bin').then(r => r.ok ? r.arrayBuffer() : null).catch(() => null), baked = bake?.byteLength === NH * 4 + nx * nz * 6;
+  const H = baked ? new Float32Array(bake, 0, NH) : new Float32Array(NH), FC = baked ? new Uint8Array(bake, NH * 4) : new Uint8Array(nx * nz * 6);
+  if (!baked) for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = height(X0 + i * Sg, Z0 + j * Sg);
+  window.__terrainBake = () => { const out = new Uint8Array(NH * 4 + FC.length); out.set(new Uint8Array(H.buffer, H.byteOffset, NH * 4)); out.set(FC, NH * 4); return out; };
   const pos = new Float32Array(nx * nz * 18), col = new Float32Array(nx * nz * 18), c = new THREE.Color();
   const cols = Object.fromEntries(Object.entries(GROUND).map(([k, v]) => [k, C(v)]));
-  let p = 0;
+  let p = 0, fi = 0;
   const face = (ax, ay, az, bx, by, bz, cx, cy, cz) => {
+    if (baked) { c.setRGB((FC[fi] / 255) ** 2, (FC[fi + 1] / 255) ** 2, (FC[fi + 2] / 255) ** 2); fi += 3; for (const [x, y, z] of [[ax, ay, az], [bx, by, bz], [cx, cy, cz]]) { pos[p] = x; pos[p + 1] = y; pos[p + 2] = z; col[p] = c.r; col[p + 1] = c.g; col[p + 2] = c.b; p += 3; } return; }
     const ux = bx - ax, uy = by - ay, uz = bz - az, vx = cx - ax, vy = cy - ay, vz = cz - az;
     const nx_ = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz_ = ux * vy - uy * vx, ny1 = Math.abs(ny) / Math.hypot(nx_, ny, nz_);
     const mx = (ax + bx + cx) / 3, my = (ay + by + cy) / 3, mz = (az + bz + cz) / 3, jit = hash2(mx * .7, mz * .7), td = townD(mx, mz);
@@ -276,6 +281,7 @@ function terrain() {
     else if (td < 2.1 && my < 10 && ny1 > .93 && vnoise(mx * .02, mz * .02 + 5) > .3) c.copy(FIELDS[Math.floor(hash2(Math.floor(mx / 16), Math.floor(mz / 11)) * FIELDS.length)]);   // fields
     else c.copy(jit > .5 ? cols.grass : cols.grass2);
     c.multiplyScalar(.95 + jit * .1);
+    FC[fi] = Math.round(Math.sqrt(Math.min(1, c.r)) * 255); FC[fi + 1] = Math.round(Math.sqrt(Math.min(1, c.g)) * 255); FC[fi + 2] = Math.round(Math.sqrt(Math.min(1, c.b)) * 255); fi += 3;   // stored square-rooted, so darks keep their steps
     for (const [x, y, z] of [[ax, ay, az], [bx, by, bz], [cx, cy, cz]]) { pos[p] = x; pos[p + 1] = y; pos[p + 2] = z; col[p] = c.r; col[p + 1] = c.g; col[p + 2] = c.b; p += 3; }
   };
   for (let j = 0; j < nz; j++) for (let i = 0; i < nx; i++) {
@@ -354,17 +360,18 @@ const kitMat = (map, o = {}) => new THREE.ShaderMaterial({ vertexShader: KIT_V, 
   uniforms: { map: { value: map }, tint: { value: o.tint || C(ROOFS.castle[0]) }, cut: { value: 9999 }, ...U } });
 // instanced placement: put() records a piece, flush() makes one instanced mesh per model
 const INST = new Map();
-const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); INST.get(model).push({ x, y, z, rot, s: [s, s, s], roof: C(roof) }); };
+const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); const e = { x, y, z, rot, s: [s, s, s], roof: C(roof) }; INST.get(model).push(e); return e; };
 const putS = (model, x, y, z, rot, s3) => { if (!INST.has(model)) INST.set(model, []); const e = { x, y, z, rot, s: s3, roof: C(ROOFS.castle[0]) }; INST.get(model).push(e); return e; };
 const WALL_SEGS = [];   // the stretched wall pieces, so a scene can claim one to break
 async function flush() {
   for (const [model, list] of INST) {
     const k = await kenney(model), m = new THREE.InstancedMesh(k.geo, kitMat(k.map), list.length);
-    list.forEach((p, i) => { _o.position.set(p.x, p.y, p.z); _o.rotation.set(0, p.rot, 0); _o.scale.set(...p.s); _o.updateMatrix(); m.setMatrixAt(i, _o.matrix); m.setColorAt(i, p.roof); });
+    list.forEach((p, i) => { _o.position.set(p.x, p.y, p.z); _o.rotation.set(0, p.rot, 0); _o.scale.set(...p.s); _o.updateMatrix(); m.setMatrixAt(i, _o.matrix); m.setColorAt(i, p.roof); p.mesh = m; p.i = i; });
     scene.add(m);
   }
   INST.clear();
 }
+const hideEntry = e => { if (!e?.mesh) return; e.mesh.setMatrixAt(e.i, new THREE.Matrix4().makeScale(0, 0, 0)); e.mesh.instanceMatrix.needsUpdate = true; };   // a scene took it over
 // a model kept as its node tree (for parts that move, like a trebuchet's arm), with flat colours and the kit shader
 async function kenneyScene(path) {
   const g = await loader.loadAsync(`models/${path}.glb`), scene = g.scene;
@@ -534,7 +541,10 @@ async function trees() {
     if (district(x, z) !== 'noble' && R() > .25) continue;
     take(x, z, .8); spots.push([x, z, rr(.5, .75), R() < .4]);
   }
-  for (let k = 0; k < 14000 && spots.length < 5200; k++) {
+  // the forests: thousands of tries against the terrain, the same every time, so baked (tools/bake.mjs, models/bake/trees.bin)
+  const nTown = spots.length, bake = Q.has('nobake') ? null : await fetch('models/bake/trees.bin').then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
+  if (bake) { const f = new Float32Array(bake); for (let i = 0; i < f.length; i += 4) spots.push([f[i], f[i + 1], f[i + 2], f[i + 3] > 0]); }
+  else for (let k = 0; k < 14000 && spots.length < 5200; k++) {
     const x = rr(-430, 70), z = rr(-600, 160), h = height(x, z), td = townD(x, z);
     if (h < 1.5 || h > 48 || td < 1.08 || coastX(z) - x < 6 || corridorDist(x, z) < 5 || slumAt(x, z)) continue;
     if (onHill(x, z, 8) || wet(x, z, 3)) continue;
@@ -542,6 +552,7 @@ async function trees() {
     if (sl > .45 || fbm(x * .03, z * .03) < (td < 2.1 ? .5 : .42)) continue;
     spots.push([x, z, rr(1, 2.1) * (1 + h / 60), R() < .03]);
   }
+  window.__treesBake = () => new Float32Array(spots.slice(nTown).flatMap(([x, z, s, b]) => [x, z, s, b ? 1 : 0]));
   const cone = mergeGeometries([new THREE.ConeGeometry(.9, 2.6, 6).translate(0, 2.1, 0), new THREE.CylinderGeometry(.18, .22, 1, 5).translate(0, .5, 0)].map(g => { g = g.toNonIndexed(); g.deleteAttribute('uv'); return g; }));
   const round = mergeGeometries([new THREE.IcosahedronGeometry(1.1, 0).translate(0, 2.1, 0), new THREE.CylinderGeometry(.16, .2, 1.2, 5).translate(0, .6, 0)].map(g => { g = g.toNonIndexed(); g.deleteAttribute('uv'); return g; }));
   for (const [geo, filter] of [[cone, s => s[2] > .9 && !s[3]], [round, s => s[2] <= .9 || s[3]]]) {
@@ -587,7 +598,7 @@ const dyn = [];
 async function buildHouses() {
   R = rng(33);
   const changing = [];
-  for (const h of houses) { if (R() < .07) changing.push(h); else put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); }
+  for (const h of houses) { const ch = R() < .07; if (h.claim) h.entry = put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); else if (ch) changing.push(h); else put(h.model, h.x, PLAIN, h.z, h.rot, h.s, h.roof); }
   for (const h of changing) {
     const r = rng(Math.floor(hash2(h.x, h.z) * 1e9)), list = VARIANTS[h.set], other = list[Math.floor(r() * list.length)];
     const objs = [], scs = [];
@@ -714,8 +725,9 @@ function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
   if (CAM === 'scene' && SC) { SC.camera(camera, SC.local(t), aspect); return; }
+  if (CAM === 'scene') { camera.position.set(...CAMS.a[0]); camera.lookAt(...CAMS.a[1]); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   if (CAM === 'menu') {   // the menu: one still view, the kaiju scene's main shot (or view a without its drift)
-    const v = VIEW ? VIEW.view(aspect, SCS.length > 1 ? [TC.x - 6, TC.z - 22] : null) : { fov: aspect < 1 ? 56 : 40, pos: CAMS.a[0], look: CAMS.a[1] };
+    const v = VIEW ? VIEW.view(aspect, CLAIMS.length > 1 ? CLAIMS[1].centre : null) : { fov: aspect < 1 ? 56 : 40, pos: CAMS.a[0], look: CAMS.a[1] };
     camera.fov = v.fov; camera.position.set(...v.pos); camera.lookAt(...v.look); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
@@ -735,25 +747,27 @@ function updateSky(t) {
 }
 
 // ---------------- scenes ----------------
-// the monster rampage (rampage.js): its target house is taken out of the town's instancing and handed to the scene
-async function setupRampage() {
-  // the breach: the wall piece nearest the harbour, on the sea side; the zone: houses within reach of it
-  const seg = WALL_SEGS.filter(s => s.L > 14).sort((a, b) => (b.x - a.x) - (a.x - b.x) * 0 + 0 || 0).sort((a, b) => b.x + b.z * .2 - (a.x + a.z * .2))[0];
-  INST.get('castle/wall').splice(INST.get('castle/wall').indexOf(seg.entry), 1);
+// Each scene claims its piece of the town at once (cheap) and is set up after the town is on screen (slow: fracturing
+// houses, planning every chunk's flight). Claimed houses stay in the town's instancing until their scene is ready.
+// The monster rampage (rampage.js): the wall piece nearest the harbour and the houses within reach of it.
+function claimRampage() {
+  const seg = WALL_SEGS.filter(s => s.L > 14).sort((a, b) => b.x + b.z * .2 - (a.x + a.z * .2))[0];
   const toC = [TC.x - seg.x, TC.z - seg.z], l = Math.hypot(...toC), inward = [toC[0] / l, toC[1] / l], zc = [seg.x + inward[0] * 15, seg.z + inward[1] * 15];
-  const zone = houses.filter(h => Math.hypot(h.x - zc[0], h.z - zc[1]) < 30 && townD(h.x, h.z) < .97);
-  for (const h of zone) houses.splice(houses.indexOf(h), 1);
+  const zone = houses.filter(h => !h.claim && Math.hypot(h.x - zc[0], h.z - zc[1]) < 30 && townD(h.x, h.z) < .97); for (const h of zone) h.claim = true;
+  const [nx, nz] = inward, [sx, sz] = [nz, -nx], f = [seg.x + nx * 7 - sx * 3, seg.z + nz * 7 - sz * 3];
   window.__scene = { breach: [seg.x, seg.z], L: seg.L, zone: zone.length };
-  return await kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kenneyScene, kitMat, houses: zone, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
-    breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps });
+  return { zone, hide: [seg.entry],
+    // the kaiju shot's angle, pulled back and turned toward the market so the other scenes fit (phones further back)
+    view(aspect, also) { const port = aspect < 1, w = port ? .5 : .4, l = also ? [f[0] + (also[0] - f[0]) * w, f[1] + (also[1] - f[1]) * w] : f, k = port ? 2.1 : 1.45;
+      return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
+    run: () => kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kenneyScene, kitMat, houses: zone, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
+      breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps }) };
 }
-
-// the EarthBound homage (earthbound.js): the market quarter's houses are handed to the scene to be struck
-async function setupEarthbound() {
-  const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => Math.hypot(h.x - centre[0], h.z - centre[1]) < 26);
-  for (const h of zone) houses.splice(houses.indexOf(h), 1);
-  window.__scene = { zone: zone.length };
-  return await earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps });
+// The EarthBound homage (earthbound.js): the market quarter's houses, struck by the saucer.
+function claimEarthbound() {
+  const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => !h.claim && Math.hypot(h.x - centre[0], h.z - centre[1]) < 26); for (const h of zone) h.claim = true;
+  return { zone, hide: [], centre,
+    run: () => earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
 }
 // b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
 let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -767,24 +781,22 @@ function renderPixel(lines) {
 // ---------------- go ----------------
 function size() { const w = innerWidth, h = innerHeight; aspect = w / h; renderer.setSize(w, h, false); }
 addEventListener('resize', size); size();
-terrain();
-await loadVariants();
-streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum();
-// scene=rampage|earthbound, or all: every scene at once, each on its own loop (the menu)
-const SCS = [];
-if (SCENE === 'rampage' || SCENE === 'all') SCS.push(await setupRampage());
-if (SCENE === 'earthbound' || SCENE === 'all') SCS.push(await setupEarthbound());
-const SC = SCS[SCS.length - 1] || null, VIEW = SCS.find(s => s.view);
-// all at once (the menu): one long cycle, the kaiju first and EarthBound two thirds of the way through it; outside its
-// window each scene holds its untouched first moment
-const OFF = SCS.length > 1 ? SCS[0].per * 2 / 3 : 0, CYCLE = SCS.length > 1 ? Math.max(SCS[0].per, OFF + SCS[1].per) : 0;
-SCS.forEach((s, i) => { s.off = i ? OFF : 0; s.local = CYCLE ? t => Math.min(Math.max(mod(t, CYCLE) - s.off, 0), s.per - .001) : t => t; });
-await buildHouses(); await flush(); await trees(); torches(); makeClouds(); makeBoats();
+window.__marks = window.__marks || []; const _mk = n => window.__marks.push([n, Math.round(performance.now())]);
+_mk('start'); await terrain(); _mk('terrain');
+await loadVariants(); _mk('variants');
+streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum(); _mk('plan');
+// scene=rampage|earthbound, or all: every scene at once (the menu)
+const CLAIMS = [];
+if (SCENE === 'rampage' || SCENE === 'all') CLAIMS.push(claimRampage());
+if (SCENE === 'earthbound' || SCENE === 'all') CLAIMS.push(claimEarthbound());
+const VIEW = CLAIMS.find(c => c.view);
+let SCS = [], SC = null, SFX = null, NOW = 0;
+await buildHouses(); _mk('houses'); await flush(); _mk('flush'); await trees(); torches(); makeClouds(); makeBoats(); _mk('trees');
 // the scenes' sound (live only): cues play as each scene's time passes them; loops follow their spans. Embedded (the
 // studio menu), each cue is posted to the page, which plays it on the audio its sound button unlocked (iOS never lets an
 // iframe start its own); alone, it plays here once the page is touched. Kept well under the menu music.
-const SFX_VOL = .4, SNDS = SCS.filter(s => s.sounds?.length);
-const SFX = SNDS.length && !CAPTURE ? (() => {
+const SFX_VOL = .4;
+const makeSfx = SNDS => SNDS.length && !CAPTURE ? (() => {
   let play, loopGain;
   if (EMBED) { play = (s, v, r) => parent.postMessage({ sfx: [s, v * SFX_VOL, r] }, '*'); loopGain = (s, g) => parent.postMessage({ loop: [s, g * SFX_VOL] }, '*'); }
   else {
@@ -802,11 +814,20 @@ const SFX = SNDS.length && !CAPTURE ? (() => {
     for (const l of s.loops) loopGain(l.s, lt > l.t0 && lt < l.t1 ? l.v * Math.min(1, (lt - l.t0) / .8, (l.t1 - lt) / .4) : 0);
   } };
 })() : null;
-// the cue list on the whole timeline, for tools/mix_sound.mjs
-if (SNDS.length) window.__sounds = { per: CYCLE || SNDS[0].per, cues: SNDS.flatMap(s => s.sounds.map(c => ({ ...c, t: c.t + (s.off || 0) }))).sort((a, b) => a.t - b.t),
-  loops: SNDS.flatMap(s => s.loops.map(l => ({ ...l, t0: l.t0 + (s.off || 0), t1: l.t1 + (s.off || 0) }))) };
+// set the scenes up and hand them their houses. All at once (the menu): one long cycle from when they join, the kaiju
+// first and EarthBound two thirds of the way through it; outside its window each scene holds its untouched first moment
+async function startScenes(join) {
+  const list = [];
+  for (const c of CLAIMS) { list.push(await c.run()); for (const h of c.zone) hideEntry(h.entry); for (const e of c.hide) hideEntry(e); await new Promise(r => setTimeout(r)); }
+  const off = list.length > 1 ? list[0].per * 2 / 3 : 0, cycle = list.length > 1 ? Math.max(list[0].per, off + list[1].per) : 0;
+  list.forEach((s, i) => { s.off = i ? off : 0; s.local = cycle ? t => Math.min(Math.max(mod(t - join, cycle) - s.off, 0), s.per - .001) : t => t - join; });
+  const snds = list.filter(s => s.sounds?.length);
+  if (snds.length) window.__sounds = { per: cycle || snds[0].per, cues: snds.flatMap(s => s.sounds.map(c => ({ ...c, t: c.t + (s.off || 0) }))).sort((a, b) => a.t - b.t),   // for tools/mix_sound.mjs
+    loops: snds.flatMap(s => s.loops.map(l => ({ ...l, t0: l.t0 + (s.off || 0), t1: l.t1 + (s.off || 0) }))) };
+  SCS = list; SC = list[list.length - 1] || null; SFX = makeSfx(snds);
+}
 function frame(t) {
-  U.phase.value = TAU * mod(t, 60) / 60;
+  NOW = t; U.phase.value = TAU * mod(t, 60) / 60;
   updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); for (const s of SCS) s.update(s.local(t)); SFX?.(t);
   if (SC?.pixel) renderPixel(SC.pixel); else renderer.render(scene, camera);
 }
@@ -818,6 +839,8 @@ if (!CAPTURE) {
   renderer.setAnimationLoop(loop);
   addEventListener('message', e => { if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
   if (EMBED) { frame(0); parent.postMessage('town-ready', '*'); }
+  if (CLAIMS.length) setTimeout(() => startScenes(NOW), 100);   // the town first, the scenes join a moment later
 }
-else frame(Number(Q.get('t') || 0));
+else { await startScenes(0); frame(Number(Q.get('t') || 0)); }
+_mk('frame0');
 window.__ready = true;
