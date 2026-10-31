@@ -19,7 +19,8 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   taken out of order; judge camera work from a timeline or the recording. (Tiling by hand? sort with `sort -V`; plain `sort` puts t10 before t4.)
 - Small events (a building rebuilt, a monster's punch): add a debug camera that frames the event (`?focus=` /
   `?cam=scene`) instead of judging from the wide shot.
-- Read each tiled image and say what is wrong before fixing; fix the worst thing first.
+- Read each tiled image and say what is wrong before fixing; fix the worst thing first. Something blocking the shot
+  may not be in the scene's object lists (props placed directly, like a market hall): find it before moving the camera.
 - When the creator gave a reference image, put it beside your render in one image and compare before showing
   anything (shape, view angle, palette); record clips only once that pair matches.
 
@@ -29,6 +30,8 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   The Claude mobile app does not play WebM.
 - Publish an artifact page: `tools/clips_page.py <dir> "title" "intro" clip.mp4="Heading|one line" ...` builds it with
   poster frames; files over the per-call limit get re-encoded smaller, not dropped.
+- Sound: `prototypes/title-city/tools/mix_sound.mjs` lays a scene's cues under a recording; check the balance with an
+  ffmpeg `showwavespic` image (a loud loop flattens every hit), and say it wasn't listened to.
 - A live JS page with many modules (over 256 files per publish): bundle it into one inline script with esbuild
   (`npm i esbuild` in the scratchpad, `--bundle --format=esm --minify`).
 - Say what was checked and what wasn't (for example "not checked on iPhone Safari").

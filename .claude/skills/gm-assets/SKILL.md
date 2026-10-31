@@ -50,7 +50,14 @@ In your own canvas: `createFrame(w, h, -originX, -originY)` and `createFx(mod, {
 subtracted, so a positive origin draws everything off the top-left corner).
 In the 3D town, reuse `billboard`/`pxEffect` from `prototypes/title-city/earthbound.js`: it fades faint glow, which
 otherwise reads as a tinted box, and re-simulates effects for any time. Recoloured pixelfx lightning turns its halo opaque; draw
-a thin bolt (`pxBolt`) instead. Pillow is in `scripts/audio/.venv/bin/python` (not the system Python).
+a thin bolt (`pxBolt`) instead. A camera above the action squashes y-only billboards to slivers: turn big sprites and
+effects fully to the camera (copy its quaternion). Never repeat one effect identically (the same campfire on every ruin
+read as copy-paste): vary seed, size, options and start, or clone a variant. Pillow is in `scripts/audio/.venv/bin/python`.
+
+## Sound
+
+Scenes get sound from our packs (`grep -l audio` in the catalog: Kenney Sci-Fi, Impact, Retro, Foley, RPG Audio are
+effects; Sidetrax is music). Cue effects on the scene's own timeline; MP3 for iPhone (`prototypes/title-city/tools/sounds.sh`).
 
 ## Variants and making new
 
