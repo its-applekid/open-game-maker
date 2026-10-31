@@ -519,8 +519,6 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
 .t-logo img { display: block; width: min(680px, 84vw, calc(30svh * 1.777)); height: auto;
   filter: drop-shadow(0 16px 40px rgba(0,0,0,.5)); animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards, t-float 7s ease-in-out 1s infinite alternate; }
 .t-cta { grid-row: 3; position: relative; z-index: 1; display: grid; justify-items: center; gap: 16px; text-align: center; }
-.t-tag { margin: 0; max-width: 640px; font: 600 20px/28px var(--display); color: var(--ink); text-wrap: balance; text-shadow: 0 2px 16px rgba(15,14,22,.9), 0 0 4px rgba(15,14,22,.6);
-  animation: t-up .8s cubic-bezier(.22,1,.36,1) .25s backwards; }
 .btn.t-start { font-size: 20px; line-height: 28px; padding: 12px 48px; min-width: 200px; animation: t-up .8s cubic-bezier(.22,1,.36,1) .4s backwards, t-breathe 3.2s ease-in-out 1.4s infinite; }
 .btn.t-start:active:not(:disabled) { transform: scale(.98); }
 @keyframes t-pop { from { opacity: 0; transform: scale(.9); } }
@@ -532,12 +530,12 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
 /* direction checkpoint only: switch A / B / C on a phone without editing the address */
   gap: 2px; padding: 2px 2px 2px 12px; border-radius: 999px; font: 600 13px/20px var(--display); color: var(--muted); border: 1.5px solid transparent;
   background: linear-gradient(rgba(24,22,32,.6), rgba(24,22,32,.6)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box; }
-@media (max-width: 600px) { .t-tag { font-size: 17px; line-height: 24px; } .t-logo img { width: min(88vw, calc(30svh * 1.777)); } #s-title { padding-top: max(64px, env(safe-area-inset-top, 0px)); } }
+@media (max-width: 600px) { .t-logo img { width: min(88vw, calc(30svh * 1.777)); } #s-title { padding-top: max(64px, env(safe-area-inset-top, 0px)); } }
 /* short screens (sideways phones): smaller logo and words, Start sits higher */
 @media (max-height: 520px) {
   #s-title { padding-top: max(12px, env(safe-area-inset-top, 0px)); padding-bottom: max(64px, calc(env(safe-area-inset-bottom, 0px) + 60px)); }
   .t-logo img { width: min(60vw, calc(36svh * 1.777)); }
-  .t-cta { gap: 8px; } .t-tag { font-size: 15px; line-height: 20px; }
+  .t-cta { gap: 8px; }
   .btn.t-start { font-size: 18px; padding: 8px 40px; }
 }
 
@@ -565,7 +563,6 @@ body.on-play #sound { display: none; }   /* the game frame has its own sound con
   <div class="t-scene" aria-hidden="true"></div>
   <h1 class="t-logo"><img src="art/logo-big.webp" alt="Open Game Maker 2000" width="1400" height="788"></h1>
   <div class="t-cta">
-    <p class="t-tag">Describe your game out loud. Play it in minutes.</p>
     <button class="btn yellow t-start" id="t-start">Start</button>
   </div>
 </section>

@@ -1,6 +1,6 @@
 // The title scene: the castle town (prototypes/title-city, copied to town/ by tools/build.sh) in a full-bleed frame behind
 // the logo. It animates only while the title shows and the tab is visible.
-import { onChange, status } from './sound.js';
+import { ext, extLoop } from './sound.js';
 
 export function start({ el, active }) {
   const f = document.createElement('iframe');
@@ -9,9 +9,12 @@ export function start({ el, active }) {
   el.appendChild(f);
   let running = true;
   const sync = () => { const on = active(); if (on !== running) { running = on; f.contentWindow?.postMessage(on ? 'resume' : 'pause', '*'); } };
-  const sfx = s => f.contentWindow?.postMessage(s === 'on' ? 'sound-on' : 'sound-off', '*');   // the scenes' effects follow the studio's sound switch
-  onChange(sfx);
-  addEventListener('message', e => { if (e.source === f.contentWindow && e.data === 'town-ready') { el.classList.add('on'); sync(); sfx(status()); } });
+  addEventListener('message', e => {
+    if (e.source !== f.contentWindow) return;
+    if (e.data === 'town-ready') { el.classList.add('on'); sync(); }
+    else if (e.data?.sfx) ext(`town/models/sounds/${e.data.sfx[0]}.mp3`, e.data.sfx[1], e.data.sfx[2]);   // the scenes' effects play on the studio's audio
+    else if (e.data?.loop) extLoop(`town/models/sounds/${e.data.loop[0]}.mp3`, e.data.loop[1]);
+  });
   setInterval(sync, 500); document.addEventListener('visibilitychange', sync);
   return Promise.resolve({ wake: sync });
 }

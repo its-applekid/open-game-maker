@@ -282,9 +282,24 @@ export async function kaiju(ctx) {
     d.burns = true; const t0 = d.hits[0] + 1 + i * .7; fx.fire(t0, d.rebuild - 2, [d.x, PLAIN + Math.max(.5, d.brokenTo), d.z], 1.7); fx.decal(t0, d.rebuild + 9, 'scorch', [d.x, PLAIN, d.z], 7);
   });
   for (const d of wrecked) { d.sc = ctx.scaffold(d.kind === 'wall' ? 10 : d.r * 1.6 + .9, d.kind === 'wall' ? 3 : d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); d.sc.position.set(d.x, PLAIN, d.z); d.sc.rotation.y = d.kind === 'wall' ? W.yaw : 0; scene.add(d.sc); }
+  // ---- sound (Kenney CC0, tools/sounds.sh): footfalls (splashes while he wades), smashes, the stomp, roars, the castle's
+  // shots and their hits, arrows, then hammering while each house is rebuilt. { t, s: name, v: volume, r: rate }
+  const SND = [], sn = (t, s, v = 1, r = 1) => SND.push({ t: +t.toFixed(3), s, v, r }), pick = (b, n) => `${b}_00${Math.floor(rnd() * n)}`;
+  for (const s of S) if (s.kind === 'move') { const st = s.clip === 'Run' ? .42 : .8;
+    for (let t = s.t0 + .2; t < Math.min(s.t1, LEAVE + 3); t += st) { const p = posAt(t), wet = ground(p.x, p.z) < 0;
+      if (wet) sn(t, rnd() < .5 ? 'sinkWater1' : 'sinkWater2', .5, .6); else { sn(t, pick('impactSoft_heavy', 3), .7, .5); sn(t + .01, 'lowFrequency_explosion_000', .15, 1.6); } } }
+  { let last = -9; for (const t of D.flatMap(d => d.hits).sort((a, b) => a - b)) { if (t - last < .15) continue; last = t; sn(t, pick('explosionCrunch', 5), .7); sn(t + .03, pick('impactWood_heavy', 5), .5); } }
+  for (const s of S) { if (s.clip === 'Jump_Land') { sn(s.t0 + .1, 'lowFrequency_explosion_001', 1); sn(s.t0 + .12, 'explosionCrunch_004', .8); }
+    if (s.clip === 'Yes' || s.clip === 'No') sn(s.t0 + .1, 'creature' + (1 + Math.floor(rnd() * 5)), .8, .45); }   // a roar, slowed down
+  for (const s of shots) { sn(s.t, s.bolt ? 'woosh3' : 'woosh1', .5, s.bolt ? 1.3 : .6); if (!s.bolt) sn(s.t, pick('impactWood_heavy', 5), .4, .7);
+    sn(s.land, s.bolt ? 'impactPunch_heavy_000' : 'stoneHit2', .8); if (!s.bolt) sn(s.land + .02, 'explosionCrunch_003', .7); }
+  for (const ar of arrows) if (rnd() < .5) sn(ar.t, 'woosh3', .15, 1.6);
+  for (const d of wrecked) for (let t = d.rebuild + .3; t < d.rebuild + 9; t += rr(.4, 1)) sn(t, rnd() < .3 ? pick('impactPlank_medium', 5) : rnd() < .5 ? 'chop' : pick('impactWood_light', 5), .22, rr(.9, 1.1));
+  SND.sort((a, b) => a.t - b.t);
   fx.build();
 
   return {
+    per: PER, sounds: SND, loops: [],
     update(t) {
       const lt = ((t % PER) + PER) % PER;
       // the monster
@@ -359,8 +374,8 @@ export async function kaiju(ctx) {
     // a camera from over the bay, three-quarter on the breach, shaking with each blow
     // the main shot's angle, pulled back and turned a touch toward the market so the other scenes fit: the menu holds it
     // still (cam=menu)
-    view(aspect, also) { const f = P(7, -3), l = also ? [lerp(f[0], also[0], .4), lerp(f[1], also[1], .4)] : f, k = 1.45;
-      return { fov: aspect < 1 ? 62 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
+    view(aspect, also) { const port = aspect < 1, f = P(7, -3), w = port ? .5 : .4, l = also ? [lerp(f[0], also[0], w), lerp(f[1], also[1], w)] : f, k = port ? 2.1 : 1.45;   // phones: further back
+      return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
     camera(cam, t, aspect) {
       const lt = ((t % PER) + PER) % PER, f = P(7, -3);
       let sh = 0; for (const s of SHAKES) { const a = lt - s.t; if (a >= 0 && a < 1.2) sh += s.a * Math.exp(-a * 4); }

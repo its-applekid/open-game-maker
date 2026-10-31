@@ -162,7 +162,20 @@ const notify = () => listeners.forEach(f => f(status()));
 export const status = () => muted ? 'off' : ctx.state === 'running' ? 'on' : 'tap';
 export function unlock() {
   try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch {}   // iOS: keep playing with the ringer on silent
-  if (ctx.state === 'suspended' && !document.hidden) ctx.resume();
+  if (ctx.state === 'running' || document.hidden) return;
+  // iOS reports 'interrupted' as well as 'suspended', and older versions only unlock when a sound starts inside the tap
+  ctx.resume().then(notify, () => {});
+  const s = ctx.createBufferSource(); s.buffer = ctx.createBuffer(1, 1, 22050); s.connect(ctx.destination); s.start(0);
+}
+// effects posted by an embedded scene (the title town): played here, on the audio the tap unlocked
+const extBufs = new Map(), extLoops = new Map();
+const extLoad = url => { if (!extBufs.has(url)) extBufs.set(url, fetch(url).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).catch(() => null)); return extBufs.get(url); };
+export function ext(url, vol, rate) { if (ctx.state === 'running' && !muted) extLoad(url).then(b => shot(b, sfxBus, { vol, rate, pitch: 0 })); }
+export function extLoop(url, gain) {
+  let l = extLoops.get(url);
+  if (!l) { if (ctx.state !== 'running') return; l = { g: node(sfxBus, 0) }; extLoops.set(url, l);
+    extLoad(url).then(b => { if (!b) return; const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(l.g); s.start(); }); }
+  l.g.gain.value = gain;
 }
 ctx.addEventListener('statechange', () => { if (ctx.state === 'running') set(want, .8); notify(); });
 for (const ev of ['pointerup', 'touchend', 'keydown', 'click']) addEventListener(ev, unlock, { capture: true });
