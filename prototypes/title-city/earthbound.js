@@ -28,7 +28,7 @@ import * as landFx from './vendor/pixelfx/src/fx/impacts/heavy-landing.js';
 import * as splashFx from './vendor/pixelfx/src/fx/water/splash.js';
 import * as ripplesFx from './vendor/pixelfx/src/fx/water/ripples.js';
 
-export const PER = 42;
+export const PER = 102;   // 42 s of story, then a minute of rebuilding
 const clamp01 = x => Math.min(1, Math.max(0, x)), smooth = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
 const lerp = (a, b, k) => a + (b - a) * k;
 let seed = 5; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296), rr = (a, b) => a + rnd() * (b - a);
@@ -168,12 +168,13 @@ export async function earthbound(ctx) {
     for (const o of D) if (o !== d && Math.hypot(o.x - d.x, o.z - d.z) < 7 && !targets.includes(o)) blast(o, land + .1, o.h * rr(.55, .75), .6);
     for (let j = 0; j < 2; j++) {   // two fires to a ruin, each its own size, height and start, so no two burn alike
       const a = (i * 2 + j) * 2.4, off = j ? d.r * .9 : 0;
-      effects.push(pxEffect(scene, U, fireFx, land + .3 + j * .5, [d.x + Math.cos(a) * off, PLAIN + d.h * (j ? .12 : .3), d.z + Math.sin(a) * off], j ? .07 : rr(.085, .115), { seed: 9 + i * 7 + j * 31, opts: { height: j ? rr(12, 18) : rr(18, 30) }, until: PER - .3 }));
+      const f = pxEffect(scene, U, fireFx, land + .3 + j * .5, [d.x + Math.cos(a) * off, PLAIN + d.h * (j ? .12 : .3), d.z + Math.sin(a) * off], j ? .07 : rr(.085, .115), { seed: 9 + i * 7 + j * 31, opts: { height: j ? rr(12, 18) : rr(18, 30) }, until: PER - .3, fadeOut: 1.5 });
+      effects.push(f); (d.fires ||= []).push(f);
     }
   });
   // ---- timeline of the fight (seconds in the loop)
   const T = { portal: 10.6, out: 10.9, wall: 11.45, jump: 13.95, land: 14.85, a1: 15.8, a2: 17.6, bolt: 19.6, a3: 22.2, fall: 23.3, crash: 24.7,
-    walk: 25.4, swing: 30.6, flipEnd: 31.9, sink: 36, run: 32.6, runT: 4.2 };
+    walk: 25.4, swing: 30.6, flipEnd: 31.9, sink: 36.4, run: 32.6, runT: 4.2 };
   T.hit1 = T.a1 + .65; T.hit2 = T.a2 + .6; T.struck = T.bolt + .2; T.contact = T.swing + 3 / 8; T.runEnd = T.run + T.runT;
   // ---- Ness: normal, burnt (black, hair up) and the bat swing
   const nessTex = await load('models/sprites/variants/ness.png'), burntTex = await load('models/sprites/variants/ness_burnt.png'), batTex = await load('models/sprites/variants/ness_bat.png');
@@ -251,9 +252,19 @@ export async function earthbound(ctx) {
     for (const h of hits) { const a = lt - h; if (a >= 0 && a < .5) p = [p[0] + Math.sin(a * 60) * .5 * (1 - a * 2), p[1] + Math.sin(a * 47) * .4, p[2]]; }
     if (lt >= T.fall) { const k = clamp01((lt - T.fall) / (T.crash - T.fall)), g = at3(C, -.6); p = [lerp(UH[0], g[0], k), lerp(UH[1], g[1], k * k), lerp(UH[2], g[2], k)]; rz = -.28 * k + Math.sin(lt * 9) * .06 * (1 - k); }
     if (lt >= T.contact) { const k = clamp01((lt - T.contact) / (T.flipEnd - T.contact)), g = at3(C, -.6); p = [lerp(g[0], R0[0], k), lerp(g[1], 3.4, k) + Math.sin(k * Math.PI) * 7, lerp(g[2], R0[1], k)]; rz = lerp(-.28, -Math.PI, smooth(k)); }
-    if (lt >= T.flipEnd) { const a = lt - T.flipEnd, q = downstream(a * 2.6 * (1 - Math.exp(-a))), sk = clamp01((lt - T.sink) / 7); p = [q[0], 3.4 + Math.sin(a * 2.1) * .15 - sk * sk * 7, q[1]]; rz = -Math.PI + Math.sin(a * 1.3) * .08 + sk * .5; clip = .05; }
+    if (lt >= T.flipEnd) {   // floats off downstream, then sinks slowly and steadily over five seconds (Kevin)
+      const a = lt - T.flipEnd, q = downstream(a * 1.0 * (1 - Math.exp(-a))), sk = clamp01((lt - T.sink) / 5);
+      p = [q[0], 3.4 + Math.sin(a * 2.1) * .15 * (1 - sk) - sk * 3.9, q[1]]; rz = -Math.PI + Math.sin(a * 1.3) * .08 + sk * .35; clip = .05; }
     return { p, rz, clip };
   }
+  // ---- after the fight: every broken house is rebuilt in scaffolding, one at a time in random order, at uneven gaps,
+  // over the next minute; its fire goes out and its rubble sinks just before
+  const REB = 9, wrecked = D.filter(d => d.versions.length > 1);
+  for (let i = wrecked.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [wrecked[i], wrecked[j]] = [wrecked[j], wrecked[i]]; }
+  const gaps = wrecked.map(() => rr(.4, 2.2) ** 2), gsum = gaps.reduce((a, b) => a + b, 0), span = PER - 43 - REB - 4;
+  let at = 43; wrecked.forEach((d, i) => { d.rebuild = at; at += gaps[i] / gsum * span;
+    for (const f of d.fires || []) f.end = d.rebuild - .5;
+    d.sc = ctx.scaffold(d.r * 1.6 + .9, d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); d.sc.position.set(d.x, PLAIN, d.z); scene.add(d.sc); ctx.layers(d.sc, 0); });
   const near = (p, r) => Math.hypot(p[0] - cx, p[1] - cz) < r, r1 = v => Math.round(v * 10) / 10;
   window.__scene = { ...window.__scene, map: { houses: D.map(d => [r1(d.x), r1(d.z), r1(d.h), r1(d.r)]), streets: ctx.streets.map(s => s.filter(p => near(p, 70)).map(p => p.map(r1))).filter(s => s.length),
     river: ctx.river.filter(p => near(p, 150)).map(p => p.map(r1)), targets: targets.map(d => D.indexOf(d)) } };
@@ -275,9 +286,15 @@ export async function earthbound(ctx) {
         if (e.bolt) face(e.mesh); else screen(e.mesh, rz); }
       for (const d of D) {
         let v = d.versions[0]; for (const x of d.versions) if (x.t <= lt) v = x;
-        for (const x of d.versions) x.mesh.visible = x === v;
-        for (const c of d.chunks) { const a = lt - c.t0; c.m.visible = a >= 0; if (!c.m.visible) continue;
-          const i = Math.min(c.frames.length / 7 - 1, Math.floor(a * 30)) * 7, f = c.frames; c.m.position.set(f[i], f[i + 1], f[i + 2]); c.m.quaternion.set(f[i + 3], f[i + 4], f[i + 5], f[i + 6]); }
+        const rebuilding = d.rebuild && lt >= d.rebuild;
+        for (const x of d.versions) x.mesh.visible = x === v && !rebuilding;
+        d.mat.uniforms.cut.value = 9999;
+        if (rebuilding) { const w = d.versions[0].mesh, k = (lt - d.rebuild) / REB, n = ctx.steps(d.h); w.visible = true;   // storey by storey inside the scaffold, then it comes down
+          if (k < 1) { d.mat.uniforms.cut.value = PLAIN + d.h * ctx.stepped(k, d.h); ctx.layers(d.sc, Math.min(n, k * n + .55) + .45); }
+          else ctx.layers(d.sc, Math.max(0, n - (lt - d.rebuild - REB) / .4)); }
+        else if (d.sc) ctx.layers(d.sc, 0);
+        for (const c of d.chunks) { const a = lt - c.t0, sink = d.rebuild ? clamp01((lt - (d.rebuild - 2)) / 2) : 0; c.m.visible = a >= 0 && sink < 1; if (!c.m.visible) continue;
+          const i = Math.min(c.frames.length / 7 - 1, Math.floor(a * 30)) * 7, f = c.frames; c.m.position.set(f[i], f[i + 1] - sink * 2, f[i + 2]); c.m.quaternion.set(f[i + 3], f[i + 4], f[i + 5], f[i + 6]); }
       }
       fx.update(lt); void yaw;
     },
@@ -301,6 +318,7 @@ export async function earthbound(ctx) {
         [25.2, () => near(mid(nessAt(lt).p, at3(C), .55), 24, 15, 1)],
         [32.3, () => near(nessAt(Math.min(lt, T.runEnd - .01)).p, 24, 15, 2)],
         [37.6, () => near(ufoState(lt, ufoAt(lt)).p.map((v, i) => i === 1 ? Math.max(v, 1) : v), 18, 22, 0)],
+        [42, () => { const k = (lt - 42) / (PER - 42), o = Math.sin(k * Math.PI) * 30; return near([cx + sd[0] * o * .4, PLAIN, cz + sd[1] * o * .4], 62, 30, 4); }],   // the rebuild, drifting slowly along the quarter
       ];
       let i = 0; while (i < SH.length - 1 && SH[i + 1][0] <= lt) i++;
       let [pos, tgt] = SH[i][1]();

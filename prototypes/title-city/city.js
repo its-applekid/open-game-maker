@@ -750,7 +750,7 @@ async function setupEarthbound() {
   const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => Math.hypot(h.x - centre[0], h.z - centre[1]) < 26);
   for (const h of zone) houses.splice(houses.indexOf(h), 1);
   window.__scene = { zone: zone.length };
-  return await earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER });
+  return await earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps });
 }
 // b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
 let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
