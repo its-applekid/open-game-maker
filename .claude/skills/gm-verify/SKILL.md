@@ -34,4 +34,7 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   ffmpeg `showwavespic` image (a loud loop flattens every hit), and say it wasn't listened to.
 - A live JS page with many modules (over 256 files per publish): bundle it into one inline script with esbuild
   (`npm i esbuild` in the scratchpad, `--bundle --format=esm --minify`).
+- Before deploying anything a phone loads, time it: `prototypes/title-city/tools/loadtime.mjs <url>` (iPhone profile,
+  CPU 4x slower, then a cached reload). Seconds of setup on a phone are usually work that never changes: bake it at build
+  time (see `title-city/tools/bake.mjs`).
 - Say what was checked and what wasn't (for example "not checked on iPhone Safari").
