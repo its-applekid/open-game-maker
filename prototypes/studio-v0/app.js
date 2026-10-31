@@ -45,12 +45,13 @@ function drawSound(s) {
 }
 sound.onChange(drawSound); drawSound(sound.status());
 let volTimer = 0;
-const showVol = on => { clearTimeout(volTimer); vol.classList.toggle('open', on); vol.inert = !on; drawSound(sound.status()); };
-const hideSoon = () => { clearTimeout(volTimer); volTimer = setTimeout(() => showVol(false), 1400); };   // folds away a moment after the last change
+const hideSoon = (ms = 1400) => { clearTimeout(volTimer); volTimer = setTimeout(() => showVol(false), ms); };   // folds away a moment after the last touch
+const showVol = on => { clearTimeout(volTimer); vol.classList.toggle('open', on); vol.inert = !on; drawSound(sound.status()); if (on) hideSoon(2600); };   // opened: a moment to use it, then it folds away by itself
 soundBtn.onclick = e => { e.stopPropagation(); const on = !vol.classList.contains('open'); if (on && sound.status() === 'off') sound.setMuted(false); showVol(on); };
 volMute.onclick = () => { sound.setMuted(sound.status() === 'on'); hideSoon(); };
 volRange.oninput = () => { clearTimeout(volTimer); sound.setVolume(+volRange.value); };
-volRange.onchange = hideSoon;
+volRange.onpointerdown = () => clearTimeout(volTimer);   // held open while dragging
+volRange.onchange = () => hideSoon();
 addEventListener('pointerdown', e => { if (vol.classList.contains('open') && !vol.contains(e.target) && !soundBtn.contains(e.target)) showVol(false); });
 
 // ---------------- title ----------------

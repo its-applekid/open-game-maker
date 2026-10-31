@@ -2,6 +2,8 @@
 // ground decals, from Kenney Smoke Particles, Kenney Particle Pack and Synty Particle FX textures (models/fx/).
 // Every particle is planned when its emitter is added (birth time, life, start, velocity, growth), and drawn from the
 // scene time alone, so capture mode can draw any moment exactly. One instanced quad mesh per texture.
+// `tag` marks the particles of one event (set it before adding them); a scene's `dead(tag)` hides an event the player
+// prevented. `burst()` reuses a small pool of particles for hits that happen live (the player's taps).
 import * as THREE from 'three';
 
 const TEX = {
@@ -22,7 +24,7 @@ const rnd = () => ((seedState = (seedState * 1664525 + 1013904223) >>> 0) / 4294
 
 export class FX {
   constructor(scene, camera, U) {
-    this.scene = scene; this.camera = camera; this.groups = {}; this.parts = []; this.U = U;
+    this.scene = scene; this.camera = camera; this.groups = {}; this.parts = []; this.U = U; this.tag = null; this.dead = null; this.pool = []; this.poolAt = 0;
     const loader = new THREE.TextureLoader();
     for (const [kind, names] of Object.entries(TEX)) for (const n of names) {
       const tex = loader.load(`models/fx/${n}.png`); tex.colorSpace = THREE.SRGBColorSpace;
@@ -30,7 +32,16 @@ export class FX {
     }
   }
   // planned particles; kinds pick a texture at random within their family
-  add(kind, p) { const names = TEX[kind]; p.tex = names[Math.floor(rnd() * names.length)]; p.kind = kind; this.groups[p.tex].list.push(p); this.parts.push(p); return p; }
+  add(kind, p) { const names = TEX[kind]; p.tex = names[Math.floor(rnd() * names.length)]; p.kind = kind; p.tag = this.tag; this.groups[p.tex].list.push(p); this.parts.push(p); return p; }
+  // n live hit bursts, planned now (before build) and moved to wherever and whenever a hit lands
+  reserve(n = 6) { const tag = this.tag; this.tag = null;
+    for (let i = 0; i < n; i++) { const set = []; set.push(this.add('flash', { born: -99, life: .3, p: [0, 0, 0], v: [0, 0, 0], size: 4, grow: 2, rot: rr(0, 6), color: '#ffe2b0', alpha: 1, fade: 'fast' }));
+      for (let k = 0; k < 10; k++) { const a = rr(0, Math.PI * 2), e = rr(.2, 1.2), sp = rr(5, 11); set.push(this.add('spark', { born: -99, life: rr(.35, .7), p: [0, 0, 0], v: [Math.cos(a) * sp * Math.cos(e), Math.sin(e) * sp, Math.sin(a) * sp * Math.cos(e)], g: 14, size: rr(.35, .7), rot: 0, color: '#ffd08a', alpha: 1 })); }
+      for (let k = 0; k < 4; k++) set.push(this.add('puff', { born: -99, life: rr(.6, 1), p: [0, 0, 0], v: [rr(-1.5, 1.5), rr(1, 2.5), rr(-1.5, 1.5)], drag: 1.5, size: rr(1.2, 2), grow: .9, rot: rr(0, 6), color: '#efe4d4', alpha: .6 }));
+      this.pool.push(set); }
+    this.tag = tag; }
+  burst(t, [x, y, z], s = 1) { const set = this.pool[this.poolAt++ % this.pool.length]; if (!set) return;
+    for (const p of set) { p.born = t + (p.kind === 'spark' ? rnd() * .05 : 0); p.p = [x, y, z]; p.s0 ??= p.size; p.size = p.s0 * s; } }
   dust(t, [x, y, z], s = 1, color = '#e9dccb') {   // a plume: puffs that burst out, rise and spread, then thin
     for (let i = 0; i < 18 * s; i++) { const a = rr(0, Math.PI * 2), sp = rr(1, 4) * s;
       this.add('puff', { born: t + rr(0, .25), life: rr(2.5, 4.5) * Math.sqrt(s), p: [x + rr(-1, 1) * s, y + rr(0, 1.5) * s, z + rr(-1, 1) * s], v: [Math.cos(a) * sp, rr(.8, 2.4) * s, Math.sin(a) * sp], drag: 1.2, size: rr(2, 3.6) * s, grow: rr(.7, 1.4), rot: rr(0, 6), spin: rr(-.4, .4), color, alpha: rr(.55, .85) }); }
@@ -77,7 +88,7 @@ export class FX {
       if (!g.mesh) continue; const al = g.mesh.geometry.attributes.aAlpha;
       g.list.forEach((p, i) => {
         const a = lt - p.born;
-        if (a < 0 || a > p.life) { g.mesh.setMatrixAt(i, zero); al.array[i] = 0; return; }
+        if (a < 0 || a > p.life || (p.tag != null && this.dead?.(p.tag))) { g.mesh.setMatrixAt(i, zero); al.array[i] = 0; return; }
         const k = a / p.life, d = p.drag ? (1 - Math.exp(-p.drag * a)) / p.drag : a;
         o.position.set(p.p[0] + p.v[0] * d + (p.wobble ? Math.sin(a * 5 + i) * .3 : 0), Math.max(p.p[1] * 0 + -50, p.p[1] + p.v[1] * d - .5 * (p.g || 0) * a * a), p.p[2] + p.v[2] * d);
         const s = Math.max(.01, p.size * (1 + (p.grow || 0) * a));

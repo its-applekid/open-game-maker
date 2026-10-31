@@ -10,7 +10,7 @@ for n in spaceEngineLow_000 lowFrequency_explosion_000 lowFrequency_explosion_00
 for b in laserLarge explosionCrunch forceField laserSmall; do for i in 0 1 2 3 4; do put "$S/${b}_00$i.ogg"; done; done
 for i in 0 1 2; do put "$S/thrusterFire_00$i.ogg"; put "$I/impactSoft_heavy_00$i.ogg"; put "$I/impactMetal_heavy_00$i.ogg"; done
 for b in footstep_concrete impactWood_heavy impactWood_light impactPlank_medium; do for i in 0 1 2 3 4; do put "$I/${b}_00$i.ogg"; done; done
-put "$I/impactPunch_heavy_000.ogg"; put "$I/impactPlate_heavy_000.ogg"
+for i in 0 1 2 3 4; do put "$I/impactPunch_heavy_00$i.ogg"; done; put "$I/impactPlate_heavy_000.ogg"; for i in 3 4; do put "$I/impactMetal_heavy_00$i.ogg"; done   # the player's hits (Easter egg)
 for n in hurt1 hurt2 jump1 fall1 secret1; do put "$R2/$n.ogg"; done
 R1="$K/kenney-retro-sounds-1/1.0/extracted/Audio"; for i in 1 2 3 4 5; do put "$R1/creature$i.ogg"; done
 for n in Rocks/stoneHit1 Rocks/stoneHit2 Rocks/stoneHit3 Swords/hitHelmet1 Water/drip1 Water/drip2 Water/drip3 Water/drip4 Water/sinkWater1 Water/sinkWater2 Woosh/woosh1 Woosh/woosh3; do put "$F/$n.ogg"; done

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// The looping poster the studio menu shows while the town loads: the menu view exactly as it first appears (before the
-// scenes join), a few seconds of drifting clouds and boats, the end cross-faded into the start so it loops without a seam.
+// The looping poster the studio menu shows while the town loads: the menu view exactly as it first appears (with the
+// scenes set up, as the reveal shows it), a few seconds of drifting clouds and boats, the end cross-faded into the start so it loops without a seam.
 // Writes models/bake/poster-portrait.webp and poster-landscape.webp (animated WebP: GIF-like, far smaller, full colour), and a
 // small JPEG still of each first frame.
 // Serve the prototype first, as for capture.mjs.   node tools/poster.mjs
@@ -17,7 +17,7 @@ const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '
 // a narrower screen gives exactly the live framing
 for (const [name, w, h] of [['portrait', 1000, 1010], ['landscape', 1728, 720]]) {
   const p = await b.newPage({ viewport: { width: w, height: h } }), tmp = join(OUT, '.poster-' + name); rmSync(tmp, { recursive: true, force: true }); mkdirSync(tmp, { recursive: true });
-  await p.goto(`http://localhost:${process.env.PORT || 8792}/index.html?capture&cam=menu&scene=all&noscenes`);
+  await p.goto(`http://localhost:${process.env.PORT || 8792}/index.html?capture&cam=menu&scene=all`);
   await p.waitForFunction(() => window.__ready, null, { timeout: 300000 });
   for (let i = 0; i < Math.round((L + X) * FPS); i++) { await p.evaluate(t => window.__frame(t), i / FPS); await p.screenshot({ path: join(tmp, `f${String(i).padStart(3, '0')}.png`) }); }
   await p.close();
