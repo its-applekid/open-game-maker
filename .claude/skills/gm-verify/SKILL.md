@@ -18,7 +18,10 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   timeline in time order, or a phone-ready MP4. A scene camera that follows scene state lags one frame in stills
   taken out of order; judge camera work from a timeline or the recording. (Tiling by hand? sort with `sort -V`; plain `sort` puts t10 before t4.)
 - Small events (a building rebuilt, a monster's punch): add a debug camera that frames the event (`?focus=` /
-  `?cam=scene`) instead of judging from the wide shot.
+  `?cam=scene`) instead of judging from the wide shot. Look at destruction in 2x-resolution crops of the phone view
+  too: the creator pinches to zoom, and stretched debris (long slivers from a scaled model) hid at 1x.
+- Waiting on a background render: `pgrep -f "<pattern>"` also matches the waiting shell's own command line, so it never
+  ends; wait on the PID or a done file.
 - Read each tiled image and say what is wrong before fixing; fix the worst thing first. Something blocking the shot
   may not be in the scene's object lists (props placed directly, like a market hall): find it before moving the camera.
 - When the creator gave a reference image, put it beside your render in one image and compare before showing

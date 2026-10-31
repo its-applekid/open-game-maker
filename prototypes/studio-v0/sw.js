@@ -10,11 +10,12 @@ self.addEventListener('activate', e => e.waitUntil(caches.keys().then(ks => Prom
 self.addEventListener('fetch', e => {
   const r = e.request, u = new URL(r.url);
   if (r.method !== 'GET' || u.origin !== location.origin || u.pathname.endsWith('/sw.js')) return;
+  const fresh = () => fetch(r.mode === 'navigate' ? r.url : r, { cache: 'no-cache' });   // past the browser's own cache: a phone must never mix an old town script with new baked files
   const keep = res => { if (res.ok && res.type === 'basic') { const c = res.clone(); caches.open(CACHE).then(k => k.put(r, c)); } return res; };
-  if (r.mode === 'navigate') { e.respondWith(fetch(r).then(keep).catch(() => caches.match(r))); return; }
+  if (r.mode === 'navigate') { e.respondWith(fresh().then(keep).catch(() => caches.match(r))); return; }
   if (/\/(town\/models|art)\//.test(u.pathname) && !u.pathname.includes('/bake/')) {   // stale-while-revalidate
     e.respondWith(caches.open(ASSETS).then(c => c.match(r).then(hit => { const net = fetch(r).then(res => { if (res.ok && res.type === 'basic') c.put(r, res.clone()); return res; }); if (hit) net.catch(() => {}); return hit || net; })));
     return;
   }
-  e.respondWith(caches.match(r, { ignoreSearch: false }).then(hit => hit || fetch(r).then(keep)));
+  e.respondWith(caches.match(r, { ignoreSearch: false }).then(hit => hit || fresh().then(keep)));
 });

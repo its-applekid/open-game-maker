@@ -40,8 +40,8 @@ const C = c => new THREE.Color(c);
 const ROOFS = { noble: ['#7d8fb8', '#a58bb0', '#6f7894'], artisan: ['#d98f73', '#c9806a', '#e0a07a', '#9bb08a'], harbor: ['#6f7894', '#7d8fb8', '#9bb08a'], castle: ['#7d8fb8'] };
 const PASTEL = ['#fb4934', '#fabd2f', '#b8bb26', '#83a598', '#d3869b', '#8ec07c', '#fe8019'].map(c => C(c).lerp(C('#fbf1c7'), .35));
 const TREES = ['#98a86a', '#8ab07f', '#a3b46a', '#7fa38a', '#b0b98a'].map(C), BLOSSOM = ['#eeb2c2', '#e8a0b4', '#e8916e', '#e8c66e'].map(C);
-const FIELDS = ['#e6d39a', '#b9c98f', '#a9bf86', '#cdbbd9', '#d9c48c', '#c2cf96'].map(C);
-const GROUND = { sand: '#ecd9b4', grass: '#b3bf95', grass2: '#a5b58f', forest: '#8aa08a', rock: '#b0a3a8', snow: '#f7f1ee', shallow: '#a3d4c6', deep: '#5d7fa8', cobble: '#d6c8b6', dirt: '#c9b294' };
+const FIELDS = ['#e6d39a', '#b9c98f', '#a9bf86', '#d9c48c', '#c2cf96'].map(C);
+const GROUND = { sand: '#ecd9b4', grass: '#b3bf95', grass2: '#a5b58f', forest: '#8aa08a', rock: '#ada79f', snow: '#f7f1ee', shallow: '#a3d4c6', deep: '#5d7fa8', cobble: '#d6c8b6', dirt: '#c9b294' };
 const KEYS = [
   { p: 0, top: '#93b4e0', hor: '#f6e2cf', fog: '#efdfd2', sun: '#fff1dc', sunI: 1.15, hemi: '#fff4ea', hemiG: '#a59b8f', hemiI: .95, ocean: '#6f97c2', elev: .9, night: 0 },
   { p: .28, top: '#8b95cc', hor: '#f4cdb6', fog: '#eccbbc', sun: '#ffd8b0', sunI: 1, hemi: '#f6e1ee', hemiG: '#9a8a90', hemiI: .85, ocean: '#5f80b2', elev: .35, night: 0 },
@@ -255,14 +255,25 @@ const skyMat = new THREE.ShaderMaterial({ side: THREE.BackSide, depthWrite: fals
     }` });
 { const s = new THREE.Mesh(new THREE.SphereGeometry(3000, 32, 16), skyMat); s.renderOrder = -10; scene.add(s); }
 
-// ---------------- terrain: flat-shaded, coloured per face ----------------
+// ---------------- terrain: flat-shaded, each face's colour blended across its corners (soft gradients, no zigzags) ----------------
 // The ground is the same every time, so tools/bake.mjs saves its heights and face colours (models/bake/terrain.bin);
 // with that file the grid is only assembled, not worked out (seconds on a phone)
+// the ground's height as drawn: read off the terrain grid (the same triangles as the mesh), far cheaper than height() for
+// the scenes, whose flying rubble asks thousands of times while they are set up
+let GRID = null;
+function groundH(x, z) {
+  const G = GRID; if (!G) return height(x, z);
+  const fx = (x - G.X0) / G.Sg, fz = (z - G.Z0) / G.Sg, i = Math.floor(fx), j = Math.floor(fz);
+  if (i < 0 || j < 0 || i >= G.nx || j >= G.nz) return height(x, z);
+  const u = fx - i, v = fz - j, W = G.nx + 1, a = G.H[j * W + i], b = G.H[j * W + i + 1], d = G.H[(j + 1) * W + i], e = G.H[(j + 1) * W + i + 1];
+  return u + v <= 1 ? a + (b - a) * u + (d - a) * v : e + (d - e) * (1 - u) + (b - e) * (1 - v);
+}
 async function terrain() {
   const X0 = -780, X1 = 300, Z0 = -1050, Z1 = 280, Sg = 3.2, nx = Math.ceil((X1 - X0) / Sg), nz = Math.ceil((Z1 - Z0) / Sg), NH = (nx + 1) * (nz + 1);
   const bake = Q.has('nobake') ? null : await fetch('models/bake/terrain.bin').then(r => r.ok ? r.arrayBuffer() : null).catch(() => null), baked = bake?.byteLength === NH * 4 + nx * nz * 6;
   const H = baked ? new Float32Array(bake, 0, NH) : new Float32Array(NH), FC = baked ? new Uint8Array(bake, NH * 4) : new Uint8Array(nx * nz * 6);
   if (!baked) for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) H[j * (nx + 1) + i] = height(X0 + i * Sg, Z0 + j * Sg);
+  GRID = { H, X0, Z0, Sg, nx, nz };
   window.__terrainBake = () => { const out = new Uint8Array(NH * 4 + FC.length); out.set(new Uint8Array(H.buffer, H.byteOffset, NH * 4)); out.set(FC, NH * 4); return out; };
   const pos = new Float32Array(nx * nz * 18), col = new Float32Array(nx * nz * 18), c = new THREE.Color();
   const cols = Object.fromEntries(Object.entries(GROUND).map(([k, v]) => [k, C(v)]));
@@ -290,6 +301,18 @@ async function terrain() {
     const x = X0 + i * Sg, z = Z0 + j * Sg, a = H[j * (nx + 1) + i], b = H[j * (nx + 1) + i + 1], d = H[(j + 1) * (nx + 1) + i], e = H[(j + 1) * (nx + 1) + i + 1];
     face(x, a, z, x, d, z + Sg, x + Sg, b, z); face(x + Sg, b, z, x, d, z + Sg, x + Sg, e, z + Sg);
   }
+  // blend: each grid corner takes the mean of the faces around it, then of its neighbouring corners (twice), and every face
+  // vertex takes its corner's colour, so field edges, grass shades and shores fade into each other over a few metres
+  { const W = nx + 1, acc = new Float32Array(NH * 3), n = new Float32Array(NH), at = (k, i, j) => { const v = j * W + i; acc[v * 3] += col[k]; acc[v * 3 + 1] += col[k + 1]; acc[v * 3 + 2] += col[k + 2]; n[v]++; };
+    const CORNERS = [[0, 0], [0, 1], [1, 0], [1, 0], [0, 1], [1, 1]];
+    for (let j = 0, k = 0; j < nz; j++) for (let i = 0; i < nx; i++) for (const [di, dj] of CORNERS) { at(k, i + di, j + dj); k += 3; }
+    let vc = acc.map((s, q) => s / n[Math.floor(q / 3)]);
+    for (let pass = 0; pass < 2; pass++) { const nv = new Float32Array(vc.length);
+      for (let j = 0; j <= nz; j++) for (let i = 0; i <= nx; i++) { let r = 0, gg = 0, b = 0, m = 0;
+        for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) { const ii = i + di, jj = j + dj; if (ii < 0 || jj < 0 || ii > nx || jj > nz) continue; const w = di || dj ? 1 : 2, v = (jj * W + ii) * 3; r += vc[v] * w; gg += vc[v + 1] * w; b += vc[v + 2] * w; m += w; }
+        const v = (j * W + i) * 3; nv[v] = r / m; nv[v + 1] = gg / m; nv[v + 2] = b / m; }
+      vc = nv; }
+    for (let j = 0, k = 0; j < nz; j++) for (let i = 0; i < nx; i++) for (const [di, dj] of CORNERS) { const v = ((j + dj) * W + i + di) * 3; col[k] = vc[v]; col[k + 1] = vc[v + 1]; col[k + 2] = vc[v + 2]; k += 3; } }
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
   const ground = new THREE.Mesh(g, new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true })); scene.add(ground);
@@ -774,6 +797,7 @@ const CAMS = {   // [position, look-at] for landscape; portrait backs off and wi
 };
 function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
+  if (Q.has('look') && window.__look) { const [x, y, z] = window.__look[+Q.get('look')](), r = +(Q.get('r') || 14), a = +(Q.get('a') || 0.8); camera.fov = 40; camera.position.set(x + Math.sin(a) * r, y + r * .5, z + Math.cos(a) * r); camera.lookAt(x, y + 3, z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at a scene's prop (rampage: its siege engines)
   if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
   if (CAM === 'scene' && SC) { SC.camera(camera, SC.local(t), aspect); return; }
   if (CAM === 'scene') { camera.position.set(...CAMS.a[0]); camera.lookAt(...CAMS.a[1]); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
@@ -811,7 +835,7 @@ function claimRampage() {
     // the kaiju shot's angle, pulled back and turned toward the market so the other scenes fit (phones further back)
     view(aspect, also) { const port = aspect < 1, w = port ? .5 : .4, l = also ? [f[0] + (also[0] - f[0]) * w, f[1] + (also[1] - f[1]) * w] : f, k = port ? 2.1 : 1.45;
       return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
-    run: () => kaiju({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(-50) + 10, -50], [coastX(15) + 8, 15]] /* in from the sea beyond the river mouth, toward the camera */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
+    run: () => kaiju({ scene, camera, U, PLAIN, ground: groundH, kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(-50) + 10, -50], [coastX(15) + 8, 15]] /* in from the sea beyond the river mouth, toward the camera */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
       breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps }) };
 }
 // The EarthBound homage (earthbound.js): the market quarter's houses, struck by the saucer.
@@ -819,7 +843,7 @@ function claimEarthbound() {
   const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => !h.claim && Math.hypot(h.x - centre[0], h.z - centre[1]) < 26); for (const h of zone) h.claim = true;
   const eyes = VIEW_OF() ? [VIEW_OF().view(16 / 9, centre).pos, VIEW_OF().view(.46, centre).pos] : [];   // the menu camera, wide and tall
   return { zone, hide: [], centre, eyes,
-    run: () => earthbound({ eyes, scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
+    run: () => earthbound({ eyes, scene, camera, U, PLAIN, ground: groundH, kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
 }
 // b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
 let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -871,7 +895,7 @@ const makeSfx = SNDS => SNDS.length && !CAPTURE ? (() => {
 // first and EarthBound two thirds of the way through it; outside its window each scene holds its untouched first moment
 async function startScenes(join) {
   const list = [];
-  for (const c of CLAIMS) { const sc = await c.run(); list.push(sc); for (const h of c.zone) hideEntry(h.entry); for (const e of c.hide) hideEntry(e);
+  for (const c of CLAIMS) { const sc = await c.run(); list.push(sc); _mk('run ' + list.length); for (const h of c.zone) hideEntry(h.entry); for (const e of c.hide) hideEntry(e);
     if (sc.spots && c.eyes?.length) for (const h of houses) { if (h.claim || !h.entry) continue; const k = await kenney(h.model), top = PLAIN + k.h * h.s;
       if (Object.values(sc.spots).some(p => c.eyes.some(e => sightBlocked([p[0], PLAIN + 3, p[1]], e, h.x, h.z, k.w * h.s / 2 + 1, top)))) hideEntry(h.entry); }
     await new Promise(r => setTimeout(r)); }
@@ -897,12 +921,13 @@ window.__info = () => ({ ev: dyn.slice(0, 4).map(d => [+d.per.toFixed(1), +d.ev[
 if (!CAPTURE) {
   let t = 0, last = performance.now();
   const loop = () => { const now = performance.now(); t += Math.min(.1, (now - last) / 1000); last = now; frame(t); };
-  renderer.setAnimationLoop(loop);
   addEventListener('message', e => { if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
-  if (EMBED) {   // behind the studio's poster: scenes set up and shaders compiled first, so the reveal shows the town already running
-    if (CLAIMS.length) await startScenes(NOW);
-    await renderer.compileAsync(scene, camera).catch(() => {}); frame(NOW); parent.postMessage('town-ready', '*');
-  } else if (CLAIMS.length) setTimeout(() => startScenes(NOW), 100);   // alone: the town first, the scenes join a moment later
+  if (EMBED) {   // behind the studio's poster: no frames until the scenes are set up and shaders compiled (drawing meanwhile only
+    // slowed the setup, and ran the scenes' clock ahead), then the clock starts at 0, the moment the poster shows
+    if (CLAIMS.length) await startScenes(0); _mk('scenes');
+    await renderer.compileAsync(scene, camera).catch(() => {}); _mk('compiled'); frame(0); parent.postMessage('town-ready', '*');
+    last = performance.now(); renderer.setAnimationLoop(loop);
+  } else { renderer.setAnimationLoop(loop); if (CLAIMS.length) setTimeout(() => startScenes(NOW), 100); }   // alone: the town first, the scenes join a moment later
 }
 else { if (!Q.has('noscenes')) await startScenes(0); frame(Number(Q.get('t') || 0)); }   // noscenes: the town as it first appears (tools/poster.mjs)
 _mk('frame0');

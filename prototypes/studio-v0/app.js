@@ -18,7 +18,7 @@ const state = { screen: 'title', current: null, mode: 'edit', step: 0, picks: {}
 function show(name) {
   state.screen = name;
   for (const s of $$('.screen')) s.hidden = s.id !== 's-' + name;
-  $('#tracker').classList.toggle('hidden', name === 'title');
+  $('#tracker').classList.toggle('hidden', name === 'title'); if (name !== 'title') seedBuilds();   // builds aren't loaded or ticking on the title
   $('#tracker').classList.toggle('inbar', name === 'play');
   document.body.classList.toggle('on-title', name === 'title'); document.body.classList.toggle('on-play', name === 'play');
   scrollTo(0, 0);
@@ -58,6 +58,7 @@ addEventListener('pointerdown', e => { if (vol.classList.contains('open') && !vo
 // comparison: #title-a glass city, #title-b floating island (title-3d.js), #title-c glass landscape (title-c.js).
 const titleEl = $('#s-title'), titleV = (location.hash.match(/^#title-([abc])$/) || [])[1] || 'town';
 titleEl.dataset.v = titleV;
+if (titleV !== 'town') $('.t-poster')?.remove();   // the poster in the markup belongs to the town title
 addEventListener('hashchange', () => { if (/^#title-[abc]$/.test(location.hash)) location.reload(); });
 let titleScene = null;
 if (!/^#(library|new)$/.test(location.hash)) (titleV === 'town' ? import('./title-town.js') : titleV === 'c' ? import('./title-c.js') : import('./title-3d.js'))   // skipped title: skip the download
@@ -564,10 +565,12 @@ function addJob(kind, name, gameId, elapsed = 0) {
   renderTracker(); pulseTracker();
 }
 const tr = $('#tracker');
-$('#tr-fab').onclick = () => { tr.dataset.state = tr.dataset.state === 'collapsed' ? 'open' : 'collapsed'; renderTracker(); };
+$('#tr-fab').onclick = () => { const opening = tr.dataset.state === 'collapsed'; tr.dataset.state = opening ? 'open' : 'collapsed';
+  if (opening) for (const j of jobs) j.seen = j.done; else for (let i = jobs.length - 1; i >= 0; i--) if (jobs[i].done && jobs[i].seen) jobs.splice(i, 1);   // read when opened, cleared when closed
+  renderTracker(); };
 $('#tr-sum').onclick = () => { tr.dataset.state = tr.dataset.state === 'expanded' ? 'open' : 'expanded'; renderTracker(); };
 $$('#tr-speed button').forEach(b => b.onclick = () => { state.speed = +b.dataset.s; $$('#tr-speed button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
-function pulseTracker() { tr.classList.remove('ping'); void tr.offsetWidth; tr.classList.add('ping'); if (tr.dataset.state === 'collapsed') { tr.dataset.state = 'open'; renderTracker(); setTimeout(() => { if (tr.dataset.state === 'open') { tr.dataset.state = 'collapsed'; renderTracker(); } }, 4000); } }
+function pulseTracker() { tr.classList.remove('ping'); void tr.offsetWidth; tr.classList.add('ping'); }
 const fmt = s => s >= 60 ? `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}` : `${Math.ceil(s)}s`;
 function renderTracker() {
   const active = jobs.filter(j => !j.done);
@@ -578,6 +581,8 @@ function renderTracker() {
   $('#tr-count').textContent = active.length || '✓';
   $('#tr-fab').setAttribute('aria-label', active.length ? `${active.length} builds running, ${Math.round(p * 100)}% done. Show progress` : 'All builds done');
   $('#tr-fab').classList.toggle('idle', !active.length);
+  const fresh = jobs.some(j => j.done && !j.seen); $('#tr-fab').classList.toggle('ready', fresh);   // something finished: the button glows green until opened
+  if (fresh) $('#tr-fab').setAttribute('aria-label', 'A build finished. Show it');
   $('#tr-sum-label').textContent = active.length ? `${active.length} build${active.length > 1 ? 's' : ''} · about ${fmt(left)} left` : 'All builds done';
   $('#tr-sum-bar').style.width = `${p * 100}%`;
   $('#tr-sum-pct').textContent = `${Math.round(p * 100)}%`;
@@ -594,6 +599,7 @@ function renderTracker() {
 let last = performance.now();
 setInterval(() => {
   const now = performance.now(), dt = (now - last) / 1000; last = now;
+  if (state.screen === 'title') return;
   let changed = false;
   for (const j of jobs) {
     if (j.done) continue;
@@ -602,8 +608,6 @@ setInterval(() => {
       j.done = true;
       const g = games.find(x => x.id === j.gameId);
       if (j.kind === 'game' && g) { g.status = 'ready'; g.updated = 'Just now'; g.badge = 'Ready'; if (state.screen === 'library') renderLibrary(); }
-      toast(j.kind === 'game' ? `${j.name} is ready to play` : `${j.name} is ready. Reload the game to try it.`, true);
-      setTimeout(() => { jobs.splice(jobs.indexOf(j), 1); renderTracker(); }, 15000);
     }
   }
   if (changed || jobs.length) renderTracker();
@@ -634,8 +638,13 @@ games.push({ ...SEED_BUILD, status: 'building' });
 await ready;
 await Promise.all(SPLATS.map(i => i.decode().catch(() => {})));
 renderLibrary();
-addJob('game', SEED_BUILD.title, SEED_BUILD.id, 150);
-addJob('feature', 'Skyward Squadron · Boss rush mode', 'skyward-squadron', 12);
+let seeded = false;
+function seedBuilds() {   // the demo's builds in progress, started the first time the title is left
+  if (seeded) return; seeded = true;
+  addJob('game', SEED_BUILD.title, SEED_BUILD.id, 150);
+  addJob('feature', 'Skyward Squadron · Boss rush mode', 'skyward-squadron', 12);
+  if (state.screen === 'library') renderLibrary();
+}
 tr.dataset.state = 'collapsed'; renderTracker();
 requestAnimationFrame(libraryLoop);
 const hash = location.hash.slice(1);

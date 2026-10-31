@@ -225,14 +225,19 @@ export async function kaiju(ctx) {
   const engines = [];
   const engine = async (model, x, z, y, s) => {   // kept as a node tree so the trebuchet's arm can swing and the ballista's bolt can fly
     const k = await ctx.kenneyScene(model), o = k.scene; o.scale.setScalar(s); o.position.set(x, y, z); scene.add(o);
-    const e = { o, x, z, y, s, arm: o.getObjectByName('arm'), arrow: o.getObjectByName('arrow'), shots: [] }; engines.push(e); return e;
+    const e = { o, x, z, y, s, arm: o.getObjectByName('arm'), arrow: o.getObjectByName('arrow'), shots: [] }; engines.push(e);
+    if (e.arm) o.traverse(n => { if (/^(catapult|weight)/.test(n.name) && n.parent !== e.arm) n.visible = false; });   // the kit also has a loose copy of the sling and weight that wouldn't swing
+    return e;
   };
   const tre1 = await engine('castle/siege-trebuchet', C.x + cf[0] * (C.r + 6) + cs[0] * 9, C.z + cf[1] * (C.r + 6) + cs[1] * 9, ground(C.x + cf[0] * (C.r + 6), C.z + cf[1] * (C.r + 6)), 4.5);
   const tre2 = await engine('castle/siege-trebuchet', C.x + cf[0] * (C.r + 6) - cs[0] * 9, C.z + cf[1] * (C.r + 6) - cs[1] * 9, ground(C.x + cf[0] * (C.r + 6), C.z + cf[1] * (C.r + 6)), 4.5);
   const bal = await engine('castle/siege-ballista', ...P(8, 22), PLAIN, 3.6);
   const field = await engine('castle/siege-trebuchet', ...fieldTo, ground(...fieldTo), 4.2);
-  for (const e of engines) e.o.rotation.y = Math.atan2(pts.c[0] - e.x, pts.c[1] - e.z) + Math.PI;
-  field.move = { t0: 16, t1: 31, back0: LEAVE + 2, back1: LEAVE + 14, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: Math.atan2(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]) + Math.PI, yaw1: field.o.rotation.y };
+  // the trebuchet's arm lies along its +x (sling at -x, thrown over the top toward +x) and it rolls along x: aim and push it along x
+  const alongX = (dx, dz) => Math.atan2(-dz, dx);
+  for (const e of engines) e.o.rotation.y = e.arm ? alongX(pts.c[0] - e.x, pts.c[1] - e.z) : Math.atan2(pts.c[0] - e.x, pts.c[1] - e.z) + Math.PI;
+  field.move = { t0: 16, t1: 31, back0: LEAVE + 2, back1: LEAVE + 14, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: alongX(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]), yaw1: field.o.rotation.y };
+  window.__look = engines.map(e => () => [e.o.position.x, e.o.position.y, e.o.position.z]);   // debug camera targets (city.js ?look=i)
   const chest = (t) => { const p = posAt(t); return [p.x, Math.max(ground(p.x, p.z), 0) + H * .6, p.z]; };
   const missHouse = D.filter(d => d.kind === 'house' && !d.hits.length).sort((a, b) => Math.hypot(a.x - pts.c[0], a.z - pts.c[1]) - Math.hypot(b.x - pts.c[0], b.z - pts.c[1]))[0];
   const DEFENCE = [   // fire time, engine, what it hits, flight seconds; landings: 25.4 miss, 27.6 bolt, 31.0 boulder, 35.0 boulder, 36.5 bolt, 37.6 field miss, 38.8 castle boulder
@@ -363,7 +368,7 @@ export async function kaiju(ctx) {
         field.o.position.set(lerp(mv.from[0], mv.to[0], k), ground(lerp(mv.from[0], mv.to[0], k), lerp(mv.from[1], mv.to[1], k)), lerp(mv.from[1], mv.to[1], k));
         field.o.rotation.y = lt < mv.back0 - 1 ? lerp(mv.yaw0, mv.yaw1, kt) : lerp(mv.yaw1, mv.yaw0 + Math.PI, smooth(lt - mv.back0 + 1));   // turned round to be pushed home
         field.x = field.o.position.x; field.z = field.o.position.z;
-        field.o.traverse(n => { if (n.name === 'wheel') n.rotation.x = -(k + 2 * smooth(back)) * 12; }); }
+        field.o.traverse(n => { if (n.name === 'wheel') n.rotation.z = -(k + 2 * smooth(back)) * 12; }); }
       for (const m of men) {
         let i = 0; while (i < m.plan.length - 1 && m.plan[i + 1][0] <= lt) i++;
         const a = m.plan[i], b = m.plan[Math.min(i + 1, m.plan.length - 1)], k = b[0] > a[0] ? clamp01((lt - a[0]) / (b[0] - a[0])) : 0, moving = a[1] !== b[1] || a[2] !== b[2];
@@ -382,7 +387,7 @@ export async function kaiju(ctx) {
         arrowMesh.instanceMatrix.needsUpdate = true; }
       for (const e of engines) {   // the trebuchet's arm swings through each throw; the ballista's bolt is gone once fired
         const since = Math.min(...e.shots.map(s => lt - s).filter(a => a >= 0), 99);
-        if (e.arm) e.arm.rotation.x = since < 1.2 ? -Math.sin(Math.min(1, since / .35) * Math.PI / 2) * 1.6 * (1 - smooth((since - .5) / .7)) : 0;
+        if (e.arm) e.arm.rotation.z = since < 2.4 ? -Math.sin(Math.min(1, since / .4) * Math.PI / 2) * 2.5 * (1 - smooth((since - .7) / 1.7)) : 0;   /* the sling end swings up over the top, then the arm settles back */
         if (e.arrow) e.arrow.visible = since > 4 || since === 99;
       }
       for (const s of shots) {
