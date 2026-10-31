@@ -4,7 +4,8 @@
     <python with Pillow> -I tools/ness_sprite.py <Character_Generator dir> models/sprites/variants
 
 Layers (read only, never re-saved): Body 02, Eyes 01, a recoloured copy of Outfit 25 (yellow stripes x3, red shoes),
-Hairstyle 02/07, yellow Backpack 10, red Snapback 01. Writes ness.png (the full generator sheet, 32x64 cells),
+Hairstyle 02/07, yellow Backpack 10, red Snapback 01 with its brim recoloured blue. Writes ness.png (the full generator sheet,
+32x64 cells), ness_burnt.png (the same sheet without the cap, all black, hair standing up in spikes),
 ness_bat.png (the 6 right-facing "hit" frames with a drawn bat, 64x64 cells, figure at x 16..48) and manifest.json.
 """
 import json, os, sys
@@ -52,13 +53,42 @@ def stripes(im, shirt):   # two more yellow stripes, one art row pair above and 
 
 SKIN = '#f6c19a'
 OUTFIT = ('Outfits/32x32/Outfit_25_32x32_01.png', {'#dd71a3': '#e0a81c', '#fbabc6': '#ffd84a', '#f7a8be': '#ffd84a', '#67697b': SKIN})
+BRIM = {'#ebe4f2': '#5b8ff0', '#d8d0e0': '#3f6fd2', '#989ebe': '#2c529f', '#8b8bab': '#244489'}   # the snapback's pale brim, blue
 LAYERS = ['Bodies/32x32/Body_32x32_02.png', 'Eyes/32x32/Eyes_32x32_01.png', OUTFIT[0], 'Hairstyles/32x32/Hairstyle_02_32x32_07.png',
           'Accessories/32x32/Accessory_03_Backpack_32x32_10.png', 'Accessories/32x32/Accessory_04_Snapback_32x32_01.png']
 sheet = L(LAYERS[0]).copy()
 for p in LAYERS[1:]:
-    lay = shoes(stripes(recolor(L(p).copy(), OUTFIT[1]), ('#0092e3', '#0970d4'))) if p == OUTFIT[0] else L(p)
+    lay = shoes(stripes(recolor(L(p).copy(), OUTFIT[1]), ('#0092e3', '#0970d4'))) if p == OUTFIT[0] else recolor(L(p).copy(), BRIM) if 'Snapback' in p else L(p)
     pad = Image.new('RGBA', sheet.size); pad.paste(lay, (0, 0)); sheet.alpha_composite(pad)
+    if 'Backpack' in p: capless = sheet.copy()
 sheet.save(f'{out}/ness.png')
+
+# Burnt (struck by lightning, or running into a wall), after Kevin's reference: flat black, no cap, white eyes and a white
+# smile, hair standing up in short spikes
+burnt = capless.copy(); bp = burnt.load()
+eyes = L(LAYERS[1]).load()
+from PIL import ImageDraw; hd = ImageDraw.Draw(burnt)
+for y in range(burnt.height):
+    for x in range(burnt.width):
+        if bp[x, y][3]: bp[x, y] = (12, 12, 14, 255)
+WHITE = (250, 250, 250, 255)
+for cx, cy in cells(burnt):
+    top = next((y for y in range(cy, cy + 64) if any(bp[x, y][3] for x in range(cx, cx + 32))), None)
+    if top is None: continue
+    xs = [x for x in range(cx, cx + 32) if bp[x, top + 4][3]]
+    if len(xs) < 6: continue
+    for i, sx in enumerate(range(min(xs) + 2, max(xs) - 1, 4)):   # short spikes rooted in the top of the head
+        ht, lean = (5, 7, 6, 8, 5, 7)[i % 6], (sx - (min(xs) + max(xs)) / 2) * .25
+        hd.polygon([(sx - 2, top + 3), (sx + 2, top + 3), (sx + lean, top + 2 - ht)], fill=(12, 12, 14, 255))
+    ey = [(x, y) for y in range(cy, cy + 64) for x in range(cx, cx + 32) if eyes[x, y][3] and eyes[x, y][:3] != (0, 0, 0) or eyes[x, y][3] > 200]
+    if not ey: continue
+    for x, y in ey:   # big white eyes, 2 wide and 3 tall
+        for j in ((0, 1) if x - cx < 16 else (-1, 0)):
+            for k in (-1, 0, 1): bp[x + j, y + k] = WHITE
+    ex0, ex1, eb = min(x for x, _ in ey), max(x for x, _ in ey), max(y for _, y in ey)
+    if ex1 - ex0 >= 3:   # facing us: a flat smile under the eyes
+        for x in range(ex0 + 1, ex1): bp[x, eb + 3] = WHITE
+burnt.save(f'{out}/ness_burnt.png')
 
 # The bat: a 15x5 art-pixel sprite (grip left, barrel right, dark outline), rotated per frame around the grip.
 BAT = ['.oooo..........',
@@ -88,6 +118,7 @@ strip.save(f'{out}/ness_bat.png')
 
 json.dump({'note': 'Ness (variant A) for the EarthBound homage; rebuild with tools/ness_sprite.py', 'made': '2026-10-30', 'variants': [
     {'name': 'ness', 'op': 'sprite', 'from': ['limezu-modern-interiors/Character_Generator/' + p for p in LAYERS], 'file': 'ness.png', 'cell': [32, 64]},
+    {'name': 'ness_burnt', 'op': 'sprite', 'from': ['ness.png layers without the cap', 'blackened', 'drawn hair spikes'], 'file': 'ness_burnt.png', 'cell': [32, 64]},
     {'name': 'ness_bat', 'op': 'sprite', 'from': ['ness.png row 13 (hit) cells 0-5', 'drawn bat'], 'file': 'ness_bat.png', 'cell': [64, 64]}]},
     open(f'{out}/manifest.json', 'w'), indent=1)
 print(out, sheet.size, strip.size)

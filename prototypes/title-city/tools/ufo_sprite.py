@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
-"""A pixel saucer after Kevin's reference (2026-10-30): a wide flat lens of khaki metal with radial panel seams, a small
-dome on top and a pod hanging underneath, shaded with ordered dithering in a muted ramp. Drawn from scratch.
+"""A pixel saucer after Kevin's reference (2026-10-30): a wide lens of khaki metal, the same depth above and below the
+rim (Kevin, 2026-10-31: the reference only looks deeper underneath because it is seen from below), radial panels, a small
+dome on top and a small pod underneath, shaded with ordered dithering in a muted ramp. Drawn from scratch.
 
     <python with Pillow> -I tools/ufo_sprite.py models/sprites/ufo
 
 Writes ufo_a.png (khaki, the reference), ufo_b.png (steel), ufo_c.png (bronze with a glowing pod): 8 frames of the hull
-spinning, 112x44 cells side by side, the pod's tip at (56, 38).
+spinning, 112x32 cells side by side, the pod's tip at (56, 28).
 """
 import math, os, sys
 from PIL import Image
 
 out = sys.argv[1]; os.makedirs(out, exist_ok=True)
-W, H, CX, RIM = 112, 44, 56, 12
-A, BT, BB = 54, 6, 19            # hull half-width, top and underside heights (seen from below: a deep dish)
+W, H, CX, RIM = 112, 32, 56, 13
+A, BT, BB = 54, 8, 8             # hull half-width, top and underside heights: symmetric
 BAYER = [[0, 8, 2, 10], [12, 4, 14, 6], [3, 11, 1, 9], [15, 7, 13, 5]]
 hexrgb = lambda h: tuple(int(h[i:i + 2], 16) for i in (1, 3, 5))
 RAMPS = {   # dark to light
@@ -48,7 +49,7 @@ def frame(ramp, under, glow, f):
             elif y == RIM:   # the rim: a bright edge
                 put(x, y, .95 - .25 * dx)
             else:            # the underside, seen from below: panels of two colours radiating from the pod
-                bot = RIM + 1 + BB * (1 - dx * dx) ** .75
+                bot = RIM + 1 + BB * (1 - dx * dx) ** 1.4
                 if y + .5 > bot: continue
                 th = math.atan2(RIM + BB - y, (x + .5 - CX) * BB / A * 2.2)
                 w = math.sin((th - spin) * 8)
@@ -60,10 +61,10 @@ def frame(ramp, under, glow, f):
             dx, dy = (x + .5 - CX) / 7, (y + .5 - (RIM - BT + 2)) / 6
             if dx * dx + dy * dy <= 1 and dy < .5: put(x, y, .6 - .45 * dx - .3 * dy + (.3 if -.6 < dx < -.15 and -.8 < dy < -.35 else 0))
     # the pod underneath, where the lightning leaves
-    PT = RIM + BB - 1
-    for y in range(PT, min(H, PT + 8)):
-        for x in range(CX - 9, CX + 9):
-            dx, dy = (x + .5 - CX) / 9, (y + .5 - PT) / 7
+    PT = RIM + BB
+    for y in range(PT, min(H, PT + 5)):
+        for x in range(CX - 7, CX + 7):
+            dx, dy = (x + .5 - CX) / 7, (y + .5 - PT) / 5
             if dx * dx + dy * dy <= 1:
                 if glow and dy > .4: put(x, y, 1 - dy * .5 - abs(dx) * .5, glow)
                 else: put(x, y, .45 - .25 * dy - .3 * dx)

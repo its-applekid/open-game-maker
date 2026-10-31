@@ -510,7 +510,7 @@ function fillLots() {
 function market() {   // stalls around the square, a guild hall and trees
   R = rng(8);
   for (let k = 0; k < 14; k++) { const a = k / 14 * TAU + rr(-.1, .1), r = rr(8, 12.5), x = TC.x + Math.cos(a) * r, z = TC.z + Math.sin(a) * r; if (!streetClear(x, z, .6)) continue; put(pk(VARIANTS.stall), x, PLAIN, z, Math.atan2(TC.x - x, TC.z - z), HK * .9); }
-  put(VARIANTS.hall[2], TC.x + 5, PLAIN, TC.z - 5, .4, HK * 1.6, ROOFS.noble[0]);
+  if (SCENE !== 'earthbound') put(VARIANTS.hall[2], TC.x + 5, PLAIN, TC.z - 5, .4, HK * 1.6, ROOFS.noble[0]);   // the EarthBound fight needs the square open to its camera
 }
 function slum() {   // shacks in clumps outside the south-west wall, with barrels and fences
   R = rng(77); let n = 0;
@@ -750,7 +750,7 @@ async function setupEarthbound() {
   const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => Math.hypot(h.x - centre[0], h.z - centre[1]) < 26);
   for (const h of zone) houses.splice(houses.indexOf(h), 1);
   window.__scene = { zone: zone.length };
-  return await earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo') });
+  return await earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER });
 }
 // b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
 let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
