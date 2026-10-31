@@ -1,0 +1,17 @@
+{
+  "extraKnownMarketplaces": {
+    "agent-sprite-forge": {
+      "source": {
+        "source": "github",
+        "repo": "0x0funky/agent-sprite-forge",
+        "sparsePaths": [
+          ".claude-plugin",
+          "skills"
+        ]
+      }
+    }
+  },
+  "enabledPlugins": {
+    "agent-sprite-forge@agent-sprite-forge": true
+  }
+}
