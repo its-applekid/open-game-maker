@@ -1,5 +1,5 @@
-// The EarthBound homage, beat 1: a pixel saucer (Hat Tap U.F.O. pack) rises over the mountains, glides to the market
-// quarter and calls down lightning (pixelfx), each bolt breaking a real house (fracture and flight from rampage.js) and
+// The EarthBound homage, beat 1: a pixel saucer (tools/ufo_sprite.py, after Kevin's reference) rises over the mountains, glides to the market
+// quarter and calls down thin orange lightning, each bolt breaking a real house (fracture and flight from rampage.js) and
 // leaving it burning (pixelfx campfire); then Ness (LimeZu generator variant, tools/ness_sprite.py) blinks in.
 // Every sprite and effect is a camera-facing billboard with nearest filtering; pixelfx effects are re-simulated from their
 // start for any moment, so capture mode draws any time exactly. ?var=a|b|c: the look (b and c pixelate the whole frame).
@@ -8,12 +8,11 @@ import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { FX, reseed } from './fx.js';
 import { fracture, flight } from './rampage.js';
 import { createFx, createFrame, clearFrame, composite } from './vendor/pixelfx/src/core/index.js';
-import * as strikeFx from './vendor/pixelfx/src/fx/lightning/lightning-strike.js';
 import * as blinkFx from './vendor/pixelfx/src/fx/arcane/blink-in.js';
 import * as fireFx from './vendor/pixelfx/src/fx/fire/campfire.js';
 import * as blastFx from './vendor/pixelfx/src/fx/explosions/dirt-explosion.js';
 
-export const PER = 24;
+export const PER = 26;
 const clamp01 = x => Math.min(1, Math.max(0, x)), smooth = x => { x = clamp01(x); return x * x * (3 - 2 * x); };
 const lerp = (a, b, k) => a + (b - a) * k;
 let seed = 5; const rnd = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296), rr = (a, b) => a + rnd() * (b - a);
@@ -65,7 +64,28 @@ function pxEffect(scene, U, mod, t0, at, px, o = {}) {
   return e;
 }
 
-// ctx: { scene, camera, U, PLAIN, ground(x, z), kenney(path), kitMat(map, o), houses: [{x, z, rot, s, model, roof}], centre: [x, z], mountains: [x, z], square: [x, z], look }
+// a thin jagged pixel bolt like the reference: dark-red edge, orange body, pale core, re-jagged 14 times a second, flickering
+function pxBolt(scene, U, t0, t1, at, height, px, sd) {
+  const w = 40, h = Math.round(height / px), cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const g = cv.getContext('2d'), tex = nearest(new THREE.CanvasTexture(cv)), mesh = billboard(scene, U, tex, w, h, px, w / 2, h, false);
+  mesh.position.set(...at); mesh.visible = false; let drawn = -1;
+  const update = lt => {
+    const on = lt >= t0 && lt < t1 && (Math.floor(lt * 20) % 5 !== 3); mesh.visible = on; if (!on) return;
+    const k = Math.floor(lt * 14); if (k === drawn) return; drawn = k;
+    let s = (sd * 7919 + k * 104729) >>> 0; const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+    g.clearRect(0, 0, w, h);
+    const path = (x0, y0, y1, spread) => { const pts = [[x0, y0]]; let x = x0, y = y0; while (y < y1) { y = Math.min(y1, y + 4 + Math.floor(r() * 7)); x = Math.max(3, Math.min(w - 4, x + Math.round((r() - .5) * spread))); pts.push([x, y]); } return pts; };
+    const line = (pts, col, wd) => { g.fillStyle = col; for (let i = 0; i < pts.length - 1; i++) { const [ax, ay] = pts[i], [bx, by] = pts[i + 1], n = Math.max(Math.abs(bx - ax), by - ay);
+      for (let j = 0; j <= n; j++) g.fillRect(Math.round(ax + (bx - ax) * j / n) - (wd >> 1), Math.round(ay + (by - ay) * j / n), wd, 1); } };
+    const main = path(w / 2, 0, h - 1, 9);
+    line(main, '#8a1e0a', 4); line(main, '#e8561e', 2); line(main, '#ffd8a8', 1);
+    for (let b = 0; b < 2; b++) { const i = 1 + Math.floor(r() * (main.length - 3)), br = path(main[i][0], main[i][1], Math.min(h - 1, main[i][1] + 14 + r() * 20), 12); line(br, '#c23412', 2); line(br, '#ff9a52', 1); }
+    tex.needsUpdate = true;
+  };
+  return { mesh, update };
+}
+
+// ctx: { scene, camera, U, PLAIN, ground(x, z), kenney(path), kitMat(map, o), houses: [{x, z, rot, s, model, roof}], centre: [x, z], mountains: [x, z], square: [x, z], look, ufo }
 export async function earthbound(ctx) {
   const { scene, U, PLAIN, ground } = ctx; seed = 5; reseed(13);
   const fx = new FX(scene, ctx.camera, U), load = p => new THREE.TextureLoader().loadAsync(p).then(nearest);
@@ -97,12 +117,12 @@ export async function earthbound(ctx) {
     SHAKES.push({ t, a: .35 * power });
   }
   // ---- the saucer: over the ridge, across the sky, hovering and drifting over each target as it strikes
-  const ufoTex = await load('models/sprites/ufo/ufo_spritesheet.png'), ufo = sheetSprite(scene, U, ufoTex, 66, 49, .32, 33, 25);
+  const ufoTex = await load(`models/sprites/ufo/ufo_${ctx.ufo || 'a'}.png`), ufo = sheetSprite(scene, U, ufoTex, 112, 44, .24, 56, 38);   // anchored at the pod's tip
   const ridgeAt = [cx + dm[0] * 230, cz + dm[1] * 230], ridgeY = ground(...ridgeAt);
   const targets = D.slice().sort((a, b) => (b.h - a.h) || 0).slice(0, 6).sort((a, b) => ((a.x - cx) * sd[0] + (a.z - cz) * sd[1]) - ((b.x - cx) * sd[0] + (b.z - cz) * sd[1]));
-  const HOVER = 24, STRIKE0 = 7.4, GAP = 1.4;
+  const HOVER = 24, STRIKE0 = 7.4, GAP = 1.6;
   const keys = [[0, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [.6, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [3, ridgeAt[0], ridgeY + 20, ridgeAt[1]]];   // rises from behind the ridge
-  targets.forEach((d, i) => keys.push([STRIKE0 - .45 + i * GAP, d.x, PLAIN + HOVER, d.z], [STRIKE0 + .75 + i * GAP, d.x, PLAIN + HOVER, d.z]));   // holds over each target while the bolt falls
+  targets.forEach((d, i) => keys.push([STRIKE0 - .45 + i * GAP, d.x, PLAIN + HOVER, d.z], [STRIKE0 + 1.2 + i * GAP, d.x, PLAIN + HOVER, d.z]));   // holds over each target while the bolt falls
   keys.splice(3, 0, [STRIKE0 - 1.3, lerp(ridgeAt[0], targets[0].x, .92), PLAIN + HOVER + 8, lerp(ridgeAt[1], targets[0].z, .92)]);   // the glide in
   keys.push([STRIKE0 + targets.length * GAP + 1.6, cx + dm[0] * 12, PLAIN + HOVER + 10, cz + dm[1] * 12]);
   const ufoAt = t => { let i = 0; while (i < keys.length - 2 && keys[i + 1][0] <= t) i++; const a = keys[i], b = keys[i + 1], k = smooth((t - a[0]) / (b[0] - a[0]));
@@ -111,8 +131,7 @@ export async function earthbound(ctx) {
   const effects = [];
   targets.forEach((d, i) => {
     const t0 = STRIKE0 + i * GAP, land = t0 + .7;
-    const bolt = pxEffect(scene, U, strikeFx, t0, [d.x, PLAIN, d.z], .2, { seed: 3 + i }); bolt.mesh.material.uniforms.clipY.value = PLAIN + HOVER - 3;   // chunky, cut off at the saucer's belly
-    effects.push(bolt);
+    effects.push(pxBolt(scene, U, land - .25, land + .75, [d.x, PLAIN + d.h * .3, d.z], HOVER - d.h * .3, .16, 3 + i));
     blast(d, land, d.h * rr(.15, .35), 1.2);
     effects.push(pxEffect(scene, U, blastFx, land - .05, [d.x, PLAIN, d.z], .09, { seed: 21 + i }));
     for (const o of D) if (o !== d && Math.hypot(o.x - d.x, o.z - d.z) < 7 && !targets.includes(o)) blast(o, land + .1, o.h * rr(.55, .75), .6);
@@ -130,7 +149,7 @@ export async function earthbound(ctx) {
     update(t) {
       const lt = ((t % PER) + PER) % PER, cam = ctx.camera, yaw = Math.atan2(cam.position.x - cx, cam.position.z - cz);
       const face = m => { m.rotation.y = Math.atan2(cam.position.x - m.position.x, cam.position.z - m.position.z); };
-      const u = ufoAt(lt); ufo.position.set(...u); ufo.show(Math.floor(lt * 8) % 3, 0); face(ufo);
+      const u = ufoAt(lt); ufo.position.set(...u); ufo.show(Math.floor(lt * 10) % 8, 0); face(ufo);
       ness.visible = lt > BLINK + .9; ness.show(18 + Math.floor(lt * 6) % 6, 1); face(ness);
       for (const e of effects) { e.update(lt); face(e.mesh); }
       for (const d of D) {
