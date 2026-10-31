@@ -23,6 +23,9 @@ The creator talks; the agent designs. Designing is the product's core loop, so d
      0.8 s punch over 2 s reads as three punches). Slow clips with a rate for big creatures, crossfade ~0.3 s between
      moves, and fire impacts on the clip's contact frame. Vary the moves and let them react (flinch, knockback).
    - Sharing a ShaderMaterial's live uniforms: `{ ...mat.uniforms, own: {...} }`; `clone()` copies them frozen.
+   - **Show as you go.** Post a screenshot (or a short clip) with one line at each visible milestone (new sprite,
+     first pass of the motion, each fix the creator asked for) so they can steer mid-build instead of after it. Keep
+     building while they look; fold their notes in at the next step.
 5. **Verify by looking** (`gm-verify`) before anything is sent: stills at desktop and phone sizes, a timeline of the
    motion, and a look at every frame you cite.
 6. **Deliver for a phone.** MP4 clips on an artifact page with posters and one line per option, then the specific
