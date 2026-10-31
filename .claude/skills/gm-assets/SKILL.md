@@ -59,6 +59,14 @@ read as copy-paste): vary seed, size, options and start, or clone a variant. Pil
 Scenes get sound from our packs (`grep -l audio` in the catalog: Kenney Sci-Fi, Impact, Retro, Foley, RPG Audio are
 effects; Sidetrax is music). Cue effects on the scene's own timeline; MP3 for iPhone (`prototypes/title-city/tools/sounds.sh`).
 
+## Mobile variants (every asset, every game)
+
+Nothing ships as the raw pack file. Assets go through a build step that packs and compresses them (one file per kit,
+quantised/meshopt, shared textures), makes per-tier variants for big models (fewer triangles, 1024/512 textures), and
+records them with their licence in a manifest the runtime reads to pick a tier. Load them in parallel, never in a loop.
+Research, commands and budgets: `docs/research/v0.5/C4-mobile-asset-pipeline.md`; working example: the title town's
+`tools/bake.mjs` (one 0.3 MB model pack in place of ~170 GLBs).
+
 ## Variants and making new
 
 Clone, never modify originals: `gm-asset-variants`. Procedural models only when nothing in the library or a free pack
