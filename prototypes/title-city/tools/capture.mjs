@@ -16,9 +16,10 @@ const [mode, query, out, ...rest] = process.argv.slice(2), W = +(process.env.W |
 if (!mode || !out) { console.error('usage: capture.mjs stills|timeline|record "<query>" <out> ...'); process.exit(2); }
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: W, height: H } });
-p.on('pageerror', e => console.error('pageerror', e.message));
+p.on('pageerror', e => { console.error('pageerror', e.message); if (!ready) { console.error('page failed to load; not waiting'); process.exit(1); } });   // a syntax error would otherwise wait out the 3-minute timeout
+let ready = false;
 await p.goto(`http://localhost:${PORT}/index.html?capture&${query}`);
-await p.waitForFunction(() => window.__ready, null, { timeout: 180000 });
+await p.waitForFunction(() => window.__ready, null, { timeout: 180000 }); ready = true;
 const shot = async (t, path, type = 'png') => { await p.evaluate(t => window.__frame(t), t); await p.screenshot({ path, type, ...(type === 'jpeg' ? { quality: 92 } : {}) }); };
 if (mode === 'stills') { mkdirSync(out, { recursive: true }); for (const t of rest) await shot(+t, join(out, `t${t}.png`)); }
 else if (mode === 'timeline') {

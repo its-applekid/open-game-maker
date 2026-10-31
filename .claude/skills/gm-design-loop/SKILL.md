@@ -22,6 +22,10 @@ The creator talks; the agent designs. Designing is the product's core loop, so d
    - Characters: a one-shot clip (punch, swipe, hit) plays **once** and holds; never let it loop over a long slot (an
      0.8 s punch over 2 s reads as three punches). Slow clips with a rate for big creatures, crossfade ~0.3 s between
      moves, and fire impacts on the clip's contact frame. Vary the moves and let them react (flinch, knockback).
+   - Pace from distance: a walk is ~3.5 m/s, a sprint ~10+, so derive each move's time from its path, never a fixed
+     slot (a 5 s slot for a 2 s walk read as "3 times as long as it should"). Route paths along open streets with no
+     doglegs, and keep characters on top of rubble and fliers above landmarks for the whole path, not just the key
+     frames.
    - Sharing a ShaderMaterial's live uniforms: `{ ...mat.uniforms, own: {...} }`; `clone()` copies them frozen.
    - **Show as you go.** Post a screenshot (or a short clip) with one line at each visible milestone (new sprite,
      first pass of the motion, each fix the creator asked for) so they can steer mid-build instead of after it. Keep
