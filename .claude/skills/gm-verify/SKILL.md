@@ -39,5 +39,8 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   (`npm i esbuild` in the scratchpad, `--bundle --format=esm --minify`).
 - Before deploying anything a phone loads, time it: `prototypes/title-city/tools/loadtime.mjs <url>` (iPhone profile,
   CPU 4x slower, then a cached reload), with nothing else rendering (a recording in the background tripled one result). Seconds of setup on a phone are usually work that never changes: bake it at build
-  time (see `title-city/tools/bake.mjs`).
+  time (see `title-city/tools/bake.mjs`); find it with a CPU profile (CDP `Profiler`) before guessing (one hot `height()` was 10 s).
+- Then watch the load itself: `prototypes/studio-v0/tools/loadrec.mjs` records first visit and reload, and Kevin wants
+  every other frame looked at (black frames, a pop between poster and live, a stale build). After deploying, also load
+  the live site in a browser that had the old build: cached files must never mix old code with new data.
 - Say what was checked and what wasn't (for example "not checked on iPhone Safari").

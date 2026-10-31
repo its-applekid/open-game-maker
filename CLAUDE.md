@@ -10,6 +10,11 @@ use. Work here the way those agents will work: dogfood the skills.
 - **Scripted edits to JS** (python/sed splices): never put a `//` comment inside a replacement unless the line ends
   there; use `/* */` mid-line. A swallowed tail is still valid syntax, so `node --check` won't catch it (it dropped a
   scene's arguments and an iframe's attributes here); render or run the change before moving on.
+- **Sprite Forge skills** (`agent-sprite-forge` plugin, project scope in `.claude/settings.json`: generate2dsprite,
+  generate2dmap, video2dsprite, generate2dmedia, codeart2d): run their scripts with
+  `~/.local/share/ogm/forge-venv/bin/python` (no `python` on PATH). No API key is configured, so `route_media.py` falls
+  back to the signed-in Codex CLI; never add a provider key (it counts as consent to spend) and ask Kevin before any
+  generation. Never send paid-pack assets to it as references (no cloud processing of paid assets).
 - **Self-improvement:** keep the hourly `meta-improve` listener running (it schedules itself; check with `CronList`
   at the start of a session). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
