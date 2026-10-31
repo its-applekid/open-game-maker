@@ -20,6 +20,10 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
 - Small events (a building rebuilt, a monster's punch): add a debug camera that frames the event (`?focus=` /
   `?cam=scene`) instead of judging from the wide shot. Look at destruction in 2x-resolution crops of the phone view
   too: the creator pinches to zoom, and stretched debris (long slivers from a scaled model) hid at 1x.
+- Tap targets (the Easter egg): `prototypes/title-city/tools/taptest.mjs <out> <t>` scans which screen points count as
+  a hit and taps the extremes; a tap well off the enemy must not count, and the effect must land where the finger was.
+- Something that blinks in and out with nothing toggling it: try `frustumCulled = false` first (cloned skinned meshes
+  keep stale bounds and get culled).
 - Waiting on a background render: `pgrep -f "<pattern>"` also matches the waiting shell's own command line, so it never
   ends; wait on the PID or a done file.
 - Read each tiled image and say what is wrong before fixing; fix the worst thing first. Something blocking the shot
