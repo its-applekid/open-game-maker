@@ -265,13 +265,39 @@ export async function earthbound(ctx) {
   let at = 43; wrecked.forEach((d, i) => { d.rebuild = at; at += gaps[i] / gsum * span;
     for (const f of d.fires || []) f.end = d.rebuild - .5;
     d.sc = ctx.scaffold(d.r * 1.6 + .9, d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); d.sc.position.set(d.x, PLAIN, d.z); scene.add(d.sc); ctx.layers(d.sc, 0); });
+  // ---- sound: Kenney CC0 effects (tools/sounds.sh), cued on the same timeline. { t, s: name, v: volume, r: rate };
+  // loops play between t0 and t1. city.js plays them live; tools/mix_sound.mjs lays them under a recording.
+  const SND = [], LOOPS = [], sn = (t, s, v = 1, r = 1) => SND.push({ t: +t.toFixed(3), s, v, r }), pick = (b, n) => `${b}_00${Math.floor(rnd() * n)}`;
+  LOOPS.push({ t0: .3, t1: T.crash, s: 'spaceEngineLow_000', v: .1 });                       // the saucer's hum
+  targets.forEach((d, i) => { const land = STRIKE0 + i * GAP + .7;
+    sn(land - .25, pick('laserLarge', 5), .7, .8); sn(land, 'lowFrequency_explosion_00' + (i % 2), .9); sn(land + .02, pick('explosionCrunch', 5), .8);
+    sn(land + .15, pick('impactWood_heavy', 5), .5); });
+  sn(T.portal, 'forceField_000', .7);
+  for (let t = T.out + .05; t < T.wall; t += .11) sn(t, pick('footstep_concrete', 5), .45, 1.2);
+  sn(T.wall, 'impactPunch_heavy_000', 1); sn(T.wall + .05, 'hurt1', .6);
+  sn(T.jump, 'jump1', .6); sn(T.land, 'impactSoft_heavy_000', .8);
+  sn(T.a1, 'thrusterFire_000', .7); sn(T.hit1, 'explosionCrunch_002', .8); sn(T.hit1 + .03, 'impactMetal_heavy_000', .7);
+  sn(T.a2, 'laserRetro_000', .7); sn(T.hit2, 'forceField_002', .8); sn(T.hit2 + .05, 'lowFrequency_explosion_001', .7);
+  sn(T.bolt, 'laserLarge_003', .8, .7); sn(T.struck, 'hurt2', .7); sn(T.struck + .02, 'impactMetal_000', .5);
+  sn(T.a3, 'secret1', .6); for (let i = 0; i < 6; i++) sn(T.a3 + .5 + i * .22, pick('laserSmall', 5), .45, 1.3);
+  sn(T.a3 + 1, 'impactMetal_heavy_001', .8); sn(T.fall, 'fall1', .7);
+  sn(T.crash, 'lowFrequency_explosion_000', 1); sn(T.crash + .02, 'explosionCrunch_004', .9); sn(T.crash + .1, 'stoneHit1', .7); sn(T.crash + .3, 'stoneHit3', .5);
+  { let k = -1; for (let t = T.walk; t < T.swing - .3; t += .05) { const n = nessAt(t); if (n.row === 2 && n.col % 3 === 0 && n.col !== k) sn(t, pick('footstep_concrete', 5), .35); k = n.col; } }
+  sn(T.swing + .1, 'woosh1', .8); sn(T.contact, 'impactPlate_heavy_000', 1); sn(T.contact + .02, 'hitHelmet1', .8); sn(T.contact + .1, 'woosh3', .6, .8);
+  sn(T.flipEnd - .05, 'sinkWater1', 1, .55); sn(T.flipEnd, 'impactSoft_heavy_001', .9); sn(T.flipEnd + .2, 'sinkWater2', .6, .7);
+  for (let i = 0; i < 7; i++) sn(T.sink + .3 + i * .7, 'drip' + (1 + i % 4), .5, .6);   // bubbles as it goes down
+  { let k = -1; for (let a = 0; a < T.runT; a += .02) { const st = Math.floor(runD(a) / 1.1); if (st !== k) sn(T.run + a, pick('footstep_concrete', 5), .4, 1 + a * .08); k = st; } }
+  sn(T.runEnd - 1.1, 'thrusterFire_002', .6); sn(T.runEnd - .5, 'forceField_003', .7);
+  for (const d of wrecked) for (let t = d.rebuild + .3; t < d.rebuild + REB; t += rr(.35, .9))   // hammering and planks while each house goes up
+    sn(t, rnd() < .25 ? pick('impactPlank_medium', 5) : rnd() < .5 ? 'chop' : pick('impactWood_light', 5), .22, rr(.9, 1.1));
+  SND.sort((a, b) => a.t - b.t);
   const near = (p, r) => Math.hypot(p[0] - cx, p[1] - cz) < r, r1 = v => Math.round(v * 10) / 10;
   window.__scene = { ...window.__scene, map: { houses: D.map(d => [r1(d.x), r1(d.z), r1(d.h), r1(d.r)]), streets: ctx.streets.map(s => s.filter(p => near(p, 70)).map(p => p.map(r1))).filter(s => s.length),
     river: ctx.river.filter(p => near(p, 150)).map(p => p.map(r1)), targets: targets.map(d => D.indexOf(d)) } };
   fx.build();
 
   return {
-    pixel: LOOKS[ctx.look] ?? 0,
+    pixel: LOOKS[ctx.look] ?? 0, per: PER, sounds: SND, loops: LOOPS,
     update(t) {
       const lt = ((t % PER) + PER) % PER, cam = ctx.camera, yaw = Math.atan2(cam.position.x - cx, cam.position.z - cz);
       const face = m => { m.rotation.y = Math.atan2(cam.position.x - m.position.x, cam.position.z - m.position.z); };

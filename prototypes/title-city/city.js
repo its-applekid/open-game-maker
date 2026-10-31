@@ -771,9 +771,30 @@ let SC = null;
 if (SCENE === 'rampage') SC = await setupRampage();
 if (SCENE === 'earthbound') SC = await setupEarthbound();
 await buildHouses(); await flush(); await trees(); torches(); makeClouds(); makeBoats();
+// a scene's sound (live only): its cues play as the loop time passes them, its loops fade in and out with their spans.
+// Silent until the page is touched (autoplay rules) or an embedding page posts 'sound-on'.
+const SFX = SC?.sounds && !CAPTURE ? (() => {
+  const ac = new AudioContext(), out = ac.createGain(), bufs = {}; out.gain.value = .8; out.connect(ac.destination);
+  const load = n => bufs[n] ||= fetch(`models/sounds/${n}.mp3`).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).catch(() => null);
+  const src = (b, v, r, loop) => { const n = ac.createBufferSource(), g = ac.createGain(); n.buffer = b; n.playbackRate.value = r; n.loop = loop; g.gain.value = v; n.connect(g).connect(out); n.start(); return g; };
+  for (const c of SC.sounds) load(c.s);
+  const loops = SC.loops.map(l => ({ ...l, g: null }));
+  const on = () => { if (ac.state === 'suspended') ac.resume(); };
+  for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, on);
+  addEventListener('message', e => { if (e.data === 'sound-on') on(); if (e.data === 'sound-off') ac.suspend(); });
+  let last = -1;
+  return t => {
+    const lt = mod(t, SC.per); if (ac.state !== 'running') { last = lt; return; }
+    for (const c of SC.sounds) if (last < lt ? c.t > last && c.t <= lt : c.t > last || c.t <= lt) load(c.s).then(b => b && src(b, c.v, c.r, false));
+    for (const l of loops) { if (!l.g && bufs[l.s]) bufs[l.s].then(b => { if (b && !l.g) l.g = src(b, 0, 1, true); }); else load(l.s);
+      if (l.g) l.g.gain.value = lt > l.t0 && lt < l.t1 ? l.v * Math.min(1, (lt - l.t0) / .8, (l.t1 - lt) / .4) : 0; }
+    last = lt;
+  };
+})() : null;
+if (SC?.sounds) window.__sounds = { per: SC.per, cues: SC.sounds, loops: SC.loops };
 function frame(t) {
   U.phase.value = TAU * mod(t, 60) / 60;
-  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); SC?.update(t);
+  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); SC?.update(t); SFX?.(t);
   if (SC?.pixel) renderPixel(SC.pixel); else renderer.render(scene, camera);
 }
 window.__frame = frame;
