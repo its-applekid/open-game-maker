@@ -83,8 +83,14 @@ model kenney-nature-kit nature ground_grass tree_pineTallA tree_pineRoundC tree_
 
 # the title scene: the castle town prototype (build it first: prototypes/title-city/tools/build.sh, then tools/variants.mjs)
 TC="$ROOT/prototypes/title-city"; rm -rf "$HERE/town"; mkdir -p "$HERE/town/models"
-cp "$TC/index.html" "$TC/city.js" "$HERE/town/"; cp -r "$TC/vendor" "$HERE/town/"
-cp -r "$TC/models/castle" "$TC/models/minidungeon" "$HERE/town/models/"
+cp "$TC/index.html" "$TC/city.js" "$TC/rampage.js" "$TC/earthbound.js" "$TC/fx.js" "$HERE/town/"; cp -r "$TC/vendor" "$TC/fx-variants" "$HERE/town/"
+cp -r "$TC/models/castle" "$TC/models/minidungeon" "$TC/models/monsters" "$TC/models/fx" "$TC/models/sounds" "$HERE/town/models/"
+# the scenes' sprites (Ness, burnt Ness, the bat swing, the saucers; run tools/ness_sprite.py, tools/ufo_sprite.py, tools/sounds.sh first)
+mkdir -p "$HERE/town/models/sprites/variants" "$HERE/town/models/sprites/ufo"
+cp "$TC/models/sprites/variants/"ness*.png "$HERE/town/models/sprites/variants/"; cp "$TC/models/sprites/ufo/"ufo_[abc].png "$HERE/town/models/sprites/ufo/"
+# Synty particle textures stay off the public site: Kenney Particle Pack stand-ins under the same names
+KP="$K/kenney-particle-pack/1.1/extracted/PNG (Transparent)"; [ -d "$KP" ] || KP="$(dirname "$(find "$K/kenney-particle-pack" -name circle_03.png | head -1)")"
+cp "$KP/circle_03.png" "$HERE/town/models/fx/PolygonParticles_Ring_01.png"; cp "$KP/scratch_01.png" "$HERE/town/models/fx/PolygonParticles_GroundBreak_01.png"
 python3 -I -c 'import json, shutil, sys, pathlib   # only the castle-town variants, and a manifest listing just those
 src, dst = map(pathlib.Path, sys.argv[1:3]); dst.mkdir(parents=True, exist_ok=True); m = json.loads((src / "manifest.json").read_text())
 m["variants"] = [v for v in m["variants"] if v["set"] in ("house", "tallhouse", "hall", "wide", "shack", "stall")]

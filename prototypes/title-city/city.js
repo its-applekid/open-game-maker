@@ -714,6 +714,9 @@ function placeCamera(t) {
   if (Q.has('top')) { const [tx, tz, th] = (Q.get('top') || '-10,-20,330').split(',').map(Number); camera.fov = 50; camera.position.set(tx, th, tz + .01); camera.lookAt(tx, 0, tz); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   if (Q.has('focus')) { const h = dyn[+Q.get('focus')].l; camera.fov = 40; camera.position.set(h.x + 13, PLAIN + 15, h.z + 13); camera.lookAt(h.x, PLAIN + 5, h.z); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }   // debug: look at one changing house
   if (CAM === 'scene' && SC) { SC.camera(camera, t, aspect); return; }
+  if (CAM === 'menu') {   // the menu: one still view, the kaiju scene's main shot (or view a without its drift)
+    const v = VIEW ? VIEW.view(aspect, SCS.length > 1 ? [TC.x - 6, TC.z - 22] : null) : { fov: aspect < 1 ? 56 : 40, pos: CAMS.a[0], look: CAMS.a[1] };
+    camera.fov = v.fov; camera.position.set(...v.pos); camera.lookAt(...v.look); camera.aspect = aspect; camera.updateProjectionMatrix(); return; }
   const [p, l] = CAMS[CAM], a = TAU * t / 150, portrait = aspect < 1, back = portrait ? 1.45 : 1;
   camera.fov = portrait ? 56 : 40;
   camera.position.set(l[0] + (p[0] - l[0]) * back + Math.sin(a) * 10, p[1] * back, l[2] + (p[2] - l[2]) * back + Math.cos(a) * 5);
@@ -767,34 +770,36 @@ addEventListener('resize', size); size();
 terrain();
 await loadVariants();
 streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum();
-let SC = null;
-if (SCENE === 'rampage') SC = await setupRampage();
-if (SCENE === 'earthbound') SC = await setupEarthbound();
+// scene=rampage|earthbound, or all: every scene at once, each on its own loop (the menu)
+const SCS = [];
+if (SCENE === 'rampage' || SCENE === 'all') SCS.push(await setupRampage());
+if (SCENE === 'earthbound' || SCENE === 'all') SCS.push(await setupEarthbound());
+const SC = SCS[SCS.length - 1] || null, VIEW = SCS.find(s => s.view);
 await buildHouses(); await flush(); await trees(); torches(); makeClouds(); makeBoats();
 // a scene's sound (live only): its cues play as the loop time passes them, its loops fade in and out with their spans.
 // Silent until the page is touched (autoplay rules) or an embedding page posts 'sound-on'.
-const SFX = SC?.sounds && !CAPTURE ? (() => {
+const SND = SCS.find(s => s.sounds), SFX = SND && !CAPTURE ? (() => {
   const ac = new AudioContext(), out = ac.createGain(), bufs = {}; out.gain.value = .8; out.connect(ac.destination);
   const load = n => bufs[n] ||= fetch(`models/sounds/${n}.mp3`).then(r => r.arrayBuffer()).then(b => ac.decodeAudioData(b)).catch(() => null);
   const src = (b, v, r, loop) => { const n = ac.createBufferSource(), g = ac.createGain(); n.buffer = b; n.playbackRate.value = r; n.loop = loop; g.gain.value = v; n.connect(g).connect(out); n.start(); return g; };
-  for (const c of SC.sounds) load(c.s);
-  const loops = SC.loops.map(l => ({ ...l, g: null }));
+  for (const c of SND.sounds) load(c.s);
+  const loops = SND.loops.map(l => ({ ...l, g: null }));
   const on = () => { if (ac.state === 'suspended') ac.resume(); };
   for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, on);
   addEventListener('message', e => { if (e.data === 'sound-on') on(); if (e.data === 'sound-off') ac.suspend(); });
   let last = -1;
   return t => {
-    const lt = mod(t, SC.per); if (ac.state !== 'running') { last = lt; return; }
-    for (const c of SC.sounds) if (last < lt ? c.t > last && c.t <= lt : c.t > last || c.t <= lt) load(c.s).then(b => b && src(b, c.v, c.r, false));
+    const lt = mod(t, SND.per); if (ac.state !== 'running') { last = lt; return; }
+    for (const c of SND.sounds) if (last < lt ? c.t > last && c.t <= lt : c.t > last || c.t <= lt) load(c.s).then(b => b && src(b, c.v, c.r, false));
     for (const l of loops) { if (!l.g && bufs[l.s]) bufs[l.s].then(b => { if (b && !l.g) l.g = src(b, 0, 1, true); }); else load(l.s);
       if (l.g) l.g.gain.value = lt > l.t0 && lt < l.t1 ? l.v * Math.min(1, (lt - l.t0) / .8, (l.t1 - lt) / .4) : 0; }
     last = lt;
   };
 })() : null;
-if (SC?.sounds) window.__sounds = { per: SC.per, cues: SC.sounds, loops: SC.loops };
+if (SND) window.__sounds = { per: SND.per, cues: SND.sounds, loops: SND.loops };
 function frame(t) {
   U.phase.value = TAU * mod(t, 60) / 60;
-  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); SC?.update(t); SFX?.(t);
+  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); for (const s of SCS) s.update(t); SFX?.(t);
   if (SC?.pixel) renderPixel(SC.pixel); else renderer.render(scene, camera);
 }
 window.__frame = frame;

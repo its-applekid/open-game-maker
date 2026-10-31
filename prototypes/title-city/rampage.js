@@ -357,6 +357,10 @@ export async function kaiju(ctx) {
       fx.update(lt);
     },
     // a camera from over the bay, three-quarter on the breach, shaking with each blow
+    // the main shot's angle, pulled back and turned a touch toward the market so the other scenes fit: the menu holds it
+    // still (cam=menu)
+    view(aspect, also) { const f = P(7, -3), l = also ? [lerp(f[0], also[0], .4), lerp(f[1], also[1], .4)] : f, k = 1.45;
+      return { fov: aspect < 1 ? 62 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
     camera(cam, t, aspect) {
       const lt = ((t % PER) + PER) % PER, f = P(7, -3);
       let sh = 0; for (const s of SHAKES) { const a = lt - s.t; if (a >= 0 && a < 1.2) sh += s.a * Math.exp(-a * 4); }

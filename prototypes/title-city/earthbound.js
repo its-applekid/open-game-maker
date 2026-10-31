@@ -198,7 +198,7 @@ export async function earthbound(ctx) {
   // ---- timeline (seconds in the loop): the gag, an active fight, the crash, the bat, the exit
   const T = { portal: 10.6, out: 10.75, wall: 11.45, jump: 13.95, land: 14.85,
     bolt1: 15.7, roofRun: 16.3, roofJump: 17.0, onRoof: 17.6, a1: 17.9, bolt2: 19.6, leap: 19.45, down: 20.1, a2miss: 20.4, a2: 21.2,
-    bolt3: 22.7, burnt: 22.9, up: 24.7, a3: 25.2, fall: 26.3, crash: 27.7, walk: 28.4, swing: 33.6, run: 35.6, runT: 6, sink: 39.4 };
+    bolt3: 22.7, burnt: 22.9, up: 24.7, a3: 25.2, fall: 26.3, crash: 27.7, walk: 28.4, swing: 33.6, run: 35.6, runT: 4.4, sink: 39.4 };
   T.hit1 = T.a1 + .65; T.hit2 = T.a2 + .65; T.struck = T.bolt3 + .2; T.contact = T.swing + 3 / 8; T.flipEnd = T.contact + 1.2; T.runEnd = T.run + T.runT;
   // ---- Ness: normal, burnt (black, hair up) and the bat swing
   const nessTex = await load('models/sprites/variants/ness.png'), burntTex = await load('models/sprites/variants/ness_burnt.png'), batTex = await load('models/sprites/variants/ness_bat.png');
@@ -232,9 +232,11 @@ export async function earthbound(ctx) {
   const path = pts => { const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
     return { len: L[L.length - 1], at(d) { d = Math.max(0, Math.min(L[L.length - 1], d)); let i = 1; while (i < L.length - 1 && L[i] < d) i++; const k = (d - L[i - 1]) / ((L[i] - L[i - 1]) || 1), a = pts[i - 1], b = pts[i];
       return [lerp(a[0], b[0], k), lerp(a[1], b[1], k), b[0] - a[0], b[1] - a[1]]; } }; };
-  const walkP = path([G4, F, B]);   // straight up to it
+  const walkP = path([G4, F, B]);   // straight up to it, at a normal walk, then the swing
+  { const sh = T.swing - (T.walk + walkP.len / 3.6 + .3); for (const k of ['swing', 'run', 'sink']) T[k] -= sh;
+    T.contact = T.swing + 3 / 8; T.flipEnd = T.contact + 1.2; T.runEnd = T.run + T.runT; }
   // the exit: out of the rubble to the market, east along the harbour road, a U-turn, then flat out west past the square
-  const RUN = [B, [16, 8], [14, 14], [25, 17], [40, 20.8], [38, 19.6], [25, 16.4], [14, 14], [-4, 17.1], [-14, 18.9]];
+  const RUN = [B, [16, 8], [14, 14], [24, 16.7], [31, 18.5], [29.5, 17.6], [22, 15.8], [14, 14], [9, 13]];   // ends in the open market square
   const runP = path(RUN), acc = 2 * (runP.len - 5 * T.runT) / (T.runT * T.runT), runD = a => 5 * a + .5 * acc * a * a;
   const E = RUN[RUN.length - 1];
   // how high the rubble is under a point: chunks that have landed (centre plus most of their size), so he stands on it
@@ -311,10 +313,10 @@ export async function earthbound(ctx) {
     let p = base, rz = 0, clip = -1e9;
     for (const h of hits) { const a = lt - h; if (a >= 0 && a < .5) p = [p[0] + Math.sin(a * 60) * .5 * (1 - a * 2), p[1] + Math.sin(a * 47) * .4, p[2]]; }
     if (lt >= T.fall) { const k = clamp01((lt - T.fall) / (T.crash - T.fall)), s = ufoAt(T.fall), g = at3(C, -.6); p = [lerp(s[0], g[0], k), lerp(s[1], g[1], k * k), lerp(s[2], g[2], k)]; rz = -.28 * k + Math.sin(lt * 9) * .06 * (1 - k); }
-    if (lt >= T.contact) { const k = clamp01((lt - T.contact) / (T.flipEnd - T.contact)), g = at3(C, -.6); p = [lerp(g[0], R0[0], k), lerp(g[1], 3.4, k) + Math.sin(k * Math.PI) * 9, lerp(g[2], R0[1], k)]; rz = lerp(-.28, -Math.PI, smooth(k)); }
+    if (lt >= T.contact) { const k = clamp01((lt - T.contact) / (T.flipEnd - T.contact)), g = at3(C, -.6); p = [lerp(g[0], R0[0], k), lerp(g[1], 1.9, k) + Math.sin(k * Math.PI) * 9, lerp(g[2], R0[1], k)]; rz = lerp(-.28, -Math.PI, smooth(k)); }
     if (lt >= T.flipEnd) {   // floats off downstream, then sinks slowly and steadily over five seconds (Kevin)
       const a = lt - T.flipEnd, q = downstream(a * 1.0 * (1 - Math.exp(-a))), sk = clamp01((lt - T.sink) / 5);
-      p = [q[0], 3.4 + Math.sin(a * 2.1) * .15 * (1 - sk) - sk * 3.9, q[1]]; rz = -Math.PI + Math.sin(a * 1.3) * .08 + sk * .35; clip = .05; }
+      p = [q[0], 1.9 + Math.sin(a * 2.1) * .15 * (1 - sk) - sk * 2.5, q[1]]; rz = -Math.PI + Math.sin(a * 1.3) * .08 + sk * .35; clip = .05; }   // already half under, then down
     return { p, rz, clip };
   }
   // ---- after the fight: every broken house is rebuilt in scaffolding, one at a time in random order, at uneven gaps,
