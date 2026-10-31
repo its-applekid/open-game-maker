@@ -2,7 +2,9 @@
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&family=Press+Start+2P&family=Bungee&family=Creepster&family=Lilita+One&family=Russo+One&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@600;700;800&family=Press+Start+2P&family=Bungee&family=Creepster&family=Lilita+One&family=Russo+One&display=swap" rel="stylesheet" media="print" onload="this.media='all'">   <!-- not render-blocking: the first paint is the poster -->
+<link rel="preload" as="image" href="town/models/bake/poster-portrait.jpg" media="(orientation: portrait)" fetchpriority="high">
+<link rel="preload" as="image" href="town/models/bake/poster-landscape.jpg" media="(orientation: landscape)" fetchpriority="high">
 <style>
 /* Layout: every app screen floats on one living background (slow-drifting colour glows under a heavy Gaussian blur, with grain and a
    glass sheen); panels are frosted glass. Gruvbox accents; games keep their own looks. Single dark look by choice. */
@@ -20,7 +22,8 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }
-body { margin: 0; font-family: var(--body); color: var(--ink); background: #0f0e16; }
+html { background: #a69b8d; }   /* the title poster's mean colour: the first paint, before anything has loaded, is never black */
+body { margin: 0; font-family: var(--body); color: var(--ink); background: #a69b8d; }
 body.modal-open { overflow: hidden; }
 #bg { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; background: #0f0e16; }
 #bg canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }   /* drawn tiny and stretched: the upscale is the blur */
@@ -374,10 +377,13 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 /* loading, tracker, toast */
 #loading { background: rgba(12,11,18,.7); -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px); }
 .dots i { border: 0; }
-#tr-fab { border: 1px solid var(--rule); background: rgba(30,27,40,.75); box-shadow: 0 10px 30px rgba(0,0,0,.35); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
+#tr-fab { border: 1px solid var(--rule); background: rgba(30,27,40,.5); box-shadow: 0 10px 30px rgba(0,0,0,.35); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); transition: background .4s, border-color .4s, box-shadow .4s; }
+#tr-fab.ready { background: rgba(120,170,60,.38); border-color: var(--green-b); animation: tr-glow 2.2s ease-in-out infinite; }   /* a build finished: green glass, glowing, until opened */
+#tr-fab.ready #tr-ring { stroke: var(--green-b); } #tr-fab.ready #tr-count { background: var(--green-b); }
+@keyframes tr-glow { 0%, 100% { box-shadow: 0 0 0 1px var(--green-b), 0 0 14px rgba(184,187,38,.45); } 50% { box-shadow: 0 0 0 2px var(--green-b), 0 0 30px rgba(184,187,38,.8); } }
 #tr-fab svg.ringsvg circle:first-child { stroke: rgba(242,234,214,.18); } #tr-ring { stroke: var(--green-b); }
 #tr-count { border: 0; color: var(--dark); }
-.tr-panel { background: rgba(28,25,38,.86); border: 1px solid var(--rule); box-shadow: 0 24px 60px rgba(0,0,0,.45); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
+.tr-panel { background: rgba(28,25,38,.55); border: 1px solid var(--rule); box-shadow: 0 24px 60px rgba(0,0,0,.45); -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass); }
 #tr-speed { border: 1px solid var(--rule); } #tr-speed button[aria-pressed="true"] { background: var(--ink); color: var(--dark); }
 #tr-sum { border: 1px solid var(--rule); background: rgba(255,255,255,.05); }
 .bar { border: 1px solid var(--rule); background: rgba(0,0,0,.25); }
@@ -516,7 +522,11 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
 .t-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s cubic-bezier(.22,1,.36,1); }
 .t-scene.on { opacity: 1; }
 .t-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.t-poster { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; }   /* over the town */
+.t-poster { position: absolute; inset: 0; z-index: 1; transition: opacity 1s ease; background: #a69b8d url(town/models/bake/poster-portrait.jpg) center / cover; }   /* over the town; a still of its first frame shows until the animated poster arrives */
+@media (orientation: landscape) { .t-poster { background-image: url(town/models/bake/poster-landscape.jpg); } }
+.t-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.t-scene:has(.t-poster) { opacity: 1; transition: none; }   /* in the page from its first paint: no fade up from black */
+#s-title[data-v="town"] { background: #a69b8d; }
 .t-scene.live .t-poster { opacity: 0; }   /* the town renders underneath all along; only the poster fades, so nothing dims */
 .t-logo { grid-row: 1; position: relative; z-index: 1; margin: 0; line-height: 0; }
 .t-logo img { display: block; width: min(680px, 84vw, calc(30svh * 1.777)); height: auto;
@@ -570,8 +580,8 @@ body.on-play #vol { display: none; }   /* the game frame has its own sound contr
 <img id="logo" src="art/gm.webp" alt="Open Game Maker 2000, back to the title" role="link" tabindex="0">
 <div id="bg" aria-hidden="true"><canvas width="64" height="40"></canvas></div>
 
-<section id="s-title" class="screen" aria-label="Title screen">
-  <div class="t-scene" aria-hidden="true"></div>
+<section id="s-title" class="screen" data-v="town" aria-label="Title screen">
+  <div class="t-scene" aria-hidden="true"><picture class="t-poster"><source media="(orientation: landscape)" srcset="town/models/bake/poster-landscape.webp"><img src="town/models/bake/poster-portrait.webp" alt="" fetchpriority="high"></picture></div>
   <h1 class="t-logo"><img src="art/logo-big.webp" alt="Open Game Maker 2000" width="1400" height="788"></h1>
   <div class="t-cta">
     <button class="btn yellow t-start" id="t-start">Start</button>

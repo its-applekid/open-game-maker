@@ -35,6 +35,20 @@ for y in range(h):
                     if 0 <= ny < h and 0 <= nx < w and fg[ny, nx] and not lab[ny, nx]: lab[ny, nx] = n; q.append((ny, nx))
             sizes.append(cnt)
 keep = [i + 1 for i, n in enumerate(sizes) if n > max(sizes) * .1]; mask = np.isin(lab, keep)   # the letters, not stray splatter
+# light pockets shut in by the outline (between the G and the M) aren't letters: small light pieces become outline colour
+light = mask & ~dark; lab2 = np.zeros((h, w), int); sizes2 = []
+for y in range(h):
+    for x in range(w):
+        if light[y, x] and not lab2[y, x]:
+            n = len(sizes2) + 1; cnt = 0; q = deque([(y, x)]); lab2[y, x] = n
+            while q:
+                cy, cx = q.popleft(); cnt += 1
+                for dy, dx in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                    ny, nx = cy + dy, cx + dx
+                    if 0 <= ny < h and 0 <= nx < w and light[ny, nx] and not lab2[ny, nx]: lab2[ny, nx] = n; q.append((ny, nx))
+            sizes2.append(cnt)
+pocket = np.isin(lab2, [i + 1 for i, n in enumerate(sizes2) if n < max(sizes2) * .05]) & mask
+a[pocket, :3] = np.median(a[mask & dark][:, :3], axis=0).astype(int)
 a[..., 3] = np.where(mask, 255, 0)
 res = Image.fromarray(a.astype(np.uint8)); res = res.crop(res.getbbox()); res.thumbnail((360, 360)); res.save(out, quality=92)
 print(out, res.size)

@@ -8,8 +8,9 @@ export function start({ el, active }) {
   let f = null;
   let poster = null;
   const load = () => {
-    poster = document.createElement('img'); poster.className = 't-poster'; poster.alt = ''; poster.decoding = 'async';
-    poster.src = `town/models/bake/poster-${innerWidth < innerHeight ? 'portrait' : 'landscape'}.webp`; el.appendChild(poster); el.classList.add('on');
+    poster = el.querySelector('.t-poster');   // in the page's markup on first load (painted before any script); made again on a return
+    if (!poster) { poster = document.createElement('div'); poster.className = 't-poster'; poster.innerHTML = `<img alt="" src="town/models/bake/poster-${innerWidth < innerHeight ? 'portrait' : 'landscape'}.webp">`; el.appendChild(poster); }
+    el.classList.add('on');
     f = document.createElement('iframe');
     f.title = 'A castle town'; f.setAttribute('aria-hidden', 'true'); f.tabIndex = -1;
     f.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none';
