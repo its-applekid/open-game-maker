@@ -1,0 +1,42 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-27",
+  "id": "t1:neg-audio/model-key@1",
+  "card_type": "asset",
+  "status": "measured",
+  "title": "Model wrote the key",
+  "kind": "audio",
+  "subkind": "music/track",
+  "collection": "t1:sidetrax-pack-60-battle@2024-10",
+  "source": {
+    "files": [
+      {
+        "path": "x.wav",
+        "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "bytes": 1,
+        "format": "wav",
+        "role": "primary"
+      }
+    ]
+  },
+  "audio": {
+    "duration_s": 1,
+    "sample_rate": 44100,
+    "channels": 2,
+    "peak_dbfs": -1,
+    "key": "D",
+    "mode": "major"
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "at": "2026-10-27T20:00:00-07:00"
+    },
+    "audio.key": {
+      "by": "model",
+      "model": "m",
+      "confidence": 0.9,
+      "at": "2026-10-27T20:00:00-07:00"
+    }
+  }
+}

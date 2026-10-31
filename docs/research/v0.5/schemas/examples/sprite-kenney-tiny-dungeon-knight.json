@@ -1,0 +1,89 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-tiny-dungeon/tiles/tile-0097@1.0",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Knight (tile 97)",
+  "kind": "sprite",
+  "subkind": "character",
+  "collection": "t1:kenney-tiny-dungeon@1.0",
+  "source": {
+    "files": [
+      {
+        "path": "Tiles/tile_0097.png",
+        "sha256": "sha256:20915fde756b990f5b0c86fda557a93a6c306373d7c4fc07a1991f4ace3271b4",
+        "bytes": 225,
+        "format": "png",
+        "role": "primary"
+      }
+    ],
+    "content_hash": "sha256:20915fde756b990f5b0c86fda557a93a6c306373d7c4fc07a1991f4ace3271b4"
+  },
+  "previews": {
+    "thumb": "previews/20/20915fde756b990f-thumb.webp"
+  },
+  "describe": {
+    "description": "16 px pixel-art knight in a grey visored helmet and armour, facing the viewer; a hero or guard for top-down dungeon games.",
+    "objects": [
+      "knight",
+      "helmet",
+      "armor"
+    ],
+    "environments": [
+      "dungeon",
+      "castle",
+      "town"
+    ],
+    "settings": [
+      "fantasy",
+      "medieval"
+    ],
+    "roles": [
+      "hero",
+      "npc",
+      "enemy"
+    ],
+    "style_family": "pixel-art",
+    "pov_fit": [
+      "topdown"
+    ]
+  },
+  "image": {
+    "width_px": 16,
+    "height_px": 16,
+    "has_alpha": true,
+    "pixel_art": true
+  },
+  "sprite": {
+    "drawn_view": "front",
+    "tile_px": 16,
+    "sheet_index": 97,
+    "tile": {
+      "layer": "entity",
+      "autotile": "none",
+      "walkable": false
+    }
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.86,
+      "input": "collection sheet crop + neighbours"
+    },
+    "sprite.tile_px": {
+      "by": "vendor-metadata",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "Tilesheet.txt"
+    }
+  }
+}

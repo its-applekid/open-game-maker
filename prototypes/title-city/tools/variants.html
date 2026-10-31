@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Variants</title>
+<!-- Makes model variants in the browser for tools/variants.mjs: loads source GLBs (read-only), builds new geometry, and
+     returns each variant as a GLB. Ops: stack (repeat or remove a building's middle floors), podium (a tower on a base). -->
+<script type="importmap">{ "imports": { "three": "../vendor/three/build/three.module.js", "three/addons/": "../vendor/three/examples/jsm/" } }</script>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+
+const loader = new GLTFLoader();
+async function load(path) {   // one merged, base-centred, non-indexed geometry (position, normal, uv) and its texture
+  const g = await loader.loadAsync(`../models/${path}.glb`); g.scene.updateMatrixWorld(true);
+  const geos = []; let map = null;
+  g.scene.traverse(m => { if (m.isMesh) { const x = m.geometry.clone().applyMatrix4(m.matrixWorld); for (const k of Object.keys(x.attributes)) if (!['position', 'normal', 'uv'].includes(k)) x.deleteAttribute(k); geos.push(x.index ? x.toNonIndexed() : x); map = map || m.material.map; } });
+  const geo = mergeGeometries(geos); geo.computeBoundingBox();
+  const b = geo.boundingBox; geo.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2); geo.computeBoundingBox();
+  return { geo, map };
+}
+// the floor lines nearest a quarter and three quarters of the height: the levels with the most vertices on them
+function bands(geo) {
+  const p = geo.attributes.position, count = new Map(), h = geo.boundingBox.max.y;
+  for (let i = 0; i < p.count; i++) { const y = Math.round(p.getY(i) * 1000) / 1000; count.set(y, (count.get(y) || 0) + 1); }
+  const levels = [...count.entries()].filter(([y, n]) => n >= 6 && y > h * .08 && y < h * .92);
+  const near = target => levels.reduce((best, [y, n]) => { const s = n / (1 + Math.abs(y - target) * 20); return s > best[1] ? [y, s] : best; }, [target, -1])[0];
+  let y0 = near(h * .3), y1 = near(h * .72); if (y1 - y0 < h * .15) { y0 = h * .3; y1 = h * .72; }
+  return [y0, y1];
+}
+// keep the base and the top; the middle band appears n times (0 removes it). Triangles that cross a band edge are stretched.
+function stack(geo, n) {
+  const [y0, y1] = bands(geo), H = y1 - y0, src = geo.toNonIndexed(), P = src.attributes.position, N = src.attributes.normal, UV = src.attributes.uv;
+  const pos = [], nor = [], uv = [], eps = 1e-4;
+  const remap = y => y <= y0 ? y : y >= y1 ? y + (n - 1) * H : y0 + (y - y0) * n;
+  for (let t = 0; t < P.count; t += 3) {
+    const ys = [P.getY(t), P.getY(t + 1), P.getY(t + 2)], lo = Math.min(...ys), hi = Math.max(...ys);
+    const emit = (dy, f) => { for (let k = 0; k < 3; k++) { pos.push(P.getX(t + k), f ? f(P.getY(t + k)) : P.getY(t + k) + dy, P.getZ(t + k)); nor.push(N.getX(t + k), N.getY(t + k), N.getZ(t + k)); uv.push(UV.getX(t + k), UV.getY(t + k)); } };
+    if (hi <= y0 + eps) emit(0);
+    else if (lo >= y1 - eps) emit((n - 1) * H);
+    else if (lo >= y0 - eps && hi <= y1 + eps) for (let k = 0; k < n; k++) emit(k * H);
+    else emit(0, remap);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  return g;
+}
+// a tower standing on a wider base, scaled to sit inside the base's roof
+function podium(base, top, scale) {
+  base.computeBoundingBox(); const bh = base.boundingBox.max.y;
+  const t = top.clone().scale(scale, scale, scale).translate(0, bh - .01, 0);
+  return mergeGeometries([base.toNonIndexed(), t.toNonIndexed()]);
+}
+// parts stacked bottom to top, each sitting on the one below (a tower house: base, floors, roof)
+async function stackParts(list) {
+  let y = 0; const geos = []; let map = null;
+  for (const name of list) { const a = await load(name); map = map || a.map; geos.push(a.geo.clone().translate(0, y, 0)); y += a.geo.boundingBox.max.y; }
+  return { geo: mergeGeometries(geos), map };
+}
+// parts placed at offsets ([name, x, y, z, rotY, scale]); all from one kit, so they share its texture
+async function place(list) {
+  const geos = []; let map = null;
+  for (const [name, x, y, z, r = 0, s = 1] of list) { const a = await load(name); map = map || a.map; geos.push(a.geo.clone().scale(s, s, s).rotateY(r).translate(x, y, z)); }
+  const g = mergeGeometries(geos); g.computeBoundingBox(); const b = g.boundingBox; g.translate(-(b.min.x + b.max.x) / 2, -b.min.y, -(b.min.z + b.max.z) / 2);
+  return { geo: g, map };
+}
+async function glb(geo, map) {
+  const mesh = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0 }));
+  const buf = await new GLTFExporter().parseAsync(mesh, { binary: true });
+  let s = ''; const b = new Uint8Array(buf); for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode(...b.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+window.make = async spec => {
+  if (spec.op === 'parts' || spec.op === 'place') {
+    const r = spec.op === 'parts' ? await stackParts(spec.from) : await place(spec.parts); r.geo.computeBoundingBox(); const b = r.geo.boundingBox;
+    return { glb: await glb(r.geo, r.map), size: [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map(v => +v.toFixed(2)) };
+  }
+  const a = await load(spec.from[0]);
+  let geo;
+  if (spec.op === 'stack') geo = stack(a.geo, spec.mid);
+  else if (spec.op === 'podium') geo = podium(a.geo, (await load(spec.from[1])).geo, spec.scale);
+  else throw new Error('unknown op ' + spec.op);
+  geo.computeBoundingBox(); const b = geo.boundingBox;
+  return { glb: await glb(geo, a.map), size: [b.max.x - b.min.x, b.max.y - b.min.y, b.max.z - b.min.z].map(v => +v.toFixed(2)) };
+};
+window.ready = true;
+</script>

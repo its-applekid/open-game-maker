@@ -1,0 +1,33 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>body{margin:0;background:#333}</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+// Sanity check: baked goblins + Kenney pieces side by side, log their sizes.
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+const r = new THREE.WebGLRenderer({ antialias: true }); r.setSize(1000, 600); document.body.appendChild(r.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color('#556');
+scene.add(new THREE.HemisphereLight('#fff', '#445', 2.5));
+const cam = new THREE.PerspectiveCamera(35, 1000 / 600, 0.1, 100); cam.position.set(2.2, 1.6, 4.2); cam.lookAt(2.2, 0.4, 0);
+const L = new GLTFLoader(); const out = {};
+const files = ['models/goblinfighter-01.glb', 'models/goblinfighter-02.glb', 'models/goblinfighter-03.glb', 'models/kenney/character-human.glb', 'models/kenney/floor.glb', 'models/kenney/wall.glb', 'models/kenney/chest.glb', 'models/kenney/stairs.glb', 'models/kenney/column.glb', 'models/kenney/wall-half.glb', 'models/kenney/weapon-sword.glb', 'models/kenney/banner.glb', 'models/kenney/barrel.glb', 'models/kenney/wall-opening.glb', 'models/kenney/gate.glb', 'models/kenney/floor-detail.glb'];
+const mixers = [];
+let x = 0;
+for (const f of files) {
+  const g = await L.loadAsync('../site/assets/' + f);
+  const box = new THREE.Box3().setFromObject(g.scene); const s = box.getSize(new THREE.Vector3());
+  out[f] = { size: s.toArray().map(v => +v.toFixed(3)), min: box.min.toArray().map(v => +v.toFixed(3)), anims: g.animations.map(a => a.name) };
+  if (f.includes('goblin') || f.includes('human') || f.includes('floor.glb') || f.includes('wall.glb')) {
+    if (f.includes('goblin')) g.scene.scale.setScalar(0.0036); g.scene.position.x = x; x += 0.9; scene.add(g.scene);
+    if (g.animations.length) { const m = new THREE.AnimationMixer(g.scene); m.clipAction(g.animations.find(a => a.name === 'idle')).play(); m.update(0.5); mixers.push(m); }
+  }
+}
+r.render(scene, cam);
+window.__info = out;
+</script>

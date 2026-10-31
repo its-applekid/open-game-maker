@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Title City</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+canvas{display:block;width:100vw;height:100vh}
+</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
+</head>
+<body>
+<!-- The title screen's city, three looks to choose from: ?v=1 glass and paint, ?v=2 neon night, ?v=3 sunlit. One 60 s loop.
+     ?capture stops the clock; window.__frame(t) draws loop time t (for recording). -->
+<script type="module" src="city.js"></script>
+</body>
+</html>

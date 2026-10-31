@@ -1,0 +1,62 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:synty-polygon-goblin-war-camp/buildings/sm-bld-prop-torch-01@v3",
+  "card_type": "asset",
+  "status": "draft",
+  "title": "Torch 01",
+  "kind": "model",
+  "subkind": "prop",
+  "collection": "t1:synty-polygon-goblin-war-camp@v3",
+  "source": {
+    "files": [
+      {
+        "path": "FBX/Buildings/SM_Bld_Prop_Torch_01.fbx",
+        "sha256": "sha256:b296e3c8c0b10bc9f095e766fb8c9071b5468a17c909808707bef46f2e8210f6",
+        "bytes": 64192,
+        "format": "fbx",
+        "role": "primary"
+      },
+      {
+        "path": "MaterialList_PolygonGoblinWarCamp.txt",
+        "sha256": "sha256:af089923cdad730e5860eeafb5f0e1e601c80d93958ea922e3185d5917457ffb",
+        "bytes": 321105,
+        "format": "txt",
+        "role": "metadata"
+      }
+    ],
+    "content_hash": "sha256:b296e3c8c0b10bc9f095e766fb8c9071b5468a17c909808707bef46f2e8210f6"
+  },
+  "describe": {
+    "objects": [
+      "torch"
+    ],
+    "environments": [
+      "camp"
+    ],
+    "roles": [
+      "light-source",
+      "decor"
+    ],
+    "keywords": [
+      "goblin"
+    ]
+  },
+  "flags": [
+    "missing-preview"
+  ],
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "filename",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.5,
+      "input": "SM_Bld_Prop_Torch_01 + folder Buildings + pack title"
+    }
+  }
+}
