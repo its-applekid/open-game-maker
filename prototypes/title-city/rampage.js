@@ -19,7 +19,7 @@ const hashN = (x, z) => { const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5
 // ---------------- fracture ----------------
 // split a non-indexed geometry (in building space, metres) into what stays and chunks of what breaks off; `breaks(cx, cy, cz)`
 // decides per triangle by its centre; chunks are the broken triangles grouped by `cell`, each recentred on its own middle
-function fracture(geo, breaks, cell = 1.5) {
+export function fracture(geo, breaks, cell = 1.5) {
   const P = geo.attributes.position, N = geo.attributes.normal, UV = geo.attributes.uv, keep = { p: [], n: [], u: [] }, groups = new Map();
   for (let t = 0; t < P.count; t += 3) {
     const cx = (P.getX(t) + P.getX(t + 1) + P.getX(t + 2)) / 3, cy = (P.getY(t) + P.getY(t + 1) + P.getY(t + 2)) / 3, cz = (P.getZ(t) + P.getZ(t + 1) + P.getZ(t + 2)) / 3;
@@ -34,7 +34,7 @@ function fracture(geo, breaks, cell = 1.5) {
 }
 
 // a chunk's flight, planned at 30 Hz: gravity, tumbling, bounces on the ground with friction, sinking in water
-function flight(p, v, w, r, ground, fx, t0) {
+export function flight(p, v, w, r, ground, fx, t0) {
   const frames = [], q = new THREE.Quaternion(), dq = new THREE.Quaternion(), axis = new THREE.Vector3(...w).normalize(), spin = Math.hypot(...w);
   let x = p[0], y = p[1], z = p[2], vx = v[0], vy = v[1], vz = v[2], s = spin, landed = false, wetted = false;
   for (let i = 0; i < 150; i++) {

@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { kaiju } from './rampage.js';
+import { earthbound } from './earthbound.js';
 
 const Q = new URLSearchParams(location.search);
 const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed'), SCENE = Q.get('scene'), SCENE_V = Q.get('var') || 'a';
@@ -744,6 +745,22 @@ async function setupRampage() {
     breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps });
 }
 
+// the EarthBound homage (earthbound.js): the market quarter's houses are handed to the scene to be struck
+async function setupEarthbound() {
+  const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => Math.hypot(h.x - centre[0], h.z - centre[1]) < 26);
+  for (const h of zone) houses.splice(houses.indexOf(h), 1);
+  window.__scene = { zone: zone.length };
+  return await earthbound({ scene, camera, U, PLAIN, ground: (x, z) => height(x, z), kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V });
+}
+// b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
+let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+const pixQuad = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.MeshBasicMaterial({ toneMapped: false })); pixScene.add(pixQuad);
+function renderPixel(lines) {
+  const h = lines, w = Math.round(lines * aspect);
+  if (!pixRT || pixRT.height !== h || pixRT.width !== w) { pixRT?.dispose(); pixRT = new THREE.WebGLRenderTarget(w, h, { magFilter: THREE.NearestFilter, minFilter: THREE.NearestFilter, samples: 0 }); pixRT.texture.colorSpace = THREE.SRGBColorSpace; pixQuad.material.map = pixRT.texture; pixQuad.material.needsUpdate = true; }
+  renderer.setRenderTarget(pixRT); renderer.render(scene, camera); renderer.setRenderTarget(null); renderer.render(pixScene, pixCam);
+}
+
 // ---------------- go ----------------
 function size() { const w = innerWidth, h = innerHeight; aspect = w / h; renderer.setSize(w, h, false); }
 addEventListener('resize', size); size();
@@ -752,11 +769,12 @@ await loadVariants();
 streetMeshes(); townWall(); castle(); planHouses(); fillLots(); market(); slum();
 let SC = null;
 if (SCENE === 'rampage') SC = await setupRampage();
+if (SCENE === 'earthbound') SC = await setupEarthbound();
 await buildHouses(); await flush(); await trees(); torches(); makeClouds(); makeBoats();
 function frame(t) {
   U.phase.value = TAU * mod(t, 60) / 60;
   updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); SC?.update(t);
-  renderer.render(scene, camera);
+  if (SC?.pixel) renderPixel(SC.pixel); else renderer.render(scene, camera);
 }
 window.__frame = frame;
 window.__info = () => ({ ev: dyn.slice(0, 4).map(d => [+d.per.toFixed(1), +d.ev[0].start.toFixed(1), +d.ev[1].start.toFixed(1)]), houses: houses.length, changing: dyn.length, calls: renderer.info.render.calls, tris: renderer.info.render.triangles });
