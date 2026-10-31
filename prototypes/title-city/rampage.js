@@ -421,15 +421,15 @@ export async function kaiju(ctx) {
     per: PER, sounds: SND, loops: [], dead: deadTag,
     tap(nx, ny, t, cam) {
       const lt = ((t % PER) + PER) % PER; if (lt >= LEAVE - 2) return false;
-      const p = posAt(lt), feet = new THREE.Vector3(p.x, Math.max(ground(p.x, p.z), -5), p.z), head = feet.clone().setY(feet.y + H * .9);
-      const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), side = feet.clone().addScaledVector(right, BODY + 1);
-      const sc = v => { const q = v.clone().project(cam); return [q.x * cam.aspect, q.y]; }, a = sc(feet), b = sc(head), s = sc(side), m = [(nx * 2 - 1) * cam.aspect, 1 - ny * 2];
-      const dx = b[0] - a[0], dy = b[1] - a[1], k = clamp01(((m[0] - a[0]) * dx + (m[1] - a[1]) * dy) / (dx * dx + dy * dy || 1));
-      if (Math.hypot(m[0] - a[0] - dx * k, m[1] - a[1] - dy * k) > Math.hypot(s[0] - a[0], s[1] - a[1]) + .07) return false;   // generous: a finger, on a small monster
+      const p = posAt(lt);
+      // on his body: rays through the finger and a ring around it (a fingertip's slop), so a tap just off his outline counts
+      const ray = new THREE.Raycaster(), at = (dx, dy) => { ray.setFromCamera(new THREE.Vector2(nx * 2 - 1 + dx / cam.aspect, 1 - ny * 2 + dy), cam); return ray.intersectObject(M.g, true)[0]?.point; };
+      let hitP = at(0, 0); for (let i = 0; i < 8 && !hitP; i++) hitP = at(Math.cos(i * Math.PI / 4) * .06, Math.sin(i * Math.PI / 4) * .06);
+      if (!hitP) return false;
       const toCam = [cam.position.x - p.x, cam.position.z - p.z], tl = Math.hypot(...toCam) || 1, away = [-toCam[0] / tl, -toCam[1] / tl];
       taps.push({ t: lt, v: (taps.length * 7 + Math.floor(lt * 3)) % REACT.length, away });
       for (const k of ATK) if (!cancelled.has(k.tag) && lt >= k.from && lt <= k.tc) cancelled.set(k.tag, lt);
-      fx.burst(lt, [feet.x - away[0] * BODY, feet.y + H * lerp(.15, .9, k), feet.z - away[1] * BODY], 1.3);
+      fx.burst(lt, [hitP.x, hitP.y, hitP.z], 1.3);
       ctx.sfx(`impactPunch_heavy_00${taps.length % 5}`, .9, .9 + (taps.length % 3) * .1); ctx.sfx('impactSoft_heavy_00' + (taps.length % 3), .5, .7);
       if (taps.length % 3 === 0) ctx.sfx('creature' + (1 + taps.length % 5), .7, .5);   // every third hit, a roar
       return true;
