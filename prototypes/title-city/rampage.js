@@ -53,12 +53,13 @@ export function tessellate(geo, max = 1.2) {
 }
 
 // a chunk's flight, planned at 30 Hz: gravity, tumbling, bounces on the ground with friction, sinking in water
-export function flight(p, v, w, r, ground, fx, t0) {
+export function flight(p, v, w, r, ground, fx, t0, wall = null) {   // wall(x0, z0, x1, z1, y): the normal of a wall the step runs into, or null
   const frames = [], q = new THREE.Quaternion(), dq = new THREE.Quaternion(), axis = new THREE.Vector3(...w).normalize(), spin = Math.hypot(...w);
   let x = p[0], y = p[1], z = p[2], vx = v[0], vy = v[1], vz = v[2], s = spin, landed = false, wetted = false;
   for (let i = 0; i < 150; i++) {
     for (let k = 0; k < 2; k++) {   // two 1/60 s steps per frame
-      const dt = 1 / 60; vy -= 24 * dt; x += vx * dt; y += vy * dt; z += vz * dt;
+      const dt = 1 / 60; vy -= 24 * dt; const px = x, pz = z; x += vx * dt; y += vy * dt; z += vz * dt;
+      const n = wall?.(px, pz, x, z, y); if (n) { x = px; z = pz; const vn = vx * n[0] + vz * n[1]; vx = (vx - 1.4 * vn * n[0]) * .6; vz = (vz - 1.4 * vn * n[1]) * .6; s *= .7; }   // the town wall holds it in
       const gy = ground(x, z), floor = gy < 0 ? -4 : gy + r * .35;
       if (gy < 0 && y < 0) { if (!wetted) { wetted = true; if (r > .6) fx.splash(t0 + i / 30, [x, z], .6); } vx *= .9; vz *= .9; vy = Math.max(vy, -3); s *= .95; }
       if (y < floor) { y = floor; if (gy >= 0) { if (!landed && r > .9 && vy < -6) fx.dust(t0 + i / 30, [x, y, z], .35); landed = true; vy = -vy * .28; vx *= .55; vz *= .55; s *= .55; if (Math.abs(vy) < 1.2) vy = 0; } else vy = 0; }
@@ -101,6 +102,15 @@ export async function kaiju(ctx) {
   };
   for (const h of ctx.houses) { const k = await ctx.kenney(h.model); addThing(k.geo, k.map, h.roof, h.x, h.z, h.rot, [h.s, h.s, h.s], k.h * h.s, 'house'); }
   const wk = await ctx.kenney('castle/wall'), W = ctx.wall;
+  // the town wall keeps a house's debris inside (except through the breach): a step that crosses a wall piece below its top bounces back
+  const WTOP = PLAIN + wk.h * W.KW, WSEG = (ctx.walls || []).map(w => ({ x: w.x, z: w.z, L: w.L, ax: Math.cos(w.yaw), az: -Math.sin(w.yaw), nx: Math.sin(w.yaw), nz: Math.cos(w.yaw) }));
+  const wallStop = (x0, z0, x1, z1, y) => { if (y > WTOP) return null;
+    for (const w of WSEG) { const p0 = (x0 - w.x) * w.nx + (z0 - w.z) * w.nz, p1 = (x1 - w.x) * w.nx + (z1 - w.z) * w.nz, h = W.KW * .5;
+      if (Math.abs(p1) > h || Math.abs(p0) <= Math.abs(p1)) continue;
+      const a = (x1 - w.x) * w.ax + (z1 - w.z) * w.az; if (Math.abs(a) > w.L / 2) continue;
+      if (Math.hypot(x1 - bx, z1 - bz) < 6) continue;
+      const sg = Math.sign(p0) || 1; return [w.nx * sg, w.nz * sg]; }
+    return null; };
   const wall = addThing(wk.geo, wk.map, '#7d8fb8', W.x, W.z, W.yaw, [W.L, W.KW, W.KW], wk.h * W.KW, 'wall');
   // break part of a thing at time t: `top` is the new height (jagged), `side` limits the break to one face (a punch's corner),
   // `dir` is where the pieces fly, `power` how hard
@@ -128,7 +138,7 @@ export async function kaiju(ctx) {
       const m = new THREE.Mesh(uv ? mergeGeometries([c.geo, core]) : c.geo, d.chunkMat); m.visible = false; scene.add(m);
       const p = [d.x + c.c[0], PLAIN + c.c[1], d.z + c.c[2]], out = [p[0] - hitAt[0], p[2] - hitAt[2]], ol = Math.hypot(...out) || 1;
       const sp = rr(3, 9) * power, v = [dir[0] * sp * .8 + out[0] / ol * sp * .5 + rr(-2, 2), rr(2, 8) * Math.sqrt(power), dir[1] * sp * .8 + out[1] / ol * sp * .5 + rr(-2, 2)];
-      d.chunks.push({ m, tag: TAG, t0: t + rr(0, .06), frames: flight(p, v, [rr(-1, 1), rr(-1, 1), rr(-1, 1)].map(x => x * rr(2, 9)), c.r, ground, fx, t) });
+      d.chunks.push({ m, tag: TAG, t0: t + rr(0, .06), frames: flight(p, v, [rr(-1, 1), rr(-1, 1), rr(-1, 1)].map(x => x * rr(2, 9)), c.r, ground, fx, t, d.kind === 'house' ? wallStop : null) });
     }
     d.hits.push(t); (d.hitTags ||= []).push(TAG); d.brokenTo = top; if (span && d.spanAt === undefined) d.spanAt = span[0];
     fx.dust(t + .05, [d.x, PLAIN + Math.max(1, top), d.z], d.kind === 'wall' ? 1.2 : .8 + power * .3);
@@ -207,10 +217,13 @@ export async function kaiju(ctx) {
   const posAt = t => {   // position and heading at time t
     const s = S.find(s => t >= s.t0 && t < s.t1) || S[S.length - 1], k = clamp01((t - s.t0) / (s.t1 - s.t0));
     const kk = s.kind === 'knock' ? ease(k) : s.lunge ? smooth(clamp01((t - s.t0) / (s.lungeT || .5))) : k, x = lerp(s.from[0], s.to[0], kk), z = lerp(s.from[1], s.to[1], kk);   // a blow at a house out of reach starts with a step in
-    let yaw = s.kind === 'move' ? Math.atan2(s.to[0] - s.from[0], s.to[1] - s.from[1]) : s.yaw ?? 0;
-    if (s.kind === 'turn') { let d = s.yaw1 - s.yaw0; d = Math.atan2(Math.sin(d), Math.cos(d)); yaw = s.yaw0 + d * smooth(k); }
+    let yaw = rawYaw(s, k); const i = S.indexOf(s);
+    if (i > 0 && s.kind !== 'turn') { const y0 = rawYaw(S[i - 1], 1), d = wrapA(yaw - y0);   // every change of heading is turned through, never snapped
+      if (Math.abs(d) > .02) yaw = y0 + d * smooth(clamp01((t - s.t0) / Math.min(s.kind === 'knock' ? .3 : .3 + Math.abs(d) * .35, (s.t1 - s.t0) * .6))); }
     return { s, k, x, z, yaw };
   };
+  const wrapA = d => Math.atan2(Math.sin(d), Math.cos(d));
+  const rawYaw = (s, k) => s.kind === 'move' ? Math.atan2(s.to[0] - s.from[0], s.to[1] - s.from[1]) : s.kind === 'turn' && s.yaw1 !== undefined ? s.yaw0 + wrapA(s.yaw1 - s.yaw0) * smooth(k) : s.yaw ?? 0;
   // ---- whatever stands on his route: the wall pieces, towers and houses near it become breakable too, so he never walks
   // through anything (city.js claimNear takes them out of the town's meshes)
   { const route = []; for (let t = 0; t < LEAVE; t += .5) { const q = posAt(t); route.push([q.x, q.z]); }
@@ -260,7 +273,14 @@ export async function kaiju(ctx) {
     if (s.target) ATK.push({ tag: 'a' + ATK.length, from: s.t0 - .6, tc, segs: [s] });
     if (s.clip === 'Jump_Land') { const j = S[S.indexOf(s) - 1]; ATK.push({ tag: 'a' + ATK.length, from: j.t0 - .6, tc: s.t0 + .1, segs: [j, s] }); }
     const tag = ATK.find(a => a.segs.includes(s))?.tag ?? null;   // the wall punch always lands: his way in depends on it
-    if (s.clip === 'Punch' && s.face) events.push({ t: tc, f: () => { hit(wall, tc, { span: [0, 4.5], dir: [nx, nz], power: 1.4, at: [W.x, PLAIN + 3, W.z] }); fx.ring(tc, [W.x, PLAIN, W.z], .8); } });
+    if (s.clip === 'Punch' && s.face) events.push({ t: tc, f: () => { hit(wall, tc, { span: [0, 5.5], dir: [nx, nz], power: 2.1, at: [W.x, PLAIN + 3, W.z] }); fx.ring(tc, [W.x, PLAIN, W.z], 1.1);
+      fx.dust(tc + .05, [W.x, PLAIN + 2, W.z], 1.7); fx.flash(tc, [W.x, PLAIN + 3, W.z], 1.3); SHAKES.push({ t: tc, a: .6, tag: null }); IMPACT_SND.push({ t: tc, tag: null, big: true });
+      const into = D.filter(o => o.kind === 'house' && !gone(o, tc)).map(o => { const v = [o.x - W.x, o.z - W.z], l = Math.hypot(...v) || 1; return { o, l, dot: (v[0] * nx + v[1] * nz) / l }; })
+        .filter(c => c.l < 16 && c.dot > .3).sort((a, b) => (a.l - a.dot * 6) - (b.l - b.dot * 6))[0]?.o;
+      if (into) { const l = Math.hypot(into.x - W.x, into.z - W.z), ti = tc + .18 + l / 20, dir = [nx, nz];   /* the wall's stones are hurled into the first house inside */
+        for (let k = 1; k <= 3; k++) { const u = k / 4; fx.debris(tc + (ti - tc) * u, [lerp(W.x, into.x, u), PLAIN + 3 * (1 - u) + 2, lerp(W.z, into.z, u)], dir, .9); }
+        hit(into, ti, { top: into.h * rr(.1, .3), dir, power: 1.5, at: [into.x - dir[0] * into.r, PLAIN + into.h * .5, into.z - dir[1] * into.r] });
+        fx.dust(ti + .05, [into.x, PLAIN + 2, into.z], 1.5); fx.flash(ti, [into.x, PLAIN + into.h * .5, into.z], 1.1); SHAKES.push({ t: ti, a: .4, tag: null }); IMPACT_SND.push({ t: ti, tag: null, big: true }); } } });
     else if (s.target) events.push({ t: tc, tag, f: () => blow(s, tc) });
     else if (s.clip === 'Jump_Land') events.push({ t: s.t0 + .1, tag, f: () => { const [x, z] = s.from, t = s.t0 + .1;
       fx.ring(t, [x, PLAIN, z], 1.6); fx.decal(t, 60, 'crack', [x, PLAIN, z], 14); fx.dust(t, [x, PLAIN, z], 1.6); SHAKES.push({ t, a: .7, tag });
@@ -329,7 +349,7 @@ export async function kaiju(ctx) {
   const hb = new THREE.Box3().setFromObject(hk.scene), HS = 2.7 / (hb.max.y - hb.min.y);   // a bit larger than life, so they read next to the monster
   const men = [];
   const man = (plan, armed) => {   // plan: [[t, x, z, clip, yawTarget?], ...] — position eases between keys
-    const o = hk.scene.clone(); o.scale.setScalar(HS); scene.add(o);
+    const o = hk.scene.clone(); o.scale.setScalar(HS); scene.add(o); o.traverse(n => { n.frustumCulled = false; });   // a cloned skinned mesh's bounds are wrong: culling made them blink out
     if (armed) { const s = spear.scene.clone(); s.scale.setScalar(1); s.rotation.z = -.3; (o.getObjectByName('arm-right') || o).add(s); s.position.set(-.1, -.25, .1); }
     const mixer = new THREE.AnimationMixer(o), acts = {}; for (const c of hk.animations) acts[c.name] = mixer.clipAction(c);
     const m = { o, mixer, acts, plan, cur: null }; men.push(m); return m;
@@ -343,15 +363,19 @@ export async function kaiju(ctx) {
         [LEAVE + 2, ...en, 'interact-right'], [LEAVE + 14, ...st, 'interact-right'], [LEAVE + 15, ...st, 'idle']]).stays = true; }
     else { const p = off(e.x, e.z, 3, a0); man([[0, p[0], p[1], 'idle'], [e.shots[0] - .4, p[0], p[1], 'interact-right'], [e.shots[0] + .3, p[0], p[1], 'emote-yes'], [e.shots[0] + 2, p[0], p[1], 'idle'], [LEAVE - 12, p[0], p[1], 'emote-yes']]); }
   }
-  // archers on the wall either side of the breach
+  // archers on the wall either side of the breach: out of the corner towers at the wall's ends, and back in once he's gone
   const arrows = [];
-  for (let i = 0; i < 4; i++) { const p = [W.x + Math.cos(W.yaw) * (i < 2 ? -9 - i * 2.5 : 9 + (i - 2) * 2.5), W.z - Math.sin(W.yaw) * (i < 2 ? -9 - i * 2.5 : 9 + (i - 2) * 2.5)];
-    const m = man([[0, p[0], p[1], 'idle'], [26.5, p[0], p[1], 'holding-both-shoot'], [41, p[0], p[1], 'emote-yes'], [LEAVE, p[0], p[1], 'idle']]); m.y = PLAIN + W.KW * 1.25;
+  for (let i = 0; i < 4; i++) { const side = i < 2 ? -1 : 1, a = side * Math.min(9 + (i % 2) * 2.5, W.L / 2 - 1.5), at = a => [W.x + Math.cos(W.yaw) * a, W.z - Math.sin(W.yaw) * a];
+    const p = at(a), tw = at(side * W.L / 2), walk = Math.abs(W.L / 2 - Math.abs(a)) / 1.6, t0 = 25.6 - walk - (i % 2) * .8, t1 = LEAVE + 2 + i * .6;   /* at their posts before the first volley (26.5) */
+    const m = man([[t0, ...tw, 'idle'], [t0 + walk, ...p, 'idle'], [26.5, ...p, 'holding-both-shoot'], [41, ...p, 'emote-yes'], [LEAVE, ...p, 'idle'], [t1, ...p, 'idle'], [t1 + walk, ...tw, 'idle']]);
+    m.y = PLAIN + W.KW * 1.25; m.show = t0; m.hide = t1 + walk;
     for (let k = 0; k < 6; k++) { const tf = 27 + k * 1.9 + i * .25; arrows.push({ t: tf, from: [p[0], m.y + 1.4, p[1]], fl: .8 }); } }
   // spearmen: out of the streets, at his feet, stabbing; they scatter when he reels, then cheer and give chase
+  const doors = D.filter(d => d.kind === 'house' && !d.hits.length && !d.shoved);   // they come out of houses he leaves alone, and go back in
   for (let i = 0; i < 8; i++) {
-    const a = i / 8 * Math.PI * 2, home = P(30 + (i % 3) * 3, -12 + i * 3), ring = [pts.c[0] + Math.cos(a) * 6.5, pts.c[1] + Math.sin(a) * 6.5], back = [pts.c[0] + Math.cos(a) * 11, pts.c[1] + Math.sin(a) * 11];
-    man([[0, ...home, 'idle'], [29.4 + i * .15, ...home, 'sprint'], [32, ...ring, 'attack-melee-right'], [38.7, ...ring, 'sprint'], [40, ...back, 'emote-yes'], [41.5, ...back, 'sprint'], [46, ...P(-2, -2 + (i - 4) * 1.5), 'emote-yes'], [LEAVE, ...P(-2, -2 + (i - 4) * 1.5), 'idle']], true);
+    const a = i / 8 * Math.PI * 2, h0 = P(30 + (i % 3) * 3, -12 + i * 3), hd = doors.sort((p, q) => Math.hypot(p.x - h0[0], p.z - h0[1]) - Math.hypot(q.x - h0[0], q.z - h0[1]))[0], home = hd ? [hd.x, hd.z] : h0, ring = [pts.c[0] + Math.cos(a) * 6.5, pts.c[1] + Math.sin(a) * 6.5], back = [pts.c[0] + Math.cos(a) * 11, pts.c[1] + Math.sin(a) * 11];
+    const m = man([[0, ...home, 'idle'], [29.4 + i * .15, ...home, 'sprint'], [32, ...ring, 'attack-melee-right'], [38.7, ...ring, 'sprint'], [40, ...back, 'emote-yes'], [41.5, ...back, 'sprint'], [46, ...P(-2, -2 + (i - 4) * 1.5), 'emote-yes'], [LEAVE, ...P(-2, -2 + (i - 4) * 1.5), 'idle'], [LEAVE + 7, ...home, 'sprint']], true);
+    m.show = 29.4 + i * .15; m.hide = LEAVE + 7;
   }
   const arrowMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(.04, .04, 1.4, 4).rotateX(Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#5e4a44' }), arrows.length);
   arrowMesh.frustumCulled = false; scene.add(arrowMesh);
@@ -365,12 +389,12 @@ export async function kaiju(ctx) {
     d.burns = true; const t0 = d.hits[0] + 1 + i * .7; fx.tag = d.hitTags[0]; fx.fire(t0, d.rebuild - 2, [d.x, PLAIN + Math.max(.5, d.brokenTo), d.z], 1.7); fx.decal(t0, d.rebuild + 9, 'scorch', [d.x, PLAIN, d.z], 7); fx.tag = null;
   });
   for (const d of wrecked) { d.sc = ctx.scaffold(d.kind === 'wall' ? 10 : d.r * 1.6 + .9, d.kind === 'wall' ? 3 : d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); const sa = d.kind === 'wall' ? d.spanAt || 0 : 0; d.sc.position.set(d.x + Math.cos(d.yaw) * sa, PLAIN, d.z - Math.sin(d.yaw) * sa); d.sc.rotation.y = d.kind === 'wall' ? d.yaw : 0; scene.add(d.sc); }   // a wall's scaffold goes up over its gap
-  // ---- sound (Kenney CC0, tools/sounds.sh): footfalls (splashes while he wades), smashes, the stomp, roars, the castle's
+  // ---- sound (Kenney CC0, tools/sounds.sh): footfalls (a low rumble while he wades), smashes, the stomp, roars, the castle's
   // shots and their hits, arrows, then hammering while each house is rebuilt. { t, s: name, v: volume, r: rate }
   const SND = [], sn = (t, s, v = 1, r = 1, tag = null) => SND.push({ t: +t.toFixed(3), s, v, r, tag }), pick = (b, n) => `${b}_00${Math.floor(rnd() * n)}`;
   for (const s of S) if (s.kind === 'move') { const st = s.clip === 'Run' ? .42 : .8;
     for (let t = s.t0 + .2; t < Math.min(s.t1, LEAVE + 3); t += st) { const p = posAt(t), wet = ground(p.x, p.z) < 0;
-      if (wet) sn(t, rnd() < .5 ? 'sinkWater1' : 'sinkWater2', .5, .6); else { sn(t, pick('impactSoft_heavy', 3), .7, .5); sn(t + .01, 'lowFrequency_explosion_000', .15, 1.6); } } }
+      if (wet) { sn(t, 'lowFrequency_explosion_00' + Math.floor(rnd() * 2), .32, rr(.4, .5)); sn(t + .02, pick('impactSoft_heavy', 3), .35, .4); } else { sn(t, pick('impactSoft_heavy', 3), .7, .5); sn(t + .01, 'lowFrequency_explosion_000', .15, 1.6); } } }
   { const last = new Map(); for (const [t, tag] of D.flatMap(d => d.hits.map((t, i) => [t, d.hitTags[i]])).sort((a, b) => a[0] - b[0])) { if (t - (last.get(tag) ?? -9) < .15) continue; last.set(tag, t); sn(t, pick('explosionCrunch', 5), .7, 1, tag); sn(t + .03, pick('impactWood_heavy', 5), .5, 1, tag); } }
   for (const im of IMPACT_SND) { sn(im.t, 'lowFrequency_explosion_00' + Math.floor(rnd() * 2), .8, rr(.8, 1.05), im.tag); sn(im.t + .02, pick('explosionCrunch', 5), .9, rr(.8, 1), im.tag); sn(im.t + rr(.05, .15), 'stoneHit' + (1 + Math.floor(rnd() * 3)), .6, rr(.7, .9), im.tag); }
   for (const s of S) { if (s.clip === 'Jump_Land') { const tag = ATK.find(a => a.segs.includes(s)).tag; sn(s.t0 + .1, 'lowFrequency_explosion_001', 1, 1, tag); sn(s.t0 + .12, 'explosionCrunch_004', .8, 1, tag); }
@@ -468,7 +492,7 @@ export async function kaiju(ctx) {
         let i = 0; while (i < m.plan.length - 1 && m.plan[i + 1][0] <= lt) i++;
         const a = m.plan[i], b = m.plan[Math.min(i + 1, m.plan.length - 1)], k = b[0] > a[0] ? clamp01((lt - a[0]) / (b[0] - a[0])) : 0, moving = a[1] !== b[1] || a[2] !== b[2];
         const x = lerp(a[1], b[1], moving ? k : 0), z = lerp(a[2], b[2], moving ? k : 0);
-        m.o.visible = m.stays || lt < LEAVE + 4; m.o.position.set(x, m.y ?? Math.max(PLAIN, ground(x, z)), z);
+        m.o.visible = m.show !== undefined ? lt >= m.show && lt < m.hide : m.stays || lt < LEAVE + 4; m.o.position.set(x, m.y ?? Math.max(PLAIN, ground(x, z)), z);
         const tgt = M.g.visible ? M.g.position : { x: pts.away[0], z: pts.away[1] };
         m.o.rotation.y = moving && k < 1 ? Math.atan2(b[1] - a[1], b[2] - a[2]) : a[3] === 'interact-right' ? m.o.rotation.y : Math.atan2(tgt.x - x, tgt.z - z);
         const act = m.acts[moving && k < 1 && a[3] === 'idle' ? 'walk' : a[3]] || m.acts.idle;

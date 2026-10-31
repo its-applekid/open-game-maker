@@ -13,7 +13,7 @@ import { kaiju } from './rampage.js';
 import { earthbound } from './earthbound.js';
 
 const Q = new URLSearchParams(location.search);
-const CAPTURE = Q.has('capture'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed'), SCENE = Q.get('scene'), SCENE_V = Q.get('var') || 'a';
+const CAPTURE = Q.has('capture'), POSTER = Q.has('poster'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed'), SCENE = Q.get('scene'), SCENE_V = Q.get('var') || 'a';
 const DAY = +(Q.get('day') || 120);   // seconds for one day/night cycle (short for the preview)
 const TAU = Math.PI * 2;
 
@@ -848,7 +848,7 @@ function claimRampage() {
     // the kaiju shot's angle, pulled back and turned toward the market so the other scenes fit (phones further back)
     view(aspect, also) { const port = aspect < 1, w = port ? .5 : .4, l = also ? [f[0] + (also[0] - f[0]) * w, f[1] + (also[1] - f[1]) * w] : f, k = port ? 2.1 : 1.45;
       return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
-    run: () => kaiju({ sfx, claimNear, scene, camera, U, PLAIN, ground: groundH, kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(18) + 75, 18], [coastX(15) + 8, 15]] /* straight in from open sea off the right of the frame, deeper the further out */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW, entry: seg.entry },
+    run: () => kaiju({ sfx, claimNear, walls: WALL_SEGS, scene, camera, U, PLAIN, ground: groundH, kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(18) + 75, 18], [coastX(15) + 8, 15]] /* straight in from open sea off the right of the frame, deeper the further out */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW, entry: seg.entry },
       breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps }) };
 }
 // The EarthBound homage (earthbound.js): the market quarter's houses, struck by the saucer.
@@ -932,8 +932,8 @@ async function startScenes(join) {
   window.__scenes = list.map(s => ({ off: s.off, times: s.times }));   // debug: when things happen
 }
 function frame(t) {
-  NOW = t; U.phase.value = TAU * mod(t, 60) / 60;
-  updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); for (const s of SCS) s.update(s.local(t)); SFX?.(t);
+  U.phase.value = TAU * mod(t, 60) / 60; if (POSTER) t = 0;   /* poster: only the water moves */
+  NOW = t; updateSky(t); placeCamera(t); updateChanging(t); updateClouds(t); updateBoats(t); for (const s of SCS) s.update(s.local(t)); SFX?.(t);
   if (SC?.pixel) renderPixel(SC.pixel); else renderer.render(scene, camera);
 }
 window.__frame = frame;
