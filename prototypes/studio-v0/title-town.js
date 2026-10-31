@@ -23,6 +23,9 @@ export function start({ el, active }) {
     if (on && !f) load();
     else if (!on && f) { f.remove(); f = null; poster?.remove(); poster = null; el.classList.remove('on', 'live'); extSilence(); }
   };
+  // the Easter egg: a tap on the town (not on the title's buttons) goes through to it, where the scenes check it
+  el.closest('.screen')?.addEventListener('pointerdown', e => { if (!f || e.target.closest('button, a, input, [role="link"]')) return;
+    const r = f.getBoundingClientRect(); f.contentWindow?.postMessage({ tap: [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height] }, '*'); });
   addEventListener('message', e => {
     if (!f || e.source !== f.contentWindow) return;
     if (e.data === 'town-ready') { el.classList.add('live'); const p = poster; setTimeout(() => { p?.remove(); if (poster === p) poster = null; }, 1200); }   // the poster fades off the running town

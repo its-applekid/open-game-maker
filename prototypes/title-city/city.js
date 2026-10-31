@@ -431,6 +431,7 @@ const INST = new Map();
 const put = (model, x, y, z, rot = 0, s = 1, roof = ROOFS.castle[0]) => { if (!INST.has(model)) INST.set(model, []); const e = { x, y, z, rot, s: [s, s, s], roof: C(roof) }; INST.get(model).push(e); return e; };
 const putS = (model, x, y, z, rot, s3) => { if (!INST.has(model)) INST.set(model, []); const e = { x, y, z, rot, s: s3, roof: C(ROOFS.castle[0]) }; INST.get(model).push(e); return e; };
 const WALL_SEGS = [];   // the stretched wall pieces, so a scene can claim one to break
+const TOWERS = [];   // the wall's towers, each its stacked pieces, likewise
 async function flush() {
   await Promise.all([...INST.keys()].map(kenney));   // fetch them all at once
   for (const [model, list] of INST) {
@@ -445,6 +446,7 @@ function sightBlocked(a, b, x, z, r, top) {
   const dx = b[0] - a[0], dz = b[2] - a[2], k = Math.max(0, Math.min(1, ((x - a[0]) * dx + (z - a[2]) * dz) / (dx * dx + dz * dz)));
   return k > .02 && Math.hypot(a[0] + dx * k - x, a[2] + dz * k - z) < r && top > a[1] + (b[1] - a[1]) * k;
 }
+window.__walls = () => WALL_SEGS.map(s => [+s.x.toFixed(1), +s.z.toFixed(1), +s.L.toFixed(1), +s.yaw.toFixed(2)]);   // debug
 const hideEntry = e => { if (!e?.mesh) return; e.mesh.setMatrixAt(e.i, new THREE.Matrix4().makeScale(0, 0, 0)); e.mesh.instanceMatrix.needsUpdate = true; };   // a scene took it over
 // a model kept as its node tree (for parts that move, like a trebuchet's arm), with flat colours and the kit shader
 async function kenneyScene(path) {
@@ -512,8 +514,9 @@ function townWall() {
   }
   for (const b of ball) {
     const p = ring[b.i], q = ring[(b.i + 1) % ring.length], yaw = Math.atan2(q.x - p.x, q.z - p.z) + Math.PI / 2;
-    if (b.gate) { put('castle/tower-square-arch', p.x, PLAIN, p.z, yaw + Math.PI / 2, KW * 1.25); put('castle/tower-square-top-roof-high', p.x, PLAIN + KW * 1.25 * 1.31, p.z, yaw, KW * 1.25); torch(p.x, PLAIN + KW * 1.3, p.z); }
-    else { const s = KW * (1.15 + hash2(b.i, 5) * .25); put('castle/tower-base', p.x, PLAIN, p.z, yaw, s); put(hash2(b.i, 6) < .5 ? 'castle/tower-square-top-roof' : 'castle/tower-top', p.x, PLAIN + s * 1.31, p.z, yaw, s); torch(p.x, PLAIN + s * 1.5, p.z); }
+    const part = (model, y, r, s) => ({ model, y, rot: r, s, entry: put(model, p.x, y, p.z, r, s) });
+    if (b.gate) { TOWERS.push({ x: p.x, z: p.z, gate: true, parts: [part('castle/tower-square-arch', PLAIN, yaw + Math.PI / 2, KW * 1.25), part('castle/tower-square-top-roof-high', PLAIN + KW * 1.25 * 1.31, yaw, KW * 1.25)] }); torch(p.x, PLAIN + KW * 1.3, p.z); }
+    else { const s = KW * (1.15 + hash2(b.i, 5) * .25); TOWERS.push({ x: p.x, z: p.z, parts: [part('castle/tower-base', PLAIN, yaw, s), part(hash2(b.i, 6) < .5 ? 'castle/tower-square-top-roof' : 'castle/tower-top', PLAIN + s * 1.31, yaw, s)] }); torch(p.x, PLAIN + s * 1.5, p.z); }
   }
 }
 const TORCHES = [];
@@ -825,6 +828,16 @@ function updateSky(t) {
 // Each scene claims its piece of the town at once (cheap) and is set up after the town is on screen (slow: fracturing
 // houses, planning every chunk's flight). Claimed houses stay in the town's instancing until their scene is ready.
 // The monster rampage (rampage.js): the wall piece nearest the harbour and the houses within reach of it.
+// what stands in a scene's way: the wall pieces, towers and unclaimed houses near a route, handed over to the scene (which
+// breaks them) and taken out of the town's instanced meshes. pts: [[x, z]...], r: how near
+function claimNear(pts, r, skip = []) {
+  const near = (x, z, extra = 0) => pts.some(q => Math.hypot(q[0] - x, q[1] - z) < r + extra), out = { walls: [], towers: [], houses: [] };
+  for (const w of WALL_SEGS) { if (w.claimed || skip.includes(w.entry)) continue; const dx = Math.cos(w.yaw), dz = -Math.sin(w.yaw);
+    if (pts.some(q => { const a = (q[0] - w.x) * dx + (q[1] - w.z) * dz; return Math.abs(a) < w.L / 2 + r && Math.abs((q[0] - w.x) * -dz + (q[1] - w.z) * dx) < r; })) { w.claimed = true; out.walls.push(w); hideEntry(w.entry); } }
+  for (const tw of TOWERS) if (!tw.claimed && near(tw.x, tw.z)) { tw.claimed = true; out.towers.push(tw); for (const pt of tw.parts) hideEntry(pt.entry); }
+  for (const h of houses) if (!h.claim && h.entry && near(h.x, h.z)) { h.claim = true; out.houses.push(h); hideEntry(h.entry); }
+  return out;
+}
 function claimRampage() {
   const seg = WALL_SEGS.filter(s => s.L > 14).sort((a, b) => b.x + b.z * .2 - (a.x + a.z * .2))[0];
   const toC = [TC.x - seg.x, TC.z - seg.z], l = Math.hypot(...toC), inward = [toC[0] / l, toC[1] / l], zc = [seg.x + inward[0] * 15, seg.z + inward[1] * 15];
@@ -835,7 +848,7 @@ function claimRampage() {
     // the kaiju shot's angle, pulled back and turned toward the market so the other scenes fit (phones further back)
     view(aspect, also) { const port = aspect < 1, w = port ? .5 : .4, l = also ? [f[0] + (also[0] - f[0]) * w, f[1] + (also[1] - f[1]) * w] : f, k = port ? 2.1 : 1.45;
       return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
-    run: () => kaiju({ scene, camera, U, PLAIN, ground: groundH, kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(-50) + 10, -50], [coastX(15) + 8, 15]] /* in from the sea beyond the river mouth, toward the camera */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW },
+    run: () => kaiju({ sfx, claimNear, scene, camera, U, PLAIN, ground: groundH, kenney, kenneyScene, kitMat, houses: zone, approach: [[coastX(18) + 75, 18], [coastX(15) + 8, 15]] /* straight in from open sea off the right of the frame, deeper the further out */, castle: { x: CASTLE.x, z: CASTLE.z, r: PADS[0].r, face: CASTLE_FACE }, wall: { x: seg.x, z: seg.z, yaw: seg.yaw, L: seg.L, KW, entry: seg.entry },
       breach: [seg.x, seg.z], inward, scaffold, layers, stepped, steps }) };
 }
 // The EarthBound homage (earthbound.js): the market quarter's houses, struck by the saucer.
@@ -843,7 +856,7 @@ function claimEarthbound() {
   const centre = [TC.x - 6, TC.z - 22], zone = houses.filter(h => !h.claim && Math.hypot(h.x - centre[0], h.z - centre[1]) < 26); for (const h of zone) h.claim = true;
   const eyes = VIEW_OF() ? [VIEW_OF().view(16 / 9, centre).pos, VIEW_OF().view(.46, centre).pos] : [];   // the menu camera, wide and tall
   return { zone, hide: [], centre, eyes,
-    run: () => earthbound({ eyes, scene, camera, U, PLAIN, ground: groundH, kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
+    run: () => earthbound({ sfx, eyes, scene, camera, U, PLAIN, ground: groundH, kenney, kitMat, houses: zone, centre, mountains: [-300, -320], square: [TC.x, TC.z], look: SCENE_V, ufo: Q.get('ufo'), streets: STREETS.map(s => s.pts), river: RIVER, scaffold, layers, stepped, steps }) };
 }
 // b and c looks: the frame is drawn small and scaled up with hard pixels, so the town matches the sprites
 let pixRT = null; const pixScene = new THREE.Scene(), pixCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
@@ -885,19 +898,26 @@ const makeSfx = SNDS => SNDS.length && !CAPTURE ? (() => {
     loopGain = (s, g) => { if (ac.state !== 'running') return; if (!loops[s]) { loops[s] = 1; load(s).then(b => { if (b) loops[s] = src(b, 0, 1, true); }); } if (loops[s].gain) loops[s].gain.value = g; };
   }
   const last = new Map();
-  return t => { for (const s of SNDS) {
+  const f = t => { for (const s of SNDS) {
     const lt = s.local(mod(t, s.per)), was = last.get(s) ?? lt; last.set(s, lt);
-    for (const c of s.sounds) if (was < lt ? c.t > was && c.t <= lt : lt < was && (c.t > was || c.t <= lt)) play(c.s, c.v, c.r);
+    for (const c of s.sounds) if ((was < lt ? c.t > was && c.t <= lt : lt < was && (c.t > was || c.t <= lt)) && !(c.tag != null && s.dead?.(c.tag))) play(c.s, c.v, c.r);   // a cue whose event the player prevented stays quiet
     for (const l of s.loops) loopGain(l.s, lt > l.t0 && lt < l.t1 ? l.v * Math.min(1, (lt - l.t0) / .8, (l.t1 - lt) / .4) : 0);
   } };
+  f.play = play; return f;
 })() : null;
+const sfx = (s, v = 1, r = 1) => SFX?.play?.(s, v, r);   // a sound now (the player's taps)
+// the Easter egg: a tap on the town goes to each scene, which checks it against its monster and reacts (studio: forwarded
+// from the title page as {tap: [x, y]} in 0..1 of the frame; alone: the canvas; capture: window.__tap)
+function onTap(nx, ny) { for (const s of SCS) if (s.tap?.(nx, ny, s.local(NOW), camera)) return true; return false; }
+window.__tap = onTap;
+renderer.domElement.addEventListener('pointerdown', e => { const r = renderer.domElement.getBoundingClientRect(); onTap((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height); });
 // set the scenes up and hand them their houses. All at once (the menu): one long cycle from when they join, the kaiju
 // first and EarthBound two thirds of the way through it; outside its window each scene holds its untouched first moment
 async function startScenes(join) {
   const list = [];
   for (const c of CLAIMS) { const sc = await c.run(); list.push(sc); _mk('run ' + list.length); for (const h of c.zone) hideEntry(h.entry); for (const e of c.hide) hideEntry(e);
     if (sc.spots && c.eyes?.length) for (const h of houses) { if (h.claim || !h.entry) continue; const k = await kenney(h.model), top = PLAIN + k.h * h.s;
-      if (Object.values(sc.spots).some(p => c.eyes.some(e => sightBlocked([p[0], PLAIN + 3, p[1]], e, h.x, h.z, k.w * h.s / 2 + 1, top)))) hideEntry(h.entry); }
+      if (Object.values(sc.spots).some(p => c.eyes.some(e => sightBlocked([p[0], p[2] ?? PLAIN + 3, p[1]], e, h.x, h.z, k.w * h.s / 2 + 1, top)))) hideEntry(h.entry); }
     await new Promise(r => setTimeout(r)); }
   // EarthBound starts near the end of the kaiju's fight, at a different moment each cycle (38-48 s in)
   const OFF0 = 38, OFF1 = 48, offAt = k => OFF0 + (OFF1 - OFF0) * hash2(k, 77);
@@ -921,7 +941,7 @@ window.__info = () => ({ ev: dyn.slice(0, 4).map(d => [+d.per.toFixed(1), +d.ev[
 if (!CAPTURE) {
   let t = 0, last = performance.now();
   const loop = () => { const now = performance.now(); t += Math.min(.1, (now - last) / 1000); last = now; frame(t); };
-  addEventListener('message', e => { if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
+  addEventListener('message', e => { if (e.data?.tap) onTap(...e.data.tap); if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
   if (EMBED) {   // behind the studio's poster: no frames until the scenes are set up and shaders compiled (drawing meanwhile only
     // slowed the setup, and ran the scenes' clock ahead), then the clock starts at 0, the moment the poster shows
     if (CLAIMS.length) await startScenes(0); _mk('scenes');

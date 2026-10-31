@@ -96,7 +96,7 @@ export async function kaiju(ctx) {
     const mat = ctx.kitMat(map, { tint: new THREE.Color(tint) }), chunkMat = mat.clone(); chunkMat.side = THREE.DoubleSide;
     chunkMat.uniforms = { ...mat.uniforms, cut: { value: 9999 } };   // share the live day/night uniforms; clone() copies them frozen
     const whole = new THREE.Mesh(g, mat); whole.position.set(x, PLAIN, z); scene.add(whole);
-    const d = { kind, x, z, h, r: kind === 'wall' ? 0 : Math.max(scale[0], scale[2]) * .7, geo: g, mat, chunkMat, whole, versions: [{ t: -1, mesh: whole }], chunks: [], hits: [], rebuild: 0, burns: false };
+    const d = { kind, x, z, h, yaw: rot, L: kind === 'wall' ? scale[0] : 0, r: kind === 'wall' ? 0 : Math.max(scale[0], scale[2]) * .7, geo: g, mat, chunkMat, whole, versions: [{ t: -1, mesh: whole }], chunks: [], hits: [], rebuild: 0, burns: false };
     D.push(d); return d;
   };
   for (const h of ctx.houses) { const k = await ctx.kenney(h.model); addThing(k.geo, k.map, h.roof, h.x, h.z, h.rot, [h.s, h.s, h.s], k.h * h.s, 'house'); }
@@ -105,10 +105,11 @@ export async function kaiju(ctx) {
   // break part of a thing at time t: `top` is the new height (jagged), `side` limits the break to one face (a punch's corner),
   // `dir` is where the pieces fly, `power` how hard
   const SHAKES = [];
+  let TAG = null;   // the attack whose consequences are being planned (the player can prevent it: see `tap` below)
   function hit(d, t, { top = 0, dir = [nx, nz], power = 1, side = null, at = null, span = null }) {
     const cur = d.versions[d.versions.length - 1].geoCur || d.geo, storey = 3.1;
     const breaks = (cx, cy, cz) => {
-      if (span) { const along = cx * Math.cos(d.kind === 'wall' ? W.yaw : 0) - cz * Math.sin(d.kind === 'wall' ? W.yaw : 0); return Math.abs(along - span[0]) < span[1] + (hashN(cy, along) - .5) * 1.6; }
+      if (span) { const along = cx * Math.cos(d.yaw) - cz * Math.sin(d.yaw); return Math.abs(along - span[0]) < span[1] + (hashN(cy, along) - .5) * 1.6; }
       const jag = top + (hashN(Math.round(cx * 1.3), Math.round(cz * 1.3)) - .5) * storey * .9;
       if (cy <= jag) return false;
       if (side) { const pr = cx * side[0] + cz * side[1]; return pr > -.6 + (hashN(cy, pr) - .5); }
@@ -117,7 +118,7 @@ export async function kaiju(ctx) {
     const { keep, chunks } = fracture(cur, breaks);
     if (!chunks.length) return;
     const mesh = new THREE.Mesh(keep, d.mat); mesh.position.set(d.x, PLAIN, d.z); mesh.visible = false; scene.add(mesh);
-    d.versions.push({ t, mesh, geoCur: keep });
+    d.versions.push({ t, mesh, geoCur: keep, tag: TAG });
     const hitAt = at || [d.x, PLAIN + top + 2, d.z];
     for (const c of chunks) {
       if (c.tris < 2) continue;
@@ -127,17 +128,39 @@ export async function kaiju(ctx) {
       const m = new THREE.Mesh(uv ? mergeGeometries([c.geo, core]) : c.geo, d.chunkMat); m.visible = false; scene.add(m);
       const p = [d.x + c.c[0], PLAIN + c.c[1], d.z + c.c[2]], out = [p[0] - hitAt[0], p[2] - hitAt[2]], ol = Math.hypot(...out) || 1;
       const sp = rr(3, 9) * power, v = [dir[0] * sp * .8 + out[0] / ol * sp * .5 + rr(-2, 2), rr(2, 8) * Math.sqrt(power), dir[1] * sp * .8 + out[1] / ol * sp * .5 + rr(-2, 2)];
-      d.chunks.push({ m, t0: t + rr(0, .06), frames: flight(p, v, [rr(-1, 1), rr(-1, 1), rr(-1, 1)].map(x => x * rr(2, 9)), c.r, ground, fx, t) });
+      d.chunks.push({ m, tag: TAG, t0: t + rr(0, .06), frames: flight(p, v, [rr(-1, 1), rr(-1, 1), rr(-1, 1)].map(x => x * rr(2, 9)), c.r, ground, fx, t) });
     }
-    d.hits.push(t); d.brokenTo = top;
+    d.hits.push(t); (d.hitTags ||= []).push(TAG); d.brokenTo = top; if (span && d.spanAt === undefined) d.spanAt = span[0];
     fx.dust(t + .05, [d.x, PLAIN + Math.max(1, top), d.z], d.kind === 'wall' ? 1.2 : .8 + power * .3);
     fx.debris(t, hitAt, dir, .8 + power * .3); fx.flash(t, hitAt, .6 + power * .3);
-    SHAKES.push({ t, a: .25 * power });
+    SHAKES.push({ t, a: .25 * power, tag: TAG });
+  }
+
+  // a punch or a swipe: the house he hits is torn off its footing and thrown into the next one along, and both come down.
+  // Every blow differs: how much of it goes, how hard, which neighbour it lands on, how long the throw takes
+  const IMPACT_SND = [];
+  function blow(s, tc) {
+    const d = s.target, pd = [Math.sin(s.yaw), Math.cos(s.yaw)], swipe = s.clip === 'Weapon';
+    const nb = D.filter(o => o !== d && o.kind === 'house' && !gone(o, tc)).map(o => { const v = [o.x - d.x, o.z - d.z], l = Math.hypot(...v) || 1; return { o, l, dot: (v[0] * pd[0] + v[1] * pd[1]) / l }; })
+      .filter(c => c.l < 15 && c.dot > (swipe ? -.2 : .25)).sort((a, b) => (a.l - a.dot * 6) - (b.l - b.dot * 6));
+    const into = nb[0]?.o, dir = into ? (() => { const v = [into.x - d.x, into.z - d.z], l = Math.hypot(...v); return [lerp(pd[0], v[0] / l, .7), lerp(pd[1], v[1] / l, .7)]; })() : pd;
+    const pw = rr(1.5, 2.1), at = [d.x - pd[0] * d.r, PLAIN + d.h * rr(.45, .7), d.z - pd[1] * d.r];
+    hit(d, tc, { top: d.h * rr(.04, .2), dir, power: pw, at }); fx.dust(tc + .05, [d.x, PLAIN + 2, d.z], rr(1.2, 1.6)); fx.ring(tc, [d.x, PLAIN, d.z], rr(.6, .9));
+    SHAKES.push({ t: tc, a: .5, tag: TAG }); IMPACT_SND.push({ t: tc, tag: TAG, big: true });
+    if (into) {   // the throw: a stream of grit along the way, then the second house caves in where it lands
+      const l = Math.hypot(into.x - d.x, into.z - d.z), ti = tc + .18 + l / rr(16, 24);
+      for (let k = 1; k <= 3; k++) { const u = k / 4; fx.debris(tc + (ti - tc) * u, [lerp(d.x, into.x, u), PLAIN + d.h * .5 * (1 - u) + 2, lerp(d.z, into.z, u)], dir, .8); }
+      hit(into, ti, { top: into.h * rr(.1, .35), dir, power: rr(1.1, 1.5), at: [into.x - dir[0] * into.r, PLAIN + into.h * .5, into.z - dir[1] * into.r] });
+      fx.dust(ti + .05, [into.x, PLAIN + 2, into.z], rr(1.2, 1.7)); fx.flash(ti, [into.x, PLAIN + into.h * .5, into.z], 1.2);
+      SHAKES.push({ t: ti, a: .4, tag: TAG }); IMPACT_SND.push({ t: ti, tag: TAG, big: true });
+      if (swipe) { const o2 = nb[1]?.o; if (o2) hit(o2, ti + rr(.1, .25), { top: o2.h * rr(.3, .6), dir, power: 1 }); }   // the swipe carries on into a third
+    }
+    for (const o of D) if (o !== d && o !== into && o.kind === 'house' && Math.hypot(o.x - d.x, o.z - d.z) < 5.5) hit(o, tc + rr(.08, .2), { top: o.h * rr(.55, .8), dir, power: .7 });   // and knocks the corner off whatever is close
   }
 
   // ---- the choreography: where he is and what he does, second by second
   const [sea, ford] = ctx.approach || [P(-75, 6), P(-40, 3)];   // he wades in from the sea (across the river mouth in the menu)
-  const pts = { sea, ford, outside: P(-6, 0), gap: P(9, 0), a: P(16, 7), b: P(24, -5), c: P(14, -13), back: P(-6, -2), away: P(-80, -10) };
+  const pts = { sea, ford, outside: P(-6, 0), gap: P(9, 0), a: P(16, 7), b: P(24, -5), c: P(26, -14), back: P(-6, -2), away: P(-80, -10) };
   const C = ctx.castle, cf = [Math.sin(C.face), Math.cos(C.face)], cs = [cf[1], -cf[0]];
   const fieldFrom = P(-40, 90), fieldTo = P(-15, 24);   // the field trebuchet: pushed in from far down the fields, turned, and pushed away again after
   // when a swing connects: the moment the forearm is furthest forward in the clip (so debris and flashes land on the blow)
@@ -178,55 +201,87 @@ export async function kaiju(ctx) {
   act(34.8, 'Punch', { rate: .6 });                          // still wrecking
   knock(35.8, castleSrc, 3.5);                               // second castle boulder, 35.0 (a bolt at 36.5 makes him flinch)
   act(37.6, 'No', { rate: 1.2 });                            // the field boulder misses (37.6)
-  turn(38.7, pts.outside);                                   // he turns to go, slowly
-  stumble(39.9, 4.5, pts.outside);                                        // a castle boulder hits his back (38.8): he stumbles forward
-  go(42.6, pts.outside, 'Run'); go(48, pts.ford, 'Run'); go(LEAVE, pts.sea, 'Run');   // and runs back out the way he came
+  turn(38.7, pts.ford);                                      // he turns to go, away from us, toward the sea
+  stumble(39.9, 4.5, pts.ford);                              // a castle boulder hits his back (38.8): he stumbles forward
+  go(43.6, pts.ford, 'Run'); go(LEAVE, pts.sea, 'Run');      // and flees out through the coastal wall, back into the sea
   const posAt = t => {   // position and heading at time t
     const s = S.find(s => t >= s.t0 && t < s.t1) || S[S.length - 1], k = clamp01((t - s.t0) / (s.t1 - s.t0));
-    const kk = s.kind === 'knock' ? ease(k) : k, x = lerp(s.from[0], s.to[0], kk), z = lerp(s.from[1], s.to[1], kk);
+    const kk = s.kind === 'knock' ? ease(k) : s.lunge ? smooth(clamp01((t - s.t0) / (s.lungeT || .5))) : k, x = lerp(s.from[0], s.to[0], kk), z = lerp(s.from[1], s.to[1], kk);   // a blow at a house out of reach starts with a step in
     let yaw = s.kind === 'move' ? Math.atan2(s.to[0] - s.from[0], s.to[1] - s.from[1]) : s.yaw ?? 0;
     if (s.kind === 'turn') { let d = s.yaw1 - s.yaw0; d = Math.atan2(Math.sin(d), Math.cos(d)); yaw = s.yaw0 + d * smooth(k); }
     return { s, k, x, z, yaw };
   };
-  // facings for punches: the nearest unbroken-enough house in front; stomp hits everything around
-  const nearest = (p, exclude = []) => D.filter(d => d.kind === 'house' && !exclude.includes(d)).sort((a, b) => Math.hypot(a.x - p[0], a.z - p[1]) - Math.hypot(b.x - p[0], b.z - p[1]))[0];
+  // ---- whatever stands on his route: the wall pieces, towers and houses near it become breakable too, so he never walks
+  // through anything (city.js claimNear takes them out of the town's meshes)
+  { const route = []; for (let t = 0; t < LEAVE; t += .5) { const q = posAt(t); route.push([q.x, q.z]); }
+    const got = ctx.claimNear(route, BODY + 4, [W.entry]);
+    for (const w of got.walls) addThing(wk.geo, wk.map, '#7d8fb8', w.x, w.z, w.yaw, [w.L, W.KW, W.KW], wk.h * W.KW, 'wall');
+    for (const tw of got.towers) { const geos = [], base = await ctx.kenney(tw.parts[0].model);
+      for (const pt of tw.parts) { const k = await ctx.kenney(pt.model), g = k.geo.clone(); g.scale(pt.s, pt.s, pt.s); g.rotateY(pt.rot); g.translate(0, pt.y - PLAIN, 0); geos.push(g.index ? g.toNonIndexed() : g); }
+      const g = mergeGeometries(geos); g.computeBoundingBox(); addThing(g, base.map, '#7d8fb8', tw.x, tw.z, 0, [1, 1, 1], g.boundingBox.max.y, 'tower').r = tw.parts[0].s * .6; }
+    for (const h of got.houses) { const k = await ctx.kenney(h.model); addThing(k.geo, k.map, h.roof, h.x, h.z, h.rot, [h.s, h.s, h.s], k.h * h.s, 'house'); } }
+  const standing = d => d.kind === 'house' || d.kind === 'tower';
+  // shoves first (they follow from his route alone): anything his body would touch breaks just before contact
+  const shoves = [];
+  for (let t = 0; t < LEAVE; t += .1) {
+    const p = posAt(t);
+    for (const d of D) {
+      if (standing(d)) { if (!d.shoved && Math.hypot(d.x - p.x, d.z - p.z) < BODY + d.r + .5) { d.shoved = t; shoves.push({ d, t }); } continue; }
+      const ux = Math.cos(d.yaw), uz = -Math.sin(d.yaw), a = (p.x - d.x) * ux + (p.z - d.z) * uz, perp = Math.abs((p.x - d.x) * -uz + (p.z - d.z) * ux);
+      if (Math.abs(a) < d.L / 2 + 1 && perp < BODY + W.KW * .5 + .6 && !(d.spans ||= []).some(s => Math.abs(s - a) < 5)) { d.spans.push(a); shoves.push({ d, t, a }); }
+    }
+  }
+  const stompS = S.find(s => s.clip === 'Jump_Land'), stompT = stompS ? stompS.t0 + .1 : 1e9;
+  const gone = (d, t) => (d.shoved !== undefined && d.shoved < t) || (stompS && t > stompT && Math.hypot(d.x - stompS.from[0], d.z - stompS.from[1]) < 6.5);
+  // facings for blows: the nearest house still standing at that moment, in reach; a sweeping swipe and a punch never pick the same one
   const punched = [];
   for (const s of S) {
     if (s.kind === 'move' || s.kind === 'knock') continue;
     const prev = S[S.indexOf(s) - 1], fallbackYaw = prev ? (prev.kind === 'move' ? Math.atan2(prev.to[0] - prev.from[0], prev.to[1] - prev.from[1]) : prev.yaw) : 0;
     if (s.face) s.yaw = Math.atan2(s.face[0], s.face[1]);
     else if (s.kind === 'turn') { s.yaw0 = fallbackYaw; s.yaw1 = s.yaw = Math.atan2(s.toward[0] - s.from[0], s.toward[1] - s.from[1]); }
-    else if (s.clip === 'Punch' || s.clip === 'Weapon') { const d = nearest(s.from, punched); punched.push(d); s.target = d; s.yaw = Math.atan2(d.x - s.from[0], d.z - s.from[1]); }
+    else if (s.clip === 'Punch' || s.clip === 'Weapon') { const tc = s.t0 + (contact[s.clip] ?? .5) / (s.rate || 1);
+      const c = D.filter(d => d.kind === 'house' && !punched.includes(d) && !gone(d, tc)).sort((a, b) => Math.hypot(a.x - s.from[0], a.z - s.from[1]) - a.r - (Math.hypot(b.x - s.from[0], b.z - s.from[1]) - b.r))[0];
+      if (c) { punched.push(c); s.target = c; s.yaw = Math.atan2(c.x - s.from[0], c.z - s.from[1]); } else s.yaw = fallbackYaw; }
     else s.yaw = fallbackYaw;
   }
+  // out of reach? he steps in as he swings (and everything after starts from where he ends up)
+  for (const s of S) { if (!s.target) continue; const d = s.target, v = [d.x - s.from[0], d.z - s.from[1]], l = Math.hypot(...v), reach = BODY + d.r + 2.2;
+    if (l <= reach) continue; const old = s.from, to = [old[0] + v[0] / l * (l - reach), old[1] + v[1] / l * (l - reach)], dl = [to[0] - old[0], to[1] - old[1]];
+    s.to = to; s.lunge = true; s.lungeT = Math.min(.6, (contact[s.clip] ?? .5) / (s.rate || 1) * .8);
+    for (let i = S.indexOf(s) + 1; i < S.length; i++) { const n = S[i]; if (n.from[0] !== old[0] || n.from[1] !== old[1]) break;
+      n.from = to; if (n.kind !== 'move') n.to = [n.to[0] + dl[0], n.to[1] + dl[1]]; if (n.kind === 'move') break; } }
+  for (let t = 0; t < LEAVE; t += .1) { const p = posAt(t);   // the steps in can touch more
+    for (const d of D) if (standing(d) && !d.shoved && !S.some(s => s.target === d) && Math.hypot(d.x - p.x, d.z - p.z) < BODY + d.r + .5) { d.shoved = t; shoves.push({ d, t }); } }
   // ---- impacts, in time order (so each break works on what the last one left)
-  const events = [];
+  const events = [], ATK = [];   // ATK: the blows the player can stop by hitting him first: { tag, from, tc, segs }
   for (const s of S) {
     const tc = s.t0 + (contact[s.clip] ?? .5) / (s.rate || 1);   // the blow lands on the clip's contact frame
+    if (s.target) ATK.push({ tag: 'a' + ATK.length, from: s.t0 - .6, tc, segs: [s] });
+    if (s.clip === 'Jump_Land') { const j = S[S.indexOf(s) - 1]; ATK.push({ tag: 'a' + ATK.length, from: j.t0 - .6, tc: s.t0 + .1, segs: [j, s] }); }
+    const tag = ATK.find(a => a.segs.includes(s))?.tag ?? null;   // the wall punch always lands: his way in depends on it
     if (s.clip === 'Punch' && s.face) events.push({ t: tc, f: () => { hit(wall, tc, { span: [0, 4.5], dir: [nx, nz], power: 1.4, at: [W.x, PLAIN + 3, W.z] }); fx.ring(tc, [W.x, PLAIN, W.z], .8); } });
-    else if (s.target) events.push({ t: tc, f: () => { const d = s.target, dir = [Math.sin(s.yaw), Math.cos(s.yaw)]; hit(d, tc, { top: d.h * rr(.25, .45), dir, power: 1.2, side: [-dir[0], -dir[1]], at: [d.x - dir[0] * d.r, PLAIN + d.h * .6, d.z - dir[1] * d.r] });
-      for (const o of D) if (o !== d && o.kind === 'house' && Math.hypot(o.x - d.x, o.z - d.z) < 6) hit(o, tc + .12, { top: o.h * rr(.6, .8), dir, power: .6 }); } });
-    else if (s.clip === 'Jump_Land') events.push({ t: s.t0 + .1, f: () => { const [x, z] = s.from, t = s.t0 + .1;
-      fx.ring(t, [x, PLAIN, z], 1.6); fx.decal(t, 60, 'crack', [x, PLAIN, z], 14); fx.dust(t, [x, PLAIN, z], 1.6); SHAKES.push({ t, a: .7 });
+    else if (s.target) events.push({ t: tc, tag, f: () => blow(s, tc) });
+    else if (s.clip === 'Jump_Land') events.push({ t: s.t0 + .1, tag, f: () => { const [x, z] = s.from, t = s.t0 + .1;
+      fx.ring(t, [x, PLAIN, z], 1.6); fx.decal(t, 60, 'crack', [x, PLAIN, z], 14); fx.dust(t, [x, PLAIN, z], 1.6); SHAKES.push({ t, a: .7, tag });
       for (const o of D) { if (o.kind !== 'house') continue; const dd = Math.hypot(o.x - x, o.z - z); if (dd > 14) continue;
         const away = [(o.x - x) / (dd || 1), (o.z - z) / (dd || 1)];
         hit(o, t + dd * .02, { top: dd < 6.5 ? o.h * .12 : o.h * lerp(.5, .8, (dd - 6.5) / 7.5), dir: away, power: dd < 6.5 ? 1.5 : .8 }); } } });
   }
-  // shove: anything the body would touch breaks just before contact, pushed the way he is going
-  for (let t = 0; t < LEAVE; t += .1) {
-    const p = posAt(t);
-    for (const d of D) {
-      if (d.kind !== 'house' || d.shoved) continue;
-      if (Math.hypot(d.x - p.x, d.z - p.z) < BODY + d.r + .5) { d.shoved = t; events.push({ t: Math.max(0, t - .25), f: () => hit(d, Math.max(0, t - .25), { top: d.h * .08, dir: [Math.sin(p.yaw), Math.cos(p.yaw)], power: 1.1 }) }); }
-    }
+  for (const { d, t, a } of shoves) { const t0 = Math.max(0, t - .25), q = posAt(t), dir = [Math.sin(q.yaw), Math.cos(q.yaw)];
+    events.push({ t: t0, f: () => { if (a === undefined) hit(d, t0, { top: d.h * .08, dir, power: 1.1 });
+      else { hit(d, t0, { span: [a, 4.5], dir, power: 1.3, at: [d.x + Math.cos(d.yaw) * a, PLAIN + 3, d.z - Math.sin(d.yaw) * a] }); fx.ring(t0, [d.x + Math.cos(d.yaw) * a, PLAIN, d.z - Math.sin(d.yaw) * a], .7); }
+      if (d.kind !== 'house') IMPACT_SND.push({ t: t0, tag: null, big: true }); } });
   }
-  events.sort((a, b) => a.t - b.t).forEach(e => e.f());
+  events.sort((a, b) => a.t - b.t).forEach(e => { TAG = fx.tag = e.tag ?? null; e.f(); TAG = fx.tag = null; });
   // ---- the castle fights back: two trebuchets on the castle hill and a ballista on the near wall (Kenney Castle Kit)
   const engines = [];
   const engine = async (model, x, z, y, s) => {   // kept as a node tree so the trebuchet's arm can swing and the ballista's bolt can fly
     const k = await ctx.kenneyScene(model), o = k.scene; o.scale.setScalar(s); o.position.set(x, y, z); scene.add(o);
     const e = { o, x, z, y, s, arm: o.getObjectByName('arm'), arrow: o.getObjectByName('arrow'), shots: [] }; engines.push(e);
-    if (e.arm) o.traverse(n => { if (/^(catapult|weight)/.test(n.name) && n.parent !== e.arm) n.visible = false; });   // the kit also has a loose copy of the sling and weight that wouldn't swing
+    if (e.arm) { o.traverse(n => { if (/^(catapult|weight)/.test(n.name) && n.parent !== e.arm) n.visible = false; });   // the kit also has a loose copy of the sling and weight that wouldn't swing
+      const sling = e.arm.children.find(n => /^catapult/.test(n.name));   // a boulder sits in the sling until it's thrown (rolled up loaded)
+      if (sling) { e.loaded = new THREE.Mesh(new THREE.IcosahedronGeometry(1.1 / s, 0), new THREE.MeshLambertMaterial({ color: '#8d8682', flatShading: true })); e.loaded.position.set(0, -.3, 0); sling.add(e.loaded); } }
     return e;
   };
   const tre1 = await engine('castle/siege-trebuchet', C.x + cf[0] * (C.r + 6) + cs[0] * 9, C.z + cf[1] * (C.r + 6) + cs[1] * 9, ground(C.x + cf[0] * (C.r + 6), C.z + cf[1] * (C.r + 6)), 4.5);
@@ -237,12 +292,12 @@ export async function kaiju(ctx) {
   const alongX = (dx, dz) => Math.atan2(-dz, dx);
   for (const e of engines) e.o.rotation.y = e.arm ? alongX(pts.c[0] - e.x, pts.c[1] - e.z) : Math.atan2(pts.c[0] - e.x, pts.c[1] - e.z) + Math.PI;
   field.move = { t0: 16, t1: 31, back0: LEAVE + 2, back1: LEAVE + 14, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: alongX(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]), yaw1: field.o.rotation.y };
-  window.__look = engines.map(e => () => [e.o.position.x, e.o.position.y, e.o.position.z]);   // debug camera targets (city.js ?look=i)
+  window.__look = [...engines.map(e => () => [e.o.position.x, e.o.position.y, e.o.position.z]), () => { const q = posAt(lastLt); return [q.x, PLAIN, q.z]; }];   // debug camera targets (city.js ?look=i; the last is the monster)
   const chest = (t) => { const p = posAt(t); return [p.x, Math.max(ground(p.x, p.z), 0) + H * .6, p.z]; };
   const missHouse = D.filter(d => d.kind === 'house' && !d.hits.length).sort((a, b) => Math.hypot(a.x - pts.c[0], a.z - pts.c[1]) - Math.hypot(b.x - pts.c[0], b.z - pts.c[1]))[0];
   const DEFENCE = [   // fire time, engine, what it hits, flight seconds; landings: 25.4 miss, 27.6 bolt, 31.0 boulder, 35.0 boulder, 36.5 bolt, 37.6 field miss, 38.8 castle boulder
-    { t: 22.4, e: tre2, hit: 'house', fl: 3.0 }, { t: 26.6, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 27.6, e: tre1, hit: 'dino', fl: 3.4, big: true },
-    { t: 31.8, e: tre2, hit: 'dino', fl: 3.2, big: true }, { t: 35.5, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 35.9, e: field, hit: 'none', fl: 1.7 },
+    { t: 22.4, e: tre2, hit: 'dino', fl: 3.0 }, { t: 26.6, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 27.6, e: tre1, hit: 'dino', fl: 3.4, big: true },
+    { t: 31.8, e: tre2, hit: 'dino', fl: 3.2, big: true }, { t: 35.5, e: bal, hit: 'dino', fl: 1.0, bolt: true }, { t: 35.9, e: field, hit: 'dino', fl: 1.7 },
     { t: 35.2, e: tre1, hit: 'dino', fl: 3.6, big: true },   // the last one lands on his back as he turns to go
   ];
   const FLINCH = DEFENCE.filter(s => s.bolt).map(s => s.t + s.fl);   // small hits: a twitch while he keeps going
@@ -307,51 +362,91 @@ export async function kaiju(ctx) {
   const wrecked = D.filter(d => d.hits.length).sort((a, b) => Math.hypot(a.x - bx, a.z - bz) - Math.hypot(b.x - bx, b.z - bz));
   wrecked.forEach((d, i) => { d.rebuild = d.kind === 'wall' ? LEAVE + 4 : LEAVE + 2 + i * (32 / Math.max(1, wrecked.length)); });
   wrecked.filter(d => d.kind === 'house' && d.brokenTo < d.h * .5).slice(0, 5).forEach((d, i) => {
-    d.burns = true; const t0 = d.hits[0] + 1 + i * .7; fx.fire(t0, d.rebuild - 2, [d.x, PLAIN + Math.max(.5, d.brokenTo), d.z], 1.7); fx.decal(t0, d.rebuild + 9, 'scorch', [d.x, PLAIN, d.z], 7);
+    d.burns = true; const t0 = d.hits[0] + 1 + i * .7; fx.tag = d.hitTags[0]; fx.fire(t0, d.rebuild - 2, [d.x, PLAIN + Math.max(.5, d.brokenTo), d.z], 1.7); fx.decal(t0, d.rebuild + 9, 'scorch', [d.x, PLAIN, d.z], 7); fx.tag = null;
   });
-  for (const d of wrecked) { d.sc = ctx.scaffold(d.kind === 'wall' ? 10 : d.r * 1.6 + .9, d.kind === 'wall' ? 3 : d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); d.sc.position.set(d.x, PLAIN, d.z); d.sc.rotation.y = d.kind === 'wall' ? W.yaw : 0; scene.add(d.sc); }
+  for (const d of wrecked) { d.sc = ctx.scaffold(d.kind === 'wall' ? 10 : d.r * 1.6 + .9, d.kind === 'wall' ? 3 : d.r * 1.6 + .9, d.h + .8, ctx.steps(d.h)); const sa = d.kind === 'wall' ? d.spanAt || 0 : 0; d.sc.position.set(d.x + Math.cos(d.yaw) * sa, PLAIN, d.z - Math.sin(d.yaw) * sa); d.sc.rotation.y = d.kind === 'wall' ? d.yaw : 0; scene.add(d.sc); }   // a wall's scaffold goes up over its gap
   // ---- sound (Kenney CC0, tools/sounds.sh): footfalls (splashes while he wades), smashes, the stomp, roars, the castle's
   // shots and their hits, arrows, then hammering while each house is rebuilt. { t, s: name, v: volume, r: rate }
-  const SND = [], sn = (t, s, v = 1, r = 1) => SND.push({ t: +t.toFixed(3), s, v, r }), pick = (b, n) => `${b}_00${Math.floor(rnd() * n)}`;
+  const SND = [], sn = (t, s, v = 1, r = 1, tag = null) => SND.push({ t: +t.toFixed(3), s, v, r, tag }), pick = (b, n) => `${b}_00${Math.floor(rnd() * n)}`;
   for (const s of S) if (s.kind === 'move') { const st = s.clip === 'Run' ? .42 : .8;
     for (let t = s.t0 + .2; t < Math.min(s.t1, LEAVE + 3); t += st) { const p = posAt(t), wet = ground(p.x, p.z) < 0;
       if (wet) sn(t, rnd() < .5 ? 'sinkWater1' : 'sinkWater2', .5, .6); else { sn(t, pick('impactSoft_heavy', 3), .7, .5); sn(t + .01, 'lowFrequency_explosion_000', .15, 1.6); } } }
-  { let last = -9; for (const t of D.flatMap(d => d.hits).sort((a, b) => a - b)) { if (t - last < .15) continue; last = t; sn(t, pick('explosionCrunch', 5), .7); sn(t + .03, pick('impactWood_heavy', 5), .5); } }
-  for (const s of S) { if (s.clip === 'Jump_Land') { sn(s.t0 + .1, 'lowFrequency_explosion_001', 1); sn(s.t0 + .12, 'explosionCrunch_004', .8); }
+  { const last = new Map(); for (const [t, tag] of D.flatMap(d => d.hits.map((t, i) => [t, d.hitTags[i]])).sort((a, b) => a[0] - b[0])) { if (t - (last.get(tag) ?? -9) < .15) continue; last.set(tag, t); sn(t, pick('explosionCrunch', 5), .7, 1, tag); sn(t + .03, pick('impactWood_heavy', 5), .5, 1, tag); } }
+  for (const im of IMPACT_SND) { sn(im.t, 'lowFrequency_explosion_00' + Math.floor(rnd() * 2), .8, rr(.8, 1.05), im.tag); sn(im.t + .02, pick('explosionCrunch', 5), .9, rr(.8, 1), im.tag); sn(im.t + rr(.05, .15), 'stoneHit' + (1 + Math.floor(rnd() * 3)), .6, rr(.7, .9), im.tag); }
+  for (const s of S) { if (s.clip === 'Jump_Land') { const tag = ATK.find(a => a.segs.includes(s)).tag; sn(s.t0 + .1, 'lowFrequency_explosion_001', 1, 1, tag); sn(s.t0 + .12, 'explosionCrunch_004', .8, 1, tag); }
     if (s.clip === 'Yes' || s.clip === 'No') sn(s.t0 + .1, 'creature' + (1 + Math.floor(rnd() * 5)), .8, .45); }   // a roar, slowed down
   for (const s of shots) { sn(s.t, s.bolt ? 'woosh3' : 'woosh1', .5, s.bolt ? 1.3 : .6); if (!s.bolt) sn(s.t, pick('impactWood_heavy', 5), .4, .7);
     sn(s.land, s.bolt ? 'impactPunch_heavy_000' : 'stoneHit2', .8); if (!s.bolt) sn(s.land + .02, 'explosionCrunch_003', .7); }
   for (const ar of arrows) if (rnd() < .5) sn(ar.t, 'woosh3', .15, 1.6);
-  for (const d of wrecked) for (let t = d.rebuild + .3; t < d.rebuild + 9; t += rr(.4, 1)) sn(t, rnd() < .3 ? pick('impactPlank_medium', 5) : rnd() < .5 ? 'chop' : pick('impactWood_light', 5), .22, rr(.9, 1.1));
+  for (const d of wrecked) for (let t = d.rebuild + .3; t < d.rebuild + 9; t += rr(.4, 1)) sn(t, rnd() < .3 ? pick('impactPlank_medium', 5) : rnd() < .5 ? 'chop' : pick('impactWood_light', 5), .22, rr(.9, 1.1), 'h' + D.indexOf(d));
   SND.sort((a, b) => a.t - b.t);
+  // ---- the Easter egg: tap him and he takes the hit (one of six reactions, a burst and a thump). A hit during a blow's
+  // wind-up stops the blow: its breaks, flying pieces, dust, fire and sound never happen. His route, the defenders' shots
+  // and the last boulder that sends him off are unchanged, so the scene still plays out; taps reset with each loop.
+  const REACT = [{ clip: 'HitReact', rate: 1.3, dur: .7, twist: .35 }, { clip: 'HitReact', rate: .9, dur: .9, twist: -.35, lean: -.12 }, { clip: 'Duck', rate: 1.5, dur: .8, twist: 0 },
+    { clip: 'Death', rate: 1.4, dur: .6, twist: .2, lean: -.15 }, { clip: 'No', rate: 1.8, dur: .8, twist: -.2 }, { clip: 'Jump_Land', rate: .9, dur: .7, twist: .12 }];
+  const taps = [], cancelled = new Map();   // attack tag -> when it was stopped
+  let lastLt = 0;
+  const deadTag = tag => tag[0] === 'h' ? (() => { const d = D[+tag.slice(1)]; return !d.versions.some((x, i) => i && !(x.tag != null && cancelled.has(x.tag))); })() : cancelled.has(tag);
+  const alive = x => !(x.tag != null && cancelled.has(x.tag));
+  fx.dead = deadTag; fx.reserve(6);
+  window.__egg = { ...window.__egg, route: { pts, path: Array.from({ length: Math.ceil(LEAVE) + 1 }, (_, i) => { const q = posAt(Math.min(i, LEAVE - .01)); return [i, +q.x.toFixed(1), +q.z.toFixed(1), q.s.clip]; }), houses: D.filter(d => d.kind === 'house').length, props: D.filter(d => d.kind !== 'house').map(d => [d.kind, +d.x.toFixed(1), +d.z.toFixed(1), d.hits.map(h => +h.toFixed(1))]), punches: S.filter(s => s.target).map(s => [+s.t0.toFixed(1), s.clip, +Math.hypot(s.target.x - s.from[0], s.target.z - s.from[1]).toFixed(1)]) }, kaiju: { ATK: ATK.map(k => ({ tag: k.tag, from: +k.from.toFixed(2), tc: +k.tc.toFixed(2), clip: k.segs[k.segs.length - 1].clip })), cancelled, taps } };   // debug
   fx.build();
 
   return {
-    per: PER, sounds: SND, loops: [],
+    per: PER, sounds: SND, loops: [], dead: deadTag,
+    tap(nx, ny, t, cam) {
+      const lt = ((t % PER) + PER) % PER; if (lt >= LEAVE - 2) return false;
+      const p = posAt(lt), feet = new THREE.Vector3(p.x, Math.max(ground(p.x, p.z), -5), p.z), head = feet.clone().setY(feet.y + H * .9);
+      const right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), side = feet.clone().addScaledVector(right, BODY + 1);
+      const sc = v => { const q = v.clone().project(cam); return [q.x * cam.aspect, q.y]; }, a = sc(feet), b = sc(head), s = sc(side), m = [(nx * 2 - 1) * cam.aspect, 1 - ny * 2];
+      const dx = b[0] - a[0], dy = b[1] - a[1], k = clamp01(((m[0] - a[0]) * dx + (m[1] - a[1]) * dy) / (dx * dx + dy * dy || 1));
+      if (Math.hypot(m[0] - a[0] - dx * k, m[1] - a[1] - dy * k) > Math.hypot(s[0] - a[0], s[1] - a[1]) + .07) return false;   // generous: a finger, on a small monster
+      const toCam = [cam.position.x - p.x, cam.position.z - p.z], tl = Math.hypot(...toCam) || 1, away = [-toCam[0] / tl, -toCam[1] / tl];
+      taps.push({ t: lt, v: (taps.length * 7 + Math.floor(lt * 3)) % REACT.length, away });
+      for (const k of ATK) if (!cancelled.has(k.tag) && lt >= k.from && lt <= k.tc) cancelled.set(k.tag, lt);
+      fx.burst(lt, [feet.x - away[0] * BODY, feet.y + H * lerp(.15, .9, k), feet.z - away[1] * BODY], 1.3);
+      ctx.sfx(`impactPunch_heavy_00${taps.length % 5}`, .9, .9 + (taps.length % 3) * .1); ctx.sfx('impactSoft_heavy_00' + (taps.length % 3), .5, .7);
+      if (taps.length % 3 === 0) ctx.sfx('creature' + (1 + taps.length % 5), .7, .5);   // every third hit, a roar
+      return true;
+    },
     update(t) {
       const lt = ((t % PER) + PER) % PER;
+      if (lt < lastLt - 1) { taps.length = 0; cancelled.clear(); } lastLt = lt;   // a new loop: the town as scripted again
       // the monster
       M.g.visible = lt < LEAVE;
       if (M.g.visible) {
         const p = posAt(lt), s = p.s, prev = S[S.indexOf(s) - 1];
-        M.g.position.set(p.x, Math.max(ground(p.x, p.z), -5), p.z); M.g.rotation.y = p.yaw;
+        const under = Math.max(1 - smooth(lt / 6), smooth((lt - (LEAVE - 6)) / 6)) * (H + 2);   // he walks up out of the sea, and back down into it
+        M.g.position.set(p.x, Math.max(ground(p.x, p.z), -(H + 2)) - under, p.z); M.g.rotation.y = p.yaw;   // as deep as the sea floor
         const actOf = g => M.actions[g.clip] || M.actions.Walk;
         const timeOf = (g, t) => { const d = actOf(g).getClip().duration, r = g.rate || 1;
           return g.kind === 'move' || g.clip === 'Idle' ? (t * r) % d : Math.min((t - g.t0) * r, d - 1e-3); };   // acts play once and hold
         M.mixer.stopAllAction();
-        const a = actOf(s), fade = prev ? clamp01((lt - s.t0) / .3) : 1;   // 0.3 s crossfade from the last segment's pose
+        const stopped = ATK.find(k => k.segs.includes(s) && cancelled.has(k.tag) && lt >= cancelled.get(k.tag));
+        const a = stopped ? M.actions.Idle : actOf(s), fade = prev ? clamp01((lt - s.t0) / .3) : 1;   // 0.3 s crossfade from the last segment's pose; a stopped blow stands down
         let wa = 1;
         if (prev && fade < 1 && actOf(prev) !== a) { const b = actOf(prev); b.play(); b.time = timeOf(prev, Math.min(lt, prev.t1 + (prev.kind === 'move' ? lt - s.t0 : 0))); b.setEffectiveWeight(1 - fade); wa = fade; }
         const fl = FLINCH.find(x => lt >= x && lt < x + .45);
         if (fl !== undefined && s.clip !== 'HitReact') { const h = M.actions.HitReact, w = .6 * Math.sin(Math.PI * (lt - fl) / .45); h.play(); h.time = Math.min((lt - fl) * 1.3, h.getClip().duration - 1e-3); h.setEffectiveWeight(w); wa *= 1 - w; }
-        a.play(); a.time = timeOf(s, lt); a.setEffectiveWeight(wa); M.mixer.update(0);
+        // the player's hit: the newest tap's reaction over everything else (half strength during a blow that can't be stopped)
+        const tp = taps[taps.length - 1], ra = tp ? lt - tp.t : -1, R = tp && REACT[tp.v];
+        if (R && ra >= 0 && ra < R.dur) { const act = M.actions[R.clip], used = act === a || (fl !== undefined && act === M.actions.HitReact);
+          const cap = s.clip === 'Punch' && s.face ? .45 : 1, w = cap * Math.min(1, ra / .08) * (1 - smooth((ra - (R.dur - .3)) / .3));
+          if (!used) { act.play(); act.time = Math.min(ra * R.rate, act.getClip().duration - 1e-3); act.setEffectiveWeight(w); wa *= 1 - w; }
+          const env = Math.sin(Math.PI * Math.min(1, ra / R.dur)); M.g.rotation.y += R.twist * env * cap; M.g.rotation.x = (R.lean || 0) * env * cap;
+          M.g.position.x += tp.away[0] * .6 * env * cap; M.g.position.z += tp.away[1] * .6 * env * cap; }   // rocked back a little, away from the blow
+        else M.g.rotation.x = 0;
+        if (stopped) { a.play(); a.time = (lt * .8) % a.getClip().duration; a.setEffectiveWeight(wa); } else { a.play(); a.time = timeOf(s, lt); a.setEffectiveWeight(wa); }
+        M.mixer.update(0);
       }
       // the destructibles: show the version for this moment, fly the chunks, sink rubble, rebuild in scaffolding
       for (const d of D) {
-        let v = d.versions[0]; for (const x of d.versions) if (x.t <= lt) v = x;
-        const rebuilding = d.rebuild && lt >= d.rebuild, built = d.rebuild && lt >= d.rebuild + 9 + 4;
+        let v = d.versions[0]; for (const x of d.versions) if (x.t <= lt && alive(x)) v = x;
+        const saved = d.rebuild && !d.versions.some((x, i) => i && alive(x));   // every blow on it was stopped: nothing to rebuild
+        const rebuilding = d.rebuild && !saved && lt >= d.rebuild, built = d.rebuild && lt >= d.rebuild + 9 + 4;
         for (const x of d.versions) x.mesh.visible = false;
-        if (!d.rebuild || lt < d.rebuild) v.mesh.visible = true;
+        if (!d.rebuild || saved || lt < d.rebuild) v.mesh.visible = true;
         d.mat.uniforms.cut.value = 9999;
         if (rebuilding) { d.whole.visible = true; const k = (lt - d.rebuild) / 9, n = ctx.steps(d.h);
           if (k < 1) { d.mat.uniforms.cut.value = PLAIN + d.h * ctx.stepped(k, d.h); ctx.layers(d.sc, Math.min(n, k * n + .55) + .45); }
@@ -359,7 +454,7 @@ export async function kaiju(ctx) {
         else if (d.sc) ctx.layers(d.sc, 0);
         for (const c of d.chunks) {
           const a = lt - c.t0, sink = d.rebuild ? clamp01((lt - (d.rebuild - 2)) / 2) : 0;
-          c.m.visible = a >= 0 && sink < 1; if (!c.m.visible) continue;
+          c.m.visible = a >= 0 && sink < 1 && alive(c); if (!c.m.visible) continue;
           const i = Math.min(c.frames.length / 7 - 1, Math.floor(a * 30)) * 7, f = c.frames;
           c.m.position.set(f[i], f[i + 1] - sink * 2, f[i + 2]); c.m.quaternion.set(f[i + 3], f[i + 4], f[i + 5], f[i + 6]);
         }
@@ -389,6 +484,7 @@ export async function kaiju(ctx) {
         const since = Math.min(...e.shots.map(s => lt - s).filter(a => a >= 0), 99);
         if (e.arm) e.arm.rotation.z = since < 2.4 ? -Math.sin(Math.min(1, since / .4) * Math.PI / 2) * 2.5 * (1 - smooth((since - .7) / 1.7)) : 0;   /* the sling end swings up over the top, then the arm settles back */
         if (e.arrow) e.arrow.visible = since > 4 || since === 99;
+        if (e.loaded) e.loaded.visible = e.shots.some(s => s > lt) && (since > 3.5 || since === 99);   // thrown, then the crew loads the next one
       }
       for (const s of shots) {
         const k = (lt - s.t) / s.fl; s.mesh.visible = k >= 0 && (s.bolt ? k < 1 + 2.5 / s.fl : k < 1);
@@ -407,7 +503,7 @@ export async function kaiju(ctx) {
       return { fov: port ? 66 : 44, pos: [l[0] - (nx - sx) * 40 * k, PLAIN + 30 * k, l[1] - (nz - sz) * 40 * k], look: [l[0], PLAIN + 5, l[1]] }; },
     camera(cam, t, aspect) {
       const lt = ((t % PER) + PER) % PER, f = P(7, -3);
-      let sh = 0; for (const s of SHAKES) { const a = lt - s.t; if (a >= 0 && a < 1.2) sh += s.a * Math.exp(-a * 4); }
+      let sh = 0; for (const s of SHAKES) { const a = lt - s.t; if (a >= 0 && a < 1.2 && !(s.tag != null && deadTag(s.tag))) sh += s.a * Math.exp(-a * 4); }
       if (lt >= 27 && lt < 39.6) {   // during the defence: from behind the field trebuchet, the Dino and the soldiers at his feet
         const to = [pts.c[0] - field.x, pts.c[1] - field.z], l = Math.hypot(...to), d = [to[0] / l, to[1] / l], sd = [d[1], -d[0]];
         cam.fov = aspect < 1 ? 64 : 46;
