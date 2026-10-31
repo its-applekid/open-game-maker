@@ -33,6 +33,25 @@ export function fracture(geo, breaks, cell = 1.5) {
   return { keep: mk(keep), chunks };
 }
 
+// split every triangle until no edge is longer than `max`, so a stretched model (the wall: a few faces over 14+ m) breaks
+// into pieces of rubble instead of whole wall-length slivers
+export function tessellate(geo, max = 1.2) {
+  const P = geo.attributes.position, N = geo.attributes.normal, UV = geo.attributes.uv, out = { p: [], n: [], u: [] };
+  const vert = i => ({ p: [P.getX(i), P.getY(i), P.getZ(i)], n: [N.getX(i), N.getY(i), N.getZ(i)], u: UV ? [UV.getX(i), UV.getY(i)] : null });
+  const mid = (a, b) => ({ p: a.p.map((v, k) => (v + b.p[k]) / 2), n: a.n.map((v, k) => (v + b.n[k]) / 2), u: a.u && a.u.map((v, k) => (v + b.u[k]) / 2) });
+  const len = (a, b) => Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1], a.p[2] - b.p[2]);
+  const split = (a, b, c) => {
+    const e = [len(a, b), len(b, c), len(c, a)], m = Math.max(...e);
+    if (m <= max) { for (const v of [a, b, c]) { out.p.push(...v.p); out.n.push(...v.n); if (v.u) out.u.push(...v.u); } return; }
+    if (m === e[0]) { const d = mid(a, b); split(a, d, c); split(d, b, c); }
+    else if (m === e[1]) { const d = mid(b, c); split(a, b, d); split(a, d, c); }
+    else { const d = mid(c, a); split(a, b, d); split(d, b, c); }
+  };
+  for (let i = 0; i < P.count; i += 3) split(vert(i), vert(i + 1), vert(i + 2));
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(out.p, 3)); g.setAttribute('normal', new THREE.Float32BufferAttribute(out.n, 3));
+  if (out.u.length) g.setAttribute('uv', new THREE.Float32BufferAttribute(out.u, 2)); return g;
+}
+
 // a chunk's flight, planned at 30 Hz: gravity, tumbling, bounces on the ground with friction, sinking in water
 export function flight(p, v, w, r, ground, fx, t0) {
   const frames = [], q = new THREE.Quaternion(), dq = new THREE.Quaternion(), axis = new THREE.Vector3(...w).normalize(), spin = Math.hypot(...w);
@@ -73,7 +92,7 @@ export async function kaiju(ctx) {
   // ---- destructibles: the zone's houses and the wall section, each a mesh we can break step by step
   const D = [];
   const addThing = (geo, map, tint, x, z, rot, scale, h, kind) => {
-    const g = geo.clone(); g.scale(...scale); g.rotateY(rot);
+    let g = geo.clone(); if (g.index) g = g.toNonIndexed(); g.scale(...scale); g.rotateY(rot); if (kind === 'wall') g = tessellate(g);
     const mat = ctx.kitMat(map, { tint: new THREE.Color(tint) }), chunkMat = mat.clone(); chunkMat.side = THREE.DoubleSide;
     chunkMat.uniforms = { ...mat.uniforms, cut: { value: 9999 } };   // share the live day/night uniforms; clone() copies them frozen
     const whole = new THREE.Mesh(g, mat); whole.position.set(x, PLAIN, z); scene.add(whole);
