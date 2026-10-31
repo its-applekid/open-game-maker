@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 // The looping poster the studio menu shows while the town loads: the menu view exactly as it first appears (before the
 // scenes join), a few seconds of drifting clouds and boats, the end cross-faded into the start so it loops without a seam.
-// Writes models/bake/poster-portrait.webp and poster-landscape.webp (animated WebP: GIF-like, far smaller, full colour).
+// Writes models/bake/poster-portrait.webp and poster-landscape.webp (animated WebP: GIF-like, far smaller, full colour), and a
+// small JPEG still of each first frame.
 // Serve the prototype first, as for capture.mjs.   node tools/poster.mjs
 import { createRequire } from 'module';
 import { mkdirSync, rmSync } from 'fs';
@@ -28,6 +29,10 @@ for i in range(x):
     a = Image.open(f'{d}/f{n + i:03d}.png').convert('RGB'); c = Image.open(f'{d}/f{i:03d}.png').convert('RGB')
     Image.blend(a, c, i / x).save(f'{d}/f{i:03d}.png')`, tmp, String(L * FPS), String(Math.round(X * FPS))]);
   execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-framerate', String(FPS), '-i', join(tmp, 'f%03d.png'), '-frames:v', String(L * FPS), '-c:v', 'libwebp_anim', '-loop', '0', '-quality', '62', '-compression_level', '6', join(OUT, `poster-${name}.webp`)]);
-  rmSync(tmp, { recursive: true, force: true }); console.log('wrote', `models/bake/poster-${name}.webp`);
+  // and a small still of its first frame, which the studio page shows from its first paint while the animated poster downloads
+  execFileSync(PY, ['-I', '-c', `import sys
+from PIL import Image
+im = Image.open(sys.argv[1]).convert('RGB'); im.thumbnail((560, 560)); im.save(sys.argv[2], quality=55, optimize=True, progressive=True)`, join(tmp, 'f000.png'), join(OUT, `poster-${name}.jpg`)]);
+  rmSync(tmp, { recursive: true, force: true }); console.log('wrote', `models/bake/poster-${name}.webp and .jpg`);
 }
 await b.close();
