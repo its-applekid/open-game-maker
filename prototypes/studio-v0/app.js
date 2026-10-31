@@ -39,15 +39,19 @@ const soundBtn = $('#sound');
 // the top-right sound button opens a small popover: mute and a volume slider (the tap also unlocks audio, sound.js)
 const vol = $('#vol'), volRange = $('#vol-range'), volMute = $('#vol-mute');
 function drawSound(s) {
-  soundBtn.dataset.s = s; soundBtn.setAttribute('aria-expanded', String(!vol.hidden));
+  soundBtn.dataset.s = s; soundBtn.setAttribute('aria-expanded', String(vol.classList.contains('open')));
   for (const b of [soundBtn, volMute]) $('.ic', b).innerHTML = s === 'on' ? ICONS.soundOn : ICONS.soundOff;
   volMute.setAttribute('aria-label', s === 'on' ? 'Mute' : 'Unmute'); volRange.value = String(s === 'off' ? 0 : sound.getVolume());
 }
 sound.onChange(drawSound); drawSound(sound.status());
-soundBtn.onclick = e => { e.stopPropagation(); vol.hidden = !vol.hidden; if (!vol.hidden && sound.status() === 'off') sound.setMuted(false); drawSound(sound.status()); };
-volMute.onclick = () => sound.setMuted(sound.status() === 'on');
-volRange.oninput = () => sound.setVolume(+volRange.value);
-addEventListener('pointerdown', e => { if (!vol.hidden && !vol.contains(e.target) && e.target !== soundBtn && !soundBtn.contains(e.target)) { vol.hidden = true; drawSound(sound.status()); } });
+let volTimer = 0;
+const showVol = on => { clearTimeout(volTimer); vol.classList.toggle('open', on); vol.inert = !on; drawSound(sound.status()); };
+const hideSoon = () => { clearTimeout(volTimer); volTimer = setTimeout(() => showVol(false), 1400); };   // folds away a moment after the last change
+soundBtn.onclick = e => { e.stopPropagation(); const on = !vol.classList.contains('open'); if (on && sound.status() === 'off') sound.setMuted(false); showVol(on); };
+volMute.onclick = () => { sound.setMuted(sound.status() === 'on'); hideSoon(); };
+volRange.oninput = () => { clearTimeout(volTimer); sound.setVolume(+volRange.value); };
+volRange.onchange = hideSoon;
+addEventListener('pointerdown', e => { if (vol.classList.contains('open') && !vol.contains(e.target) && !soundBtn.contains(e.target)) showVol(false); });
 
 // ---------------- title ----------------
 // The big logo and one Start over the castle town (title-town.js, Kevin's pick). The earlier directions stay reachable for

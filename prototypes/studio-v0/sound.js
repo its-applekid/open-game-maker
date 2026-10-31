@@ -66,6 +66,9 @@ const load = (dir, name) => {
   if (!files.has(key)) files.set(key, fetch(`art/${key}.mp3`).then(r => r.arrayBuffer()).then(b => ctx.decodeAudioData(b)).catch(e => { console.warn('sound', key, e); return null; }));
   return files.get(key);
 };
+// the title track is fetched and decoded at once (a suspended context can still decode), so the first tap plays it
+// straight away instead of waiting on a 2 MB download and decode while the title town is setting up
+export const titleReady = load('music', MUSIC.title.file);
 const ramp = (g, v, s) => { g.gain.cancelScheduledValues(ctx.currentTime); g.gain.setTargetAtTime(v, ctx.currentTime, s / 4); };
 const end = (layer, s) => { ramp(layer.g, 0, s); setTimeout(() => { layer.stop?.(); layer.g.disconnect(); }, s * 1000 + 200); };
 

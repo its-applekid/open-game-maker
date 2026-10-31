@@ -516,8 +516,8 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
 .t-scene { position: absolute; inset: 0; z-index: 0; pointer-events: none; opacity: 0; transition: opacity 1.4s cubic-bezier(.22,1,.36,1); }
 .t-scene.on { opacity: 1; }
 .t-scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
-.t-poster { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.t-scene iframe { opacity: 0; transition: opacity 1.2s cubic-bezier(.22,1,.36,1); } .t-scene.live iframe { opacity: 1; }
+.t-poster { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: cover; transition: opacity 1s ease; }   /* over the town */
+.t-scene.live .t-poster { opacity: 0; }   /* the town renders underneath all along; only the poster fades, so nothing dims */
 .t-logo { grid-row: 1; position: relative; z-index: 1; margin: 0; line-height: 0; }
 .t-logo img { display: block; width: min(680px, 84vw, calc(30svh * 1.777)); height: auto;
   filter: drop-shadow(0 16px 40px rgba(0,0,0,.5)); animation: t-pop .9s cubic-bezier(.22,1,.36,1) backwards, t-float 7s ease-in-out 1s infinite alternate; }
@@ -552,8 +552,13 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
 #sound:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 @keyframes t-nudge { 0%, 70%, 100% { transform: none; } 80% { transform: rotate(-12deg); } 90% { transform: rotate(10deg); } }
 body.builds-on:not(.on-title):not(.on-play) #sound { transform: translateX(-60px); }   /* the build button takes its place */
-#vol { position: fixed; z-index: 47; top: calc(env(safe-area-inset-top, 0px) + 70px); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 10px;
-  padding: 8px 14px 8px 8px; background: var(--paper); border: 3px solid var(--ink); border-radius: 999px; box-shadow: var(--pop-sm); color: var(--ink); animation: rise .2s; }
+/* the volume bar grows left out of the sound button (which stays on top of its right end) and folds back into it */
+#vol { position: fixed; z-index: 44; top: calc(env(safe-area-inset-top, 0px) + 12px); right: max(16px, env(safe-area-inset-right, 0px)); height: 50px; box-sizing: border-box;
+  display: flex; align-items: center; gap: 10px; padding: 0 60px 0 6px; background: var(--paper); border: 3px solid var(--ink); border-radius: 999px; box-shadow: var(--pop-sm); color: var(--ink);
+  clip-path: inset(-8px -8px -8px calc(100% - 50px) round 25px); visibility: hidden;
+  transition: clip-path .38s cubic-bezier(.22,1,.36,1), visibility 0s .38s, right .45s cubic-bezier(.22,1,.36,1); }
+#vol.open { clip-path: inset(-8px -8px -8px -8px round 25px); visibility: visible; transition: clip-path .38s cubic-bezier(.22,1,.36,1), visibility 0s, right .45s cubic-bezier(.22,1,.36,1); }
+#vol > * { opacity: 0; transition: opacity .15s; } #vol.open > * { opacity: 1; transition: opacity .2s .12s; }
 body.builds-on:not(.on-title):not(.on-play) #vol { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 60px); }
 #vol-mute { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--paper-2); color: var(--ink); padding: 0; display: grid; place-items: center; }
 #vol-mute .ic { width: 20px; height: 20px; display: grid; } #vol-mute .ic svg { width: 100%; height: 100%; }
@@ -573,7 +578,7 @@ body.on-play #vol { display: none; }   /* the game frame has its own sound contr
   </div>
 </section>
 <button id="sound" data-s="tap" aria-pressed="false" aria-label="Sound"><span class="ic"></span></button>
-<div id="vol" hidden><button id="vol-mute" aria-label="Mute"><span class="ic"></span></button><input id="vol-range" type="range" min="0" max="1" step="0.01" aria-label="Volume"></div>
+<div id="vol" inert><button id="vol-mute" aria-label="Mute"><span class="ic"></span></button><input id="vol-range" type="range" min="0" max="1" step="0.01" aria-label="Volume"></div>
 
 <section id="s-library" class="screen" hidden aria-label="Games">
   

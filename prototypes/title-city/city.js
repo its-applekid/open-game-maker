@@ -899,8 +899,10 @@ if (!CAPTURE) {
   const loop = () => { const now = performance.now(); t += Math.min(.1, (now - last) / 1000); last = now; frame(t); };
   renderer.setAnimationLoop(loop);
   addEventListener('message', e => { if (e.data === 'pause') renderer.setAnimationLoop(null); if (e.data === 'resume') { last = performance.now(); renderer.setAnimationLoop(loop); } });
-  if (EMBED) { await renderer.compileAsync(scene, camera).catch(() => {}); frame(0); parent.postMessage('town-ready', '*'); }   // shaders compiled before the first frame
-  if (CLAIMS.length) setTimeout(() => startScenes(NOW), 100);   // the town first, the scenes join a moment later
+  if (EMBED) {   // behind the studio's poster: scenes set up and shaders compiled first, so the reveal shows the town already running
+    if (CLAIMS.length) await startScenes(NOW);
+    await renderer.compileAsync(scene, camera).catch(() => {}); frame(NOW); parent.postMessage('town-ready', '*');
+  } else if (CLAIMS.length) setTimeout(() => startScenes(NOW), 100);   // alone: the town first, the scenes join a moment later
 }
 else { if (!Q.has('noscenes')) await startScenes(0); frame(Number(Q.get('t') || 0)); }   // noscenes: the town as it first appears (tools/poster.mjs)
 _mk('frame0');
