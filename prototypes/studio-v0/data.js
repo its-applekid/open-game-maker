@@ -1,6 +1,6 @@
 // Example library, New Game steps and the pre-scripted voice lines. All games are examples for the prototype.
 export const GAMES = [
-  { id: 'goblin-cellar', title: 'Goblin Cellar', by: 'ogm-team', font: 'Lilita One', color: '#fabd2f', badge: 'Playable',
+  { id: 'goblin-cellar', title: 'Goblin Cellar', by: 'ogm-team', font: 'Lilita One', color: '#fabd2f', badge: '',
     tagline: 'Build a dungeon, fill it with goblins, then fight your way out.', genres: ['RPG', 'Battle'], vibe: ['Cozy', 'Epic'], art: 'Toy 3D',
     players: 'Single player', world: 'Dungeon', controls: 'Keyboard · Mouse · Touch', rating: 4.8, votes: '2.1k', plays: '31.4k', updated: 'Today', version: '1.12.5', played: '5h 25m',
     packs: ['Kenney Mini Dungeon', 'Kenney RPG Audio', 'Kenney Music Loops'], labels: ['Goblin fight', 'Editor', 'Exploring', 'Victory'],
@@ -15,7 +15,7 @@ export const GAMES = [
     players: 'Single player', world: 'Forest', controls: 'Keyboard · Gamepad', rating: 4.5, votes: '980', plays: '14.1k', updated: '1 week ago', version: '1.9.3', played: '2h 08m',
     packs: ['Kenney Pixel Platformer'], labels: ['Greenwood run', 'Waterfall gaps'],
     desc: 'Twelve short levels of tight jumps, hidden blocks and grumpy bats. Speedrun timer included.' },
-  { id: 'skyward-squadron', title: 'Skyward Squadron', by: 'ace_tern', font: 'Bungee', color: '#83a598', badge: 'Update',
+  { id: 'skyward-squadron', title: 'Skyward Squadron', by: 'ace_tern', font: 'Bungee', color: '#83a598', badge: '',
     tagline: 'Island-hopping dogfights over a pixel sea.', genres: ['Shooter'], vibe: ['Retro', 'Epic'], art: '16-bit pixel',
     players: 'Single player · Co-op 2', world: 'Ocean', controls: 'Keyboard · Gamepad · Touch', rating: 4.6, votes: '1.2k', plays: '18.9k', updated: 'Yesterday', version: '1.15.22', played: '4h 41m',
     packs: ['Kenney Pixel Shmup'], labels: ['Wave 3', 'Bomber boss'],

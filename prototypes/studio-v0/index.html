@@ -86,7 +86,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 .lh-acts { display: flex; flex-wrap: wrap; gap: 12px; }
 .act { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border: 0; border-radius: 999px; padding: 12px 24px;
   font: 600 18px/28px var(--display); color: #131209; transition: transform .3s var(--ease), box-shadow .3s var(--ease), background .3s var(--ease); }
-.act.play { background: #b8bb26; min-width: 140px; box-shadow: 0 0 32px rgba(184,187,38,.35); } .act.edit { background: #fabd2f; min-width: 140px; box-shadow: 0 0 32px rgba(250,189,47,.3); }
+.act.play, .act.edit { font-size: 22px; } .act.play { background: #b8bb26; min-width: 140px; box-shadow: 0 0 32px rgba(184,187,38,.35); } .act.edit { background: #fabd2f; min-width: 140px; box-shadow: 0 0 32px rgba(250,189,47,.3); }
 .act.more { background: rgba(251,241,199,.1); color: var(--hi); box-shadow: inset 0 0 0 1px rgba(251,241,199,.2); }
 .act:hover:not(:disabled) { transform: translateY(-2px); } .act:active:not(:disabled) { transform: scale(.98); }
 .act:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
@@ -108,6 +108,7 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 /* grid */
 .lib-floor { position: relative; background: var(--floor); padding-bottom: 120px; z-index: 1; }
 #lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 2px; }
+#s-library:has(#lib-hero[hidden]) .lib-floor { padding-top: calc(env(safe-area-inset-top, 0px) + 74px); }   /* nothing picked: the logo and the top-right button get their own strip */
 .tile { position: relative; display: block; aspect-ratio: 16 / 9; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: #1d2021; color: var(--hi); text-align: left;
   isolation: isolate; --c: #fabd2f; animation: tile-in .8s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 50ms);
   transition: opacity .3s var(--ease), filter .3s var(--ease), box-shadow .5s var(--ease), transform .5s var(--ease); }
@@ -271,11 +272,11 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 #ld-text { font: 600 22px var(--display); text-align: center; }
 
 /* progress tracker: collapsed button → one combined bar → every build */
-#tracker { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(18px, env(safe-area-inset-bottom, 0px)); z-index: 45; display: flex; flex-direction: column-reverse; align-items: flex-end; gap: 10px; }
+#tracker { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + 12px); z-index: 45; display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
 #tracker.hidden { display: none; }
 #tracker.inbar { top: max(6px, env(safe-area-inset-top, 0px)); bottom: auto; flex-direction: column; }
 #tracker.inbar #tr-fab { width: 50px; height: 50px; }
-#tr-fab { position: relative; width: 62px; height: 62px; border-radius: 50%; border: 3px solid var(--ink); background: var(--paper); box-shadow: var(--pop-sm); padding: 0; display: grid; place-items: center; }
+#tr-fab { position: relative; width: 50px; height: 50px; border-radius: 50%; border: 3px solid var(--ink); background: var(--paper); box-shadow: var(--pop-sm); padding: 0; display: grid; place-items: center; }
 #tr-fab svg.ringsvg { position: absolute; inset: 3px; width: calc(100% - 6px); height: calc(100% - 6px); rotate: -90deg; }
 #tr-ring { transition: stroke-dashoffset .3s; }
 #tr-fab .hammer { display: block; width: 26px; height: 26px; color: var(--ink); animation: tap 1.1s infinite ease-in-out; transform-origin: 70% 70%; }
@@ -473,8 +474,8 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 @media (max-width: 1200px) { .lib-keys { display: none; } }
 
 /* the Open Game Maker logo sits top left on every screen (the title screen has its own big one) */
-#logo { position: fixed; z-index: 35; top: calc(env(safe-area-inset-top, 0px) + 12px); left: max(16px, env(safe-area-inset-left, 0px)); height: 52px; width: auto;
-  filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); pointer-events: none; }
+#logo { cursor: pointer; position: fixed; z-index: 46; top: calc(env(safe-area-inset-top, 0px) + 12px); left: max(16px, env(safe-area-inset-left, 0px)); height: 52px; width: auto;
+  filter: drop-shadow(0 4px 12px rgba(0,0,0,.35)); }
 body.on-title #logo { display: none; }
 #lib-hero { padding-top: 84px; }
 .wz-head > div:first-child { padding-left: 104px; }
@@ -539,24 +540,27 @@ body:has(#s-title:not([hidden])) #logo { display: none; }
   .btn.t-start { font-size: 18px; padding: 8px 40px; }
 }
 
-/* sound on/off: a labelled glass pill bottom left on the title screen */
-#sound { position: fixed; z-index: 36; left: max(16px, env(safe-area-inset-left, 0px)); bottom: max(16px, calc(env(safe-area-inset-bottom, 0px) + 12px));
-  display: inline-flex; align-items: center; gap: 8px; height: 44px; min-width: 44px; padding: 0 12px; border-radius: 999px; color: var(--ink);
-  font: 600 14px/20px var(--display); border: 1.5px solid transparent; -webkit-backdrop-filter: var(--glass); backdrop-filter: var(--glass);
-  background: linear-gradient(rgba(24,22,32,.5), rgba(24,22,32,.5)) padding-box, linear-gradient(to bottom, rgba(242,234,214,.06), rgba(242,234,214,.45)) border-box;
-  transition: transform .3s cubic-bezier(.22,1,.36,1), background .3s cubic-bezier(.22,1,.36,1); }
-#sound .ic { width: 20px; height: 20px; display: grid; flex: none; } #sound .ic svg { width: 100%; height: 100%; }
-#sound[data-s="on"] .ic { color: var(--yellow-b); } #sound[data-s="tap"] .ic { animation: t-nudge 2.4s ease-in-out infinite; }
-#sound:active { transform: scale(.96); }
+/* sound on/off: top right, the build button's round style; while builds run it slides left to sit beside the build button */
+#sound { position: fixed; z-index: 45; top: calc(env(safe-area-inset-top, 0px) + 12px); right: max(16px, env(safe-area-inset-right, 0px));
+  width: 50px; height: 50px; border-radius: 50%; border: 3px solid var(--ink); background: var(--paper); box-shadow: var(--pop-sm); color: var(--ink);
+  padding: 0; display: grid; place-items: center; transition: transform .45s cubic-bezier(.22,1,.36,1); }
+#sound .ic { width: 24px; height: 24px; display: grid; } #sound .ic svg { width: 100%; height: 100%; }
+#sound[data-s="tap"] .ic { animation: t-nudge 2.4s ease-in-out infinite; }
+#sound:active { scale: .96; }
 #sound:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 @keyframes t-nudge { 0%, 70%, 100% { transform: none; } 80% { transform: rotate(-12deg); } 90% { transform: rotate(10deg); } }
-body:not(.on-title) #sound .lbl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-body:not(.on-title) #sound { padding: 0; justify-content: center; left: auto; right: max(25px, calc(env(safe-area-inset-right, 0px) + 9px));
-  bottom: max(92px, calc(env(safe-area-inset-bottom, 0px) + 92px)); }   /* elsewhere: just the icon, stacked above the build tracker */
-body.on-play #sound { display: none; }   /* the game frame has its own sound control */
+body.builds-on:not(.on-title):not(.on-play) #sound { transform: translateX(-60px); }   /* the build button takes its place */
+#vol { position: fixed; z-index: 47; top: calc(env(safe-area-inset-top, 0px) + 70px); right: max(16px, env(safe-area-inset-right, 0px)); display: flex; align-items: center; gap: 10px;
+  padding: 8px 14px 8px 8px; background: var(--paper); border: 3px solid var(--ink); border-radius: 999px; box-shadow: var(--pop-sm); color: var(--ink); animation: rise .2s; }
+body.builds-on:not(.on-title):not(.on-play) #vol { right: calc(max(16px, env(safe-area-inset-right, 0px)) + 60px); }
+#vol-mute { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--ink); background: var(--paper-2); color: var(--ink); padding: 0; display: grid; place-items: center; }
+#vol-mute .ic { width: 20px; height: 20px; display: grid; } #vol-mute .ic svg { width: 100%; height: 100%; }
+#vol-range { width: 140px; accent-color: var(--ink); }
+body.on-play #sound { display: none; }
+body.on-play #vol { display: none; }   /* the game frame has its own sound control */
 </style>
 
-<img id="logo" src="art/logo.webp" alt="Open Game Maker 2000">
+<img id="logo" src="art/gm.webp" alt="Open Game Maker 2000, back to the title" role="link" tabindex="0">
 <div id="bg" aria-hidden="true"><canvas width="64" height="40"></canvas></div>
 
 <section id="s-title" class="screen" aria-label="Title screen">
@@ -566,7 +570,8 @@ body.on-play #sound { display: none; }   /* the game frame has its own sound con
     <button class="btn yellow t-start" id="t-start">Start</button>
   </div>
 </section>
-<button id="sound" data-s="tap" aria-pressed="false"><span class="ic"></span><span class="lbl">Tap for sound</span></button>
+<button id="sound" data-s="tap" aria-pressed="false" aria-label="Sound"><span class="ic"></span></button>
+<div id="vol" hidden><button id="vol-mute" aria-label="Mute"><span class="ic"></span></button><input id="vol-range" type="range" min="0" max="1" step="0.01" aria-label="Volume"></div>
 
 <section id="s-library" class="screen" hidden aria-label="Games">
   

@@ -57,7 +57,8 @@ const ctx = new (window.AudioContext || window.webkitAudioContext)();
 const node = (dest, v) => { const g = ctx.createGain(); g.gain.value = v; g.connect(dest); return g; };
 let muted = false;
 try { muted = localStorage.getItem('ogm-studio-sound') === 'off'; } catch {}
-const master = node(ctx.destination, muted ? 0 : 1), musicBus = node(master, .5), sfxBus = node(master, .6);
+let volume = 1; try { volume = +(localStorage.getItem('ogm-studio-volume') ?? 1); } catch {}
+const master = node(ctx.destination, muted ? 0 : volume), musicBus = node(master, .5), sfxBus = node(master, .6);
 
 const files = new Map();
 const load = (dir, name) => {
@@ -149,6 +150,7 @@ function playScape(id, fade) {
 let want = { music: null, scape: null };
 export function set(next, fade = 1.6) {
   want = { music: null, scape: null, ...next };
+  ramp(musicBus, want.duck ? .14 : .5, fade);   // dimmed under a picked game's sounds
   if (ctx.state !== 'running') return;
   playMusic(want.music && MUSIC[want.music], fade);
   playScape(want.scape, fade);
@@ -177,13 +179,20 @@ export function extLoop(url, gain) {
     extLoad(url).then(b => { if (!b) return; const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; s.connect(l.g); s.start(); }); }
   l.g.gain.value = gain;
 }
+export function extSilence() { for (const l of extLoops.values()) l.g.gain.value = 0; }   // the embedded scene went away
 ctx.addEventListener('statechange', () => { if (ctx.state === 'running') set(want, .8); notify(); });
 for (const ev of ['pointerup', 'touchend', 'keydown', 'click']) addEventListener(ev, unlock, { capture: true });
 export function setMuted(m) {
-  muted = m; ramp(master, m ? 0 : 1, .2);
+  muted = m; ramp(master, m ? 0 : volume, .2);
   try { localStorage.setItem('ogm-studio-sound', m ? 'off' : 'on'); } catch {}
   if (!m) unlock();
   notify();
+}
+export const getVolume = () => volume;
+export function setVolume(v) {   // the volume popover's slider; moving it up from silence also unmutes
+  volume = Math.max(0, Math.min(1, v));
+  try { localStorage.setItem('ogm-studio-volume', String(volume)); } catch {}
+  if (muted && volume > 0) setMuted(false); else ramp(master, muted ? 0 : volume, .05);
 }
 // nothing plays in a background tab
 let hiddenWhileOn = false;

@@ -2,6 +2,7 @@ import { ready, paint, SCENES, blueprint } from './scenes.js';
 import { ICONS, gameTags } from './icons.js';
 import * as sound from './sound.js';
 import { GAMES, SEED_BUILD, STEPS, ART, NEW_GAME_TALK, NEW_GAME_TITLE, featureTalk, FEATURE_NAME, AGENT_ACK, BUILD_STEPS } from './data.js';
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});   // the local cache (sw.js)
 
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -26,22 +27,27 @@ function show(name) {
 }
 
 // ---------------- sound ----------------
-// Title track on the title screen, menu track on Games and New Game. Picking a game fades the music out under that game's
-// quiet gameplay sounds; closing the spotlight brings the music back. The game frame (play/edit) has its own audio.
+// Title track on the title screen, menu track on Games and New Game. Picking a game dims the music under that game's
+// quiet gameplay sounds; closing the spotlight brings it back up. The game frame (play/edit) has its own audio.
 let picked = false;   // the player chose a game; the spotlight opening on the first game by itself keeps the menu music
 function applySound() {
   const g = picked && state.screen === 'library' && selId && games.find(x => x.id === selId);
-  sound.set(state.screen === 'title' ? { music: 'title' } : g ? { scape: g.status === 'building' ? 'building' : g.scene }
+  sound.set(state.screen === 'title' ? { music: 'title' } : g ? { music: 'menu', duck: true, scape: g.status === 'building' ? 'building' : g.scene }
     : state.screen === 'play' ? {} : { music: 'menu' });
 }
 const soundBtn = $('#sound');
+// the top-right sound button opens a small popover: mute and a volume slider (the tap also unlocks audio, sound.js)
+const vol = $('#vol'), volRange = $('#vol-range'), volMute = $('#vol-mute');
 function drawSound(s) {
-  soundBtn.dataset.s = s; soundBtn.setAttribute('aria-pressed', String(s === 'on'));
-  $('.ic', soundBtn).innerHTML = s === 'on' ? ICONS.soundOn : ICONS.soundOff;
-  $('.lbl', soundBtn).textContent = { tap: 'Tap for sound', on: 'Sound on', off: 'Sound off' }[s];
+  soundBtn.dataset.s = s; soundBtn.setAttribute('aria-expanded', String(!vol.hidden));
+  for (const b of [soundBtn, volMute]) $('.ic', b).innerHTML = s === 'on' ? ICONS.soundOn : ICONS.soundOff;
+  volMute.setAttribute('aria-label', s === 'on' ? 'Mute' : 'Unmute'); volRange.value = String(s === 'off' ? 0 : sound.getVolume());
 }
 sound.onChange(drawSound); drawSound(sound.status());
-soundBtn.onclick = () => sound.setMuted(sound.status() === 'on');
+soundBtn.onclick = e => { e.stopPropagation(); vol.hidden = !vol.hidden; if (!vol.hidden && sound.status() === 'off') sound.setMuted(false); drawSound(sound.status()); };
+volMute.onclick = () => sound.setMuted(sound.status() === 'on');
+volRange.oninput = () => sound.setVolume(+volRange.value);
+addEventListener('pointerdown', e => { if (!vol.hidden && !vol.contains(e.target) && e.target !== soundBtn && !soundBtn.contains(e.target)) { vol.hidden = true; drawSound(sound.status()); } });
 
 // ---------------- title ----------------
 // The big logo and one Start over the castle town (title-town.js, Kevin's pick). The earlier directions stay reachable for
@@ -60,6 +66,9 @@ function startFromTitle() {
   setTimeout(() => { show('library'); t.classList.remove('leaving'); }, reduced ? 0 : 450);
 }
 $('#t-start').onclick = startFromTitle;
+// the small logo on every other screen goes back to the title
+const toTitle = () => { if (state.screen !== 'play') { titleEl.classList.remove('leaving'); show('title'); } };
+$('#logo').onclick = toTitle; $('#logo').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toTitle(); } };
 addEventListener('keydown', e => { if (state.screen === 'title' && (e.key === 'Enter' || e.key === ' ') && e.target === document.body) { e.preventDefault(); startFromTitle(); } });
 
 // ---------------- library ----------------
@@ -155,8 +164,8 @@ function select(id, scroll) {
       <div><dt>Plays</dt><dd>${esc(g.plays)}</dd></div>
     </dl>
     <div class="lh-acts">
-      <button class="act play" ${building ? 'disabled' : ''}>▶ Play</button>
-      <button class="act edit" ${building ? 'disabled' : ''}>✎ Edit</button>
+      <button class="act play" aria-label="Play" ${building ? 'disabled' : ''}>▶</button>
+      <button class="act edit" aria-label="Edit" ${building ? 'disabled' : ''}>✎</button>
     </div>`;
   $('#lh-text .act.play').onclick = () => enterGame(g, 'play');
   $('#lh-text .act.edit').onclick = () => enterGame(g, 'edit');
@@ -188,7 +197,7 @@ function drawHero(now) {
   const amb = $('#lh-ambient'); if (cv.width) { amb.width = 48; amb.height = 27; amb.getContext('2d').drawImage(cv, 0, 0, 48, 27); }
 }
 function renderLibrary() {
-  if (selId === undefined || (selId && !games.some(g => g.id === selId))) selId = games[0].id;
+  if (selId === undefined || (selId && !games.some(g => g.id === selId))) selId = null;   // nothing picked until the player picks
   grid.innerHTML = '';
   games.forEach((g, i) => grid.append(tileFor(g, i)));
   drawCovers();
@@ -560,7 +569,7 @@ function renderTracker() {
   const active = jobs.filter(j => !j.done);
   const tot = active.reduce((a, j) => a + j.dur, 0), el = active.reduce((a, j) => a + j.elapsed, 0);
   const p = tot ? el / tot : 1, left = active.reduce((a, j) => Math.max(a, (j.dur - j.elapsed) / state.speed), 0);
-  tr.hidden = !jobs.length;
+  tr.hidden = !jobs.length; document.body.classList.toggle('builds-on', jobs.length > 0);   // the sound button slides over beside it
   $('#tr-ring').style.strokeDashoffset = String(113 * (1 - p));
   $('#tr-count').textContent = active.length || '✓';
   $('#tr-fab').setAttribute('aria-label', active.length ? `${active.length} builds running, ${Math.round(p * 100)}% done. Show progress` : 'All builds done');
