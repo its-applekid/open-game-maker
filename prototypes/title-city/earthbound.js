@@ -425,12 +425,17 @@ export async function earthbound(ctx) {
     pixel: LOOKS[ctx.look] ?? 0, per: PER, sounds: SND, loops: LOOPS, times: T, spots: { B, C, F, F2, G3, G4, R: [Rh.x, Rh.z, PLAIN + roofY] }, dead,
     tap(nx, ny, t, cam) {
       const lt = ((t % PER) + PER) % PER; if (lt < .8 || lt >= T.fall) return false;   // only while it flies
-      const u = ufoState(lt, ufoAt(lt)).p, c = new THREE.Vector3(u[0], u[1] + 2.5, u[2]), right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0);
-      const pc = c.clone().project(cam), pe = c.clone().addScaledVector(right, 10).project(cam), rx = Math.abs(pe.x - pc.x) * cam.aspect + .06, ry = rx * .45 + .04;
-      const dx = ((nx * 2 - 1) - pc.x) * cam.aspect, dy = (1 - ny * 2) - pc.y; if (pc.z > 1 || (dx / rx) ** 2 + (dy / ry) ** 2 > 1) return false;
+      // in the sprite's own plane (it always faces the camera): the saucer is an ellipse 9.5 m by 2.4 m about its middle, plus a fingertip
+      const u = ufoState(lt, ufoAt(lt)).p, right = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 0), up = new THREE.Vector3().setFromMatrixColumn(cam.matrixWorld, 1);
+      const c = new THREE.Vector3(...u).addScaledVector(up, 2), pc = c.clone().project(cam); if (pc.z > 1) return false;
+      const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(nx * 2 - 1, 1 - ny * 2), cam);
+      const hp = ray.ray.intersectPlane(new THREE.Plane().setFromNormalAndCoplanarPoint(cam.getWorldDirection(new THREE.Vector3()).negate(), c), new THREE.Vector3()); if (!hp) return false;
+      const slop = .06 / Math.max(1e-4, Math.abs(c.clone().add(up).project(cam).y - pc.y));   /* a fingertip, in metres at its distance */
+      const off = hp.clone().sub(c), lx = off.dot(right), ly = off.dot(up); if ((lx / (9.5 + slop)) ** 2 + (ly / (2.4 + slop)) ** 2 > 1) return false;
+      const e = Math.hypot(lx / 9, ly / 2.1), burstAt = e > 1 ? c.clone().addScaledVector(right, lx / e).addScaledVector(up, ly / e) : hp;   // a tap just off it bursts on its rim
       taps.push(lt);
       for (const b of BOLTS) if (lt >= b.tb - 1.4 && lt <= b.tb + .1) cancelled.add(b.tag);   // whatever it was charging fizzles
-      fx.burst(lt, [c.x, c.y, c.z], 1.4);
+      fx.burst(lt, [burstAt.x, burstAt.y, burstAt.z], 1.4);
       ctx.sfx(`impactMetal_heavy_00${taps.length % 5}`, .9, .85 + (taps.length % 4) * .08); ctx.sfx('hitHelmet1', .45, .7 + (taps.length % 3) * .15);
       return true;
     },
