@@ -51,6 +51,16 @@ describe('loadEnv', () => {
     expect(values).toEqual({ OGM_API_PORT: 42, GITHUB_APP_ID: true });
   });
 
+  it('uses a default when an env file contains an empty generated value', () => {
+    const values = loadEnv(
+      'example',
+      { OGM_VAPID_KEY_FILE: { kind: 'path', default: '~/.config/ogm/env/ogm-api.vapid.json' } } as const,
+      { OGM_VAPID_KEY_FILE: '' },
+    );
+
+    expect(values).toEqual({ OGM_VAPID_KEY_FILE: `${homedir()}/.config/ogm/env/ogm-api.vapid.json` });
+  });
+
   it('returns undefined for an absent optional value', () => {
     const values = loadEnv('example', { OGM_API_PORT: { kind: 'port', required: false } } as const, {});
 

@@ -69,15 +69,42 @@ export default new Hono().get('/seen', (c) => c.text(seen));
     await expect(scan(root)).rejects.toThrow(/broken\/routes\.ts: default export must be a Hono app/);
   });
 
-  it('fails boot when two contexts claim one prefix', async () => {
-    const same = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono();\n`;
-    await expect(scan(tempRoot({ a: { 'routes.ts': same }, b: { 'routes.ts': same } }))).rejects.toThrow(
-      /prefix \/same is already mounted/,
+  it('lets directory-scanned contexts share a prefix when their routes are distinct', async () => {
+    const a = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/a', c => c.text('a'));\n`;
+    const b = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/b', c => c.text('b'));\n`;
+    const { app, mounted } = await scan(tempRoot({ a: { 'routes.ts': a }, b: { 'routes.ts': b } }));
+    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/same', '/same']);
+    expect(await (await app.request('/same/a')).text()).toBe('a');
+    expect(await (await app.request('/same/b')).text()).toBe('b');
+  });
+
+  it('fails boot when shared-prefix contexts register the same method and path', async () => {
+    const route = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/ping', c => c.text('pong'));\n`;
+    const root = tempRoot({ a: { 'routes.ts': route }, b: { 'routes.ts': route } });
+    await expect(scan(root)).rejects.toThrow(
+      /b\/routes\.ts: route GET \/same\/ping is already mounted by a\/routes\.ts/,
     );
+  });
+
+  it('lets shared-prefix contexts use different methods on the same path', async () => {
+    const get = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/ping', c => c.text('get'));\n`;
+    const post = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().post('/ping', c => c.text('post'));\n`;
+    const { app } = await scan(tempRoot({ a: { 'routes.ts': get }, b: { 'routes.ts': post } }));
+    expect(await (await app.request('/same/ping')).text()).toBe('get');
+    expect(await (await app.request('/same/ping', { method: 'POST' })).text()).toBe('post');
   });
 
   it('mounts the shipped contexts', async () => {
     const { mounted } = await makeApp();
-    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/api/v1/analytics', '/blobs', '/']);
+    expect(mounted.map(({ prefix }) => prefix)).toEqual([
+      '/api/v1',
+      '/api/v1/analytics',
+      '/blobs',
+      '/api/v1',
+      '/',
+      '/internal',
+      '/api/v1',
+      '/',
+    ]);
   });
 });

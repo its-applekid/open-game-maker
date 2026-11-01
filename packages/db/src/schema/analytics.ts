@@ -39,10 +39,7 @@ export const activityEvents = sqliteTable(
     check('activity_events_actor_check', sql`${table.actor} IN ('agent', 'human')`),
     check(
       'activity_events_activity_check',
-      sql`${table.activity} IN (${sql.join(
-        activities.map((value) => sql`${value}`),
-        sql`, `,
-      )})`,
+      sql`${table.activity} IN (${sql.raw(activities.map((value) => `'${value}'`).join(', '))})`,
     ),
     check('activity_events_boundary_check', sql`${table.boundary} IN ('start', 'end', 'point')`),
     check(

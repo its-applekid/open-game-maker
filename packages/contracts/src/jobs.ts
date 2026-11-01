@@ -81,14 +81,35 @@ export const Job = z.object({
   terminalAt: IsoTime.nullable(),
 });
 export const JobStage = z.enum([
+  'queued_ogm',
   'waiting_capacity',
+  'waiting_provider',
   'building',
   'final_tests',
   'fixing',
   'ready',
   'out_of_budget',
+  'paused',
+  'done',
   'failed',
+  'cancelled',
 ]); // R27 creator words; OGM-032 maps
+// The words OGM-076/079 display verbatim; `paused` reads JOB_WAITING_FOR_ANSWER while aiur holds a decision.
+export const JOB_STAGE_WORDS = {
+  queued_ogm: 'Waiting for a free slot',
+  waiting_capacity: 'Waiting for robot capacity',
+  waiting_provider: 'Waiting for robot capacity',
+  building: 'Building',
+  final_tests: 'Running final tests',
+  fixing: 'Fixing a problem',
+  ready: 'Ready to try',
+  out_of_budget: 'Out of budget',
+  paused: 'Paused',
+  done: 'Done',
+  failed: 'Something went wrong',
+  cancelled: 'Stopped',
+} as const satisfies Record<z.infer<typeof JobStage>, string>;
+export const JOB_WAITING_FOR_ANSWER = 'Waiting for your answer';
 export const JobTokenClaims = z.object({ jobId: Id, gameId: Id, familyId: Id, exp: z.number().int() }); // bearer "gmj1.<b64url json>.<b64url hmac>"
 
 export type JobKind = z.infer<typeof JobKind>;

@@ -7,7 +7,7 @@ import { activityEvents, aiurPhaseEvents } from '../src/schema/index.js';
 describe('analytics storage', () => {
   it('migrates the analytics tables and indexes once', () => {
     const { sqlite, db } = openDb(':memory:');
-    expect(migrate({ sqlite }).applied).toContain('20261101010000_analytics.sql');
+    expect(migrate({ sqlite }).applied).toContain('20261101145358_analytics.sql');
 
     expect(db.select().from(activityEvents).all()).toEqual([]);
     expect(db.select().from(aiurPhaseEvents).all()).toEqual([]);

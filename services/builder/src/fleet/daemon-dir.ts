@@ -1,5 +1,7 @@
-import { lstat, mkdir, readFile, readlink, symlink } from 'node:fs/promises';
+import { lstat, mkdir, readlink, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
+
+import { renderDaemonFiles } from '@ogm/game-repo-template';
 
 import { renderAiurConfig } from '../policy/render.js';
 import { renderCodexProfile } from '../policy/profile.js';
@@ -10,21 +12,7 @@ import type { DaemonRow, FleetEnv, JobKind } from './types.js';
 export type DaemonFiles = { hooks: string; prompt: string };
 export type DaemonFilesProvider = (row: DaemonRow) => Promise<DaemonFiles>;
 
-const DEFAULT_HOOKS = `after_create: |
-  git clone "$THIS_REPOSITORY_URL" .
-  issue_id="$(basename "$PWD")"
-  git checkout -b "aiur/\${issue_id}" "origin/$THIS_BASE_BRANCH"
-before_remove: |
-  git status --short
-`;
-
-// Built-in hooks and prompt until OGM-036's template package provides them.
-export function defaultDaemonFiles(env: FleetEnv): DaemonFilesProvider {
-  return async () => ({
-    hooks: DEFAULT_HOOKS,
-    prompt: await readFile(join(aiurRoot(env), 'src/examples/workflows/github-codex.prompt.md'), 'utf8'),
-  });
-}
+export const gameRepoDaemonFiles: DaemonFilesProvider = async () => renderDaemonFiles();
 
 export function aiurRoot(env: FleetEnv): string {
   return env.aiurRoot ?? join(env.home, 'github/aiur');

@@ -23,7 +23,14 @@ describe('migrate', () => {
   it('applies the shipped migrations once and records them', () => {
     const { sqlite, db } = openDb(join(tempDir(), 'ogm.sqlite3'));
     expect(migrate({ sqlite })).toEqual({
-      applied: ['20261101000000_app_meta.sql', '20261101010000_analytics.sql', '20261101114708_game_daemons.sql'],
+      applied: [
+        '20261101000000_app_meta.sql',
+        '20261101114708_game_daemons.sql',
+        '20261101122027_accounts.sql',
+        '20261101133303_aiur_events.sql',
+        '20261101135125_notify.sql',
+        '20261101145358_analytics.sql',
+      ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
     expect(
@@ -34,9 +41,28 @@ describe('migrate', () => {
         .map(({ key }) => key),
     ).toEqual([
       'migration:20261101000000_app_meta.sql',
-      'migration:20261101010000_analytics.sql',
       'migration:20261101114708_game_daemons.sql',
+      'migration:20261101122027_accounts.sql',
+      'migration:20261101133303_aiur_events.sql',
+      'migration:20261101135125_notify.sql',
+      'migration:20261101145358_analytics.sql',
     ]);
+    sqlite.close();
+  });
+
+  it('creates the aiur event, cursor, checkpoint and job projection tables', () => {
+    const { sqlite } = openDb(':memory:');
+    migrate({ sqlite });
+    const tables = sqlite
+      .prepare<[], { name: string }>("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all()
+      .map(({ name }) => name);
+    expect(tables).toEqual(expect.arrayContaining(['aiur_events', 'aiur_cursors', 'checkpoints', 'job_projections']));
+    const insert = sqlite.prepare(
+      "INSERT OR IGNORE INTO aiur_events (daemon_slug, seq, topic, payload, observed_at) VALUES ('d', 1, 't', '{}', 'now')",
+    );
+    insert.run();
+    expect(insert.run().changes).toBe(0);
     sqlite.close();
   });
 

@@ -15,6 +15,34 @@
       "when": 1793533628729,
       "tag": "20261101114708_game_daemons",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793535627909,
+      "tag": "20261101122027_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793539983204,
+      "tag": "20261101133303_aiur_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793541085402,
+      "tag": "20261101135125_notify",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1793544838018,
+      "tag": "20261101145358_analytics",
+      "breakpoints": true
     }
   ]
 }
