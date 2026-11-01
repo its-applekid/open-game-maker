@@ -8,6 +8,9 @@
   "references": [
     {
       "path": "../../packages/aiur-client"
+    },
+    {
+      "path": "../../packages/db"
     }
   ]
 }
