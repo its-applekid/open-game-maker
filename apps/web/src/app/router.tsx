@@ -51,15 +51,23 @@ export function collectScreenRoutes(routeModules: Record<string, ScreenModule>):
 }
 
 function RequireSession({ children }: { children: ReactNode }) {
-  const session = useSession();
+  const { data: session, isPending } = useSession();
   const location = useLocation();
 
+  if (isPending) return null;
   if (session === null) {
-    const next = encodeURIComponent(`${location.pathname}${location.search}`);
+    const next = encodeURIComponent(sessionReturnPath(location.pathname, location.search));
     return <Navigate replace to={`/signin?next=${next}`} />;
   }
 
   return children;
+}
+
+function sessionReturnPath(pathname: string, search: string): string {
+  const params = new URLSearchParams(search);
+  params.delete('test');
+  const query = params.toString();
+  return `${pathname}${query ? `?${query}` : ''}`;
 }
 
 function AppChrome({ children }: { children: ReactNode }) {

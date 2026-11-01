@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "23182284-9d22-4bda-b471-07bb88a5cfaa",
+  "id": "40127ac8-0660-447b-9611-c685c36640ab",
   "prevId": "b0c19459-b595-4388-9493-22694cd687e7",
   "tables": {
     "app_meta": {
@@ -2787,199 +2787,46 @@
         }
       }
     },
-    "platform_issue_queue": {
-      "name": "platform_issue_queue",
+    "build_chat_messages": {
+      "name": "build_chat_messages",
       "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "body": {
-          "name": "body",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "labels_json": {
-          "name": "labels_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ref": {
-          "name": "ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "platform_issue_queue_status": {
-          "name": "platform_issue_queue_status",
-          "columns": ["status", "created_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "platform_issue_queue_status_check": {
-          "name": "platform_issue_queue_status_check",
-          "value": "\"platform_issue_queue\".\"status\" IN ('pending', 'filed', 'dismissed')"
-        }
-      }
-    },
-    "report_signatures": {
-      "name": "report_signatures",
-      "columns": {
-        "signature": {
-          "name": "signature",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "game_id": {
-          "name": "game_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "count": {
-          "name": "count",
+        "seq": {
+          "name": "seq",
           "type": "integer",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
-          "autoincrement": false,
-          "default": 0
+          "autoincrement": true
         },
-        "first_at": {
-          "name": "first_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "last_at": {
-          "name": "last_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "open_job_id": {
-          "name": "open_job_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "platform_ref": {
-          "name": "platform_ref",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "report_signatures_game_id_games_id_fk": {
-          "name": "report_signatures_game_id_games_id_fk",
-          "tableFrom": "report_signatures",
-          "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "report_signatures_scope": {
-          "name": "report_signatures_scope",
-          "value": "\"report_signatures\".\"scope\" IN ('game', 'platform')"
-        },
-        "report_signatures_status": {
-          "name": "report_signatures_status",
-          "value": "\"report_signatures\".\"status\" IN ('open', 'repaired', 'closed')"
-        },
-        "report_signatures_count": {
-          "name": "report_signatures_count",
-          "value": "\"report_signatures\".\"count\" >= 0"
-        }
-      }
-    },
-    "reports": {
-      "name": "reports",
-      "columns": {
         "id": {
           "name": "id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "game_id": {
-          "name": "game_id",
+        "job_id": {
+          "name": "job_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "release_id": {
-          "name": "release_id",
+        "at": {
+          "name": "at",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
-        "build_hash": {
-          "name": "build_hash",
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -2992,38 +2839,146 @@
           "notNull": false,
           "autoincrement": false
         },
-        "error_json": {
-          "name": "error_json",
+        "media_hash": {
+          "name": "media_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "signature": {
-          "name": "signature",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "platform_signature": {
-          "name": "platform_signature",
+        "poster_hash": {
+          "name": "poster_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "route": {
-          "name": "route",
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "height": {
+          "name": "height",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "duration_ms": {
+          "name": "duration_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "checkpoint_json": {
+          "name": "checkpoint_json",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aiur_ticket": {
+          "name": "aiur_ticket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aiur_event_id": {
+          "name": "aiur_event_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aiur_topic": {
+          "name": "aiur_topic",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "mirror_state": {
+          "name": "mirror_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "build_chat_messages_id_unique": {
+          "name": "build_chat_messages_id_unique",
+          "columns": ["id"],
+          "isUnique": true
+        },
+        "build_chat_messages_job_event_unique": {
+          "name": "build_chat_messages_job_event_unique",
+          "columns": ["job_id", "aiur_event_id"],
+          "isUnique": true
+        },
+        "build_chat_messages_job_seq": {
+          "name": "build_chat_messages_job_seq",
+          "columns": ["job_id", "seq"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "build_chat_messages_actor": {
+          "name": "build_chat_messages_actor",
+          "value": "\"build_chat_messages\".\"actor\" IN ('creator', 'agent', 'system')"
+        },
+        "build_chat_messages_kind": {
+          "name": "build_chat_messages_kind",
+          "value": "\"build_chat_messages\".\"kind\" IN ('text', 'image', 'clip', 'checkpoint', 'progress')"
+        }
+      }
+    },
+    "build_chat_outbox_offsets": {
+      "name": "build_chat_outbox_offsets",
+      "columns": {
+        "path": {
+          "name": "path",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "offset": {
+          "name": "offset",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "reproduction": {
-          "name": "reproduction",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "build_chat_workspaces": {
+      "name": "build_chat_workspaces",
+      "columns": {
+        "workspace_root": {
+          "name": "workspace_root",
+          "type": "text",
+          "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
@@ -3031,25 +2986,11 @@
           "name": "job_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "bundle_key": {
-          "name": "bundle_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "reporter_id": {
-          "name": "reporter_id",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
+        "pinned_at": {
+          "name": "pinned_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -3057,49 +2998,16 @@
         }
       },
       "indexes": {
-        "reports_game_created": {
-          "name": "reports_game_created",
-          "columns": ["game_id", "created_at"],
-          "isUnique": false
-        },
-        "reports_signature": {
-          "name": "reports_signature",
-          "columns": ["signature"],
-          "isUnique": false
-        },
-        "reports_platform_signature": {
-          "name": "reports_platform_signature",
-          "columns": ["platform_signature"],
+        "build_chat_workspaces_job": {
+          "name": "build_chat_workspaces_job",
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
-      "foreignKeys": {
-        "reports_game_id_games_id_fk": {
-          "name": "reports_game_id_games_id_fk",
-          "tableFrom": "reports",
-          "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
-      "checkConstraints": {
-        "reports_route": {
-          "name": "reports_route",
-          "value": "\"reports\".\"route\" IN ('game_repair', 'platform', 'editor_hint', 'stored')"
-        },
-        "reports_reproduction": {
-          "name": "reports_reproduction",
-          "value": "\"reports\".\"reproduction\" IN ('crash_with_error', 'wrong_behaviour', 'not_reproducible')"
-        },
-        "reports_text_length": {
-          "name": "reports_text_length",
-          "value": "\"reports\".\"text\" IS NULL OR length(\"reports\".\"text\") <= 2000"
-        }
-      }
+      "checkConstraints": {}
     }
   },
   "views": {},

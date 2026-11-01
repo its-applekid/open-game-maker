@@ -63,6 +63,12 @@ export function hasAdultAgeAttestation(c: Context<ApiBindings>): boolean {
   return Boolean(verifyAgeCookie(readCookie(c.req.header('cookie'), AGE_COOKIE), env.OGM_AGE_COOKIE_SECRET));
 }
 
+function configuredProviders(env: AuthEnv): string[] {
+  const providers = ['magic-link', 'passkey'];
+  if (env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET) providers.push('google');
+  return providers;
+}
+
 const cookie = (name: string, value: string, maxAge: number) =>
   `${name}=${value}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 
@@ -72,6 +78,10 @@ const AgeBody = z.object({
 });
 
 export default new Hono<ApiBindings>()
+  .get('/providers', (c) => {
+    c.header('cache-control', 'no-store');
+    return c.json({ providers: configuredProviders(context(c).env) });
+  })
   // Nothing about the answer is stored or logged; an under-18 answer leaves only the `refused` marker.
   .post('/age', async (c) => {
     const { env, agePerIp } = context(c);
