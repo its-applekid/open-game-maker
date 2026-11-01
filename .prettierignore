@@ -1,0 +1,14 @@
+node_modules
+dist
+pnpm-lock.yaml
+docs/
+prototypes/
+third_party/
+assets-local/
+.claude/
+.agents/
+.codex/
+.aiur-runtime/
+.aiur/
+scripts/
+*.md
