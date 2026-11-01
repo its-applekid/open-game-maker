@@ -1,5 +1,9 @@
 import { expect, test } from '@playwright/test';
 
+import { installAuthRoutes } from './fixtures/auth-routes';
+
+test.beforeEach(({ page }) => installAuthRoutes(page));
+
 type HostSnapshot = { route: string; registered: string[] };
 
 declare global {
