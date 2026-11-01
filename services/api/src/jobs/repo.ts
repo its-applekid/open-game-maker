@@ -1,6 +1,6 @@
 import { JobPlan, Reservation, type CreateJobAccepted, type Job, type JobState } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, asc, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 
@@ -83,7 +83,7 @@ export function acceptedFor(db: Db, row: JobRow): CreateJobAccepted {
           eq(schema.jobs.start, row.start),
         ),
       )
-      .orderBy(asc(schema.jobs.createdAt), asc(schema.jobs.id))
+      .orderBy(asc(schema.jobs.createdAt), sql`rowid`)
       .all()
       .findIndex(({ id }) => id === row.id) + 1;
   return { jobId: row.id, state: row.state, reservation, slot: row.slot, position: Math.max(1, position) };

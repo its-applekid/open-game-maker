@@ -62,12 +62,17 @@ function reservationFor(db: Db, kind: JobKind, complexity: number): Reservation 
   };
 }
 
-function refusal(error: AllowanceExceeded['error'], remainingMicroUsd: number, resetsAt: string): never {
+function refusal(
+  error: AllowanceExceeded['error'],
+  remainingMicroUsd: number,
+  resetsAt: string,
+  offers: AllowanceExceeded['offers'] = ['trim', 'split', 'queue', 'ask_admin'],
+): never {
   throw new AdmissionRefused({
     error,
     remainingMicroUsd,
     resetsAt,
-    offers: ['trim', 'split', 'queue', 'ask_admin'],
+    offers,
   });
 }
 
@@ -103,7 +108,12 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
         defaults: deps.defaults,
       });
       if (reservation.amountMicroUsd > allowance.remainingMicroUsd) {
-        refusal('allowance_exceeded', allowance.remainingMicroUsd, allowance.resetsAt);
+        refusal(
+          'allowance_exceeded',
+          allowance.remainingMicroUsd,
+          allowance.resetsAt,
+          request.start === 'at_reset' ? ['trim', 'split'] : undefined,
+        );
       }
       const platformLeft = platformRemaining(deps.db, game.familyId, targetAt, deps.defaults);
       if (

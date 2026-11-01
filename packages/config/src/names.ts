@@ -30,6 +30,18 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'int',
     doc: 'raw analytics retention in days (default 90)',
   },
+  {
+    name: 'OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD',
+    unit: 'api',
+    kind: 'int',
+    doc: 'default per-member daily build allowance in integer micro-USD',
+  },
+  {
+    name: 'OGM_RESET_ZONE_DEFAULT',
+    unit: 'api',
+    kind: 'string',
+    doc: 'default IANA time zone for family budget resets',
+  },
   { name: 'OGM_ROOMS_PORT', unit: 'rooms', kind: 'port', doc: 'loopback port of the Colyseus relay' },
   { name: 'OGM_GAMES_PORT', unit: 'games', kind: 'port', doc: 'loopback port of the games origin host' },
   { name: 'OGM_COMMIT_PORT', unit: 'commit', kind: 'port', doc: 'loopback port of the commit service' },

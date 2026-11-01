@@ -283,9 +283,15 @@ importers:
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.16)
+      '@ogm/aiur-client':
+        specifier: workspace:*
+        version: link:../../packages/aiur-client
       '@ogm/blob-store':
         specifier: workspace:*
         version: link:../../packages/blob-store
+      '@ogm/builder':
+        specifier: workspace:*
+        version: link:../builder
       '@ogm/config':
         specifier: workspace:*
         version: link:../../packages/config

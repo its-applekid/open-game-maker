@@ -173,6 +173,17 @@ describe('job admission', () => {
     ).resolves.toMatchObject({ state: 'queued', slot: 'new_game', position: 1, reservation: { sizeClass: 'large' } });
   });
 
+  it('offers only trim and split when work cannot fit after reset', async () => {
+    const { deps } = harness({ daily: 5_000_000 });
+    await expect(
+      admit(
+        { db: deps.db, sqlite: deps.sqlite, events: deps.events, now: () => NOW, defaults },
+        request({ start: 'at_reset', complexity: 4 }),
+        actor,
+      ),
+    ).rejects.toMatchObject({ body: { error: 'allowance_exceeded', offers: ['trim', 'split'] } });
+  });
+
   it('refuses the platform cap before creating a job', async () => {
     const { deps } = harness({ daily: 100_000_000, platformCap: 8_000_000 });
     await expect(
