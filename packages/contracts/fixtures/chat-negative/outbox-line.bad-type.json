@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "01JBX2Q7M3K8V5N4R6T9W0YZAB",
+  "job_id": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+  "at": "2026-11-01T09:12:30Z",
+  "type": "chat",
+  "payload": {
+    "kind": "clip",
+    "text": "The door now swings open when you walk up to it.",
+    "file": ".gm/outbox/media/door.mp4",
+    "poster": ".gm/outbox/media/door.png"
+  }
+}

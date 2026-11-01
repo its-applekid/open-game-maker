@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 
-import type { Principal } from '@ogm/contracts';
+import type { AiurClient } from '@ogm/aiur-client';
+import type { JobState, Principal } from '@ogm/contracts';
 
 import type { ApiBindings } from './types.js';
 
@@ -28,13 +29,32 @@ export type RepoProvisioner = {
 export type MailSender = {
   send(message: { to: string; subject: string; text: string }): Promise<void>;
 };
+// What the build chat needs about a job (OGM-013 owns the jobs table and registers the directory).
+// `aiur` is null until the job is filed as an issue on a game daemon.
+export type ChatJob = {
+  jobId: string;
+  gameId: string;
+  familyId: string;
+  ownerId: string;
+  state: JobState;
+  aiur: { daemonSlug: string; ticket: string } | null;
+};
+export interface ChatJobDirectory {
+  get(jobId: string): Promise<ChatJob | null>;
+  // Jobs in `filed`, `running` or `paused_budget` with a ticket: the ones the progress poller reads.
+  active(): Promise<ChatJob[]>;
+}
+export type AiurClientResolver = (
+  daemonSlug: string,
+) => Pick<AiurClient, 'message' | 'progress'> | null | Promise<Pick<AiurClient, 'message' | 'progress'> | null>;
 export type UserDirectory = {
   emailForUser(userId: string): Promise<string | null>;
   userIdForEmail(email: string): Promise<string | null>;
 };
 
 // Seams filled by contexts from `setup(deps)`: auth adds session, user-directory and mail
-// providers; accounts/games add repository provisioning and game lookup; OGM-013 the ticket job resolver.
+// providers; accounts/games add repository provisioning and game lookup; jobs adds the ticket/chat directories;
+// the daemon directory adds per-daemon aiur clients.
 export interface Registry {
   principalResolvers: Resolver[];
   gameResolver: GameResolver | null;
@@ -42,6 +62,8 @@ export interface Registry {
   mailSender: MailSender | null;
   userDirectory: UserDirectory | null;
   ticketJobResolver: TicketJobResolver | null;
+  chatJobs: ChatJobDirectory | null;
+  aiurClientFor: AiurClientResolver | null;
 }
 
 export function createRegistry(): Registry {
@@ -52,6 +74,8 @@ export function createRegistry(): Registry {
     mailSender: null,
     userDirectory: null,
     ticketJobResolver: null,
+    chatJobs: null,
+    aiurClientFor: null,
   };
 }
 

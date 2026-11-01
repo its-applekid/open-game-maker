@@ -50,6 +50,10 @@ export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fe
 
   return {
     fleet,
+    async clientForSlug(slug: string): Promise<AiurClient | null> {
+      const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.slug, slug)).get();
+      return row ? clientFor(row) : null;
+    },
     async clientForRepo(repo: string): Promise<AiurClient> {
       const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.repo, repo)).get();
       if (!row) throw new HttpError(409, 'daemon_not_found');

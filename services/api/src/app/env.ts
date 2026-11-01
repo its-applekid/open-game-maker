@@ -24,6 +24,8 @@ export const apiEnvSpec = {
   OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'game-2d@1' },
   OGM_VAPID_KEY_FILE: { kind: 'path', default: join(homedir(), '.config', 'ogm', 'env', 'ogm-api.vapid.json') },
   OGM_VAPID_SUBJECT: { kind: 'string' },
+  OGM_BUILDER_WORKSPACES_ROOT: { kind: 'path', required: false },
+  OGM_CHAT_POLL_MS: { kind: 'int', default: '10000' },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {
