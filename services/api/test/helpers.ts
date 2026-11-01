@@ -28,6 +28,7 @@ export function installUsers(deps: AppDeps, users: readonly TestUser[]): void {
     const principal: Extract<Principal, { kind: 'user' }> = {
       kind: 'user',
       userId: user.userId,
+      displayName: user.displayName,
       familyId: user.familyId,
       platformRole: user.platformRole,
       capability: user.capability,

@@ -90,7 +90,7 @@ describe('POST /api/v1/analytics/events', () => {
     const { app, deps } = await makeApp();
     deps.registry.principalResolvers.push(async (c) =>
       c.req.header('x-test-user')
-        ? { kind: 'user', userId, familyId, platformRole: 'none', capability: 'creator' }
+        ? { kind: 'user', userId, displayName: 'Test User', familyId, platformRole: 'none', capability: 'creator' }
         : null,
     );
     deps.registry.gameResolver = async (id) =>

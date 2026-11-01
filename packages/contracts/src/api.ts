@@ -18,6 +18,7 @@ export type Principal =
   | {
       kind: 'user';
       userId: string;
+      displayName: string;
       familyId: string;
       platformRole: 'maintainer' | 'admin' | 'none';
       capability: 'creator' | 'player';

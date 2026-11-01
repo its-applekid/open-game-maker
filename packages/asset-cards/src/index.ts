@@ -4,3 +4,4 @@ export { INDEX_PATH, buildIndex, cardFiles, isStale, loadIndex, writeIndex } fro
 export { formatRow, info, kindsOf, passes, search, statusAllowed } from './search.js';
 export { facets } from './facets.js';
 export { SHEET_MAX, labelOf, writeSheet } from './sheet.js';
+export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';
