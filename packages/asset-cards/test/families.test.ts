@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +17,7 @@ import {
   loadFamilies,
   packsOfFamily,
   setFor,
+  writeFamilies,
   type CardIndex,
   type StyleFamily,
 } from '../src/index.js';
@@ -78,6 +80,27 @@ describe('style-families.json', () => {
   });
 
   it('groups compatible packs into trait-defined sets instead of vendor catalogues', () => {
+    const kaykit = setFor('kaykit-adventurers');
+    expect(kaykit).toMatchObject({
+      id: 'kaykit',
+      vendors: ['kaykit'],
+      traits: expect.objectContaining({
+        polycount_band: 'mobile-friendly low-poly, measured per model',
+        texture_style: 'flat palette atlases with clean colour blocks',
+      }),
+    });
+    expect(kaykit?.packs).toHaveLength(23);
+    expect(kaykit?.packs.find((pack) => pack.id === 'kaykit-adventurers')?.compatible_with).toEqual([
+      'kenney-animated-characters-bundle',
+      'synty-polygon-viking-realm',
+    ]);
+    expect(kaykit?.packs.find((pack) => pack.id === 'kaykit-prototype-bits')?.compatible_with).toEqual([
+      'kenney-prototype-kit',
+      'synty-polygon-prototype',
+    ]);
+    expect(kaykit?.packs.find((pack) => pack.id === 'kaykit-skeletons')?.compatible_with).toEqual([
+      'quaternius-ultimate-monsters',
+    ]);
     expect(setFor('kenney-tiny-dungeon')?.id).toBe('kenney-tiny');
     expect(setFor('kenney-tiny-town')?.id).toBe('kenney-tiny');
     expect(setFor('kenney-pixel-platformer')?.id).toBe('kenney-pixel-platformer');
@@ -89,7 +112,7 @@ describe('style-families.json', () => {
     expect(setFor('limezu-modern-interiors')?.packs).toContainEqual(
       expect.objectContaining({ id: 'limezu-modern-interiors' }),
     );
-    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(8);
+    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(9);
   });
 
   // The seeds (filename words, no images) call Kenney's 3D kits simple-low-poly; C2 §2 and this file call them
@@ -272,5 +295,14 @@ describe('families:coverage recompute', () => {
     const { families: next, failures } = recompute(index, families);
     expect(next.find((f) => f.id === 'pixel-art')?.coverage.props).toBe(false);
     expect(failures.some((line) => line.startsWith('pixel-art: creation_choice'))).toBe(true);
+  });
+
+  it('validates before writing a family file', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'families-write-')), 'style-families.json');
+    writeFamilies(loadFamilies(), path);
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(loadFamilies());
+
+    expect(() => writeFamilies(loadFamilies().slice(1), path)).toThrow(/chunky-low-poly must appear once/);
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(loadFamilies());
   });
 });
