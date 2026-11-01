@@ -24,6 +24,12 @@ export type EnvName = {
 
 export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_API_PORT', unit: 'api', kind: 'port', doc: 'loopback port of the API' },
+  {
+    name: 'OGM_ANALYTICS_RETENTION_DAYS',
+    unit: 'api',
+    kind: 'int',
+    doc: 'raw analytics retention in days (default 90)',
+  },
   { name: 'OGM_ROOMS_PORT', unit: 'rooms', kind: 'port', doc: 'loopback port of the Colyseus relay' },
   { name: 'OGM_GAMES_PORT', unit: 'games', kind: 'port', doc: 'loopback port of the games origin host' },
   { name: 'OGM_COMMIT_PORT', unit: 'commit', kind: 'port', doc: 'loopback port of the commit service' },

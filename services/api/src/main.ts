@@ -12,6 +12,7 @@ import { createRegistry } from './app/registry.js';
 import { scanRoutes } from './app/routes-scan.js';
 import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
+import { startAnalyticsRetention } from './analytics/retention.js';
 
 const log = (line: LogLine) => console.log(JSON.stringify({ service: 'api', ...line }));
 
@@ -32,6 +33,7 @@ const deps: AppDeps = {
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,
     vapidKeyFile: env.OGM_VAPID_KEY_FILE,
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
+    analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,
@@ -45,11 +47,18 @@ const deps: AppDeps = {
   log,
 };
 
+const stopAnalyticsRetention = startAnalyticsRetention({
+  sqlite,
+  retentionDays: deps.config.analyticsRetentionDays,
+  log,
+});
+
 const app = createApp(deps);
 for (const { prefix, file } of (await scanRoutes(app, { deps })).mounted) log({ event: 'mounted', prefix, file });
 
 const server = serve({ fetch: app.fetch, hostname: API_HOST, port: env.OGM_API_PORT });
 server.once('listening', () => log({ event: 'listening', host: API_HOST, port: env.OGM_API_PORT }));
 process.once('SIGTERM', () => {
+  stopAnalyticsRetention();
   server.close(() => sqlite.close());
 });

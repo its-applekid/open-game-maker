@@ -20,6 +20,7 @@ export interface AppDeps {
     gameTemplateRef: string;
     vapidKeyFile: string;
     vapidSubject: string;
+    analyticsRetentionDays: number;
   };
   blobStore: BlobStore;
   events: AppEvents;
