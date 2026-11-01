@@ -122,3 +122,4 @@ prewarm:
 # === Voice input and playback (declined in `aiur init`; ElevenLabs) ===
 elevenlabs:
   enabled: false
+  api_key: $ELEVENLABS_API_KEY   # key only: the dashboard's ElevenLabs quota meter (free read); voice stays off (Kevin, 2026-11-01)
