@@ -70,7 +70,7 @@ agent:
   priority: [codex, claude]
   accounts:
     claude: [default, second]
-  account_selection: headroom
+  account_selection: priority   # Kevin 2026-11-01: Codex first until its limit, then Claude; headroom had put every worker on claude/second (26% vs codex 24%)
   max_concurrent_agents: 8
   max_concurrent_builds: 3
   build_start_stagger_seconds: 5
