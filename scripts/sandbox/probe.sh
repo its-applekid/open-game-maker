@@ -138,13 +138,13 @@ printf '| network | %s |\n' "$network_result"
 
 tmp_result="$(
   run_sandbox /bin/sh -c \
-    'path="/tmp/ogm-sandbox-probe.$$"; if : >"$path" 2>/dev/null; then rm -f "$path"; echo WRITABLE; else echo DENIED; fi'
+    'path="/tmp/ogm-sandbox-probe.$$"; if ( : >"$path" ) 2>/dev/null; then rm -f "$path"; echo WRITABLE; else echo DENIED; fi'
 )"
 printf '| `/tmp` write | %s |\n' "$tmp_result"
 
 workspace_result="$(
   run_sandbox /bin/sh -c \
-    'path="./.ogm-sandbox-probe.$$"; if : >"$path" 2>/dev/null; then rm -f "$path"; echo WRITABLE; else echo DENIED; fi'
+    'path="./.ogm-sandbox-probe.$$"; if ( : >"$path" ) 2>/dev/null; then rm -f "$path"; echo WRITABLE; else echo DENIED; fi'
 )"
 printf '| workspace write | %s |\n' "$workspace_result"
 
