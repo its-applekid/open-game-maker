@@ -294,7 +294,7 @@ async function stripWrapper(root: string): Promise<void> {
   await rm(temporary, { recursive: true, force: true });
 }
 
-function archiveStem(file: string): string {
+export function archiveStem(file: string): string {
   const name = basename(file);
   return name.replace(/\.(?:tar\.gz|unitypackage|zip|7z|rar|tar|tgz)$/i, '');
 }

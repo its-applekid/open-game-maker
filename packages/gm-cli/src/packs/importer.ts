@@ -7,7 +7,7 @@ import { licenseFor } from '@ogm/asset-cards';
 import { createCards } from './cards.js';
 import { confirmCollection } from './confirm.js';
 import { identify } from './identify.js';
-import { unpack, type UnpackCaps } from './unpack.js';
+import { archiveStem, unpack, type UnpackCaps } from './unpack.js';
 
 export class PackRefusal extends Error {}
 
@@ -171,8 +171,9 @@ async function copyExtracted(source: string, extracted: string): Promise<{ neste
     extractedBytes += archiveUsage.bytes;
     nested += 1 + result.nested;
     dropped.push(...result.dropped.map((droppedPath) => `${path}!/${droppedPath}`));
-    const destination = join(extracted, dirname(path) === '.' ? '' : dirname(path));
-    await mkdir(destination, { recursive: true });
+    // Each archive gets its own folder, so archives in one drop that share member names cannot collide.
+    const destination = join(extracted, dirname(path), archiveStem(path));
+    await mkdir(dirname(destination), { recursive: true });
     await cp(archiveTarget, destination, { recursive: true, force: false, errorOnExist: true });
     await rm(archiveTarget, { recursive: true, force: true });
   }

@@ -1,6 +1,7 @@
 import { mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
+import AdmZip from 'adm-zip';
 import sharp from 'sharp';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -66,6 +67,28 @@ describe('gm packs import', () => {
       env,
     });
     expect(search.out).toEqual([]);
+  });
+
+  it('imports a folder of archives whose members share names', async () => {
+    // Real Drive drops are folders of several vendor zips, each with its own readme and license file.
+    const assets = fresh('gm-pack-assets-');
+    const input = fresh('gm-pack-input-');
+    await mkdir(join(input, 'new packs'));
+    for (const name of ['Orcs', 'Demons']) {
+      const zip = new AdmZip();
+      zip.addFile('readme.txt', Buffer.from(name));
+      zip.addFile(`${name.toLowerCase()}.obj`, Buffer.from('o mesh\n'));
+      await writeFile(join(input, 'new packs', `${name}.zip`), zip.toBuffer());
+    }
+
+    const result = await gm(['packs', 'import', input, '--id', 'multi-zip', '--version', '1', '--json'], {
+      env: { OGM_ASSETS_ROOT: assets },
+    });
+
+    expect(result.code, result.err.join('\n')).toBe(0);
+    const extracted = join(assets, 'packs', 'multi-zip', '1', 'extracted', 'new packs');
+    expect(await readFile(join(extracted, 'Orcs', 'readme.txt'), 'utf8')).toBe('Orcs');
+    expect(await readFile(join(extracted, 'Demons', 'readme.txt'), 'utf8')).toBe('Demons');
   });
 
   it('never confirms a licence from evidence inside the drop', async () => {
