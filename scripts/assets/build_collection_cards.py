@@ -39,17 +39,17 @@ FAMILY_COVERAGE = {"c": "characters", "e": "environment", "p": "props", "u": "ui
 SKIP_NAMES = {"preview.png", "sample.png", "license.txt", "icon.png"}
 
 
-def load_style_sets(path: Path = STYLE_FAMILIES_JSON) -> dict[str, str]:
-    """Curated pack id -> compatibility set id; membership is written during intake step 7b."""
+def load_style_compatibility(path: Path = STYLE_FAMILIES_JSON) -> dict[str, dict[str, str]]:
+    """Curated pack id -> family and compatibility set; membership is written during intake step 7b."""
     return {
-        pack["id"]: style_set["id"]
+        pack["id"]: {"family": family["id"], "set": style_set["id"]}
         for family in json.loads(path.read_text())
         for style_set in family.get("sets", [])
         for pack in style_set["packs"]
     }
 
 
-STYLE_SET_BY_PACK = load_style_sets()
+STYLE_COMPATIBILITY_BY_PACK = load_style_compatibility()
 
 
 def load_table(path: Path = LICENSES_JSON) -> dict:
@@ -198,8 +198,11 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
                 "creation_choice": False, "pack_manifest": f"assets-local/packs/{pid}/pack.json", "files_total": v.get("extracted_files", 0)}
         if t:
             info["family_coverage"] = {name: letter in t.get("fc", "") for letter, name in FAMILY_COVERAGE.items()}
-    if set_id := STYLE_SET_BY_PACK.get(pid):
-        describe["set"] = set_id
+    if compatibility := STYLE_COMPATIBILITY_BY_PACK.get(pid):
+        describe["style_family"] = compatibility["family"]
+        describe["set"] = compatibility["set"]
+        prov["describe.style_family"] = {"by": "code", "tool": TOOL, "at": NOW,
+                                         "input": "packages/asset-cards/data/style-families.json"}
         prov["describe.set"] = {"by": "code", "tool": TOOL, "at": NOW,
                                 "input": "packages/asset-cards/data/style-families.json"}
     else:

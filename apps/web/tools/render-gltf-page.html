@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OGM glTF renderer</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/three/build/three.module.js",
+          "three/addons/": "/three/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #e9e1cc;
+      }
+
+      canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+      const SIZE = 512;
+      const BACKGROUND = 0xe9e1cc;
+      const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+      renderer.setPixelRatio(1);
+      renderer.setSize(SIZE, SIZE, false);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = 1;
+      document.body.append(renderer.domElement);
+
+      const scene = new THREE.Scene();
+      scene.background = new THREE.Color(BACKGROUND);
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x756b5e, 2.1));
+      const key = new THREE.DirectionalLight(0xffffff, 3.2);
+      key.position.set(4, 7, 5);
+      scene.add(key);
+      const fill = new THREE.DirectionalLight(0xbfd5ff, 1.1);
+      fill.position.set(-4, 3, -2);
+      scene.add(fill);
+
+      const camera = new THREE.PerspectiveCamera(35, 1, 0.001, 100000);
+      const loader = new GLTFLoader();
+      let current = null;
+      let currentHelper = null;
+
+      function rounded(values) {
+        return values.map((value) => Number(value.toFixed(6)));
+      }
+
+      function materialList(material) {
+        return Array.isArray(material) ? material : material ? [material] : [];
+      }
+
+      function disposeCurrent() {
+        if (!current) return;
+        scene.remove(current);
+        if (currentHelper) {
+          scene.remove(currentHelper);
+          currentHelper.geometry.dispose();
+          currentHelper.material.dispose();
+          currentHelper = null;
+        }
+        current.traverse((object) => {
+          if (!object.isMesh) return;
+          object.geometry?.dispose();
+          for (const material of materialList(object.material)) {
+            for (const value of Object.values(material)) if (value?.isTexture) value.dispose();
+            material.dispose();
+          }
+        });
+        current = null;
+      }
+
+      function pivotFor(box) {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const epsilon = Math.max(size.x, size.y, size.z, 1) * 0.05;
+        const yAtBase = Math.abs(box.min.y) <= epsilon;
+        const centeredXZ = Math.abs(center.x) <= epsilon && Math.abs(center.z) <= epsilon;
+        if (yAtBase && centeredXZ) return 'base-center';
+        if (Math.abs(center.x) <= epsilon && Math.abs(center.y) <= epsilon && Math.abs(center.z) <= epsilon)
+          return 'center';
+        if (yAtBase && Math.abs(box.min.x) <= epsilon && Math.abs(box.min.z) <= epsilon) return 'base-corner';
+        return 'other';
+      }
+
+      function rigType(bones) {
+        const names = new Set(bones.map((bone) => bone.name.toLowerCase()));
+        const has = (...parts) => [...names].some((name) => parts.some((part) => name.includes(part)));
+        if (has('hip', 'pelvis') && has('spine') && has('head')) return 'humanoid';
+        if (has('wheel', 'axle')) return 'vehicle';
+        if (has('paw', 'hoof') && has('spine')) return 'quadruped';
+        return 'custom';
+      }
+
+      function frame(box) {
+        const size = box.getSize(new THREE.Vector3());
+        const center = box.getCenter(new THREE.Vector3());
+        const radius = Math.max(size.length() / 2, 0.05);
+        const distance = (radius / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2))) * 1.35;
+        const direction = new THREE.Vector3(1, Math.tan(THREE.MathUtils.degToRad(35)) * Math.SQRT2, 1).normalize();
+        camera.near = Math.max(distance / 1000, 0.001);
+        camera.far = Math.max(distance * 10, 100);
+        camera.position.copy(center).addScaledVector(direction, distance);
+        camera.lookAt(center);
+        camera.updateProjectionMatrix();
+      }
+
+      window.renderModel = async (url) => {
+        disposeCurrent();
+        const gltf = await loader.loadAsync(url);
+        current = gltf.scene;
+        scene.add(current);
+        current.updateMatrixWorld(true);
+
+        let triangles = 0;
+        let vertices = 0;
+        const materials = new Set();
+        const textureNames = new Set();
+        const bonesByName = new Map();
+        current.traverse((object) => {
+          if (object.isBone) bonesByName.set(object.uuid, object);
+          if (!object.isMesh) return;
+          const position = object.geometry?.getAttribute('position');
+          if (position) vertices += position.count;
+          triangles += Math.floor((object.geometry?.index?.count ?? position?.count ?? 0) / 3);
+          for (const material of materialList(object.material)) {
+            materials.add(material.name || material.type);
+            for (const value of Object.values(material)) {
+              if (value?.isTexture)
+                textureNames.add(value.name || value.source?.data?.currentSrc || value.source?.data?.src || 'unnamed');
+            }
+          }
+        });
+
+        const box = new THREE.Box3().setFromObject(current);
+        if (box.isEmpty() && bonesByName.size) {
+          for (const bone of bonesByName.values()) box.expandByPoint(bone.getWorldPosition(new THREE.Vector3()));
+          if (box.getSize(new THREE.Vector3()).length() === 0) box.expandByScalar(0.05);
+          currentHelper = new THREE.SkeletonHelper(current);
+          scene.add(currentHelper);
+        }
+        if (box.isEmpty()) throw new Error('glTF scene has no renderable bounds or skeleton');
+
+        const bones = [...bonesByName.values()]
+          .map((bone) => ({
+            name: bone.name || `bone-${bone.id}`,
+            parent: bone.parent?.isBone ? bone.parent.name || `bone-${bone.parent.id}` : null,
+          }))
+          .sort(
+            (left, right) =>
+              left.name.localeCompare(right.name) || String(left.parent).localeCompare(String(right.parent)),
+          );
+
+        frame(box);
+        renderer.render(scene, camera);
+        return {
+          triangles,
+          vertices,
+          bounds: { min: rounded(box.min.toArray()), max: rounded(box.max.toArray()) },
+          pivot: pivotFor(box),
+          materials: [...materials].sort(),
+          textureNames: [...textureNames].sort(),
+          rig: bones.length ? { type: rigType(bones), bones } : null,
+          clips: gltf.animations
+            .map((clip) => ({ name: clip.name || 'unnamed', duration: Number(clip.duration.toFixed(6)) }))
+            .sort((left, right) => left.name.localeCompare(right.name)),
+        };
+      };
+
+      window.rendererReady = true;
+    </script>
+  </body>
+</html>

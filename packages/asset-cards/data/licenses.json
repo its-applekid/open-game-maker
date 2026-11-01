@@ -1,7 +1,7 @@
 [
   {
     "id": "CC0-1.0",
-    "aliases": [],
+    "aliases": ["kaykit"],
     "ceiling": {
       "uses": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
       "audience": "public",
