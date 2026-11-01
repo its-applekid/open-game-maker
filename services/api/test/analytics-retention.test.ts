@@ -15,6 +15,10 @@ const baseEnv = {
   OGM_APP_ORIGIN: 'https://app.example.test',
   OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
   OGM_COMMIT_SERVICE_TOKEN: 'commit-service-token-for-tests',
+  OGM_BUILDER_BOT_TOKEN: 'builder-bot-token-for-tests-0123456789',
+  OGM_BUILDER_BOT_LOGIN: 'ogm-builder',
+  OGM_INTAKE_GITHUB_TOKEN: 'intake-github-token-for-tests-0123456789',
+  OGM_INTAKE_BOT_LOGIN: 'ogm-intake',
   OGM_VAPID_SUBJECT: 'operator@example.test',
 };
 
@@ -27,11 +31,13 @@ describe('analytics retention', () => {
     expect(loadApiEnv(baseEnv)).toMatchObject({
       OGM_ANALYTICS_RETENTION_DAYS: 90,
       OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: 5_000_000,
+      OGM_INTAKE_SWEEP_SECONDS: 60,
     });
     expect(() => loadApiEnv({ ...baseEnv, OGM_ANALYTICS_RETENTION_DAYS: '0' })).toThrow(/OGM_ANALYTICS_RETENTION_DAYS/);
     expect(() => loadApiEnv({ ...baseEnv, OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: '0' })).toThrow(
       /OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD/,
     );
+    expect(() => loadApiEnv({ ...baseEnv, OGM_INTAKE_SWEEP_SECONDS: '0' })).toThrow(/OGM_INTAKE_SWEEP_SECONDS/);
   });
 
   it('deletes only expired activity events and keeps phase history', () => {
