@@ -44,6 +44,8 @@ assets-local/
 
 `gm packs index --import-previews` copies `previews/`, `private/previews/` and `private/hash-manifests/` into the blob store at `$OGM_BLOB_ROOT` (content-addressed, idempotent) and records `previews.blob` and `visibility` (`private` for `private/` keys) on the index entries. Card files and originals are never written or moved.
 
+`gm packs index --families` recomputes every style family's coverage from the rebuilt card index and rewrites `packages/asset-cards/data/style-families.json`. If a family offered during game creation no longer has characters, environment, or props, the command exits 1 and leaves the family file unchanged.
+
 ## `pack.json`
 
 ```json

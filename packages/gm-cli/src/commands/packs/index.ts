@@ -1,7 +1,15 @@
 import { createReadStream } from 'node:fs';
 import { extname, join } from 'node:path';
 
-import { buildIndex, writeIndex, type CardIndex } from '@ogm/asset-cards';
+import {
+  buildIndex,
+  coverageTable,
+  loadFamilies,
+  recompute,
+  writeFamilies,
+  writeIndex,
+  type CardIndex,
+} from '@ogm/asset-cards';
 import { FsBlobStore, type BlobHash } from '@ogm/blob-store';
 
 import { EXIT, UsageError, type GmCommand, type GmContext } from '../../command.js';
@@ -91,6 +99,8 @@ async function runIndex(ctx: GmContext, flags: Record<string, unknown>): Promise
   }
   const index = await buildIndex(root);
   const imported = blobRoot ? await importPreviews(root, blobRoot, index) : null;
+  const familyReport = flags.families === true ? recompute(index, loadFamilies()) : null;
+  if (familyReport && familyReport.failures.length === 0) writeFamilies(familyReport.families);
   await writeIndex(root, index);
 
   const summary = {
@@ -98,24 +108,39 @@ async function runIndex(ctx: GmContext, flags: Record<string, unknown>): Promise
     collections: Object.keys(index.collections).length,
     errors: index.errors.length,
     ...(imported ?? {}),
+    ...(familyReport ? { families: familyReport.families.length, family_failures: familyReport.failures.length } : {}),
   };
-  if (ctx.json) printJson(ctx, { ...summary, error_paths: index.errors.map((error) => error.path) });
+  if (ctx.json)
+    printJson(ctx, {
+      ...summary,
+      error_paths: index.errors.map((error) => error.path),
+      ...(familyReport
+        ? { family_coverage: Object.fromEntries(familyReport.families.map((family) => [family.id, family.coverage])) }
+        : {}),
+    });
   else {
     ctx.out(`${summary.cards} cards, ${summary.collections} collections, ${summary.errors} errors`);
     for (const error of index.errors) ctx.out(`  ${error.path}: ${error.errors.join('; ')}`);
     if (imported)
       ctx.out(`previews: ${imported.put} put, ${imported.skipped} already stored, ${imported.mapped} cards mapped`);
+    if (familyReport) coverageTable(familyReport.families).forEach(ctx.out);
   }
+  for (const failure of familyReport?.failures ?? []) ctx.err(failure);
   ctx.emit('assets.index', summary);
-  return EXIT.ok;
+  return familyReport && familyReport.failures.length > 0 ? EXIT.failed : EXIT.ok;
 }
 
 export const command: GmCommand = {
   name: 'packs index',
-  summary: 'rebuild the card index now; --import-previews copies previews into the blob store',
-  usage: '[--import-previews]',
-  example: 'packs index --import-previews --json',
+  summary: 'rebuild the card index now; optionally refresh families or import previews',
+  usage: '[--families] [--import-previews]',
+  example: 'packs index --families --import-previews --json',
   flags: {
+    families: {
+      type: 'boolean',
+      default: false,
+      help: 'recompute and write style-family coverage from the rebuilt index',
+    },
     'import-previews': {
       type: 'boolean',
       default: false,

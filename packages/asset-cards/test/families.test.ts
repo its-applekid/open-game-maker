@@ -1,4 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -16,6 +17,7 @@ import {
   loadFamilies,
   packsOfFamily,
   setFor,
+  writeFamilies,
   type CardIndex,
   type StyleFamily,
 } from '../src/index.js';
@@ -272,5 +274,14 @@ describe('families:coverage recompute', () => {
     const { families: next, failures } = recompute(index, families);
     expect(next.find((f) => f.id === 'pixel-art')?.coverage.props).toBe(false);
     expect(failures.some((line) => line.startsWith('pixel-art: creation_choice'))).toBe(true);
+  });
+
+  it('validates before writing a family file', () => {
+    const path = join(mkdtempSync(join(tmpdir(), 'families-write-')), 'style-families.json');
+    writeFamilies(loadFamilies(), path);
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(loadFamilies());
+
+    expect(() => writeFamilies(loadFamilies().slice(1), path)).toThrow(/chunky-low-poly must appear once/);
+    expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual(loadFamilies());
   });
 });

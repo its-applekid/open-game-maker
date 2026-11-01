@@ -2,10 +2,33 @@ import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import type { StyleFamily } from '@ogm/asset-cards';
 
 import { gm, tempDir } from './helpers.js';
 import { MANIFEST_LINES, SOURCE_CARD, rightsLibrary } from './library-rights.js';
+
+const familyState = vi.hoisted(() => ({ enabled: false, written: [] as StyleFamily[] }));
+
+vi.mock('@ogm/asset-cards', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@ogm/asset-cards')>();
+  return {
+    ...actual,
+    loadFamilies: () =>
+      familyState.enabled
+        ? actual.loadFamilies().map((family) => ({
+            ...family,
+            coverage: { characters: false, environment: false, props: false, ui: false, sfx: false, music: false },
+            creation_choice: false,
+          }))
+        : actual.loadFamilies(),
+    writeFamilies: (families: StyleFamily[]) => {
+      if (!familyState.enabled) throw new Error('unexpected style-family write');
+      familyState.written = structuredClone(families);
+    },
+  };
+});
 
 const ORC = 't1:kenney-mini-dungeon/character-orc@2.0';
 
@@ -81,5 +104,25 @@ describe('gm packs index', () => {
     const result = await gm(['packs', 'index', '--import-previews'], { env: { OGM_ASSETS_ROOT: root } });
     expect(result.code).toBe(2);
     expect(result.err[0]).toContain('OGM_BLOB_ROOT');
+  });
+
+  it('recomputes and writes style-family coverage with --families', async () => {
+    familyState.enabled = true;
+    familyState.written = [];
+    try {
+      const root = rightsLibrary();
+      const result = await gm(['packs', 'index', '--families'], { env: { OGM_ASSETS_ROOT: root } });
+
+      expect(result.code).toBe(0);
+      expect(result.out).toContain('family  characters  environment  props  ui  sfx  music  creation_choice');
+      expect(familyState.written).toHaveLength(7);
+      expect(familyState.written.find((family) => family.id === 'chunky-low-poly')?.coverage).toMatchObject({
+        characters: true,
+        environment: true,
+        props: true,
+      });
+    } finally {
+      familyState.enabled = false;
+    }
   });
 });
