@@ -78,6 +78,22 @@ export default new Hono().get('/seen', (c) => c.text(seen));
     expect(await (await app.request('/same/b')).text()).toBe('b');
   });
 
+  it('fails boot when shared-prefix contexts register the same method and path', async () => {
+    const route = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/ping', c => c.text('pong'));\n`;
+    const root = tempRoot({ a: { 'routes.ts': route }, b: { 'routes.ts': route } });
+    await expect(scan(root)).rejects.toThrow(
+      /b\/routes\.ts: route GET \/same\/ping is already mounted by a\/routes\.ts/,
+    );
+  });
+
+  it('lets shared-prefix contexts use different methods on the same path', async () => {
+    const get = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/ping', c => c.text('get'));\n`;
+    const post = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().post('/ping', c => c.text('post'));\n`;
+    const { app } = await scan(tempRoot({ a: { 'routes.ts': get }, b: { 'routes.ts': post } }));
+    expect(await (await app.request('/same/ping')).text()).toBe('get');
+    expect(await (await app.request('/same/ping', { method: 'POST' })).text()).toBe('post');
+  });
+
   it('mounts the shipped contexts', async () => {
     const { mounted } = await makeApp();
     expect(mounted.map(({ prefix }) => prefix)).toEqual(['/api/v1', '/blobs', '/api/v1', '/', '/api/v1']);

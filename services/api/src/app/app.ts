@@ -23,10 +23,10 @@ export type { ApiBindings, AppDeps, LogLine } from './types.js';
 export { parseBody, parseQuery } from './validate.js';
 
 const requestIdPattern = /^[A-Za-z0-9-]{1,64}$/;
-const inviteAcceptPath = /^(\/api\/v1\/invites\/)[^/]+(\/accept)$/;
+const invitePathSegment = /(\/api\/v1\/invites\/)[^/]+/gi;
 
 function requestLogPath(path: string): string {
-  return path.replace(inviteAcceptPath, '$1:token$2');
+  return path.replace(invitePathSegment, '$1:token');
 }
 
 // Routes are mounted afterwards by `scanRoutes`, so these middlewares run before every context.
