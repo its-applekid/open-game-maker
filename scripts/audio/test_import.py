@@ -7,7 +7,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import import_sidetrax as imp
 
-VALIDATOR = Path(__file__).parents[2] / "docs/research/v0.5/schemas/tools/validate.mjs"
+VALIDATOR = Path(__file__).parents[2] / "packages/contracts/bin/validate-cards.mjs"
 
 
 def make_zip(path: Path, members: dict):
@@ -79,10 +79,10 @@ def test_stem_key_groups_cut_names():
     assert imp.stem_key("Charge") != imp.stem_key("Charged")
 
 
-@pytest.mark.skipif(not (VALIDATOR.parent / "node_modules").exists(), reason="validator deps not installed")
+@pytest.mark.skipif(not (VALIDATOR.parents[1] / "dist/bin/validate-cards.js").exists(), reason="build @ogm/contracts first")
 def test_draft_collection_card_validates(tmp_path):
     """The draft card must pass C3 rights=basis: default rights until Kevin confirms the license."""
     f = tmp_path / "card.json"
     f.write_text(json.dumps(imp.draft_card("sidetrax-pack-60-battle", "Pack 60: Battle", 10, True)))
-    r = subprocess.run(["node", str(VALIDATOR), str(VALIDATOR.parents[1]), str(f)], capture_output=True, text=True)
+    r = subprocess.run(["node", str(VALIDATOR), str(f)], capture_output=True, text=True)
     assert r.returncode == 0, r.stdout[-2000:]

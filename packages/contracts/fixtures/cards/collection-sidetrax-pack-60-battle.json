@@ -1,5 +1,5 @@
 {
-  "schema": "ogm.asset-card/1.0",
+  "schema": "ogm.asset-card/1.1",
   "vocab": "2026-10-27",
   "id": "t1:sidetrax-pack-60-battle@v1",
   "card_type": "collection",
@@ -13,6 +13,7 @@
     "audience": "private",
     "redistribution": "none",
     "attribution": null,
+    "processing": "local-only",
     "basis": [
       {
         "type": "license",

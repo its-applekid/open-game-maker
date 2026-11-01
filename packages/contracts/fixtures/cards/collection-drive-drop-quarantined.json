@@ -1,5 +1,5 @@
 {
-  "schema": "ogm.asset-card/1.0",
+  "schema": "ogm.asset-card/1.1",
   "vocab": "2026-10-26",
   "id": "t1:drive-2026-10-26-dungeon-sfx@1",
   "card_type": "collection",
@@ -13,6 +13,7 @@
     "audience": "private",
     "redistribution": "none",
     "attribution": null,
+    "processing": "local-only",
     "basis": [
       {
         "type": "default",
