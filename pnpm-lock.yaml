@@ -179,6 +179,9 @@ importers:
       '@ogm/asset-cards':
         specifier: workspace:*
         version: link:../asset-cards
+      '@ogm/blob-store':
+        specifier: workspace:*
+        version: link:../blob-store
       '@ogm/config':
         specifier: workspace:*
         version: link:../config

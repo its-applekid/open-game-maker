@@ -9,6 +9,10 @@ export type GmContext = {
   out: (line: string) => void;
   err: (line: string) => void;
   emit(event: string, payload: unknown): void;
+  /** `OGM_BLOB_ROOT`, resolved against cwd; null when unset. */
+  blobRoot: string | null;
+  /** `OGM_BLOCKLIST_FILE`, resolved against cwd; null when unset. */
+  blocklistFile: string | null;
 };
 
 /** One file per command under `src/commands/<namespace>/<cmd>.ts`, exporting `command`. */

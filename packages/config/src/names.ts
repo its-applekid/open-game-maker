@@ -84,4 +84,10 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'string',
     doc: 'fixed owner/repository for platform bug reports',
   },
+  {
+    name: 'OGM_BLOCKLIST_FILE',
+    unit: 'shared',
+    kind: 'path',
+    doc: 'redistribution:none hash feed (gm packs blocklist writes, commit service reads)',
+  },
 ];
