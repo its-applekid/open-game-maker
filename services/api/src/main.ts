@@ -16,6 +16,7 @@ import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
 import { startEstimateRefinement } from './budget/estimate.js';
+import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
@@ -44,6 +45,8 @@ const deps: AppDeps = {
     gamesRoot: env.OGM_GAMES_ROOT ?? join(env.OGM_DATA_DIR, '..', 'games'),
     vapidKeyFile: env.OGM_VAPID_KEY_FILE,
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
+    builderWorkspacesRoot: env.OGM_BUILDER_WORKSPACES_ROOT,
+    chatPollMs: env.OGM_CHAT_POLL_MS,
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
@@ -60,6 +63,8 @@ const deps: AppDeps = {
   startedAtMs: Date.now(),
   log,
 };
+deps.registry.chatJobs = createChatJobDirectory(db);
+deps.registry.aiurClientFor = daemonDirectory.clientForSlug;
 
 const budgetDefaults = {
   dailyAllowanceMicroUsd: deps.config.defaultDailyAllowanceMicroUsd,

@@ -11,7 +11,7 @@ import './title.css';
 const SOUND_LABEL: Record<SoundStatus, string> = { on: 'Sound on', off: 'Sound off', tap: 'Tap to start sound' };
 
 export function TitleScreen({ townSrc }: { townSrc?: string }) {
-  const session = useSession();
+  const { data: session } = useSession();
   const navigate = useNavigate();
   const sound = useSyncExternalStore(onChange, status);
   useInitialFocus('title-menu');
@@ -31,7 +31,10 @@ export function TitleScreen({ townSrc }: { townSrc?: string }) {
         <img src="/art/logo.webp" alt="Open Game Maker 2000" />
       </h1>
       <FocusZone id="title-menu" className="title-menu">
-        <MenuButton className="title-start" onClick={() => navigate(session ? '/games' : '/age')}>
+        <MenuButton
+          className="title-start"
+          onClick={() => navigate(session ? '/games' : `/age?next=${encodeURIComponent('/connect/github')}`)}
+        >
           Start
         </MenuButton>
       </FocusZone>

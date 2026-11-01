@@ -26,6 +26,8 @@ export const apiEnvSpec = {
   OGM_VAPID_SUBJECT: { kind: 'string' },
   OGM_VOICE_HOST_INTERNAL_URL: { kind: 'url', required: false },
   OGM_VOICE_INTERNAL_SECRET: { kind: 'secret', required: false },
+  OGM_BUILDER_WORKSPACES_ROOT: { kind: 'path', required: false },
+  OGM_CHAT_POLL_MS: { kind: 'int', default: '10000' },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {

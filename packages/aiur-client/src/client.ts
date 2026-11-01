@@ -51,7 +51,12 @@ export interface AiurClient {
   cancel(id: string): Promise<CancelResult>;
   pause(id: string): Promise<void>;
   resume(id: string): Promise<void>;
-  message(id: string, text: string, messageId?: string): Promise<{ request_id: string; warning?: 'outcome_unknown' }>;
+  message(
+    id: string,
+    text: string,
+    messageId?: string,
+    signal?: AbortSignal,
+  ): Promise<{ request_id: string; warning?: 'outcome_unknown' }>;
   nudgeTodo(ids: string[]): Promise<void>;
   accounts(): Promise<UsageAccounts>;
   events(after: number, limit: number, patterns: string[]): Promise<EventPage>;
@@ -71,6 +76,7 @@ type RequestOptions = {
   write?: boolean;
   supervisor?: boolean;
   allowStatuses?: number[];
+  signal?: AbortSignal;
 };
 
 const ISSUE_ID = /^[1-9][0-9]{0,18}$/;
@@ -106,6 +112,7 @@ export function createAiurClient(
         method,
         headers,
         body: request.body === undefined ? undefined : JSON.stringify(request.body),
+        signal: request.signal,
       });
       body = await responseBody(response);
     } catch (cause) {
@@ -122,13 +129,17 @@ export function createAiurClient(
     await fetchResponse('POST', path, { write: true });
   }
 
-  async function sendMessage(id: string, text: string, messageId?: string, retry = false) {
+  async function sendMessage(id: string, text: string, messageId?: string, signal?: AbortSignal, retry = false) {
     const body = messageId ? { text, message_id: messageId } : { text };
-    const result = await fetchResponse('POST', `/api/v1/${encodeURIComponent(id)}/messages`, { body, write: true });
+    const result = await fetchResponse('POST', `/api/v1/${encodeURIComponent(id)}/messages`, {
+      body,
+      write: true,
+      signal,
+    });
     const parsed = MessageResultSchema.parse(result.body);
     if (parsed.outcome === 'unknown' && messageId && !retry) {
       await sleep(retryDelay);
-      return sendMessage(id, text, messageId, true);
+      return sendMessage(id, text, messageId, signal, true);
     }
     return {
       request_id: parsed.request_id ?? '',
@@ -172,7 +183,7 @@ export function createAiurClient(
     },
     pause: (id) => writeWithoutResult(`/api/v1/${encodeURIComponent(id)}/pause`),
     resume: (id) => writeWithoutResult(`/api/v1/${encodeURIComponent(id)}/resume`),
-    message: (id, text, messageId) => sendMessage(id, text, messageId),
+    message: (id, text, messageId, signal) => sendMessage(id, text, messageId, signal),
     async nudgeTodo(ids) {
       if (ids.length === 0 || ids.some((id) => !ISSUE_ID.test(id)))
         throw new TypeError('Invalid issue identifier in todo list');

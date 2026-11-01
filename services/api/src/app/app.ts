@@ -12,6 +12,9 @@ export { JOB_TOKEN_TTL_SEC, signJobToken, verifyJobToken } from './job-token.js'
 export { requirePrincipal } from './principal.js';
 export {
   createRegistry,
+  type AiurClientResolver,
+  type ChatJob,
+  type ChatJobDirectory,
   resolveGame,
   type GameInfo,
   type GameResolver,
