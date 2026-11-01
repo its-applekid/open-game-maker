@@ -85,43 +85,47 @@ export function recordUsage(input: {
   zone: string;
 }): number {
   const row = job(input.db, input.jobId);
-  const previous = input.db
-    .select()
-    .from(schema.budgetLedger)
-    .where(
-      and(
-        eq(schema.budgetLedger.jobId, input.jobId),
-        eq(schema.budgetLedger.kind, 'usage'),
-        eq(schema.budgetLedger.aiurRunId, input.runId),
-      ),
-    )
-    .all()
-    .reduce((total, entry) => total + entry.amountMicroUsd, 0);
-  const delta = Math.max(0, input.microUsd - previous);
-  if (delta > 0) {
-    insert(input.db, {
-      familyId: row.familyId,
-      userId: row.creatorId,
-      jobId: row.id,
-      kind: 'usage',
-      amountMicroUsd: delta,
-      at: input.at,
-      day: dayKey(input.at, input.zone),
-      aiurRunId: input.runId,
-    });
-    const usageMicroUsd = input.db
+  return input.db.transaction((tx) => {
+    const previous = tx
+      .select()
+      .from(schema.budgetLedger)
+      .where(
+        and(
+          eq(schema.budgetLedger.jobId, input.jobId),
+          eq(schema.budgetLedger.kind, 'usage'),
+          eq(schema.budgetLedger.aiurRunId, input.runId),
+        ),
+      )
+      .all()
+      .reduce((total, entry) => total + entry.amountMicroUsd, 0);
+    const delta = Math.max(0, input.microUsd - previous);
+    if (delta === 0) return 0;
+
+    tx.insert(schema.budgetLedger)
+      .values({
+        id: `l_${randomUUID()}`,
+        familyId: row.familyId,
+        userId: row.creatorId,
+        jobId: row.id,
+        kind: 'usage',
+        amountMicroUsd: delta,
+        at: input.at.toISOString(),
+        dayKey: dayKey(input.at, input.zone),
+        aiurRunId: input.runId,
+      })
+      .run();
+    const usageMicroUsd = tx
       .select()
       .from(schema.budgetLedger)
       .where(and(eq(schema.budgetLedger.jobId, input.jobId), eq(schema.budgetLedger.kind, 'usage')))
       .all()
       .reduce((total, entry) => total + entry.amountMicroUsd, 0);
-    input.db
-      .update(schema.jobs)
+    tx.update(schema.jobs)
       .set({ usageMicroUsd, updatedAt: input.at.toISOString() })
       .where(eq(schema.jobs.id, input.jobId))
       .run();
-  }
-  return delta;
+    return delta;
+  });
 }
 
 export function releaseReservation(input: { db: Db; jobId: string; at: Date; zone: string }): number {

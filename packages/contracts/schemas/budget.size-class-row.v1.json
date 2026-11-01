@@ -7,8 +7,7 @@
       "enum": [
         "new_game",
         "feature",
-        "repair",
-        "scope"
+        "repair"
       ]
     },
     "sizeClass": {

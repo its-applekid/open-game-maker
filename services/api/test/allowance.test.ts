@@ -108,4 +108,25 @@ describe('allowance arithmetic', () => {
     expect(releaseReservation({ db: deps.db, jobId: 'j_1', at: NOW, zone: defaults.resetZone })).toBe(1_500_000);
     expect(releaseReservation({ db: deps.db, jobId: 'j_1', at: NOW, zone: defaults.resetZone })).toBe(0);
   });
+
+  it('rolls back a usage delta when the job total cannot be updated', () => {
+    const deps = seed();
+    deps.sqlite.exec(
+      `CREATE TRIGGER fail_usage_total BEFORE UPDATE OF usage_micro_usd ON jobs
+       BEGIN SELECT RAISE(ABORT, 'forced usage total failure'); END`,
+    );
+
+    expect(() =>
+      recordUsage({
+        db: deps.db,
+        jobId: 'j_1',
+        microUsd: 1_000_000,
+        runId: 'run-1',
+        at: NOW,
+        zone: defaults.resetZone,
+      }),
+    ).toThrow(/forced usage total failure/);
+    expect(deps.db.select().from(schema.budgetLedger).all()).toEqual([]);
+    expect(deps.db.select().from(schema.jobs).get()?.usageMicroUsd).toBe(0);
+  });
 });

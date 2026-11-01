@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { CreateJobRequest } from '@ogm/contracts';
 import { schema } from '@ogm/db';
+import { eq } from 'drizzle-orm';
 
 import { AdmissionRefused, admit } from '../src/jobs/admission.js';
 import { reserve } from '../src/budget/ledger.js';
@@ -206,12 +207,14 @@ describe('job admission', () => {
       input,
       actor,
     );
+    deps.db.update(schema.jobs).set({ state: 'filed' }).where(eq(schema.jobs.id, first.jobId)).run();
     const second = await admit(
       { db: deps.db, sqlite: deps.sqlite, events: deps.events, now: () => NOW, defaults },
       input,
       actor,
     );
     expect(second.jobId).toBe(first.jobId);
+    expect(second.state).toBe('admitted');
     expect(deps.db.select().from(schema.jobs).all()).toHaveLength(1);
     expect(changed).toHaveLength(1);
   });

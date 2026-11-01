@@ -70,8 +70,7 @@ export function listJobs(db: Db, gameId: string): Job[] {
 
 export function acceptedFor(db: Db, row: JobRow): CreateJobAccepted {
   const reservation = Reservation.parse(JSON.parse(row.reservation));
-  if (row.state !== 'queued' && row.state !== 'admitted') throw new HttpError(409, 'job_already_started');
-  if (row.state === 'admitted') return { jobId: row.id, state: row.state, reservation, slot: row.slot };
+  if (row.state !== 'queued') return { jobId: row.id, state: 'admitted', reservation, slot: row.slot };
   const position =
     db
       .select({ id: schema.jobs.id })

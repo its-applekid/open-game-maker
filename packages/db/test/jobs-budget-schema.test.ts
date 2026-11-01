@@ -52,4 +52,29 @@ describe('jobs and budget schema', () => {
     expect(() => insert.run('j_2', ...args)).toThrow(/UNIQUE/);
     sqlite.close();
   });
+
+  it('allows one job per filed aiur ticket', () => {
+    const { sqlite } = openDb(':memory:');
+    migrate({ sqlite });
+    sqlite
+      .prepare('INSERT INTO families (id, name, owner_user_id, created_at) VALUES (?, ?, ?, ?)')
+      .run('f_1', 'Family', 'u_1', '2026-11-01T00:00:00.000Z');
+    sqlite
+      .prepare(
+        `INSERT INTO games
+         (id, family_id, owner_id, title, visibility, repo_visibility, created_at)
+         VALUES (?, ?, ?, ?, 'private', 'private', ?)`,
+      )
+      .run('g_1', 'f_1', 'u_1', 'Game', '2026-11-01T00:00:00.000Z');
+    const insert = sqlite.prepare(
+      `INSERT INTO jobs
+       (id, game_id, branch_id, family_id, creator_id, kind, complexity, state, start, slot, plan, reservation,
+        hard_cap_micro_usd, usage_micro_usd, aiur_repo, aiur_issue_number, created_at, updated_at)
+       VALUES (?, 'g_1', 'main', 'f_1', 'u_1', 'feature', 3, 'filed', 'now', 'edit', '{}', '{}', 9000000, 0,
+               'owner/game', 142, '2026-11-01T00:00:00.000Z', '2026-11-01T00:00:00.000Z')`,
+    );
+    insert.run('j_1');
+    expect(() => insert.run('j_2')).toThrow(/UNIQUE/);
+    sqlite.close();
+  });
 });

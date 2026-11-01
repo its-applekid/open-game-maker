@@ -7,7 +7,7 @@ import { toJSONSchema, type z } from 'zod';
 
 import { analyticsSchemas, ActivityMeta } from '../src/analytics.js';
 import { apiSchemas } from '../src/api.js';
-import { budgetSchemas } from '../src/budget.js';
+import { budgetSchemas, SizeClassRow } from '../src/budget.js';
 import { CreateJobAccepted, CreateJobRequest, Job, jobsSchemas } from '../src/jobs.js';
 import { notificationsSchemas } from '../src/notifications.js';
 import { reportsSchemas } from '../src/reports.js';
@@ -101,10 +101,19 @@ describe('backend contract invariants', () => {
     expect(CreateJobRequest.parse(request)).toMatchObject({ start: 'now', branchId: 'main' });
   });
 
-  it('accepts scope jobs and additive projection fields', () => {
+  it('accepts scope jobs without widening persisted size-class kinds', () => {
     const request = loadJson<Record<string, unknown>>('fixtures/jobs/create-job.request.json');
     request.kind = 'scope';
     expect(CreateJobRequest.parse(request)).toMatchObject({ kind: 'scope' });
+    expect(
+      SizeClassRow.safeParse({
+        kind: 'scope',
+        sizeClass: 'small',
+        p50MicroUsd: 500_000,
+        p80MicroUsd: 1_500_000,
+        samples: 0,
+      }).success,
+    ).toBe(false);
 
     const job = loadJson<Record<string, unknown>>('fixtures/jobs/job.json');
     Object.assign(job, { stage: 'building', stageText: 'Building', phase: 'work', progressPercent: 40 });

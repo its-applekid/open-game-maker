@@ -35,7 +35,7 @@ CREATE TABLE `jobs` (
 --> statement-breakpoint
 CREATE INDEX `jobs_family_state` ON `jobs` (`family_id`,`state`);--> statement-breakpoint
 CREATE INDEX `jobs_game_created` ON `jobs` (`game_id`,`created_at`);--> statement-breakpoint
-CREATE INDEX `jobs_aiur_ticket` ON `jobs` (`aiur_repo`,`aiur_issue_number`);--> statement-breakpoint
+CREATE UNIQUE INDEX `jobs_aiur_ticket` ON `jobs` (`aiur_repo`,`aiur_issue_number`);--> statement-breakpoint
 CREATE UNIQUE INDEX `jobs_creator_idempotency` ON `jobs` (`creator_id`,`idempotency_key`);--> statement-breakpoint
 CREATE TABLE `allowances` (
 	`family_id` text NOT NULL,

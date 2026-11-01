@@ -1,4 +1,5 @@
 import { schema } from '@ogm/db';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 
 import { reserve } from '../src/budget/ledger.js';
@@ -123,6 +124,53 @@ describe('job spend cap and lifecycle', () => {
       expect.objectContaining({ kind: 'adjustment', amountMicroUsd: 3_000_000 }),
     ]);
     expect(changed).toEqual(['running', 'paused_budget', 'running']);
+  });
+
+  it('serializes concurrent cap raises against the latest stored cap', async () => {
+    const { deps } = seed('running');
+    const setSpendCap = vi.fn(async () => {
+      await Promise.resolve();
+      return { amount: '15.000000', currency: 'USD' as const };
+    });
+
+    await Promise.all([
+      raiseCap(lifecycleDeps(deps), 'j_1', 12_000_000, { setSpendCap }),
+      raiseCap(lifecycleDeps(deps), 'j_1', 15_000_000, { setSpendCap }),
+    ]);
+
+    expect(
+      deps.db
+        .select()
+        .from(schema.budgetLedger)
+        .all()
+        .filter(({ kind }) => kind === 'adjustment')
+        .map(({ amountMicroUsd }) => amountMicroUsd),
+    ).toEqual([3_000_000, 3_000_000]);
+    expect(deps.db.select().from(schema.jobs).get()).toMatchObject({
+      hardCapMicroUsd: 15_000_000,
+      aiurSpendCapMicroUsd: 15_000_000,
+    });
+  });
+
+  it('rejects cap raises before filing and after termination', async () => {
+    const { deps } = seed();
+    deps.db
+      .update(schema.jobs)
+      .set({ aiurRepo: 'owner/game', aiurIssueNumber: 142 })
+      .where(eq(schema.jobs.id, 'j_1'))
+      .run();
+    const setSpendCap = vi.fn();
+
+    await expect(raiseCap(lifecycleDeps(deps), 'j_1', 12_000_000, { setSpendCap })).rejects.toMatchObject({
+      status: 409,
+      code: 'job_not_active',
+    });
+    deps.db.update(schema.jobs).set({ state: 'done' }).where(eq(schema.jobs.id, 'j_1')).run();
+    await expect(raiseCap(lifecycleDeps(deps), 'j_1', 12_000_000, { setSpendCap })).rejects.toMatchObject({
+      status: 409,
+      code: 'job_not_active',
+    });
+    expect(setSpendCap).not.toHaveBeenCalled();
   });
 
   it('releases unused reservation once on a terminal transition', () => {

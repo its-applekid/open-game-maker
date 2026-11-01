@@ -12,6 +12,25 @@ import { transition } from './state.js';
 
 type SpendCapClient = Pick<AiurClient, 'setSpendCap'>;
 
+const jobMutationTails = new Map<string, Promise<void>>();
+
+async function withJobMutationLock<T>(jobId: string, operation: () => Promise<T>): Promise<T> {
+  const previous = jobMutationTails.get(jobId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = () => resolve();
+  });
+  const tail = previous.then(() => current);
+  jobMutationTails.set(jobId, tail);
+  await previous;
+  try {
+    return await operation();
+  } finally {
+    release();
+    if (jobMutationTails.get(jobId) === tail) jobMutationTails.delete(jobId);
+  }
+}
+
 export type LifecycleDeps = {
   db: Db;
   sqlite: Sqlite;
@@ -45,32 +64,40 @@ export async function markFiled(
   ticket: { repo: string; issueNumber: number },
   aiur: SpendCapClient,
 ): Promise<Job> {
-  const row = findJobRow(deps.db, jobId);
-  if (row.state === 'filed' && row.aiurSpendCapMicroUsd === row.hardCapMicroUsd) return findJob(deps.db, jobId);
-  if (row.state !== 'admitted') transition(row.state, 'file');
+  return withJobMutationLock(jobId, async () => {
+    const row = findJobRow(deps.db, jobId);
+    if (
+      (row.aiurRepo !== null && row.aiurRepo !== ticket.repo) ||
+      (row.aiurIssueNumber !== null && row.aiurIssueNumber !== ticket.issueNumber)
+    ) {
+      throw new HttpError(409, 'job_ticket_mismatch');
+    }
+    if (row.state === 'filed' && row.aiurSpendCapMicroUsd === row.hardCapMicroUsd) return findJob(deps.db, jobId);
+    if (row.state !== 'admitted') transition(row.state, 'file');
 
-  const updatedAt = nowFor(deps).toISOString();
-  deps.db
-    .update(schema.jobs)
-    .set({ aiurRepo: ticket.repo, aiurIssueNumber: ticket.issueNumber, updatedAt })
-    .where(eq(schema.jobs.id, jobId))
-    .run();
+    const updatedAt = nowFor(deps).toISOString();
+    deps.db
+      .update(schema.jobs)
+      .set({ aiurRepo: ticket.repo, aiurIssueNumber: ticket.issueNumber, updatedAt })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
 
-  try {
-    await aiur.setSpendCap(String(ticket.issueNumber), toUsdString(row.hardCapMicroUsd));
-  } catch {
-    throw new HttpError(502, 'spend_cap_failed');
-  }
+    try {
+      await aiur.setSpendCap(String(ticket.issueNumber), toUsdString(row.hardCapMicroUsd));
+    } catch {
+      throw new HttpError(502, 'spend_cap_failed');
+    }
 
-  const state = transition(row.state, 'file');
-  deps.db
-    .update(schema.jobs)
-    .set({ state, aiurSpendCapMicroUsd: row.hardCapMicroUsd, updatedAt })
-    .where(eq(schema.jobs.id, jobId))
-    .run();
-  const stored = findJobRow(deps.db, jobId);
-  emitState(deps, stored);
-  return findJob(deps.db, jobId);
+    const state = transition(row.state, 'file');
+    deps.db
+      .update(schema.jobs)
+      .set({ state, aiurSpendCapMicroUsd: row.hardCapMicroUsd, updatedAt })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
+    const stored = findJobRow(deps.db, jobId);
+    emitState(deps, stored);
+    return findJob(deps.db, jobId);
+  });
 }
 
 export function markRunning(deps: LifecycleDeps, jobId: string): Job {
@@ -140,55 +167,58 @@ export async function raiseCap(
   amountMicroUsd: number,
   aiur: SpendCapClient,
 ): Promise<Job> {
-  const row = findJobRow(deps.db, jobId);
-  if (!Number.isSafeInteger(amountMicroUsd) || amountMicroUsd <= row.hardCapMicroUsd) {
-    throw new HttpError(409, 'cap_not_increased');
-  }
-  if (row.aiurIssueNumber === null) throw new HttpError(409, 'job_not_filed');
-
-  try {
-    await aiur.setSpendCap(String(row.aiurIssueNumber), toUsdString(amountMicroUsd));
-  } catch (error) {
-    if (error instanceof AiurHttpError && error.status === 409 && error.code === 'spend_cap_exhausted') {
-      deps.db
-        .update(schema.jobs)
-        .set({ pausedReason: 'budget_exhausted', updatedAt: nowFor(deps).toISOString() })
-        .where(eq(schema.jobs.id, jobId))
-        .run();
-      throw new HttpError(409, 'cap_exhausted_upstream');
+  return withJobMutationLock(jobId, async () => {
+    const row = findJobRow(deps.db, jobId);
+    if (!Number.isSafeInteger(amountMicroUsd) || amountMicroUsd <= row.hardCapMicroUsd) {
+      throw new HttpError(409, 'cap_not_increased');
     }
-    throw new HttpError(502, 'spend_cap_failed');
-  }
+    if (!['filed', 'running', 'paused_budget'].includes(row.state)) throw new HttpError(409, 'job_not_active');
+    if (row.aiurIssueNumber === null) throw new HttpError(409, 'job_not_filed');
 
-  const at = nowFor(deps);
-  const delta = amountMicroUsd - row.hardCapMicroUsd;
-  const settings = getBudgetSettings(deps.db, row.familyId, deps.defaults);
-  const nextState = row.state === 'paused_budget' ? transition(row.state, 'resume') : row.state;
-  deps.sqlite
-    .transaction(() => {
-      recordAdjustment({
-        db: deps.db,
-        jobId,
-        amountMicroUsd: delta,
-        note: 'admin cap raise',
-        at,
-        zone: settings.resetZone,
-      });
-      deps.db
-        .update(schema.jobs)
-        .set({
-          state: nextState,
-          pausedReason: nextState === 'running' ? null : row.pausedReason,
-          hardCapMicroUsd: amountMicroUsd,
-          aiurSpendCapMicroUsd: amountMicroUsd,
-          updatedAt: at.toISOString(),
-        })
-        .where(eq(schema.jobs.id, jobId))
-        .run();
-    })
-    .immediate();
-  const stored = findJobRow(deps.db, jobId);
-  if (stored.state !== row.state) emitState(deps, stored);
-  deps.events.emit('budget.changed', { familyId: stored.familyId, userId: stored.creatorId });
-  return findJob(deps.db, jobId);
+    try {
+      await aiur.setSpendCap(String(row.aiurIssueNumber), toUsdString(amountMicroUsd));
+    } catch (error) {
+      if (error instanceof AiurHttpError && error.status === 409 && error.code === 'spend_cap_exhausted') {
+        deps.db
+          .update(schema.jobs)
+          .set({ pausedReason: 'budget_exhausted', updatedAt: nowFor(deps).toISOString() })
+          .where(eq(schema.jobs.id, jobId))
+          .run();
+        throw new HttpError(409, 'cap_exhausted_upstream');
+      }
+      throw new HttpError(502, 'spend_cap_failed');
+    }
+
+    const at = nowFor(deps);
+    const delta = amountMicroUsd - row.hardCapMicroUsd;
+    const settings = getBudgetSettings(deps.db, row.familyId, deps.defaults);
+    const nextState = row.state === 'paused_budget' ? transition(row.state, 'resume') : row.state;
+    deps.sqlite
+      .transaction(() => {
+        recordAdjustment({
+          db: deps.db,
+          jobId,
+          amountMicroUsd: delta,
+          note: 'admin cap raise',
+          at,
+          zone: settings.resetZone,
+        });
+        deps.db
+          .update(schema.jobs)
+          .set({
+            state: nextState,
+            pausedReason: nextState === 'running' ? null : row.pausedReason,
+            hardCapMicroUsd: amountMicroUsd,
+            aiurSpendCapMicroUsd: amountMicroUsd,
+            updatedAt: at.toISOString(),
+          })
+          .where(eq(schema.jobs.id, jobId))
+          .run();
+      })
+      .immediate();
+    const stored = findJobRow(deps.db, jobId);
+    if (stored.state !== row.state) emitState(deps, stored);
+    deps.events.emit('budget.changed', { familyId: stored.familyId, userId: stored.creatorId });
+    return findJob(deps.db, jobId);
+  });
 }

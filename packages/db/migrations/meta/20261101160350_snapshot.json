@@ -1529,7 +1529,7 @@
         "jobs_aiur_ticket": {
           "name": "jobs_aiur_ticket",
           "columns": ["aiur_repo", "aiur_issue_number"],
-          "isUnique": false
+          "isUnique": true
         },
         "jobs_creator_idempotency": {
           "name": "jobs_creator_idempotency",

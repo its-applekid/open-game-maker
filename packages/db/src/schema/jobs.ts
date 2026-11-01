@@ -39,7 +39,7 @@ export const jobs = sqliteTable(
   (table) => [
     index('jobs_family_state').on(table.familyId, table.state),
     index('jobs_game_created').on(table.gameId, table.createdAt),
-    index('jobs_aiur_ticket').on(table.aiurRepo, table.aiurIssueNumber),
+    uniqueIndex('jobs_aiur_ticket').on(table.aiurRepo, table.aiurIssueNumber),
     uniqueIndex('jobs_creator_idempotency').on(table.creatorId, table.idempotencyKey),
     check('jobs_kind', sql`${table.kind} IN ('new_game', 'feature', 'repair', 'scope')`),
     check('jobs_complexity', sql`${table.complexity} BETWEEN 1 AND 5`),
