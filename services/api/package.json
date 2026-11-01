@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
+    "@ogm/aiur-client": "workspace:*",
     "@ogm/blob-store": "workspace:*",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
@@ -30,6 +31,7 @@
     "@ogm/policy": "workspace:*",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.16",
+    "sharp": "0.35.5",
     "web-push": "3.6.7",
     "zod": "4.6.7"
   },

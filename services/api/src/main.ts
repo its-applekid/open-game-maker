@@ -32,6 +32,8 @@ const deps: AppDeps = {
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,
     vapidKeyFile: env.OGM_VAPID_KEY_FILE,
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
+    builderWorkspacesRoot: env.OGM_BUILDER_WORKSPACES_ROOT,
+    chatPollMs: env.OGM_CHAT_POLL_MS,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,
