@@ -86,6 +86,17 @@ describe('preflight', () => {
     });
   });
 
+  it('flags an installed profile that lacks the environment filter', async () => {
+    const setup = await writeRenderedFiles();
+    const unfiltered = renderCodexProfile(setup.input).replace(/\[shell_environment_policy\]\n[^[]*/, '');
+    await writeFile(join(setup.codexHome, 'config.toml'), unfiltered, 'utf8');
+
+    await expect(preflight(setup.daemonDir, setup.input)).resolves.toEqual({
+      ok: false,
+      reasons: ['codex profile hash mismatch'],
+    });
+  });
+
   it('returns reasons for missing files instead of throwing', async () => {
     const daemonDir = await createTemporaryDirectory();
     const codexHome = join(daemonDir, 'codex-home');

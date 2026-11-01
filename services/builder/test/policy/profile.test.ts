@@ -32,6 +32,12 @@ describe('renderCodexProfile', () => {
     expect(profile).not.toContain('secret_file =');
   });
 
+  it('keeps secret-named caller env vars out of sandboxed commands', () => {
+    const profile = renderCodexProfile(workedInput);
+
+    expect(profile).toContain('[shell_environment_policy]\ninherit = "core"\nignore_default_excludes = false\n');
+  });
+
   it('omits concrete deny roots that would cover the daemon workspace', () => {
     const profile = renderCodexProfile({
       ...workedInput,
