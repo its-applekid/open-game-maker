@@ -6,7 +6,6 @@ const mustIgnore = [
   'prototypes/ui-v0/tools/_pf.mjs',
   '.claude/worktrees/x',
   'node_modules/x',
-  'scripts/audio/.venv/x',
   'scripts/py/audio/.venv/x',
   '.env',
   '.netlify/x',

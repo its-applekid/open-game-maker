@@ -1,0 +1,8 @@
+{
+  "contract": "aiur.control.result",
+  "contract_version": 1,
+  "instance_id": "local",
+  "build": { "version": "0.1.0", "commit": "0f692a45b" },
+  "output": "ok",
+  "elapsed_ms": 3
+}
