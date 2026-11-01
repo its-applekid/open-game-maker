@@ -66,7 +66,9 @@ export function loadEnv<S extends EnvSpec>(
   const values: Record<string, ParsedEnvValue | undefined> = {};
 
   for (const [name, definition] of Object.entries(spec)) {
-    const raw = source[name] ?? definition.default;
+    const given = source[name];
+    // `ogm-env-init` writes optional names as `NAME=`; blank means unset for them.
+    const raw = (given === '' && definition.required === false ? undefined : given) ?? definition.default;
 
     if (raw === undefined) {
       if (definition.required ?? true) missing.push(name);

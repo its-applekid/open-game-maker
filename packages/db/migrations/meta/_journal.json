@@ -8,6 +8,13 @@
       "when": 1793491200000,
       "tag": "20261101000000_app_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793535040214,
+      "tag": "20261101121040_auth",
+      "breakpoints": true
     }
   ]
 }

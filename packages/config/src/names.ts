@@ -58,4 +58,20 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'service -> API bearer (X-Ogm-Service names the caller)',
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
+  { name: 'OGM_AGE_COOKIE_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for the ogm_age cookie' },
+  { name: 'OGM_MAINTAINER_EMAILS', unit: 'api', kind: 'string', doc: 'comma-separated maintainer emails (optional)' },
+  {
+    name: 'GOOGLE_CLIENT_ID',
+    unit: 'api',
+    kind: 'string',
+    doc: 'Google OAuth client id (optional; Google off when unset)',
+  },
+  { name: 'GOOGLE_CLIENT_SECRET', unit: 'api', kind: 'string', doc: 'Google OAuth client secret (optional)' },
+  {
+    name: 'SMTP_URL',
+    unit: 'api',
+    kind: 'string',
+    doc: 'smtp(s)://user:pass@host:port (optional; admin inbox when unset)',
+  },
+  { name: 'SMTP_FROM', unit: 'api', kind: 'string', doc: 'From address for SMTP mail (optional)' },
 ];

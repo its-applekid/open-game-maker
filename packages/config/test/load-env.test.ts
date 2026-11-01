@@ -128,6 +128,11 @@ describe('loadEnv', () => {
     }
   });
 
+  it('treats a blank optional name as unset, as ogm-env-init writes it', () => {
+    const spec = { GITHUB_APP_ID: { kind: 'string', required: false } } as const;
+    expect(loadEnv('api', spec, { GITHUB_APP_ID: '' })).toEqual({ GITHUB_APP_ID: undefined });
+  });
+
   it('rejects an unregistered spec key before reading its value', () => {
     const source = new Proxy<Record<string, string>>(
       {},

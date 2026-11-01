@@ -22,7 +22,7 @@ afterEach(() => {
 describe('migrate', () => {
   it('applies the shipped migrations once and records them', () => {
     const { sqlite, db } = openDb(join(tempDir(), 'ogm.sqlite3'));
-    expect(migrate({ sqlite })).toEqual({ applied: ['20261101000000_app_meta.sql'] });
+    expect(migrate({ sqlite })).toEqual({ applied: ['20261101000000_app_meta.sql', '20261101121040_auth.sql'] });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
     expect(
       db
@@ -30,7 +30,7 @@ describe('migrate', () => {
         .from(appMeta)
         .all()
         .map(({ key }) => key),
-    ).toEqual(['migration:20261101000000_app_meta.sql']);
+    ).toEqual(['migration:20261101000000_app_meta.sql', 'migration:20261101121040_auth.sql']);
     sqlite.close();
   });
 

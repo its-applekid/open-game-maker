@@ -78,6 +78,6 @@ export default new Hono().get('/seen', (c) => c.text(seen));
 
   it('mounts the shipped contexts', async () => {
     const { mounted } = await makeApp();
-    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/blobs', '/']);
+    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/auth', '/blobs', '/']);
   });
 });
