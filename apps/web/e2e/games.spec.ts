@@ -1,11 +1,13 @@
 import { expect, test } from '@playwright/test';
 
+import { installAuthRoutes } from './fixtures/auth-routes';
 import { mockGamesRoutes } from './fixtures/games-routes';
 
 type GamesTestApi = { selected(): string | null; tiles(): string[] };
 type GamesWindow = Window & { __ogmHost?: { get(name: string): object | undefined } };
 
 test.beforeEach(async ({ page }) => {
+  await installAuthRoutes(page, { signedIn: true });
   await mockGamesRoutes(page);
 });
 
