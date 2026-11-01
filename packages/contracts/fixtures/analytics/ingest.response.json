@@ -1,0 +1,9 @@
+{
+  "accepted": 1,
+  "rejected": [
+    {
+      "index": 1,
+      "reason": "meta key not allowed"
+    }
+  ]
+}

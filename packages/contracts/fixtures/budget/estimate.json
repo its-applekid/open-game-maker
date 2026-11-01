@@ -1,0 +1,6 @@
+{
+  "sizeClass": "large",
+  "rangeMicroUsd": [4000000, 9000000],
+  "confidence": "low",
+  "fits": false
+}

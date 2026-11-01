@@ -1,0 +1,46 @@
+{
+  "scope": "game",
+  "id": "g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01",
+  "from": "2026-10-01T00:00:00Z",
+  "to": "2026-11-01T00:00:00Z",
+  "builds": 4,
+  "usageMicroUsd": 9000000,
+  "byActivity": {
+    "asset_pipeline": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "level_building": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "gameplay_code": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "animation_vfx": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "audio": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "ui_hud": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "playtesting": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "deploy_release": {
+      "count": 0,
+      "durationMs": 0
+    },
+    "writing": {
+      "count": 0,
+      "durationMs": 0
+    }
+  }
+}

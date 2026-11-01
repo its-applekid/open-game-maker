@@ -1,0 +1,49 @@
+import { join } from 'node:path';
+
+import { serve } from '@hono/node-server';
+
+import { FsBlobStore } from '@ogm/blob-store';
+import { migrate, openDb } from '@ogm/db';
+
+import { createApp } from './app/app.js';
+import { API_HOST, loadApiEnv } from './app/env.js';
+import { createAppEvents } from './app/events.js';
+import { createRegistry } from './app/registry.js';
+import { scanRoutes } from './app/routes-scan.js';
+import type { AppDeps, LogLine } from './app/types.js';
+import { readGitVersion } from './app/version.js';
+
+const log = (line: LogLine) => console.log(JSON.stringify({ service: 'api', ...line }));
+
+const env = loadApiEnv();
+const { sqlite, db } = openDb(join(env.OGM_DATA_DIR, 'ogm.sqlite3'));
+log({ event: 'migrated', ...migrate({ sqlite }) });
+
+const deps: AppDeps = {
+  db,
+  sqlite,
+  config: {
+    internalToken: env.OGM_INTERNAL_TOKEN,
+    jobTokenSecret: env.OGM_JOB_TOKEN_SECRET,
+    blobSigningKey: env.OGM_BLOB_SIGNING_KEY,
+  },
+  blobStore: new FsBlobStore({
+    root: env.OGM_BLOB_ROOT,
+    signingKey: env.OGM_BLOB_SIGNING_KEY,
+    publicOrigin: env.OGM_PUBLIC_ORIGIN,
+  }),
+  events: createAppEvents(log),
+  registry: createRegistry(),
+  version: readGitVersion(),
+  startedAtMs: Date.now(),
+  log,
+};
+
+const app = createApp(deps);
+for (const { prefix, file } of (await scanRoutes(app, { deps })).mounted) log({ event: 'mounted', prefix, file });
+
+const server = serve({ fetch: app.fetch, hostname: API_HOST, port: env.OGM_API_PORT });
+server.once('listening', () => log({ event: 'listening', host: API_HOST, port: env.OGM_API_PORT }));
+process.once('SIGTERM', () => {
+  server.close(() => sqlite.close());
+});

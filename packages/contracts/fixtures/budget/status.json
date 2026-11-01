@@ -1,0 +1,11 @@
+{
+  "remainingMicroUsd": 4200000,
+  "remainingPercent": 42,
+  "unitLabel": "stars",
+  "resetsAt": "2026-11-02T07:00:00Z",
+  "freeSlots": {
+    "new_game": 1,
+    "edit": 2
+  },
+  "queued": ["j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f"]
+}

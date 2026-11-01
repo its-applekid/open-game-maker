@@ -1,0 +1,7 @@
+{
+  "kind": "feature",
+  "sizeClass": "medium",
+  "p50MicroUsd": 2500000,
+  "p80MicroUsd": 4000000,
+  "samples": 14
+}

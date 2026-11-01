@@ -1,0 +1,31 @@
+{
+  "name": "@ogm/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "lint": "eslint src test",
+    "migrate": "tsc -b && node dist/cli.js",
+    "generate": "drizzle-kit generate"
+  },
+  "dependencies": {
+    "@ogm/config": "workspace:*",
+    "better-sqlite3": "13.0.3",
+    "drizzle-orm": "0.45.4"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
+    "drizzle-kit": "0.31.11"
+  }
+}

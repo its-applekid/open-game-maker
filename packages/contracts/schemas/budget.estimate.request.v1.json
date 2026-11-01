@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "gameId": {
+      "type": "string",
+      "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+    },
+    "summary": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "gameId",
+    "summary"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/budget.estimate.request.v1.json"
+}
