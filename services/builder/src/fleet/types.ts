@@ -50,7 +50,8 @@ export type FleetEnv = {
   aiurRoot?: string;
   apiPort?: number;
   supervisorToken?: string;
-  codexHome?: string;
+  codexHomeRoot?: string;
+  codexAuthPath?: string;
 };
 
 export const LIVE_STATUSES: readonly DaemonStatus[] = ['starting', 'running', 'idle'];

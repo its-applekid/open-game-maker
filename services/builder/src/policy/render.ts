@@ -60,7 +60,8 @@ export function renderAiurConfig(rawInput: RenderInput): string {
     prompt_file: 'prompt.md',
     agent: {
       priority: ['codex'],
-      accounts: { codex: ['gamebuilder'] },
+      // No named account: Aiur then preserves the daemon process's per-repo CODEX_HOME.
+      accounts: { codex: [] },
       max_concurrent_agents: input.maxConcurrentAgents,
       max_agent_duration_minutes: input.kind === 'new_game' ? 90 : 45,
       max_dispatches_per_ticket: 3,
