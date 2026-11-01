@@ -45,6 +45,7 @@ const deps: AppDeps = {
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
     builderWorkspacesRoot: env.OGM_BUILDER_WORKSPACES_ROOT,
     chatPollMs: env.OGM_CHAT_POLL_MS,
+    checkpointPollMs: env.OGM_CHECKPOINT_POLL_MS,
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,

@@ -26,6 +26,7 @@ export const apiEnvSpec = {
   OGM_VAPID_SUBJECT: { kind: 'string' },
   OGM_BUILDER_WORKSPACES_ROOT: { kind: 'path', required: false },
   OGM_CHAT_POLL_MS: { kind: 'int', default: '10000' },
+  OGM_CHECKPOINT_POLL_MS: { kind: 'int', default: '5000' },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {
@@ -39,6 +40,9 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
       [],
       [{ name: 'OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD', reason: 'must be a positive integer' }],
     );
+  }
+  if (env.OGM_CHECKPOINT_POLL_MS <= 0) {
+    throw new ConfigError('api', [], [{ name: 'OGM_CHECKPOINT_POLL_MS', reason: 'must be a positive integer' }]);
   }
   return env;
 }

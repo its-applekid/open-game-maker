@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "checkpoint_id": {
+      "type": "string",
+      "pattern": "^cp_[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+    },
+    "question": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 8000
+    },
+    "options": {
+      "minItems": 2,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-]{1,32}$"
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 200
+          },
+          "media_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+              },
+              {
+                "type": "string",
+                "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+              }
+            ]
+          }
+        },
+        "required": [
+          "id",
+          "label"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "recommend": {
+      "type": "string",
+      "pattern": "^[a-z0-9_-]{1,32}$"
+    },
+    "blocking": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "checkpoint_id",
+    "question",
+    "options",
+    "blocking"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/chat.checkpoint-open-payload.v1.json"
+}
