@@ -32,6 +32,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@noriginmedia/norigin-spatial-navigation':
+        specifier: 2.3.0
+        version: 2.3.0(react@19.3.1)
       '@tanstack/react-query':
         specifier: 5.105.1
         version: 5.105.1(@types/react@19.3.0)(react@19.3.1)
@@ -1335,6 +1338,11 @@ packages:
   '@noble/hashes@2.4.0':
     resolution: {integrity: sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==}
     engines: {node: '>= 20.19.0'}
+
+  '@noriginmedia/norigin-spatial-navigation@2.3.0':
+    resolution: {integrity: sha512-gR//N45NnKz1h0/AVknkfg7QnNATETdgXUUD3EKPxuQPyhk7NhsphODzRamyvjYaxsU6VbY/szcUlzBWWBkNMw==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   '@octokit/app@16.1.4':
     resolution: {integrity: sha512-g70WONQyGoBgqIJtv4O0MUEfOF1iJpTfFt3qAW7HaiwiJ6k607xg/gBezCa4tuq6BpO6qXn7qvq8v9tjWtgGQg==}
@@ -3916,6 +3924,11 @@ snapshots:
   '@noble/ciphers@2.4.0': {}
 
   '@noble/hashes@2.4.0': {}
+
+  '@noriginmedia/norigin-spatial-navigation@2.3.0(react@19.3.1)':
+    dependencies:
+      lodash: 4.18.1
+      react: 19.3.1
 
   '@octokit/app@16.1.4':
     dependencies:

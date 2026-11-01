@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate, useLocation, type RouteObject } from 'react-router';
 
+import { BugButton } from '../features/bug-report';
 import { useSession } from '../lib/api/session';
+import { Toasts, useNotificationFeed } from '../lib/notify';
 import type { ScreenRoute } from './screen';
 
 type ScreenModule = { route?: ScreenRoute };
@@ -61,11 +63,15 @@ function RequireSession({ children }: { children: ReactNode }) {
 }
 
 function AppChrome({ children }: { children: ReactNode }) {
+  useNotificationFeed();
   return (
     <div className="app-chrome">
       <div id="app-logo-slot" aria-hidden="true" />
       <main>{children}</main>
-      <div id="bug-fab-slot" aria-hidden="true" />
+      <Toasts />
+      <div id="bug-fab-slot">
+        <BugButton />
+      </div>
       <div id="chat-dock-slot" aria-hidden="true" />
     </div>
   );

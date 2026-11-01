@@ -35,9 +35,32 @@
       media="(orientation: landscape)"
       fetchpriority="high"
     />
+    <style>
+      #initial-title-poster,
+      #initial-title-poster img {
+        position: fixed;
+        inset: 0;
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+
+      #initial-title-poster {
+        background: #a69b8d;
+      }
+
+      #initial-title-poster img {
+        object-fit: cover;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <picture id="initial-title-poster" aria-hidden="true">
+        <source media="(orientation: portrait)" srcset="/town/models/bake/poster-portrait.webp" />
+        <img alt="" src="/town/models/bake/poster-landscape.webp" fetchpriority="high" />
+      </picture>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
