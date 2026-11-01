@@ -1,19 +1,17 @@
-# PR review brief (given to every background review agent)
+# PR review brief (light mode, since 2026-11-01 06:20)
 
-You review one pull request of the OGM V1 build for the Executor, who posts the review and decides the merge. Return text; never post to GitHub, never push, never merge. Work in your own git worktree (`git -C <repo> worktree add <scratchpad>/wt-<pr> <head-sha>`; assert `git rev-parse HEAD` equals the PR head before any check; remove the worktree when done). Never `cd`; use absolute paths; no network beyond `gh` reads; no installs outside the worktree.
+The deep review now happens before the PR exists: every worker runs the `ce-code-review` skill on its branch and records the result in a `## Review` section of the PR body. The Executor's background check is deliberately small. Do not re-run mutation tests, do not rebuild the repository gates, do not boot services. Read, compare, answer.
 
-Inputs you get in the prompt: the PR number, head SHA, base SHA, the ticket id and its issue body, the ticket's plan (`docs/plans/ogm-v1-build/tickets/<ID>-plan.md` on branch `research`), and any established facts you must not re-derive.
+Return text only; never post, push or merge. One worktree if you need the diff locally (`git -C <repo> fetch <url> pull/<N>/head:<branch>`), removed when done; never `cd`.
 
-Check, in this order, and report each as PASS / FAIL / NOT CHECKED with one line of evidence:
+## Check (in this order, stop at the first failure)
 
-1. **Claims vs diff.** Every claim in the PR body is supported by the diff. An unsupported claim is a P1 blocker, never a nitpick.
-2. **Scope.** The diff stays inside the ticket's write surfaces (from the issue body's Surfaces section); touching a hot shared file (root package.json beyond a script, ci.yml, contracts barrel, .aiur/config, CODEOWNERS) is called out with whether it was necessary.
-3. **Contract fidelity.** If the ticket consumes a contract (copy from <producer>), the shapes match the producer's file byte-for-byte in meaning; if it produces one, the exported names match the ticket's Contract section.
-4. **Tests execute and bite.** Run the repository's commands from `AGENTS.md` in the worktree (`pnpm install --frozen-lockfile` is allowed; it reads the lockfile only). Name each new test file the runner actually collected. For every new test, revert the production change in the worktree (`git checkout <base-sha> -- <files>`) and confirm the test fails; name any test that still passes. Restore before continuing.
-5. **Local tests evidence.** The PR body's `## Local tests` names the tested head (must equal the current head), base, selection and commands with results; stale or missing evidence blocks.
-6. **Secrets and spend.** No tokens, keys, download links, licence serials, `assets-local/` files, family details; no new paid dependency; new dependencies under 1k GitHub stars are named as exceptions.
-7. **Security seams.** Services bind 127.0.0.1; secrets only through `packages/config`; agents' reach (sandbox, env) not widened; iframe/bridge origin checks intact.
-8. **Conventions.** TypeScript strict passes; the barrel is append-only; routes/commands registered by directory scan, not by editing a registry; migrations are timestamped files; 64 px primary targets in UI.
-9. **Docs.** Any new CLI command, config key, env name or operator step is documented where the ticket says (docs/ops, AGENTS.md, the skill).
+1. **Review section present.** The PR body has `## Review` naming the personas that ran and each blocking finding with its fixing commit. Missing → CHANGES_REQUESTED: "run ce-code-review and add the Review section".
+2. **Does the PR do the ticket.** Read the ticket's Outcome, Scope and Acceptance (`docs/plans/ogm-v1-build/tickets/<ID>.md` on `research`, or the issue body). For each acceptance item say DONE / NOT DONE / DEVIATION (with the PR's stated reason) from the diff and the `## Local tests` evidence. Any NOT DONE without a stated, reasonable deviation → CHANGES_REQUESTED.
+3. **Scope.** Files outside the ticket's surfaces: list them; a shared-file edit the PR does not explain → CHANGES_REQUESTED.
+4. **Evidence is current.** `Tested head` equals the PR head; `ci / required` is green (`gh pr checks <N>`); mergeStateStatus is CLEAN or UNSTABLE-with-checks-pending, not DIRTY (DIRTY → tell the Executor the conflict files).
+5. **Secrets and spend.** Grep the diff for tokens, keys, serials, download links, `assets-local/` content, new paid services, unpinned dependencies. Any hit → CHANGES_REQUESTED.
 
-Finish with: a verdict (APPROVE / CHANGES_REQUESTED) with the blocking findings listed as `Blocking:` lines with file:line, non-blocking notes separately, and a merge-order note if this PR couples with another open PR (name it).
+## Verdict format
+
+`APPROVE` or `CHANGES_REQUESTED`, head SHA, then at most 15 lines: the acceptance table (item → DONE/NOT DONE/DEVIATION), scope notes, evidence state, and any `Blocking:` lines. No narrative, no praise.

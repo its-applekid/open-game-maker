@@ -11,3 +11,4 @@ Rules that hold on every ticket:
 - Keep the PR to your ticket's write surface; if you must touch a shared file (root `package.json`, CI workflow, `packages/contracts`), keep the change minimal and say so in the PR.
 - Tests must fail without the production change they guard. Report the exact commands you ran and their results.
 - Open the PR with `Closes #<issue>` as its first line and the `## Local tests` section the aiur-agent skill requires.
+- Before opening the PR, run the `ce-code-review` skill on your branch's full diff against `main` and fix every finding it rates blocking (re-run until it reports none). Add a `## Review` section to the PR body: which reviewer personas ran, each blocking finding and the commit that fixed it, and the non-blocking findings you left with a one-line reason each. The Executor's check only verifies that the PR does what the ticket says; a PR without a `## Review` section is sent back without being read.
