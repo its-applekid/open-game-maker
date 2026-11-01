@@ -77,7 +77,7 @@ node apps/web/tools/thumbnail-scene.mjs specimen \
   --output packs/<pack-id>/previews/specimen.png
 ```
 
-For the set, use `--target-kind set` and omit `--target-id`. Render each validated scene with:
+For the set, use `--target-kind set --target-id <set-id>`. Render each validated scene with:
 
 ```bash
 node apps/web/tools/thumbnail-scene.mjs render \
