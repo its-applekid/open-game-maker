@@ -28,6 +28,8 @@ export interface AppDeps {
     analyticsRetentionDays: number;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
+    intakeDir?: string;
+    reportBundleMaxBytes: number;
   };
   blobStore: BlobStore;
   events: AppEvents;

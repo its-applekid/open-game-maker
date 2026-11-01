@@ -61,10 +61,55 @@
         "kenney-toy-car-kit",
         "kenney-train-kit",
         "kenney-watercraft-pack",
-        "kenney-weapon-pack"
+        "kenney-weapon-pack",
+        "quaternius-ultimate-monsters"
       ]
     },
-    "sets": [],
+    "sets": [
+      {
+        "id": "kaykit",
+        "label": "KayKit Complete",
+        "vendors": ["kaykit"],
+        "traits": {
+          "polycount_band": "mobile-friendly low-poly, measured per model",
+          "texture_style": "flat palette atlases with clean colour blocks",
+          "scale": "shared KayKit Complete v7 model scale",
+          "perspective": "3d",
+          "judgment": "Curated as one mixable KayKit world; analogous packs carry advisory cross-set candidates for the asset-host visual pass."
+        },
+        "packs": [
+          {
+            "id": "kaykit-adventurers",
+            "compatible_with": ["kenney-animated-characters-bundle", "synty-polygon-viking-realm"]
+          },
+          { "id": "kaykit-block-bits" },
+          { "id": "kaykit-board-game-bits" },
+          { "id": "kaykit-character-animations" },
+          { "id": "kaykit-city-builder-bits" },
+          { "id": "kaykit-dungeon-pack" },
+          { "id": "kaykit-fantasy-weapons-bits" },
+          { "id": "kaykit-forest-nature-pack" },
+          { "id": "kaykit-furniture-bits" },
+          { "id": "kaykit-halloween-bits" },
+          { "id": "kaykit-holiday-bits" },
+          { "id": "kaykit-medieval-hexagon-pack" },
+          { "id": "kaykit-mixed-bag" },
+          { "id": "kaykit-mystery-monthly-series-4" },
+          { "id": "kaykit-mystery-monthly-series-5" },
+          { "id": "kaykit-mystery-monthly-series-6" },
+          { "id": "kaykit-platformer-pack" },
+          {
+            "id": "kaykit-prototype-bits",
+            "compatible_with": ["kenney-prototype-kit", "synty-polygon-prototype"]
+          },
+          { "id": "kaykit-resource-bits" },
+          { "id": "kaykit-restaurant-bits" },
+          { "id": "kaykit-rpg-tools-bits" },
+          { "id": "kaykit-skeletons", "compatible_with": ["quaternius-ultimate-monsters"] },
+          { "id": "kaykit-space-base-bits" }
+        ]
+      }
+    ],
     "views": ["iso", "topdown", "follow", "orbit"],
     "license_note": "CC0",
     "coverage": {
