@@ -6,7 +6,7 @@ const hexColourSchema = z.string().regex(/^#[0-9a-f]{6}$/);
 /** A versioned asset-card id, never a source path or URL. */
 export const thumbnailCardIdSchema = z
   .string()
-  .regex(/^t[1-3]:[a-z0-9][a-z0-9-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._/-]*)?@[0-9]+(?:\.[0-9]+)*$/)
+  .regex(/^t[1-3]:[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$/)
   .refine(
     (id) =>
       !id
