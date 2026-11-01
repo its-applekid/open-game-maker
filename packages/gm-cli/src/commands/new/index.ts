@@ -3,7 +3,6 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
-  readFileSync,
   readdirSync,
   renameSync,
   rmdirSync,
@@ -13,15 +12,11 @@ import {
 } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 
+import { loadFamilies } from '@ogm/asset-cards';
+
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { AGENTS_MD } from '../../skills/agents-md.js';
-import {
-  gmCliVersion,
-  locateSkillPack,
-  locateStyleFamilies,
-  locateTemplates,
-  syncSkillPack,
-} from '../../skills/pack.js';
+import { gmCliVersion, locateSkillPack, locateTemplates, syncSkillPack } from '../../skills/pack.js';
 
 const TEMPLATES = new Set(['game-2d', 'game-3d', 'game-multiplayer']);
 
@@ -31,15 +26,19 @@ function copyContents(source: string, destination: string): void {
   }
 }
 
-function validateFamily(cwd: string, family: string | undefined): 'valid' | 'unavailable' {
-  if (!family) return 'valid';
-  const registry = locateStyleFamilies(cwd);
-  if (!registry) return 'unavailable';
-  const parsed = JSON.parse(readFileSync(registry, 'utf8')) as Array<{ id?: unknown }>;
-  if (!parsed.some((entry) => entry.id === family)) {
-    throw new UsageError(`unknown style family "${family}"`, 'choose an id from style-families.json');
+/** `--family` takes a family id from the same registry `gm assets search` reads; a set id names its family. */
+function validateFamily(family: string | undefined): void {
+  if (!family) return;
+  const families = loadFamilies();
+  if (families.some((entry) => entry.id === family)) return;
+  const parent = families.find((entry) => entry.sets.some((set) => set.id === family));
+  if (parent) {
+    throw new UsageError(`"${family}" is a style set, not a family`, `use --family ${parent.id}`);
   }
-  return 'valid';
+  throw new UsageError(
+    `unknown style family "${family}"`,
+    `choose one of ${families.map((entry) => entry.id).join(', ')}`,
+  );
 }
 
 function destinationIsEmpty(path: string): boolean {
@@ -70,7 +69,7 @@ export const command: GmCommand = {
     }
     const family = typeof flags.family === 'string' ? flags.family : undefined;
     const pov = typeof flags.pov === 'string' ? flags.pov : undefined;
-    const familyStatus = validateFamily(ctx.cwd, family);
+    validateFamily(family);
     const packDir = locateSkillPack(ctx.cwd, ctx.skillsDir);
 
     mkdirSync(dirname(destination), { recursive: true });
@@ -98,9 +97,6 @@ export const command: GmCommand = {
       renameSync(staging, destination);
     } finally {
       if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });
-    }
-    if (family && familyStatus === 'unavailable') {
-      ctx.err(`style families are unavailable; recorded --family ${family} without validation`);
     }
     ctx.out(`created ${destination}. Next: cd ${destination} && pnpm install --offline`);
     ctx.emit('new.create', { template, family: family ?? null, pov: pov ?? null });
