@@ -43,6 +43,13 @@
       "when": 1793544838018,
       "tag": "20261101145358_analytics",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1793549030073,
+      "tag": "20261101160350_jobs_budget",
+      "breakpoints": true
     }
   ]
 }
