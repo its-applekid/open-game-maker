@@ -1,10 +1,15 @@
 import {
+  closeSync,
+  constants,
   existsSync,
+  fstatSync,
   lstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
   readFileSync,
+  readSync,
   realpathSync,
   renameSync,
   rmSync,
@@ -19,7 +24,7 @@ import { tierSchema, viewIdSchema } from '@ogm/contracts';
 import { z } from 'zod';
 
 import { tierBudgetOverridesSchema } from './budgets.js';
-import { MAX_CAPTURE_FRAMES } from './capture.js';
+import { FFMPEG_TIMEOUT_MS, MAX_CAPTURE_FRAMES } from './capture.js';
 import { inputScriptSchema } from './inputs.js';
 import { inside, publish } from './publish.js';
 import {
@@ -37,6 +42,7 @@ import { serveStatic } from './server.js';
 export const QUEUE_DIR = join('.gm', 'verify');
 const RUN_ID = /^[A-Za-z0-9_-]{1,64}$/;
 const CLAIM_GRACE_MS = 10_000;
+const MAX_REQUEST_BYTES = 1_000_000;
 
 const timelineSchema = z
   .strictObject({ from: z.number().min(0), to: z.number().min(0), step: z.number().positive() })
@@ -93,8 +99,8 @@ export async function waitForReport(
   dir: string,
   options: { timeoutMs?: number; pollMs?: number } = {},
 ): Promise<VerifyReport> {
-  /* the host may wait for a capture slot before its own run timeout starts */
-  const timeoutMs = options.timeoutMs ?? SLOT_WAIT_MS + RUN_TIMEOUT_MS + 60_000;
+  /* the host may wait for a slot first, and one synchronous encode can outlast the run timer */
+  const timeoutMs = options.timeoutMs ?? SLOT_WAIT_MS + RUN_TIMEOUT_MS + FFMPEG_TIMEOUT_MS + 60_000;
   const deadline = Date.now() + timeoutMs;
   const path = join(dir, 'report.json');
   for (;;) {
@@ -158,6 +164,21 @@ export async function processRequest(workspace: string, dir: string, options: Pr
   }
 }
 
+/** Reads only a regular file of bounded size: a planted FIFO, device or symlink must not hang or exhaust the host. */
+function readRequestFile(path: string): string {
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.size > MAX_REQUEST_BYTES)
+      throw new Error(`request.json must be a regular file under ${MAX_REQUEST_BYTES} bytes`);
+    const buffer = Buffer.alloc(stat.size);
+    const read = readSync(fd, buffer, 0, stat.size, 0);
+    return buffer.subarray(0, read).toString('utf8');
+  } finally {
+    closeSync(fd);
+  }
+}
+
 async function capture(root: string, dir: string, staging: string, options: ProcessOptions): Promise<VerifyReport> {
   const runId = basename(dir);
   const fail = (message: string, request?: VerifyRequest): VerifyReport => {
@@ -166,10 +187,10 @@ async function capture(root: string, dir: string, staging: string, options: Proc
     return report;
   };
   const planted = readdirSync(dir).filter((name) => !['request.json', 'claim'].includes(name));
-  if (planted.length > 0) return fail(`refusing ${dir}: it already holds ${planted.join(', ')}`);
+  if (planted.length > 0) return fail(`refusing ${dir}: it already holds files other than request.json`);
   let request: VerifyRequest;
   try {
-    request = verifyRequestSchema.parse(JSON.parse(readFileSync(join(dir, 'request.json'), 'utf8')));
+    request = verifyRequestSchema.parse(JSON.parse(readRequestFile(join(dir, 'request.json'))));
   } catch (error) {
     return fail(`invalid request: ${error instanceof Error ? error.message.split('\n')[0] : String(error)}`);
   }

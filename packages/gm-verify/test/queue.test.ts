@@ -1,4 +1,5 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -189,7 +190,16 @@ describe('verify queue', () => {
     expect(seen).toHaveLength(0);
     const report = await waitForReport(dir, { timeoutMs: 100 });
     expect(report.verdict).toBe('error');
-    expect(report.error).toMatch(/already holds stray\.png/);
+    expect(report.error).toMatch(/already holds files other than request\.json/);
+  });
+
+  it('refuses a request.json that is a FIFO instead of blocking the host on it', async () => {
+    const { workspace } = workspaces();
+    const dir = requestDir(workspace, 'fifo');
+    mkdirSync(dir, { recursive: true });
+    execFileSync('mkfifo', [join(dir, 'request.json')]);
+    const report = await processRequest(workspace, dir, { runner: fakeRunner([]), software: false });
+    expect(report.error).toMatch(/regular file/);
   });
 
   it('does not create a claim through a symlinked request during queue scans', async () => {
