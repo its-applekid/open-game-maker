@@ -70,12 +70,13 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
   const now = options.now ?? (() => new Date());
   const statusPath = join(resolve(options.stateDir), 'intake', 'status.json');
   const previous = await readStatus(statusPath);
-  const entries = await openQueue(options.assetsRoot);
+  const { open: entries, problems } = await openQueue(options.assetsRoot);
   const done = [...previous.done];
   const counts = { ...previous.counts };
   const seen = new Map(done.map((job) => [job.fingerprint, job]));
-  let lastError: string | null = null;
-  let failures = 0;
+  let lastError: string | null = problems.at(-1) ?? null;
+  let failures = problems.length;
+  for (const problem of problems) emit('intake.error', { error: problem });
 
   const record = (entry: OpenEntry, status: JobStatus, collection: string | null): void => {
     const job: DoneJob = {
@@ -115,7 +116,7 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
     try {
       const license = await knownLicense(entry, options.assetsRoot);
       const prefix = license === 'CC0-1.0' ? 'kenney' : 'drive';
-      const id = `${prefix}-${slug(entry.entry.name)}`;
+      const id = `${prefix}-${slug(entry.entry.name)}-${slug(entry.entry.drop_id).replaceAll('-', '').slice(0, 8) || 'drop'}`;
       const args = ['packs', 'import', '--from-queue', entry.entry.drop_id, '--id', id, '--json'];
       if (license) args.push('--license', license);
       const result = await runner({
@@ -143,7 +144,8 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
     done: recent,
     last_error: lastError,
   });
-  return { hadError: failures > 0 };
+  // A permanently bad queue line is reported but must not slow every other drop to the error backoff.
+  return { hadError: failures > problems.length };
 }
 
 export async function main(): Promise<never> {

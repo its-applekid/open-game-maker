@@ -151,7 +151,7 @@ async function reassembleUnityPackage(destination: string): Promise<void> {
     const directory = join(destination, name);
     if (!(await lstat(directory)).isDirectory()) continue;
     try {
-      const targetName = (await readFile(join(directory, 'pathname'), 'utf8')).trim();
+      const targetName = (await readFile(join(directory, 'pathname'), 'utf8')).split(/\r?\n/)[0]?.trim() ?? '';
       const target = checkedPath(destination, targetName);
       await mkdir(dirname(target), { recursive: true });
       await link(join(directory, 'asset'), target);

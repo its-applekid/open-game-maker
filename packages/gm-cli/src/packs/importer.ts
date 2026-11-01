@@ -290,7 +290,7 @@ export async function importPack(options: ImportOptions) {
     await writeText(join(stagedVersion, hashName), identified.hashManifest);
     const packRoot = join(topDir, id);
     const collectionId = `t1:${id}@${version}`;
-    const requestedLicense = options.license ?? identified.license ?? undefined;
+    const requestedLicense = options.license;
     const requestedRow = requestedLicense ? licenseFor(requestedLicense) : undefined;
     if (await hasSameVersion(packRoot, version, hashName, identified.hashManifest)) {
       let collection = JSON.parse(await readFile(join(packRoot, 'collection.card.json'), 'utf8')) as {
@@ -420,7 +420,7 @@ export async function importPack(options: ImportOptions) {
     }
 
     let status: 'quarantined' | 'awaiting-license' | 'imported' = manifest ? 'awaiting-license' : 'quarantined';
-    let license = options.license ?? identified.license ?? undefined;
+    let license = options.license;
     let rights: unknown = cards.collection.rights;
     let confirmedBy: string | null = null;
     const row = license ? licenseFor(license) : undefined;
@@ -439,7 +439,7 @@ export async function importPack(options: ImportOptions) {
       };
       rights = confirmed.rights ?? null;
     } else if (intakePath) {
-      await writeJson(resolveInside(options.assetsRoot, intakePath), {
+      await writeIntakeIfMissing(resolveInside(options.assetsRoot, intakePath), {
         status: 'awaiting-license',
         collection: cards.collection.id,
         license: license ?? null,

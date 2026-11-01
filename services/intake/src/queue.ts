@@ -62,28 +62,37 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-export async function openQueue(assetsRoot: string): Promise<OpenEntry[]> {
+export async function openQueue(assetsRoot: string): Promise<{ open: OpenEntry[]; problems: string[] }> {
   const inbox = join(resolve(assetsRoot), 'inbox');
   const queuePath = join(inbox, 'queue.jsonl');
   let contents: string;
   try {
     contents = await readFile(queuePath, 'utf8');
   } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { open: [], problems: [] };
     throw error;
   }
   const open: OpenEntry[] = [];
-  for (const line of contents.split(/\r?\n/).filter(Boolean)) {
-    const entry = JSON.parse(line) as QueueEntry;
-    const manifestPath = resolveInboxPath(inbox, entry.manifest);
-    const intakePath = join(dirname(manifestPath), 'intake.json');
-    if (await exists(intakePath)) continue;
-    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as DriveManifest;
-    if (manifest.drop_id !== entry.drop_id)
-      throw new Error(`manifest drop id does not match queue entry ${entry.drop_id}`);
-    open.push({ entry, manifest, manifestPath, intakePath, fingerprint: fingerprint(manifest) });
+  const problems: string[] = [];
+  const lines = contents.split(/\r?\n/);
+  // The last piece has no newline yet when drive_sync is mid-append; read it on the next poll.
+  lines.pop();
+  for (const [index, line] of lines.entries()) {
+    if (!line) continue;
+    try {
+      const entry = JSON.parse(line) as QueueEntry;
+      const manifestPath = resolveInboxPath(inbox, entry.manifest);
+      const intakePath = join(dirname(manifestPath), 'intake.json');
+      if (await exists(intakePath)) continue;
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as DriveManifest;
+      if (manifest.drop_id !== entry.drop_id)
+        throw new Error(`manifest drop id does not match queue entry ${entry.drop_id}`);
+      open.push({ entry, manifest, manifestPath, intakePath, fingerprint: fingerprint(manifest) });
+    } catch (error) {
+      problems.push(`queue line ${index + 1}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
-  return open;
+  return { open, problems };
 }
 
 export async function knownLicense(entry: OpenEntry, assetsRoot: string): Promise<string | undefined> {
@@ -98,7 +107,7 @@ export async function knownLicense(entry: OpenEntry, assetsRoot: string): Promis
       const info = await lstat(path);
       if (!info.isFile() || info.size > 1024 * 1024) continue;
       const text = await readFile(path, 'utf8');
-      if (/kenney/i.test(text) && /(?:cc0|public domain)/i.test(text)) return 'CC0-1.0';
+      if (/kenney/i.test(text) && /\bcc0\b|creative commons zero/i.test(text)) return 'CC0-1.0';
     } catch {
       // Unreadable licence evidence remains a human judgment instead of widening rights.
     }

@@ -16,7 +16,6 @@ export type Item = {
 };
 export type IdentifyResult = {
   vendor: Vendor;
-  license: string | null;
   items: Item[];
   dropped: string[];
   hashManifest: string;
@@ -261,5 +260,5 @@ export async function identify(root: string): Promise<IdentifyResult> {
     const { sha, bytes } = await digest(file);
     lines.push(`${sha}  ${bytes}  ${relativePosix(root, file)}`);
   }
-  return { ...vendor, items, dropped: dropped.sort(), hashManifest: `${lines.sort().join('\n')}\n` };
+  return { vendor, items, dropped: dropped.sort(), hashManifest: `${lines.sort().join('\n')}\n` };
 }

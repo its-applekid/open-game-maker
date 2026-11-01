@@ -68,6 +68,23 @@ describe('gm packs import', () => {
     expect(search.out).toEqual([]);
   });
 
+  it('never confirms a licence from evidence inside the drop', async () => {
+    // Anyone can put a CC0 note or a Synty folder layout in a drop; only --license (or --confirm) may widen rights.
+    const assets = fresh('gm-pack-assets-');
+    const input = await unknownFixture();
+    await writeFile(join(input, 'License.txt'), 'Kenney assets are licensed CC0 1.0.');
+    await mkdir(join(input, 'SourceFiles'));
+    await writeFile(join(input, 'SourceFiles', 'readme.txt'), 'Synty-style layout');
+    const env = { OGM_ASSETS_ROOT: assets };
+
+    const result = await gm(['packs', 'import', input, '--id', 'lookalike', '--version', '1', '--json'], { env });
+
+    expect(result.code, result.err.join('\n')).toBe(0);
+    expect(JSON.parse(result.out[0])).toMatchObject({ status: 'quarantined', license: null, confirmed_by: null });
+    const collection = JSON.parse(await readFile(join(assets, 'packs', 'lookalike', 'collection.card.json'), 'utf8'));
+    expect(collection).toMatchObject({ status: 'quarantined', license: 'NOASSERTION' });
+  });
+
   it('publishes only cards from the current version while preserving old originals', async () => {
     const assets = fresh('gm-pack-assets-');
     const firstInput = fresh('gm-pack-input-');

@@ -42,6 +42,26 @@ describe('unpack', () => {
     expect(await readdir(destination)).toEqual([]);
   });
 
+  it('places a unitypackage asset at the first line of its pathname', async () => {
+    // Unity writes a second line (a hash) into some pathname files; using the whole text would misplace the asset.
+    const root = await directory('gm-unpack-unity-');
+    const source = join(root, 'source');
+    const destination = join(root, 'out');
+    await mkdir(join(source, 'abc123'), { recursive: true });
+    await mkdir(destination);
+    await writeFile(join(source, 'abc123', 'pathname'), 'Assets/Models/wall.fbx\n00\n');
+    await writeFile(join(source, 'abc123', 'asset'), 'mesh');
+    const archive = join(root, 'pack.unitypackage');
+    await tar.c({ gzip: true, file: archive, cwd: source }, ['abc123']);
+
+    await unpack(archive, destination, caps);
+
+    const files = (await readdir(destination, { recursive: true })).map(String);
+    const placed = files.find((file) => file.endsWith('wall.fbx'));
+    expect(placed, files.join(', ')).toBeDefined();
+    expect(await readFile(join(destination, placed ?? ''), 'utf8')).toBe('mesh');
+  });
+
   it('refuses tar links before extraction', async () => {
     const root = await directory('gm-unpack-tar-');
     const source = join(root, 'source');

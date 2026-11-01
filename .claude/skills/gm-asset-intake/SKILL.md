@@ -19,14 +19,14 @@ The Drive listener downloads and verifies untrusted drops. `services/intake` and
 Read the service status:
 
 ```sh
-cat ~/.local/state/ogm/intake/status.json
+cat "${OGM_STATE_DIR:-$HOME/.local/state/ogm}/intake/status.json"
 ```
 
-For each `awaiting-license` job, read its manifest and the paths in `license_files`. Read a plain file directly. For an archive member, stream only that member with `unzip -p` or `7z e -so`; do not extract or execute the archive.
+For each `awaiting-license` job, find its line in `assets-local/inbox/queue.jsonl` by `drop_id`; its `manifest` path is relative to `assets-local/inbox`. Skip the drop if the `intake.json` beside that manifest already says `imported`. Read the manifest and the paths in `license_files`, which are relative to the manifest's `files_root` (default: `files/` beside the manifest). Read a plain file directly. For an archive member, stream only that member with `unzip -p` or `7z e -so`; do not extract or execute the archive.
 
 Classify the evidence as an SPDX id such as `CC0-1.0` or a `LicenseRef-*` row already present in `packages/asset-cards/data/licenses.json`. If the evidence is missing, contradictory, or not represented by a row, report that uncertainty instead of inventing rights.
 
-Ask Kevin to confirm the licence and any narrower decision. Record the answer by running:
+Ask Kevin to confirm the licence and any narrower decision. Confirm only a collection that is still quarantined; `--confirm` overwrites an earlier confirmation. Record the answer with the job's `collection` value verbatim (`t1:<id>@<version>`):
 
 ```sh
 gm packs import --confirm <collection-id> --license <id> --confirmed-by kevin --json

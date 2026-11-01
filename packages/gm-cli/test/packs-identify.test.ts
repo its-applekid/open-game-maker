@@ -23,7 +23,7 @@ describe('identify', () => {
 
     const result = await identify(root);
     expect(result.vendor).toBe('kenney');
-    expect(result.license).toBe('CC0-1.0');
+    expect(result).not.toHaveProperty('license');
     expect(result.items).toContainEqual(
       expect.objectContaining({ path: 'Models/wall.obj', kind: 'model', companions: ['Models/Textures/colormap.png'] }),
     );

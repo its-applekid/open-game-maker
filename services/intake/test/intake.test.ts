@@ -153,6 +153,45 @@ describe('intake poller', () => {
     expect(run.mock.calls[0]?.[0].args).not.toContain('--license');
   });
 
+  it('keeps importing past a bad queue line and gives same-named drops their own packs', async () => {
+    // One corrupt line must not stall every later drop, and two Drive drops named alike must not share a pack id.
+    const { assets, state } = await fresh();
+    const first = await fixture(assets, {
+      dropId: 'DROP-AAAAAAAA',
+      directory: 'one',
+      name: 'Props',
+      md5: 'a'.repeat(32),
+    });
+    const second = await fixture(assets, {
+      dropId: 'DROP-BBBBBBBB',
+      directory: 'two',
+      name: 'Props',
+      md5: 'b'.repeat(32),
+    });
+    const partial = JSON.stringify(first).slice(0, 20);
+    await writeFile(
+      join(assets, 'inbox', 'queue.jsonl'),
+      `{not json\n${JSON.stringify(first)}\n${JSON.stringify(second)}\n${partial}`,
+    );
+    const run = vi.fn<ImportRunner>(async ({ id }) => ({
+      collection: `t1:${id}@2026-10-26-r1`,
+      status: 'awaiting-license',
+      license: null,
+    }));
+    const events: string[] = [];
+
+    const result = await pollIntake({ assetsRoot: assets, stateDir: state, run, emit: (name) => events.push(name) });
+
+    expect(result.hadError).toBe(false);
+    expect(run).toHaveBeenCalledTimes(2);
+    const ids = run.mock.calls.map(([call]) => call.id);
+    expect(new Set(ids).size).toBe(2);
+    expect(events.filter((name) => name === 'intake.error')).toHaveLength(1);
+    expect(await json(join(state, 'intake', 'status.json'))).toMatchObject({
+      last_error: expect.stringContaining('queue line 1'),
+    });
+  });
+
   it('leaves failed imports open and retries them on the next poll', async () => {
     const { assets, state } = await fresh();
     const entry = await fixture(assets, { dropId: 'RETRY-DROP', directory: 'retry', name: 'Retry Me' });
