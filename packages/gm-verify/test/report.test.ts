@@ -1,6 +1,7 @@
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -57,6 +58,17 @@ describe('verify report schema', () => {
   it('rejects absolute or escaping frame paths (paths are relative to --out)', () => {
     expect(verifyReportSchema.safeParse({ ...example(), frames: [{ t: 0, path: '/tmp/t0.png' }] }).success).toBe(false);
     expect(verifyReportSchema.safeParse({ ...example(), clip: '../run.mp4' }).success).toBe(false);
+    expect(verifyReportSchema.safeParse({ ...example(), clip: 'C:\\run.mp4' }).success).toBe(false);
+  });
+
+  it('emits the relative-path and mandatory unchecked invariants into JSON Schema', () => {
+    const path = fileURLToPath(new URL('../schemas/verify-report.v1.json', import.meta.url));
+    const schema = JSON.parse(readFileSync(path, 'utf8'));
+    expect(schema.properties.frames.items.properties.path.pattern).toBeTypeOf('string');
+    expect(schema.properties.unchecked.allOf).toEqual([
+      { contains: { const: 'iPhone Safari' } },
+      { contains: { const: 'sound' } },
+    ]);
   });
 });
 

@@ -42,6 +42,15 @@ export async function measureLoad(browser: Browser, url: string, options: PerfOp
   const log: string[] = [];
   const stamp = (line: string) => log.push(`${((Date.now() - t0) / 1000).toFixed(2)} ${line}`);
   page.on('pageerror', (error) => stamp(`pageerror ${error.message}`));
+  await page.exposeBinding('__mark', (_source, value: unknown) => {
+    if (typeof value === 'string') stamp(value);
+  });
+  await page.addInitScript(() => {
+    addEventListener('message', (event) => {
+      const mark = (window as unknown as { __mark?: (value: string) => Promise<void> }).__mark;
+      if (typeof event.data === 'string' && mark) void mark(`msg ${event.data}`);
+    });
+  });
   try {
     await (await context.newCDPSession(page)).send('Emulation.setCPUThrottlingRate', { rate: cpu });
     const target = gameUrl(url, options.tier ?? 'mobile');
@@ -60,7 +69,10 @@ export async function measureLoad(browser: Browser, url: string, options: PerfOp
       page.on('response', onResponse);
       const start = Date.now();
       stamp(`${run} start`);
-      await (run === 'first' ? page.goto(target) : page.reload());
+      await (run === 'first'
+        ? page.goto(target, { waitUntil: 'commit', timeout: options.readyTimeoutMs ?? READY_TIMEOUT_MS })
+        : page.reload({ waitUntil: 'commit', timeout: options.readyTimeoutMs ?? READY_TIMEOUT_MS }));
+      stamp(`${run} committed`);
       await page.waitForFunction(
         () => {
           const w = window as unknown as { __gm?: { ready?: boolean }; __ready?: boolean };
@@ -74,10 +86,7 @@ export async function measureLoad(browser: Browser, url: string, options: PerfOp
       page.off('response', onResponse);
       if (run === 'first') {
         const entries = await page.evaluate(() =>
-          [
-            ...performance.getEntriesByType('navigation'),
-            ...performance.getEntriesByType('resource'),
-          ].map((entry) => {
+          [...performance.getEntriesByType('navigation'), ...performance.getEntriesByType('resource')].map((entry) => {
             const timing = entry as PerformanceResourceTiming;
             return { name: timing.name, bytes: timing.encodedBodySize || timing.transferSize || 0 };
           }),
@@ -92,6 +101,16 @@ export async function measureLoad(browser: Browser, url: string, options: PerfOp
         }
       }
     }
+    const renderInfo = await page.evaluate(() => {
+      const gm = (window as unknown as { __gm?: { renderInfo?: () => unknown } }).__gm;
+      if (typeof gm?.renderInfo !== 'function') return null;
+      const value = gm.renderInfo() as { calls?: unknown; triangles?: unknown; textureBytes?: unknown };
+      return {
+        calls: typeof value.calls === 'number' ? value.calls : undefined,
+        triangles: typeof value.triangles === 'number' ? value.triangles : undefined,
+        textureBytes: typeof value.textureBytes === 'number' ? value.textureBytes : undefined,
+      };
+    });
     return {
       device: deviceName,
       cpu,
@@ -100,6 +119,9 @@ export async function measureLoad(browser: Browser, url: string, options: PerfOp
       fromNetwork: timed.first.net,
       fromCache: timed.cached.sw,
       bytesByType,
+      ...(renderInfo?.calls !== undefined ? { drawCalls: renderInfo.calls } : {}),
+      ...(renderInfo?.triangles !== undefined ? { triangles: renderInfo.triangles } : {}),
+      ...(renderInfo?.textureBytes !== undefined ? { textureBytes: renderInfo.textureBytes } : {}),
     };
   } finally {
     await context.close();

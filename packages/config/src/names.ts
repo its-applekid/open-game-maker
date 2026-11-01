@@ -82,6 +82,8 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_ASSETS_ROOT', unit: 'gm', kind: 'path', doc: 'assets-local library root for gm (else found above cwd)' },
   { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
   { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
+  { name: 'AIUR_HOOK_TICKET_IDENTIFIER', unit: 'gm', kind: 'int', doc: 'Aiur issue number stamped on gm activity' },
+  { name: 'AIUR_TICKET_BRANCH', unit: 'gm', kind: 'string', doc: 'Aiur run branch stamped on gm activity' },
   { name: 'OGM_API_INTERNAL_URL', unit: 'commit', kind: 'url', doc: 'loopback URL of the internal API' },
   { name: 'OGM_BUILDER_BOT_LOGIN', unit: 'commit', kind: 'string', doc: 'builder bot invited to game repositories' },
   {
@@ -92,5 +94,6 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'GM_VERIFY_SOFTWARE_GL', unit: 'gm', kind: 'bool', doc: 'gm run uses SwiftShader instead of the GPU (CI)' },
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
+  { name: 'PLAYWRIGHT_BROWSERS_PATH', unit: 'gm', kind: 'path', doc: 'cached Chromium browsers used by gm verify' },
   { name: 'XDG_RUNTIME_DIR', unit: 'gm', kind: 'path', doc: 'holds the ogm-verify capture slots (2 per host)' },
 ];

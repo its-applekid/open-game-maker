@@ -1,8 +1,26 @@
+import { readFileSync } from 'node:fs';
+
 import type { AssetManifest, Tier } from '@ogm/contracts';
+import { z } from 'zod';
 
 import type { BudgetKey, BudgetTuple, VerifyReport } from './report.js';
 
 export type TierBudget = Record<BudgetKey, number>;
+
+const tierBudgetSchema = z.strictObject({
+  downloadBytes: z.number().min(0),
+  drawCalls: z.number().min(0),
+  triangles: z.number().min(0),
+  textureBytes: z.number().min(0),
+});
+
+/** Calibration overrides are intentionally partial: an operator can replace only the measurements they calibrated. */
+export const tierBudgetOverridesSchema = z.strictObject({
+  low: tierBudgetSchema.partial().optional(),
+  mobile: tierBudgetSchema.partial().optional(),
+  desktop: tierBudgetSchema.partial().optional(),
+});
+export type TierBudgetOverrides = z.infer<typeof tierBudgetOverridesSchema>;
 
 /** Placeholders until calibration on Kevin's devices (A9 §3.5); OGM-063 imports this table. */
 export const TIER_BUDGETS: Record<Tier, TierBudget> = {
@@ -30,8 +48,16 @@ export function manifestBytes(manifest: AssetManifest, tier: Tier): number {
 
 export type Measured = { downloadBytes?: number; drawCalls?: number; triangles?: number; textureBytes?: number };
 
-export function measureBudgets(tier: Tier, measured: Measured): VerifyReport['budgets'] {
-  const limit = TIER_BUDGETS[tier];
+export function readBudgetOverrides(path: string): TierBudgetOverrides {
+  return tierBudgetOverridesSchema.parse(JSON.parse(readFileSync(path, 'utf8')));
+}
+
+export function measureBudgets(
+  tier: Tier,
+  measured: Measured,
+  overrides?: TierBudgetOverrides,
+): VerifyReport['budgets'] {
+  const limit = { ...TIER_BUDGETS[tier], ...overrides?.[tier] };
   return {
     downloadBytes: budgetTuple(measured.downloadBytes, limit.downloadBytes),
     drawCalls: budgetTuple(measured.drawCalls, limit.drawCalls),

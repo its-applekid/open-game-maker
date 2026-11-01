@@ -23,7 +23,10 @@ export type BudgetKey = (typeof BUDGET_KEYS)[number];
 const relativePath = z
   .string()
   .min(1)
-  .refine((path) => !path.startsWith('/') && !path.split('/').includes('..'), 'paths are relative to --out');
+  .regex(
+    /^(?!\/)(?![A-Za-z]:[\\/])(?!.*(?:^|\/)\.\.(?:\/|$))[^\\]+$/,
+    'paths are forward-slash relative paths under --out',
+  );
 
 export const viewportSchema = z.enum(['desktop', 'phone']);
 export type ViewportName = z.infer<typeof viewportSchema>;
@@ -43,6 +46,9 @@ export const perfSchema = z.object({
   fromNetwork: z.number().int().min(0),
   fromCache: z.number().int().min(0),
   bytesByType: z.record(z.string(), z.object({ n: z.number().int().min(0), bytes: z.number().min(0) })),
+  drawCalls: z.number().min(0).optional(),
+  triangles: z.number().min(0).optional(),
+  textureBytes: z.number().min(0).optional(),
 });
 export type PerfResult = z.infer<typeof perfSchema>;
 
@@ -69,11 +75,9 @@ export const verifyReportSchema = z.object({
   probes: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
   perf: perfSchema.optional(),
   clients: z.number().int().min(1),
-  unchecked: z
-    .array(z.string())
-    .refine((list) => ALWAYS_UNCHECKED.every((item) => list.includes(item)), {
-      message: `unchecked must list ${ALWAYS_UNCHECKED.join(' and ')}`,
-    }),
+  unchecked: z.array(z.string()).refine((list) => ALWAYS_UNCHECKED.every((item) => list.includes(item)), {
+    message: `unchecked must list ${ALWAYS_UNCHECKED.join(' and ')}`,
+  }),
   verdict: z.enum(['pass', 'fail', 'error']),
   error: z.string().optional(),
   startedAt: z.iso.datetime(),

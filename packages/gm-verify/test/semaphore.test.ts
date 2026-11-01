@@ -51,4 +51,12 @@ describe('acquireSlot', () => {
     writeFileSync(join(slot, 'pid'), String(process.ppid));
     await expect(acquireSlot({ runtimeDir, slots: 1, waitMs: 50, pollMs: 10 })).rejects.toThrow();
   });
+
+  it('falls back to the per-user temp root when XDG_RUNTIME_DIR is unusable', async () => {
+    const invalid = join(runtime(), 'not-a-directory');
+    writeFileSync(invalid, 'x');
+    const got = await acquireSlot({ runtimeDir: invalid, slots: 20, waitMs: 1_000, pollMs: 10 });
+    expect(got.slot).toMatch(/ogm-verify-\d+\/slot-\d+$/);
+    got.release();
+  });
 });

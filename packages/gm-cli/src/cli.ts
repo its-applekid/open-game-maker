@@ -28,6 +28,12 @@ const ENV = {
   OGM_ASSETS_ROOT: { kind: 'path', required: false },
   GM_EVENTS_FILE: { kind: 'path', required: false },
   GM_JOB: { kind: 'string', required: false },
+  AIUR_HOOK_TICKET_IDENTIFIER: { kind: 'int', required: false },
+  AIUR_TICKET_BRANCH: { kind: 'string', required: false },
+  GM_VERIFY_SOFTWARE_GL: { kind: 'bool', required: false },
+  GM_VERIFY_QUEUE: { kind: 'bool', required: false },
+  PLAYWRIGHT_BROWSERS_PATH: { kind: 'path', required: false },
+  XDG_RUNTIME_DIR: { kind: 'path', required: false },
 } as const;
 
 export async function run(argv: string[], options: RunOptions = {}): Promise<number> {
@@ -63,6 +69,15 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
     const ctx: GmContext = {
       cwd,
       assetsRoot: findAssetsRoot(cwd, env.OGM_ASSETS_ROOT),
+      config: {
+        eventsFile: env.GM_EVENTS_FILE,
+        jobId: env.GM_JOB,
+        aiurIssue: env.AIUR_HOOK_TICKET_IDENTIFIER,
+        aiurRunId: env.AIUR_TICKET_BRANCH,
+        verifySoftwareGl: env.GM_VERIFY_SOFTWARE_GL === true,
+        verifyQueue: env.GM_VERIFY_QUEUE === true,
+        runtimeDir: env.XDG_RUNTIME_DIR,
+      },
       json: flags.json === true,
       limit: flags.limit as number,
       fields:

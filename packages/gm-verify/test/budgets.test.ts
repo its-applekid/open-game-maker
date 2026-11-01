@@ -1,6 +1,10 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
-import { manifestBytes, measureBudgets, TIER_BUDGETS } from '../src/budgets.js';
+import { manifestBytes, measureBudgets, readBudgetOverrides, TIER_BUDGETS } from '../src/budgets.js';
 
 describe('measureBudgets', () => {
   it('marks 410k triangles over on mobile but ok on desktop', () => {
@@ -16,6 +20,22 @@ describe('measureBudgets', () => {
     const budgets = measureBudgets('mobile', { drawCalls: 10 });
     expect(budgets.downloadBytes).toEqual([0, 6_000_000, 'unknown']);
     expect(budgets.drawCalls[2]).toBe('ok');
+  });
+
+  it('applies validated per-tier calibration overrides', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gm-budgets-'));
+    const path = join(dir, 'budgets.json');
+    writeFileSync(path, JSON.stringify({ mobile: { triangles: 500_000 } }));
+    const overrides = readBudgetOverrides(path);
+    expect(measureBudgets('mobile', { triangles: 410_000 }, overrides).triangles).toEqual([410_000, 500_000, 'ok']);
+    expect(measureBudgets('mobile', { drawCalls: 1 }, overrides).drawCalls[1]).toBe(TIER_BUDGETS.mobile.drawCalls);
+  });
+
+  it('rejects unknown calibration keys', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gm-budgets-'));
+    const path = join(dir, 'budgets.json');
+    writeFileSync(path, JSON.stringify({ mobile: { triangles: 500_000, surprise: 1 } }));
+    expect(() => readBudgetOverrides(path)).toThrow();
   });
 });
 

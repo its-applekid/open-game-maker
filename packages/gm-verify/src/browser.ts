@@ -85,7 +85,13 @@ export async function openGame(browser: Browser, url: string, options: OpenGameO
     else if (type === 'warning') collector.add('warning', message.text());
   });
   try {
-    await Promise.race([page.goto(gameUrl(url, options.tier)), early]);
+    await Promise.race([
+      page.goto(gameUrl(url, options.tier), {
+        waitUntil: 'commit',
+        timeout: options.readyTimeoutMs ?? READY_TIMEOUT_MS,
+      }),
+      early,
+    ]);
     await Promise.race([
       page.waitForFunction(
         () => {

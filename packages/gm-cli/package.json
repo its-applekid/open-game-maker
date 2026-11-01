@@ -15,15 +15,16 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards build",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/gm-verify build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards build",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/gm-verify build",
     "test": "vitest run",
     "lint": "eslint src"
   },
   "dependencies": {
     "@ogm/asset-cards": "workspace:*",
     "@ogm/config": "workspace:*",
-    "@ogm/contracts": "workspace:*"
+    "@ogm/contracts": "workspace:*",
+    "@ogm/gm-verify": "workspace:*"
   }
 }

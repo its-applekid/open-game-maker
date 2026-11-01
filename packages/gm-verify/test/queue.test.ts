@@ -33,35 +33,37 @@ const request = (over: Partial<VerifyRequest> = {}): VerifyRequest => ({
 });
 
 /** Stands in for the browser run: fetches what the host served and writes a passing report. */
-const fakeRunner = (seen: RunVerifyOptions[]): Runner => async (options) => {
-  seen.push(options);
-  const body = await (await fetch(options.url)).text();
-  const now = new Date().toISOString();
-  const report = {
-    runId: options.runId ?? 'x',
-    renderer: 'fake',
-    software: false,
-    viewport: options.viewport,
-    tier: options.tier,
-    frames: [],
-    console: [],
-    budgets: unknownBudgets(),
-    probes: { served: body },
-    clients: 1,
-    unchecked: [...ALWAYS_UNCHECKED],
-    verdict: 'pass' as const,
-    startedAt: now,
-    endedAt: now,
-    gmVerifyVersion: 'test',
+const fakeRunner =
+  (seen: RunVerifyOptions[]): Runner =>
+  async (options) => {
+    seen.push(options);
+    const body = await (await fetch(options.url)).text();
+    const now = new Date().toISOString();
+    const report = {
+      runId: options.runId ?? 'x',
+      renderer: 'fake',
+      software: false,
+      viewport: options.viewport,
+      tier: options.tier,
+      frames: [],
+      console: [],
+      budgets: unknownBudgets(),
+      probes: { served: body },
+      clients: 1,
+      unchecked: [...ALWAYS_UNCHECKED],
+      verdict: 'pass' as const,
+      startedAt: now,
+      endedAt: now,
+      gmVerifyVersion: 'test',
+    };
+    writeReport(options.outDir, report);
+    return { report };
   };
-  writeReport(options.outDir, report);
-  return { report };
-};
 
 describe('verify queue', () => {
   it('round-trips a sandbox request file to a report file written by the host', async () => {
     const { root, workspace } = workspaces();
-    const dir = submitRequest(workspace, request());
+    const dir = submitRequest(workspace, request({ aiurIssue: 45, aiurRunId: 'aiur/45' }));
     const seen: RunVerifyOptions[] = [];
     const waiting = waitForReport(dir, { pollMs: 20, timeoutMs: 5_000 });
     await serveQueue(root, { runner: fakeRunner(seen), software: true, once: true });
@@ -71,6 +73,8 @@ describe('verify queue', () => {
     expect(seen[0].url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
     expect(seen[0].outDir).toBe(dir);
     expect(seen[0].frames).toEqual([0]);
+    expect(seen[0].aiurIssue).toBe(45);
+    expect(seen[0].aiurRunId).toBe('aiur/45');
   });
 
   it('claims each request once, so a second pass does not run it again', async () => {
@@ -80,6 +84,35 @@ describe('verify queue', () => {
     await serveQueue(root, { runner: fakeRunner(seen), software: true, once: true });
     await serveQueue(root, { runner: fakeRunner(seen), software: true, once: true });
     expect(seen).toHaveLength(1);
+  });
+
+  it('reaps a claim whose runner PID is dead', async () => {
+    const { root, workspace } = workspaces();
+    const dir = submitRequest(workspace, request({ runId: 'recovered' }));
+    mkdirSync(join(dir, 'claim'));
+    writeFileSync(join(dir, 'claim', 'pid'), '2147483647\n');
+    const seen: RunVerifyOptions[] = [];
+    await serveQueue(root, { runner: fakeRunner(seen), software: true, once: true });
+    expect(seen).toHaveLength(1);
+  });
+
+  it('rejects an oversized timeline before the host runner can allocate it', async () => {
+    const { workspace } = workspaces();
+    const dir = requestDir(workspace, 'huge');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'request.json'),
+      JSON.stringify(
+        request({
+          runId: 'huge',
+          args: { viewport: 'phone', tier: 'mobile', timeline: { from: 0, to: 1, step: 0.000001 } },
+        }),
+      ),
+    );
+    const seen: RunVerifyOptions[] = [];
+    const report = await processRequest(workspace, dir, { runner: fakeRunner(seen), software: false });
+    expect(seen).toHaveLength(0);
+    expect(report.error).toMatch(/invalid request/);
   });
 
   it('refuses a serveDir outside the workspace and still writes an error report', async () => {
@@ -107,7 +140,11 @@ describe('verify queue', () => {
     mkdirSync(dir, { recursive: true });
     writeFileSync(
       join(dir, 'request.json'),
-      JSON.stringify({ ...request({ runId: 'evil' }), url: 'http://example.com/', args: { viewport: 'phone', tier: 'mobile', cmd: 'rm' } }),
+      JSON.stringify({
+        ...request({ runId: 'evil' }),
+        url: 'http://example.com/',
+        args: { viewport: 'phone', tier: 'mobile', cmd: 'rm' },
+      }),
     );
     const seen: RunVerifyOptions[] = [];
     const report = await processRequest(workspace, dir, { runner: fakeRunner(seen), software: false });
@@ -126,5 +163,15 @@ describe('verify queue', () => {
       processRequest(workspace, requestDir(workspace, 'link'), { runner: fakeRunner([]), software: false }),
     ).rejects.toThrow(/not a real directory/);
     expect(existsSync(join(outside, 'report.json'))).toBe(false);
+  });
+
+  it('does not create a claim through a symlinked request during queue scans', async () => {
+    const { root, workspace } = workspaces();
+    const outside = mkdtempSync(join(tmpdir(), 'gm-outside-'));
+    writeFileSync(join(outside, 'request.json'), JSON.stringify(request({ runId: 'link' })));
+    mkdirSync(join(workspace, '.gm', 'verify'), { recursive: true });
+    symlinkSync(outside, requestDir(workspace, 'link'));
+    await serveQueue(root, { runner: fakeRunner([]), software: false, once: true });
+    expect(existsSync(join(outside, 'claim'))).toBe(false);
   });
 });

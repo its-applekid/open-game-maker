@@ -17,14 +17,19 @@
       "types": "./dist/budgets.d.ts",
       "default": "./dist/budgets.js"
     },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
     "./schemas/*": "./schemas/*"
   },
   "scripts": {
     "build": "tsc -b",
+    "preemit": "pnpm build",
     "emit": "node scripts/emit-schema.mjs",
     "pretypecheck": "pnpm --filter @ogm/contracts build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts build",
+    "pretest": "pnpm --filter @ogm/contracts build && pnpm build && node scripts/emit-schema.mjs --check",
     "test": "vitest run",
     "pretest:browser": "pnpm --filter @ogm/contracts build",
     "test:browser": "vitest run --config vitest.browser.config.ts",

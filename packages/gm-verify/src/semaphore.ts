@@ -45,10 +45,16 @@ function tryTake(slot: string): boolean {
 
 /** A host-wide counting semaphore of lock directories; a slot whose holder PID is dead is reaped. */
 export async function acquireSlot(options: SemaphoreOptions = {}): Promise<{ slot: string; release(): void }> {
-  const root = lockRoot(options.runtimeDir);
+  let root = lockRoot(options.runtimeDir);
   const slots = options.slots ?? HOST_SLOTS;
   const deadline = Date.now() + (options.waitMs ?? SLOT_WAIT_MS);
-  mkdirSync(root, { recursive: true });
+  try {
+    mkdirSync(root, { recursive: true });
+  } catch {
+    if (options.runtimeDir === undefined) throw new Error(`cannot create capture lock root ${root}`);
+    root = lockRoot(undefined);
+    mkdirSync(root, { recursive: true });
+  }
   let pause = options.pollMs ?? 100;
   for (;;) {
     for (let i = 0; i < slots; i += 1) {

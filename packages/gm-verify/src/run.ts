@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { assetManifestSchema, type Tier, type ViewId } from '@ogm/contracts';
 import type { Browser } from 'playwright';
 
-import { measureBudgets, manifestBytes, type Measured } from './budgets.js';
+import { measureBudgets, manifestBytes, type Measured, type TierBudgetOverrides } from './budgets.js';
 import { launch, openGame, type OpenedGame } from './browser.js';
 import {
   FfmpegMissingError,
@@ -42,6 +42,7 @@ export type RunVerifyOptions = ActivityContext & {
   timeline?: { from: number; to: number; step: number };
   record?: RecordOptions;
   inputs?: InputScript;
+  budgets?: TierBudgetOverrides;
   software: boolean;
   runId?: string;
   /** ffmpeg binary (tests point it at a missing one). */
@@ -60,14 +61,13 @@ export function newRunId(): string {
 
 async function downloadBytes(game: OpenedGame, url: string, tier: Tier): Promise<number | undefined> {
   const manifestUrl = new URL('assets/manifest.json', url).href;
-  const raw = await game.page.evaluate(async (href) => {
-    try {
-      const response = await fetch(href, { cache: 'no-store' });
-      return response.ok ? ((await response.json()) as unknown) : null;
-    } catch {
-      return null;
-    }
-  }, manifestUrl);
+  let raw: unknown;
+  try {
+    const response = await game.page.request.get(manifestUrl, { failOnStatusCode: false });
+    raw = response.ok() ? await response.json() : null;
+  } catch {
+    raw = null;
+  }
   const parsed = assetManifestSchema.safeParse(raw);
   return parsed.success ? manifestBytes(parsed.data, tier) : undefined;
 }
@@ -97,12 +97,14 @@ export async function runVerify(options: RunVerifyOptions): Promise<RunVerifyRes
   let timedOut = false;
 
   playtesting(options, 'start');
-  const slot = await acquireSlot(options.slots);
-  const timer = setTimeout(() => {
-    timedOut = true;
-    void browser?.close();
-  }, options.timeoutMs ?? RUN_TIMEOUT_MS);
+  let slot: Awaited<ReturnType<typeof acquireSlot>> | undefined;
+  let timer: NodeJS.Timeout | undefined;
   try {
+    slot = await acquireSlot(options.slots);
+    timer = setTimeout(() => {
+      timedOut = true;
+      void browser?.close();
+    }, options.timeoutMs ?? RUN_TIMEOUT_MS);
     browser = await launch(options.software);
     const viewports: ViewportName[] = options.viewport === 'both' ? ['desktop', 'phone'] : [options.viewport];
     for (const [index, viewport] of viewports.entries()) {
@@ -172,12 +174,12 @@ export async function runVerify(options: RunVerifyOptions): Promise<RunVerifyRes
         ? caught.message
         : String(caught);
   } finally {
-    clearTimeout(timer);
+    if (timer) clearTimeout(timer);
     await browser?.close().catch(() => {});
-    slot.release();
+    slot?.release();
   }
 
-  const budgets = error ? unknownBudgets() : measureBudgets(options.tier, measured);
+  const budgets = error ? unknownBudgets() : measureBudgets(options.tier, measured, options.budgets);
   if (budgets.downloadBytes[2] === 'unknown') unchecked.add('download size');
   if (budgets.drawCalls[2] === 'unknown') unchecked.add('draw calls');
   if (budgets.textureBytes[2] === 'unknown') unchecked.add('texture memory');

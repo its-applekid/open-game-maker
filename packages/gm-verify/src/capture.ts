@@ -7,6 +7,7 @@ import type { HookDriver } from './hooks.js';
 /** SwiftShader is slow: at most this many stills and seconds of clip (D-VERIFY-GPU). */
 export const SOFTWARE_MAX_FRAMES = 6;
 export const SOFTWARE_MAX_RECORD_S = 5;
+export const MAX_CAPTURE_FRAMES = 120;
 export const FFMPEG_HINT = 'sudo apt install ffmpeg';
 
 /** ffmpeg is missing: the caller refuses (exit 2) with the install hint; stills are already written. */
@@ -91,11 +92,13 @@ export function clipArgs(framesDir: string, fps: number, out: string): string[] 
     '-i',
     join(framesDir, 'f%05d.jpg'),
     '-vf',
-    'scale=960:-2',
+    'scale=960:-2:in_range=full:out_range=tv,format=yuv420p',
     '-c:v',
     'libx264',
     '-pix_fmt',
     'yuv420p',
+    '-color_range',
+    'tv',
     '-preset',
     'slow',
     '-crf',
@@ -126,6 +129,18 @@ export async function record(h: HookDriver, options: RecordOptions, out: string,
 
 /** `0:10:0.5` → [0, 0.5, ..., 10]. */
 export function timelineTimes(spec: { from: number; to: number; step: number }): number[] {
+  const count = Math.floor((spec.to - spec.from) / spec.step) + 1;
+  if (
+    !Number.isFinite(spec.from) ||
+    !Number.isFinite(spec.to) ||
+    !Number.isFinite(spec.step) ||
+    spec.from < 0 ||
+    spec.to < spec.from ||
+    spec.step <= 0 ||
+    count < 1 ||
+    count > MAX_CAPTURE_FRAMES
+  )
+    throw new Error(`timeline must contain 1-${MAX_CAPTURE_FRAMES} non-negative frames`);
   const times: number[] = [];
   for (let i = 0; ; i += 1) {
     const t = +(spec.from + i * spec.step).toFixed(6);
