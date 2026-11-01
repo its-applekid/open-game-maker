@@ -29,6 +29,7 @@ export interface AppDeps {
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
     intakeDir?: string;
+    reportBundleMaxBytes: number;
   };
   blobStore: BlobStore;
   events: AppEvents;

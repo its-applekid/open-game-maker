@@ -225,6 +225,21 @@ importers:
       '@ogm/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@ogm/gm-verify':
+        specifier: workspace:*
+        version: link:../gm-verify
+
+  packages/gm-verify:
+    dependencies:
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      playwright:
+        specifier: 1.64.1
+        version: 1.64.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   packages/health:
     dependencies:

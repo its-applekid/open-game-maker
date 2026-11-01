@@ -49,6 +49,7 @@ const deps: AppDeps = {
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
     intakeDir: env.OGM_INTAKE_DIR,
+    reportBundleMaxBytes: env.OGM_REPORT_BUNDLE_MAX_BYTES,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,

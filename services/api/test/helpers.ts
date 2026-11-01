@@ -73,6 +73,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       analyticsRetentionDays: 90,
       defaultDailyAllowanceMicroUsd: 5_000_000,
       resetZoneDefault: 'America/Los_Angeles',
+      reportBundleMaxBytes: 2 * 1024 * 1024,
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),
