@@ -1,0 +1,78 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:profantasy-cartographers-annual/example-dungeon-01@illustrative",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Example dungeon 01",
+  "kind": "inspiration",
+  "subkind": "map",
+  "collection": "t1:profantasy-cartographers-annual@illustrative",
+  "source": {
+    "files": [
+      {
+        "path": "example-dungeon-01.png",
+        "sha256": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "bytes": 0,
+        "format": "png",
+        "role": "primary"
+      }
+    ],
+    "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+  },
+  "previews": {
+    "thumb": "private/previews/00/0000000000000000-thumb.webp"
+  },
+  "describe": {
+    "description": "Grid dungeon of seven rooms around a central pillared hall, with a secret door into a small crypt and stairs down to a lower level.",
+    "objects": ["pillar", "altar", "sarcophagus", "stairs"],
+    "environments": ["dungeon", "crypt"],
+    "settings": ["fantasy"],
+    "roles": ["layout-reference"]
+  },
+  "image": {
+    "width_px": 2400,
+    "height_px": 1800,
+    "has_alpha": false,
+    "indexed_colors": null,
+    "pixel_art": false
+  },
+  "map": {
+    "map_type": "dungeon",
+    "publication": "Cartographer's Annual (issue to record at import)",
+    "grid_detected": {
+      "cell_px": 50,
+      "cols": 48,
+      "rows": 36,
+      "confidence": 0.92
+    },
+    "levels_shown": 1,
+    "site": "example-dungeon-01",
+    "layout_spec": {
+      "id": "layout:profantasy-cartographers-annual/example-dungeon-01@illustrative#1",
+      "status": "extracted",
+      "confidence": 0.81
+    }
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.8,
+      "input": "map image (vision-input allowed)"
+    },
+    "map.layout_spec": {
+      "by": "code",
+      "tool": "gm-map-extract@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "model proposal validated by code checks"
+    }
+  }
+}
