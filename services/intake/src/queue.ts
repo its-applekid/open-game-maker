@@ -1,6 +1,8 @@
 import { createHash } from 'node:crypto';
 import { lstat, readFile, stat } from 'node:fs/promises';
-import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+
+import { licenseFor } from '@ogm/asset-cards';
 
 export type QueueEntry = {
   queued_at?: string;
@@ -96,18 +98,22 @@ export async function openQueue(assetsRoot: string): Promise<{ open: OpenEntry[]
 }
 
 export async function knownLicense(entry: OpenEntry, assetsRoot: string): Promise<string | undefined> {
+  const kenney = licenseFor('kenney');
+  if (!kenney?.license_text_sha256) return undefined;
   const inbox = join(resolve(assetsRoot), 'inbox');
   const filesRoot = entry.manifest.files_root
     ? resolveInboxPath(inbox, entry.manifest.files_root)
     : join(dirname(entry.manifestPath), 'files');
   for (const name of entry.manifest.license_files ?? []) {
-    if (name.includes('!/')) continue;
+    if (name.includes('!/') || basename(name).toLowerCase() !== 'license.txt') continue;
     try {
       const path = resolveInboxPath(filesRoot, name);
       const info = await lstat(path);
       if (!info.isFile() || info.size > 1024 * 1024) continue;
       const text = await readFile(path, 'utf8');
-      if (/kenney/i.test(text) && /\bcc0\b|creative commons zero/i.test(text)) return 'CC0-1.0';
+      const normalized = text.toLowerCase().replace(/\s+/g, ' ').trim();
+      const hash = createHash('sha256').update(normalized).digest('hex');
+      if (hash === kenney.license_text_sha256) return kenney.id;
     } catch {
       // Unreadable licence evidence remains a human judgment instead of widening rights.
     }

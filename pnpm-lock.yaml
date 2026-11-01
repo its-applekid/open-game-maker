@@ -537,6 +537,9 @@ importers:
 
   services/intake:
     dependencies:
+      '@ogm/asset-cards':
+        specifier: workspace:*
+        version: link:../../packages/asset-cards
       '@ogm/config':
         specifier: workspace:*
         version: link:../../packages/config

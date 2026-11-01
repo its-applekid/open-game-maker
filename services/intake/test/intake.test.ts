@@ -7,6 +7,29 @@ import { pollIntake, type ImportRunner } from '../src/main.js';
 
 const temporary: string[] = [];
 
+const KENNEY_TINY_DUNGEON_LICENSE = `
+  Tiny Dungeon (1.0)
+
+  Created/distributed by Kenney (www.kenney.nl)
+  Creation date: 05-07-2022
+
+  ------------------------------
+
+  License: (Creative Commons Zero, CC0)
+  http://creativecommons.org/publicdomain/zero/1.0/
+
+  This content is free to use in personal, educational and commercial projects.
+  Support us by crediting Kenney or www.kenney.nl (this is not mandatory)
+
+  ------------------------------
+
+  Donate: http://support.kenney.nl
+  Patreon: http://patreon.com/kenney/
+
+  Follow on Twitter for updates:
+  http://twitter.com/KenneyNL
+`;
+
 async function fresh(): Promise<{ assets: string; state: string }> {
   const root = await mkdtemp(join(process.env.TMPDIR ?? '/tmp', 'ogm-intake-'));
   temporary.push(root);
@@ -71,7 +94,7 @@ afterEach(async () => {
 });
 
 describe('intake poller', () => {
-  it('blocks bad drops, imports known licenses, awaits unknown licenses, and deduplicates', async () => {
+  it('imports only an exact normalized licence hash, awaits keyword lookalikes, and deduplicates', async () => {
     const { assets, state } = await fresh();
     const entries = [
       await fixture(assets, { dropId: 'BAD-DROP', directory: 'bad', name: 'Broken', integrity: false }),
@@ -79,14 +102,19 @@ describe('intake poller', () => {
         dropId: 'KENNEY-DROP',
         directory: 'kenney',
         name: 'Kenney Tiny Dungeon',
-        license: 'Kenney assets are licensed CC0 1.0.',
+        license: KENNEY_TINY_DUNGEON_LICENSE.toUpperCase().replace(/\s+/g, '\n\t'),
       }),
-      await fixture(assets, { dropId: 'UNKNOWN-DROP', directory: 'unknown', name: 'Mystery Pack' }),
+      await fixture(assets, {
+        dropId: 'UNKNOWN-DROP',
+        directory: 'unknown',
+        name: 'Kenney Lookalike',
+        license: 'Kenney assets are licensed CC0 1.0, but this is not the whitelisted licence text.',
+      }),
       await fixture(assets, {
         dropId: 'KENNEY-DROP',
         directory: 'kenney-copy',
         name: 'Kenney Tiny Dungeon copy',
-        license: 'Kenney assets are licensed CC0 1.0.',
+        license: KENNEY_TINY_DUNGEON_LICENSE,
       }),
     ];
     await writeFile(

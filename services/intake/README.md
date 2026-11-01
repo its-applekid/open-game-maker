@@ -1,6 +1,6 @@
 # `@ogm/intake`
 
-This no-port service consumes open Drive queue entries one at a time. It blocks drops that failed integrity checks, deduplicates by drop id and sorted MD5 set, and runs `gm packs import` under `nice -n 10`. Unknown licences remain quarantined for a named-human confirmation.
+This no-port service consumes open Drive queue entries one at a time. It blocks drops that failed integrity checks, deduplicates by drop id and sorted MD5 set, and runs `gm packs import` under `nice -n 10`. It auto-confirms Kenney CC0 only when the normalized `License.txt` has the exact SHA-256 stored in the licence table; keyword matches and every other unknown licence remain quarantined for a named-human confirmation.
 
 The systemd unit is owned by OGM-002. Its entrypoint is:
 

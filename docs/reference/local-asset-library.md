@@ -98,7 +98,7 @@ assets-local/
 
 Every archive is checked for absolute and `..` paths before it is extracted. KayKit glTF cards and previews can be generated with `preprocess_kaykit.py`; the general importer below handles other supported library formats.
 
-`@ogm/intake` polls the queue every 30 seconds. It records failed integrity checks as `blocked`, skips duplicate drop-id/MD5 sets, and runs the safe importer for valid drops. Unknown licences remain `awaiting-license` and invisible to game search until a named human confirms them. The service status is `~/.local/state/ogm/intake/status.json`; it never moves or deletes quarantine or Drive files.
+`@ogm/intake` polls the queue every 30 seconds. It records failed integrity checks as `blocked`, skips duplicate drop-id/MD5 sets, and runs the safe importer for valid drops. A Kenney drop is auto-confirmed only when its normalized `License.txt` exactly matches the SHA-256 whitelist in the licence table; vendor or CC0 keywords do not grant rights. Unknown licences remain `awaiting-license` and invisible to game search until a named human confirms them. The service status is `~/.local/state/ogm/intake/status.json`; it never moves or deletes quarantine or Drive files.
 
 Import a local directory or archive directly:
 
