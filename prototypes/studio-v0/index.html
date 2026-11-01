@@ -111,7 +111,6 @@ h1, h2, h3 { font-family: var(--display); text-wrap: balance; margin: 0; }
 /* grid */
 .lib-floor { position: relative; background: var(--floor); padding-bottom: 120px; z-index: 1; }
 #lib-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr)); gap: 2px; }
-#s-library:has(#lib-hero[hidden]) .lib-floor { padding-top: calc(env(safe-area-inset-top, 0px) + 74px); }   /* nothing picked: the logo and the top-right button get their own strip */
 .tile { position: relative; display: block; aspect-ratio: 16 / 9; padding: 0; border: 0; border-radius: 0; overflow: hidden; background: #1d2021; color: var(--hi); text-align: left;
   isolation: isolate; --c: #fabd2f; animation: tile-in .8s var(--ease) backwards; animation-delay: calc(var(--i, 0) * 50ms);
   transition: opacity .3s var(--ease), filter .3s var(--ease), box-shadow .5s var(--ease), transform .5s var(--ease); }

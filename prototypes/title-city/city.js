@@ -399,11 +399,15 @@ async function kenneyLoad(path) {   // one merged, base-centred geometry per mod
 // the kit's colours, flat and a little softened; its blue swatches become the building's roof colour (instance colour);
 // dark window slits glow at night; cut hides everything above a height (houses being built or taken down)
 const KIT_V = `uniform vec3 tint; varying vec3 vW, vN, vRoof; varying vec2 vUv;
-void main() { vUv = uv; mat4 m = modelMatrix;
+#include <skinning_pars_vertex>
+void main() { vUv = uv; mat4 m = modelMatrix; vec3 transformed = position, objectNormal = normal;
+  #include <skinbase_vertex>
+  #include <skinnormal_vertex>
+  #include <skinning_vertex>
   #ifdef USE_INSTANCING
   m = m * instanceMatrix;
   #endif
-  vec4 w = m * vec4(position, 1.); vW = w.xyz; vN = normalize(mat3(m) * normal);
+  vec4 w = m * vec4(transformed, 1.); vW = w.xyz; vN = normalize(mat3(m) * objectNormal);
   #ifdef USE_INSTANCING_COLOR
   vRoof = instanceColor;
   #else

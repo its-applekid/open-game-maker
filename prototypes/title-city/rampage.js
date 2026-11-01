@@ -7,6 +7,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 import { FX, reseed } from './fx.js';
 
 export const PER = 104;
@@ -172,7 +173,7 @@ export async function kaiju(ctx) {
   const [sea, ford] = ctx.approach || [P(-75, 6), P(-40, 3)];   // he wades in from the sea (across the river mouth in the menu)
   const pts = { sea, ford, outside: P(-6, 0), gap: P(9, 0), a: P(16, 7), b: P(24, -5), c: P(26, -14), back: P(-6, -2), away: P(-80, -10) };
   const C = ctx.castle, cf = [Math.sin(C.face), Math.cos(C.face)], cs = [cf[1], -cf[0]];
-  const fieldFrom = P(-40, 90), fieldTo = P(-15, 24);   // the field trebuchet: pushed in from far down the fields, turned, and pushed away again after
+  const fieldFrom = P(-35, 70), fieldTo = P(-15, 24);   // the field trebuchet: pushed in from far down the fields, turned, and pushed away again after
   // when a swing connects: the moment the forearm is furthest forward in the clip (so debris and flashes land on the blow)
   const contact = {};
   for (const name of ['Punch', 'Weapon']) {
@@ -311,7 +312,12 @@ export async function kaiju(ctx) {
   // the trebuchet's arm lies along its +x (sling at -x, thrown over the top toward +x) and it rolls along x: aim and push it along x
   const alongX = (dx, dz) => Math.atan2(-dz, dx);
   for (const e of engines) e.o.rotation.y = e.arm ? alongX(pts.c[0] - e.x, pts.c[1] - e.z) : Math.atan2(pts.c[0] - e.x, pts.c[1] - e.z) + Math.PI;
-  field.move = { t0: 16, t1: 31, back0: LEAVE + 2, back1: LEAVE + 14, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: alongX(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]), yaw1: field.o.rotation.y };
+  field.move = { t0: 1, t1: 31, back0: LEAVE + 2, back1: LEAVE + 30, from: fieldFrom, to: fieldTo, turn0: 31, turn1: 33, yaw0: alongX(fieldTo[0] - fieldFrom[0], fieldTo[1] - fieldFrom[1]), yaw1: field.o.rotation.y };
+  // where the field trebuchet is at any time: rolled at a steady walking pace (eased in and out over the first and last
+  // 15% of each trip), turned to aim, and turned round to be pushed home
+  const ramp = u => { u = clamp01(u); const e = .15, v = 1 / (1 - e); return u < e ? v * u * u / (2 * e) : u > 1 - e ? 1 - v * (1 - u) ** 2 / (2 * e) : v * (u - e / 2); };
+  const fieldAt = lt => { const mv = field.move, back = ramp((lt - mv.back0) / (mv.back1 - mv.back0)), k = ramp((lt - mv.t0) / (mv.t1 - mv.t0)) - back, kt = smooth((lt - mv.turn0) / (mv.turn1 - mv.turn0));
+    return { x: lerp(mv.from[0], mv.to[0], k), z: lerp(mv.from[1], mv.to[1], k), k, back, yaw: lt < mv.back0 - 1 ? lerp(mv.yaw0, mv.yaw1, kt) : lerp(mv.yaw1, mv.yaw0 + Math.PI, smooth(lt - mv.back0 + 1)) }; };
   window.__look = [...engines.map(e => () => [e.o.position.x, e.o.position.y, e.o.position.z]), () => { const q = posAt(lastLt); return [q.x, PLAIN, q.z]; }];   // debug camera targets (city.js ?look=i; the last is the monster)
   const chest = (t) => { const p = posAt(t); return [p.x, Math.max(ground(p.x, p.z), 0) + H * .6, p.z]; };
   const missHouse = D.filter(d => d.kind === 'house' && !d.hits.length).sort((a, b) => Math.hypot(a.x - pts.c[0], a.z - pts.c[1]) - Math.hypot(b.x - pts.c[0], b.z - pts.c[1]))[0];
@@ -349,19 +355,36 @@ export async function kaiju(ctx) {
   const hb = new THREE.Box3().setFromObject(hk.scene), HS = 2.7 / (hb.max.y - hb.min.y);   // a bit larger than life, so they read next to the monster
   const men = [];
   const man = (plan, armed) => {   // plan: [[t, x, z, clip, yawTarget?], ...] — position eases between keys
-    const o = hk.scene.clone(); o.scale.setScalar(HS); scene.add(o); o.traverse(n => { n.frustumCulled = false; });   // a cloned skinned mesh's bounds are wrong: culling made them blink out
+    const o = cloneSkinned(hk.scene); o.scale.setScalar(HS); scene.add(o); o.traverse(n => { n.frustumCulled = false; });   // its own skeleton (a plain clone stays bound to the original's, never posed); skinned bounds are stale, so no culling
     if (armed) { const s = spear.scene.clone(); s.scale.setScalar(1); s.rotation.z = -.3; (o.getObjectByName('arm-right') || o).add(s); s.position.set(-.1, -.25, .1); }
     const mixer = new THREE.AnimationMixer(o), acts = {}; for (const c of hk.animations) acts[c.name] = mixer.clipAction(c);
-    const m = { o, mixer, acts, plan, cur: null }; men.push(m); return m;
+    const m = { o, mixer, acts, plan, cur: null, bones: Object.fromEntries(['root', 'leg-left', 'leg-right', 'torso', 'arm-left', 'arm-right', 'head'].map(n => [n, o.getObjectByName(n)])) };
+    const seg = t => { let i = 0; while (i < plan.length - 1 && plan[i + 1][0] <= t) i++; return [plan[i], plan[Math.min(i + 1, plan.length - 1)]]; };
+    m.pos = t => { const [a, b] = seg(t), k = b[0] > a[0] ? clamp01((t - a[0]) / (b[0] - a[0])) : 0; return [lerp(a[1], b[1], k), lerp(a[2], b[2], k)]; };
+    m.clipAt = t => { const [a] = seg(t); return [a[3], a[0]]; };   // [clip, since when]
+    men.push(m); return m;
   };
   const face = (x, z, tx, tz) => Math.atan2(tx - x, tz - z);
   // crews: three at each engine (the field crew walks it across the fields)
   for (const e of engines) for (let i = 0; i < 3; i++) {
+    if (e === field) continue;
     const off = (x, z, r, a) => [x + Math.cos(a) * r, z + Math.sin(a) * r], a0 = e.o.rotation.y + Math.PI / 2 + (i - 1) * .7;
-    if (e === field) { const st = off(fieldFrom[0], fieldFrom[1], 3.2, a0), en = off(fieldTo[0], fieldTo[1], 3.2, a0);
-      man([[0, ...st, 'idle'], [16, ...st, 'interact-right'], [31, ...en, 'interact-right'], [33, ...en, 'idle'], [36.1, ...en, 'emote-yes'], [38, ...en, 'idle'], [LEAVE, ...en, 'emote-yes'],
-        [LEAVE + 2, ...en, 'interact-right'], [LEAVE + 14, ...st, 'interact-right'], [LEAVE + 15, ...st, 'idle']]).stays = true; }
-    else { const p = off(e.x, e.z, 3, a0); man([[0, p[0], p[1], 'idle'], [e.shots[0] - .4, p[0], p[1], 'interact-right'], [e.shots[0] + .3, p[0], p[1], 'emote-yes'], [e.shots[0] + 2, p[0], p[1], 'idle'], [LEAVE - 12, p[0], p[1], 'emote-yes']]); }
+    const p = off(e.x, e.z, 3, a0); man([[0, p[0], p[1], 'idle'], [e.shots[0] - .4, p[0], p[1], 'interact-right'], [e.shots[0] + .3, p[0], p[1], 'emote-yes'], [e.shots[0] + 2, p[0], p[1], 'idle'], [LEAVE - 12, p[0], p[1], 'emote-yes']]);
+  }
+  { // the field crew: two at each side of the trebuchet, hands on its frame, walking it in; they step clear to watch it shoot
+    // (far enough out that it can swing round past them), then walk back in and push it home. Placed in its own frame.
+    const r0 = field.o.rotation.y, p0 = field.o.position.clone(); field.o.rotation.y = 0; field.o.position.set(0, 0, 0); field.o.updateMatrixWorld(true);
+    const fb = new THREE.Box3().setFromObject(field.o); field.o.rotation.y = r0; field.o.position.copy(p0); field.o.updateMatrixWorld(true);
+    const toW = (f, lx, lz) => [f.x + lx * Math.cos(f.yaw) + lz * Math.sin(f.yaw), f.z - lx * Math.sin(f.yaw) + lz * Math.cos(f.yaw)], mix = (a, b, k) => [lerp(a[0], b[0], k), lerp(a[1], b[1], k)];
+    const mv = field.move, out0 = 33, out1 = 34.4, in0 = mv.back0, in1 = mv.back0 + 1.6;
+    for (let i = 0; i < 4; i++) {
+      const s = i < 2 ? 1 : -1, lx = lerp(fb.min.x, fb.max.x, i % 2 ? .62 : .34), lz = s * ((s > 0 ? fb.max.z : -fb.min.z) + .5), far = s * (Math.max(fb.max.x, -fb.min.x) + 1.2);
+      const push = t => { const f = fieldAt(t); return toW(t >= mv.back0 ? { ...f, yaw: f.yaw - Math.PI } : f, lx, lz); }, stand = toW(fieldAt(out1), lx, far);   // after it turns round, the same spot on the same side
+      const m = man([[0, 0, 0, 'idle']]); m.stays = true;
+      m.pos = t => t < out0 ? push(t) : t < out1 ? mix(push(t), stand, smooth((t - out0) / (out1 - out0))) : t < in0 ? stand : t < in1 ? mix(stand, push(t), smooth((t - in0) / (in1 - in0))) : push(t);
+      m.clipAt = t => t >= 36.1 && t < 38 ? ['emote-yes', 36.1] : t >= LEAVE && t < LEAVE + 1.4 ? ['emote-yes', LEAVE] : ['idle', 0];
+      m.pushing = t => t < out0 || t >= in1 - .3;
+    }
   }
   // archers on the wall either side of the breach: out of the corner towers at the wall's ends, and back in once he's gone
   const arrows = [];
@@ -377,6 +400,18 @@ export async function kaiju(ctx) {
     const m = man([[0, ...home, 'idle'], [29.4 + i * .15, ...home, 'sprint'], [32, ...ring, 'attack-melee-right'], [38.7, ...ring, 'sprint'], [40, ...back, 'emote-yes'], [41.5, ...back, 'sprint'], [46, ...P(-2, -2 + (i - 4) * 1.5), 'emote-yes'], [LEAVE, ...P(-2, -2 + (i - 4) * 1.5), 'idle'], [LEAVE + 7, ...home, 'sprint']], true);
     m.show = 29.4 + i * .15; m.hide = LEAVE + 7;
   }
+  // walking: the step cycle advances with the ground covered (no sliding feet); slower walkers take shorter strides, as
+  // people do; heading turns at most 6 rad/s toward where he is going (or, standing, toward the monster)
+  const DT = 1 / 20, NS = Math.ceil(PER / DT) + 2, CYC = { walk: [.54 * HS, .667], sprint: [.59 * HS, .5] };   // metres per cycle (two steps) at full stride, seconds per cycle
+  const KX = new Float32Array(NS), KZ = new Float32Array(NS); for (let i = 0; i < NS; i++) { const t = i * DT, q = t < LEAVE ? posAt(t) : { x: pts.away[0], z: pts.away[1] }; KX[i] = q.x; KZ[i] = q.z; }   // where the monster is, once for everyone
+  for (const m of men) { m.ph = new Float32Array(NS); m.amp = new Float32Array(NS); m.yaw = new Float32Array(NS); m.mov = []; let ph = 0, yaw = null, [px, pz] = m.pos(PER - DT);
+    for (let j = 0; j < NS * 2; j++) { const i = j % NS; if (j === NS) [px, pz] = m.pos(PER - DT);   /* twice round: the second pass starts from where the loop ends, so nothing snaps at the wrap */ const t = i * DT, [x, z] = m.pos(t), d = Math.hypot(x - px, z - pz), v = d / DT, [clip] = m.clipAt(t), gait = v > .25 ? (clip === 'sprint' ? 'sprint' : 'walk') : null;
+      const [len, dur] = CYC[gait || 'walk'], a = Math.min(1, Math.max(.35, Math.sqrt(v / (len / dur)))); ph += d / (len * a); m.ph[i] = ph; m.amp[i] = a; m.mov[i] = gait;
+      const want = gait ? Math.atan2(x - px, z - pz) : yaw !== null && (m.pushing?.(t) || clip === 'interact-right') ? yaw : Math.atan2(KX[i] - x, KZ[i] - z);
+      yaw = yaw === null ? want : yaw + Math.max(-6 * DT, Math.min(6 * DT, wrapA(want - yaw))); m.yaw[i] = yaw; px = x; pz = z; } }
+  const ID = new THREE.Quaternion(), AX = new THREE.Vector3(1, 0, 0), AY = new THREE.Vector3(0, 1, 0);
+  window.__men = () => men.map(m => { const q = new THREE.Quaternion(), d = new THREE.Vector3(-1, 0, 0).applyQuaternion(m.bones['arm-right'].getWorldQuaternion(q)), y = m.o.rotation.y;   // debug: heading, where the right arm points (fwd/up), leg swing
+    return { p: m.o.position.toArray().map(v => +v.toFixed(2)), yaw: +y.toFixed(2), vis: m.o.visible, push: !!m.pushing, clip: m.cur?.getClip().name, armFwd: +(d.x * Math.sin(y) + d.z * Math.cos(y)).toFixed(2), armUp: +d.y.toFixed(2), leg: +(2 * Math.acos(Math.min(1, Math.abs(m.bones['leg-left'].quaternion.w)))).toFixed(2) }; });
   const arrowMesh = new THREE.InstancedMesh(new THREE.CylinderGeometry(.04, .04, 1.4, 4).rotateX(Math.PI / 2), new THREE.MeshLambertMaterial({ color: '#5e4a44' }), arrows.length);
   arrowMesh.frustumCulled = false; scene.add(arrowMesh);
   for (const ar of arrows) ar.to = chest(ar.t + ar.fl);
@@ -483,21 +518,24 @@ export async function kaiju(ctx) {
           c.m.position.set(f[i], f[i + 1] - sink * 2, f[i + 2]); c.m.quaternion.set(f[i + 3], f[i + 4], f[i + 5], f[i + 6]);
         }
       }
-      if (field.move) { const mv = field.move, back = clamp01((lt - mv.back0) / (mv.back1 - mv.back0)), k = smooth((lt - mv.t0) / (mv.t1 - mv.t0)) - smooth(back), kt = smooth((lt - mv.turn0) / (mv.turn1 - mv.turn0));
-        field.o.position.set(lerp(mv.from[0], mv.to[0], k), ground(lerp(mv.from[0], mv.to[0], k), lerp(mv.from[1], mv.to[1], k)), lerp(mv.from[1], mv.to[1], k));
-        field.o.rotation.y = lt < mv.back0 - 1 ? lerp(mv.yaw0, mv.yaw1, kt) : lerp(mv.yaw1, mv.yaw0 + Math.PI, smooth(lt - mv.back0 + 1));   // turned round to be pushed home
-        field.x = field.o.position.x; field.z = field.o.position.z;
-        field.o.traverse(n => { if (n.name === 'wheel') n.rotation.z = -(k + 2 * smooth(back)) * 12; }); }
+      if (field.move) { const f = fieldAt(lt);
+        field.o.position.set(f.x, ground(f.x, f.z), f.z); field.o.rotation.y = f.yaw;   // turned round to be pushed home
+        field.x = f.x; field.z = f.z;
+        field.o.traverse(n => { if (n.name === 'wheel') n.rotation.z = -(f.k + 2 * f.back) * 12; }); }
       for (const m of men) {
-        let i = 0; while (i < m.plan.length - 1 && m.plan[i + 1][0] <= lt) i++;
-        const a = m.plan[i], b = m.plan[Math.min(i + 1, m.plan.length - 1)], k = b[0] > a[0] ? clamp01((lt - a[0]) / (b[0] - a[0])) : 0, moving = a[1] !== b[1] || a[2] !== b[2];
-        const x = lerp(a[1], b[1], moving ? k : 0), z = lerp(a[2], b[2], moving ? k : 0);
+        const i = Math.min(NS - 2, Math.floor(lt / DT)), f = lt / DT - i, [x, z] = m.pos(lt), gait = m.mov[i], [clip, since] = m.clipAt(lt), B = m.bones;
         m.o.visible = m.show !== undefined ? lt >= m.show && lt < m.hide : m.stays || lt < LEAVE + 4; m.o.position.set(x, m.y ?? Math.max(PLAIN, ground(x, z)), z);
-        const tgt = M.g.visible ? M.g.position : { x: pts.away[0], z: pts.away[1] };
-        m.o.rotation.y = moving && k < 1 ? Math.atan2(b[1] - a[1], b[2] - a[2]) : a[3] === 'interact-right' ? m.o.rotation.y : Math.atan2(tgt.x - x, tgt.z - z);
-        const act = m.acts[moving && k < 1 && a[3] === 'idle' ? 'walk' : a[3]] || m.acts.idle;
+        m.o.rotation.y = m.yaw[i] + wrapA(m.yaw[i + 1] - m.yaw[i]) * f;
+        const act = m.acts[gait || (clip === 'sprint' || clip === 'walk' ? 'idle' : clip)] || m.acts.idle;
         if (m.cur !== act) { m.mixer.stopAllAction(); act.reset().play(); m.cur = act; }
-        act.time = (lt - a[0]) % act.getClip().duration; m.mixer.update(0);
+        const ph = lerp(m.ph[i], m.ph[i + 1], f), dur = act.getClip().duration;
+        act.time = gait ? (ph % 1) * dur : (lt - since) % dur; m.mixer.update(0);
+        if (gait) { const a = lerp(m.amp[i], m.amp[i + 1], f); B['leg-left'].quaternion.slerp(ID, 1 - a); B['leg-right'].quaternion.slerp(ID, 1 - a); B.root.position.y *= a; }   // shorter strides when slow
+        if (m.pushing?.(lt)) {   // arms out in front on the frame, shoving with each step; leaning into it
+          const pump = gait ? Math.sin(ph * Math.PI * 4) * .12 : 0;
+          B['arm-right'].quaternion.setFromAxisAngle(AY, 1.25 + pump); B['arm-left'].quaternion.setFromAxisAngle(AY, -1.25 - pump);   /* the rig's arms point sideways at rest; it faces +z */
+          B.torso.quaternion.setFromAxisAngle(AX, .3); B.head.quaternion.setFromAxisAngle(AX, -.22);
+        }
       }
       { const o = new THREE.Object3D(), zero = new THREE.Matrix4().makeScale(0, 0, 0);
         arrows.forEach((ar, i) => { const k = (lt - ar.t) / ar.fl; if (k < 0 || k > 1) { arrowMesh.setMatrixAt(i, zero); return; }
