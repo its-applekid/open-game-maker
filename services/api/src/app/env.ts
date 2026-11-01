@@ -9,6 +9,7 @@ export const apiEnvSpec = {
   OGM_API_PORT: { kind: 'port' },
   OGM_ANALYTICS_RETENTION_DAYS: { kind: 'int', default: '90' },
   OGM_DATA_DIR: { kind: 'path' },
+  OGM_GAMES_ROOT: { kind: 'path', required: false },
   OGM_INTERNAL_TOKEN: { kind: 'secret' },
   OGM_JOB_TOKEN_SECRET: { kind: 'secret' },
   OGM_BLOB_ROOT: { kind: 'path' },

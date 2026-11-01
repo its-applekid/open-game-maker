@@ -66,6 +66,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
       gameTemplateRef: 'game-2d@1',
+      gamesRoot: mkdtempSync(join(tmpdir(), 'ogm-api-games-')),
       vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
       vapidSubject: 'mailto:operator@example.test',
       analyticsRetentionDays: 90,
