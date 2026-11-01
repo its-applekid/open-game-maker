@@ -82,6 +82,18 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'secret',
     doc: 'HMAC key for voice tokens (api, voice-host)',
   },
+  {
+    name: 'OGM_VOICE_HOST_INTERNAL_URL',
+    unit: 'api',
+    kind: 'url',
+    doc: 'http://127.0.0.1:<OGM_VOICE_PORT> (loopback voice host; briefing push off when unset)',
+  },
+  {
+    name: 'OGM_VOICE_INTERNAL_SECRET',
+    unit: 'shared',
+    kind: 'secret',
+    doc: 'backend -> voice host internal bearer (api, voice-host)',
+  },
   { name: 'OGM_COMMIT_SERVICE_TOKEN', unit: 'shared', kind: 'secret', doc: 'backend -> commit service bearer' },
   {
     name: 'OGM_COMMIT_INTERNAL_URL',
