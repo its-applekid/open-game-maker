@@ -3,6 +3,7 @@ import { execFile } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 
 import sharp from 'sharp';
@@ -161,6 +162,30 @@ describe('thumbnail specimens and store references', () => {
       }),
     ).rejects.toThrow(/redirect|host/i);
     expect(await readFile(join(store, 'media.json'), 'utf8')).toBe('{"preserved":true}\n');
+  });
+
+  it('rejects a cards file outside the selected asset root', async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-cli-'));
+    const root = join(sandbox, 'assets');
+    await mkdir(root);
+    await writeFile(join(sandbox, 'cards.json'), '[]\n');
+
+    await expect(
+      execFileAsync('node', [
+        fileURLToPath(new URL('../tools/thumbnail-scene.mjs', import.meta.url)),
+        'specimen',
+        '--root',
+        root,
+        '--cards',
+        '../cards.json',
+        '--target-kind',
+        'set',
+        '--target-id',
+        'smallscaleint',
+        '--output',
+        'specimen.png',
+      ]),
+    ).rejects.toMatchObject({ stderr: expect.stringContaining('input escapes the selected root') });
   });
 });
 
