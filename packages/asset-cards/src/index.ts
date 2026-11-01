@@ -16,10 +16,15 @@ export {
   isCreationChoice,
   loadFamilies,
   packOf,
+  packsOfFamily,
+  setFor,
   type Coverage,
   type PovId,
   type StyleFamily,
   type StyleFamilyApi,
   type StyleFamilyId,
+  type StyleSet,
+  type StyleSetPack,
+  type StyleSetTraits,
 } from './families.js';
 export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';

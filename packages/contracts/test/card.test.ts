@@ -24,6 +24,14 @@ describe('card schemas', () => {
     if (!result.ok) expect(result.errors.join('\n')).toContain('processing');
   });
 
+  it('accepts a collection card compatibility set', () => {
+    const card = structuredClone(
+      cardFixtureDocs().find(({ file }) => file === 'collection-kenney-mini-dungeon.json')?.doc,
+    ) as { describe: { set?: string } };
+    card.describe.set = 'kenney-mini-3d';
+    expect(validateCard(card)).toMatchObject({ ok: true });
+  });
+
   it('reports the invalid interpretation author', () => {
     const result = validateCard(negativeFixture('interpretation-not-admin.json').doc);
     expect(result.ok).toBe(false);

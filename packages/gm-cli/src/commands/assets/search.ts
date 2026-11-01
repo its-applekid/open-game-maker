@@ -1,19 +1,19 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { formatRow, loadIndex, search } from '@ogm/asset-cards';
+import { familyFor, formatRow, loadIndex, packOf, search, setFor } from '@ogm/asset-cards';
 
 import { FILTER_FLAGS, toQuery } from '../../assets-query.js';
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
 
-/** The game's style family from `./assets.lock.json`, if this is a game repo that has one. */
-function lockFamily(cwd: string): string | undefined {
+/** The game's style family and compatibility sets inferred from `./assets.lock.json`. */
+function lockContext(cwd: string): { family: string; sets: string[]; packs: string[] } | undefined {
   const file = join(cwd, 'assets.lock.json');
   if (!existsSync(file)) return undefined;
-  let lock: { family?: unknown };
+  let lock: { family?: unknown; assets?: unknown };
   try {
-    lock = JSON.parse(readFileSync(file, 'utf8')) as { family?: unknown };
+    lock = JSON.parse(readFileSync(file, 'utf8')) as { family?: unknown; assets?: unknown };
   } catch {
     throw new UsageError('assets.lock.json is not valid JSON', 'git diff assets.lock.json');
   }
@@ -23,7 +23,21 @@ function lockFamily(cwd: string): string | undefined {
       'set "family" in assets.lock.json (gm help assets search)',
     );
   }
-  return lock.family;
+  const sets = new Set<string>();
+  const packs = new Set<string>();
+  if (Array.isArray(lock.assets)) {
+    for (const asset of lock.assets) {
+      const id =
+        typeof asset === 'object' && asset !== null && typeof (asset as { id?: unknown }).id === 'string'
+          ? (asset as { id: string }).id
+          : undefined;
+      const pack = id ? packOf(id) : undefined;
+      if (pack) packs.add(pack);
+      const set = pack && familyFor(pack) === lock.family ? setFor(pack) : undefined;
+      if (set) sets.add(set.id);
+    }
+  }
+  return { family: lock.family, sets: [...sets], packs: [...packs] };
 }
 
 export const command: GmCommand = {
@@ -45,7 +59,8 @@ export const command: GmCommand = {
     if (anyFamily && !reason) {
       throw new UsageError('--any-family needs --reason', 'gm assets search <words> --any-family --reason "<why>"');
     }
-    const gameFamily = lockFamily(ctx.cwd);
+    const lock = lockContext(ctx.cwd);
+    const gameFamily = lock?.family;
     // `--family` picks another family for a lineup; leaving the game's family still needs a logged reason.
     const leaves = gameFamily !== undefined && (anyFamily || (q.family !== undefined && q.family !== gameFamily));
     if (leaves && !reason) {
@@ -54,7 +69,13 @@ export const command: GmCommand = {
         `gm assets search <words> --family ${q.family} --reason "<why>"`,
       );
     }
-    if (gameFamily && !anyFamily && !q.family) q.gameFamily = gameFamily;
+    if (lock && gameFamily && !anyFamily && !q.family) {
+      q.gameFamily = gameFamily;
+      if (lock.sets.length > 0) {
+        q.gameSets = lock.sets;
+        q.gamePacks = lock.packs;
+      }
+    }
     if (q.sameRigAs && !index.cards.some((card) => card.id === q.sameRigAs)) {
       throw new UsageError(`unknown card id "${q.sameRigAs}"`, 'gm assets search <words> to find an id');
     }

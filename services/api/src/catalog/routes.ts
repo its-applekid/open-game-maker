@@ -2,7 +2,14 @@ import { createHash } from 'node:crypto';
 
 import { Hono } from 'hono';
 
-import { loadFamilies, loadIndex, packOf, type ResolvedCard, type StyleFamilyApi } from '@ogm/asset-cards';
+import {
+  loadFamilies,
+  loadIndex,
+  packOf,
+  packsOfFamily,
+  type ResolvedCard,
+  type StyleFamilyApi,
+} from '@ogm/asset-cards';
 import type { BlobHash, BlobStore } from '@ogm/blob-store';
 import { loadEnv } from '@ogm/config';
 
@@ -39,6 +46,11 @@ async function styleFamilies(assetsRoot: string | undefined, blobStore: BlobStor
       if (pack) byPack.set(pack, card);
     }
   }
+  const apiPack = async (id: string) => ({
+    id,
+    name: byPack.get(id)?.title ?? id,
+    thumbnailUrl: await thumbnailUrl(blobStore, byPack.get(id)),
+  });
   return Promise.all(
     loadFamilies().map(async (f) => ({
       id: f.id,
@@ -48,11 +60,19 @@ async function styleFamilies(assetsRoot: string | undefined, blobStore: BlobStor
       views: f.views,
       creationChoice: f.creation_choice,
       coverage: f.coverage,
-      packs: await Promise.all(
-        [...f.packs.primary, ...f.packs.extras].map(async (id) => ({
-          id,
-          name: byPack.get(id)?.title ?? id,
-          thumbnailUrl: await thumbnailUrl(blobStore, byPack.get(id)),
+      packs: await Promise.all(packsOfFamily(f).map(apiPack)),
+      sets: await Promise.all(
+        f.sets.map(async (set) => ({
+          id: set.id,
+          label: set.label,
+          vendors: set.vendors,
+          traits: set.traits,
+          packs: await Promise.all(
+            set.packs.map(async (pack) => ({
+              ...(await apiPack(pack.id)),
+              compatibleWith: pack.compatible_with ?? [],
+            })),
+          ),
         })),
       ),
     })),

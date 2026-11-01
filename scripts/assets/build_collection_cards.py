@@ -23,6 +23,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[2]
 TAGS = Path(__file__).parent / "data" / "collection_tags.jsonl"
 LICENSES_JSON = REPO / "packages" / "asset-cards" / "data" / "licenses.json"
+STYLE_FAMILIES_JSON = REPO / "packages" / "asset-cards" / "data" / "style-families.json"
 VALIDATOR = REPO / "packages" / "contracts" / "bin" / "validate-cards.mjs"
 VOCAB = "2026-10-27"
 NOW = datetime.now().astimezone().isoformat(timespec="seconds")
@@ -36,6 +37,19 @@ KIND_BY_EXT = {"glb": "model", "gltf": "model", "fbx": "model", "obj": "model", 
 # collection_tags.jsonl `fc` letters -> C3 §8 family_coverage keys.
 FAMILY_COVERAGE = {"c": "characters", "e": "environment", "p": "props", "u": "ui", "s": "sfx", "m": "music"}
 SKIP_NAMES = {"preview.png", "sample.png", "license.txt", "icon.png"}
+
+
+def load_style_sets(path: Path = STYLE_FAMILIES_JSON) -> dict[str, str]:
+    """Curated pack id -> compatibility set id; membership is written during intake step 7b."""
+    return {
+        pack["id"]: style_set["id"]
+        for family in json.loads(path.read_text())
+        for style_set in family.get("sets", [])
+        for pack in style_set["packs"]
+    }
+
+
+STYLE_SET_BY_PACK = load_style_sets()
 
 
 def load_table(path: Path = LICENSES_JSON) -> dict:
@@ -162,7 +176,7 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
             "rights": {"by": "license", "tool": TOOL, "at": NOW,
                        "input": f"licence table {row['id']}" + (f", confirmed {row['confirmed']['on']}" if row.get("confirmed") else ", unconfirmed")}}
     if keep_old:
-        describe = old.get("describe", {})
+        describe = copy.deepcopy(old.get("describe", {}))
         info = old["collection_info"]
         prov = {**old.get("provenance", {}), "rights": prov["rights"]}
     else:
@@ -184,10 +198,17 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
                 "creation_choice": False, "pack_manifest": f"assets-local/packs/{pid}/pack.json", "files_total": v.get("extracted_files", 0)}
         if t:
             info["family_coverage"] = {name: letter in t.get("fc", "") for letter, name in FAMILY_COVERAGE.items()}
-        old_counts = (old or {}).get("collection_info", {}).get("counts", {})
-        if any(k.startswith("audio/") for k in old_counts):  # build_audio_cards.py owns the audio counts
-            info["counts"] = {**{k: n for k, n in info["counts"].items() if not k.startswith("audio")},
-                              **{k: n for k, n in old_counts.items() if k.startswith("audio")}}
+    if set_id := STYLE_SET_BY_PACK.get(pid):
+        describe["set"] = set_id
+        prov["describe.set"] = {"by": "code", "tool": TOOL, "at": NOW,
+                                "input": "packages/asset-cards/data/style-families.json"}
+    else:
+        describe.pop("set", None)
+        prov.pop("describe.set", None)
+    old_counts = (old or {}).get("collection_info", {}).get("counts", {})
+    if any(k.startswith("audio/") for k in old_counts):  # build_audio_cards.py owns the audio counts
+        info["counts"] = {**{k: n for k, n in info["counts"].items() if not k.startswith("audio")},
+                          **{k: n for k, n in old_counts.items() if k.startswith("audio")}}
     out = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}@{ver}", "card_type": "collection", "status": None,
            "title": (old or {}).get("title") if keep_old else f"{m['title']} ({vendor.capitalize()})", "license": row["id"],
            "rights": None, "describe": describe, "collection_info": info, "provenance": prov}

@@ -75,8 +75,18 @@ describe('GET /api/catalog/style-families', () => {
       thumbnailUrl: null,
     });
     expect(packOf(families, 'kenney-castle-kit')?.name).toBe('kenney-castle-kit');
+    const polygon = families
+      .find((family) => family.id === 'detailed-low-poly')
+      ?.sets.find((set) => set.id === 'synty-polygon');
+    expect(polygon).toMatchObject({
+      label: 'Synty POLYGON',
+      vendors: ['synty'],
+      traits: expect.objectContaining({ perspective: '3d' }),
+    });
+    expect(polygon?.packs.map((pack) => pack.id)).toContain('synty-polygon-goblin-war-camp');
+    expect(polygon?.packs.find((pack) => pack.id === 'synty-polygon-goblin-war-camp')?.thumbnailUrl).toBeNull();
     expect(Object.keys(families[0]).sort()).toEqual(
-      ['coverage', 'creationChoice', 'dimension', 'fidelity', 'id', 'label', 'packs', 'views'].sort(),
+      ['coverage', 'creationChoice', 'dimension', 'fidelity', 'id', 'label', 'packs', 'sets', 'views'].sort(),
     );
 
     const etag = response.headers.get('etag');

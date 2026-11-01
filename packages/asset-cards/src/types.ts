@@ -7,6 +7,7 @@ export type ResolvedCard = AssetCard & {
     license: string;
     rights: Rights;
     style_family?: string;
+    set?: string;
     pov_fit?: string[];
     settings?: string[];
     environments?: string[];
@@ -32,6 +33,10 @@ export type SearchQuery = {
   family?: string;
   /** The game's family (from `assets.lock.json`): only cards of this family or `any` (R55). */
   gameFamily?: string;
+  /** Compatibility-set ids inferred from packs already in the lockfile. */
+  gameSets?: string[];
+  /** Exact locked packs that remain eligible when a lock also names a compatibility set. */
+  gamePacks?: string[];
   pov?: string;
   use?: Use;
   rigId?: string;

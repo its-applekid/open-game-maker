@@ -3,7 +3,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { INDEX_PATH, buildIndex, isStale, loadIndex, writeIndex } from '../src/index.js';
+import { INDEX_PATH, buildIndex, isStale, loadIndex, resolve, writeIndex } from '../src/index.js';
 import { FIXTURE, libraryCopy } from './helpers.js';
 
 const ORC = 't1:kenney-mini-dungeon/character-orc@2.0';
@@ -41,6 +41,20 @@ describe('buildIndex', () => {
     // the asset's own environments win over the collection's
     expect(orc?.resolved.environments).toEqual(['dungeon', 'cave', 'camp']);
     expect(orc?.resolved.provenance['describe.environments']).toBeUndefined();
+  });
+
+  it('inherits the collection compatibility set with provenance', () => {
+    type Card = Parameters<typeof resolve>[0];
+    const collection = JSON.parse(
+      readFileSync(join(FIXTURE, 'packs/kenney-mini-dungeon/collection.card.json'), 'utf8'),
+    ) as Card;
+    const asset = JSON.parse(
+      readFileSync(join(FIXTURE, 'packs/kenney-mini-dungeon/cards/character-orc.card.json'), 'utf8'),
+    ) as Card;
+    collection.describe = { ...collection.describe, set: 'kenney-mini-3d' };
+    const resolved = resolve(asset, { [collection.id]: collection });
+    expect(resolved.resolved.set).toBe('kenney-mini-3d');
+    expect(resolved.resolved.provenance['describe.set']).toEqual({ by: 'collection' });
   });
 
   it('never widens: an asset basis granting in-game inside a vision-input-only collection stays vision-input', async () => {

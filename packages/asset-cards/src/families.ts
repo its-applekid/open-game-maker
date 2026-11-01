@@ -25,12 +25,33 @@ export const COVERAGE_KEYS = ['characters', 'environment', 'props', 'ui', 'sfx',
 type CoverageKey = (typeof COVERAGE_KEYS)[number];
 export type Coverage = Record<CoverageKey, boolean>;
 
+export type StyleSetPack = { id: string; compatible_with?: string[] };
+export type StyleSetTraits = {
+  pixel_size?: string;
+  tile_grid?: string;
+  palette?: string;
+  outline_style?: string;
+  perspective?: string;
+  polycount_band?: string;
+  texture_style?: string;
+  scale?: string;
+  judgment: string;
+};
+export type StyleSet = {
+  id: string;
+  label: string;
+  vendors: string[];
+  traits: StyleSetTraits;
+  packs: StyleSetPack[];
+};
+
 export type StyleFamily = {
   id: StyleFamilyId;
   label: string;
   dimension: '2d' | '3d';
   fidelity: string;
   packs: { primary: string[]; extras: string[] };
+  sets: StyleSet[];
   views: PovId[];
   license_note: string;
   coverage: Coverage;
@@ -47,11 +68,49 @@ export type StyleFamilyApi = {
   creationChoice: boolean;
   coverage: Coverage;
   packs: { id: string; name: string; thumbnailUrl: string | null }[];
+  sets: {
+    id: string;
+    label: string;
+    vendors: string[];
+    traits: StyleSetTraits;
+    packs: { id: string; name: string; thumbnailUrl: string | null; compatibleWith: string[] }[];
+  }[];
 };
 
 const coverageSchema = z.strictObject(
   Object.fromEntries(COVERAGE_KEYS.map((key) => [key, z.boolean()])) as Record<CoverageKey, z.ZodBoolean>,
 );
+
+const styleSetTraitsSchema = z
+  .strictObject({
+    pixel_size: z.string().min(1).optional(),
+    tile_grid: z.string().min(1).optional(),
+    palette: z.string().min(1).optional(),
+    outline_style: z.string().min(1).optional(),
+    perspective: z.string().min(1).optional(),
+    polycount_band: z.string().min(1).optional(),
+    texture_style: z.string().min(1).optional(),
+    scale: z.string().min(1).optional(),
+    judgment: z.string().min(1),
+  })
+  .refine((traits) => Object.keys(traits).some((key) => key !== 'judgment'), {
+    message: 'a set needs at least one measured trait',
+  });
+
+const styleSetSchema = z.strictObject({
+  id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
+  label: z.string().min(1),
+  vendors: z.array(z.string().min(1)).min(1),
+  traits: styleSetTraitsSchema,
+  packs: z
+    .array(
+      z.strictObject({
+        id: z.string().min(1),
+        compatible_with: z.array(z.string().min(1)).min(1).optional(),
+      }),
+    )
+    .min(1),
+});
 
 /** C2 §2: a family is offered at creation only when it has characters, environment and props. */
 export const StyleFamilySchema = z
@@ -60,7 +119,8 @@ export const StyleFamilySchema = z
     label: z.string().min(1),
     dimension: z.enum(['2d', '3d']),
     fidelity: z.string().min(1),
-    packs: z.strictObject({ primary: z.array(z.string().min(1)).min(1), extras: z.array(z.string().min(1)) }),
+    packs: z.strictObject({ primary: z.array(z.string().min(1)), extras: z.array(z.string().min(1)) }),
+    sets: z.array(styleSetSchema),
     views: z.array(z.enum(POV_IDS)).min(1),
     license_note: z.string().min(1),
     coverage: coverageSchema,
@@ -79,11 +139,42 @@ export const StyleFamiliesSchema = z.array(StyleFamilySchema).superRefine((famil
       ctx.addIssue({ code: 'custom', message: `${id} must appear once` });
   }
   const seen = new Map<string, string>();
+  const setIds = new Set<string>();
   for (const f of families) {
-    for (const pack of [...f.packs.primary, ...f.packs.extras]) {
+    const familyPacks = [
+      ...f.packs.primary,
+      ...f.packs.extras,
+      ...f.sets.flatMap((set) => set.packs.map((pack) => pack.id)),
+    ];
+    if (familyPacks.length === 0) ctx.addIssue({ code: 'custom', message: `${f.id} must name at least one pack` });
+    for (const set of f.sets) {
+      if (setIds.has(set.id)) ctx.addIssue({ code: 'custom', message: `set ${set.id} appears more than once` });
+      setIds.add(set.id);
+      if (new Set(set.vendors).size !== set.vendors.length)
+        ctx.addIssue({ code: 'custom', message: `set ${set.id} repeats a vendor` });
+      const measuredKeys =
+        f.dimension === '2d'
+          ? (['pixel_size', 'tile_grid', 'palette', 'outline_style', 'perspective'] as const)
+          : (['polycount_band', 'texture_style', 'scale'] as const);
+      if (!measuredKeys.some((key) => set.traits[key]))
+        ctx.addIssue({ code: 'custom', message: `set ${set.id} needs a measured ${f.dimension} trait` });
+    }
+    for (const pack of familyPacks) {
       const owner = seen.get(pack);
       if (owner) ctx.addIssue({ code: 'custom', message: `${pack} is in both ${owner} and ${f.id}` });
       seen.set(pack, f.id);
+    }
+  }
+  for (const f of families) {
+    for (const set of f.sets) {
+      for (const pack of set.packs) {
+        for (const compatible of pack.compatible_with ?? []) {
+          if (compatible === pack.id)
+            ctx.addIssue({ code: 'custom', message: `${pack.id} cannot be compatible with itself` });
+          if (!seen.has(compatible))
+            ctx.addIssue({ code: 'custom', message: `${pack.id} names unknown compatible pack ${compatible}` });
+        }
+      }
     }
   }
 });
@@ -99,7 +190,23 @@ export function loadFamilies(): StyleFamily[] {
 }
 
 export function familyFor(packId: string): StyleFamilyId | undefined {
-  return loadFamilies().find((f) => f.packs.primary.includes(packId) || f.packs.extras.includes(packId))?.id;
+  return loadFamilies().find((f) => packsOfFamily(f).includes(packId))?.id;
+}
+
+/** All packs in a family, including packs nested in compatibility sets. */
+export function packsOfFamily(family: StyleFamily): string[] {
+  return [
+    ...family.packs.primary,
+    ...family.packs.extras,
+    ...family.sets.flatMap((set) => set.packs.map((pack) => pack.id)),
+  ];
+}
+
+/** The measured compatibility set containing a pack, if curation assigned one. */
+export function setFor(packId: string): StyleSet | undefined {
+  return loadFamilies()
+    .flatMap((family) => family.sets)
+    .find((set) => set.packs.some((pack) => pack.id === packId));
 }
 
 export function isCreationChoice(family: string): boolean {
@@ -148,7 +255,7 @@ function kindPaths(card: ResolvedCard): string[] {
  * for every family.
  */
 export function computeCoverage(index: CardIndex, f: StyleFamily): Coverage {
-  const packs = new Set([...f.packs.primary, ...f.packs.extras]);
+  const packs = new Set(packsOfFamily(f));
   const coverage: Coverage = {
     characters: false,
     environment: false,

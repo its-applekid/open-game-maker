@@ -14,6 +14,8 @@ import {
   familyFor,
   isCreationChoice,
   loadFamilies,
+  packsOfFamily,
+  setFor,
   type CardIndex,
   type StyleFamily,
 } from '../src/index.js';
@@ -26,7 +28,6 @@ const SEEDS = fileURLToPath(new URL('../../../scripts/assets/data/collection_tag
 const ASSETS_ROOT = loadEnv('gm', { OGM_ASSETS_ROOT: { kind: 'path', required: false } }).OGM_ASSETS_ROOT;
 const HOST_CATALOG = ASSETS_ROOT ? join(ASSETS_ROOT, 'catalog.json') : undefined;
 
-const packsOf = (f: StyleFamily) => [...f.packs.primary, ...f.packs.extras];
 const family = (overrides: Partial<StyleFamily>): StyleFamily => ({ ...loadFamilies()[0], ...overrides });
 
 let index: CardIndex;
@@ -55,7 +56,7 @@ describe('style-families.json', () => {
     const known = new Set(CATALOG_IDS);
     expect(
       loadFamilies()
-        .flatMap(packsOf)
+        .flatMap(packsOfFamily)
         .filter((id) => !known.has(id)),
     ).toEqual([]);
   });
@@ -65,7 +66,7 @@ describe('style-families.json', () => {
     const known = new Set(catalog.packs.map((pack) => pack.id));
     expect(
       loadFamilies()
-        .flatMap(packsOf)
+        .flatMap(packsOfFamily)
         .filter((id) => !known.has(id)),
     ).toEqual([]);
   });
@@ -74,6 +75,21 @@ describe('style-families.json', () => {
     expect(familyFor('kenney-tiny-dungeon')).toBe('pixel-art');
     expect(familyFor('kenney-mini-dungeon')).toBe('chunky-low-poly');
     expect(familyFor('kenney-music-loops')).toBeUndefined();
+  });
+
+  it('groups compatible packs into trait-defined sets instead of vendor catalogues', () => {
+    expect(setFor('kenney-tiny-dungeon')?.id).toBe('kenney-tiny');
+    expect(setFor('kenney-tiny-town')?.id).toBe('kenney-tiny');
+    expect(setFor('kenney-pixel-platformer')?.id).toBe('kenney-pixel-platformer');
+    expect(setFor('limezu-modern-interiors')).toMatchObject({
+      id: 'limezu-modern',
+      vendors: ['limezu'],
+      traits: expect.objectContaining({ tile_grid: '16x16 px', perspective: 'topdown' }),
+    });
+    expect(setFor('limezu-modern-interiors')?.packs).toContainEqual(
+      expect.objectContaining({ id: 'limezu-modern-interiors' }),
+    );
+    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(8);
   });
 
   // The seeds (filename words, no images) call Kenney's 3D kits simple-low-poly; C2 §2 and this file call them
@@ -107,6 +123,69 @@ describe('StyleFamilySchema', () => {
     );
     expect(StyleFamiliesSchema.safeParse(twice).success).toBe(false);
     expect(StyleFamiliesSchema.safeParse(families.slice(1)).success).toBe(false);
+  });
+
+  it('refuses duplicate set ids and sets without measured traits', () => {
+    const families = loadFamilies();
+    const duplicate = families.map((f, i) =>
+      i === 0 ? { ...f, sets: [{ ...families.find((other) => other.id === 'pixel-art')!.sets[0]! }] } : f,
+    );
+    expect(StyleFamiliesSchema.safeParse(duplicate).success).toBe(false);
+    const pixel = families.find((f) => f.id === 'pixel-art')!;
+    const unmeasured = families.map((f) =>
+      f.id === 'pixel-art'
+        ? { ...f, sets: [{ ...pixel.sets[0]!, traits: { judgment: 'looked compatible' } }, ...pixel.sets.slice(1)] }
+        : f,
+    );
+    expect(StyleFamiliesSchema.safeParse(unmeasured).success).toBe(false);
+  });
+
+  it('allows an advisory compatibility link to a known pack outside the set', () => {
+    const families = loadFamilies();
+    const linked = families.map((f) =>
+      f.id === 'pixel-art'
+        ? {
+            ...f,
+            sets: f.sets.map((set) =>
+              set.id === 'kenney-tiny'
+                ? {
+                    ...set,
+                    packs: set.packs.map((pack, index) =>
+                      index === 0 ? { ...pack, compatible_with: ['kenney-pixel-platformer'] } : pack,
+                    ),
+                  }
+                : set,
+            ),
+          }
+        : f,
+    );
+    expect(StyleFamiliesSchema.safeParse(linked).success).toBe(true);
+  });
+
+  it('refuses advisory compatibility links to the same or an unknown pack', () => {
+    const self = loadFamilies()
+      .find((f) => f.id === 'pixel-art')!
+      .sets.find((set) => set.id === 'kenney-tiny')!.packs[0]!.id;
+    const withLink = (target: string) =>
+      loadFamilies().map((f) =>
+        f.id === 'pixel-art'
+          ? {
+              ...f,
+              sets: f.sets.map((set) =>
+                set.id === 'kenney-tiny'
+                  ? {
+                      ...set,
+                      packs: set.packs.map((pack, index) =>
+                        index === 0 ? { ...pack, compatible_with: [target] } : pack,
+                      ),
+                    }
+                  : set,
+              ),
+            }
+          : f,
+      );
+    expect(StyleFamiliesSchema.safeParse(withLink(self)).success).toBe(false);
+    expect(StyleFamiliesSchema.safeParse(withLink('missing-pack')).success).toBe(false);
   });
 });
 
@@ -161,7 +240,15 @@ describe('computeCoverage', () => {
       resolved: { ...card.resolved, rights: { ...card.resolved.rights, uses: ['in-game' as const] } },
     });
     const tiny = family({ packs: { primary: ['kenney-tiny-dungeon'], extras: [] } });
-    expect(computeCoverage(index, tiny).characters).toBe(false);
+    const denied = {
+      ...index,
+      cards: index.cards.map((card) =>
+        card.id.includes('kenney-tiny-dungeon')
+          ? { ...card, resolved: { ...card.resolved, rights: { ...card.resolved.rights, uses: [] } } }
+          : card,
+      ),
+    };
+    expect(computeCoverage(denied, tiny).characters).toBe(false);
     const granted = { ...index, cards: index.cards.map(inGame) };
     expect(computeCoverage(granted, tiny)).toEqual({
       characters: true,

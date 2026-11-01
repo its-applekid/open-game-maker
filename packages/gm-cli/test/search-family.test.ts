@@ -9,9 +9,12 @@ const ORC = 't1:kenney-mini-dungeon/character-orc@2.0';
 const DRUMS = 't1:sidetrax-pack-60-battle/war-drums@v1';
 
 /** A game repo whose lockfile records `family`, plus an events file. */
-function game(family: string): { cwd: string; env: Record<string, string>; events: string } {
+function game(
+  family: string,
+  assets: { id: string }[] = [],
+): { cwd: string; env: Record<string, string>; events: string } {
   const cwd = tempDir('gm-game-');
-  writeFileSync(join(cwd, 'assets.lock.json'), JSON.stringify({ version: 1, family, pov: 'topdown', assets: [] }));
+  writeFileSync(join(cwd, 'assets.lock.json'), JSON.stringify({ version: 1, family, pov: 'topdown', assets }));
   const events = join(cwd, 'events.jsonl');
   return { cwd, env: { OGM_ASSETS_ROOT: library(), GM_EVENTS_FILE: events }, events };
 }
@@ -42,6 +45,22 @@ describe('gm assets search in a game repo (R55 family default)', () => {
     const exceptions = eventsIn(events).filter((line) => line.event === 'assets.family_exception');
     expect(exceptions).toHaveLength(1);
     expect(exceptions[0].payload).toEqual({ family: 'pixel-art', reason: 'x', query: 'orc' });
+  });
+
+  it('searches every pack in a locked set by default, but not a different set in the same family', async () => {
+    const pixelPlatformer = game('pixel-art', [{ id: 't1:kenney-pixel-platformer/tiles@1.0' }]);
+    const outside = await gm(['assets', 'search', 'knight'], pixelPlatformer);
+    expect(rows(outside.out)).not.toContain('t1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
+
+    const tinyTown = game('pixel-art', [{ id: 't1:kenney-tiny-town/tiles@1.0' }]);
+    const sibling = await gm(['assets', 'search', 'knight'], tinyTown);
+    expect(rows(sibling.out)).toContain('t1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
+  });
+
+  it("does not let an asset from another family's set narrow the game's default search", async () => {
+    const chunkyGame = game('chunky-low-poly', [{ id: 't1:kenney-tiny-town/tiles@1.0' }]);
+    const result = await gm(['assets', 'search', 'orc'], chunkyGame);
+    expect(rows(result.out)[0]).toBe(ORC);
   });
 
   it('refuses --any-family without a reason', async () => {
