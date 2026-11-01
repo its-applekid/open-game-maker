@@ -12,5 +12,6 @@
     "rootDir": "src",
     "types": ["vite/client", "vitest/globals", "node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "../../packages/contracts" }, { "path": "../../packages/voice-client" }]
 }

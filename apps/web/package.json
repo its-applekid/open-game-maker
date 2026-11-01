@@ -6,7 +6,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/voice-client build",
     "test": "vitest run --exclude e2e/render-gltf.test.ts",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/voice-client build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
@@ -15,6 +17,8 @@
   "dependencies": {
     "@better-auth/passkey": "1.7.15",
     "@noriginmedia/norigin-spatial-navigation": "2.3.0",
+    "@ogm/contracts": "workspace:*",
+    "@ogm/voice-client": "workspace:*",
     "@tanstack/react-query": "5.105.1",
     "better-auth": "1.7.15",
     "react": "19.3.1",
