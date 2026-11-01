@@ -54,6 +54,13 @@
     {
       "idx": 7,
       "version": "6",
+      "when": 1793549304235,
+      "tag": "20261101160824_rooms",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
       "when": 1793552427219,
       "tag": "20261101170027_design_log",
       "breakpoints": true
