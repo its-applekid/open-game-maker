@@ -45,6 +45,34 @@ describe('GameRoom relay rules', () => {
     expect(room.droppedCounts['design.tx']).toBe(1);
   });
 
+  it('removes a client with 4002 at 1,000 violations within one minute', async () => {
+    const room = await newRoom(harness.testServer);
+    await connect(harness.testServer, room, 'owner', 'owner');
+    const player = await connect(harness.testServer, room, 'player', 'player');
+    const leaveCode = new Promise<number>((resolve) => player.onLeave(resolve));
+    let now = Date.now();
+    const clock = vi.spyOn(Date, 'now').mockImplementation(() => now);
+    const violate = async (count: number) => {
+      const target = (room.droppedCounts.kick ?? 0) + count;
+      for (let index = 0; index < count; index += 1) player.send('kick', { userId: 'owner' });
+      await waitFor(() => room.droppedCounts.kick === target, `${target} violations`, 5_000);
+    };
+
+    try {
+      await violate(999);
+      now += 60_000;
+      await violate(999);
+      expect(room.clients.length).toBe(2);
+
+      await violate(1);
+    } finally {
+      clock.mockRestore();
+    }
+
+    expect(await leaveCode).toBe(4002);
+    await waitFor(() => room.clients.length === 1, 'violator removed');
+  });
+
   it('validates design transactions, advances lastRev, and relays valid transactions', async () => {
     const room = await newRoom(harness.testServer);
     const owner = await connect(harness.testServer, room, 'owner', 'owner');
