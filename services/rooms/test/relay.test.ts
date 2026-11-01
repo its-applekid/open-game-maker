@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { LIMITS } from '@ogm/contracts';
 
-import { connect, GAMES_ORIGIN, newRoom, sleep, startHarness, type Harness } from './helpers.js';
+import { connect, GAMES_ORIGIN, newRoom, sleep, startHarness, waitFor, type Harness } from './helpers.js';
 
 const tx = (overrides: Record<string, unknown> = {}) => ({
   branchId: 'main',
@@ -82,15 +82,18 @@ describe('GameRoom relay rules', () => {
     const now = vi.spyOn(Date, 'now').mockReturnValue(Date.now());
 
     try {
+      const oversizedHandled = room.waitForNextMessage(20);
       owner.send('snapshot', { seq: 0, tick: 0, data: new Uint8Array(LIMITS.snapshotBytes + 1) });
-      await room.waitForNextMessage(20);
+      await oversizedHandled;
       for (let index = 1; index <= LIMITS.snapshotPerSec + 1; index += 1) {
+        const handled = room.waitForNextMessage();
         owner.send('snapshot', { seq: index, tick: index, data: new Uint8Array([index]) });
+        await handled;
       }
     } finally {
       now.mockRestore();
     }
-    await sleep(120);
+    await waitFor(() => snapshots.mock.calls.length >= LIMITS.snapshotPerSec, 'snapshot relay');
 
     expect(snapshots).toHaveBeenCalledTimes(LIMITS.snapshotPerSec);
     expect(room.droppedCounts.snapshot).toBe(2);
@@ -100,7 +103,7 @@ describe('GameRoom relay rules', () => {
     const room = await newRoom(harness.testServer);
     const owner = await connect(harness.testServer, room, 'owner', 'owner');
     const watcher = await connect(harness.testServer, room, 'watcher', 'player');
-    const patched = watcher.waitForNextPatch();
+    const handled = room.waitForNextMessage();
 
     owner.send('presence', {
       p: {
@@ -112,7 +115,8 @@ describe('GameRoom relay rules', () => {
         building: { jobId: 'j1', label: 'building', pct: 40 },
       },
     });
-    await patched;
+    await handled;
+    await waitFor(() => watcher.state.presence.privateMode, 'private presence');
 
     expect(watcher.state.presence.toJSON()).toEqual({
       selection: [],
@@ -129,9 +133,10 @@ describe('GameRoom relay rules', () => {
     owner.send('design.tx', { tx: tx({ rev: 9 }) });
     await relayed;
     const sentAt = Date.now();
-    const patched = watcher.waitForNextPatch();
+    const handled = room.waitForNextMessage();
     owner.send('phase', { to: 'playing' });
-    await patched;
+    await handled;
+    await waitFor(() => watcher.state.phase === 'playing', 'playing phase');
 
     expect(watcher.state.phase).toBe('playing');
     expect(watcher.state.playRev).toBe(9);

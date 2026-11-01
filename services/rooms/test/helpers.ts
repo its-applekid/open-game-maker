@@ -102,3 +102,11 @@ export async function rejectionCode(promise: Promise<unknown>): Promise<string> 
 export function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+
+export async function waitFor(condition: () => boolean, description: string, timeoutMs = 1_000): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while (!condition()) {
+    if (performance.now() >= deadline) throw new Error(`timed out waiting for ${description}`);
+    await sleep(10);
+  }
+}

@@ -182,7 +182,7 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
       this.state.editorSessionId = client.sessionId;
       if (this.state.phase === 'pausedForHost') this.setPhase(this.previousPhase);
     }
-    client.send('resync', { fromRev: (this.lastSeenRev.get(grant.sub) ?? 0) + 1 }, { afterNextPatch: true });
+    client.send('resync', { fromRev: (this.lastSeenRev.get(grant.sub) ?? 0) + 1 });
   }
 
   async onLeave(client: Client, code?: number): Promise<void> {
