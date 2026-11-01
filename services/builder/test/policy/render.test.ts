@@ -20,6 +20,10 @@ describe('renderAiurConfig', () => {
     expect(first).toContain('max_agent_duration_minutes: 90');
   });
 
+  it('inherits the daemon CODEX_HOME instead of selecting a shared account profile', () => {
+    expect(renderAiurConfig(workedInput)).toContain('accounts:\n    codex: []\n');
+  });
+
   it('rejects an unsupported concurrency value', () => {
     expect(() => renderAiurConfig({ ...workedInput, maxConcurrentAgents: 3 as never })).toThrow(ZodError);
   });
