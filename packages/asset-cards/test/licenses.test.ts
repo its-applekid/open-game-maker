@@ -52,7 +52,12 @@ describe('licence table', () => {
     expect(licenseFor('custom-commercial-ok')?.id).toBe('LicenseRef-hattap-commercial');
     expect(licenseFor('CC0-1.0')?.id).toBe('CC0-1.0');
     expect(licenseFor('kaykit')?.id).toBe('CC0-1.0');
+    expect(licenseFor('kenney')?.id).toBe('CC0-1.0');
     expect(licenseFor('made-up')).toBeUndefined();
+  });
+
+  it('stores a SHA-256 whitelist value for exact Kenney licence-text matching', () => {
+    expect(licenseFor('kenney')?.license_text_sha256).toMatch(/^[a-f0-9]{64}$/);
   });
 
   it('keeps SmallScaleInt private, local-only, and distributable only in builds', () => {

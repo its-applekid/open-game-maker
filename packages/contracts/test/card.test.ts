@@ -89,4 +89,14 @@ describe('card schemas', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.errors.join('\n')).toContain('set_by');
   });
+
+  it('accepts the deterministic conversion flag used by asset intake', () => {
+    const card = structuredClone(
+      cardFixtureDocs().find(({ file }) => file === 'asset-wall.json')?.doc ??
+        cardFixtureDocs().find(({ doc }) => (doc as { card_type?: string }).card_type === 'asset')?.doc,
+    ) as Record<string, unknown>;
+    delete card.geometry;
+    card.flags = ['needs-conversion'];
+    expect(validateCard(card)).toMatchObject({ ok: true });
+  });
 });

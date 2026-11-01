@@ -35,6 +35,7 @@ describe('migrate', () => {
         '20261101172625_jobs_budget.sql',
         '20261101183204_build_chat.sql',
         '20261101194843_reports.sql',
+        '20261101204433_rooms.sql',
         '20261101233648_job_tickets.sql',
       ],
     });
@@ -57,6 +58,7 @@ describe('migrate', () => {
       'migration:20261101172625_jobs_budget.sql',
       'migration:20261101183204_build_chat.sql',
       'migration:20261101194843_reports.sql',
+      'migration:20261101204433_rooms.sql',
       'migration:20261101233648_job_tickets.sql',
     ]);
     sqlite.close();
