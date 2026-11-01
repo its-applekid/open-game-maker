@@ -17,6 +17,8 @@ export type LicenseRow = {
   /** Where the terms were read: a file name or a vendor page, never a link with a key or serial. */
   ref: string;
   note: string;
+  /** SHA-256 of a known vendor licence after lower-casing and collapsing whitespace. */
+  license_text_sha256?: string;
   /** Omitted = unconfirmed: the strict default basis applies (C3 §5). */
   confirmed?: { by: 'kevin'; on: string };
 };
@@ -28,11 +30,13 @@ const PIXEL_USES: Use[] = ['in-game', 'placeholder', 'style-reference', 'vision-
 export const LICENSES: LicenseRow[] = [
   {
     id: 'CC0-1.0',
-    aliases: ['kaykit'],
+    aliases: ['kaykit', 'kenney'],
     ceiling: { uses: ALL_USES, audience: 'public', redistribution: 'free', attribution: null },
     processing: 'any',
     ref: 'License.txt',
     note: 'CC0 public domain dedication; credit optional.',
+    // Kenney Tiny Dungeon 1.0 License.txt, lower-cased with whitespace collapsed.
+    license_text_sha256: '0c0f722d36d8d887fe238dd6c25ac42a6711b0d87db7835cc8d90a497271f9fe',
     confirmed: { by: 'kevin', on: '2026-10-26' },
   },
   {
