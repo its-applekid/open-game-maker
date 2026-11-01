@@ -114,6 +114,30 @@ function insertBuild(
   return id;
 }
 
+function insertManualTransaction(
+  deps: ReturnType<typeof makeDeps>,
+  input: { id: string; rev: number; label: string; buildId?: string },
+) {
+  deps.sqlite
+    .prepare(
+      `INSERT INTO design_transactions
+        (id, game_id, branch_id, rev, base_rev, lease_token, actor, kind, label, base_build_id,
+         commands_json, patches_json, inverse_json, created_at)
+       VALUES (?, ?, ?, ?, ?, 1, ?, 'manual', ?, ?, '[]', '[]', '[]', ?)`,
+    )
+    .run(
+      input.id,
+      ids.game,
+      ids.main,
+      input.rev,
+      input.rev - 1,
+      ids.user,
+      input.label,
+      input.buildId ?? ids.build,
+      now,
+    );
+}
+
 const builderHeaders = {
   authorization: `Bearer ${INTERNAL_TOKEN}`,
   'x-ogm-service': 'builder',
@@ -160,6 +184,13 @@ describe('release routes', () => {
     expect(deps.db.select().from(schema.changeNotes).get()).toMatchObject({ jobId: ids.job, text: 'A new level' });
     expect(runtime.onBuildTested).toHaveBeenCalledWith(ids.game, ids.main, build.id);
 
+    const wrongService = await app.request(`/internal/games/${ids.game}/builds`, {
+      method: 'POST',
+      headers: { ...builderHeaders, 'x-ogm-service': 'commit' },
+      body: '{}',
+    });
+    expect(wrongService.status).toBe(403);
+
     const unauthenticated = await app.request(`/internal/games/${ids.game}/builds`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
@@ -183,6 +214,9 @@ describe('release routes', () => {
     expect(release).toMatchObject({ gitTag: `gm/${ids.game}/v1.0.0` });
     expect(deps.db.select().from(schema.games).get()?.publishedReleaseId).toBe((release as { id: string }).id);
     expect(deps.db.select().from(schema.releases).all()).toHaveLength(1);
+    const snapshot = deps.db.select().from(schema.overrideSnapshots).get()!;
+    expect(JSON.parse(snapshot.entriesJson)).toEqual([]);
+    expect(JSON.parse(snapshot.entityOpsJson)).toEqual([]);
   });
 
   it.each([
@@ -246,20 +280,18 @@ describe('release routes', () => {
   });
 
   it('lets exactly one concurrent publish move the pointer', async () => {
-    let foldCalls = 0;
-    let releaseFolds!: () => void;
-    const foldsReady = new Promise<void>((resolve) => {
-      releaseFolds = resolve;
+    let rightsCalls = 0;
+    let releaseRights!: () => void;
+    const rightsReady = new Promise<void>((resolve) => {
+      releaseRights = resolve;
     });
-    const commit = vi.fn(async (op: CommitOp): Promise<CommitResult> => {
-      if (op.kind === 'fold_design') {
-        foldCalls += 1;
-        if (foldCalls === 2) releaseFolds();
-        await foldsReady;
-      }
-      return { ok: true, sha: op.kind === 'fold_design' ? 'c'.repeat(40) : 'd'.repeat(40) };
+    const checkRights = vi.fn(async () => {
+      rightsCalls += 1;
+      if (rightsCalls === 2) releaseRights();
+      await rightsReady;
+      return [];
     });
-    const { deps, source } = setup({ commit: { execute: commit } });
+    const { deps, source, commit } = setup({ checkRights });
     insertBuild(deps, source);
     insertBuild(deps, source, { id: ids.build2 });
     const { app } = await makeApp(deps);
@@ -270,6 +302,7 @@ describe('release routes', () => {
     const failed = responses.find(({ status }) => status === 409)!;
     expect(await failed.json()).toEqual({ error: 'pointer_moved' });
     expect(deps.db.select().from(schema.releases).all()).toHaveLength(1);
+    expect(commit.mock.calls.filter(([op]) => op.kind === 'release')).toHaveLength(1);
   });
 
   it('reuses a successful fold when the release commit is retried', async () => {
@@ -297,7 +330,13 @@ describe('release routes', () => {
     deps.db
       .insert(schema.changeNotes)
       .values([
-        { id: 'note_1', gameId: ids.game, kind: 'add', text: 'New map', createdAt: now },
+        {
+          id: 'note_1',
+          gameId: ids.game,
+          kind: 'add',
+          text: 'New map',
+          createdAt: '2026-11-01T20:31:00.000Z',
+        },
         { id: 'note_2', gameId: ids.game, kind: 'fix', text: 'Fixed jump', createdAt: now },
       ])
       .run();
@@ -327,8 +366,84 @@ describe('release routes', () => {
     const release = (await response.json()) as { changelog: { items: { text: string }[] } };
 
     expect(release.changelog.items).toHaveLength(5);
+    expect((release as { changelog: { summary: string } }).changelog.summary).toBe('Fixed jump');
     expect(release.changelog.items.map(({ text }) => text)).toContain('(edited)');
     expect(JSON.stringify(release.changelog)).not.toContain('kevin@example.com');
+  });
+
+  it('lints supplied changelog URLs and handles and consumes pending notes', async () => {
+    const { deps, source } = setup();
+    insertBuild(deps, source);
+    deps.db
+      .insert(schema.changeNotes)
+      .values({ id: 'note_pending', gameId: ids.game, kind: 'add', text: 'Pending note', createdAt: now })
+      .run();
+    const { app } = await makeApp(deps);
+
+    const response = await app.request(`/api/v1/games/${ids.game}/publish`, {
+      method: 'POST',
+      headers: { ...asUser(ids.user), 'content-type': 'application/json' },
+      body: JSON.stringify({
+        buildId: ids.build,
+        changelog: {
+          summary: 'See www.example.test/map',
+          items: [{ kind: 'change', text: 'Ask @kevin' }],
+        },
+      }),
+    });
+
+    expect(response.status).toBe(201);
+    expect(await response.json()).toMatchObject({
+      changelog: { summary: '(edited)', items: [{ kind: 'change', text: '(edited)' }] },
+    });
+    expect(deps.db.select().from(schema.changeNotes).get()?.releaseId).toEqual(expect.any(String));
+  });
+
+  it('leaves notes created during commit for the next release', async () => {
+    let releaseStarted!: () => void;
+    let finishRelease!: () => void;
+    const started = new Promise<void>((resolve) => {
+      releaseStarted = resolve;
+    });
+    const finish = new Promise<void>((resolve) => {
+      finishRelease = resolve;
+    });
+    const commit = vi.fn(async (op: CommitOp): Promise<CommitResult> => {
+      if (op.kind === 'release') {
+        releaseStarted();
+        await finish;
+      }
+      return { ok: true, sha: op.kind === 'fold_design' ? 'c'.repeat(40) : 'd'.repeat(40) };
+    });
+    const { deps, source } = setup({ commit: { execute: commit } });
+    insertBuild(deps, source);
+    deps.db
+      .insert(schema.changeNotes)
+      .values({ id: 'note_early', gameId: ids.game, kind: 'add', text: 'Early note', createdAt: now })
+      .run();
+    const { app } = await makeApp(deps);
+
+    const request = publish(app);
+    await started;
+    deps.db
+      .insert(schema.changeNotes)
+      .values({ id: 'note_late', gameId: ids.game, kind: 'fix', text: 'Late note', createdAt: now })
+      .run();
+    finishRelease();
+    const response = await request;
+
+    expect((await response.json()) as { changelog: { items: unknown[] } }).toMatchObject({
+      changelog: { items: [{ text: 'Early note' }] },
+    });
+    expect(
+      deps.db
+        .select({ id: schema.changeNotes.id, releaseId: schema.changeNotes.releaseId })
+        .from(schema.changeNotes)
+        .all(),
+    ).toEqual([
+      { id: 'note_early', releaseId: expect.any(String) },
+      { id: 'note_late', releaseId: null },
+    ]);
   });
 
   it('rolls back by appending a release and keeps every artifact present', async () => {
@@ -338,6 +453,7 @@ describe('release routes', () => {
     insertBuild(deps, source, { id: ids.build2, createdAt: '2026-11-01T20:31:00.000Z' });
     const { app } = await makeApp(deps);
     const first = (await (await publish(app, ids.build)).json()) as { id: string };
+    insertManualTransaction(deps, { id: ids.tx1, rev: 1, label: 'Second release note' });
     await publish(app, ids.build2);
 
     const response = await app.request(`/api/v1/games/${ids.game}/rollback`, {
@@ -358,12 +474,19 @@ describe('release routes', () => {
       { artifact: 'present' },
       { artifact: 'present' },
     ]);
+
+    insertManualTransaction(deps, { id: ids.tx2, rev: 2, label: 'After rollback' });
+    const afterRollback = (await (await publish(app, ids.build2)).json()) as {
+      changelog: { items: { text: string }[] };
+    };
+    expect(afterRollback.changelog.items.map(({ text }) => text)).toEqual(['After rollback']);
   });
 
   it('returns the published release with an ETag and honors If-None-Match', async () => {
     const { deps, source } = setup();
     insertBuild(deps, source);
     const { app } = await makeApp(deps);
+    expect((await app.request(`/api/v1/games/${ids.game}/published`)).status).toBe(401);
     const never = await app.request(`/api/v1/games/${ids.game}/published`, { headers: asUser(ids.user) });
     expect(never.status).toBe(404);
     const release = (await (await publish(app)).json()) as { id: string };
@@ -402,5 +525,16 @@ describe('release routes', () => {
       kind: 'fix',
       text: 'Fixed the lift',
     });
+
+    const wrongGameToken = signJobToken(
+      { jobId: ids.job, gameId: 'g_00000000-0000-4000-8000-000000000099', familyId: ids.family },
+      JOB_SECRET,
+    );
+    const forbidden = await app.request(`/api/v1/games/${ids.game}/change-notes`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${wrongGameToken}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'fix', text: 'Wrong game' }),
+    });
+    expect(forbidden.status).toBe(403);
   });
 });

@@ -7,10 +7,11 @@ import { authorize } from '@ogm/policy';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
 import { requirePrincipal } from '../app/principal.js';
+import { HttpError } from '../app/errors.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
 import { FsBaseDocSource } from '../design/base-doc.js';
-import { findGameForFamily } from '../games/games.js';
+import { findGameForFamily, hasGameGrant } from '../games/games.js';
 import { CommitUnavailable, HttpCommitClient } from './commit-client.js';
 import { checkPublishRights, RightsCheckUnavailable } from './rights.js';
 import {
@@ -64,7 +65,20 @@ function runtime(c: { get(name: 'deps'): AppDeps }): ReleaseRuntime {
 
 function requireBuilder(c: Parameters<typeof requirePrincipal>[0]): void {
   const principal = requirePrincipal(c, ['service']);
-  if (principal.service !== 'builder') throw new ReleaseError('forbidden', 403);
+  if (principal.service !== 'builder') throw new HttpError(403, 'forbidden');
+}
+
+function requirePlayer(c: Parameters<typeof requirePrincipal>[0], gameId: string): void {
+  const principal = requirePrincipal(c, ['user']);
+  const game = findGameForFamily(c.get('deps').db, gameId, principal.familyId);
+  requireAuthorization(
+    authorize(actorFromPrincipal(principal), 'game.play', {
+      familyId: game.familyId,
+      ownerId: game.ownerId,
+      visibility: game.visibility,
+      granted: hasGameGrant(c.get('deps').db, game.id, principal.userId),
+    }),
+  );
 }
 
 function requirePublisher(c: Parameters<typeof requirePrincipal>[0], gameId: string) {
@@ -175,6 +189,7 @@ const routes = new Hono<ApiBindings>()
     return c.json({ releases: listReleases(c.get('deps'), c.req.param('gameId')) });
   })
   .get('/api/v1/games/:gameId/published', (c) => {
+    requirePlayer(c, c.req.param('gameId'));
     try {
       const release = published(c.get('deps'), c.req.param('gameId'));
       const etag = `"${release.id}"`;
@@ -194,9 +209,9 @@ const routes = new Hono<ApiBindings>()
   .post('/api/v1/games/:gameId/change-notes', async (c) => {
     const principal = requirePrincipal(c, ['job']);
     const gameId = c.req.param('gameId');
-    if (principal.gameId !== gameId) throw new ReleaseError('forbidden', 403);
+    if (principal.gameId !== gameId) throw new HttpError(403, 'forbidden');
     const body = await parseBody(c, changeNoteBody);
-    if (body.jobId !== undefined && body.jobId !== principal.jobId) throw new ReleaseError('forbidden', 403);
+    if (body.jobId !== undefined && body.jobId !== principal.jobId) throw new HttpError(403, 'forbidden');
     return c.json(
       addChangeNote(c.get('deps'), runtime(c), {
         gameId,

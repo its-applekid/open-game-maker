@@ -11,27 +11,36 @@ export class RightsCheckUnavailable extends Error {
   }
 }
 
-export function checkPublishRights(artifactPath: string, visibility: 'public' | 'private'): Promise<RightsReason[]> {
-  return new Promise((resolve, reject) => {
-    execFile(
-      'gm',
-      ['check', 'assets', '--publish', '--repo-visibility', visibility, '--json'],
-      { cwd: artifactPath, timeout: 30_000, maxBuffer: 1_048_576 },
-      (error, stdout, stderr) => {
-        if (!error) {
-          resolve([]);
-          return;
-        }
-        if (error.code === 1) {
-          try {
-            resolve(BoundaryVerdict.parse(JSON.parse(stdout) as unknown).reasons);
-          } catch (parseError) {
-            reject(new RightsCheckUnavailable(`invalid gm rights result: ${(parseError as Error).message}`));
-          }
-          return;
-        }
-        reject(new RightsCheckUnavailable(stderr.trim() || error.message));
-      },
-    );
+export type RightsRunner = (input: {
+  cwd: string;
+  args: string[];
+}) => Promise<{ code: number; stdout: string; stderr: string }>;
+
+const runGm: RightsRunner = ({ cwd, args }) =>
+  new Promise((resolve, reject) => {
+    execFile('gm', args, { cwd, timeout: 30_000, maxBuffer: 1_048_576 }, (error, stdout, stderr) => {
+      if (!error) resolve({ code: 0, stdout, stderr });
+      else if (typeof error.code === 'number') resolve({ code: error.code, stdout, stderr });
+      else reject(new RightsCheckUnavailable(stderr.trim() || error.message));
+    });
   });
+
+export async function checkPublishRights(
+  artifactPath: string,
+  visibility: 'public' | 'private',
+  run: RightsRunner = runGm,
+): Promise<RightsReason[]> {
+  const result = await run({
+    cwd: artifactPath,
+    args: ['check', 'assets', '--publish', '--repo-visibility', visibility, '--json'],
+  });
+  if (result.code === 0) return [];
+  if (result.code === 1) {
+    try {
+      return BoundaryVerdict.parse(JSON.parse(result.stdout) as unknown).reasons;
+    } catch (error) {
+      throw new RightsCheckUnavailable(`invalid gm rights result: ${(error as Error).message}`);
+    }
+  }
+  throw new RightsCheckUnavailable(result.stderr.trim() || `gm check assets exited ${result.code}`);
 }

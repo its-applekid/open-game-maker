@@ -1,16 +1,18 @@
 import type { BoundaryVerdict, Build, ChangeNote, Release } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { fold, reduce } from '@ogm/design-log';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
 import type { BaseDocSource } from '../design/base-doc.js';
 import { readChain } from '../design/store.js';
 import type { CommitClient } from './commit-client.js';
 import { stableId } from './id.js';
+import { withPublishLock } from './publish-lock.js';
 import type { RightsReason } from './rights.js';
 
 type Changelog = { summary: string; items: ChangeNote[] };
+type PreparedChangelog = { changelog: Changelog; noteIds: string[] };
 type BuildRow = typeof schema.builds.$inferSelect;
 type ReleaseRow = typeof schema.releases.$inferSelect;
 type SnapshotRow = typeof schema.overrideSnapshots.$inferSelect;
@@ -104,29 +106,36 @@ function counts(deps: AppDeps, gameId: string): VersionCounts {
 }
 
 function lintText(text: string): string {
-  const unsafe = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|https?:\/\/\S+|(^|\s)@[A-Z0-9_]+\b/i;
+  const unsafe = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:https?:\/\/|www\.)\S+|(^|\s)@[A-Z0-9_]+\b/i;
   return unsafe.test(text) ? '(edited)' : text.trim();
 }
 
-function assembleChangelog(deps: AppDeps, gameId: string, predecessor: ReleaseRow | undefined): Changelog {
-  const notes = deps.db
+function assembleChangelog(deps: AppDeps, gameId: string): PreparedChangelog {
+  const noteRows = deps.db
     .select()
     .from(schema.changeNotes)
     .where(and(eq(schema.changeNotes.gameId, gameId), isNull(schema.changeNotes.releaseId)))
-    .all()
-    .map((note) => ({
-      ...(note.jobId ? { jobId: note.jobId } : {}),
-      ...(note.txId ? { txId: note.txId } : {}),
-      kind: note.kind,
-      text: lintText(note.text),
-    }));
+    .orderBy(asc(schema.changeNotes.createdAt), asc(schema.changeNotes.id))
+    .all();
+  const notes = noteRows.map((note) => ({
+    ...(note.jobId ? { jobId: note.jobId } : {}),
+    ...(note.txId ? { txId: note.txId } : {}),
+    kind: note.kind,
+    text: lintText(note.text),
+  }));
   let afterRev = 0;
-  if (predecessor) {
+  const latestPublish = deps.db
+    .select()
+    .from(schema.releases)
+    .where(and(eq(schema.releases.gameId, gameId), eq(schema.releases.kind, 'publish')))
+    .orderBy(desc(schema.releases.seq))
+    .get();
+  if (latestPublish) {
     afterRev =
       deps.db
         .select({ headRev: schema.overrideSnapshots.headRev })
         .from(schema.overrideSnapshots)
-        .where(eq(schema.overrideSnapshots.id, predecessor.snapshotId))
+        .where(eq(schema.overrideSnapshots.id, latestPublish.snapshotId))
         .get()?.headRev ?? 0;
   }
   const labels = deps.sqlite
@@ -144,7 +153,10 @@ function assembleChangelog(deps: AppDeps, gameId: string, predecessor: ReleaseRo
     seen.add(key);
     return true;
   });
-  return { summary: items[0]?.text ?? 'Updates', items };
+  return {
+    changelog: { summary: items[0]?.text ?? 'Updates', items },
+    noteIds: noteRows.map(({ id }) => id),
+  };
 }
 
 function renderChangelog(changelog: Changelog): string {
@@ -252,8 +264,12 @@ async function prepareSnapshot(deps: AppDeps, runtime: ReleaseRuntime, build: Bu
       buildId: build.id,
       headRev: workingSet.headRev,
       sha256: folded.sha256,
-      entriesJson: JSON.stringify(workingSet.entries),
-      entityOpsJson: JSON.stringify(workingSet.entityOps),
+      entriesJson: JSON.stringify(
+        Object.values(workingSet.entries).sort((left, right) => left.key.localeCompare(right.key)),
+      ),
+      entityOpsJson: JSON.stringify(
+        Object.values(workingSet.entityOps).sort((left, right) => left.entityId.localeCompare(right.entityId)),
+      ),
       foldSha: null,
       createdAt: runtime.now().toISOString(),
     };
@@ -288,6 +304,7 @@ function appendRelease(
     restoresReleaseId?: string;
     changelog: Changelog;
     actor: string;
+    noteIds?: string[];
   },
 ): ReleaseRow {
   return deps.sqlite
@@ -322,11 +339,17 @@ function appendRelease(
         .prepare('UPDATE games SET published_release_id = ? WHERE id = ? AND published_release_id IS ?')
         .run(row.id, input.gameId, input.expected);
       if (moved.changes === 0) throw new ReleaseError('pointer_moved', 409);
-      if (input.kind === 'publish') {
+      if (input.kind === 'publish' && input.noteIds?.length) {
         deps.db
           .update(schema.changeNotes)
           .set({ releaseId: row.id })
-          .where(and(eq(schema.changeNotes.gameId, input.gameId), isNull(schema.changeNotes.releaseId)))
+          .where(
+            and(
+              eq(schema.changeNotes.gameId, input.gameId),
+              inArray(schema.changeNotes.id, input.noteIds),
+              isNull(schema.changeNotes.releaseId),
+            ),
+          )
           .run();
       }
       return row;
@@ -343,32 +366,49 @@ export async function publish(
   const expected = game.publishedReleaseId;
   const rights = await runtime.checkRights(build.artifactPath, game.repoVisibility);
   if (rights.length) throw new ReleaseError('rights', 422, { rights });
-  const predecessor = expected
-    ? deps.db.select().from(schema.releases).where(eq(schema.releases.id, expected)).get()
-    : undefined;
-  const snapshot = await prepareSnapshot(deps, runtime, build);
-  const version = runtime.deriveVersion(counts(deps, input.gameId));
-  const changelog = sanitizeChangelog(input.changelog ?? assembleChangelog(deps, input.gameId, predecessor));
-  const result = await runtime.commit.execute({
-    kind: 'release',
-    gameId: input.gameId,
-    sha: snapshot.foldSha!,
-    semver: version,
-    changelog: renderChangelog(changelog),
-  });
-  if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
-  return releaseResponse(
-    appendRelease(deps, runtime, {
+  return withPublishLock(deps, input.gameId, async () => {
+    const current = deps.db
+      .select({ publishedReleaseId: schema.games.publishedReleaseId })
+      .from(schema.games)
+      .where(eq(schema.games.id, input.gameId))
+      .get();
+    if (!current || current.publishedReleaseId !== expected) throw new ReleaseError('pointer_moved', 409);
+
+    const snapshot = await prepareSnapshot(deps, runtime, build);
+    const prepared = input.changelog
+      ? {
+          changelog: sanitizeChangelog(input.changelog),
+          noteIds: deps.db
+            .select({ id: schema.changeNotes.id })
+            .from(schema.changeNotes)
+            .where(and(eq(schema.changeNotes.gameId, input.gameId), isNull(schema.changeNotes.releaseId)))
+            .all()
+            .map(({ id }) => id),
+        }
+      : assembleChangelog(deps, input.gameId);
+    const version = runtime.deriveVersion(counts(deps, input.gameId));
+    const result = await runtime.commit.execute({
+      kind: 'release',
       gameId: input.gameId,
-      expected,
-      version,
-      buildId: build.id,
-      snapshotId: snapshot.id,
-      kind: 'publish',
-      changelog,
-      actor: input.actor,
-    }),
-  );
+      sha: snapshot.foldSha!,
+      semver: version,
+      changelog: renderChangelog(prepared.changelog),
+    });
+    if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
+    return releaseResponse(
+      appendRelease(deps, runtime, {
+        gameId: input.gameId,
+        expected,
+        version,
+        buildId: build.id,
+        snapshotId: snapshot.id,
+        kind: 'publish',
+        changelog: prepared.changelog,
+        noteIds: prepared.noteIds,
+        actor: input.actor,
+      }),
+    );
+  });
 }
 
 export async function rollback(
@@ -391,31 +431,43 @@ export async function rollback(
     .get();
   const build = deps.db.select().from(schema.builds).where(eq(schema.builds.id, target.buildId)).get();
   if (!snapshot?.foldSha || !build) throw new ReleaseError('release_incomplete', 409);
-  const version = runtime.deriveVersion(counts(deps, input.gameId));
-  const changelog = { summary: `Restores ${target.version}`, items: [] };
-  const result = await runtime.commit.execute({
-    kind: 'release',
-    gameId: input.gameId,
-    sha: snapshot.foldSha,
-    semver: version,
-    changelog: changelog.summary,
+  const foldSha = snapshot.foldSha;
+  const expected = game.publishedReleaseId;
+  return withPublishLock(deps, input.gameId, async () => {
+    const current = deps.db
+      .select({ publishedReleaseId: schema.games.publishedReleaseId })
+      .from(schema.games)
+      .where(eq(schema.games.id, input.gameId))
+      .get();
+    if (!current || current.publishedReleaseId !== expected) throw new ReleaseError('pointer_moved', 409);
+
+    const affectedSaves = await runtime.countSavesAboveSchema(input.gameId, build.saveSchemaVersion);
+    const version = runtime.deriveVersion(counts(deps, input.gameId));
+    const changelog = { summary: `Restores ${target.version}`, items: [] };
+    const result = await runtime.commit.execute({
+      kind: 'release',
+      gameId: input.gameId,
+      sha: foldSha,
+      semver: version,
+      changelog: changelog.summary,
+    });
+    if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
+    const row = appendRelease(deps, runtime, {
+      gameId: input.gameId,
+      expected,
+      version,
+      buildId: target.buildId,
+      snapshotId: target.snapshotId,
+      kind: 'rollback',
+      restoresReleaseId: target.id,
+      changelog,
+      actor: input.actor,
+    });
+    return {
+      ...releaseResponse(row),
+      affectedSaves,
+    };
   });
-  if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
-  const row = appendRelease(deps, runtime, {
-    gameId: input.gameId,
-    expected: game.publishedReleaseId,
-    version,
-    buildId: target.buildId,
-    snapshotId: target.snapshotId,
-    kind: 'rollback',
-    restoresReleaseId: target.id,
-    changelog,
-    actor: input.actor,
-  });
-  return {
-    ...releaseResponse(row),
-    affectedSaves: await runtime.countSavesAboveSchema(input.gameId, build.saveSchemaVersion),
-  };
 }
 
 export function listReleases(deps: AppDeps, gameId: string): Release[] {
