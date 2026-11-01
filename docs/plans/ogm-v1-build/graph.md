@@ -77,3 +77,4 @@ None declared: write surfaces were split instead (D-WRITE-SURFACES). Lockfile co
 - GATE-BACKUP-TARGET: Kevin confirms the tailnet node for backups and SSH access from this account (owner: Kevin)
 - GATE-MIX-DEPS: A one-time `mix deps.get` for the voice host (network); check aiur/src/deps first (owner: Executor with Kevin's go-ahead)
 - GATE-PROVIDER-KEY: A voice provider key; not in V1 unless Kevin approves spend (owner: Kevin)
+- GATE-MACHINE-USERS: Kevin creates two free GitHub machine users, ogm-intake (files issues, in allowed_users) and ogm-builder (the daemons' bot_account, collaborator on game repos only), and puts their PATs in the builder env file; his own PAT then leaves ~/.aiur/.env (owner: Kevin)

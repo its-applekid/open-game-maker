@@ -201,6 +201,12 @@
    "title": "A voice provider key; not in V1 unless Kevin approves spend",
    "owner": "Kevin",
    "resolution_criteria": "A voice provider key; not in V1 unless Kevin approves spend"
+  },
+  {
+   "id": "GATE-MACHINE-USERS",
+   "title": "Kevin creates two free GitHub machine users, ogm-intake (files issues, in allowed_users) and ogm-builder (the daemons' bot_account, collaborator on game repos only), and puts their PATs in the builder env file; his own PAT then leaves ~/.aiur/.env",
+   "owner": "Kevin",
+   "resolution_criteria": "Kevin creates two free GitHub machine users, ogm-intake (files issues, in allowed_users) and ogm-builder (the daemons' bot_account, collaborator on game repos only), and puts their PATs in the builder env file; his own PAT then leaves ~/.aiur/.env"
   }
  ],
  "design_evidence": [],
@@ -532,6 +538,15 @@
    "reason": null
   },
   {
+   "id": "R14",
+   "summary": "R14",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-013"
+   ],
+   "reason": null
+  },
+  {
    "id": "R20",
    "summary": "R20",
    "disposition": "ticket",
@@ -697,6 +712,15 @@
    "ticket_ids": [
     "OGM-044",
     "OGM-077"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R39",
+   "summary": "R39",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-043"
    ],
    "reason": null
   },
@@ -1119,6 +1143,24 @@
    "reason": null
   },
   {
+   "id": "R87",
+   "summary": "R87",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-064"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R88",
+   "summary": "R88",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-060"
+   ],
+   "reason": null
+  },
+  {
    "id": "R90",
    "summary": "R90",
    "disposition": "ticket",
@@ -1241,6 +1283,15 @@
    "reason": null
   },
   {
+   "id": "R106",
+   "summary": "R106",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-036"
+   ],
+   "reason": null
+  },
+  {
    "id": "R110",
    "summary": "R110",
    "disposition": "ticket",
@@ -1311,6 +1362,15 @@
    "reason": null
   },
   {
+   "id": "R122",
+   "summary": "R122",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-001"
+   ],
+   "reason": null
+  },
+  {
    "id": "R123",
    "summary": "R123",
    "disposition": "ticket",
@@ -1355,6 +1415,7 @@
    "workstream": "platform",
    "requirement_refs": [
     "R120",
+    "R122",
     "R123"
    ],
    "depends_on": [],
@@ -2090,7 +2151,8 @@
     "R10",
     "R11",
     "R12",
-    "R13"
+    "R13",
+    "R14"
    ],
    "depends_on": [
     "OGM-010",
@@ -2500,7 +2562,9 @@
    "serializes_with": [],
    "suggested_after": [],
    "contains": [],
-   "external_gates": [],
+   "external_gates": [
+    "GATE-MACHINE-USERS"
+   ],
    "read_surfaces": [],
    "write_surfaces": [
     "services/builder/src/intake/*",
@@ -2678,7 +2742,9 @@
    "serializes_with": [],
    "suggested_after": [],
    "contains": [],
-   "external_gates": [],
+   "external_gates": [
+    "GATE-MACHINE-USERS"
+   ],
    "read_surfaces": [],
    "write_surfaces": [
     "services/builder/src/fleet/*",
@@ -2791,7 +2857,8 @@
    "workstream": "aiur",
    "requirement_refs": [
     "R62",
-    "R65"
+    "R65",
+    "R106"
    ],
    "depends_on": [
     "OGM-035",
@@ -3836,6 +3903,7 @@
    "workstream": "design",
    "requirement_refs": [
     "R37",
+    "R39",
     "R91"
    ],
    "depends_on": [
@@ -4541,7 +4609,8 @@
    "workstream": "assets",
    "requirement_refs": [
     "R50",
-    "R51"
+    "R51",
+    "R88"
    ],
    "depends_on": [
     "OGM-004"
@@ -4776,7 +4845,8 @@
     "R80",
     "R81",
     "R82",
-    "R85"
+    "R85",
+    "R87"
    ],
    "depends_on": [
     "OGM-060",
