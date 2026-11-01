@@ -61,7 +61,7 @@ server:
   port: 4010
   tailscale_funnel: false
 workspace:
-  root: ~/.aiur/workspaces/its-everdred/open-game-maker-2000
+  root: ~/.aiur/ws/ogm   # short: Unix-socket paths under the workspace must stay under 108 bytes
 hooks_file: hooks
 prompt_file: prompt.md
 agent:
