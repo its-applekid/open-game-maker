@@ -49,12 +49,13 @@ describe('games-host server', () => {
     expect(await response.text()).toBe('<h1>demo</h1>');
   });
 
-  it('defaults a missing path segment to index.html', async () => {
+  it('redirects a build root without a trailing slash so relative URLs stay inside the build', async () => {
     const response = await app().request('/g/demo/b1');
 
-    expect(response.status).toBe(200);
+    expect(response.status).toBe(308);
+    expect(response.headers.get('location')).toBe('/g/demo/b1/');
+    expect(response.headers.get('cache-control')).toBe('no-store');
     expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
-    expect(await response.text()).toBe('<h1>demo</h1>');
   });
 
   it('serves assets and applies nosniff to unknown extensions', async () => {
@@ -105,9 +106,12 @@ describe('games-host server', () => {
 
     expect(response.status).toBe(404);
     expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(response.headers.get('cache-control')).toBe('no-store');
 
     await markComplete(build);
-    expect((await app().request('/g/demo/b1/')).status).toBe(200);
+    const completed = await app().request('/g/demo/b1/');
+    expect(completed.status).toBe(200);
+    expect(completed.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
   });
 
   it.each([

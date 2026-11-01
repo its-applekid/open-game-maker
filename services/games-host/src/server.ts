@@ -26,6 +26,9 @@ export function createApp(options: GamesHostOptions): Hono {
     for (const [name, value] of gameHeaderEntries) {
       context.res.headers.set(name, value);
     }
+    if (context.res.status !== 200) {
+      context.res.headers.set('Cache-Control', 'no-store');
+    }
     context.res.headers.delete('set-cookie');
   });
 
@@ -85,7 +88,19 @@ export function createApp(options: GamesHostOptions): Hono {
     return new Response(body, { headers, status: 200 });
   };
 
-  app.on(['GET', 'HEAD'], '/g/:gameId/:buildId', serveGame);
+  app.on(['GET', 'HEAD'], '/g/:gameId/:buildId', (context) => {
+    const gameId = context.req.param('gameId') ?? '';
+    const buildId = context.req.param('buildId') ?? '';
+    try {
+      buildDir(options.root, gameId, buildId);
+    } catch (error) {
+      if (error instanceof BadId) {
+        return context.text('Not Found', 404);
+      }
+      throw error;
+    }
+    return context.redirect(`/g/${gameId}/${buildId}/`, 308);
+  });
   app.on(['GET', 'HEAD'], '/g/:gameId/:buildId/*', serveGame);
 
   app.notFound((context) => context.text('Not Found', 404, { 'Cache-Control': 'no-store' }));

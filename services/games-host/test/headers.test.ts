@@ -18,8 +18,22 @@ describe('games-host response headers', () => {
         'X-Content-Type-Options',
       ].sort(),
     );
-    expect(headers['Content-Security-Policy']).toContain("default-src 'none'");
-    expect(headers['Content-Security-Policy']).toContain('frame-ancestors https://ogm2000.netlify.app');
+    expect(headers['Content-Security-Policy']).toBe(
+      [
+        "default-src 'none'",
+        "script-src 'self' 'wasm-unsafe-eval'",
+        "style-src 'self' 'unsafe-inline'",
+        "img-src 'self' blob: data:",
+        "media-src 'self' blob:",
+        "font-src 'self'",
+        "connect-src 'self' blob: data:",
+        "worker-src 'self' blob:",
+        'frame-ancestors https://ogm2000.netlify.app',
+        "base-uri 'none'",
+        "form-action 'none'",
+        "object-src 'none'",
+      ].join('; '),
+    );
     expect(headers['Cross-Origin-Opener-Policy']).toBe('same-origin');
     expect(headers['Cross-Origin-Resource-Policy']).toBe('cross-origin');
     expect(headers['Permissions-Policy']).toBe('microphone=(self), camera=(), geolocation=(), payment=()');
