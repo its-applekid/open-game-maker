@@ -22,6 +22,10 @@ use. Work here the way those agents will work: dogfood the skills.
   the aiur checkout's own daemon) and never the npm `aiur` (a different fork). Kevin's NUC daemon for aiur-team/aiur runs on
   this host too (instance 5c1b32aea9): never stop or restart it. The OGM daemon is instance e110d74831 on 127.0.0.1:4010.
   Executor state: `~/.aiur/repo/its-everdred/open-game-maker-2000/executor/handoff.md`.
+  Review loop: reviewers run as background agents on `model: sonnet` (the Executor's own login hits its 5-hour limit
+  otherwise, and one stall cost two hours on 2026-11-01); post reviews as comments (`gh pr review --comment`) because the
+  single-identity install makes self-approval impossible; merge with `gh pr merge --merge` after a green `ci / required`
+  (`aiur pr merge` fails here: "unexpected tool failure"); wait on checks with `gh pr checks <n> --watch --fail-fast` (this gh 2.46 has no `--json` for checks).
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
   serials. Origin is an SSH URL with no key here: push over HTTPS with gh credentials,
   `git -C <repo> -c credential.helper='!gh auth git-credential' push "$(git -C <repo> remote get-url origin | sed 's#git@github.com:#https://github.com/#')" research`
