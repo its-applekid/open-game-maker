@@ -19,10 +19,10 @@ import { UsageError } from '../command.js';
 import { readSkillsLock, readVendorPins, type SkillsLock, writeSkillsLock } from './lock.js';
 import {
   fileSha256,
+  installManagedCopy,
   installedHash,
   isManagedCopy,
   managedPathConflict,
-  markManagedCopy,
   prepareManagedFile,
   removeManagedCopyMarker,
   removeManagedFile,
@@ -185,7 +185,11 @@ function linkDrift(repoDir: string, skills: DiscoverySkill[], lock: SkillsLock |
       else if (lstatSync(path).isSymbolicLink()) {
         if (readlinkSync(path) !== expected || !existsSync(path))
           drift.push(`stale link ${parentName}/skills/${skill.name}`);
-      } else if (lock?.linkMode !== 'copy' || !managedTreeMatches(canonical, path)) {
+      } else if (
+        lock?.linkMode !== 'copy' ||
+        !isManagedCopy(path, skill.target) ||
+        !managedTreeMatches(canonical, path)
+      ) {
         drift.push(`stale link ${parentName}/skills/${skill.name}`);
       }
     }
@@ -357,8 +361,7 @@ function installLinks(
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (!['EACCES', 'EPERM', 'EXDEV', 'ENOSYS'].includes(code ?? '')) throw error;
-        cpSync(canonical, path, { recursive: true });
-        markManagedCopy(path, skill.target);
+        installManagedCopy(canonical, path, skill.target);
         usesCopy = true;
       }
       changed = true;

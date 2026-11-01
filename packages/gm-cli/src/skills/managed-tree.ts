@@ -1,6 +1,16 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import {
+  cpSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname, join } from 'node:path';
 
 function lstatExists(path: string): boolean {
   try {
@@ -18,8 +28,21 @@ export function isManagedCopy(destination: string, target: string): boolean {
   return lstatExists(marker) && lstatSync(marker).isFile() && readFileSync(marker, 'utf8') === `${target}\n`;
 }
 
-export function markManagedCopy(destination: string, target: string): void {
+function markManagedCopy(destination: string, target: string): void {
   writeFileSync(join(destination, COPY_MARKER), `${target}\n`);
+}
+
+export function installManagedCopy(source: string, destination: string, target: string): void {
+  const staging = mkdtempSync(join(dirname(destination), '.gm-copy-stage-'));
+  try {
+    for (const entry of readdirSync(source)) {
+      cpSync(join(source, entry), join(staging, entry), { recursive: true, force: true });
+    }
+    markManagedCopy(staging, target);
+    renameSync(staging, destination);
+  } finally {
+    if (lstatExists(staging)) rmSync(staging, { recursive: true, force: true });
+  }
 }
 
 export function removeManagedCopyMarker(destination: string, target: string): boolean {
