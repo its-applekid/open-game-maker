@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { readFile, realpath } from 'node:fs/promises';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { UsageError, type GmContext } from './command.js';
 
@@ -18,6 +19,25 @@ export function requireAssetsRoot(ctx: GmContext): string {
     'no asset library found: OGM_ASSETS_ROOT is unset and no assets-local/catalog.json is above this directory',
     'OGM_ASSETS_ROOT=/path/to/assets-local gm assets search <words>',
   );
+}
+
+export async function repoVisibility(cwd: string, override?: unknown): Promise<'public' | 'private'> {
+  if (override === 'public' || override === 'private') return override;
+  if (override !== undefined) {
+    throw new UsageError('--repo-visibility must be public or private', 'gm check assets --repo-visibility public');
+  }
+  try {
+    const game = JSON.parse(await readFile(join(cwd, '.gm/game.json'), 'utf8')) as { visibility?: string };
+    return game.visibility === 'public' ? 'public' : 'private';
+  } catch {
+    return 'private';
+  }
+}
+
+export async function resolveContainedPath(root: string, candidate: string): Promise<string | null> {
+  const [realRoot, realCandidate] = await Promise.all([realpath(root), realpath(candidate)]);
+  const local = relative(realRoot, realCandidate);
+  return local === '' || (!isAbsolute(local) && local !== '..' && !local.startsWith(`..${sep}`)) ? realCandidate : null;
 }
 
 /** Print one JSON line, keeping only `--fields` keys when given. */
