@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   cpSync,
   existsSync,
@@ -18,6 +17,13 @@ import { fileURLToPath } from 'node:url';
 
 import { UsageError } from '../command.js';
 import { readSkillsLock, type SkillsLock, writeSkillsLock } from './lock.js';
+import {
+  fileSha256,
+  installedHash,
+  managedPathConflict,
+  prepareManagedFile,
+  removeManagedFile,
+} from './managed-tree.js';
 
 export { readSkillsLock, type SkillsLock } from './lock.js';
 
@@ -48,10 +54,6 @@ const DEFAULT_FAMILIES = fileURLToPath(new URL('../../../asset-cards/data/style-
 
 function slash(path: string): string {
   return path.split(sep).join('/');
-}
-
-function sha256(file: string): string {
-  return createHash('sha256').update(readFileSync(file)).digest('hex');
 }
 
 function walkFiles(root: string, prefix = ''): string[] {
@@ -94,7 +96,7 @@ function sourcePack(packDir: string): { files: SourceFile[]; discovery: Discover
     walkFiles(packDir, root).map((path) => ({
       path,
       source: join(packDir, path),
-      sha256: sha256(join(packDir, path)),
+      sha256: fileSha256(join(packDir, path)),
     })),
   );
   const discovery: DiscoverySkill[] = [];
@@ -138,15 +140,14 @@ export function locateStyleFamilies(cwd: string): string | null {
   );
 }
 
-function installedHash(root: string, path: string): string | null {
-  const file = join(root, path);
-  return existsSync(file) && statSync(file).isFile() ? sha256(file) : null;
-}
-
 function assessFiles(installedRoot: string, source: SourceFile[], oldLock: SkillsLock | null): Map<string, FileState> {
   const states = new Map<string, FileState>();
   const sourcePaths = new Set(source.map(({ path }) => path));
   for (const file of source) {
+    if (managedPathConflict(installedRoot, file.path)) {
+      states.set(file.path, 'local-edit');
+      continue;
+    }
     const current = installedHash(installedRoot, file.path);
     const previous = oldLock?.skills[file.path]?.sha256;
     if (current === file.sha256) states.set(file.path, 'clean');
@@ -156,6 +157,10 @@ function assessFiles(installedRoot: string, source: SourceFile[], oldLock: Skill
   }
   for (const [path, entry] of Object.entries(oldLock?.skills ?? {})) {
     if (sourcePaths.has(path)) continue;
+    if (managedPathConflict(installedRoot, path)) {
+      states.set(path, 'local-edit');
+      continue;
+    }
     const current = installedHash(installedRoot, path);
     if (current === entry.sha256) states.set(path, 'removed');
     else if (current !== null) states.set(path, 'local-edit');
@@ -175,7 +180,7 @@ function oldDiscoverySkills(lock: SkillsLock | null): DiscoverySkill[] {
 
 function managedTreeMatches(source: string, installed: string): boolean {
   if (!existsSync(source) || !existsSync(installed)) return false;
-  return walkFiles(source).every((path) => installedHash(installed, path) === sha256(join(source, path)));
+  return walkFiles(source).every((path) => installedHash(installed, path) === fileSha256(join(source, path)));
 }
 
 function linkDrift(repoDir: string, skills: DiscoverySkill[], lock: SkillsLock | null): string[] {
@@ -215,7 +220,7 @@ function copyContents(source: string, destination: string): void {
 }
 
 function replaceDirectory(destination: string, staging: string): void {
-  if (!existsSync(destination)) {
+  if (!lstatExists(destination)) {
     renameSync(staging, destination);
     return;
   }
@@ -226,7 +231,7 @@ function replaceDirectory(destination: string, staging: string): void {
     renameSync(staging, destination);
     rmSync(backup, { recursive: true, force: true });
   } catch (error) {
-    if (!existsSync(destination)) renameSync(backup, destination);
+    if (!lstatExists(destination)) renameSync(backup, destination);
     throw error;
   }
 }
@@ -242,7 +247,11 @@ function refreshManagedCopy(
   let localEdits = false;
   const sourceFiles = new Set(walkFiles(source));
   for (const path of sourceFiles) {
-    const sourceHash = sha256(join(source, path));
+    const sourceHash = fileSha256(join(source, path));
+    if (managedPathConflict(destination, path) && !force) {
+      localEdits = true;
+      continue;
+    }
     const currentHash = installedHash(destination, path);
     if (currentHash === sourceHash) continue;
     const previousHash = oldLock.skills[slash(join(target, path))]?.sha256;
@@ -250,8 +259,7 @@ function refreshManagedCopy(
       localEdits = true;
       continue;
     }
-    const installed = join(destination, path);
-    mkdirSync(dirname(installed), { recursive: true });
+    const installed = prepareManagedFile(destination, path);
     cpSync(join(source, path), installed, { force: true });
     changed = true;
   }
@@ -262,8 +270,7 @@ function refreshManagedCopy(
     if (sourceFiles.has(path)) continue;
     const currentHash = installedHash(destination, path);
     if (currentHash === entry.sha256) {
-      rmSync(join(destination, path), { force: true });
-      changed = true;
+      changed ||= removeManagedFile(destination, path);
     } else if (currentHash !== null) localEdits = true;
   }
   return { changed, localEdits };
@@ -383,10 +390,17 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
   if (!existsSync(packDir) || !statSync(packDir).isDirectory()) {
     throw new UsageError(`skill pack not found: ${packDir}`, 'set GM_SKILLS_DIR to the platform skills directory');
   }
+  for (const root of ['.claude', '.codex', '.agents']) {
+    const path = join(repoDir, root);
+    if (lstatExists(path) && !lstatSync(path).isDirectory()) {
+      throw new UsageError(`managed root is not a directory: ${path}`, `move ${root} aside before syncing skills`);
+    }
+  }
   const source = sourcePack(packDir);
   const currentVersion = gmCliVersion();
   const installedRoot = join(repoDir, '.claude', 'skills');
   const oldLock = readSkillsLock(repoDir);
+  const installationPending = oldLock?.installedAt === '';
   const states = assessFiles(installedRoot, source.files, oldLock);
   const links = linkDrift(repoDir, source.discovery, oldLock);
   const driftLines = [
@@ -395,10 +409,12 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
       .map(([path, state]) => `${state.replace('-', ' ')} ${path}`),
     ...links,
     ...(oldLock && oldLock.pack !== currentVersion ? [`pack version ${oldLock.pack} -> ${currentVersion}`] : []),
+    ...(installationPending ? ['lock installation pending'] : []),
   ];
   const actions = groupActions(states, options.force === true);
   if (oldLock && oldLock.pack !== currentVersion)
     actions.push(`updated skill pack ${oldLock.pack} -> ${currentVersion}`);
+  if (installationPending) actions.push('recorded skill installation');
   if (options.checkOnly) return { changed: false, drift: driftLines.length > 0, actions: driftLines, lock: oldLock };
 
   const filesToWrite = source.files.filter(({ path }) => {
@@ -411,13 +427,12 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
     mkdirSync(dirname(installedRoot), { recursive: true });
     const staging = mkdtempSync(join(dirname(installedRoot), '.gm-skills-stage-'));
     try {
-      if (existsSync(installedRoot)) copyContents(installedRoot, staging);
+      if (lstatExists(installedRoot) && lstatSync(installedRoot).isDirectory()) copyContents(installedRoot, staging);
       for (const file of filesToWrite) {
-        const destination = join(staging, file.path);
-        mkdirSync(dirname(destination), { recursive: true });
+        const destination = prepareManagedFile(staging, file.path);
         cpSync(file.source, destination, { force: true });
       }
-      for (const path of filesToRemove) rmSync(join(staging, path), { force: true });
+      for (const path of filesToRemove) removeManagedFile(staging, path);
       replaceDirectory(installedRoot, staging);
     } finally {
       if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });
@@ -427,7 +442,12 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
   const createLink = options.createLink ?? ((target, path) => symlinkSync(target, path, 'dir'));
   const installedLinks = installLinks(repoDir, source.discovery, oldLock, createLink, options.force === true);
   for (const path of installedLinks.localEdits) actions.push(`kept local edit ${path}`);
-  const changed = filesChanged || installedLinks.changed || oldLock === null || oldLock.pack !== currentVersion;
+  const changed =
+    filesChanged ||
+    installedLinks.changed ||
+    oldLock === null ||
+    oldLock.pack !== currentVersion ||
+    installationPending;
   if (!changed)
     return {
       changed: false,

@@ -1,5 +1,15 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  readFileSync,
+  readlinkSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -78,6 +88,25 @@ describe('gm skills sync', () => {
 
     expect(result).toEqual({ code: 0, out: ['skills up to date'], err: [] });
     expect(statSync(lock).mtimeMs).toBe(before);
+  });
+
+  it('records installation time for a deterministic scaffold lock', async () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    const lockFile = join(repo, 'skills.lock');
+    const lock = JSON.parse(readFileSync(lockFile, 'utf8')) as SkillsLock;
+    writeFileSync(lockFile, `${JSON.stringify({ ...lock, installedAt: '' }, null, 2)}\n`);
+    const installed = join(repo, '.claude/skills/gm-core/SKILL.md');
+    const installedBefore = statSync(installed).mtimeMs;
+
+    const check = await gm(['skills', 'sync', '--check'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    expect(check).toMatchObject({ code: 1, out: ['lock installation pending'] });
+    const result = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+
+    expect(result).toMatchObject({ code: 0, out: ['recorded skill installation'] });
+    expect(JSON.parse(readFileSync(lockFile, 'utf8')).installedAt).not.toBe('');
+    expect(statSync(installed).mtimeMs).toBe(installedBefore);
   });
 
   it('keeps local edits, reports drift, and never deletes an unowned file', async () => {
@@ -200,6 +229,27 @@ describe('gm skills sync', () => {
     expect(result.code).toBe(2);
     expect(result.err).toEqual(['skills.lock is not valid. Try: restore it or remove it before gm skills sync']);
     expect(readFileSync(sentinel, 'utf8')).toBe('keep me\n');
+  });
+
+  it('never follows a managed parent symlink during refresh', async () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    const outside = tempDir('gm-outside-');
+    await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    const canonical = join(repo, '.claude/skills/gm-core');
+    write(outside, 'SKILL.md', readFileSync(join(canonical, 'SKILL.md'), 'utf8'));
+    rmSync(canonical, { recursive: true });
+    symlinkSync(outside, canonical, 'dir');
+    writeFileSync(join(pack, 'gm-core/SKILL.md'), 'upstream v2\n');
+
+    const kept = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    expect(kept.out).toContain('kept local edit gm-core/SKILL.md');
+    expect(readFileSync(join(outside, 'SKILL.md'), 'utf8')).not.toBe('upstream v2\n');
+
+    await gm(['skills', 'sync', '--force'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    expect(lstatSync(canonical).isSymbolicLink()).toBe(false);
+    expect(readFileSync(join(canonical, 'SKILL.md'), 'utf8')).toBe('upstream v2\n');
+    expect(readFileSync(join(outside, 'SKILL.md'), 'utf8')).not.toBe('upstream v2\n');
   });
 
   it('does not create a lock when no pack can be located', async () => {
