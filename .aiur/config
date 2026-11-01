@@ -71,7 +71,7 @@ agent:
   accounts:
     claude: [default, second]
   account_selection: headroom
-  max_concurrent_agents: 6
+  max_concurrent_agents: 8
   max_concurrent_builds: 3
   build_start_stagger_seconds: 5
   build_nice: 10
@@ -80,8 +80,8 @@ agent:
   target_load_average: 8
   # Kevin 2026-11-01: ramp as fast as is safe. PSI target/ceiling instead of the 20% default gate; three slots per poll
   # below 80% of target; a saved "safe level" older than 10 minutes is ignored so a restart ramps from the step.
-  target_cpu_pressure: 20
-  max_cpu_pressure: 35
+  target_cpu_pressure: 60
+  max_cpu_pressure: 75
   load_ramp_step: 3
   load_cooldown_seconds: 20
   load_resume_max_age_seconds: 600
