@@ -1,0 +1,17 @@
+{
+  "contract": "aiur.ticket",
+  "contract_version": 1,
+  "issue_identifier": "142",
+  "issue_id": "I_kwDOExample",
+  "status": "running",
+  "workspace": { "path": "/work/142", "host": "builder" },
+  "attempts": { "restart_count": 0, "current_retry_attempt": null },
+  "running": { "model": "fake-1" },
+  "retry": null,
+  "capabilities": {},
+  "queue": { "depth": 0 },
+  "logs": { "codex_session_logs": [] },
+  "recent_events": [],
+  "last_error": null,
+  "tracked": {}
+}
