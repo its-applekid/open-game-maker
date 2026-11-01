@@ -91,7 +91,7 @@ export function buildTimeline(input: {
   const job = findOptionalJob(input.sqlite, input.jobId);
   const familyId = job?.familyId ?? eventFamily(input.sqlite, input.jobId);
   if (!familyId) throw new HttpError(404, 'not_found');
-  if (familyId !== input.principal.familyId) throw new HttpError(403, 'forbidden');
+  requireAnalyticsAdmin(input.principal, familyId);
 
   const eventRows = input.sqlite
     .prepare<[string, string], ActivityRow>(

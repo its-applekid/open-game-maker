@@ -1,7 +1,8 @@
 import type { Principal } from '@ogm/contracts';
+import { authorize } from '@ogm/policy';
 
-import { HttpError } from '../app/errors.js';
+import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
 
-export function requireAnalyticsAdmin(principal: Extract<Principal, { kind: 'user' }>): void {
-  if (principal.platformRole !== 'admin') throw new HttpError(403, 'forbidden');
+export function requireAnalyticsAdmin(principal: Extract<Principal, { kind: 'user' }>, familyId?: string): void {
+  requireAuthorization(authorize(actorFromPrincipal(principal), 'admin.analytics.read', { familyId }));
 }

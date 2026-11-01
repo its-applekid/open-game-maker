@@ -13,7 +13,7 @@ const ids = {
   job: 'j_10000000-0000-4000-8000-000000000001',
 };
 
-function registerUser(deps: AppDeps, role: 'admin' | 'none' = 'admin') {
+function registerUser(deps: AppDeps, role: 'admin' | 'maintainer' | 'none' = 'admin') {
   deps.registry.principalResolvers.push(async (c) =>
     c.req.header('x-test-user')
       ? { kind: 'user', userId: ids.user, familyId: ids.family, platformRole: role, capability: 'creator' }
@@ -136,6 +136,24 @@ describe('analytics timelines', () => {
         })
       ).status,
     ).toBe(404);
+    deps.sqlite.close();
+  });
+
+  it('decides reads through the admin.analytics.read policy', async () => {
+    const { app, deps } = await makeApp();
+    registerUser(deps, 'maintainer');
+    insertEvent(deps, {
+      id: 'i_10000000-0000-4000-8000-000000000011',
+      ts: '2026-11-01T01:00:00.000Z',
+      boundary: 'point',
+    });
+    const read = () => app.request(`/api/v1/analytics/builds/${ids.job}/timeline`, { headers: { 'x-test-user': '1' } });
+    expect((await read()).status).toBe(200);
+
+    deps.sqlite.prepare('UPDATE activity_events SET family_id = ?').run(ids.otherFamily);
+    const crossFamily = await read();
+    expect(crossFamily.status).toBe(403);
+    expect(await crossFamily.json()).toEqual({ error: 'cross_family' });
     deps.sqlite.close();
   });
 });
