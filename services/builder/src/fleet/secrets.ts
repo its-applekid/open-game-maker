@@ -47,7 +47,7 @@ export async function readIfPresent(path: string): Promise<string | undefined> {
 
 // Writes the unit's env file and the hook secret. The cookie and hook secret are generated once per slug and
 // reused afterwards, so a restart keeps talking to the same node. Only the names below ever reach the file.
-export async function writeDaemonSecrets(paths: DaemonPaths, env: FleetEnv): Promise<void> {
+export async function writeDaemonSecrets(paths: DaemonPaths, env: FleetEnv, codexHome: string): Promise<void> {
   if (!env.builderBotToken) {
     throw new Error('OGM_BUILDER_BOT_TOKEN is not set');
   }
@@ -62,6 +62,7 @@ export async function writeDaemonSecrets(paths: DaemonPaths, env: FleetEnv): Pro
   const lines = [
     `AIUR_ERLANG_COOKIE=${cookie}`,
     `GITHUB_TOKEN=${env.builderBotToken}`,
+    `CODEX_HOME=${codexHome}`,
     'AIUR_SECRETS_FROM_ENV=1',
     'AIUR_GITHUB_ALLOW_PAT=1',
     `OGM_HOOK_SECRET_FILE=${paths.hookSecret}`,

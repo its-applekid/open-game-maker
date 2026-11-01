@@ -6,6 +6,7 @@ import { parse, stringify } from 'yaml';
 
 import { PROBE_TIMEOUT_MS, passes } from '../../src/fleet/health.js';
 import { registryPath, writeRegistry } from '../../src/fleet/registry.js';
+import { codexHomeFor } from '../../src/fleet/daemon-dir.js';
 import { daemonPaths, writeAtomic, writeDaemonSecrets } from '../../src/fleet/secrets.js';
 import { createSystemctl, mintTokens } from '../../src/fleet/systemctl.js';
 import { assertTransition, slugFor } from '../../src/fleet/types.js';
@@ -41,7 +42,8 @@ describe('writeDaemonSecrets', () => {
     process.env.OGM_COMMIT_SERVICE_TOKEN = 'commit-secret';
     process.env.OPENAI_API_KEY = 'sk-test';
     try {
-      await writeDaemonSecrets(paths, fleetEnv(home, { apiPort: 8787 }));
+      const env = fleetEnv(home, { apiPort: 8787 });
+      await writeDaemonSecrets(paths, env, codexHomeFor(env, 'owner-game'));
     } finally {
       delete process.env.OGM_COMMIT_SERVICE_TOKEN;
       delete process.env.OPENAI_API_KEY;
@@ -56,6 +58,7 @@ describe('writeDaemonSecrets', () => {
     ).toEqual([
       'AIUR_ERLANG_COOKIE',
       'GITHUB_TOKEN',
+      'CODEX_HOME',
       'AIUR_SECRETS_FROM_ENV',
       'AIUR_GITHUB_ALLOW_PAT',
       'OGM_HOOK_SECRET_FILE',
@@ -71,13 +74,14 @@ describe('writeDaemonSecrets', () => {
   it('keeps the cookie and hook secret across rewrites', async () => {
     const home = await tempHome();
     const paths = daemonPaths(home, 'owner-game');
-    await writeDaemonSecrets(paths, fleetEnv(home));
-    const env = await readFile(paths.envFile, 'utf8');
+    const env = fleetEnv(home);
+    await writeDaemonSecrets(paths, env, codexHomeFor(env, 'owner-game'));
+    const envText = await readFile(paths.envFile, 'utf8');
     const hook = await readFile(paths.hookSecret, 'utf8');
 
-    await writeDaemonSecrets(paths, fleetEnv(home));
+    await writeDaemonSecrets(paths, env, codexHomeFor(env, 'owner-game'));
 
-    expect(await readFile(paths.envFile, 'utf8')).toBe(env);
+    expect(await readFile(paths.envFile, 'utf8')).toBe(envText);
     expect(await readFile(paths.hookSecret, 'utf8')).toBe(hook);
   });
 });

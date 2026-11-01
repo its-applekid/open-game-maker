@@ -1,0 +1,25 @@
+{
+  "name": "@ogm/asset-cards",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/contracts build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/contracts build",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@ogm/contracts": "workspace:*",
+    "sharp": "0.35.5"
+  }
+}
