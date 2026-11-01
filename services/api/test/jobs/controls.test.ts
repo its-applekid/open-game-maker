@@ -235,14 +235,18 @@ describe('job controls', () => {
 
     const sent = await post(app, 'message', ids.owner, { text: 'Please try blue', messageId: 'm_123' });
     const paused = await post(app, 'pause');
-    const resumed = await post(app, 'resume');
 
     expect(sent.status).toBe(202);
     expect(await sent.json()).toEqual({ request_id: 'request-1' });
     expect(message).toHaveBeenCalledWith('142', 'Please try blue', 'm_123');
     expect(paused.status).toBe(200);
     expect(await paused.json()).toMatchObject({ stage: 'paused', stageText: 'Paused' });
+    expect(deps.db.select().from(schema.jobs).get()?.pausedReason).toBe('admin');
+
+    const resumed = await post(app, 'resume');
+
     expect(resumed.status).toBe(200);
+    expect(deps.db.select().from(schema.jobs).get()?.pausedReason).toBeNull();
     expect(pause).toHaveBeenCalledWith('142');
     expect(resume).toHaveBeenCalledWith('142');
   });
