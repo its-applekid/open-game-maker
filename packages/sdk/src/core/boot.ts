@@ -1,14 +1,6 @@
-import {
-  SDK_PROTOCOL,
-  hostToGameSchema,
-  type ActionFrame,
-  type Envelope,
-  type GameModule,
-  type HostToGame,
-  type PlayerSettings,
-  type SaveData,
-  type Viewport,
-} from '@ogm/contracts';
+import { SDK_PROTOCOL, hostToGameSchema, type Envelope, type HostToGame } from '@ogm/contracts/bridge';
+import type { GameModule, PlayerSettings, SaveData, Viewport } from '@ogm/contracts/game';
+import type { ActionFrame } from '@ogm/contracts/input';
 import { openGameBridge, type Bridge } from '@ogm/iframe-bridge';
 
 import { EventRing } from './events.js';

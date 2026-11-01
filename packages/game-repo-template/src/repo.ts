@@ -55,7 +55,7 @@ export function renderRepoTemplate(ref: string, ctx: TemplateCtx, root: string =
 // `templates/game-<engine>/` from the workspace when OGM-023/024/055 have landed, else a `gm new`-shaped placeholder.
 function scaffold(engine: Engine, root: string, values: Record<string, string>): TemplateFile[] {
   const dir = join(root, 'templates', `game-${engine}`);
-  const paths = listFiles(dir).filter((path) => !path.startsWith('node_modules/'));
+  const paths = listFiles(dir).filter((path) => path !== 'README.md' && !path.startsWith('node_modules/'));
   if (paths.length > 0) {
     return paths.map((path) => ({
       path,

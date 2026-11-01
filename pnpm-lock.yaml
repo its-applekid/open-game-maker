@@ -292,6 +292,9 @@ importers:
       meshoptimizer:
         specifier: 1.3.0
         version: 1.3.0
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
       three:
         specifier: 0.186.1
         version: 0.186.1
@@ -519,6 +522,31 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+
+  templates/game-2d:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      vite:
+        specifier: 8.3.5
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   tools/skills:
     devDependencies:

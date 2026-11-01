@@ -115,11 +115,14 @@ describe('renderRepoTemplate', () => {
     const root = emptyRoot();
     mkdirSync(join(root, 'templates/game-multiplayer/src'), { recursive: true });
     writeFileSync(join(root, 'templates/game-multiplayer/package.json'), '{"name":"scaffold"}\n');
+    writeFileSync(join(root, 'templates/game-multiplayer/README.md'), 'scaffold readme\n');
     writeFileSync(join(root, 'templates/game-multiplayer/src/run.sh'), '#!/bin/sh\n');
     chmodSync(join(root, 'templates/game-multiplayer/src/run.sh'), 0o755);
     const { files } = renderRepoTemplate('game-multiplayer@1', ctx, root);
     expect(files.find((f) => f.path === 'package.json')!.content).toBe('{"name":"scaffold"}\n');
     expect(files.find((f) => f.path === 'src/run.sh')).toMatchObject({ mode: '100755' });
+    expect(files.filter((f) => f.path === 'README.md')).toHaveLength(1);
+    expect(files.find((f) => f.path === 'README.md')!.content).not.toBe('scaffold readme\n');
     expect(files.some((f) => f.path === 'pnpm-lock.yaml')).toBe(false);
   });
 
