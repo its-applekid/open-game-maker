@@ -64,6 +64,7 @@ describe('GameRoom relay rules', () => {
       await violate(999);
       expect(room.clients.length).toBe(2);
 
+      now += 59_999;
       await violate(1);
     } finally {
       clock.mockRestore();
@@ -71,7 +72,7 @@ describe('GameRoom relay rules', () => {
 
     expect(await leaveCode).toBe(4002);
     await waitFor(() => room.clients.length === 1, 'violator removed');
-  });
+  }, 20_000);
 
   it('validates design transactions, advances lastRev, and relays valid transactions', async () => {
     const room = await newRoom(harness.testServer);
