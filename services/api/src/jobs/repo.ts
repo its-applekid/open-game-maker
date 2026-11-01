@@ -104,14 +104,16 @@ export function byTicket(db: Db, daemonSlug: string, ticket: string): { id: stri
   return found ?? null;
 }
 
-const ACTIVE_STATES: JobState[] = ['admitted', 'filed', 'running', 'paused_budget'];
+const NON_TERMINAL_STATES: JobState[] = ['queued', 'admitted', 'filed', 'running', 'paused_budget'];
+const SLOT_STATES: JobState[] = ['admitted', 'filed', 'running', 'paused_budget'];
 
 export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket: string }[] {
   return db
     .select({ jobId: schema.jobs.id, issueNumber: schema.jobs.aiurIssueNumber })
     .from(schema.gameDaemons)
     .innerJoin(schema.jobs, eq(schema.jobs.aiurRepo, schema.gameDaemons.repo))
-    .where(and(eq(schema.gameDaemons.slug, daemonSlug), inArray(schema.jobs.state, ACTIVE_STATES)))
+    .where(and(eq(schema.gameDaemons.slug, daemonSlug), inArray(schema.jobs.state, NON_TERMINAL_STATES)))
+    .orderBy(asc(schema.jobs.aiurIssueNumber), asc(schema.jobs.id))
     .all()
     .filter((row): row is { jobId: string; issueNumber: number } => row.issueNumber !== null)
     .map(({ jobId, issueNumber }) => ({ jobId, ticket: String(issueNumber) }));
@@ -121,7 +123,7 @@ export function activeJobsForRepo(db: Db, repo: string): { kind: 'new_game' | 'f
   return db
     .select({ kind: schema.jobs.kind })
     .from(schema.jobs)
-    .where(and(eq(schema.jobs.aiurRepo, repo), inArray(schema.jobs.state, ACTIVE_STATES)))
+    .where(and(eq(schema.jobs.aiurRepo, repo), inArray(schema.jobs.state, SLOT_STATES)))
     .all()
     .map(({ kind }) => ({ kind: kind === 'scope' ? ('feature' as const) : kind }));
 }

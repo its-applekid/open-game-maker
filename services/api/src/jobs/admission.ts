@@ -99,6 +99,7 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
       const settings = getBudgetSettings(deps.db, game.familyId, deps.defaults);
       const reservation = reservationFor(deps.db, request.kind, request.complexity);
       const resetAt = nextReset(now, settings.resetZone);
+      const resetsAt = resetAt.toISOString();
       const targetAt = request.start === 'at_reset' ? resetAt : now;
       const allowance = allowanceRemaining({
         db: deps.db,
@@ -111,7 +112,7 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
         refusal(
           'allowance_exceeded',
           allowance.remainingMicroUsd,
-          allowance.resetsAt,
+          resetsAt,
           request.start === 'at_reset' ? ['trim', 'split'] : undefined,
         );
       }
@@ -120,7 +121,7 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
         familyDayTotal(deps.db, game.familyId, targetAt, deps.defaults) + reservation.amountMicroUsd >
         settings.platformCapMicroUsd
       ) {
-        refusal('platform_cap_reached', platformLeft, allowance.resetsAt);
+        refusal('platform_cap_reached', platformLeft, resetsAt);
       }
 
       const slot = request.kind === 'new_game' ? 'new_game' : 'edit';
@@ -150,7 +151,7 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
           complexity: request.complexity,
           state,
           start: request.start,
-          startAt: request.start === 'at_reset' ? resetAt.toISOString() : null,
+          startAt: request.start === 'at_reset' ? resetsAt : null,
           slot,
           plan: JSON.stringify(request.plan),
           reservation: JSON.stringify(reservation),

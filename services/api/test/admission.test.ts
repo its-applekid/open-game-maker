@@ -181,7 +181,13 @@ describe('job admission', () => {
         request({ start: 'at_reset', complexity: 4 }),
         actor,
       ),
-    ).rejects.toMatchObject({ body: { error: 'allowance_exceeded', offers: ['trim', 'split'] } });
+    ).rejects.toMatchObject({
+      body: {
+        error: 'allowance_exceeded',
+        resetsAt: '2026-11-02T08:00:00.000Z',
+        offers: ['trim', 'split'],
+      },
+    });
   });
 
   it('refuses the platform cap before creating a job', async () => {
