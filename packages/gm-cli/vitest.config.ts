@@ -2,6 +2,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    testTimeout: 10_000,
+    // The first test in each file cold-loads every command module through the transformer.
+    testTimeout: 20_000,
   },
 });

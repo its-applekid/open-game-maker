@@ -2,12 +2,18 @@ import type { BuildChatMessage } from '@ogm/contracts';
 
 import './checkpoint-card.css';
 
-type Budget = { used: number; max: 1 | 3 };
+export type CheckpointBudget = { used: number; max: 1 | 3 };
+
+type CheckpointMessage = {
+  id: string;
+  checkpoint?: BuildChatMessage['checkpoint'];
+};
 
 export type CheckpointCardProps = {
-  message: BuildChatMessage;
-  mediaById?: (id: string) => BuildChatMessage | undefined;
-  budget?: Budget;
+  message: CheckpointMessage;
+  mediaById?: (id: string) => Pick<BuildChatMessage, 'media'> | undefined;
+  budget?: CheckpointBudget;
+  busy?: boolean;
   onAnswer: (optionId: string) => void;
 };
 
@@ -40,7 +46,7 @@ function OptionContents({
   );
 }
 
-export function CheckpointCard({ message, mediaById, budget, onAnswer }: CheckpointCardProps) {
+export function CheckpointCard({ message, mediaById, budget, busy = false, onAnswer }: CheckpointCardProps) {
   const checkpoint = message.checkpoint;
   if (!checkpoint) return null;
   const options = [...checkpoint.options].sort(
@@ -50,20 +56,23 @@ export function CheckpointCard({ message, mediaById, budget, onAnswer }: Checkpo
   const showOptions = checkpoint.status !== 'moot';
 
   return (
-    <article className={`checkpoint-card checkpoint-${checkpoint.status}`} aria-labelledby={`checkpoint-${message.id}`}>
-      <h3 id={`checkpoint-${message.id}`}>{checkpoint.question}</h3>
+    <article
+      className={`build-chat-row checkpoint checkpoint-${checkpoint.status}`}
+      aria-labelledby={`checkpoint-${message.id}`}
+    >
+      <strong id={`checkpoint-${message.id}`}>{checkpoint.question}</strong>
       {checkpoint.blocking && checkpoint.status === 'open' && (
         <p className="checkpoint-note">The builder is waiting on this</p>
       )}
       {checkpoint.status === 'moot' && <p className="checkpoint-state">No longer needed</p>}
       {checkpoint.status === 'open' && !linked && <p className="checkpoint-state">Waiting for the builder to ask</p>}
       {showOptions && (
-        <div className="checkpoint-options">
+        <div className="build-chat-options">
           {options.map((option) => {
             const recommended = option.id === checkpoint.recommend;
             if (checkpoint.status === 'open' && !linked) {
               return (
-                <div className="checkpoint-option" key={option.id} style={{ minHeight: '64px' }}>
+                <div className="build-chat-option" key={option.id} style={{ minHeight: '64px' }}>
                   <OptionContents option={option} recommended={recommended} mediaById={mediaById} />
                 </div>
               );
@@ -73,8 +82,8 @@ export function CheckpointCard({ message, mediaById, budget, onAnswer }: Checkpo
               <button
                 aria-label={option.label}
                 aria-pressed={selected}
-                className="checkpoint-option"
-                disabled={checkpoint.status !== 'open'}
+                className="build-chat-option"
+                disabled={busy || checkpoint.status !== 'open'}
                 key={option.id}
                 onClick={() => onAnswer(option.id)}
                 style={{ minHeight: '64px' }}

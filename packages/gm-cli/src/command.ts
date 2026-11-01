@@ -1,15 +1,33 @@
-export type FlagSpec = Record<string, { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string }>;
+export type FlagSpec = Record<
+  string,
+  { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string; multiple?: boolean; short?: string }
+>;
+
+export type GmConfig = {
+  eventsFile?: string;
+  jobId?: string;
+  aiurIssue?: number;
+  aiurRunId?: string;
+  verifySoftwareGl: boolean;
+  verifyQueue: boolean;
+  runtimeDir?: string;
+};
 
 export type GmContext = {
   cwd: string;
   assetsRoot: string | null;
   skillsDir: string | null;
+  config: GmConfig;
   json: boolean;
   limit: number;
   fields: string[] | null;
   out: (line: string) => void;
   err: (line: string) => void;
   emit(event: string, payload: unknown): void;
+  /** `OGM_BLOB_ROOT`, resolved against cwd; null when unset. */
+  blobRoot: string | null;
+  /** `OGM_BLOCKLIST_FILE`, resolved against cwd; null when unset. */
+  blocklistFile: string | null;
 };
 
 /** One file per command under `src/commands/<namespace>/<cmd>.ts`, exporting `command`. */
