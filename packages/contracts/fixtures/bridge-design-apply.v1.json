@@ -1,0 +1,10 @@
+{
+  "v": 1,
+  "id": "d7",
+  "t": "design.apply",
+  "payload": {
+    "rev": 7,
+    "doc": { "enemies": [{ "id": "e1", "color": "blue" }] },
+    "patches": [{ "op": "replace", "path": ["enemies", 0, "color"], "value": "blue" }]
+  }
+}

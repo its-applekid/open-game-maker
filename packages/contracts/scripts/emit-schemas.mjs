@@ -9,7 +9,9 @@ for (const file of (await readdir(dist)).filter(
   (name) => name.endsWith('.js') && name !== 'index.js' && !name.endsWith('.generated.js'),
 )) {
   const module = await import(new URL(file, dist).href);
-  for (const [stem, schema] of Object.entries(module.schemas ?? {})) {
+  // A family exports its stems as `<family>Schemas` (design-log.ts -> designLogSchemas) so barrel names never collide.
+  const family = file.slice(0, -'.js'.length).replace(/-([a-z])/g, (_, letter) => letter.toUpperCase());
+  for (const [stem, schema] of Object.entries(module[`${family}Schemas`] ?? {})) {
     const jsonSchema = toJSONSchema(schema, { target: 'draft-2020-12' });
     const output = `${JSON.stringify(
       {

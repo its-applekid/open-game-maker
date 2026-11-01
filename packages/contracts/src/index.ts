@@ -3,3 +3,7 @@ export * from './rights.js';
 export * from './layout.js';
 export * from './validate.js';
 export * from './health.js';
+export * from './bridge.js';
+export * from './game.js';
+export * from './input.js';
+export * from './assets.js';
