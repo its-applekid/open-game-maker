@@ -14,8 +14,6 @@ export function formatUsage(usedMicroUsd: number, totalMicroUsd: number, unitLab
 
 function formatValue(value: number): string {
   const precision = value >= 0.1 ? 1 : 4;
-  const threshold = 10 ** -precision;
-  if (value > 0 && value < threshold) return `<${threshold.toFixed(precision)}`;
   return value.toFixed(precision).replace(/\.0+$|(?<=\.[0-9]*[1-9])0+$/u, '');
 }
 

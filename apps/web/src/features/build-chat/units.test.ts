@@ -9,9 +9,9 @@ describe('formatUnits', () => {
     expect(formatUnits(2_345, 'coin')).toBe('0.0023 coins');
   });
 
-  it('keeps the four-decimal micro-dollar edge visible', () => {
+  it('rounds micro-dollar values without adding qualifier copy', () => {
     expect(formatUnits(123, 'dollar')).toBe('0.0001 dollars');
-    expect(formatUnits(1, 'dollar')).toBe('<0.0001 dollars');
+    expect(formatUnits(1, 'dollar')).toBe('0 dollars');
   });
 
   it('places the family unit once after the reservation total', () => {

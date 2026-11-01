@@ -1,17 +1,24 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { captionsReducer, Dictation, VoiceClient, type Captions, type VoiceClientOptions } from '@ogm/voice-client';
+import {
+  captionsReducer,
+  Dictation,
+  VoiceClient,
+  type Captions,
+  type DictationError,
+  type DictationTranscript,
+  type VoiceClientOptions,
+} from '@ogm/voice-client';
 
 import { Icon } from '../../components/Icon';
 import type { StreamedChatMessage } from './stream';
 import { probeVoice as defaultProbeVoice, type BuildVoiceTarget, type VoiceAvailability } from './voice';
 
-type Transcript = { kind: 'partial' | 'final'; text: string };
-
 export type DictationPort = {
   pressStart(): void;
   pressEnd(): void;
-  on(event: 'transcript', listener: (value: Transcript) => void): () => void;
+  on(event: 'transcript', listener: (value: DictationTranscript) => void): () => void;
+  on(event: 'error', listener: (value: DictationError) => void): () => void;
 };
 
 type PostText = (jobId: string, text: string) => Promise<unknown>;
@@ -61,12 +68,11 @@ export function Composer({
       setPartial('');
       setText(transcript.text);
     });
-    const offError =
-      dictation instanceof Dictation ? dictation.on('error', (error) => setNotice(error.message)) : undefined;
+    const offError = dictation.on('error', (error) => setNotice(error.message));
     return () => {
       dictation.pressEnd();
       offTranscript();
-      offError?.();
+      offError();
     };
   }, [dictation]);
 

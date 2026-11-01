@@ -1,20 +1,30 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { VoiceClient } from '@ogm/voice-client';
+import type { DictationError, DictationTranscript, VoiceClient } from '@ogm/voice-client';
 
 import { Composer, type DictationPort } from './Composer';
 
 class FakeDictation implements DictationPort {
-  listeners: Array<(value: { kind: 'partial' | 'final'; text: string }) => void> = [];
+  transcriptListeners: Array<(value: DictationTranscript) => void> = [];
+  errorListeners: Array<(value: DictationError) => void> = [];
   pressStart = vi.fn();
   pressEnd = vi.fn();
-  on(_event: 'transcript', listener: (value: { kind: 'partial' | 'final'; text: string }) => void) {
-    this.listeners.push(listener);
+  on(event: 'transcript', listener: (value: DictationTranscript) => void): () => void;
+  on(event: 'error', listener: (value: DictationError) => void): () => void;
+  on(
+    event: 'transcript' | 'error',
+    listener: ((value: DictationTranscript) => void) | ((value: DictationError) => void),
+  ) {
+    if (event === 'transcript') {
+      this.transcriptListeners.push(listener as (value: DictationTranscript) => void);
+    } else {
+      this.errorListeners.push(listener as (value: DictationError) => void);
+    }
     return () => undefined;
   }
   finish(text: string) {
-    for (const listener of this.listeners) listener({ kind: 'final', text });
+    for (const listener of this.transcriptListeners) listener({ kind: 'final', text });
   }
 }
 
