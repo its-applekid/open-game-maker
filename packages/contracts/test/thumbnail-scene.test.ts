@@ -24,6 +24,14 @@ describe('thumbnail scene contract', () => {
     expect(emittedValidator('thumbnail-scene.v1')(scene)).toBe(true);
   });
 
+  it('accepts the date-versioned card ids used by the local asset corpus', () => {
+    const scene = fixture();
+    scene.layers[0]!.card_id = 't1:smallscaleint-pack/tiles/ground@2026-11-01';
+
+    expect(thumbnailSceneSchema.safeParse(scene).success).toBe(true);
+    expect(emittedValidator('thumbnail-scene.v1')(scene)).toBe(true);
+  });
+
   it.each(['https://example.com/sprite.png', '/tmp/sprite.png', 't1:pack/../../sprite@1.0'])(
     'rejects a non-card source reference: %s',
     (cardId) => {
