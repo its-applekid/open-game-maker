@@ -29,9 +29,9 @@ describe('assets contract', () => {
     expect(assetManifestSchema.safeParse(doc).success).toBe(false);
   });
 
-  it('accepts the golden lockfile with a tier-1 and a tier-3 asset', () => {
+  it('accepts the golden lockfile with the public and private tier-1 examples', () => {
     const doc = loadJson<{ assets: { id: string }[] }>('fixtures/assets-lock.v1.json');
-    expect(assetsLockSchema.parse(doc).assets.map((asset) => asset.id.slice(0, 3))).toEqual(['t1:', 't3:']);
+    expect(assetsLockSchema.parse(doc).assets.map((asset) => asset.id.slice(0, 3))).toEqual(['t1:', 't1:']);
     expect(emittedValidator('assets-lock.v1')(doc)).toBe(true);
   });
 
