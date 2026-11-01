@@ -8,11 +8,26 @@ import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
-import { createRoomInvitation, recordRoomEnded, revokeRoomAccess } from './rooms.js';
+import { hasAdultAgeAttestation } from '../auth/routes.js';
+import {
+  createRoom,
+  createRoomInvitation,
+  freshRoomGrant,
+  joinRoom,
+  recordRoomEnded,
+  revokeRoomAccess,
+} from './rooms.js';
 
 export const prefix = '/';
 
 const invitationBody = z.object({ email: z.email().optional() }).strict();
+const createRoomBody = z
+  .object({
+    branchId: z.string().min(1),
+    buildId: z.string().min(1),
+    maxPlayers: z.number().int().optional(),
+  })
+  .strict();
 const revokeBody = z
   .object({ jti: z.string().min(1).optional(), userId: z.string().min(1).optional() })
   .strict()
@@ -34,6 +49,25 @@ function requireRoomsSecret(c: Context<ApiBindings>): void {
 }
 
 const routes = new Hono<ApiBindings>()
+  .post('/api/v1/games/:gameId/rooms', async (c) => {
+    const principal = requirePrincipal(c, ['user']);
+    return c.json(
+      await createRoom(c.get('deps'), principal, {
+        gameId: c.req.param('gameId'),
+        ...(await parseBody(c, createRoomBody)),
+      }),
+      201,
+    );
+  })
+  .get('/api/v1/join/:inviteToken', async (c) => {
+    const principal = requirePrincipal(c, ['user']);
+    if (!hasAdultAgeAttestation(c)) throw new HttpError(403, 'age_required');
+    return c.json(await joinRoom(c.get('deps'), principal, c.req.param('inviteToken')));
+  })
+  .get('/api/v1/rooms/:roomId/grant', async (c) => {
+    const principal = requirePrincipal(c, ['user']);
+    return c.json(await freshRoomGrant(c.get('deps'), principal, c.req.param('roomId')));
+  })
   .post('/api/v1/rooms/:roomId/invites', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     return c.json(

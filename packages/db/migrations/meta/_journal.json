@@ -54,13 +54,6 @@
     {
       "idx": 7,
       "version": "6",
-      "when": 1793549304235,
-      "tag": "20261101160824_rooms",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
       "when": 1793552427219,
       "tag": "20261101170027_design_log",
       "breakpoints": true
@@ -75,12 +68,19 @@
     {
       "idx": 9,
       "version": "6",
+      "when": 1793554176455,
+      "tag": "20261101172936_rooms",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
       "when": 1793557924613,
       "tag": "20261101183204_build_chat",
       "breakpoints": true
     },
     {
-      "idx": 10,
+      "idx": 11,
       "version": "6",
       "when": 1793562523954,
       "tag": "20261101194843_reports",

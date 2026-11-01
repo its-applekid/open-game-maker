@@ -61,7 +61,7 @@ async function grantResponse(
 export async function createRoom(
   deps: AppDeps,
   principal: UserPrincipal,
-  input: { gameId: string; branchId: string; buildId: string; maxPlayers?: number; displayName: string },
+  input: { gameId: string; branchId: string; buildId: string; maxPlayers?: number },
   nowMs = Date.now(),
   fetchImpl: typeof fetch = fetch,
 ): Promise<RoomGrantResponse> {
@@ -80,7 +80,7 @@ export async function createRoom(
       ),
     )
     .get();
-  if (existing) return grantResponse(deps, existing, principal.userId, 'owner', input.displayName, nowMs);
+  if (existing) return grantResponse(deps, existing, principal.userId, 'owner', principal.displayName, nowMs);
 
   const maxPlayers = Math.min(
     Math.max(Math.floor(input.maxPlayers ?? LIMITS.maxPlayersDefault), 1),
@@ -109,7 +109,7 @@ export async function createRoom(
     endReason: null,
   };
   deps.db.insert(schema.rooms).values(room).run();
-  return grantResponse(deps, room, principal.userId, 'owner', input.displayName, nowMs);
+  return grantResponse(deps, room, principal.userId, 'owner', principal.displayName, nowMs);
 }
 
 export async function createRoomInvitation(
@@ -137,7 +137,6 @@ export async function joinRoom(
   deps: AppDeps,
   principal: UserPrincipal,
   token: string,
-  displayName: string,
   nowMs = Date.now(),
 ): Promise<RoomGrantResponse> {
   const invitation = deps.db
@@ -205,20 +204,19 @@ export async function joinRoom(
     }
   });
 
-  return grantResponse(deps, room, principal.userId, 'player', displayName, nowMs);
+  return grantResponse(deps, room, principal.userId, 'player', principal.displayName, nowMs);
 }
 
 export async function freshRoomGrant(
   deps: AppDeps,
   principal: UserPrincipal,
   roomId: string,
-  displayName: string,
   nowMs = Date.now(),
 ): Promise<RoomGrantResponse> {
   const room = deps.db.select().from(schema.rooms).where(eq(schema.rooms.id, roomId)).get();
   if (!room) throw new HttpError(404, 'room_not_found');
   if (room.ownerId === principal.userId) {
-    return grantResponse(deps, room, principal.userId, 'owner', displayName, nowMs);
+    return grantResponse(deps, room, principal.userId, 'owner', principal.displayName, nowMs);
   }
   const member = deps.db
     .select()
@@ -226,7 +224,7 @@ export async function freshRoomGrant(
     .where(and(eq(schema.roomMembers.roomId, roomId), eq(schema.roomMembers.userId, principal.userId)))
     .get();
   if (!member || member.revokedAt) throw new HttpError(403, 'not_room_member');
-  return grantResponse(deps, room, principal.userId, 'player', displayName, nowMs);
+  return grantResponse(deps, room, principal.userId, 'player', principal.displayName, nowMs);
 }
 
 export async function revokeRoomAccess(
@@ -251,11 +249,7 @@ export async function revokeRoomAccess(
   }
 }
 
-export function recordRoomEnded(
-  deps: AppDeps,
-  roomId: string,
-  input: { reason: string; endedAt: string },
-): void {
+export function recordRoomEnded(deps: AppDeps, roomId: string, input: { reason: string; endedAt: string }): void {
   const room = deps.db.select().from(schema.rooms).where(eq(schema.rooms.id, roomId)).get();
   if (!room) throw new HttpError(404, 'room_not_found');
   if (room.endedAt) return;

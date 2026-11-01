@@ -11,6 +11,7 @@ import {
   revokeRoomAccess,
 } from '../src/rooms/rooms.js';
 import { hashOf } from '../src/invites/tokens.js';
+import { adultCookie } from './auth-helpers.js';
 import { asUser, installUsers, makeApp, makeDeps, type TestUser } from './helpers.js';
 
 const now = '2026-11-01T00:00:00.000Z';
@@ -20,6 +21,7 @@ const owner: TestUser = {
   kind: 'user',
   userId: 'u-owner',
   email: 'owner@example.com',
+  displayName: 'Owner',
   familyId,
   platformRole: 'none',
   capability: 'creator',
@@ -28,6 +30,7 @@ const member: TestUser = {
   kind: 'user',
   userId: 'u-member',
   email: 'member@example.com',
+  displayName: 'Member',
   familyId,
   platformRole: 'none',
   capability: 'player',
@@ -36,6 +39,7 @@ const friend: TestUser = {
   kind: 'user',
   userId: 'u-friend',
   email: 'friend@example.com',
+  displayName: 'Friend',
   familyId: 'f-friend',
   platformRole: 'none',
   capability: 'player',
@@ -82,7 +86,7 @@ describe('room lifecycle service', () => {
     const created = await createRoom(
       deps,
       owner,
-      { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1', maxPlayers: 99, displayName: 'Owner' },
+      { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1', maxPlayers: 99 },
       nowMs,
       relay,
     );
@@ -104,7 +108,7 @@ describe('room lifecycle service', () => {
     const reused = await createRoom(
       deps,
       owner,
-      { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1', displayName: 'Owner' },
+      { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1' },
       nowMs,
       relay,
     );
@@ -116,13 +120,7 @@ describe('room lifecycle service', () => {
     const deps = setup();
     const relay = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 503 }));
     await expect(
-      createRoom(
-        deps,
-        owner,
-        { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1', displayName: 'Owner' },
-        nowMs,
-        relay,
-      ),
+      createRoom(deps, owner, { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1' }, nowMs, relay),
     ).rejects.toMatchObject({ status: 503, code: 'rooms_unavailable' });
     expect(deps.db.select().from(schema.rooms).all()).toEqual([]);
   });
@@ -152,14 +150,14 @@ describe('room lifecycle service', () => {
     });
     expect(JSON.stringify(deps.db.select().from(schema.invitations).get())).not.toContain(token);
 
-    const joined = await joinRoom(deps, member, token, 'Member', nowMs);
+    const joined = await joinRoom(deps, member, token, nowMs);
     expect((await verifyGrant(joined.grant, deps.config.roomGrantSecret, nowMs)).ok).toBe(true);
     expect(deps.db.select().from(schema.roomMembers).get()).toMatchObject({
       roomId: 'room-1',
       userId: member.userId,
     });
-    await expect(joinRoom(deps, member, token, 'Member', nowMs)).resolves.toMatchObject({ roomId: 'room-1' });
-    await expect(joinRoom(deps, friend, token, 'Friend', nowMs)).rejects.toMatchObject({
+    await expect(joinRoom(deps, member, token, nowMs)).resolves.toMatchObject({ roomId: 'room-1' });
+    await expect(joinRoom(deps, friend, token, nowMs)).rejects.toMatchObject({
       status: 410,
       code: 'invite_gone',
     });
@@ -179,12 +177,9 @@ describe('room lifecycle service', () => {
         createdAt: now,
       })
       .run();
-    deps.db
-      .insert(schema.roomMembers)
-      .values({ roomId: 'room-1', userId: member.userId, joinedAt: now })
-      .run();
+    deps.db.insert(schema.roomMembers).values({ roomId: 'room-1', userId: member.userId, joinedAt: now }).run();
 
-    await expect(freshRoomGrant(deps, member, 'room-1', 'Member', nowMs)).resolves.toMatchObject({ roomId: 'room-1' });
+    await expect(freshRoomGrant(deps, member, 'room-1', nowMs)).resolves.toMatchObject({ roomId: 'room-1' });
     const relay = vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status: 204 }));
     await revokeRoomAccess(deps, owner, 'room-1', { userId: member.userId }, nowMs, relay);
     expect(deps.db.select().from(schema.roomMembers).get()?.revokedAt).toBe(now);
@@ -201,6 +196,53 @@ describe('room lifecycle service', () => {
     });
   });
 
+  it('mounts room creation, age-gated join, and fresh grant routes', async () => {
+    const deps = setup();
+    const relay = vi.spyOn(globalThis, 'fetch').mockResolvedValue(createdRoomResponse());
+
+    try {
+      const { app } = await makeApp(deps);
+      const created = await app.request('/api/v1/games/g-1/rooms', {
+        method: 'POST',
+        headers: { ...asUser(owner.userId), 'content-type': 'application/json' },
+        body: JSON.stringify({ branchId: 'branch-1', buildId: 'build-1', maxPlayers: 4 }),
+      });
+      expect(created.status).toBe(201);
+      expect(await created.json()).toMatchObject({
+        roomId: 'room-1',
+        pin: { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1' },
+        grant: expect.any(String),
+      });
+
+      const inviteResponse = await app.request('/api/v1/rooms/room-1/invites', {
+        method: 'POST',
+        headers: { ...asUser(owner.userId), 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const invite = (await inviteResponse.json()) as { url: string };
+      const token = invite.url.split('/').at(-1) ?? '';
+
+      const noAge = await app.request(`/api/v1/join/${token}`, { headers: asUser(member.userId) });
+      expect(noAge.status).toBe(403);
+      expect(await noAge.json()).toEqual({ error: 'age_required' });
+
+      const cookie = await adultCookie(app);
+      const joined = await app.request(`/api/v1/join/${token}`, {
+        headers: { ...asUser(member.userId), cookie },
+      });
+      expect(joined.status).toBe(200);
+      expect(await joined.json()).toMatchObject({ roomId: 'room-1', grant: expect.any(String) });
+
+      const refreshed = await app.request('/api/v1/rooms/room-1/grant', {
+        headers: asUser(member.userId),
+      });
+      expect(refreshed.status).toBe(200);
+      expect(await refreshed.json()).toMatchObject({ roomId: 'room-1', grant: expect.any(String) });
+    } finally {
+      relay.mockRestore();
+    }
+  });
+
   it('mounts owner invite/revoke routes and authenticates the room-ended callback separately', async () => {
     const deps = setup();
     deps.db
@@ -215,10 +257,7 @@ describe('room lifecycle service', () => {
         createdAt: now,
       })
       .run();
-    deps.db
-      .insert(schema.roomMembers)
-      .values({ roomId: 'room-1', userId: member.userId, joinedAt: now })
-      .run();
+    deps.db.insert(schema.roomMembers).values({ roomId: 'room-1', userId: member.userId, joinedAt: now }).run();
     const relay = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(null, { status: 204 }));
     const { app } = await makeApp(deps);
 
