@@ -3,6 +3,7 @@ import type { JobStage, JobState, NotificationTrigger } from '@ogm/contracts';
 export type AppEventMap = {
   notify: NotificationTrigger;
   'job.changed': { jobId: string; gameId: string; familyId: string; state: JobState };
+  'job.started': { jobId: string; gameId: string; familyId: string; userIds: string[] };
   'budget.changed': { familyId: string; userId: string };
   'job.stage.changed': { jobId: string; from: JobStage | null; to: JobStage; text: string };
   'job.usage.changed': { jobId: string };

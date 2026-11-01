@@ -106,6 +106,7 @@ export default new Hono().get('/seen', (c) => c.text(seen));
       '/',
       '/internal',
       '/api/v1',
+      '/api/v1',
       '/',
     ]);
   });
