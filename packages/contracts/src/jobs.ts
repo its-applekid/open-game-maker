@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { Id, IsoTime, MicroUsd } from './api.js';
 
-export const JobKind = z.enum(['new_game', 'feature', 'repair']);
+export const JobKind = z.enum(['new_game', 'feature', 'repair', 'scope']);
 export const JobState = z.enum([
   'queued',
   'admitted',
@@ -33,6 +33,20 @@ export const JobPlan = z.object({
     .max(12),
 });
 export const Reservation = z.object({ amountMicroUsd: MicroUsd, sizeClass: SizeClass, confidence: Confidence });
+export const JobStage = z.enum([
+  'queued_ogm',
+  'waiting_capacity',
+  'waiting_provider',
+  'building',
+  'final_tests',
+  'fixing',
+  'ready',
+  'out_of_budget',
+  'paused',
+  'done',
+  'failed',
+  'cancelled',
+]); // R27 creator words; OGM-032 maps
 export const CreateJobRequest = z.object({
   gameId: Id,
   branchId: z.string().default('main'),
@@ -79,21 +93,11 @@ export const Job = z.object({
   createdAt: IsoTime,
   updatedAt: IsoTime,
   terminalAt: IsoTime.nullable(),
+  stage: JobStage.optional(),
+  stageText: z.string().optional(),
+  phase: z.enum(['brainstorm', 'plan', 'work', 'review']).optional(),
+  progressPercent: z.number().int().min(0).max(100).optional(),
 });
-export const JobStage = z.enum([
-  'queued_ogm',
-  'waiting_capacity',
-  'waiting_provider',
-  'building',
-  'final_tests',
-  'fixing',
-  'ready',
-  'out_of_budget',
-  'paused',
-  'done',
-  'failed',
-  'cancelled',
-]); // R27 creator words; OGM-032 maps
 // The words OGM-076/079 display verbatim; `paused` reads JOB_WAITING_FOR_ANSWER while aiur holds a decision.
 export const JOB_STAGE_WORDS = {
   queued_ogm: 'Waiting for a free slot',

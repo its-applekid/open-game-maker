@@ -1730,11 +1730,6 @@
           "name": "budget_ledger_job",
           "columns": ["job_id"],
           "isUnique": false
-        },
-        "budget_ledger_usage_run": {
-          "name": "budget_ledger_usage_run",
-          "columns": ["job_id", "kind", "aiur_run_id"],
-          "isUnique": true
         }
       },
       "foreignKeys": {

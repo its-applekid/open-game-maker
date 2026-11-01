@@ -66,7 +66,6 @@ CREATE TABLE `budget_ledger` (
 CREATE INDEX `budget_ledger_family_day` ON `budget_ledger` (`family_id`,`day_key`);--> statement-breakpoint
 CREATE INDEX `budget_ledger_user_day` ON `budget_ledger` (`family_id`,`user_id`,`day_key`);--> statement-breakpoint
 CREATE INDEX `budget_ledger_job` ON `budget_ledger` (`job_id`);--> statement-breakpoint
-CREATE UNIQUE INDEX `budget_ledger_usage_run` ON `budget_ledger` (`job_id`,`kind`,`aiur_run_id`);--> statement-breakpoint
 CREATE TABLE `family_budget_settings` (
 	`family_id` text PRIMARY KEY NOT NULL,
 	`reset_zone` text NOT NULL,

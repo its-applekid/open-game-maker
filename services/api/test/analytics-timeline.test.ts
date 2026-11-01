@@ -1,4 +1,5 @@
 import { BuildTimeline } from '@ogm/contracts';
+import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import type { AppDeps } from '../src/app/types.js';
@@ -43,6 +44,46 @@ function insertEvent(
       input.boundary,
       ids.job,
     );
+}
+
+function insertJob(deps: AppDeps, usageMicroUsd: number): void {
+  deps.db
+    .insert(schema.families)
+    .values({ id: ids.family, name: 'Family', ownerUserId: ids.user, createdAt: '2026-11-01T00:00:00.000Z' })
+    .run();
+  deps.db
+    .insert(schema.games)
+    .values({
+      id: ids.game,
+      familyId: ids.family,
+      ownerId: ids.user,
+      title: 'Game',
+      visibility: 'private',
+      repoVisibility: 'private',
+      createdAt: '2026-11-01T00:00:00.000Z',
+    })
+    .run();
+  deps.db
+    .insert(schema.jobs)
+    .values({
+      id: ids.job,
+      gameId: ids.game,
+      branchId: 'main',
+      familyId: ids.family,
+      creatorId: ids.user,
+      kind: 'feature',
+      complexity: 1,
+      state: 'running',
+      start: 'now',
+      slot: 'edit',
+      plan: '{}',
+      reservation: '{"amountMicroUsd":500000,"sizeClass":"small","confidence":"low"}',
+      hardCapMicroUsd: 500_000,
+      usageMicroUsd,
+      createdAt: '2026-11-01T00:00:00.000Z',
+      updatedAt: '2026-11-01T00:00:00.000Z',
+    })
+    .run();
 }
 
 describe('analytics timelines', () => {
@@ -99,10 +140,7 @@ describe('analytics timelines', () => {
       ['2026-11-01T01:00:07.000Z', null],
     ]);
 
-    deps.sqlite.exec(
-      'CREATE TABLE jobs (id TEXT PRIMARY KEY, family_id TEXT, creator_id TEXT, usage_micro_usd INTEGER)',
-    );
-    deps.sqlite.prepare('INSERT INTO jobs VALUES (?, ?, ?, ?)').run(ids.job, ids.family, ids.user, 1234);
+    insertJob(deps, 1234);
     const withJobs = await app.request(`/api/v1/analytics/builds/${ids.job}/timeline`, {
       headers: { 'x-test-user': '1' },
     });

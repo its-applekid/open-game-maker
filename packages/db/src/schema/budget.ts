@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { check, index, integer, primaryKey, real, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 import { families } from './accounts.js';
 import { jobs } from './jobs.js';
@@ -67,7 +67,6 @@ export const budgetLedger = sqliteTable(
     index('budget_ledger_family_day').on(table.familyId, table.dayKey),
     index('budget_ledger_user_day').on(table.familyId, table.userId, table.dayKey),
     index('budget_ledger_job').on(table.jobId),
-    uniqueIndex('budget_ledger_usage_run').on(table.jobId, table.kind, table.aiurRunId),
     check('budget_ledger_kind', sql`${table.kind} IN ('reservation', 'release', 'usage', 'adjustment')`),
     check('budget_ledger_amount', sql`${table.amountMicroUsd} >= 0`),
   ],
