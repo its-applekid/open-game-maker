@@ -4,6 +4,13 @@ import { assertBlobHash, isBlobHash, type BlobHash } from './hash.js';
 
 const secondsPerDay = 86_400;
 const signaturePattern = /^[0-9a-f]{64}$/;
+const minimumKeyBytes = 32;
+
+function assertSigningKey(key: string): void {
+  if (Buffer.byteLength(key, 'utf8') < minimumKeyBytes) {
+    throw new RangeError(`Signing key must be at least ${minimumKeyBytes} bytes`);
+  }
+}
 
 export function roundExpiry(expiresAt: Date): number {
   const milliseconds = expiresAt.getTime();
@@ -15,6 +22,7 @@ export function roundExpiry(expiresAt: Date): number {
 }
 
 export function signBlobUrl(key: string, hash: BlobHash, exp: number): string {
+  assertSigningKey(key);
   assertBlobHash(hash);
   if (!Number.isSafeInteger(exp) || exp < 0) throw new RangeError('Invalid expiry');
 
