@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// superseded by gm run / gm shot / gm perf (OGM-090); kept for the town only
 // Lay a scene's sound under a recording: reads the cue list the page exposes (window.__sounds, from the scene's timeline)
 // and mixes the effects (models/sounds, tools/sounds.sh) at their times with ffmpeg. Serve the prototype first, as for
 // capture.mjs.   node tools/mix_sound.mjs "<query>" <in.mp4> <out.mp4> [start seconds]
@@ -6,7 +7,7 @@ import { createRequire } from 'module';
 import { execFileSync } from 'child_process';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../ui-v0/tools') + '/');
+const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../') + '/');
 const { chromium } = require('playwright');
 const [query, vin, vout, start = '0'] = process.argv.slice(2), PORT = process.env.PORT || 8792, t0 = +start;
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });

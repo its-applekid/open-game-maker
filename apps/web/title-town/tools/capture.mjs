@@ -1,6 +1,7 @@
 #!/usr/bin/env node
+// superseded by gm run / gm shot / gm perf (OGM-090); kept for the town only
 // Look at the prototype: stills at chosen times, a tiled timeline, or a recorded clip. Serve the prototype first
-// (python3 -m http.server 8792 in prototypes/title-city). Uses the GPU through ANGLE/EGL.
+// (python3 -m http.server 8792 in apps/web/title-town). Uses the GPU through ANGLE/EGL.
 //   node tools/capture.mjs stills  "<query>" <out-dir> <t...>        e.g. "cam=a" shots/ 0 30 60
 //   node tools/capture.mjs timeline "<query>" <out.png> <t...>       one image, frames tiled in time order, 4 per row
 //   node tools/capture.mjs record  "<query>" <out.mp4> <seconds> [fps]  H.264 960 px, phone-friendly
@@ -10,7 +11,7 @@ import { mkdirSync, rmSync, readdirSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../ui-v0/tools') + '/');
+const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../') + '/');
 const { chromium } = require('playwright');
 const [mode, query, out, ...rest] = process.argv.slice(2), W = +(process.env.W || 1280), H = +(process.env.H || 720), PORT = process.env.PORT || 8792;
 if (!mode || !out) { console.error('usage: capture.mjs stills|timeline|record "<query>" <out> ...'); process.exit(2); }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// superseded by gm run / gm shot / gm perf (OGM-090); kept for the town only
 // Check the Easter egg's tap targets: at scene time t, scan a grid of screen points through window.__tap (which counts
 // as a hit?), then reload, tap the highest and lowest hit and screenshot the bursts with the tapped spots marked (green,
 // cyan). A tap well off the enemy must not count, and each burst must sit where the finger was.
@@ -7,7 +8,7 @@ import { createRequire } from 'module';
 import { mkdirSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../ui-v0/tools') + '/');
+const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../') + '/');
 const { chromium } = require('playwright');
 const [out, ...ts] = process.argv.slice(2); mkdirSync(out, { recursive: true });
 const URL = `http://localhost:${process.env.PORT || 8792}/index.html?capture&cam=menu&scene=all`;

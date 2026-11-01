@@ -4,7 +4,7 @@
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../ui-v0/tools') + '/');
+const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../') + '/');
 const esbuild = require('esbuild'), dir = resolve(process.argv[2]);
 const three = { name: 'three', setup(b) {
   b.onResolve({ filter: /^three$/ }, () => ({ path: resolve(dir, 'vendor/three/build/three.module.js') }));
