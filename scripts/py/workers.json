@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "workers": {
+    "audio": {
+      "dir": "scripts/py/audio",
+      "venv": "scripts/py/audio/.venv",
+      "python": "scripts/py/audio/.venv/bin/python",
+      "requirements": "scripts/py/audio/requirements.txt",
+      "tests": "pytest",
+      "ci": false
+    },
+    "maps": {
+      "dir": "scripts/py/maps",
+      "venv": "scripts/py/audio/.venv",
+      "python": "scripts/py/audio/.venv/bin/python",
+      "requirements": "scripts/py/maps/requirements.txt",
+      "tests": "pytest",
+      "ci": false
+    },
+    "drive-sync": {
+      "dir": "scripts/py/drive-sync",
+      "venv": "scripts/py/drive-sync/.venv",
+      "python": "scripts/py/drive-sync/.venv/bin/python",
+      "requirements": "scripts/py/drive-sync/requirements.txt",
+      "tests": "unittest",
+      "ci": true
+    }
+  }
+}

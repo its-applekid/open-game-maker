@@ -1,5 +1,5 @@
 # systemd --user unit for the Drive watch folder.
-# Install:  mkdir -p ~/.config/systemd/user && cp scripts/drive-sync/ogm-drive-sync.service ~/.config/systemd/user/
+# Install:  mkdir -p ~/.config/systemd/user && cp scripts/py/drive-sync/ogm-drive-sync.service ~/.config/systemd/user/
 #           systemctl --user daemon-reload && systemctl --user enable --now ogm-drive-sync
 # Logs:     journalctl --user -u ogm-drive-sync -f   (also ~/.local/state/ogm/drive-sync/drive-sync.log)
 # Edit the paths below if the repo is not at ~/games/open-game-maker-2000.
@@ -10,7 +10,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=%h/games/open-game-maker-2000/scripts/drive-sync/.venv/bin/python -I %h/games/open-game-maker-2000/scripts/drive-sync/drive_sync.py run
+ExecStart=%h/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python -I %h/games/open-game-maker-2000/scripts/py/drive-sync/drive_sync.py run
 Restart=on-failure
 RestartSec=60
 UMask=0077

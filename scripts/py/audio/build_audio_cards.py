@@ -16,12 +16,12 @@ from pathlib import Path
 
 import numpy as np
 
-HERE = Path(__file__).parent
+HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import labels as L
 from import_sidetrax import stem_key
 
-REPO = HERE.parents[1]
+REPO = HERE.parents[2]
 ROOT = REPO / "assets-local"
 SCHEMAS = REPO / "docs/research/v0.5/schemas"
 VOCAB = "2026-10-27"

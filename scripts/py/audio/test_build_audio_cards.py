@@ -8,6 +8,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 import build_audio_cards as b
 
 
+def test_repo_root_tracks_the_worker_layout():
+    """The worker must resolve repository paths correctly from scripts/py/audio."""
+    assert (b.REPO / "scripts/py/audio").is_dir()
+
+
 def test_composer_tempo_settles_the_octave():
     """Beat trackers often read half or double time; the composer's own tempo picks the right reading and keeps the others."""
     a = {"tempo_bpm": 150.0, "tempo_alternatives": [75.0]}

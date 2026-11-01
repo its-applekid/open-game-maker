@@ -10,8 +10,8 @@ import argparse, fnmatch, hashlib, json, os, re, struct, subprocess, sys, time
 from multiprocessing import Pool
 from pathlib import Path
 
-HERE = Path(__file__).parent
-ROOT = HERE.parents[1] / "assets-local"
+HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[2] / "assets-local"
 AUDIO_EXT = {".wav", ".ogg", ".mp3", ".flac", ".m4a", ".aif", ".aiff"}
 MUSIC_PACKS = ("sidetrax-*", "kenney-music-*")
 CLAP_ID = "laion/clap-htsat-unfused"

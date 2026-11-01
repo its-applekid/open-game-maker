@@ -1,6 +1,6 @@
 """Unit tests for drive_sync.py with a fake Drive. No network, no Google libraries needed.
 
-Run: python3 -I scripts/drive-sync/test_drive_sync.py
+Run: python3 -I scripts/py/drive-sync/test_drive_sync.py
 """
 import copy
 import hashlib
@@ -120,6 +120,10 @@ def zip_bytes(entries):
 
 
 class Base(unittest.TestCase):
+    def test_repo_root_tracks_the_worker_layout(self):
+        """The worker must resolve repository paths correctly from scripts/py/drive-sync."""
+        self.assertTrue((ds.REPO / "scripts/py/drive-sync").is_dir())
+
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp())
         self.addCleanup(shutil.rmtree, self.tmp)
