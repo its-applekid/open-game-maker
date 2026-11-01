@@ -10,6 +10,10 @@ export const apiEnvSpec = {
   OGM_BLOB_ROOT: { kind: 'path' },
   OGM_BLOB_SIGNING_KEY: { kind: 'secret' },
   OGM_PUBLIC_ORIGIN: { kind: 'url' },
+  OGM_APP_ORIGIN: { kind: 'url' },
+  OGM_COMMIT_INTERNAL_URL: { kind: 'url' },
+  OGM_COMMIT_SERVICE_TOKEN: { kind: 'secret' },
+  OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'game-2d@1' },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {
