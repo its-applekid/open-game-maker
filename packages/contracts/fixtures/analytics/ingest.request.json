@@ -1,0 +1,19 @@
+{
+  "events": [
+    {
+      "ts": "2026-10-31T09:12:03Z",
+      "gameId": "g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01",
+      "jobId": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+      "aiurRunId": "run-1",
+      "attemptId": "a-1",
+      "actor": "agent",
+      "activity": "playtesting",
+      "boundary": "start",
+      "source": "gm_cli",
+      "meta": {
+        "command": "gm verify",
+        "system": "combat"
+      }
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "gameId": "g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01",
+  "branchId": "main",
+  "kind": "feature",
+  "complexity": 3,
+  "plan": {
+    "title": "Goblin camp level",
+    "summary": "Add a goblin war camp level with three waves.",
+    "scope": {
+      "included": ["new level", "wave spawner"],
+      "excluded": ["new music"]
+    },
+    "tickets": [
+      {
+        "key": "T1",
+        "skills": ["gm-design-loop"],
+        "dependsOn": [],
+        "acceptanceCriteria": ["level loads from the menu"]
+      }
+    ]
+  },
+  "start": "now",
+  "idempotencyKey": "voice:s_1:2"
+}

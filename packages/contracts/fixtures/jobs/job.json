@@ -1,0 +1,44 @@
+{
+  "id": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+  "gameId": "g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01",
+  "branchId": "main",
+  "familyId": "f_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e02",
+  "creatorId": "u_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e03",
+  "kind": "feature",
+  "complexity": 3,
+  "state": "running",
+  "pausedReason": null,
+  "start": "now",
+  "startAt": null,
+  "slot": "edit",
+  "plan": {
+    "title": "Goblin camp level",
+    "summary": "Add a goblin war camp level with three waves.",
+    "scope": {
+      "included": ["new level", "wave spawner"],
+      "excluded": ["new music"]
+    },
+    "tickets": [
+      {
+        "key": "T1",
+        "skills": ["gm-design-loop"],
+        "dependsOn": [],
+        "acceptanceCriteria": ["level loads from the menu"]
+      }
+    ]
+  },
+  "reservation": {
+    "amountMicroUsd": 3000000,
+    "sizeClass": "medium",
+    "confidence": "low"
+  },
+  "hardCapMicroUsd": 6000000,
+  "usageMicroUsd": 1250000,
+  "aiurRepo": "ogm-games/goblin-camp",
+  "aiurIssueNumber": 12,
+  "aiurSpendCapMicroUsd": 6000000,
+  "idempotencyKey": "voice:s_1:2",
+  "createdAt": "2026-11-01T09:00:00Z",
+  "updatedAt": "2026-11-01T09:05:00Z",
+  "terminalAt": null
+}

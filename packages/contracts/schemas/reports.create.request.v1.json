@@ -1,0 +1,83 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "gameId": {
+      "type": "string",
+      "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+    },
+    "releaseId": {
+      "type": "string",
+      "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+    },
+    "buildHash": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "text": {
+      "type": "string",
+      "maxLength": 2000
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "frames": {
+          "maxItems": 50,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string",
+                "maxLength": 300
+              },
+              "line": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "col": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "fn": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "file",
+              "line"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "type",
+        "message",
+        "frames"
+      ],
+      "additionalProperties": false
+    },
+    "bundleKey": {
+      "type": "string",
+      "maxLength": 200
+    }
+  },
+  "required": [
+    "gameId",
+    "buildHash"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/reports.create.request.v1.json"
+}

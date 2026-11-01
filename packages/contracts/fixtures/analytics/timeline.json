@@ -1,0 +1,27 @@
+{
+  "jobId": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+  "aiur": {
+    "phases": [
+      {
+        "phase": "work",
+        "at": "2026-10-31T09:00:00Z",
+        "transition": "plan->work"
+      }
+    ],
+    "usageMicroUsd": 1250000,
+    "retries": 0
+  },
+  "activities": [
+    {
+      "activity": "playtesting",
+      "actor": "agent",
+      "source": "gm_cli",
+      "startedAt": "2026-10-31T09:12:03Z",
+      "endedAt": "2026-10-31T09:14:00Z",
+      "meta": {
+        "command": "gm verify"
+      }
+    }
+  ],
+  "generatedAt": "2026-10-31T10:00:00Z"
+}
