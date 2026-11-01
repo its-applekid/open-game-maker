@@ -26,6 +26,7 @@
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
     "@ogm/db": "workspace:*",
+    "@ogm/design-log": "workspace:*",
     "@ogm/game-repo-template": "workspace:*",
     "@ogm/health": "workspace:*",
     "@ogm/policy": "workspace:*",

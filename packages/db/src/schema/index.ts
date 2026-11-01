@@ -6,3 +6,4 @@ export * from './aiur-events.js';
 export * from './auth.js';
 export * from './notify.js';
 export * from './analytics.js';
+export * from './design.js';

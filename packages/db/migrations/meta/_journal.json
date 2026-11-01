@@ -50,6 +50,13 @@
       "when": 1793547531235,
       "tag": "20261101153851_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1793552427219,
+      "tag": "20261101170027_design_log",
+      "breakpoints": true
     }
   ]
 }
