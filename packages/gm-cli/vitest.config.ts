@@ -4,5 +4,6 @@ export default defineConfig({
   test: {
     // Archive and image fixtures are I/O-heavy; serial files keep unrelated command smoke tests responsive.
     maxWorkers: 1,
+    testTimeout: 10_000,
   },
 });

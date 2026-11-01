@@ -1,6 +1,6 @@
 import { JOB_STAGE_WORDS, JOB_WAITING_FOR_ANSWER, type JobStage, type JobState } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 
@@ -86,6 +86,11 @@ export type ProjectionDeps = {
   db: Db;
   jobs: JobDirectory;
   events: AppEvents;
+  lifecycle?: {
+    markRunning(jobId: string): void;
+    markPaused(jobId: string, reason: 'over_reservation' | 'budget_exhausted' | 'admin'): void;
+    markTerminal(jobId: string, state: 'done' | 'failed' | 'cancelled'): void;
+  };
   now?: () => Date;
 };
 
@@ -140,6 +145,27 @@ export function applyAiurEvent(
   record: FeedRecord,
 ): { applied: boolean; stage?: JobStage } {
   const now = (deps.now ?? (() => new Date()))().toISOString();
+  if (record.type === 'event') {
+    const existing = deps.db
+      .select({ seq: aiurEvents.seq })
+      .from(aiurEvents)
+      .where(and(eq(aiurEvents.daemonSlug, daemonSlug), eq(aiurEvents.seq, record.seq)))
+      .get();
+    if (existing) {
+      deps.db.transaction((tx) => advanceCursor(tx, daemonSlug, record.seq, now));
+      return { applied: false };
+    }
+
+    const match = TICKET_TOPIC.exec(record.topic);
+    const ticket = match?.[1];
+    const job = ticket === undefined ? null : deps.jobs.byTicket(daemonSlug, ticket);
+    const current =
+      job === null ? undefined : deps.db.select().from(jobProjections).where(eq(jobProjections.jobId, job.id)).get();
+    if (job !== null && (current?.lastEventSeq == null || record.seq >= current.lastEventSeq)) {
+      applyLifecycle(deps, job.id, match?.[2] ?? '', record.payload);
+    }
+  }
+
   const outcome = deps.db.transaction((tx): ApplyOutcome => {
     advanceCursor(tx, daemonSlug, record.seq, now);
     if (record.type === 'gap') return { applied: false };
@@ -180,6 +206,29 @@ export function applyAiurEvent(
   emitChange(deps, outcome.change);
   if (outcome.usageJob !== undefined) deps.events.emit('job.usage.changed', { jobId: outcome.usageJob });
   return { applied: outcome.applied, ...(outcome.stage === undefined ? {} : { stage: outcome.stage }) };
+}
+
+function applyLifecycle(deps: ProjectionDeps, jobId: string, kind: string, payload: Record<string, unknown>): void {
+  if (!deps.lifecycle || kind !== 'lifecycle.changed' || typeof payload.lifecycle !== 'string') return;
+  switch (payload.lifecycle) {
+    case 'allocated':
+    case 'running':
+      deps.lifecycle.markRunning(jobId);
+      break;
+    case 'paused': {
+      const value = typeof payload.reason === 'string' ? payload.reason : '';
+      const reason =
+        value === 'over_reservation' ? 'over_reservation' : value.includes('budget') ? 'budget_exhausted' : 'admin';
+      deps.lifecycle.markPaused(jobId, reason);
+      break;
+    }
+    case 'completed':
+      deps.lifecycle.markTerminal(jobId, 'done');
+      break;
+    case 'cancelled':
+      deps.lifecycle.markTerminal(jobId, 'cancelled');
+      break;
+  }
 }
 
 type ApplyOutcome = { applied: boolean; stage?: JobStage; change?: StageChange; usageJob?: string };

@@ -3,6 +3,7 @@ export type FlagSpec = Record<string, { type: 'string' | 'number' | 'boolean'; d
 export type GmContext = {
   cwd: string;
   assetsRoot: string | null;
+  skillsDir: string | null;
   json: boolean;
   limit: number;
   fields: string[] | null;

@@ -1,4 +1,4 @@
-import type { Envelope } from '@ogm/contracts';
+import type { Envelope } from '@ogm/contracts/bridge';
 import { waitForHello } from './port.js';
 import type { Bridge, Validator } from './types.js';
 // prettier-ignore
