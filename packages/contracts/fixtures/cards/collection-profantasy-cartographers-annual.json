@@ -1,0 +1,108 @@
+{
+  "schema": "ogm.asset-card/1.1",
+  "vocab": "2026-10-26",
+  "id": "t1:profantasy-cartographers-annual@illustrative",
+  "card_type": "collection",
+  "status": "tagged",
+  "title": "Cartographer's Annual (ProFantasy)",
+  "license": "LicenseRef-profantasy-eula",
+  "rights": {
+    "uses": [
+      "derive-layout",
+      "vision-input"
+    ],
+    "audience": "private",
+    "redistribution": "none",
+    "attribution": null,
+    "processing": "local-only",
+    "basis": [
+      {
+        "type": "license",
+        "license": "LicenseRef-profantasy-eula",
+        "ref": "license text shipped with the bundle (to read at import)",
+        "uses": [
+          "derive-layout",
+          "style-reference",
+          "vision-input"
+        ],
+        "audience": "private",
+        "redistribution": "none",
+        "attribution": null,
+        "set_by": {
+          "role": "intake-code"
+        },
+        "confirmed_by": "kevin",
+        "date": "2026-10-26",
+        "note": "Illustrative ceiling: private use of a purchased product. In-game use was not assessed because Kevin ruled it out."
+      },
+      {
+        "type": "decision",
+        "uses": [
+          "derive-layout",
+          "vision-input"
+        ],
+        "audience": "private",
+        "redistribution": "none",
+        "set_by": {
+          "role": "admin",
+          "name": "kevin"
+        },
+        "date": "2026-10-26",
+        "note": "Inspiration only: agents learn layouts; images and symbols never used in a game, not even as placeholders (C2 §9)."
+      }
+    ]
+  },
+  "describe": {
+    "description": "Campaign Cartographer example maps: dungeons, castles and buildings drawn on grids, used only to extract layout specs.",
+    "environments": [
+      "dungeon",
+      "castle",
+      "crypt",
+      "cave"
+    ],
+    "settings": [
+      "fantasy",
+      "medieval"
+    ],
+    "roles": [
+      "layout-reference"
+    ]
+  },
+  "collection_info": {
+    "vendor": "profantasy",
+    "version": "illustrative",
+    "origin": "drive-drop",
+    "counts": {
+      "inspiration/map": 0
+    },
+    "creation_choice": false,
+    "hash_manifest": "private/hash-manifests/profantasy-cartographers-annual-illustrative.txt",
+    "files_total": 0
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "rights": {
+      "by": "license",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "rights.basis": {
+      "by": "human",
+      "at": "2026-10-26T20:00:00-07:00",
+      "locked": true,
+      "input": "Kevin, 2026-10-26"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.7,
+      "input": "collection sheet"
+    }
+  }
+}

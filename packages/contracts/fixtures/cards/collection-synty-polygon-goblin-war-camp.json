@@ -1,0 +1,99 @@
+{
+  "schema": "ogm.asset-card/1.1",
+  "vocab": "2026-10-26",
+  "id": "t1:synty-polygon-goblin-war-camp@v3",
+  "card_type": "collection",
+  "status": "draft",
+  "title": "POLYGON - Goblin War Camp (Synty)",
+  "license": "LicenseRef-synty-personal",
+  "rights": {
+    "uses": [
+      "in-game",
+      "placeholder",
+      "derive-layout",
+      "style-reference",
+      "vision-input"
+    ],
+    "audience": "private",
+    "redistribution": "in-build",
+    "attribution": null,
+    "processing": "local-only",
+    "basis": [
+      {
+        "type": "license",
+        "license": "LicenseRef-synty-personal",
+        "ref": "Synty EULA (personal purchase); B11 policy",
+        "uses": [
+          "in-game",
+          "placeholder",
+          "derive-layout",
+          "style-reference",
+          "vision-input"
+        ],
+        "audience": "private",
+        "redistribution": "in-build",
+        "attribution": null,
+        "set_by": {
+          "role": "intake-code"
+        },
+        "confirmed_by": "kevin",
+        "date": "2026-10-26",
+        "note": "Kevin's instance and private repos only; raw files never committed or shared. Check the EULA before anything public."
+      }
+    ]
+  },
+  "describe": {
+    "description": "Detailed low-poly goblin camp: tents, platforms, palisades, cages, wagons and camp props on a shared texture atlas.",
+    "environments": [
+      "camp",
+      "forest"
+    ],
+    "settings": [
+      "fantasy"
+    ],
+    "style_family": "detailed-low-poly",
+    "pov_fit": [
+      "iso",
+      "follow",
+      "fps",
+      "orbit"
+    ]
+  },
+  "collection_info": {
+    "vendor": "synty",
+    "version": "v3",
+    "origin": "vendor-pack",
+    "counts": {
+      "model": 670
+    },
+    "creation_choice": false,
+    "pack_manifest": "assets-local/packs/synty-polygon-goblin-war-camp/pack.json"
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "rights": {
+      "by": "license",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "filename",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.6,
+      "input": "folder names + MaterialList; not yet seen by the tagger"
+    },
+    "describe.pov_fit": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.5,
+      "input": "C2 §4 [I]: POLYGON sets built for first and third person"
+    }
+  }
+}

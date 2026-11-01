@@ -1,0 +1,8 @@
+default_permissions = "gamebuilder"
+
+[permissions.gamebuilder]
+extends = ":workspace"
+
+[permissions.gamebuilder.filesystem]
+":slash_tmp" = "deny"
+{{DENY_RULES}}
