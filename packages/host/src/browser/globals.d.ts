@@ -1,0 +1,10 @@
+interface Window {
+  __host: {
+    ready: { id: string }[];
+    relays: unknown[];
+    forge(): void;
+  };
+  __frames: { source?: string }[];
+  __taps: number;
+  __cacheReady: Promise<unknown>;
+}

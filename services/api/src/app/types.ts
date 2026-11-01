@@ -18,11 +18,13 @@ export interface AppDeps {
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
+    gamesRoot: string;
     vapidKeyFile: string;
     vapidSubject: string;
     // Build chat: the relay starts only with a workspaces root; the progress poller only with a period.
     builderWorkspacesRoot?: string;
     chatPollMs?: number;
+    analyticsRetentionDays: number;
   };
   blobStore: BlobStore;
   events: AppEvents;

@@ -5,7 +5,7 @@ description: Use when a game or scene needs an asset the library doesn't have ex
 
 # gm-asset-variants (draft)
 
-Starting from an existing resource and making a variation of it is a normal step in building a game, not a workaround. This skill covers how to do it safely and traceably. The first working example is the city title prototype: `prototypes/title-city/tools/variants.mjs` and `variants.html` make 43 building variants from Kenney City Kit models.
+Starting from an existing resource and making a variation of it is a normal step in building a game, not a workaround. This skill covers how to do it safely and traceably. The first working example is the archived city title source: `apps/web/title-town/tools/variants.mjs` and `apps/web/title-town/tools/variants.html` make 43 building variants from Kenney City Kit models.
 
 **Hard rules (Kevin, 2026-10-30)**
 - **Never delete, edit, overwrite or re-save an original resource file.** That covers everything under `assets-local/packs/*/*/originals/` and `extracted/`, and every copy a game loads as a source.
@@ -36,10 +36,10 @@ Starting from an existing resource and making a variation of it is a normal step
    | sprite | Palette swap or recolour a **copy** of the sheet | Pixel-art enemies, items |
 
    Prefer runtime tinting in the shader when that's all the variant does: one tint per instance costs nothing and needs no file. Make a file when the geometry, texture or timing changes.
-3. **Write the generator, not the file.** Add a spec to the project's variant script (`tools/variants.mjs` in the title prototype): name, set, op, from, params. Running the script rebuilds every variant from the sources, deterministically.
+3. **Write the generator, not the file.** Add a spec to the project's variant script (`tools/variants.mjs` in `apps/web/title-town`): name, set, op, from, params. Running the script rebuilds every variant from the sources, deterministically.
    - The script must refuse to write to a path that is a source.
    - three.js runs in headless Chromium (`variants.html` with `GLTFLoader` and `GLTFExporter`) because the loader and exporter need a browser. Use `--use-angle=gl-egl --enable-gpu` for the Intel GPU.
-4. **Check by eye.** Render a lineup of each variant next to its source (`tools/lineup.html?set=...` in the title prototype). Read the screenshot and look for:
+4. **Check by eye.** Render a lineup of each variant next to its source (`tools/lineup.html?set=...` in `apps/web/title-town`). Read the screenshot and look for:
    - seams where bands meet;
    - floating parts, missing faces, inside-out faces;
    - the scale against the source.

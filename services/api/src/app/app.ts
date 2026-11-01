@@ -26,6 +26,8 @@ export {
 export { scanRoutes } from './routes-scan.js';
 export type { ApiBindings, AppDeps, LogLine } from './types.js';
 export { parseBody, parseQuery } from './validate.js';
+export { WS_TOKEN_TTL_SEC, signWsToken, verifyWsToken, type WsTokenClaims } from '../auth/ws-token.js';
+export { hasAdultAgeAttestation } from '../auth/routes.js';
 
 const requestIdPattern = /^[A-Za-z0-9-]{1,64}$/;
 const invitePathSegment = /(\/api\/v1\/invites\/)[^/]+/gi;

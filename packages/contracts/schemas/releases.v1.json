@@ -1,0 +1,418 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "build": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "branchId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "gitSha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "sdkVersion": {
+          "type": "string"
+        },
+        "saveSchemaVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "migratesFromSchema": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "achievementCatalogHash": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "building",
+            "tested",
+            "failed"
+          ]
+        },
+        "artifact": {
+          "type": "string",
+          "enum": [
+            "present",
+            "gc"
+          ]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        }
+      },
+      "required": [
+        "id",
+        "gameId",
+        "branchId",
+        "gitSha",
+        "sdkVersion",
+        "saveSchemaVersion",
+        "achievementCatalogHash",
+        "status",
+        "artifact",
+        "createdAt"
+      ],
+      "additionalProperties": {}
+    },
+    "overrideSnapshot": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "branchId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "buildId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "headRev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              },
+              "controlId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "targetId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  {
+                    "type": "string",
+                    "const": "global"
+                  }
+                ]
+              },
+              "value": {},
+              "baseValueAtEdit": {},
+              "txId": {
+                "type": "string",
+                "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+              },
+              "rev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "carried",
+                  "renamed",
+                  "needs_choice",
+                  "conflict",
+                  "dropped"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "value_invalid",
+                  "control_removed",
+                  "target_removed",
+                  "superseded_by_job",
+                  "builder_changed",
+                  "migration_failed"
+                ]
+              }
+            },
+            "required": [
+              "key",
+              "controlId",
+              "targetId",
+              "value",
+              "baseValueAtEdit",
+              "txId",
+              "rev",
+              "status"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "entityOps": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "create"
+                  },
+                  "entityId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  "parent": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "prefab": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "props": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "txId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entityId",
+                  "parent",
+                  "prefab",
+                  "props",
+                  "txId"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "delete"
+                  },
+                  "entityId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  "txId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entityId",
+                  "txId"
+                ],
+                "additionalProperties": {}
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "gameId",
+        "branchId",
+        "buildId",
+        "headRev",
+        "sha256",
+        "entries",
+        "entityOps"
+      ],
+      "additionalProperties": {}
+    },
+    "release": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "version": {
+          "type": "string"
+        },
+        "buildId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "snapshotId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "gitTag": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "publish",
+            "rollback"
+          ]
+        },
+        "restoresReleaseId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "predecessorReleaseId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "changelog": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "jobId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  "txId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "fix",
+                      "add",
+                      "change",
+                      "remove"
+                    ]
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "text"
+                ],
+                "additionalProperties": {}
+              }
+            }
+          },
+          "required": [
+            "summary",
+            "items"
+          ],
+          "additionalProperties": {}
+        },
+        "publishedBy": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        }
+      },
+      "required": [
+        "id",
+        "gameId",
+        "seq",
+        "version",
+        "buildId",
+        "snapshotId",
+        "gitTag",
+        "kind",
+        "changelog",
+        "publishedBy",
+        "publishedAt"
+      ],
+      "additionalProperties": {}
+    },
+    "changeNote": {
+      "type": "object",
+      "properties": {
+        "jobId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "txId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "fix",
+            "add",
+            "change",
+            "remove"
+          ]
+        },
+        "text": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "text"
+      ],
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "build",
+    "overrideSnapshot",
+    "release",
+    "changeNote"
+  ],
+  "additionalProperties": {},
+  "$id": "https://open-game-maker-2000.local/schemas/releases.v1.json"
+}
