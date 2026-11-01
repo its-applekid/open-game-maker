@@ -250,6 +250,9 @@ importers:
       '@ogm/asset-measure':
         specifier: workspace:*
         version: link:../asset-measure
+      '@ogm/blob-store':
+        specifier: workspace:*
+        version: link:../blob-store
       '@ogm/config':
         specifier: workspace:*
         version: link:../config
