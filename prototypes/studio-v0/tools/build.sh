@@ -83,8 +83,8 @@ model kenney-castle-kit castle tower-square-base tower-square-mid-windows tower-
 model kenney-space-kit space rocket_baseA rocket_fuelA rocket_sidesA rocket_finsA rocket_topA satelliteDish_large terrain rock_crystalsLargeA astronautA
 model kenney-nature-kit nature ground_grass tree_pineTallA tree_pineRoundC tree_default tree_oak rock_largeA mushroom_redGroup flower_yellowA campfire_stones tent_smallOpen
 
-# the title scene: the castle town prototype (build it first: prototypes/title-city/tools/build.sh, then tools/variants.mjs)
-TC="$ROOT/prototypes/title-city"; rm -rf "$HERE/town"; mkdir -p "$HERE/town/models"
+# the title scene: the archived castle town source (build it first: apps/web/title-town/tools/build.sh, then tools/variants.mjs)
+TC="$ROOT/apps/web/title-town"; rm -rf "$HERE/town"; mkdir -p "$HERE/town/models"
 cp "$TC/index.html" "$TC/city.js" "$TC/rampage.js" "$TC/earthbound.js" "$TC/fx.js" "$HERE/town/"; cp -r "$TC/vendor" "$TC/fx-variants" "$HERE/town/"
 cp -r "$TC/models/castle" "$TC/models/minidungeon" "$TC/models/monsters" "$TC/models/fx" "$TC/models/sounds" "$HERE/town/models/"
 # the scenes' sprites (Ness, burnt Ness, the bat swing, the saucers; run tools/ness_sprite.py, tools/ufo_sprite.py, tools/sounds.sh first)
@@ -98,7 +98,7 @@ src, dst = map(pathlib.Path, sys.argv[1:3]); dst.mkdir(parents=True, exist_ok=Tr
 m["variants"] = [v for v in m["variants"] if v["set"] in ("house", "tallhouse", "hall", "wide", "shack", "stall")]
 for v in m["variants"]: shutil.copy(src / (v["name"] + ".glb"), dst)
 (dst / "manifest.json").write_text(json.dumps(m))' "$TC/models/variants" "$HERE/town/models/variants"
-# the baked files (prototypes/title-city/tools/bake.mjs, tools/poster.mjs) and one bundled script in place of the module tree
+# the baked files (apps/web/title-town/tools/bake.mjs, tools/poster.mjs) and one bundled script in place of the module tree
 mkdir -p "$HERE/town/models/bake"; cp "$TC/models/bake/"*.bin "$TC/models/bake/"*.gz "$TC/models/bake/"*.webp "$TC/models/bake/"*.jpg "$HERE/town/models/bake/"   # baked terrain, trees, model pack, posters and their stills
 node "$TC/tools/bundle.mjs" "$HERE/town" && sed -i 's#<script type="module" src="city.js"></script>#<script type="module" src="city.bundle.js"></script>#' "$HERE/town/index.html"
 rm -rf "$HERE/town/vendor/pixelfx" "$HERE/town/fx-variants" "$HERE/town/"{city,rampage,earthbound,fx}.js; find "$HERE/town/vendor/three" -name "*.js" -delete

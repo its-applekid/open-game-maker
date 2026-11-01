@@ -1,7 +1,7 @@
-// The title scene: the castle town (prototypes/title-city, copied to town/ by tools/build.sh) in a full-bleed frame behind
+// The title scene: the castle town (apps/web/title-town, copied to town/ by tools/build.sh) in a full-bleed frame behind
 // the logo: a still view with every scene on its own loop. It is loaded only while the title shows: leaving the title
 // removes it (and silences its sounds); coming back loads it again, from the local cache (sw.js). Until the town has
-// drawn its first frame a looping poster of that same view plays (title-city/tools/poster.mjs), then the town fades in.
+// drawn its first frame a looping poster of that same view plays (apps/web/title-town/tools/poster.mjs), then the town fades in.
 import { ext, extLoop, extSilence, titleReady } from './sound.js';
 
 export function start({ el, active }) {
