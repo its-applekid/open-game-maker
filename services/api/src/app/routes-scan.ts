@@ -38,8 +38,6 @@ export async function scanRoutes(
     if (!(module.default instanceof Hono)) throw new Error(`${file}: default export must be a Hono app`);
     const prefix = module.prefix ?? `/api/v1/${context}`;
     if (typeof prefix !== 'string' || !prefix.startsWith('/')) throw new Error(`${file}: prefix must start with /`);
-    if (mounted.some((entry) => entry.prefix === prefix))
-      throw new Error(`${file}: prefix ${prefix} is already mounted`);
     if (module.setup !== undefined && typeof module.setup !== 'function') {
       throw new Error(`${file}: setup must be a function`);
     }

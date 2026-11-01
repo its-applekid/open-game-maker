@@ -8,6 +8,13 @@
       "when": 1793491200000,
       "tag": "20261101000000_app_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793535627909,
+      "tag": "20261101122027_accounts",
+      "breakpoints": true
     }
   ]
 }

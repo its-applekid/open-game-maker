@@ -23,6 +23,11 @@ export type { ApiBindings, AppDeps, LogLine } from './types.js';
 export { parseBody, parseQuery } from './validate.js';
 
 const requestIdPattern = /^[A-Za-z0-9-]{1,64}$/;
+const inviteAcceptPath = /^(\/api\/v1\/invites\/)[^/]+(\/accept)$/;
+
+function requestLogPath(path: string): string {
+  return path.replace(inviteAcceptPath, '$1:token$2');
+}
 
 // Routes are mounted afterwards by `scanRoutes`, so these middlewares run before every context.
 export function createApp(deps: AppDeps): Hono<ApiBindings> {
@@ -39,7 +44,7 @@ export function createApp(deps: AppDeps): Hono<ApiBindings> {
     deps.log({
       event: 'request',
       method: c.req.method,
-      path: c.req.path,
+      path: requestLogPath(c.req.path),
       status: c.res.status,
       ms: Math.round(performance.now() - started),
       requestId,

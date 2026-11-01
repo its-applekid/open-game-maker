@@ -69,15 +69,17 @@ export default new Hono().get('/seen', (c) => c.text(seen));
     await expect(scan(root)).rejects.toThrow(/broken\/routes\.ts: default export must be a Hono app/);
   });
 
-  it('fails boot when two contexts claim one prefix', async () => {
-    const same = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono();\n`;
-    await expect(scan(tempRoot({ a: { 'routes.ts': same }, b: { 'routes.ts': same } }))).rejects.toThrow(
-      /prefix \/same is already mounted/,
-    );
+  it('lets directory-scanned contexts share a prefix when their routes are distinct', async () => {
+    const a = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/a', c => c.text('a'));\n`;
+    const b = `import { Hono } from 'hono';\nexport const prefix = '/same';\nexport default new Hono().get('/b', c => c.text('b'));\n`;
+    const { app, mounted } = await scan(tempRoot({ a: { 'routes.ts': a }, b: { 'routes.ts': b } }));
+    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/same', '/same']);
+    expect(await (await app.request('/same/a')).text()).toBe('a');
+    expect(await (await app.request('/same/b')).text()).toBe('b');
   });
 
   it('mounts the shipped contexts', async () => {
     const { mounted } = await makeApp();
-    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/blobs', '/']);
+    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/api/v1', '/blobs', '/api/v1', '/', '/api/v1']);
   });
 });
