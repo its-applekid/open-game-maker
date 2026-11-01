@@ -27,7 +27,9 @@
     "@ogm/contracts": "workspace:*",
     "@ogm/db": "workspace:*",
     "@ogm/health": "workspace:*",
+    "@ogm/policy": "workspace:*",
     "better-auth": "1.7.15",
+    "drizzle-orm": "0.45.4",
     "hono": "4.13.16",
     "nodemailer": "10.3.1",
     "zod": "4.6.7"

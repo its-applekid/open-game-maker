@@ -5,6 +5,7 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware } from 'better-auth/api';
 import { bearer, magicLink } from 'better-auth/plugins';
+import { eq } from 'drizzle-orm';
 
 import { schema, type Db } from '@ogm/db';
 
@@ -14,6 +15,16 @@ import type { MailSender } from './mail.js';
 import { clientIp, createRateLimiter } from './rate-limit.js';
 
 export const MAGIC_LINK_TTL_SEC = 15 * 60;
+type AuthLogLevel = 'debug' | 'info' | 'warn' | 'error';
+
+export function createAuthLogger(log: (line: Record<string, unknown>) => void) {
+  return {
+    log: (level: AuthLogLevel, ...unsafe: unknown[]) => {
+      void unsafe;
+      log({ event: 'better-auth', level });
+    },
+  };
+}
 
 // Endpoints that start a sign-up or attach a credential: each needs a valid `ogm_age` cookie.
 const AGE_GATED_PATHS = new Set([
@@ -83,7 +94,7 @@ export function createAuth(deps: {
     plugins: [
       magicLink({
         expiresIn: MAGIC_LINK_TTL_SEC,
-        sendMagicLink: async ({ email, url }) => {
+        sendMagicLink: async ({ email, url, token }) => {
           try {
             await mail.send({
               to: email,
@@ -91,6 +102,9 @@ export function createAuth(deps: {
               text: `Open this link to sign in (it works once, for 15 minutes):\n\n${url}\n`,
             });
           } catch {
+            db.delete(schema.verification)
+              .where(eq(schema.verification.identifier, `magic-link:${token}`))
+              .run();
             throw new APIError('BAD_GATEWAY', { message: 'mail failed', code: 'MAIL_FAILED' });
           }
         },
@@ -126,7 +140,7 @@ export function createAuth(deps: {
       database: { generateId: ({ model }) => (model === 'user' ? `u_${randomUUID()}` : randomUUID()) },
     },
     telemetry: { enabled: false },
-    // Message only: the library's extra arguments can carry request values.
-    logger: { log: (level, message) => log({ event: 'better-auth', level, message }) },
+    // Better Auth interpolates request values into messages, so only retain the stable severity.
+    logger: createAuthLogger(log),
   });
 }

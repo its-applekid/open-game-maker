@@ -1,0 +1,52 @@
+{
+  "v": 1,
+  "id": "g1",
+  "t": "ready",
+  "replyTo": "h1",
+  "payload": {
+    "protocol": 1,
+    "manifest": {
+      "id": "coin-hop",
+      "sdk": "^1.0.0",
+      "title": "Coin Hop",
+      "inputs": { "actions": { "move": "stick", "jump": "button" } },
+      "presentation": { "orientation": "landscape", "minLogical": { "w": 640, "h": 360 }, "fit": "responsive" },
+      "view": "iso",
+      "dimension": "3d",
+      "capabilities": [
+        "core.lifecycle",
+        "core.manifest",
+        "presentation",
+        "editor.design",
+        "editor.manipulate",
+        "state.serialize"
+      ],
+      "palette": {
+        "categories": [
+          { "id": "platforms", "label": "Platforms", "kind": "items" },
+          { "id": "rules", "label": "Rules", "kind": "panel" }
+        ],
+        "items": [
+          {
+            "prefab": "platform.short",
+            "label": "Short platform",
+            "thumbnail": "thumbs/platform-short.webp",
+            "hint": "Drag a platform into the level",
+            "category": "platforms"
+          },
+          { "prefab": "coin", "label": "Coin", "category": "platforms" }
+        ]
+      },
+      "tools": ["select", "place", "erase"],
+      "gizmos": { "platform.short": ["translate", "rotateYaw", "elevate"] },
+      "grid": { "size": 1, "units": "m" },
+      "playLabel": "Try it!",
+      "saves": true,
+      "overrides": { "aliases": {}, "retired": [] }
+    },
+    "marks": [
+      ["boot", 12.5],
+      ["first-frame", 48]
+    ]
+  }
+}

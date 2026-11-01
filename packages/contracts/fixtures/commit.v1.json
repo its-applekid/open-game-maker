@@ -1,0 +1,11 @@
+{
+  "kind": "fold_design",
+  "gameId": "g_01JGAME",
+  "base": "3f2a",
+  "files": [
+    {
+      "path": "design/entities.json",
+      "content": "{}"
+    }
+  ]
+}

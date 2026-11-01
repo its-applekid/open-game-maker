@@ -22,6 +22,7 @@ import { loadAuthEnv, type AuthEnv } from './env.js';
 import { selectMailSender } from './mail.js';
 import { parseMaintainers, sessionResolver } from './principal.js';
 import { clientIp, createRateLimiter } from './rate-limit.js';
+import { createUserDirectory } from './user-directory.js';
 import { signWsToken } from './ws-token.js';
 
 export const prefix = '/auth';
@@ -34,6 +35,12 @@ export function setup(deps: AppDeps): void {
   const mail = selectMailSender(env, deps.sqlite);
   const auth = createAuth({ db: deps.db, env, mail: mail.sender, log: deps.log });
   contexts.set(deps, { auth, env, agePerIp: createRateLimiter(10) });
+  deps.registry.mailSender ??= {
+    send: async (message) => {
+      await mail.sender.send(message);
+    },
+  };
+  deps.registry.userDirectory ??= createUserDirectory(deps.sqlite);
   deps.registry.principalResolvers.push(
     sessionResolver(auth, deps.sqlite, parseMaintainers(env.OGM_MAINTAINER_EMAILS)),
   );

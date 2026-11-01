@@ -21,8 +21,14 @@ export {
 export { scanRoutes } from './routes-scan.js';
 export type { ApiBindings, AppDeps, LogLine } from './types.js';
 export { parseBody, parseQuery } from './validate.js';
+export { WS_TOKEN_TTL_SEC, signWsToken, verifyWsToken, type WsTokenClaims } from '../auth/ws-token.js';
 
 const requestIdPattern = /^[A-Za-z0-9-]{1,64}$/;
+const invitePathSegment = /(\/api\/v1\/invites\/)[^/]+/gi;
+
+function requestLogPath(path: string): string {
+  return path.replace(invitePathSegment, '$1:token');
+}
 
 // Routes are mounted afterwards by `scanRoutes`, so these middlewares run before every context.
 export function createApp(deps: AppDeps): Hono<ApiBindings> {
@@ -39,7 +45,7 @@ export function createApp(deps: AppDeps): Hono<ApiBindings> {
     deps.log({
       event: 'request',
       method: c.req.method,
-      path: c.req.path,
+      path: requestLogPath(c.req.path),
       status: c.res.status,
       ms: Math.round(performance.now() - started),
       requestId,

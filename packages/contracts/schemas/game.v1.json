@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "sdk": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "inputs": {
+      "type": "object",
+      "properties": {
+        "actions": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "button",
+              "axis",
+              "stick"
+            ]
+          }
+        }
+      },
+      "required": [
+        "actions"
+      ],
+      "additionalProperties": {}
+    },
+    "presentation": {
+      "type": "object",
+      "properties": {
+        "orientation": {
+          "type": "string",
+          "enum": [
+            "landscape",
+            "portrait",
+            "any"
+          ]
+        },
+        "minLogical": {
+          "type": "object",
+          "properties": {
+            "w": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            "h": {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          },
+          "required": [
+            "w",
+            "h"
+          ],
+          "additionalProperties": {}
+        },
+        "fit": {
+          "type": "string",
+          "enum": [
+            "responsive",
+            "fixed"
+          ]
+        }
+      },
+      "required": [
+        "orientation",
+        "minLogical",
+        "fit"
+      ],
+      "additionalProperties": {}
+    },
+    "view": {
+      "type": "string",
+      "enum": [
+        "iso",
+        "topdown",
+        "side",
+        "follow",
+        "fps",
+        "orbit",
+        "fixed"
+      ]
+    },
+    "dimension": {
+      "type": "string",
+      "enum": [
+        "2d",
+        "3d"
+      ]
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "palette": {
+      "type": "object",
+      "properties": {
+        "categories": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "items",
+                  "tools",
+                  "panel"
+                ]
+              }
+            },
+            "required": [
+              "id",
+              "label",
+              "kind"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "prefab": {
+                "type": "string",
+                "minLength": 1
+              },
+              "label": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "thumbnail": {
+                "type": "string"
+              },
+              "hint": {
+                "type": "string",
+                "maxLength": 200
+              },
+              "category": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "prefab",
+              "label",
+              "category"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "categories",
+        "items"
+      ],
+      "additionalProperties": {}
+    },
+    "tools": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "select",
+          "place",
+          "brush",
+          "sculpt",
+          "erase",
+          "path"
+        ]
+      }
+    },
+    "gizmos": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "translate",
+            "rotateYaw",
+            "elevate",
+            "splinePoints"
+          ]
+        }
+      }
+    },
+    "grid": {
+      "type": "object",
+      "properties": {
+        "size": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "units": {
+          "type": "string",
+          "maxLength": 16
+        }
+      },
+      "required": [
+        "size",
+        "units"
+      ],
+      "additionalProperties": {}
+    },
+    "playLabel": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "saves": {
+      "type": "boolean"
+    },
+    "overrides": {
+      "type": "object",
+      "properties": {
+        "aliases": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "retired": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "aliases",
+        "retired"
+      ],
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "id",
+    "sdk",
+    "title",
+    "inputs",
+    "presentation",
+    "view",
+    "dimension",
+    "capabilities",
+    "palette",
+    "tools",
+    "gizmos",
+    "saves",
+    "overrides"
+  ],
+  "additionalProperties": {},
+  "$id": "https://open-game-maker-2000.local/schemas/game.v1.json"
+}

@@ -18,6 +18,12 @@ Two layers, one uid (`orangekid`). There is no VM and no second user.
 The profile's deny list is `DEFAULT_DENY_READ_ROOTS` in `services/builder/src/policy/profile.ts` plus the roots the
 daemon passes: every other game workspace, `~/github/aiur/.env` and `assets-local/`.
 
+Each daemon has a distinct `CODEX_HOME` at `~/.config/ogm/codex/<slug>`. Its atomic `config.toml` render names every
+other stored daemon workspace, and fleet membership changes re-render and preflight every live daemon profile.
+`auth.json` is an absolute symlink to the existing `~/.config/ogm/codex-gamebuilder/auth.json` login, so the homes
+share only subscription authentication and never require a second login. The daemon env file supplies its
+`CODEX_HOME`; `agent.accounts.codex` stays empty so Aiur does not replace that path with a machine account profile.
+
 ## Probe result and the fallback in force
 
 OGM-037's `bash scripts/sandbox/probe.sh` on the host (PR #107): every E03-9 path DENIED, network DENIED, `/tmp`
@@ -56,6 +62,7 @@ prints PASS, FAIL or SKIP with what it saw; the runner exits 1 on any FAIL. Test
 ```
 bash scripts/sandbox/proof/run.sh                # all tests
 bash scripts/sandbox/proof/run.sh --only t06     # one test (repeatable)
+bash scripts/sandbox/proof/run.sh --only t03 --fleet # t03 against two createFleet-rendered daemon homes
 bash scripts/sandbox/proof/run.sh --write        # also replace the block below
 bash scripts/sandbox/proof/run.sh --self-test    # wrong invocations; exits 0 only if the tests FAIL them
 ```

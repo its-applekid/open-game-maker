@@ -9,6 +9,7 @@ import {
   cookiePair,
   signIn,
 } from './auth-helpers.js';
+import { createAuthLogger } from '../src/auth/auth.js';
 import { makeApp } from './helpers.js';
 
 afterEach(() => {
@@ -98,10 +99,18 @@ describe('age gate on Better Auth', () => {
 
   it('answers 502 MAIL_FAILED when the SMTP sender fails', async () => {
     vi.stubEnv('SMTP_URL', 'smtp://127.0.0.1:1');
-    const { app } = await makeApp();
+    const { app, deps } = await makeApp();
     const response = await requestMagicLink(app, 'kim@example.com', await adultCookie(app));
     expect(response.status).toBe(502);
     expect(await response.json()).toMatchObject({ code: 'MAIL_FAILED' });
+    expect(deps.sqlite.prepare('SELECT count(*) FROM verification').pluck().get()).toBe(0);
+  });
+
+  it('does not copy untrusted request values into Better Auth logs', () => {
+    const marker = 'untrusted-origin-marker';
+    const lines: Record<string, unknown>[] = [];
+    createAuthLogger((line) => lines.push(line)).log('error', `Invalid origin: ${marker}`, { marker });
+    expect(lines).toEqual([{ event: 'better-auth', level: 'error' }]);
   });
 });
 

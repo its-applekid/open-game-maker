@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "built": "2026-10-31T12:00:00Z",
+  "tiers": ["desktop", "mobile", "low"],
+  "files": {
+    "kit-castle.3f9a1c.glb": { "bytes": 412000, "tris": 38000, "gpuTexMB": 1.4, "decoders": ["meshopt"] },
+    "monster-yeti.desktop.c02d.glb": { "bytes": 301000, "tris": 16800, "gpuTexMB": 5.6, "decoders": ["meshopt"] },
+    "monster-yeti.mobile.a81e.glb": { "bytes": 98000, "tris": 4200, "gpuTexMB": 1.4, "decoders": ["meshopt"] }
+  },
+  "assets": {
+    "castle/tower-base": {
+      "file": { "*": "kit-castle.3f9a1c.glb" },
+      "mesh": "castle/tower-base",
+      "bounds": [1.0, 1.31, 1.0],
+      "source": {
+        "pack": "kenney-castle-kit",
+        "version": "2.0",
+        "path": "Models/GLB format/tower-base.glb",
+        "sha1": "…"
+      },
+      "license": { "id": "CC0-1.0", "attribution": "Kenney (kenney.nl)", "use": "any" }
+    },
+    "monsters/yeti": {
+      "file": {
+        "desktop": "monster-yeti.desktop.c02d.glb",
+        "mobile": "monster-yeti.mobile.a81e.glb",
+        "low": "monster-yeti.mobile.a81e.glb"
+      },
+      "source": { "pack": "quaternius-ultimate-monsters", "version": "1.0", "path": "glb/Yeti-ceRHr.glb" },
+      "license": { "id": "CC0-1.0", "attribution": "Quaternius", "use": "any" }
+    }
+  }
+}

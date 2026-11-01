@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { verifyWsToken } from '../src/auth/ws-token.js';
+import { verifyWsToken } from '../src/app/app.js';
 import { signIn, WS_SECRET } from './auth-helpers.js';
 import { makeApp } from './helpers.js';
 
@@ -52,17 +52,34 @@ describe('session principal resolver', () => {
   it("reads the family, role and capability from OGM-012's family_members when that table exists", async () => {
     const { app, deps, outbox, userId } = await setup();
     const { session } = await signIn(app, outbox, 'sam@example.com');
-    deps.sqlite.exec(
-      'CREATE TABLE family_members (family_id TEXT, user_id TEXT, role TEXT, capability TEXT, joined_at TEXT)',
-    );
     deps.sqlite
-      .prepare("INSERT INTO family_members VALUES ('f_1', ?, 'admin', 'creator', '2026-11-01')")
+      .prepare(
+        "INSERT INTO families (id, name, owner_user_id, friends_allowed, created_at) VALUES ('f_1', 'Sam', ?, 0, '2026-11-01')",
+      )
+      .run(userId('sam@example.com'));
+    deps.sqlite
+      .prepare(
+        "INSERT INTO family_members (family_id, user_id, role, capability, joined_at) VALUES ('f_1', ?, 'admin', 'creator', '2026-11-01')",
+      )
       .run(userId('sam@example.com'));
     expect(await whoami(app, { cookie: session })).toMatchObject({
       familyId: 'f_1',
       platformRole: 'admin',
       capability: 'creator',
     });
+  });
+
+  it('registers auth-backed user-directory and mail providers for the accounts contexts', async () => {
+    const { app, deps, outbox, userId } = await setup();
+    await signIn(app, outbox, 'kim@example.com');
+    const directory = deps.registry.userDirectory;
+    const mail = deps.registry.mailSender;
+    expect(directory).not.toBeNull();
+    expect(mail).not.toBeNull();
+    expect(await directory?.emailForUser(userId('kim@example.com'))).toBe('kim@example.com');
+    expect(await directory?.userIdForEmail(' KIM@EXAMPLE.COM ')).toBe(userId('kim@example.com'));
+    await mail?.send({ to: 'sam@example.com', subject: 'Invite', text: 'Join us' });
+    expect(outbox().map(({ text }) => text)).toContain('Join us');
   });
 });
 
