@@ -1,11 +1,9 @@
 #!/usr/bin/env node
-import { Buffer } from 'node:buffer';
-import { createHash } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { createReadStream } from 'node:fs';
-import { copyFile, lstat, mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { copyFile, mkdtemp, readFile, realpath, rename, rm } from 'node:fs/promises';
 import { createServer } from 'node:http';
-import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL, URL } from 'node:url';
 
@@ -13,11 +11,13 @@ import { thumbnailSceneSchema } from '@ogm/contracts';
 import { chromium } from 'playwright';
 import sharp from 'sharp';
 
+import { safeInput, safeOutput } from './thumbnail-paths.mjs';
+import { fetchStoreMedia } from './thumbnail-store.mjs';
+
+export { extractItchMedia, fetchStoreMedia } from './thumbnail-store.mjs';
+
 const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
 const RENDERER_PAGE = resolve(TOOL_DIR, 'thumbnail-scene-page.html');
-const PAGE_LIMIT = 2 * 1024 * 1024;
-const MEDIA_LIMIT = 20 * 1024 * 1024;
-const MEDIA_COUNT_LIMIT = 64;
 const MIME = {
   '.gif': 'image/gif',
   '.jpeg': 'image/jpeg',
@@ -25,34 +25,6 @@ const MIME = {
   '.png': 'image/png',
   '.webp': 'image/webp',
 };
-
-function inside(root, candidate) {
-  const rel = relative(root, candidate);
-  return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));
-}
-
-async function safeInput(root, requested) {
-  const lexical = resolve(root, requested);
-  if (!inside(root, lexical)) throw new Error('input escapes the selected root');
-  const canonical = await realpath(lexical);
-  if (!inside(root, canonical)) throw new Error('input escapes the selected root');
-  return canonical;
-}
-
-async function safeOutput(root, requested) {
-  const lexical = resolve(root, requested);
-  if (!inside(root, lexical)) throw new Error('output escapes the selected root');
-  await mkdir(dirname(lexical), { recursive: true });
-  const parent = await realpath(dirname(lexical));
-  if (!inside(root, parent)) throw new Error('output parent escapes the selected root');
-  const output = resolve(parent, basename(lexical));
-  try {
-    if ((await lstat(output)).isSymbolicLink()) throw new Error('output is a symbolic link');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  return output;
-}
 
 function packOf(cardId) {
   const match = /^t[1-3]:([^/@]+)(?:\/(.+))?@([^@]+)$/.exec(cardId);
@@ -86,140 +58,6 @@ export function selectSpecimenCards(cards, target) {
     for (const token of coverageTokens(candidate.card, target)) uncovered.delete(token);
   }
   return selected;
-}
-
-function validItchPage(url, expectedHost) {
-  return (
-    url.protocol === 'https:' &&
-    /^[a-z0-9-]+\.itch\.io$/.test(url.hostname) &&
-    (!expectedHost || url.hostname === expectedHost)
-  );
-}
-
-function validMediaUrl(url) {
-  return url.protocol === 'https:' && url.hostname === 'img.itch.zone' && !url.username && !url.password;
-}
-
-export function extractItchMedia(html, pageUrl) {
-  const found = [];
-  const attributes = /(?:content|src)\s*=\s*["']([^"']+)["']/gi;
-  for (const match of html.matchAll(attributes)) {
-    let url;
-    try {
-      url = new URL(match[1], pageUrl);
-    } catch {
-      continue;
-    }
-    if (!validMediaUrl(url)) continue;
-    url.hash = '';
-    url.search = '';
-    if (!found.includes(url.href)) found.push(url.href);
-  }
-  return found;
-}
-
-async function boundedResponse(url, { fetchImpl, kind, expectedHost, byteLimit }) {
-  let current = new URL(url);
-  for (let redirects = 0; redirects <= 3; redirects += 1) {
-    if (kind === 'page' ? !validItchPage(current, expectedHost) : !validMediaUrl(current))
-      throw new Error(`${kind} host is not allowlisted`);
-    const response = await fetchImpl(current.href, {
-      redirect: 'manual',
-      credentials: 'omit',
-      signal: globalThis.AbortSignal.timeout(15_000),
-    });
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get('location');
-      if (!location) throw new Error(`${kind} redirect has no location`);
-      current = new URL(location, current);
-      continue;
-    }
-    if (!response.ok) throw new Error(`${kind} fetch returned HTTP ${response.status}`);
-    const declared = Number(response.headers.get('content-length') ?? 0);
-    if (declared > byteLimit) throw new Error(`${kind} response exceeds byte limit`);
-    const body = Buffer.from(await response.arrayBuffer());
-    if (body.length > byteLimit) throw new Error(`${kind} response exceeds byte limit`);
-    return { body, response, url: current };
-  }
-  throw new Error(`${kind} redirect limit exceeded`);
-}
-
-function imageExtension(contentType, body) {
-  const type = contentType.split(';', 1)[0].trim().toLowerCase();
-  if (type === 'image/png' && body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'png';
-  if (type === 'image/gif' && ['GIF87a', 'GIF89a'].includes(body.subarray(0, 6).toString('ascii'))) return 'gif';
-  if (type === 'image/jpeg' && body[0] === 0xff && body[1] === 0xd8) return 'jpg';
-  if (
-    type === 'image/webp' &&
-    body.subarray(0, 4).toString('ascii') === 'RIFF' &&
-    body.subarray(8, 12).toString('ascii') === 'WEBP'
-  )
-    return 'webp';
-  throw new Error(`media response is not a verified supported image (${type || 'no content type'})`);
-}
-
-export async function fetchStoreMedia({
-  root: assetRoot,
-  packId,
-  pageUrl,
-  fetchImpl = globalThis.fetch,
-  fetchedAt = new Date().toISOString(),
-}) {
-  const root = await realpath(resolve(assetRoot));
-  const page = new URL(pageUrl);
-  if (!validItchPage(page) || page.search || page.hash || page.username || page.password)
-    throw new Error('page URL must be a plain HTTPS itch.io creator page');
-  const store = await safeOutput(root, `packs/${packId}/store/media.json`).then(dirname);
-  const stage = await mkdtemp(join(dirname(store), '.thumbnail-store-'));
-  try {
-    const pageResult = await boundedResponse(page, {
-      fetchImpl,
-      kind: 'page',
-      expectedHost: page.hostname,
-      byteLimit: PAGE_LIMIT,
-    });
-    if (!pageResult.response.headers.get('content-type')?.toLowerCase().startsWith('text/html'))
-      throw new Error('store page is not HTML');
-    const urls = extractItchMedia(pageResult.body.toString('utf8'), pageResult.url);
-    if (urls.length === 0) throw new Error('store page contains no allowlisted image media');
-    if (urls.length > MEDIA_COUNT_LIMIT) throw new Error('store page exceeds media count limit');
-    const media = [];
-    for (const sourceUrl of urls) {
-      const result = await boundedResponse(sourceUrl, { fetchImpl, kind: 'media', byteLimit: MEDIA_LIMIT });
-      const extension = imageExtension(result.response.headers.get('content-type') ?? '', result.body);
-      const digest = createHash('sha256').update(result.body).digest('hex');
-      const filename = `${digest.slice(0, 20)}.${extension}`;
-      await writeFile(join(stage, filename), result.body);
-      media.push({
-        source_url: sourceUrl,
-        path: filename,
-        sha256: `sha256:${digest}`,
-        bytes: result.body.length,
-        content_type: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
-      });
-    }
-    const fallback = [...media].sort(
-      (left, right) =>
-        Number(right.path.endsWith('.gif')) - Number(left.path.endsWith('.gif')) || left.path.localeCompare(right.path),
-    )[0];
-    const manifest = {
-      schema: 'ogm.vendor-store-media/1.0',
-      pack_id: packId,
-      page_url: page.href,
-      fetched_at: fetchedAt,
-      provenance: 'vendor-metadata',
-      media,
-      selected_fallback: fallback.path,
-    };
-    await mkdir(store, { recursive: true });
-    for (const item of media) await rename(join(stage, item.path), join(store, item.path));
-    const temporary = join(store, `.media-${process.pid}.json`);
-    await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`);
-    await rename(temporary, join(store, 'media.json'));
-    return manifest;
-  } finally {
-    await rm(stage, { recursive: true, force: true });
-  }
 }
 
 export function projectPoint(grid, offset = [0, 0]) {
