@@ -6,13 +6,16 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
-    "test": "vitest run --exclude e2e/render-gltf.test.ts",
+    "pretest": "pnpm --filter @ogm/contracts build",
+    "test": "vitest run --exclude e2e/render-gltf.test.ts --exclude e2e/thumbnail-scene.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
-    "test:browser": "vitest run e2e/render-gltf.test.ts && playwright test"
+    "pretest:browser": "pnpm --filter @ogm/contracts build",
+    "test:browser": "vitest run e2e/render-gltf.test.ts e2e/thumbnail-scene.test.ts && playwright test"
   },
   "dependencies": {
+    "@ogm/contracts": "workspace:*",
     "@better-auth/passkey": "1.7.15",
     "@noriginmedia/norigin-spatial-navigation": "2.3.0",
     "@tanstack/react-query": "5.105.1",
