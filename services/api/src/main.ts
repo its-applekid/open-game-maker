@@ -15,11 +15,13 @@ import { scanRoutes } from './app/routes-scan.js';
 import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
+import { startEstimateRefinement } from './budget/estimate.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { markPaused, markRunning, markTerminal } from './jobs/spend-cap.js';
+import { startBriefingPush } from './voice/briefing-push.js';
 
 const log = (line: LogLine) => console.log(JSON.stringify({ service: 'api', ...line }));
 
@@ -83,6 +85,18 @@ const stopAnalyticsRetention = startAnalyticsRetention({
   log,
 });
 const stopScheduler = startScheduler({ ...lifecycleDeps, log });
+const stopEstimateRefinement = startEstimateRefinement({ db, events: deps.events, log });
+const stopBriefingPush =
+  env.OGM_VOICE_HOST_INTERNAL_URL && env.OGM_VOICE_INTERNAL_SECRET
+    ? startBriefingPush({
+        db,
+        events: deps.events,
+        defaults: budgetDefaults,
+        url: env.OGM_VOICE_HOST_INTERNAL_URL,
+        secret: env.OGM_VOICE_INTERNAL_SECRET,
+        log,
+      })
+    : () => {};
 const feed = startFeedConsumers({
   fleet: daemonDirectory.fleet,
   db,
@@ -103,5 +117,7 @@ server.once('listening', () => log({ event: 'listening', host: API_HOST, port: e
 process.once('SIGTERM', () => {
   stopAnalyticsRetention();
   stopScheduler();
+  stopEstimateRefinement();
+  stopBriefingPush();
   void feed.stop().finally(() => server.close(() => sqlite.close()));
 });
