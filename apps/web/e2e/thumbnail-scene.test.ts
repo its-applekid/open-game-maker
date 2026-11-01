@@ -26,15 +26,15 @@ type TestCard = {
   id: string;
   kind: string;
   subkind: string;
-  describe: { world: string };
+  describe: { set: string; world: string };
   collection: string;
 };
 
-const card = (id: string, world: string, subkind: string): TestCard => ({
+const card = (id: string, world: string, subkind: string, set = 'smallscaleint'): TestCard => ({
   id,
   kind: 'sprite',
   subkind,
-  describe: { world },
+  describe: { set, world },
   collection: `t1:${id.split(':')[1]!.split('/')[0]}@1.0`,
 });
 
@@ -47,13 +47,26 @@ describe('thumbnail specimens and store references', () => {
       card('t1:pack-b/sequences/crate@1.0', 'modern-zombie', 'prop'),
     ];
 
-    const expected = selectSpecimenCards(cards, { kind: 'set' }).map((item) => item.id);
-    const reversed = selectSpecimenCards([...cards].reverse(), { kind: 'set' }).map((item) => item.id);
+    const expected = selectSpecimenCards(cards, { kind: 'set', id: 'smallscaleint' }).map((item) => item.id);
+    const reversed = selectSpecimenCards([...cards].reverse(), { kind: 'set', id: 'smallscaleint' }).map(
+      (item) => item.id,
+    );
 
     expect(reversed).toEqual(expected);
     expect(new Set(expected)).toEqual(
       new Set(['t1:pack-a/tiles/grass@1.0', 't1:pack-b/sequences/crate@1.0', 't1:pack-a/characters/hero@1.0']),
     );
+  });
+
+  it('limits set coverage to cards carrying the requested set id', () => {
+    const cards = [
+      card('t1:smallscaleint-pack/characters/hero@1.0', 'fantasy', 'character'),
+      card('t1:other-pack/characters/hero@1.0', 'sci-fi', 'character', 'other-set'),
+    ];
+
+    expect(selectSpecimenCards(cards, { kind: 'set', id: 'smallscaleint' }).map((item) => item.id)).toEqual([
+      't1:smallscaleint-pack/characters/hero@1.0',
+    ]);
   });
 
   it('fails loudly when a pack has no renderable cards', () => {

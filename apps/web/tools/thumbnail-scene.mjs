@@ -43,6 +43,7 @@ function coverageTokens(card, target) {
 export function selectSpecimenCards(cards, target) {
   const eligible = cards
     .filter((card) => card.kind === 'sprite')
+    .filter((card) => target.kind !== 'set' || card.describe?.set === target.id)
     .filter((card) => target.kind !== 'pack' || packOf(card.id).pack === target.id)
     .sort((left, right) => left.id.localeCompare(right.id));
   if (eligible.length === 0) throw new Error(`no renderable cards for ${target.id ?? 'set'}`);
@@ -416,14 +417,15 @@ async function main() {
     const document = JSON.parse(await readFile(resolve(values.cards), 'utf8'));
     const cards = Array.isArray(document) ? document : document.cards;
     if (!Array.isArray(cards)) throw new Error('cards file must be an array or an object with a cards array');
-    const target = { kind: values['target-kind'], ...(values['target-id'] ? { id: values['target-id'] } : {}) };
+    if (!values['target-id']) throw new Error('specimen requires --target-id');
+    const target = { kind: values['target-kind'], id: values['target-id'] };
     process.stdout.write(
       `${JSON.stringify(await renderSpecimen({ root: values.root, cards, target, output: values.output }))}\n`,
     );
     return;
   }
   throw new Error(
-    'usage: thumbnail-scene.mjs fetch-store --root DIR --pack ID --page URL | specimen --root DIR --cards FILE --target-kind set|pack [--target-id ID] --output FILE | render --root DIR --scene FILE --output RELATIVE_BASE',
+    'usage: thumbnail-scene.mjs fetch-store --root DIR --pack ID --page URL | specimen --root DIR --cards FILE --target-kind set|pack --target-id ID --output FILE | render --root DIR --scene FILE --output RELATIVE_BASE',
   );
 }
 
