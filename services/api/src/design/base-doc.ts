@@ -1,12 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
-import {
-  DesignDocSchema,
-  gameManifestSchema,
-  type DesignDoc,
-  type GameManifest,
-} from '@ogm/contracts';
+import { DesignDocSchema, gameManifestSchema, type DesignDoc, type GameManifest } from '@ogm/contracts';
 
 const pathSegment = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/;
 

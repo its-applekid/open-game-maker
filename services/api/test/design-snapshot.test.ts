@@ -33,7 +33,10 @@ function baseDoc(gravity = 1): DesignDoc {
 
 function setup() {
   const deps = makeDeps();
-  deps.db.insert(schema.families).values({ id: ids.family, name: 'Family', ownerUserId: ids.owner, createdAt: now.toISOString() }).run();
+  deps.db
+    .insert(schema.families)
+    .values({ id: ids.family, name: 'Family', ownerUserId: ids.owner, createdAt: now.toISOString() })
+    .run();
   deps.db
     .insert(schema.games)
     .values({

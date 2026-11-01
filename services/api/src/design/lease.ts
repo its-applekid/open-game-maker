@@ -95,15 +95,7 @@ export function heartbeatLease(
        WHERE game_id = ? AND branch_id = ? AND holder_user_id = ?
          AND session_id = ? AND token = ? AND expires_at > ?`,
     )
-    .run(
-      nextExpiry,
-      holder.gameId,
-      holder.branchId,
-      holder.userId,
-      holder.sessionId,
-      holder.token,
-      now.toISOString(),
-    );
+    .run(nextExpiry, holder.gameId, holder.branchId, holder.userId, holder.sessionId, holder.token, now.toISOString());
   if (result.changes !== 1) throw new LeaseMismatch();
   return { token: holder.token, expiresAt: nextExpiry };
 }
@@ -112,7 +104,8 @@ export function releaseLease(sqlite: Sqlite, holder: FencedLeaseHolder): boolean
   return (
     sqlite
       .prepare(
-        `DELETE FROM edit_leases
+        `UPDATE edit_leases
+         SET expires_at = '1970-01-01T00:00:00.000Z'
          WHERE game_id = ? AND branch_id = ? AND holder_user_id = ? AND session_id = ? AND token = ?`,
       )
       .run(holder.gameId, holder.branchId, holder.userId, holder.sessionId, holder.token).changes === 1

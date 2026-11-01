@@ -3,12 +3,7 @@ import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import { LeaseHeld, LeaseMismatch, acquireLease, heartbeatLease, releaseLease } from '../src/design/lease.js';
-import {
-  StaleBaseRev,
-  appendTransaction,
-  ensureMainBranch,
-  readTransactions,
-} from '../src/design/store.js';
+import { StaleBaseRev, appendTransaction, ensureMainBranch, readTransactions } from '../src/design/store.js';
 import { makeDeps } from './helpers.js';
 
 const ids = {
@@ -23,7 +18,10 @@ const now = new Date('2026-11-01T16:00:00.000Z');
 
 function setup() {
   const deps = makeDeps();
-  deps.db.insert(schema.families).values({ id: ids.family, name: 'Family', ownerUserId: ids.owner, createdAt: now.toISOString() }).run();
+  deps.db
+    .insert(schema.families)
+    .values({ id: ids.family, name: 'Family', ownerUserId: ids.owner, createdAt: now.toISOString() })
+    .run();
   deps.db
     .insert(schema.games)
     .values({
@@ -92,11 +90,9 @@ describe('design store', () => {
   it('accepts system writes with token zero and no edit lease', () => {
     const { deps, branch } = setup();
     expect(
-      appendTransaction(
-        deps.sqlite,
-        transaction(branch.id, { kind: 'system', leaseToken: 0, sessionId: undefined }),
-        { now },
-      ).rev,
+      appendTransaction(deps.sqlite, transaction(branch.id, { kind: 'system', leaseToken: 0, sessionId: undefined }), {
+        now,
+      }).rev,
     ).toBe(1);
   });
 
@@ -125,11 +121,9 @@ describe('edit lease', () => {
     expect(second.token).toBe(2);
     expect(() => appendTransaction(deps.sqlite, transaction(branch.id), { now })).toThrow(LeaseMismatch);
     expect(
-      appendTransaction(
-        deps.sqlite,
-        transaction(branch.id, { leaseToken: second.token, sessionId: 'session-b' }),
-        { now },
-      ).rev,
+      appendTransaction(deps.sqlite, transaction(branch.id, { leaseToken: second.token, sessionId: 'session-b' }), {
+        now,
+      }).rev,
     ).toBe(1);
   });
 
@@ -198,5 +192,16 @@ describe('edit lease', () => {
         token: lease.token,
       }),
     ).toBe(true);
+    const reacquired = acquireLease(
+      deps.sqlite,
+      { gameId: ids.game, branchId: branch.id, userId: ids.owner, sessionId: 'session-a' },
+      { now: new Date(heartbeatAt.getTime() + 1) },
+    );
+    expect(reacquired.token).toBe(lease.token + 1);
+    expect(() =>
+      appendTransaction(deps.sqlite, transaction(branch.id, { leaseToken: lease.token }), {
+        now: new Date(heartbeatAt.getTime() + 2),
+      }),
+    ).toThrow(LeaseMismatch);
   });
 });

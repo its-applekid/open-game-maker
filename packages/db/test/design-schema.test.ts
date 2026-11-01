@@ -53,7 +53,8 @@ describe('design-log schema', () => {
   it('enforces branch names, transaction revisions, and lease keys', () => {
     const { sqlite, db } = seededDb();
     expect(() =>
-      db.insert(branches)
+      db
+        .insert(branches)
         .values({
           id: 'b_2',
           gameId: 'g_1',
@@ -84,9 +85,12 @@ describe('design-log schema', () => {
       createdAt,
     };
     db.insert(designTransactions).values(tx).run();
-    expect(() => db.insert(designTransactions).values({ ...tx, id: 'tx_2' }).run()).toThrow(
-      /UNIQUE constraint failed/,
-    );
+    expect(() =>
+      db
+        .insert(designTransactions)
+        .values({ ...tx, id: 'tx_2' })
+        .run(),
+    ).toThrow(/UNIQUE constraint failed/);
 
     db.insert(editLeases)
       .values({
@@ -99,7 +103,8 @@ describe('design-log schema', () => {
       })
       .run();
     expect(() =>
-      db.insert(editLeases)
+      db
+        .insert(editLeases)
         .values({
           gameId: 'g_1',
           branchId: 'b_1',

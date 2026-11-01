@@ -131,11 +131,7 @@ function findBranch(sqlite: Sqlite, gameId: string, branchId: string): Branch | 
   return row ? branchFromRow(row) : undefined;
 }
 
-export function ensureMainBranch(
-  sqlite: Sqlite,
-  gameId: string,
-  options: { id?: string; now?: Date } = {},
-): Branch {
+export function ensureMainBranch(sqlite: Sqlite, gameId: string, options: { id?: string; now?: Date } = {}): Branch {
   const existing = sqlite
     .prepare<[string], BranchRow>("SELECT * FROM branches WHERE game_id = ? AND name = 'main'")
     .get(gameId);

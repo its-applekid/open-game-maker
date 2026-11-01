@@ -2,13 +2,7 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
-import {
-  controlDeclSchema,
-  StableIdSchema,
-  TransactionSchema,
-  type Principal,
-  type Transaction,
-} from '@ogm/contracts';
+import { controlDeclSchema, StableIdSchema, TransactionSchema, type Principal, type Transaction } from '@ogm/contracts';
 import { PatchTooLargeError, validateCommands, validatePatches } from '@ogm/design-log';
 import { authorize } from '@ogm/policy';
 
@@ -21,13 +15,7 @@ import { findGameForFamily, hasGameGrant, type GameRow } from '../games/games.js
 import { FsBaseDocSource, type BaseDocSource } from './base-doc.js';
 import { acquireLease, heartbeatLease, LeaseMismatch, releaseLease } from './lease.js';
 import { snapshotAt } from './snapshot.js';
-import {
-  appendTransaction,
-  BranchNotFound,
-  readTransactions,
-  resolveBranch,
-  StaleBaseRev,
-} from './store.js';
+import { appendTransaction, BranchNotFound, readTransactions, resolveBranch, StaleBaseRev } from './store.js';
 import { createDesignStreamHub, formatTransactionFrame, type DesignStreamHub } from './stream.js';
 
 export const prefix = '/api/v1';
@@ -99,7 +87,12 @@ function branchFor(c: Parameters<typeof requirePrincipal>[0], gameId: string) {
   }
 }
 
-function validateBodyPath(body: z.output<typeof transactionBody>, gameId: string, branchId: string, branchName: string) {
+function validateBodyPath(
+  body: z.output<typeof transactionBody>,
+  gameId: string,
+  branchId: string,
+  branchName: string,
+) {
   if (body.gameId !== undefined && body.gameId !== gameId) throw new HttpError(400, 'game_mismatch');
   if (body.branchId !== undefined && body.branchId !== branchId && body.branchId !== branchName) {
     throw new HttpError(400, 'branch_mismatch');
@@ -163,6 +156,7 @@ function transactionStream(
       if (transaction.rev <= lastSent) return;
       lastSent = transaction.rev;
       queue = queue.then(async () => stream.write(formatTransactionFrame(transaction)));
+      void queue.catch(finish);
     };
     const detach = hub.subscribe(branchId, (transaction) => {
       if (live) write(transaction);

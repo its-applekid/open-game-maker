@@ -65,6 +65,34 @@ async function setup() {
     join(designDir, 'design.json'),
     JSON.stringify({ schemaVersion: 1, globals: { gravity: 1 }, entities: {} }),
   );
+  writeFileSync(
+    join(deps.config.gamesRoot, ids.game, ids.build, 'manifest.json'),
+    JSON.stringify({
+      id: 'game',
+      sdk: '^1.0.0',
+      title: 'Game',
+      inputs: { actions: {} },
+      presentation: { orientation: 'any', minLogical: { w: 320, h: 180 }, fit: 'responsive' },
+      view: 'topdown',
+      dimension: '2d',
+      capabilities: [],
+      palette: { categories: [], items: [] },
+      tools: [],
+      gizmos: {},
+      saves: false,
+      overrides: { aliases: {}, retired: [] },
+      controls: [
+        {
+          id: 'world.gravity',
+          label: 'Gravity',
+          scope: 'global',
+          path: '/globals/gravity',
+          widget: { kind: 'slider', min: 0, max: 10 },
+          default: 1,
+        },
+      ],
+    }),
+  );
   const branch = ensureMainBranch(deps.sqlite, ids.game);
   deps.sqlite.prepare('UPDATE branches SET latest_build_id = ? WHERE id = ?').run(ids.build, branch.id);
   return makeApp(deps);
@@ -209,10 +237,23 @@ describe('design log routes', () => {
     });
     expect(tooLarge.status).toBe(413);
 
+    const invalidCommand = await app.request(`${branchUrl}/transactions`, {
+      method: 'POST',
+      headers: jsonHeaders(),
+      body: JSON.stringify({
+        ...transaction(0, lease.body.token, 'browser-one', 2),
+        commands: [{ op: 'set', control: 'world.gravity', targets: 'global', value: 20 }],
+      }),
+    });
+    expect(invalidCommand.status).toBe(422);
+
     const created = await app.request(`${branchUrl}/transactions`, {
       method: 'POST',
       headers: jsonHeaders(),
-      body: JSON.stringify(transaction(0, lease.body.token, 'browser-one', 2)),
+      body: JSON.stringify({
+        ...transaction(0, lease.body.token, 'browser-one', 2),
+        commands: [{ op: 'set', control: 'world.gravity', targets: 'global', value: 2 }],
+      }),
     });
     expect(created.status).toBe(200);
 
@@ -225,32 +266,28 @@ describe('design log routes', () => {
     });
   });
 
-  it(
-    'serializes 50 competing writers into revisions 1 through 50',
-    async () => {
-      const { app } = await setup();
-      const lease = await acquire(app, 'browser-one');
+  it('serializes 50 competing writers into revisions 1 through 50', async () => {
+    const { app } = await setup();
+    const lease = await acquire(app, 'browser-one');
 
-      async function append(gravity: number): Promise<number> {
-        let baseRev = 0;
-        for (;;) {
-          const response = await app.request(`${branchUrl}/transactions`, {
-            method: 'POST',
-            headers: jsonHeaders(),
-            body: JSON.stringify(transaction(baseRev, lease.body.token, 'browser-one', gravity)),
-          });
-          const body = (await response.json()) as { rev?: number; headRev?: number };
-          if (response.status === 200) return body.rev!;
-          expect(response.status).toBe(409);
-          baseRev = body.headRev!;
-        }
+    async function append(gravity: number): Promise<number> {
+      let baseRev = 0;
+      for (;;) {
+        const response = await app.request(`${branchUrl}/transactions`, {
+          method: 'POST',
+          headers: jsonHeaders(),
+          body: JSON.stringify(transaction(baseRev, lease.body.token, 'browser-one', gravity)),
+        });
+        const body = (await response.json()) as { rev?: number; headRev?: number };
+        if (response.status === 200) return body.rev!;
+        expect(response.status).toBe(409);
+        baseRev = body.headRev!;
       }
+    }
 
-      const revisions = await Promise.all(Array.from({ length: 50 }, (_, index) => append(index + 2)));
-      expect([...revisions].sort((a, b) => a - b)).toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
-    },
-    20_000,
-  );
+    const revisions = await Promise.all(Array.from({ length: 50 }, (_, index) => append(index + 2)));
+    expect([...revisions].sort((a, b) => a - b)).toEqual(Array.from({ length: 50 }, (_, index) => index + 1));
+  }, 20_000);
 
   it('accepts a token-zero system transaction from an internal service without a lease', async () => {
     const { app } = await setup();
