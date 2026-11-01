@@ -29,4 +29,4 @@ py-compile:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -m compileall -q scripts/py
 
 check-workers:
-	$(PYTHON) -I -c "import json, os; workers = json.load(open('scripts/py/workers.json'))['workers']; [os.stat(worker['dir']) for worker in workers.values()]"
+	$(PYTHON) -I -c "import json, os; workers = json.load(open('scripts/py/workers.json'))['workers']; [os.stat(worker[key]) for worker in workers.values() for key in ('dir', 'requirements')]; [worker['python'].startswith(worker['venv'] + '/') or exit(f'{name}: python is outside venv') for name, worker in workers.items()]"

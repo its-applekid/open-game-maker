@@ -19,4 +19,4 @@ From the repository root:
 - `make test` and `make test-py` run the dependency-free drive-sync suite and compile every worker.
 - `make test-py-models` runs the audio and maps suites in the audio environment and fails with setup instructions when that environment is absent.
 - `make venv-audio` and `make venv-drive-sync` create the two declared environments.
-- `make check-workers` verifies every worker directory from `workers.json` exists.
+- `make check-workers` verifies every worker directory and requirements file from `workers.json` exists and that each `python` sits under its `venv`.
