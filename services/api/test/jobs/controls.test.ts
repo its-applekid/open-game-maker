@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../../src/app/app.js';
 import { createControlsRoutes, type IssueStateWriter } from '../../src/jobs/controls.js';
-import { reserve } from '../../src/budget/ledger.js';
 import { asUser, installUsers, makeDeps } from '../helpers.js';
 
 const NOW = new Date('2026-11-01T22:00:00.000Z');
@@ -130,9 +129,8 @@ describe('job controls', () => {
     expect(cancel).not.toHaveBeenCalled();
   });
 
-  it('confirms process exit before cancelling and releases once', async () => {
+  it('confirms process exit before cancelling', async () => {
     const deps = setup();
-    reserve({ db: deps.db, jobId: ids.job, at: NOW, zone: 'America/Los_Angeles' });
     const cancel = vi.fn().mockResolvedValue({ process: { status: 'exited' } });
     const { app } = appWith(deps, { client: { cancel } });
 
@@ -143,17 +141,7 @@ describe('job controls', () => {
     expect(await first.json()).toMatchObject({ state: 'cancelled', stage: 'cancelled', stageText: 'Stopped' });
     expect(second.status).toBe(200);
     expect(cancel).toHaveBeenCalledOnce();
-    expect(deps.db.select().from(schema.jobs).get()).toMatchObject({
-      state: 'cancelled',
-      releasedAt: NOW.toISOString(),
-    });
-    expect(
-      deps.db
-        .select()
-        .from(schema.budgetLedger)
-        .all()
-        .filter(({ kind }) => kind === 'release'),
-    ).toHaveLength(1);
+    expect(deps.db.select().from(schema.jobs).get()?.state).toBe('cancelled');
   });
 
   it('returns 503 after three unconfirmed cancellations and leaves the job running', async () => {

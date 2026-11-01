@@ -79,7 +79,7 @@ const projectionDeps = {
     markPaused: (jobId: string, reason: 'over_reservation' | 'budget_exhausted' | 'admin') =>
       void markPaused(lifecycleDeps, jobId, reason),
     markTerminal: (jobId: string, state: 'done' | 'failed' | 'cancelled') =>
-      void markTerminal(lifecycleDeps, jobId, state),
+      void markTerminal(lifecycleDeps, jobId, state, { deferRelease: true }),
   },
 };
 
