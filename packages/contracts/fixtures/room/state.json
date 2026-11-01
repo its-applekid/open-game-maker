@@ -1,0 +1,42 @@
+{
+  "protocol": 1,
+  "pin": { "gameId": "g_01J", "branchId": "b_01J", "buildId": "sha256-3f9a" },
+  "ownerId": "u_01JOWNER",
+  "editorSessionId": "s_owner1",
+  "phase": "playing",
+  "phaseAt": 1761899500,
+  "playRev": 41,
+  "lastRev": 42,
+  "maxPlayers": 4,
+  "members": {
+    "u_01JOWNER": {
+      "userId": "u_01JOWNER",
+      "name": "Kevin",
+      "role": "owner",
+      "playerIndex": 0,
+      "connected": true,
+      "sessions": ["s_owner1", "s_owner2"]
+    },
+    "u_01J": {
+      "userId": "u_01J",
+      "name": "Sam",
+      "role": "player",
+      "playerIndex": 1,
+      "connected": true,
+      "sessions": ["s_sam1"]
+    }
+  },
+  "presence": {
+    "cursor": { "x": 0.25, "y": 0.75 },
+    "selection": ["e_01JTREE"],
+    "focusControlId": "inspector.scale",
+    "camera": { "pos": [0, 10, 10], "target": [0, 0, 0], "zoom": 1 },
+    "privateMode": false,
+    "building": { "jobId": "job_01J", "label": "building…", "pct": 40 }
+  },
+  "draft": {
+    "buildId": "sha256-77c1",
+    "url": "https://games.example.test/draft/sha256-77c1?sig=abc",
+    "expiresAt": 1761903000
+  }
+}

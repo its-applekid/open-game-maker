@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "sub": {
+      "type": "string",
+      "minLength": 1
+    },
+    "roomId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gameId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "role": {
+      "type": "string",
+      "enum": [
+        "owner",
+        "player"
+      ]
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "iat": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "exp": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "jti": {
+      "type": "string",
+      "minLength": 1
+    }
+  },
+  "required": [
+    "sub",
+    "roomId",
+    "gameId",
+    "role",
+    "name",
+    "exp",
+    "jti"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/room.grant.v1.json"
+}

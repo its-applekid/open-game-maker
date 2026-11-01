@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "branchId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rev": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "baseRev": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
+    "actor": {
+      "type": "string",
+      "minLength": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "manual",
+        "system",
+        "merge"
+      ]
+    },
+    "patches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "add",
+              "replace",
+              "remove"
+            ]
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\/(?:globals|entities)(?:\\/.*)?$"
+              },
+              {
+                "minItems": 1,
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          "value": {}
+        },
+        "required": [
+          "op",
+          "path"
+        ],
+        "additionalProperties": {}
+      }
+    }
+  },
+  "required": [
+    "branchId",
+    "rev",
+    "baseRev",
+    "actor",
+    "kind",
+    "patches"
+  ],
+  "additionalProperties": {},
+  "$id": "https://open-game-maker-2000.local/schemas/room.design-tx.v1.json"
+}
