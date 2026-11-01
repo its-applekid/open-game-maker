@@ -16,7 +16,8 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "pnpm --filter @ogm/contracts build",
     "test": "vitest run",
-    "lint": "eslint src"
+    "lint": "eslint src",
+    "licenses:emit": "tsc -b && node scripts/emit-licenses.mjs && prettier --write data/licenses.json"
   },
   "dependencies": {
     "@ogm/contracts": "workspace:*",
