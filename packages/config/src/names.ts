@@ -97,6 +97,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'SMTP_FROM', unit: 'api', kind: 'string', doc: 'From address for SMTP mail (optional)' },
   { name: 'OGM_ASSETS_ROOT', unit: 'gm', kind: 'path', doc: 'assets-local library root for gm (else found above cwd)' },
+  { name: 'GM_SKILLS_DIR', unit: 'gm', kind: 'path', doc: 'platform skill-pack root used by gm skills sync' },
   { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
   { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
   { name: 'OGM_API_INTERNAL_URL', unit: 'commit', kind: 'url', doc: 'loopback URL of the internal API' },

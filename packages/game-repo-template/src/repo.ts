@@ -25,7 +25,6 @@ export function renderRepoTemplate(ref: string, ctx: TemplateCtx, root: string =
   const engine = parseTemplateRef(ref);
   const values = { gameId: ctx.gameId };
   const pack = skillPack(root);
-  const names = [...new Set(pack.files.map((file) => file.path.split('/')[0]))];
 
   const files: TemplateFile[] = [
     { path: '.github/workflows/ci.yml', content: readTemplate('ci.yml') },
@@ -34,9 +33,9 @@ export function renderRepoTemplate(ref: string, ctx: TemplateCtx, root: string =
     { path: '.gitignore', content: readTemplate('gitignore') },
     { path: 'skills.lock', content: pack.lock },
     ...pack.files.map((file) => ({ path: `.claude/skills/${file.path}`, content: file.content })),
-    ...names.flatMap((name) => [
-      { path: `.codex/skills/${name}`, content: `../../.claude/skills/${name}`, mode: '120000' as const },
-      { path: `.agents/skills/${name}`, content: `../../.claude/skills/${name}`, mode: '120000' as const },
+    ...pack.discovery.flatMap(({ name, target }) => [
+      { path: `.codex/skills/${name}`, content: `../../.claude/skills/${target}`, mode: '120000' as const },
+      { path: `.agents/skills/${name}`, content: `../../.claude/skills/${target}`, mode: '120000' as const },
     ]),
     ...scaffold(engine, root, values),
   ];
