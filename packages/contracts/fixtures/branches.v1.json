@@ -1,0 +1,59 @@
+{
+  "branch": {
+    "id": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "name": "main",
+    "gitRef": "refs/heads/main",
+    "forkPoint": null,
+    "headRev": 1,
+    "latestBuildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "status": "active",
+    "createdBy": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "createdAt": "2026-11-01T12:00:00.000Z"
+  },
+  "fieldChange": {
+    "path": "/entities/e_01ARZ3NDEKTSV4RRFFQ69G5FAV/props/door.locked",
+    "before": false,
+    "after": true,
+    "txId": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+  },
+  "sideDelta": {
+    "/entities/e_01ARZ3NDEKTSV4RRFFQ69G5FAV/props/door.locked": {
+      "path": "/entities/e_01ARZ3NDEKTSV4RRFFQ69G5FAV/props/door.locked",
+      "before": false,
+      "after": true,
+      "txId": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    }
+  },
+  "mergeConflict": {
+    "id": "conflict_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "path": "/entities/e_01ARZ3NDEKTSV4RRFFQ69G5FAV/props/door.locked",
+    "entityId": "e_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "controlId": "door.locked",
+    "kind": "both_changed",
+    "ours": {
+      "path": "/entities/e_01ARZ3NDEKTSV4RRFFQ69G5FAV/props/door.locked",
+      "before": false,
+      "after": true,
+      "txId": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV"
+    },
+    "theirs": {
+      "path": "/entities/e_01ARZ3NDEKTSV4RRFFQ69G5FAV/props/door.locked",
+      "before": false,
+      "after": "jammed",
+      "txId": "tx_01BX5ZZKBKACTAV9WEVGEMMVRZ"
+    },
+    "resolution": "ours"
+  },
+  "mergePlan": {
+    "id": "merge_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "sourceBranchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "targetBranchId": "b_01BX5ZZKBKACTAV9WEVGEMMVRZ",
+    "baseRev": 1,
+    "auto": [],
+    "conflicts": [],
+    "code": "clean",
+    "status": "planned"
+  }
+}

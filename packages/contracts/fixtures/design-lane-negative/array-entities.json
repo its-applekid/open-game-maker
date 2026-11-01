@@ -1,0 +1,7 @@
+{
+  "schemaVersion": 1,
+  "globals": {},
+  "entities": [
+    { "id": "e_01ARZ3NDEKTSV4RRFFQ69G5FAV", "prefab": "door", "level": "level_1", "origin": "creator", "props": {} }
+  ]
+}

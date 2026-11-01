@@ -1,0 +1,48 @@
+{
+  "saveSlot": {
+    "userId": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "slotId": "4",
+    "kind": "manual",
+    "headRevision": 1,
+    "status": "ok"
+  },
+  "saveRevision": {
+    "userId": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "slotId": "4",
+    "revision": 1,
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "buildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "saveSchemaVersion": 1,
+    "payload": "AQID",
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "deviceId": "device_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "clientSeq": 1,
+    "reason": "manual",
+    "createdAt": "2026-11-01T12:00:00.000Z"
+  },
+  "playLease": {
+    "userId": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "deviceId": "device_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "tabId": "tab_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "expiresAt": "2026-11-01T12:10:00.000Z"
+  },
+  "achievementDef": {
+    "key": "first-door",
+    "title": "Open Sesame",
+    "description": "Open the first door",
+    "icon": "door",
+    "hidden": false
+  },
+  "analyticsEvent": {
+    "ts": "2026-11-01T12:00:00.000Z",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "env": "draft",
+    "pseudoUserId": "anon-1",
+    "sessionId": "session_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "name": "save.created"
+  }
+}
