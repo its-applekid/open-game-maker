@@ -28,6 +28,7 @@ export interface AppDeps {
     analyticsRetentionDays: number;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
+    reportBundleMaxBytes: number;
   };
   blobStore: BlobStore;
   events: AppEvents;
