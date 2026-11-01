@@ -19,6 +19,13 @@ assets-local/
     <version>/extracted/               # bundle-level leftovers (readme, vendor index, goodies)
   tools/<tool-id>/<version>/           # vendor apps, e.g. the Kenney launcher AppImage
   inspiration/<id>/<version>/          # reference-only collections (no in-game rights), same shape as packs/
+  previews/<hh>/<hash>-<kind>.webp     # card previews (thumb, sheet, waveform, clip) of shareable assets
+  private/
+    previews/<hh>/...                  # previews of private vendors' assets (never served publicly)
+    hash-manifests/<name>.txt          # "sha256  bytes  path" of every file of a collection, carded or not
+    blocklist/redistribution-none.txt  # gm packs blocklist: the commit check's hash feed (OGM_BLOCKLIST_FILE)
+  derived/<pack-id>/                   # variants made from a pack's files; inherit its rights
+  index/cards.index.json               # gm's card index (gm packs index rebuilds it)
   inbox/                               # Drive watch-folder intake (scripts/drive-sync/)
     queue.jsonl                        # one line per downloaded drop, appended by the listener
     quarantine/<time>-<slug>-<id8>/
@@ -30,6 +37,14 @@ assets-local/
 - **Pack ids** are `<vendor>-<name>` in kebab case, e.g. `synty-polygon-viking-realm` or `kenney-racing-kit`. Kenney's `Archive` and `Early access` copies add `-archive` and `-early-access` suffixes, because their names clash with current packs.
 - **Versions** come from the vendor: the archive name for Synty (`v3`, `1.0.4`), and the pack's `License.txt` for Kenney (`2.0`), falling back to the bundle version. A new version goes in a new folder next to the old one, and `current` in `pack.json` moves to it.
 - **Packs from a bundle** keep no originals of their own. `pack.json` points at the bundle and the path inside it.
+
+## Hash blocklist and preview blobs
+
+`gm packs blocklist` hashes every file of each collection whose resolved `redistribution` is `none`: `packs/<id>/<version>/{originals,extracted}` (or all of `inspiration/<id>/`), every preview its cards reference, `derived/<id>/`, and the lines of its `collection_info.hash_manifest` (re-prefixed `manifest/<id>/`). It writes one sorted `sha256  bytes  path` line per file to `$OGM_BLOCKLIST_FILE`, else `private/blocklist/redistribution-none.txt`, with paths relative to `assets-local/`. The commit service refuses any file whose sha256 is listed. Re-runs only hash files whose size or mtime changed (`private/blocklist/cache.json`); `--no-cache` rehashes everything. Rights come from a fresh read of the cards, and an unreadable collection card makes the command exit 1.
+
+`gm packs index --import-previews` copies `previews/`, `private/previews/` and `private/hash-manifests/` into the blob store at `$OGM_BLOB_ROOT` (content-addressed, idempotent) and records `previews.blob` and `visibility` (`private` for `private/` keys) on the index entries. Card files and originals are never written or moved.
+
+`gm packs index --families` recomputes every style family's coverage from the rebuilt card index and rewrites `packages/asset-cards/data/style-families.json`. If a family offered during game creation no longer has characters, environment, or props, the command exits 1 and leaves the family file unchanged.
 
 ## `pack.json`
 

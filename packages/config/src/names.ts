@@ -81,6 +81,18 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'secret',
     doc: 'HMAC key for voice tokens (api, voice-host)',
   },
+  {
+    name: 'OGM_VOICE_HOST_INTERNAL_URL',
+    unit: 'api',
+    kind: 'url',
+    doc: 'http://127.0.0.1:<OGM_VOICE_PORT> (loopback voice host; briefing push off when unset)',
+  },
+  {
+    name: 'OGM_VOICE_INTERNAL_SECRET',
+    unit: 'shared',
+    kind: 'secret',
+    doc: 'backend -> voice host internal bearer (api, voice-host)',
+  },
   { name: 'OGM_COMMIT_SERVICE_TOKEN', unit: 'shared', kind: 'secret', doc: 'backend -> commit service bearer' },
   {
     name: 'OGM_COMMIT_INTERNAL_URL',
@@ -145,4 +157,10 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
   { name: 'PLAYWRIGHT_BROWSERS_PATH', unit: 'gm', kind: 'path', doc: 'cached Chromium browsers used by gm verify' },
   { name: 'XDG_RUNTIME_DIR', unit: 'gm', kind: 'path', doc: 'holds the ogm-verify capture slots (2 per host)' },
+  {
+    name: 'OGM_BLOCKLIST_FILE',
+    unit: 'shared',
+    kind: 'path',
+    doc: 'redistribution:none hash feed (gm packs blocklist writes, commit service reads)',
+  },
 ];
