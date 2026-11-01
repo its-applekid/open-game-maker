@@ -11,10 +11,7 @@ export class RightsCheckUnavailable extends Error {
   }
 }
 
-export function checkPublishRights(
-  artifactPath: string,
-  visibility: 'public' | 'private',
-): Promise<RightsReason[]> {
+export function checkPublishRights(artifactPath: string, visibility: 'public' | 'private'): Promise<RightsReason[]> {
   return new Promise((resolve, reject) => {
     execFile(
       'gm',

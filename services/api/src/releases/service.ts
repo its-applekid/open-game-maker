@@ -96,7 +96,10 @@ function requireMainBuild(deps: AppDeps, gameId: string, buildId: string): { bui
 }
 
 function counts(deps: AppDeps, gameId: string): VersionCounts {
-  const publishCount = deps.sqlite.prepare<[string], { count: number }>('SELECT COUNT(*) AS count FROM releases WHERE game_id = ?').get(gameId)?.count ?? 0;
+  const publishCount =
+    deps.sqlite
+      .prepare<[string], { count: number }>('SELECT COUNT(*) AS count FROM releases WHERE game_id = ?')
+      .get(gameId)?.count ?? 0;
   return { publishCount: publishCount + 1, buildsSinceFork: 0, txSinceLatestBuild: 0 };
 }
 
@@ -210,26 +213,36 @@ export async function updateBuild(
   if (!existing) throw new ReleaseError('build_not_found', 404);
   deps.db.update(schema.builds).set({ status }).where(eq(schema.builds.id, buildId)).run();
   if (status === 'tested') {
-    deps.sqlite.prepare("UPDATE branches SET latest_build_id = ? WHERE id = ? AND name = 'main' AND latest_build_id IS NULL").run(buildId, existing.branchId);
+    deps.sqlite
+      .prepare("UPDATE branches SET latest_build_id = ? WHERE id = ? AND name = 'main' AND latest_build_id IS NULL")
+      .run(buildId, existing.branchId);
     await runtime.onBuildTested(existing.gameId, existing.branchId, buildId);
   }
   return buildResponse({ ...existing, status });
 }
 
-async function prepareSnapshot(
-  deps: AppDeps,
-  runtime: ReleaseRuntime,
-  build: BuildRow,
-): Promise<SnapshotRow> {
+async function prepareSnapshot(deps: AppDeps, runtime: ReleaseRuntime, build: BuildRow): Promise<SnapshotRow> {
   const baseDoc = await runtime.source.load(build.gameId, build.id);
   const chain = readChain(deps.sqlite, build.branchId);
   const transactions = chain.flatMap(({ txs }) => txs).filter((tx) => tx.branchId === build.branchId);
-  const workingSet = reduce({ gameId: build.gameId, branchId: build.branchId, buildId: build.id, baseDoc, txs: transactions });
+  const workingSet = reduce({
+    gameId: build.gameId,
+    branchId: build.branchId,
+    buildId: build.id,
+    baseDoc,
+    txs: transactions,
+  });
   const folded = fold(baseDoc, workingSet);
   let snapshot = deps.db
     .select()
     .from(schema.overrideSnapshots)
-    .where(and(eq(schema.overrideSnapshots.gameId, build.gameId), eq(schema.overrideSnapshots.buildId, build.id), eq(schema.overrideSnapshots.sha256, folded.sha256)))
+    .where(
+      and(
+        eq(schema.overrideSnapshots.gameId, build.gameId),
+        eq(schema.overrideSnapshots.buildId, build.id),
+        eq(schema.overrideSnapshots.sha256, folded.sha256),
+      ),
+    )
     .get();
   if (!snapshot) {
     snapshot = {
@@ -247,9 +260,18 @@ async function prepareSnapshot(
     deps.db.insert(schema.overrideSnapshots).values(snapshot).run();
   }
   if (snapshot.foldSha) return snapshot;
-  const result = await runtime.commit.execute({ kind: 'fold_design', gameId: build.gameId, base: build.gitSha, files: folded.files });
+  const result = await runtime.commit.execute({
+    kind: 'fold_design',
+    gameId: build.gameId,
+    base: build.gitSha,
+    files: folded.files,
+  });
   if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
-  deps.db.update(schema.overrideSnapshots).set({ foldSha: result.sha }).where(eq(schema.overrideSnapshots.id, snapshot.id)).run();
+  deps.db
+    .update(schema.overrideSnapshots)
+    .set({ foldSha: result.sha })
+    .where(eq(schema.overrideSnapshots.id, snapshot.id))
+    .run();
   return { ...snapshot, foldSha: result.sha };
 }
 
@@ -268,35 +290,48 @@ function appendRelease(
     actor: string;
   },
 ): ReleaseRow {
-  return deps.sqlite.transaction(() => {
-    const current = deps.sqlite
-      .prepare<[string], { published_release_id: string | null }>('SELECT published_release_id FROM games WHERE id = ?')
-      .get(input.gameId);
-    if (!current || current.published_release_id !== input.expected) throw new ReleaseError('pointer_moved', 409);
-    const seq = (deps.sqlite.prepare<[string], { seq: number | null }>('SELECT MAX(seq) AS seq FROM releases WHERE game_id = ?').get(input.gameId)?.seq ?? 0) + 1;
-    const row: ReleaseRow = {
-      id: stableId('rel', runtime.now()),
-      gameId: input.gameId,
-      seq,
-      version: input.version,
-      buildId: input.buildId,
-      snapshotId: input.snapshotId,
-      gitTag: `gm/${input.gameId}/v${input.version}`,
-      kind: input.kind,
-      restoresReleaseId: input.restoresReleaseId ?? null,
-      predecessorReleaseId: input.expected,
-      changelogJson: JSON.stringify(input.changelog),
-      publishedBy: input.actor,
-      publishedAt: runtime.now().toISOString(),
-    };
-    deps.db.insert(schema.releases).values(row).run();
-    const moved = deps.sqlite.prepare('UPDATE games SET published_release_id = ? WHERE id = ? AND published_release_id IS ?').run(row.id, input.gameId, input.expected);
-    if (moved.changes === 0) throw new ReleaseError('pointer_moved', 409);
-    if (input.kind === 'publish') {
-      deps.db.update(schema.changeNotes).set({ releaseId: row.id }).where(and(eq(schema.changeNotes.gameId, input.gameId), isNull(schema.changeNotes.releaseId))).run();
-    }
-    return row;
-  }).immediate();
+  return deps.sqlite
+    .transaction(() => {
+      const current = deps.sqlite
+        .prepare<[string], { published_release_id: string | null }>(
+          'SELECT published_release_id FROM games WHERE id = ?',
+        )
+        .get(input.gameId);
+      if (!current || current.published_release_id !== input.expected) throw new ReleaseError('pointer_moved', 409);
+      const seq =
+        (deps.sqlite
+          .prepare<[string], { seq: number | null }>('SELECT MAX(seq) AS seq FROM releases WHERE game_id = ?')
+          .get(input.gameId)?.seq ?? 0) + 1;
+      const row: ReleaseRow = {
+        id: stableId('rel', runtime.now()),
+        gameId: input.gameId,
+        seq,
+        version: input.version,
+        buildId: input.buildId,
+        snapshotId: input.snapshotId,
+        gitTag: `gm/${input.gameId}/v${input.version}`,
+        kind: input.kind,
+        restoresReleaseId: input.restoresReleaseId ?? null,
+        predecessorReleaseId: input.expected,
+        changelogJson: JSON.stringify(input.changelog),
+        publishedBy: input.actor,
+        publishedAt: runtime.now().toISOString(),
+      };
+      deps.db.insert(schema.releases).values(row).run();
+      const moved = deps.sqlite
+        .prepare('UPDATE games SET published_release_id = ? WHERE id = ? AND published_release_id IS ?')
+        .run(row.id, input.gameId, input.expected);
+      if (moved.changes === 0) throw new ReleaseError('pointer_moved', 409);
+      if (input.kind === 'publish') {
+        deps.db
+          .update(schema.changeNotes)
+          .set({ releaseId: row.id })
+          .where(and(eq(schema.changeNotes.gameId, input.gameId), isNull(schema.changeNotes.releaseId)))
+          .run();
+      }
+      return row;
+    })
+    .immediate();
 }
 
 export async function publish(
@@ -308,13 +343,32 @@ export async function publish(
   const expected = game.publishedReleaseId;
   const rights = await runtime.checkRights(build.artifactPath, game.repoVisibility);
   if (rights.length) throw new ReleaseError('rights', 422, { rights });
-  const predecessor = expected ? deps.db.select().from(schema.releases).where(eq(schema.releases.id, expected)).get() : undefined;
+  const predecessor = expected
+    ? deps.db.select().from(schema.releases).where(eq(schema.releases.id, expected)).get()
+    : undefined;
   const snapshot = await prepareSnapshot(deps, runtime, build);
   const version = runtime.deriveVersion(counts(deps, input.gameId));
   const changelog = sanitizeChangelog(input.changelog ?? assembleChangelog(deps, input.gameId, predecessor));
-  const result = await runtime.commit.execute({ kind: 'release', gameId: input.gameId, sha: snapshot.foldSha!, semver: version, changelog: renderChangelog(changelog) });
+  const result = await runtime.commit.execute({
+    kind: 'release',
+    gameId: input.gameId,
+    sha: snapshot.foldSha!,
+    semver: version,
+    changelog: renderChangelog(changelog),
+  });
   if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
-  return releaseResponse(appendRelease(deps, runtime, { gameId: input.gameId, expected, version, buildId: build.id, snapshotId: snapshot.id, kind: 'publish', changelog, actor: input.actor }));
+  return releaseResponse(
+    appendRelease(deps, runtime, {
+      gameId: input.gameId,
+      expected,
+      version,
+      buildId: build.id,
+      snapshotId: snapshot.id,
+      kind: 'publish',
+      changelog,
+      actor: input.actor,
+    }),
+  );
 }
 
 export async function rollback(
@@ -324,21 +378,54 @@ export async function rollback(
 ): Promise<Release & { affectedSaves: number | null }> {
   const game = deps.db.select().from(schema.games).where(eq(schema.games.id, input.gameId)).get();
   if (!game) throw new ReleaseError('game_not_found', 404);
-  const target = deps.db.select().from(schema.releases).where(and(eq(schema.releases.id, input.releaseId), eq(schema.releases.gameId, input.gameId))).get();
+  const target = deps.db
+    .select()
+    .from(schema.releases)
+    .where(and(eq(schema.releases.id, input.releaseId), eq(schema.releases.gameId, input.gameId)))
+    .get();
   if (!target) throw new ReleaseError('release_not_found', 404);
-  const snapshot = deps.db.select().from(schema.overrideSnapshots).where(eq(schema.overrideSnapshots.id, target.snapshotId)).get();
+  const snapshot = deps.db
+    .select()
+    .from(schema.overrideSnapshots)
+    .where(eq(schema.overrideSnapshots.id, target.snapshotId))
+    .get();
   const build = deps.db.select().from(schema.builds).where(eq(schema.builds.id, target.buildId)).get();
   if (!snapshot?.foldSha || !build) throw new ReleaseError('release_incomplete', 409);
   const version = runtime.deriveVersion(counts(deps, input.gameId));
   const changelog = { summary: `Restores ${target.version}`, items: [] };
-  const result = await runtime.commit.execute({ kind: 'release', gameId: input.gameId, sha: snapshot.foldSha, semver: version, changelog: changelog.summary });
+  const result = await runtime.commit.execute({
+    kind: 'release',
+    gameId: input.gameId,
+    sha: snapshot.foldSha,
+    semver: version,
+    changelog: changelog.summary,
+  });
   if (!result.ok) throw new ReleaseError('gate_refused', 403, { verdict: result.verdict });
-  const row = appendRelease(deps, runtime, { gameId: input.gameId, expected: game.publishedReleaseId, version, buildId: target.buildId, snapshotId: target.snapshotId, kind: 'rollback', restoresReleaseId: target.id, changelog, actor: input.actor });
-  return { ...releaseResponse(row), affectedSaves: await runtime.countSavesAboveSchema(input.gameId, build.saveSchemaVersion) };
+  const row = appendRelease(deps, runtime, {
+    gameId: input.gameId,
+    expected: game.publishedReleaseId,
+    version,
+    buildId: target.buildId,
+    snapshotId: target.snapshotId,
+    kind: 'rollback',
+    restoresReleaseId: target.id,
+    changelog,
+    actor: input.actor,
+  });
+  return {
+    ...releaseResponse(row),
+    affectedSaves: await runtime.countSavesAboveSchema(input.gameId, build.saveSchemaVersion),
+  };
 }
 
 export function listReleases(deps: AppDeps, gameId: string): Release[] {
-  return deps.db.select().from(schema.releases).where(eq(schema.releases.gameId, gameId)).orderBy(schema.releases.seq).all().map(releaseResponse);
+  return deps.db
+    .select()
+    .from(schema.releases)
+    .where(eq(schema.releases.gameId, gameId))
+    .orderBy(schema.releases.seq)
+    .all()
+    .map(releaseResponse);
 }
 
 export function published(deps: AppDeps, gameId: string) {

@@ -32,7 +32,10 @@ function designDoc(): DesignDoc {
 
 function setup(overrides: Partial<ReleaseRuntime> = {}) {
   const deps = makeDeps();
-  deps.db.insert(schema.families).values({ id: ids.family, name: 'Family', ownerUserId: ids.user, createdAt: now }).run();
+  deps.db
+    .insert(schema.families)
+    .values({ id: ids.family, name: 'Family', ownerUserId: ids.user, createdAt: now })
+    .run();
   deps.db
     .insert(schema.familyMembers)
     .values({ familyId: ids.family, userId: ids.user, role: 'owner', capability: 'creator', joinedAt: now })
@@ -291,10 +294,13 @@ describe('release routes', () => {
   it('assembles and lints changelog notes and main transaction labels', async () => {
     const { deps, source } = setup();
     insertBuild(deps, source);
-    deps.db.insert(schema.changeNotes).values([
-      { id: 'note_1', gameId: ids.game, kind: 'add', text: 'New map', createdAt: now },
-      { id: 'note_2', gameId: ids.game, kind: 'fix', text: 'Fixed jump', createdAt: now },
-    ]).run();
+    deps.db
+      .insert(schema.changeNotes)
+      .values([
+        { id: 'note_1', gameId: ids.game, kind: 'add', text: 'New map', createdAt: now },
+        { id: 'note_2', gameId: ids.game, kind: 'fix', text: 'Fixed jump', createdAt: now },
+      ])
+      .run();
     for (const [index, tx] of [ids.tx1, ids.tx2, ids.tx3].entries()) {
       deps.sqlite
         .prepare(

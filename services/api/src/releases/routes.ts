@@ -116,13 +116,17 @@ const buildBody = z
   })
   .strict();
 const buildPatch = z.object({ status: z.enum(['building', 'tested', 'failed']) }).strict();
-const changelog = z.object({ summary: z.string().trim().min(1), items: z.array(note).optional() }).transform((value) => ({
-  summary: value.summary,
-  items: value.items ?? [],
-}));
+const changelog = z
+  .object({ summary: z.string().trim().min(1), items: z.array(note).optional() })
+  .transform((value) => ({
+    summary: value.summary,
+    items: value.items ?? [],
+  }));
 const publishBody = z.object({ buildId: z.string().min(1), changelog: changelog.optional() }).strict();
 const rollbackBody = z.object({ releaseId: z.string().min(1) }).strict();
-const changeNoteBody = z.object({ jobId: z.string().optional(), kind: note.shape.kind, text: note.shape.text }).strict();
+const changeNoteBody = z
+  .object({ jobId: z.string().optional(), kind: note.shape.kind, text: note.shape.text })
+  .strict();
 
 const routes = new Hono<ApiBindings>()
   .post('/internal/games/:gameId/builds', async (c) => {

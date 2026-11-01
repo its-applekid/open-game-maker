@@ -91,10 +91,7 @@ describe('fold', () => {
   });
 
   it('applies creates and deletes before setting entity values', () => {
-    const result = fold(
-      baseDoc(),
-      workingSet([entry(`chest.open@${createdEntity}`, 'carried', true, createdEntity)]),
-    );
+    const result = fold(baseDoc(), workingSet([entry(`chest.open@${createdEntity}`, 'carried', true, createdEntity)]));
 
     expect(result.doc.entities[ids.entity]).toBeUndefined();
     expect(result.doc.entities[createdEntity]).toEqual({
