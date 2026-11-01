@@ -395,7 +395,7 @@ def main() -> int:
     generated = datetime.now().astimezone().isoformat(timespec="seconds")
     written = write_cards(root, models, results, generated)
     args.qa.parent.mkdir(parents=True, exist_ok=True)
-    args.qa.write_text(qa_markdown(results, packs, "KayKit Complete v7"))
+    args.qa.write_text(qa_markdown(results, packs, generated))
     subprocess.run([sys.executable, "-I", str(CATALOG_BUILDER), "--root", str(root)], check=True, cwd=REPO)
     subprocess.run(["pnpm", "--filter", "@ogm/asset-cards", "index:build", "--", str(root)], check=True, cwd=REPO)
     failed = sum(not result.get("ok") for result in results.values()) + sum(not row.get("ok") for row in lineups)

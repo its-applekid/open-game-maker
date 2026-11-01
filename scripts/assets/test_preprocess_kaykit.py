@@ -4,7 +4,9 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from datetime import datetime as RealDatetime
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -167,6 +169,27 @@ class KayKitPreprocessor(unittest.TestCase):
         analyses[models[-1].uid]["analysis"]["bounds"]["max"] = [0.02, 0.02, 0.02]
         report = kaykit.qa_markdown(analyses, {model.pack_id: models}, generated="2026-11-01")
         self.assertIn("`kaykit-test-pack/small`: largest bound 0.02 (pack median 1)", report)
+
+    def test_main_records_the_generation_timestamp_in_the_qa_report(self):
+        [model] = kaykit.discover_models(self.root)
+        generated = RealDatetime(2026, 11, 1, 12, 34, 56).astimezone()
+
+        class FixedDatetime(RealDatetime):
+            @classmethod
+            def now(cls, tz=None):
+                return generated
+
+        analysis = {"triangles": 1, "vertices": 3, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "pivot": "base-center", "materials": [], "rig": None, "clips": []}
+        qa = self.root / "qa.md"
+        argv = ["preprocess_kaykit.py", "--root", str(self.root), "--qa", str(qa)]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(kaykit, "datetime", FixedDatetime), \
+             mock.patch.object(kaykit.subprocess, "run"), \
+             mock.patch.object(kaykit, "run_renderer", return_value=({model.uid: {"ok": True, "analysis": analysis}}, [])), \
+             mock.patch.object(kaykit, "write_cards", return_value=1):
+            self.assertEqual(kaykit.main(), 0)
+        self.assertIn(f"Generated: {generated.isoformat(timespec='seconds')}", qa.read_text())
 
     def test_catalog_rebuild_honors_the_selected_asset_root(self):
         completed = subprocess.run(

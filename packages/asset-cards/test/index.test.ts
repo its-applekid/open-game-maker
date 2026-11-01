@@ -1,5 +1,8 @@
-import { existsSync, readFileSync, utimesSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -18,6 +21,22 @@ describe('buildIndex', () => {
       'packs/kenney-mini-dungeon/cards/broken-status.card.json',
     ]);
   });
+
+  it('keeps the previous on-disk index when the command encounters an invalid card', () => {
+    const root = mkdtempSync(join(tmpdir(), 'asset-index-command-'));
+    mkdirSync(join(root, 'packs', 'broken', 'cards'), { recursive: true });
+    mkdirSync(join(root, 'index'));
+    writeFileSync(join(root, 'packs', 'broken', 'cards', 'bad.card.json'), '{not json');
+    const indexPath = join(root, INDEX_PATH);
+    writeFileSync(indexPath, '{"previous":true}\n');
+
+    const script = fileURLToPath(new URL('../scripts/build-index.mjs', import.meta.url));
+    const result = spawnSync(process.execPath, [script, root], { encoding: 'utf8' });
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('refusing to replace the asset index: 1 invalid card(s)');
+    expect(readFileSync(indexPath, 'utf8')).toBe('{"previous":true}\n');
+  }, 30_000);
 
   it("gives an asset without rights its collection's rights, licence and family, marked by: collection", async () => {
     const index = await buildIndex(FIXTURE);

@@ -70,7 +70,9 @@ class Library(unittest.TestCase):
         self.assertEqual(card_of(self.root, SYNTY)["license"], "LicenseRef-synty-personal")
         self.assertEqual(card_of(self.root, "kaykit-adventurers")["license"], "CC0-1.0")
         self.assertEqual(card_of(self.root, "kaykit-adventurers")["collection_info"]["counts"], {"model": 1})
+        self.assertEqual(card_of(self.root, "kaykit-adventurers")["describe"]["style_family"], "chunky-low-poly")
         self.assertEqual(card_of(self.root, "kaykit-adventurers")["describe"]["set"], "kaykit")
+        self.assertEqual(card_of(self.root, "kaykit-adventurers")["provenance"]["describe.style_family"]["by"], "code")
         self.assertEqual(card_of(self.root, KENNEY)["status"], "tagged")
         self.assertEqual(card_of(self.root, KENNEY)["describe"]["set"], "kenney-1-bit")
         set_provenance = card_of(self.root, KENNEY)["provenance"]["describe.set"]
