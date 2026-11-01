@@ -1,0 +1,18 @@
+{
+  "contract": "aiur.ticket_progress",
+  "contract_version": 1,
+  "issue_identifier": "142",
+  "repository": "its-everdred/game",
+  "phase": { "status": "known", "value": "work", "observed_at": "2026-10-31T18:00:00Z" },
+  "progress": {
+    "status": "known",
+    "percent": 40,
+    "source": "agent",
+    "freshness": "fresh",
+    "occurred_at": "2026-10-31T18:00:00Z",
+    "observed_at": "2026-10-31T18:00:01Z"
+  },
+  "events": [{ "type": "progress", "phase": "work", "transition": null, "at": "2026-10-31T18:00:00Z" }],
+  "sources": { "activity": "available" },
+  "generated_at": "2026-10-31T18:00:02Z"
+}

@@ -1,0 +1,10 @@
+{
+  "contract": "aiur.status",
+  "contract_version": 1,
+  "generated_at": "2026-10-31T18:00:00Z",
+  "counts": { "running": 1, "retrying": 0, "idle": 0 },
+  "running": [],
+  "retrying": [],
+  "idle": [],
+  "globally_paused": false
+}

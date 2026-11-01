@@ -1,0 +1,25 @@
+{
+  "name": "@ogm/aiur-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "phoenix": "1.8.16",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@types/phoenix": "1.6.8"
+  }
+}
