@@ -1,0 +1,90 @@
+import { useCallback, useEffect } from 'react';
+
+import type { Job } from '@ogm/contracts';
+
+import { registerTestApi } from '../../app/testHook';
+import { Bar } from './Bar';
+import { Chat } from './Chat';
+import { useDock, visibleJobs } from './dock';
+import { Fab } from './Fab';
+import { JobList } from './JobList';
+import { useBudgetUnitLabel, useMyJobs } from './jobs';
+import type { StreamedChatMessage } from './stream';
+import './dock.css';
+import './chat.css';
+
+const testState: {
+  dockState: string;
+  jobs: Job[];
+  messagesByJob: Record<string, StreamedChatMessage[]>;
+} = { dockState: 'collapsed', jobs: [], messagesByJob: {} };
+let testApiRegistered = false;
+
+export function BuildChatDock() {
+  const { jobs } = useMyJobs();
+  const unitLabel = useBudgetUnitLabel();
+  const dock = useDock();
+  const shownJobs = visibleJobs(jobs, dock);
+  const selected = jobs.find(({ id }) => id === dock.openJobId);
+
+  useEffect(() => dock.sync(jobs), [dock.sync, jobs]);
+
+  useEffect(() => {
+    document.body.classList.toggle('builds-on', shownJobs.length > 0);
+    return () => document.body.classList.remove('builds-on');
+  }, [shownJobs.length]);
+
+  testState.dockState = dock.view;
+  testState.jobs = jobs;
+  useEffect(() => {
+    if (testApiRegistered || !window.__ogmHost) return;
+    registerTestApi('jobs', {
+      get dockState() {
+        return testState.dockState;
+      },
+      get jobs() {
+        return testState.jobs;
+      },
+      get messagesByJob() {
+        return testState.messagesByJob;
+      },
+    });
+    testApiRegistered = true;
+  }, []);
+
+  const recordMessages = useCallback((jobId: string, messages: StreamedChatMessage[]) => {
+    testState.messagesByJob[jobId] = messages;
+  }, []);
+
+  if (shownJobs.length === 0) return null;
+
+  const openJob = (job: Job) => dock.openChat(job.id, jobs);
+  return (
+    <aside className="build-chat-dock" data-state={dock.view}>
+      {dock.view === 'collapsed' ? <Fab jobs={shownJobs} fresh={dock.fresh} onOpen={() => dock.open(jobs)} /> : null}
+      {dock.view !== 'collapsed' ? (
+        <div className="build-chat-panel">
+          {dock.view === 'chat' && selected ? (
+            <div className="build-chat-chat-layout">
+              <div className="build-chat-landscape-list">
+                <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} />
+              </div>
+              <Chat key={selected.id} job={selected} onBack={() => dock.back(jobs)} onMessages={recordMessages} />
+            </div>
+          ) : (
+            <>
+              <header className="build-chat-panel-head">
+                <h3>Builds</h3>
+                <button className="build-chat-close tap-secondary" type="button" onClick={() => dock.close(jobs)}>
+                  Close
+                </button>
+              </header>
+              <Bar jobs={shownJobs} expanded={dock.view === 'expanded'} onToggle={() => dock.toggleList(jobs)} />
+              {dock.view === 'expanded' ? <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} /> : null}
+            </>
+          )}
+        </div>
+      ) : null}
+    </aside>
+  );
+}

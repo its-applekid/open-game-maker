@@ -47,6 +47,7 @@ describe('licence table', () => {
     expect(licenseFor('synty-personal')?.id).toBe('LicenseRef-synty-personal');
     expect(licenseFor('sidetrax-royalty-free')?.id).toBe('LicenseRef-sidetrax-royalty-free');
     expect(licenseFor('LimeZu-commercial')?.id).toBe('LicenseRef-limezu-commercial');
+    expect(licenseFor('smallscaleint-itch')?.id).toBe('LicenseRef-smallscaleint-itch');
     expect(licenseFor('ansimuz-free-commercial')?.id).toBe('LicenseRef-ansimuz-free');
     expect(licenseFor('custom-commercial-ok')?.id).toBe('LicenseRef-hattap-commercial');
     expect(licenseFor('CC0-1.0')?.id).toBe('CC0-1.0');
@@ -57,6 +58,15 @@ describe('licence table', () => {
 
   it('stores a SHA-256 whitelist value for exact Kenney licence-text matching', () => {
     expect(licenseFor('kenney')?.license_text_sha256).toMatch(/^[a-f0-9]{64}$/);
+  });
+
+  it('keeps SmallScaleInt private, local-only, and distributable only in builds', () => {
+    const row = licenseFor('smallscaleint-itch');
+    expect(row).toMatchObject({
+      id: 'LicenseRef-smallscaleint-itch',
+      processing: 'local-only',
+      ceiling: { audience: 'private', redistribution: 'in-build' },
+    });
   });
 
   it('gives each confirmed row its ceiling through the rights engine, and each unconfirmed row only the strict default', () => {
