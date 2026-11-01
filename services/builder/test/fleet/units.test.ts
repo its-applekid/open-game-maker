@@ -1,9 +1,10 @@
 import { readFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse, stringify } from 'yaml';
 
+import { PROBE_TIMEOUT_MS, passes } from '../../src/fleet/health.js';
 import { registryPath, writeRegistry } from '../../src/fleet/registry.js';
 import { daemonPaths, writeAtomic, writeDaemonSecrets } from '../../src/fleet/secrets.js';
 import { createSystemctl, mintTokens } from '../../src/fleet/systemctl.js';
@@ -155,5 +156,18 @@ describe('writeRegistry', () => {
     expect(parse(await readFile(registryPath(home), 'utf8')).instances['owner-game3'].url).toBe(
       'http://127.0.0.1:4103',
     );
+  });
+});
+
+describe('passes', () => {
+  it('counts a health check that never answers as a miss after the probe timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const result = passes(() => new Promise<boolean>(() => undefined));
+      await vi.advanceTimersByTimeAsync(PROBE_TIMEOUT_MS);
+      await expect(result).resolves.toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

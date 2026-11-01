@@ -16,11 +16,18 @@ export async function waitHealthy(check: () => Promise<boolean>, sleep: Sleep): 
   }
 }
 
+export const PROBE_TIMEOUT_MS = 5_000;
+
+// A check that throws or takes longer than PROBE_TIMEOUT_MS is a miss, so one wedged daemon cannot stall the rest.
 export async function passes(check: () => Promise<boolean>): Promise<boolean> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<boolean>((resolve) => {
+    timer = setTimeout(() => resolve(false), PROBE_TIMEOUT_MS);
+  });
   try {
-    return await check();
-  } catch {
-    return false;
+    return await Promise.race([check().catch(() => false), timeout]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

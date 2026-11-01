@@ -72,12 +72,13 @@ export function assertTransition(from: DaemonStatus, to: DaemonStatus): void {
 
 const MAX_SLUG = 48;
 
-export function slugFor(repo: string): string {
+// `withHash` disambiguates repos that flatten to the same slug (`a/b.c` and `a/b-c`).
+export function slugFor(repo: string, withHash = false): string {
   const slug = repo
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  if (slug.length <= MAX_SLUG) return slug;
+  if (slug.length <= MAX_SLUG && !withHash) return slug;
   const hash = createHash('sha256').update(repo.toLowerCase()).digest('hex').slice(0, 4);
   return `${slug.slice(0, MAX_SLUG - 5).replace(/-+$/, '')}-${hash}`;
 }

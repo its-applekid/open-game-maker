@@ -58,6 +58,18 @@ export function createFleet(deps: FleetDeps) {
   const checkPolicy = deps.preflight ?? preflight;
   const misses = createMissCounter();
   const inFlight = new Map<string, Promise<EnsureResult>>();
+  // Slugs this process is starting; a stored `starting` row outside this set was left by a previous process.
+  const starting = new Set<string>();
+  let chain: Promise<unknown> = Promise.resolve();
+
+  // Serializes every read-check-write on rows (capacity claims, port allocation, idle stops, health stops).
+  function locked<T>(fn: () => Promise<T>): Promise<T> {
+    const result = chain.then(fn);
+    chain = result.catch(() => undefined);
+    return result;
+  }
+
+  const isStale = (row: DaemonRow) => row.status === 'starting' && !starting.has(row.slug);
 
   function clientFor(row: DaemonRow, token: string): AiurClient {
     return createAiurClient(
@@ -85,7 +97,8 @@ export function createFleet(deps: FleetDeps) {
   async function rowFor(repo: string): Promise<DaemonRow> {
     const existing = await store.byRepo(repo);
     if (existing) return existing;
-    const slug = slugFor(repo);
+    const rows = await store.list();
+    const slug = rows.some((row) => row.slug === slugFor(repo)) ? slugFor(repo, true) : slugFor(repo);
     const paths = daemonPaths(env.home, slug);
     const row: DaemonRow = {
       slug,
@@ -93,7 +106,7 @@ export function createFleet(deps: FleetDeps) {
       checkoutPath: paths.dir,
       unit: unitName(slug),
       envFile: paths.envFile,
-      port: await allocatePort(await store.list()),
+      port: await allocatePort(rows),
       status: 'stopped',
       lastHealthAt: null,
       lastError: null,
@@ -139,21 +152,17 @@ export function createFleet(deps: FleetDeps) {
     return { status: 'stopped', reasons };
   }
 
+  // `row` is already claimed as `starting`; every exit that does not reach `running` returns it to `stopped`.
   async function start(row: DaemonRow, kind: JobKind): Promise<EnsureResult> {
-    const { paths, input } = await render(row, kind);
-    await writeDaemonSecrets(paths, env);
-    const verdict = await checkPolicy(paths.dir, input);
-    if (!verdict.ok) {
-      await store.update(row.slug, { lastError: verdict.reasons.join('; ') });
-      return { status: 'stopped', reasons: verdict.reasons };
-    }
-
-    let current = await setStatus(row, 'starting', {
-      startedAt: now().toISOString(),
-      lastError: null,
-      idleSince: null,
-    });
+    let current = row;
+    let unitStarted = false;
     try {
+      const { paths, input } = await render(row, kind);
+      await writeDaemonSecrets(paths, env);
+      const verdict = await checkPolicy(paths.dir, input);
+      if (!verdict.ok) return await fail(current, verdict.reasons);
+
+      unitStarted = true;
       await systemctl.start(row.slug);
       const daemonEnv = parseEnv((await readIfPresent(paths.envFile)) ?? '');
       const { clientToken } = await mintTokens(runner, paths, aiurRoot(env), daemonEnv);
@@ -175,15 +184,16 @@ export function createFleet(deps: FleetDeps) {
       misses.reset(row.slug);
       return { status: 'running', daemon: await toDaemon(current) };
     } catch (error) {
-      await systemctl.stop(row.slug).catch(() => undefined);
+      if (unitStarted) await systemctl.stop(row.slug).catch(() => undefined);
       return fail(current, [(error as Error).message]);
     }
   }
 
-  async function ensure(repo: string, kind: JobKind): Promise<EnsureResult> {
+  type Claim = { done: EnsureResult } | { row: DaemonRow; kind: JobKind };
+
+  async function claim(repo: string, kind: JobKind): Promise<Claim> {
     let row = await rowFor(repo);
-    // Only this call can be starting the repo (inFlight), so a stored `starting` was left by a previous process.
-    if (row.status === 'starting') row = await setStatus(row, 'stopped');
+    if (isStale(row)) row = await setStatus(row, 'stopped');
     const shape = jobShape(kind, await activeJobs(repo));
 
     if (shape.max !== row.maxConcurrentAgents) {
@@ -192,24 +202,36 @@ export function createFleet(deps: FleetDeps) {
     }
     if (row.status === 'running' || row.status === 'idle') {
       row = await setStatus(row, 'running', { idleSince: null });
-      return { status: 'running', daemon: await toDaemon(row) };
+      return { done: { status: 'running', daemon: await toDaemon(row) } };
     }
 
-    const live = (await store.list()).filter((other) => LIVE_STATUSES.includes(other.status)).length;
-    if (live >= MAX_LIVE_DAEMONS) return { status: 'waiting_capacity', live };
+    const live = (await store.list()).filter((other) => LIVE_STATUSES.includes(other.status) && !isStale(other));
+    if (live.length >= MAX_LIVE_DAEMONS) return { done: { status: 'waiting_capacity', live: live.length } };
 
+    row = await setStatus(row, 'starting', { startedAt: now().toISOString(), lastError: null, idleSince: null });
+    starting.add(row.slug);
+    return { row, kind: shape.kind };
+  }
+
+  async function ensure(repo: string, kind: JobKind): Promise<EnsureResult> {
+    let claimed: Claim;
     try {
-      return await start(row, shape.kind);
+      claimed = await locked(() => claim(repo, kind));
     } catch (error) {
-      const reasons = [(error as Error).message];
-      await store.update(row.slug, { lastError: reasons.join('; ') });
-      return { status: 'stopped', reasons };
+      return { status: 'stopped', reasons: [(error as Error).message] };
+    }
+    if ('done' in claimed) return claimed.done;
+    try {
+      return await start(claimed.row, claimed.kind);
+    } finally {
+      starting.delete(claimed.row.slug);
     }
   }
 
   return {
     // Concurrent calls for one repo share a single start.
-    ensureDaemon(repo: string, kind: JobKind): Promise<EnsureResult> {
+    ensureDaemon(rawRepo: string, kind: JobKind): Promise<EnsureResult> {
+      const repo = rawRepo.toLowerCase();
       const pending = inFlight.get(repo);
       if (pending) return pending;
       const promise = ensure(repo, kind).finally(() => inFlight.delete(repo));
@@ -218,7 +240,7 @@ export function createFleet(deps: FleetDeps) {
     },
 
     async daemonFor(repo: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null> {
-      const row = await store.byRepo(repo);
+      const row = await store.byRepo(repo.toLowerCase());
       if (!row || row.status === 'stopped') return null;
       const daemon = await toDaemon(row);
       if (!daemon.clientToken) return null;
@@ -231,21 +253,36 @@ export function createFleet(deps: FleetDeps) {
     },
 
     // Called on an interval by the API. A daemon with no active job turns idle; idle for IDLE_STOP_MS, it stops.
+    // A `starting` row no start in this process owns (the API restarted mid-start) is stopped and freed.
     async stopIdleDaemons(at: Date = now()): Promise<string[]> {
       const stopped: string[] = [];
-      for (const row of await store.list()) {
-        if (row.status !== 'running' && row.status !== 'idle') continue;
-        const busy = (await activeJobs(row.repo)).length > 0;
+      for (const { repo } of await store.list()) {
+        await locked(async () => {
+          const row = await store.byRepo(repo);
+          if (!row) return;
+          if (isStale(row)) {
+            await systemctl.stop(row.slug).catch(() => undefined);
+            await setStatus(row, 'stopped', { lastError: 'start interrupted by an API restart' });
+            stopped.push(row.slug);
+            return;
+          }
+          if (row.status !== 'running' && row.status !== 'idle') return;
 
-        if (busy) {
-          if (row.status === 'idle') await setStatus(row, 'running', { idleSince: null });
-        } else if (row.status === 'running') {
-          await setStatus(row, 'idle', { idleSince: at.toISOString() });
-        } else if (row.idleSince && at.getTime() - Date.parse(row.idleSince) >= IDLE_STOP_MS) {
-          await systemctl.stop(row.slug);
-          await setStatus(row, 'stopped', { idleSince: null });
-          stopped.push(row.slug);
-        }
+          if ((await activeJobs(row.repo)).length > 0) {
+            if (row.status === 'idle') await setStatus(row, 'running', { idleSince: null });
+          } else if (row.status === 'running') {
+            await setStatus(row, 'idle', { idleSince: at.toISOString() });
+          } else if (row.idleSince && at.getTime() - Date.parse(row.idleSince) >= IDLE_STOP_MS) {
+            try {
+              await systemctl.stop(row.slug);
+            } catch (error) {
+              await store.update(row.slug, { lastError: (error as Error).message });
+              return;
+            }
+            await setStatus(row, 'stopped', { idleSince: null });
+            stopped.push(row.slug);
+          }
+        });
       }
       return stopped;
     },
@@ -256,19 +293,25 @@ export function createFleet(deps: FleetDeps) {
         if (row.status !== 'running' && row.status !== 'idle') continue;
         const token = (await readIfPresent(daemonPaths(env.home, row.slug).clientToken))?.trim() ?? '';
         const healthy = await passes(() => clientFor(row, token).healthz());
+        const verdict = misses.record(row.slug, healthy);
+        if (verdict === 'stop') {
+          await locked(async () => {
+            const current = await store.byRepo(row.repo);
+            if (current?.status !== 'running' && current?.status !== 'idle') return;
+            await systemctl.stop(row.slug).catch(() => undefined);
+            await setStatus(current, 'stopped', { lastError: 'healthz missed six times', idleSince: null });
+            await alert(`${row.unit} stayed unhealthy after a restart and was stopped`);
+          });
+          continue;
+        }
 
-        switch (misses.record(row.slug, healthy)) {
+        switch (verdict) {
           case 'ok':
             await store.update(row.slug, { lastHealthAt: now().toISOString() });
             break;
           case 'restart':
             await systemctl.restart(row.slug).catch(() => undefined);
             await alert(`${row.unit} missed three health checks and was restarted`);
-            break;
-          case 'stop':
-            await systemctl.stop(row.slug).catch(() => undefined);
-            await setStatus(row, 'stopped', { lastError: 'healthz missed six times', idleSince: null });
-            await alert(`${row.unit} stayed unhealthy after a restart and was stopped`);
             break;
           case 'miss':
             break;

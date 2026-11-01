@@ -10,7 +10,7 @@ import { buildFleet, cleanupHomes, fakeFetch, liveRow, memoryStore, systemctlCal
 
 afterEach(cleanupHomes);
 
-const repo = 'Everdred-Games/Castle_Run';
+const repo = 'everdred-games/castle_run';
 const slug = 'everdred-games-castle-run';
 
 async function mode(path: string): Promise<number> {
@@ -77,11 +77,44 @@ describe('ensureDaemon', () => {
 
   it('refuses a fifth daemon with waiting_capacity while four are live, without touching systemd', async () => {
     const home = await tempHome();
-    const store = memoryStore([liveRow(1), liveRow(2, 'idle'), liveRow(3, 'starting'), liveRow(4)]);
+    const store = memoryStore([liveRow(1), liveRow(2, 'idle'), liveRow(3), liveRow(4)]);
     const { fleet, runner } = buildFleet(home, { store });
 
     await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toEqual({ status: 'waiting_capacity', live: 4 });
     expect(runner.calls).toEqual([]);
+  });
+
+  it('holds the cap when several repos are admitted at once', async () => {
+    const home = await tempHome();
+    const store = memoryStore([liveRow(1), liveRow(2), liveRow(3)]);
+    const { fleet } = buildFleet(home, { store });
+
+    const results = await Promise.all(['owner/a', 'owner/b', 'owner/c'].map((r) => fleet.ensureDaemon(r, 'feature')));
+
+    expect(results.map((result) => result.status).sort()).toEqual(['running', 'waiting_capacity', 'waiting_capacity']);
+    expect(new Set([...store.rows.values()].map((row) => row.port)).size).toBe(store.rows.size);
+  });
+
+  it('does not count a starting row left by a previous process, and frees it on the idle sweep', async () => {
+    const home = await tempHome();
+    const store = memoryStore([liveRow(1), liveRow(2), liveRow(3), liveRow(4, 'starting')]);
+    const { fleet, runner } = buildFleet(home, { store });
+
+    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toMatchObject({ status: 'running' });
+    await expect(fleet.stopIdleDaemons()).resolves.toContain('owner-game4');
+    expect(systemctlCalls(runner)).toContain('--user stop ogm-aiur@owner-game4.service');
+    expect(store.rows.get('owner-game4')?.status).toBe('stopped');
+  });
+
+  it('treats repo names case-insensitively and gives colliding names distinct slugs', async () => {
+    const home = await tempHome();
+    const { fleet, store } = buildFleet(home);
+
+    await fleet.ensureDaemon('Owner/My.Game', 'feature');
+    await fleet.ensureDaemon('owner/my-game', 'feature');
+    await expect(fleet.daemonFor('OWNER/MY.GAME')).resolves.toMatchObject({ daemon: { port: 4101 } });
+
+    expect([...store.rows.keys()]).toEqual(['owner-my-game', expect.stringMatching(/^owner-my-game-[0-9a-f]{4}$/)]);
   });
 
   it('starts a daemon when three are live and a fourth is stopped', async () => {
