@@ -1,6 +1,7 @@
 import type { CreateReport, ReportFrame, ReportRoute } from '@ogm/contracts';
 
 import { EDITOR_HINT_PATTERNS, PLATFORM_FRAME, SDK_FRAME, WRONG_BEHAVIOUR_REPAIR_AT } from './policy.js';
+import { stripOrigin } from './signature.js';
 
 export type Reproduction = 'crash_with_error' | 'wrong_behaviour' | 'not_reproducible';
 
@@ -15,10 +16,6 @@ export type ClassifyInput = {
 };
 
 export type Classification = { route: ReportRoute; reproduction: Reproduction; reason: string };
-
-function stripOrigin(file: string): string {
-  return file.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '');
-}
 
 function isInGameFrame(frame: ReportFrame, gameId: string): boolean {
   return stripOrigin(frame.file).startsWith(`/g/${gameId}/`);

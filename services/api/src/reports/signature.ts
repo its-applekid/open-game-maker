@@ -16,9 +16,13 @@ export function normaliseMessage(message: string): string {
     .slice(0, 300);
 }
 
+export function stripOrigin(file: string): string {
+  return file.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '');
+}
+
 // `https://games.example/g/<gameId>/<buildId>/systems/combat.js` -> `systems/combat.js`.
 export function frameFile(file: string): string {
-  return file.replace(/^[a-z][a-z0-9+.-]*:\/\/[^/]+/i, '').replace(/^\/g\/[^/]+\/[^/]+\//, '');
+  return stripOrigin(file).replace(/^\/g\/[^/]+\/[^/]+\//, '');
 }
 
 export function frameKey(frame: ReportFrame): string {

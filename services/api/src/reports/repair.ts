@@ -16,6 +16,8 @@ export type RepairInput = {
   releaseId?: string | null;
   signature: string;
   reproduction: Reproduction;
+  // The signature's earlier repair job, when it finished and the bug came back.
+  previousJobId?: string | null;
 };
 
 export type RepairOutcome = { jobId: string; pendingBudget?: undefined } | { jobId?: undefined; pendingBudget: true };
@@ -65,7 +67,9 @@ export async function admitRepair(deps: AdmissionDeps, input: RepairInput): Prom
     complexity: REPAIR_COMPLEXITY,
     plan: repairPlan(input),
     start: 'now',
-    idempotencyKey: `repair:${input.signature}`,
+    idempotencyKey: input.previousJobId
+      ? `repair:${input.signature}:after:${input.previousJobId}`
+      : `repair:${input.signature}`,
   };
   let accepted: CreateJobAccepted;
   try {

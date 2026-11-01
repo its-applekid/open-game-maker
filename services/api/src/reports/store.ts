@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 
 import type { CreateReport, ReportRoute } from '@ogm/contracts';
 import { schema, type Db, type Sqlite } from '@ogm/db';
-import { and, desc, eq, ne, sql } from 'drizzle-orm';
+import { and, desc, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 import { classify, type Classification } from './classify.js';
@@ -106,8 +106,39 @@ export function setPlatformRef(db: Db, sig: string, ref: string): void {
   db.update(schema.reportSignatures).set({ platformRef: ref }).where(eq(schema.reportSignatures.signature, sig)).run();
 }
 
-export function setBundleKey(db: Db, reportId: string, bundleKey: string): void {
-  db.update(schema.reports).set({ bundleKey }).where(eq(schema.reports.id, reportId)).run();
+// Compare-and-set: only the first upload for a report wins.
+export function setBundleKey(db: Db, reportId: string, bundleKey: string): boolean {
+  return (
+    db
+      .update(schema.reports)
+      .set({ bundleKey })
+      .where(and(eq(schema.reports.id, reportId), isNull(schema.reports.bundleKey)))
+      .run().changes === 1
+  );
+}
+
+const FILING = 'filing';
+
+// Claims the right to file a platform issue for a signature, so concurrent reports file once.
+export function claimPlatformFiling(db: Db, sig: string): boolean {
+  return (
+    db
+      .update(schema.reportSignatures)
+      .set({ platformRef: FILING })
+      .where(and(eq(schema.reportSignatures.signature, sig), isNull(schema.reportSignatures.platformRef)))
+      .run().changes === 1
+  );
+}
+
+export function releasePlatformFiling(db: Db, sig: string): void {
+  db.update(schema.reportSignatures)
+    .set({ platformRef: null })
+    .where(and(eq(schema.reportSignatures.signature, sig), eq(schema.reportSignatures.platformRef, FILING)))
+    .run();
+}
+
+export function jobState(db: Db, jobId: string) {
+  return db.select({ state: schema.jobs.state }).from(schema.jobs).where(eq(schema.jobs.id, jobId)).get()?.state;
 }
 
 export function listReports(db: Db, gameId: string) {

@@ -2,6 +2,7 @@ import { schema } from '@ogm/db';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 
+import { StoredIssueWriter } from '../src/reports/issue-writer.js';
 import { asUser } from './helpers.js';
 import { crash, ids, reportsApp } from './reports-helpers.js';
 
@@ -111,6 +112,51 @@ describe('POST /api/v1/reports', () => {
     expect(deps.db.select().from(schema.reports).all()).toHaveLength(1);
   });
 
+  it('re-admits a crash that comes back after its repair is done, but not after a failed one', async () => {
+    const { deps, post } = await reportsApp();
+    const first = (await (await post(crash())).json()) as Created;
+    deps.db.update(schema.jobs).set({ state: 'done' }).where(eq(schema.jobs.id, first.jobId!)).run();
+
+    const recurred = (await (await post(crash())).json()) as Created;
+    expect(recurred.route).toBe('game_repair');
+    expect(recurred.jobId).toMatch(/^j_/);
+    expect(recurred.jobId).not.toBe(first.jobId);
+    expect((await (await post(crash())).json()) as Created).toMatchObject({ jobId: recurred.jobId });
+
+    deps.db.update(schema.jobs).set({ state: 'failed' }).where(eq(schema.jobs.id, recurred.jobId!)).run();
+    const afterFailure = (await (await post(crash())).json()) as Created;
+    expect(afterFailure.route).toBe('stored');
+    expect(afterFailure.jobId).toBeUndefined();
+    expect(deps.db.select().from(schema.jobs).all()).toHaveLength(2);
+  });
+
+  it('retries a budget-refused repair on the next matching report', async () => {
+    const { deps, post } = await reportsApp({ ownerDaily: 0 });
+    expect(((await (await post(crash())).json()) as Created).pendingBudget).toBe(true);
+    deps.db
+      .update(schema.allowances)
+      .set({ dailyMicroUsd: 5_000_000 })
+      .where(eq(schema.allowances.userId, ids.owner))
+      .run();
+    const retried = (await (await post(crash())).json()) as Created;
+    expect(retried).toMatchObject({ route: 'game_repair', jobId: expect.stringMatching(/^j_/) });
+    expect(deps.db.select().from(schema.reportSignatures).get()?.openJobId).toBe(retried.jobId);
+  });
+
+  it('files the platform issue on the next report when the writer failed', async () => {
+    const { deps, post } = await reportsApp();
+    const file = vi.spyOn(StoredIssueWriter.prototype, 'file').mockRejectedValueOnce(new Error('queue down'));
+    const report = crash(ids.game, '@ogm/host/bridge.js');
+    const first = (await (await post(report)).json()) as Created;
+    expect(first.route).toBe('platform');
+    expect(deps.db.select().from(schema.reportSignatures).get()?.platformRef).toBeNull();
+    await post(report);
+    await post(report);
+    expect(file).toHaveBeenCalledTimes(2);
+    expect(deps.db.select().from(schema.platformIssueQueue).all()).toHaveLength(1);
+    file.mockRestore();
+  });
+
   it('refuses players who cannot play the game', async () => {
     const { deps, post } = await reportsApp();
     const response = await post(crash(ids.privateGame), ids.player);
@@ -166,6 +212,32 @@ describe('report bundles and reads', () => {
     expect((await upload(new Uint8Array(2 * 1024 * 1024 + 1))).status).toBe(413);
     expect(put).not.toHaveBeenCalled();
     expect(deps.db.select().from(schema.reports).where(eq(schema.reports.id, reportId)).get()?.bundleKey).toBeNull();
+  });
+
+  it('enforces the limit on chunked uploads without a Content-Length', async () => {
+    const { app, deps, reportId } = await withReport();
+    const put = vi.spyOn(deps.blobStore, 'put');
+    const chunk = new Uint8Array(1024 * 1024);
+    // Endless: buffering the whole body before checking its size would never return.
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        controller.enqueue(chunk);
+      },
+    });
+    const response = await app.request(`/api/v1/reports/${reportId}/bundle`, {
+      method: 'POST',
+      headers: { ...asUser(ids.player), 'content-type': 'application/octet-stream' },
+      body,
+      duplex: 'half',
+    } as RequestInit);
+    expect(response.status).toBe(413);
+    expect(put).not.toHaveBeenCalled();
+  });
+
+  it('keeps the first bundle: a second upload is 409', async () => {
+    const { upload } = await withReport();
+    expect((await upload(new Uint8Array([1]))).status).toBe(201);
+    expect((await upload(new Uint8Array([2]))).status).toBe(409);
   });
 
   it('accepts bundles only from the reporter and only as octet-stream, json or gzip', async () => {
