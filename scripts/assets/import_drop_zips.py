@@ -1,4 +1,4 @@
-"""Import loose zips from a Drive drop (quarantine) into assets-local/packs, one pack per zip.
+"""Import loose archives (zip, rar, 7z) from a Drive drop (quarantine) into assets-local/packs, one pack per archive.
 
     python3 -I scripts/assets/import_drop_zips.py <quarantine dir> <spec.json>
 
@@ -9,7 +9,7 @@ The zip is copied untouched to <pack>/<version>/originals/, its content lands in
 single wrapper folder stripped, __MACOSX and .DS_Store dropped, and every path checked before extraction. The
 version is today's date unless the spec gives "version". Nothing is executed.
 """
-import collections, datetime, json, shutil, sys, zipfile
+import collections, datetime, json, shutil, subprocess, sys, zipfile
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parents[2] / "assets-local"
@@ -29,6 +29,24 @@ def wrapper(z: zipfile.ZipFile) -> bool:
                                   if not i.filename.startswith("__MACOSX"))
 
 
+def extract_7z(src: Path, ext: Path) -> int:
+    lst = subprocess.run(["7z", "l", "-slt", "-ba", str(src)], capture_output=True, text=True, errors="replace",
+                         timeout=600, stdin=subprocess.DEVNULL, check=True).stdout
+    names = [line[7:] for line in lst.splitlines() if line.startswith("Path = ")]
+    for name in names:
+        safe(name)
+    subprocess.run(["7z", "x", "-y", "-bd", f"-o{ext}", str(src)], capture_output=True, timeout=3600,
+                   stdin=subprocess.DEVNULL, check=True)
+    for junk in list(ext.rglob("__MACOSX")) + list(ext.rglob(".DS_Store")):
+        shutil.rmtree(junk) if junk.is_dir() else junk.unlink()
+    tops = [p for p in ext.iterdir()]
+    if len(tops) == 1 and tops[0].is_dir():  # strip a single wrapper folder
+        for child in list(tops[0].iterdir()):
+            shutil.move(str(child), str(ext / child.name))
+        tops[0].rmdir()
+    return sum(1 for p in ext.rglob("*") if p.is_file())
+
+
 def import_zip(qdir: Path, manifest: dict, spec: dict) -> dict:
     src = qdir / "files" / spec["zip"]
     ver = spec.get("version", TODAY)
@@ -38,18 +56,21 @@ def import_zip(qdir: Path, manifest: dict, spec: dict) -> dict:
     orig.mkdir(parents=True, exist_ok=True)
     shutil.copy2(src, orig / src.name)
     n = 0
-    with zipfile.ZipFile(src) as z:
-        strip = wrapper(z)
-        for info in z.infolist():
-            p = safe(info.filename)
-            if info.is_dir() or "__macosx" in info.filename.lower() or p.name.lower() == ".ds_store":
-                continue
-            rel = PurePosixPath(*p.parts[1:]) if strip and len(p.parts) > 1 else p
-            dst = ext / rel
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            with z.open(info) as f, open(dst, "wb") as out:
-                shutil.copyfileobj(f, out)
-            n += 1
+    if src.suffix.lower() == ".zip":
+        with zipfile.ZipFile(src) as z:
+            strip = wrapper(z)
+            for info in z.infolist():
+                p = safe(info.filename)
+                if info.is_dir() or "__macosx" in info.filename.lower() or p.name.lower() == ".ds_store":
+                    continue
+                rel = PurePosixPath(*p.parts[1:]) if strip and len(p.parts) > 1 else p
+                dst = ext / rel
+                dst.parent.mkdir(parents=True, exist_ok=True)
+                with z.open(info) as f, open(dst, "wb") as out:
+                    shutil.copyfileobj(f, out)
+                n += 1
+    else:  # rar, 7z, tar...: list first (path check), then let 7z extract into the fresh directory
+        n = extract_7z(src, ext)
     types = collections.Counter(p.suffix.lower().lstrip(".") for p in ext.rglob("*") if p.is_file())
     lic = spec.get("license_file")
     rights = dict(spec["usage_rights"])
