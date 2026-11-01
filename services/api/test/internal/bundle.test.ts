@@ -130,7 +130,7 @@ describe('GET /internal/jobs/by-ticket/:identifier/bundle', () => {
       const { get } = await setup([job({ game: { ...job().game, title } })]);
       const response = await get('/internal/jobs/by-ticket/12/bundle', SECRET_A);
       expect(response.status).toBe(200);
-      expect((await response.json()).game.title).toBe(title);
+      expect((await response.json()).gameContext.title).toBe(title);
     }
   });
 });
