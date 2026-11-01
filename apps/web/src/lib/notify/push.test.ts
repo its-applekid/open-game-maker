@@ -115,7 +115,9 @@ describe('useNotificationFeed', () => {
     const { unmount } = renderHook(() => notify.useNotificationFeed());
     const source = FakeEventSource.instances.at(-1)!;
 
-    source.dispatchEvent(new MessageEvent('job.started', { data: JSON.stringify({ title: '', body: 'Build started' }) }));
+    source.dispatchEvent(
+      new MessageEvent('job.started', { data: JSON.stringify({ title: '', body: 'Build started' }) }),
+    );
 
     expect(notify.notifyState().toasts.map((t) => t.text)).toEqual(['Build started']);
     unmount();
