@@ -23,7 +23,7 @@ from import_sidetrax import stem_key
 
 REPO = HERE.parents[2]
 ROOT = REPO / "assets-local"
-SCHEMAS = REPO / "docs/research/v0.5/schemas"
+VALIDATOR = REPO / "packages/contracts/bin/validate-cards.mjs"
 VOCAB = "2026-10-27"
 TOOL = "build_audio_cards@0.1"
 CLAP_ID = "laion/clap-htsat-unfused"
@@ -382,7 +382,7 @@ def build(rows, sets, means, packs: Path):
 def validate(packs: Path):
     cards = sorted(str(p) for p in packs.glob("*/cards/**/*.card.json"))
     colls = sorted(str(p) for p in packs.glob("*/collection.card.json"))
-    r = subprocess.run(["node", str(SCHEMAS / "tools/validate.mjs"), str(SCHEMAS), *colls, *cards], capture_output=True, text=True)
+    r = subprocess.run(["node", str(VALIDATOR), *colls, *cards], capture_output=True, text=True)
     fails = [l for l in r.stdout.splitlines() if l.startswith("FAIL")]
     return r.returncode, len(cards), fails, r.stdout
 

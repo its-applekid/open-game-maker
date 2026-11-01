@@ -1,5 +1,5 @@
 {
-  "schema": "ogm.asset-card/1.0",
+  "schema": "ogm.asset-card/1.1",
   "vocab": "2026-10-26",
   "id": "t1:kenney-mini-dungeon@2.0",
   "card_type": "collection",
@@ -17,6 +17,7 @@
     "audience": "public",
     "redistribution": "free",
     "attribution": null,
+    "processing": "any",
     "basis": [
       {
         "type": "license",
