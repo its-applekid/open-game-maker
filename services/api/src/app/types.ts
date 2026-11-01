@@ -25,6 +25,7 @@ export interface AppDeps {
     analyticsRetentionDays: number;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
+    intakeDir?: string;
   };
   blobStore: BlobStore;
   events: AppEvents;

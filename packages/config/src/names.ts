@@ -42,6 +42,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'string',
     doc: 'default IANA time zone for family budget resets',
   },
+  {
+    name: 'OGM_INTAKE_DIR',
+    unit: 'api',
+    kind: 'path',
+    doc: 'assets-local/inbox (Drive intake queue, read-only for the admin API)',
+  },
   { name: 'OGM_ROOMS_PORT', unit: 'rooms', kind: 'port', doc: 'loopback port of the Colyseus relay' },
   { name: 'OGM_GAMES_PORT', unit: 'games', kind: 'port', doc: 'loopback port of the games origin host' },
   { name: 'OGM_COMMIT_PORT', unit: 'commit', kind: 'port', doc: 'loopback port of the commit service' },
