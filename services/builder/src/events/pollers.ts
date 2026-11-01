@@ -1,0 +1,31 @@
+import type { FeedDeps, RunningDaemon } from './types.js';
+
+// What the feed lacks: the agent's phase and percent, and the tracker label with its waiting reasons.
+export function createPollers(deps: FeedDeps) {
+  const log = deps.log ?? (() => undefined);
+
+  async function each(
+    running: RunningDaemon[],
+    what: string,
+    read: (daemon: RunningDaemon, ticket: string) => Promise<void>,
+  ): Promise<void> {
+    for (const daemon of running) {
+      for (const job of await deps.activeJobs(daemon.slug)) {
+        await read(daemon, job.ticket).catch((error: unknown) =>
+          log({ event: `aiur-${what}-poll-failed`, daemon: daemon.slug, ticket: job.ticket, error: String(error) }),
+        );
+      }
+    }
+  }
+
+  return {
+    progress: (running: RunningDaemon[]) =>
+      each(running, 'progress', async (daemon, ticket) =>
+        deps.apply.progress(daemon.slug, ticket, await daemon.client.progress(ticket)),
+      ),
+    issue: (running: RunningDaemon[]) =>
+      each(running, 'issue', async (daemon, ticket) =>
+        deps.apply.issue(daemon.slug, ticket, await daemon.client.issue(ticket)),
+      ),
+  };
+}
