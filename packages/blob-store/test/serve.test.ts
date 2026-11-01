@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { FsBlobStore, parseBlobRequest, roundExpiry, serveBlob, signBlobUrl, type BlobHash } from '../src/index.js';
 
-const signingKey = 'serve-test-signing-key';
+const signingKey = 'serve-test-signing-key-with-32-bytes-or-more';
 let root: string;
 let store: FsBlobStore;
 

@@ -14,6 +14,15 @@ function alterHex(value: string): string {
 }
 
 describe('signed blob URLs', () => {
+  test('refuses a signing key shorter than 32 bytes', () => {
+    const hash = hashFor(new Uint8Array());
+    const exp = roundExpiry(new Date('2026-06-01T12:00:00Z'));
+
+    expect(() => signBlobUrl('k'.repeat(31), hash, exp)).toThrow('Signing key must be at least 32 bytes');
+    expect(() => signBlobUrl('', hash, exp)).toThrow(RangeError);
+    expect(signBlobUrl('k'.repeat(32), hash, exp)).toMatch(/^[0-9a-f]{64}$/);
+  });
+
   test('roundExpiry uses the following UTC midnight plus 24 hours and is monotone', () => {
     const min = Date.parse('2026-01-01T00:00:00.000Z');
     const max = Date.parse('2030-12-31T23:59:59.999Z');
@@ -39,7 +48,7 @@ describe('signed blob URLs', () => {
   test('valid signatures verify and single-character tampering fails', () => {
     fc.assert(
       fc.property(
-        fc.string({ minLength: 16, maxLength: 64 }),
+        fc.string({ minLength: 32, maxLength: 64 }),
         fc.uint8Array({ maxLength: 256 }),
         fc.integer({ min: 2_000_000_000, max: 2_100_000_000 }),
         (key, bytes, exp) => {
@@ -62,7 +71,7 @@ describe('signed blob URLs', () => {
   });
 
   test('signBlobUrl is the specified deterministic HMAC', () => {
-    const key = 'known-key';
+    const key = 'known-key-padded-to-thirty-two-bytes!';
     const hash = hashFor(new TextEncoder().encode('known bytes'));
     const exp = 2_000_000_000;
     const expected = createHmac('sha256', key).update(`${hash}\n${exp}`).digest('hex');
@@ -72,7 +81,7 @@ describe('signed blob URLs', () => {
   });
 
   test('expired, malformed, and invalid-hash requests fail without throwing', () => {
-    const key = 'test-key';
+    const key = 'test-key-padded-to-thirty-two-bytes!!';
     const hash = hashFor(new Uint8Array([1]));
     const exp = 100;
     const sig = signBlobUrl(key, hash, exp);

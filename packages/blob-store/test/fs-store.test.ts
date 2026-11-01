@@ -23,7 +23,7 @@ async function makeRoot(): Promise<string> {
 function makeStore(root: string): FsBlobStore {
   return new FsBlobStore({
     root,
-    signingKey: 'test-signing-key',
+    signingKey: 'test-signing-key-padded-to-32-bytes-min',
     publicOrigin: 'https://example.test:8443',
   });
 }
