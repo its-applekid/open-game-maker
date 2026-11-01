@@ -99,6 +99,7 @@ export default new Hono().get('/seen', (c) => c.text(seen));
     expect(mounted.map(({ prefix }) => prefix)).toEqual([
       '/api/v1',
       '/api/v1/analytics',
+      '/auth',
       '/blobs',
       '/api/v1',
       '/',

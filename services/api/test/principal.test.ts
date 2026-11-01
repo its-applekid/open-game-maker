@@ -58,7 +58,14 @@ describe('principal seam', () => {
   it('lets a registered resolver name the caller and keeps anonymous as the fallback', async () => {
     const { app, deps } = setup();
     expect(await (await who(app, {})).json()).toEqual({ kind: 'anonymous' });
-    const user = { kind: 'user', userId: 'u1', familyId: 'f1', platformRole: 'none', capability: 'creator' } as const;
+    const user = {
+      kind: 'user',
+      userId: 'u1',
+      displayName: 'User One',
+      familyId: 'f1',
+      platformRole: 'none',
+      capability: 'creator',
+    } as const;
     deps.registry.principalResolvers.push(
       async () => null,
       async (c) => (c.req.header('cookie') ? user : null),
