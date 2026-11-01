@@ -245,6 +245,21 @@ class Downloads(Base):
         self.assertEqual(list((self.cfg["inbox"] / "quarantine").iterdir()), [])
         self.assertTrue(any("failed" in t for t, _ in self.notes))
 
+    def test_same_bytes_uploaded_again_under_a_new_id_are_not_downloaded(self):
+        self.poll()
+        self.drive.add_file("ORIGINAL0001", "pack.zip", ROOT, data=b"the pack bytes")
+        self.poll(10)
+        self.poll(200)
+        self.assertEqual(self.drop("ORIGINAL0001")["status"], "downloaded")
+        before = sorted((self.cfg["inbox"] / "quarantine").iterdir())
+        self.drive.add_file("REUPLOAD0002", "pack (1).zip", ROOT, data=b"the pack bytes")
+        self.poll(10)
+        self.poll(200)
+        self.assertEqual(self.st["files"]["REUPLOAD0002"]["status"], "duplicate")
+        self.assertEqual(self.drop("REUPLOAD0002")["status"], "downloaded")
+        self.assertEqual(sorted((self.cfg["inbox"] / "quarantine").iterdir()), before)
+        self.assertNotIn("REUPLOAD0002", self.st["processed"])
+
     def test_google_native_docs_are_skipped_and_do_not_block(self):
         self.poll()
         self.drive.add_folder("MIXEDFOLDER1", "Sounds", ROOT)

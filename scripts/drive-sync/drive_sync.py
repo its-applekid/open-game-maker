@@ -607,6 +607,9 @@ class Syncer:
             rec["status"] = "skipped"
         elif sig["md5"] and self.st["processed"].get(fid) == sig["md5"]:
             rec["status"] = "downloaded"  # same bytes as before: never fetched again
+        elif sig["md5"] and sig["md5"] in self.st["processed"].values():
+            rec["status"] = "duplicate"  # same bytes under a new Drive id (re-uploaded): never fetched again
+            log.info("duplicate upload %r: bytes already in the library, not downloading", sig["name"])
         else:
             rec["status"] = "pending"
         self.files[fid] = rec
@@ -719,10 +722,10 @@ class Syncer:
         fids = self.files_of(did)
         todo = [f for f in fids if self.files[f]["status"] == "pending"]
         if not todo:
-            had = any(self.files[f]["status"] == "downloaded" for f in fids)
+            had = any(self.files[f]["status"] in ("downloaded", "duplicate") for f in fids)
             d["status"] = "downloaded" if had else "skipped"
             log.info("drop %r: nothing new to download (%s)", d["name"],
-                     "content unchanged" if had else "only Google-native files")
+                     "content unchanged or already in the library" if had else "only Google-native files")
             return
         stamp = datetime.fromtimestamp(self.now(), timezone.utc).strftime("%Y%m%d-%H%M%S")
         qname = f"{stamp}-{slug(d['name'])}-{did[:8]}"
