@@ -1,0 +1,105 @@
+import { AiurEventFeedError } from '@ogm/aiur-client';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { readCursor, startFeedConsumers, writeCursor, FEED_PATTERNS } from '../../src/events/index.js';
+import { daemon, harness, REPO, SLUG } from './helpers.js';
+
+const running: { stop(): Promise<void> }[] = [];
+afterEach(async () => {
+  for (const feed of running.splice(0)) await feed.stop();
+});
+
+function start(h: ReturnType<typeof harness>) {
+  const feed = startFeedConsumers(h.deps);
+  running.push(feed);
+  return feed;
+}
+
+describe('feed consumers', () => {
+  it('subscribes once per running daemon from the stored cursor with the four topic patterns', async () => {
+    const h = harness([daemon(), { ...daemon('other-game', 'everdred-games/other'), status: 'stopped' }]);
+    writeCursor(h.db, SLUG, 811, 'epoch-1', new Date());
+    const feed = start(h);
+    await feed.tick();
+    await feed.tick();
+
+    expect(h.subscribe).toHaveBeenCalledTimes(1);
+    expect(h.subscriptions[0]?.options).toMatchObject({ after: 811, patterns: FEED_PATTERNS });
+    expect(FEED_PATTERNS).toEqual([
+      'ticket.*.lifecycle.changed',
+      'ticket.*.usage.*',
+      'ticket.*.cancel.result',
+      'ticket.*.agent.progress*',
+    ]);
+  });
+
+  it('starts from 0 when no cursor is stored, and hands records to the projection with the daemon slug', async () => {
+    const h = harness();
+    const feed = start(h);
+    await feed.tick();
+    expect(h.subscriptions[0]?.options.after).toBe(0);
+
+    const record = { type: 'gap', seq: 3, scope: '*', reason: 'exporter_start', from: null, to: 'x' } as const;
+    h.subscriptions[0]?.options.onRecord(record);
+    expect(h.apply.record).toHaveBeenCalledWith(SLUG, record);
+  });
+
+  it('on reset sets the cursor to head_seq and reads the issue once per active job', async () => {
+    const h = harness();
+    h.jobs.set(SLUG, [
+      { jobId: 'j_142', ticket: '142' },
+      { jobId: 'j_143', ticket: '143' },
+    ]);
+    writeCursor(h.db, SLUG, 10, null, new Date());
+    const feed = start(h);
+    await feed.tick();
+    const client = h.clientFor(REPO);
+    client.issue.mockClear();
+    h.apply.issue.mockClear();
+
+    h.subscriptions[0]?.options.onReset({ oldest_seq: 400, head_seq: 900, epoch: 'epoch-2' });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(readCursor(h.db, SLUG)).toBe(900);
+    expect(client.issue.mock.calls.map(([id]) => id)).toEqual(['142', '143']);
+    expect(h.apply.issue).toHaveBeenCalledTimes(2);
+    expect(h.apply.issue).toHaveBeenCalledWith(SLUG, '142', expect.objectContaining({ issue_identifier: '142' }));
+  });
+
+  it('stops the consumer when listDaemons no longer lists the daemon', async () => {
+    const h = harness();
+    const feed = start(h);
+    await feed.tick();
+    const signal = h.subscriptions[0]?.options.signal;
+    expect(signal?.aborted).toBe(false);
+
+    h.listed.daemons = [];
+    await feed.tick();
+    expect(signal?.aborted).toBe(true);
+
+    h.listed.daemons = [daemon()];
+    await feed.tick();
+    expect(h.subscribe).toHaveBeenCalledTimes(2);
+  });
+
+  it('alerts on feature_disabled and does not resubscribe while the daemon stays running', async () => {
+    const h = harness();
+    const feed = start(h);
+    await feed.tick();
+    h.subscriptions[0]?.options.onError(new AiurEventFeedError('feature_disabled'));
+    h.subscriptions[0]?.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await feed.tick();
+
+    expect(h.alerts).toEqual([expect.stringContaining('events.export.enabled')]);
+    expect(h.subscribe).toHaveBeenCalledTimes(1);
+  });
+
+  it('stop() aborts every consumer', async () => {
+    const h = harness();
+    const feed = startFeedConsumers(h.deps);
+    await feed.tick();
+    await feed.stop();
+    expect(h.subscriptions[0]?.options.signal.aborted).toBe(true);
+  });
+});

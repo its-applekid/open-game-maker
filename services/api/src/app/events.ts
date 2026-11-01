@@ -1,9 +1,11 @@
-import type { JobState, NotificationTrigger } from '@ogm/contracts';
+import type { JobStage, JobState, NotificationTrigger } from '@ogm/contracts';
 
 export type AppEventMap = {
   notify: NotificationTrigger;
   'job.changed': { jobId: string; gameId: string; familyId: string; state: JobState };
   'budget.changed': { familyId: string; userId: string };
+  'job.stage.changed': { jobId: string; from: JobStage | null; to: JobStage; text: string };
+  'job.usage.changed': { jobId: string };
 };
 
 type Listener<K extends keyof AppEventMap> = (event: AppEventMap[K]) => void;
