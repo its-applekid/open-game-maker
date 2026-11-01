@@ -51,6 +51,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
   const { sqlite, db } = openDb(':memory:');
   migrate({ sqlite });
   const lines: LogLine[] = [];
+  const privateDirectory = mkdtempSync(join(tmpdir(), 'ogm-api-private-'));
   const log = (line: LogLine) => {
     lines.push(line);
   };
@@ -65,6 +66,8 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
       gameTemplateRef: 'templates/game-2d@main',
+      vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
+      vapidSubject: 'mailto:operator@example.test',
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),
