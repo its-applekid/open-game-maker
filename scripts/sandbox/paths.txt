@@ -1,0 +1,11 @@
+~/.config/gh/hosts.yml
+~/.aiur/github-budget/agent-token
+~/.codex/auth.json
+~/.claude/.credentials.json
+~/.claude-2/.credentials.json
+~/.config/netlify/config.json
+~/.config/ogm
+~/.ssh
+~/.aiur/.env
+~/github/aiur/.env
+<repo>/assets-local
