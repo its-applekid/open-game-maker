@@ -16,7 +16,7 @@ use. Work here the way those agents will work: dogfood the skills.
   back to the signed-in Codex CLI; never add a provider key (it counts as consent to spend) and ask Kevin before any
   generation. Never send paid-pack assets to it as references (no cloud processing of paid assets).
 - **Self-improvement:** keep the hourly `meta-improve` listener running (a silent background shell, `scripts/listen.sh`
-  in the skill, that wakes the agent only after Kevin has written; start it at the start of a session, no cron). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
+  in the skill, that wakes the agent only after Kevin has written; start it at the start of a session and again after every context compaction or resume — background shells die with them; check `ps` for listen.sh; no cron). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
 - **Asset drops:** keep the Drive intake wake-up running too (`scripts/drive-sync/listen.sh <repo>`, same silent-shell
   pattern); when it fires, run `gm-asset-intake` (licence first, then unpack, catalog, preprocess; big preprocessing goes
   to an aiur ticket when the daemon is up, else a background agent).
