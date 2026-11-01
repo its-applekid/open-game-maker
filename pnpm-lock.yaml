@@ -103,12 +103,18 @@ importers:
 
   packages/asset-cards:
     dependencies:
+      '@ogm/config':
+        specifier: workspace:*
+        version: link:../config
       '@ogm/contracts':
         specifier: workspace:*
         version: link:../contracts
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@26.6.6)
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
 
   packages/blob-store:
     devDependencies:
@@ -258,6 +264,9 @@ importers:
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.16)
+      '@ogm/asset-cards':
+        specifier: workspace:*
+        version: link:../../packages/asset-cards
       '@ogm/blob-store':
         specifier: workspace:*
         version: link:../../packages/blob-store

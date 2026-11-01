@@ -27,6 +27,8 @@ LICENSES = {
 KIND_BY_EXT = {"glb": "model", "gltf": "model", "fbx": "model", "obj": "model", "blend": "model", "dae": "model",
                "png": "sprite", "svg": "sprite", "jpg": "sprite", "tga": "texture", "psd": "texture",
                "ogg": "audio", "wav": "audio", "mp3": "audio", "ttf": "ui", "otf": "ui"}
+# collection_tags.jsonl `fc` letters -> C3 §8 family_coverage keys.
+FAMILY_COVERAGE = {"c": "characters", "e": "environment", "p": "props", "u": "ui", "s": "sfx", "m": "music"}
 SKIP_NAMES = {"preview.png", "sample.png", "license.txt", "icon.png"}
 
 
@@ -68,6 +70,7 @@ def card(pj: Path, tags: dict) -> dict:
             **({"requires": [f"t1:{r}@{json.loads((pj.parent.parent / r / 'pack.json').read_text())['current']}" for r in m["requires"]]}
                if m.get("requires") else {}),
             "counts": counts(pj.parent / ver / "extracted", m.get("category")),
+            "family_coverage": {name: letter in t.get("fc", "") for letter, name in FAMILY_COVERAGE.items()},
             "creation_choice": False, "pack_manifest": f"assets-local/packs/{pid}/pack.json", "files_total": v.get("extracted_files", 0)}
     out = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}@{ver}", "card_type": "collection", "status": "tagged",
            "title": f"{m['title']} ({m['vendor'].capitalize()})", "license": lic["license"],

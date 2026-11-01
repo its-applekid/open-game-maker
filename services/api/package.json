@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
+    "@ogm/asset-cards": "workspace:*",
     "@ogm/blob-store": "workspace:*",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",

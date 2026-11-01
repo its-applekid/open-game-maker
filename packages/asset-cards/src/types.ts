@@ -30,6 +30,8 @@ export type SearchQuery = {
   kind?: string;
   subkind?: string;
   family?: string;
+  /** The game's family (from `assets.lock.json`): only cards of this family or `any` (R55). */
+  gameFamily?: string;
   pov?: string;
   use?: Use;
   rigId?: string;

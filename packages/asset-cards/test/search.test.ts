@@ -72,6 +72,17 @@ describe('search', () => {
     expect(ids({ words: [], collection: 't1:kenney-mini-dungeon@2.0' })).toContain('t1:kenney-mini-dungeon/wall@2.0');
   });
 
+  it("keeps a game's search to its family and style-neutral cards; --family stays an exact match", () => {
+    const all = ids({ words: [], use: 'vision-input', includeDraft: true });
+    const pixel = ids({ words: [], use: 'vision-input', includeDraft: true, gameFamily: 'pixel-art' });
+    expect(all).toContain(ORC);
+    expect(pixel).not.toContain(ORC);
+    expect(pixel).not.toContain(TORCH);
+    expect(pixel).toContain('t1:sidetrax-pack-60-battle/war-drums@v1');
+    expect(ids({ words: ['orc'], gameFamily: 'chunky-low-poly' })).toEqual([ORC, 't1:kenney-mini-dungeon@2.0']);
+    expect(ids({ words: [], use: 'vision-input', family: 'any' })).not.toContain(ORC);
+  });
+
   it('applies --limit after ranking', () => {
     expect(search(index, { words: [], limit: 2 })).toHaveLength(2);
     expect(search(index, { words: [] }).length).toBeGreaterThan(2);
