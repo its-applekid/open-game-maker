@@ -18,6 +18,12 @@ export default [
     },
   },
   {
+    files: ['packages/config/src/**/*.ts'],
+    rules: {
+      'no-restricted-properties': 'off',
+    },
+  },
+  {
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
