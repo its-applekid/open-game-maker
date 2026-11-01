@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate, useLocation, type RouteObject } from 'react-router';
 
 import { BugButton } from '../features/bug-report';
+import { BuildChatDock } from '../features/build-chat/BuildChatDock';
 import { useSession } from '../lib/api/session';
 import { Toasts, useNotificationFeed } from '../lib/notify';
 import type { ScreenRoute } from './screen';
@@ -80,7 +81,9 @@ function AppChrome({ children }: { children: ReactNode }) {
       <div id="bug-fab-slot">
         <BugButton />
       </div>
-      <div id="chat-dock-slot" aria-hidden="true" />
+      <div id="chat-dock-slot">
+        <BuildChatDock />
+      </div>
     </div>
   );
 }

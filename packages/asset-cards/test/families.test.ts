@@ -29,6 +29,34 @@ const CATALOG_IDS = JSON.parse(
 const SEEDS = fileURLToPath(new URL('../../../scripts/assets/data/collection_tags.jsonl', import.meta.url));
 const ASSETS_ROOT = loadEnv('gm', { OGM_ASSETS_ROOT: { kind: 'path', required: false } }).OGM_ASSETS_ROOT;
 const HOST_CATALOG = ASSETS_ROOT ? join(ASSETS_ROOT, 'catalog.json') : undefined;
+const SMALLSCALEINT_PACKS = [
+  'smallscaleint-2d-animals-mega-pack-1',
+  'smallscaleint-2d-character-knight',
+  'smallscaleint-2d-character-pack-1',
+  'smallscaleint-2d-character-pack-2',
+  'smallscaleint-2d-demons-topdown-assetpack',
+  'smallscaleint-2d-desert-fantasy-tileset',
+  'smallscaleint-2d-hd-barbarian-pack-1',
+  'smallscaleint-2d-hd-character-knight',
+  'smallscaleint-2d-hd-character-pack-1',
+  'smallscaleint-2d-hd-enemy-pack-1',
+  'smallscaleint-2d-hd-undead-pack-1',
+  'smallscaleint-2d-hd-zombie-individual-sprites',
+  'smallscaleint-2d-hd-zombie-interior-tiles',
+  'smallscaleint-2d-hd-zombie-pack-1',
+  'smallscaleint-2d-hd-zombie-rural-tileset',
+  'smallscaleint-2d-orcs-and-goblins-topdown',
+  'smallscaleint-2d-projectiles-character-pack-1',
+  'smallscaleint-2d-projectiles-character-pack-2',
+  'smallscaleint-2d-topdown-archer-character',
+  'smallscaleint-2d-zombie-pack-2-top-down',
+  'smallscaleint-fantasy-tileset-2d-isometric',
+  'smallscaleint-free-character-16-bit-thug-outlined',
+  'smallscaleint-free-character-hd-survivor-w-bike',
+  'smallscaleint-knight-demo-character',
+  'smallscaleint-projectiles-2d-hd-character-pack-1',
+  'smallscaleint-projectiles-barbarian-pack-hd',
+].sort();
 
 const family = (overrides: Partial<StyleFamily>): StyleFamily => ({ ...loadFamilies()[0], ...overrides });
 
@@ -112,7 +140,15 @@ describe('style-families.json', () => {
     expect(setFor('limezu-modern-interiors')?.packs).toContainEqual(
       expect.objectContaining({ id: 'limezu-modern-interiors' }),
     );
-    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(9);
+    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(10);
+  });
+
+  it('registers every imported SmallScaleInt pack in one measured isometric set', () => {
+    const set = loadFamilies()
+      .find((f) => f.id === 'isometric-2d')!
+      .sets.find((candidate) => candidate.id === 'smallscaleint');
+    expect(set?.packs.map((pack) => pack.id).sort()).toEqual(SMALLSCALEINT_PACKS);
+    expect(set?.traits).toMatchObject({ perspective: 'isometric 2:1' });
   });
 
   // The seeds (filename words, no images) call Kenney's 3D kits simple-low-poly; C2 §2 and this file call them

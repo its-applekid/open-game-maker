@@ -20,7 +20,11 @@ export function parseFlags(
       ([flag, def]) =>
         [
           flag,
-          { type: def.type === 'boolean' ? 'boolean' : 'string', ...(def.multiple ? { multiple: true } : {}) },
+          {
+            type: def.type === 'boolean' ? 'boolean' : 'string',
+            multiple: def.multiple === true,
+            ...(def.short ? { short: def.short } : {}),
+          },
         ] as const,
     ),
   );

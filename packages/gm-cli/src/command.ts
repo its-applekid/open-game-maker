@@ -1,6 +1,6 @@
 export type FlagSpec = Record<
   string,
-  { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string; multiple?: boolean }
+  { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string; multiple?: boolean; short?: string }
 >;
 
 export type GmConfig = {
