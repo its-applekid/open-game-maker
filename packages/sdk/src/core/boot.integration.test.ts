@@ -1,10 +1,17 @@
 import { JSDOM } from 'jsdom';
-import { gameToHostSchema, type Envelope } from '@ogm/contracts';
+import { envelope, gameManifestSchema, gameToHostSchema, type Envelope } from '@ogm/contracts';
 import { openHostBridge } from '@ogm/iframe-bridge';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { z } from 'zod';
 
 import { boot } from './boot.js';
 import { createCounterGame } from '../test/fixtures/counter-game.js';
+
+const gameHelloSchema = envelope(
+  'hello',
+  z.looseObject({ protocol: z.number().int().min(1), manifest: gameManifestSchema }),
+);
+const gameBridgeInboundSchema = z.union([gameHelloSchema, gameToHostSchema]);
 
 describe('boot bridge integration', () => {
   afterEach(() => {
@@ -41,7 +48,7 @@ describe('boot bridge integration', () => {
     const host = openHostBridge({ contentWindow: gameWindow } as unknown as HTMLIFrameElement, {
       gameOrigin: 'https://games.test',
       validate: (raw) => {
-        const parsed = gameToHostSchema.safeParse(raw);
+        const parsed = gameBridgeInboundSchema.safeParse(raw);
         return parsed.success ? parsed.data : null;
       },
       onMessage: vi.fn(),
