@@ -1,0 +1,20 @@
+name: ci
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+jobs:
+  required:
+    name: required
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Install and test (when a workspace exists)
+        run: |
+          if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile && pnpm -r --if-present run lint && pnpm -r --if-present run typecheck && pnpm -r --if-present run test;
+          elif [ -f package-lock.json ]; then npm ci && npm test --if-present;
+          else echo "no workspace yet; nothing to test"; fi
