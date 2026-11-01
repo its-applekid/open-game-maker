@@ -9,4 +9,5 @@ export * from './budget.js';
 export * from './analytics.js';
 export * from './reports.js';
 export * from './notifications.js';
+export * from './room.js';
 export { BoundaryVerdict, CommitOp, CommitResult } from './commit.js';

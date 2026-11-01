@@ -1,0 +1,22 @@
+[
+  { "t": "input", "f": { "seq": 7, "tick": 120, "axes": [0, -1], "buttons": 1 } },
+  { "t": "snapshot", "seq": 3, "tick": 120, "data": "AQIDBA==" },
+  { "t": "event", "seq": 4, "data": "BQY=" },
+  {
+    "t": "design.tx",
+    "tx": {
+      "branchId": "b_01J",
+      "rev": 42,
+      "baseRev": 41,
+      "actor": "u_01JOWNER",
+      "kind": "manual",
+      "patches": [{ "op": "add", "path": "/globals/gravity", "value": -9.8 }]
+    }
+  },
+  { "t": "presence", "p": { "privateMode": true } },
+  { "t": "phase", "to": "playing" },
+  { "t": "draft.load", "buildId": "sha256-77c1", "url": "https://games.example.test/draft/sha256-77c1?sig=abc" },
+  { "t": "draft.ready", "buildId": "sha256-77c1" },
+  { "t": "kick", "userId": "u_01J" },
+  { "t": "ping", "c": 1761899600123 }
+]
