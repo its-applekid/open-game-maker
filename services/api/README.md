@@ -8,7 +8,7 @@ Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_DATA_DIR`, `OGM_INTERNAL_TOKEN
 `OGM_SESSION_SECRET`, `OGM_AGE_COOKIE_SECRET`, `OGM_WS_TOKEN_SECRET` and the optional `OGM_MAINTAINER_EMAILS`,
 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_URL`, `SMTP_FROM` (see `docs/ops/netlify-proxy.md`), plus
 `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, and `OGM_GAME_TEMPLATE_REF` (defaults to
-`templates/game-2d@main`).
+`game-2d@1`).
 
 ```sh
 pnpm --filter @ogm/api build && pnpm --filter @ogm/api start   # or: pnpm --filter @ogm/api dev

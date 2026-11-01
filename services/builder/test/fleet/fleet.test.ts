@@ -4,6 +4,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse } from 'yaml';
 
+import { renderDaemonFiles } from '@ogm/game-repo-template';
+
 import { IDLE_STOP_MS } from '../../src/fleet/fleet.js';
 import { READY_TIMEOUT_MS, START_POLL_MS } from '../../src/fleet/health.js';
 import { preflight as realPreflight } from '../../src/policy/preflight.js';
@@ -33,8 +35,8 @@ describe('ensureDaemon', () => {
     expect(config.tracker.github.repo).toBe(repo);
     expect(config.server).toMatchObject({ host: '127.0.0.1', port: 4101 });
     expect(config.instance.id).toBe(slug);
-    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toContain('git clone');
-    expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe('Work the ticket.\n');
+    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles().hooks);
+    expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe(renderDaemonFiles().prompt);
     expect((await stat(join(dir, 'workspaces'))).isDirectory()).toBe(true);
 
     const envFile = join(home, '.config/ogm/env', `ogm-aiur@${slug}.env`);

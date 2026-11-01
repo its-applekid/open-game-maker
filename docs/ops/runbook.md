@@ -55,7 +55,7 @@ Each unit reads `~/.config/ogm/env/<unit>.env` (mode 0600). Create one with
 `pnpm --filter @ogm/config exec ogm-env-init <unit>`. Secrets shared between units (for example
 `OGM_WS_TOKEN_SECRET` for api and rooms) are copied from whichever unit file already holds them.
 The API file must set `OGM_APP_ORIGIN`, `OGM_COMMIT_INTERNAL_URL`, and `OGM_COMMIT_SERVICE_TOKEN`;
-`OGM_GAME_TEMPLATE_REF` defaults to `templates/game-2d@main` when left blank.
+`OGM_GAME_TEMPLATE_REF` defaults to `game-2d@1` when left blank.
 
 `ogm-env-init` only generates a secret no unit file holds yet, and `--force` keeps existing secrets while blanking
 non-secret values. To rotate a secret, replace its value by hand in every file that has it, then restart those units:

@@ -64,7 +64,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       appOrigin: 'https://app.example.test',
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
-      gameTemplateRef: 'templates/game-2d@main',
+      gameTemplateRef: 'game-2d@1',
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),

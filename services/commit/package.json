@@ -7,8 +7,8 @@
     "build": "tsc -b",
     "dev": "tsx src/index.ts",
     "lint": "eslint src",
-    "pretest": "pnpm --filter @ogm/config --filter @ogm/contracts build",
-    "pretypecheck": "pnpm --filter @ogm/config --filter @ogm/contracts build",
+    "pretest": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/game-repo-template build",
+    "pretypecheck": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/game-repo-template build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
@@ -18,6 +18,7 @@
     "@octokit/request": "10.0.16",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
+    "@ogm/game-repo-template": "workspace:*",
     "hono": "4.13.16",
     "octokit": "5.0.5"
   },

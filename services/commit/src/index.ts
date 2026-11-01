@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { GameRepoTemplateSource } from '@ogm/game-repo-template';
 
 import { JsonlAuditWriter } from './audit.js';
 import { createGitHubApp } from './auth/app.js';
@@ -6,7 +7,7 @@ import { loadCommitConfig } from './config.js';
 import { DefaultBoundaryGate } from './gate.js';
 import { RepoResolver } from './repo-resolver.js';
 import { createCommitApp } from './server.js';
-import { DefaultTemplateSource } from './template-source.js';
+import { DefaultTemplateSource, withGameTemplates } from './template-source.js';
 
 async function main(): Promise<void> {
   const config = loadCommitConfig();
@@ -21,7 +22,7 @@ async function main(): Promise<void> {
     operations: {
       app: github,
       gate: new DefaultBoundaryGate(),
-      templates: new DefaultTemplateSource(),
+      templates: withGameTemplates(new GameRepoTemplateSource(), new DefaultTemplateSource()),
       builderBotLogin: config.builderBotLogin,
       platformIssueRepo: config.platformIssueRepo,
     },
