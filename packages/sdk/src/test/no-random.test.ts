@@ -16,7 +16,8 @@ function typescriptFiles(directory: string): string[] {
 describe('deterministic SDK source', () => {
   it('does not read ambient random values or wall-clock time', () => {
     const forbidden = new RegExp(['Math', 'random|Date', 'now'].join('\\.'));
-    const productionFiles = [join(sourceRoot, 'core'), join(sourceRoot, 'test')]
+    const productionFiles = ['core', 'fx', 'nav', 'proc', 'test']
+      .map((directory) => join(sourceRoot, directory))
       .flatMap(typescriptFiles)
       .filter((path) => !path.endsWith('.test.ts'));
     const offenders = productionFiles.filter((path) => forbidden.test(readFileSync(path, 'utf8')));

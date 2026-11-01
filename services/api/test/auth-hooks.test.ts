@@ -115,6 +115,20 @@ describe('age gate on Better Auth', () => {
 });
 
 describe('sign-in methods', () => {
+  it('lists only the social providers configured at boot', async () => {
+    const withoutGoogle = await makeApp();
+    expect(await (await withoutGoogle.app.request('/auth/providers')).json()).toEqual({
+      providers: ['magic-link', 'passkey'],
+    });
+
+    vi.stubEnv('GOOGLE_CLIENT_ID', 'client-id.apps.googleusercontent.com');
+    vi.stubEnv('GOOGLE_CLIENT_SECRET', 'client-secret');
+    const withGoogle = await makeApp();
+    expect(await (await withGoogle.app.request('/auth/providers')).json()).toEqual({
+      providers: ['magic-link', 'passkey', 'google'],
+    });
+  });
+
   it('has no password sign-up', async () => {
     const { app } = await makeApp();
     const age = await adultCookie(app);

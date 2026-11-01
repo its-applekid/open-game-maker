@@ -1,8 +1,9 @@
 import type { ScreenRoute } from '../../app/screen';
+import { ConnectGitHubScreen } from './ConnectGitHubScreen';
 
 export const route: ScreenRoute = {
   path: '/connect/github',
-  element: <h1>Connect GitHub</h1>,
-  chrome: 'app',
-  auth: 'none',
+  element: <ConnectGitHubScreen />,
+  chrome: 'bare',
+  auth: 'required',
 };

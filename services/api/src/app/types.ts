@@ -22,6 +22,9 @@ export interface AppDeps {
     gamesRoot: string;
     vapidKeyFile: string;
     vapidSubject: string;
+    // Build chat: the relay starts only with a workspaces root; the progress poller only with a period.
+    builderWorkspacesRoot?: string;
+    chatPollMs?: number;
     analyticsRetentionDays: number;
     // Both unset until the voice host is configured; the token route answers 503 meanwhile.
     voiceTokenSecret?: string;

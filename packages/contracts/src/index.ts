@@ -23,3 +23,4 @@ export * from './design-log.js';
 export * from './branches.js';
 export * from './releases.js';
 export * from './saves.js';
+export * from './chat.js';
