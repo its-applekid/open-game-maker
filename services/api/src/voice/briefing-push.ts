@@ -1,6 +1,6 @@
 import type { JobState } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, desc, eq, notInArray } from 'drizzle-orm';
+import { and, asc, desc, eq, notInArray } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 import { sizeClassRow } from '../budget/estimate.js';
@@ -82,20 +82,41 @@ function jobFor(db: Db, target: VoiceTarget) {
 export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Promise<Briefing> {
   const now = (deps.now ?? (() => new Date()))();
   const game = deps.db.select().from(schema.games).where(eq(schema.games.id, target.game_id)).get();
-  if (!game) throw new Error(`unknown game ${target.game_id}`);
+  const familyId =
+    game?.familyId ??
+    (target.kind === 'scope'
+      ? deps.db
+          .select({ familyId: schema.familyMembers.familyId })
+          .from(schema.familyMembers)
+          .where(eq(schema.familyMembers.userId, target.creator_id))
+          .get()?.familyId
+      : undefined);
+  if (!familyId) throw new Error(`unknown game ${target.game_id}`);
   const job = jobFor(deps.db, target);
   const stage = job
     ? (deps.db.select().from(schema.jobProjections).where(eq(schema.jobProjections.jobId, job.id)).get()?.stageText ??
       job.state)
     : null;
-  const budget = budgetText(deps, game.familyId, target.creator_id, now);
+  const questions = job
+    ? deps.db
+        .select({ question: schema.checkpoints.question })
+        .from(schema.checkpoints)
+        .where(and(eq(schema.checkpoints.jobId, job.id), eq(schema.checkpoints.status, 'open')))
+        .orderBy(asc(schema.checkpoints.openedAt))
+        .all()
+        .map(({ question }) => question)
+    : [];
+  const budget = budgetText(deps, familyId, target.creator_id, now);
   return {
     target_key: targetKey(target),
-    summary: target.kind === 'build' && job ? (JSON.parse(job.plan) as { title: string }).title : game.title,
+    summary:
+      target.kind === 'build' && job
+        ? (JSON.parse(job.plan) as { title: string }).title
+        : (game?.title ?? 'a new game'),
     current_task: target.kind === 'scope' ? 'Agreeing the scope' : (stage ?? 'No build running'),
     next_steps: target.kind === 'scope' ? ['Confirm the plan', 'Start the build or queue it for the reset'] : [],
     waiting_on: job?.state === 'paused_budget' ? 'an admin' : null,
-    questions: [],
+    questions,
     extra: [{ title: 'Budget', text: budget }],
     sections: [
       { id: 'budget', text: `${budget} ${OFFERS}` },

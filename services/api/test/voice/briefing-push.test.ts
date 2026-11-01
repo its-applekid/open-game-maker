@@ -96,6 +96,60 @@ describe('buildBriefing', () => {
     expect(staged.current_task).toBe('Building');
     expect(staged.sections[1]).toEqual({ id: 'progress', text: 'Building' });
   });
+
+  it('describes a scope session before the new game exists', async () => {
+    const deps = worked();
+    deps.db.delete(schema.games).where(eq(schema.games.id, ids.game)).run();
+
+    const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
+
+    expect(briefing.summary).toBe('a new game');
+    expect(briefing.extra[0].text).toContain('energy left today');
+  });
+
+  it('includes open checkpoint questions in the order they were opened', async () => {
+    const deps = worked();
+    deps.db
+      .insert(schema.checkpoints)
+      .values([
+        {
+          decisionId: 'd_second',
+          jobId: ids.running,
+          daemonSlug: 'daemon',
+          version: 1,
+          question: 'Which color should the camp use?',
+          options: '[]',
+          status: 'open',
+          openedAt: '2026-10-31T19:02:00.000Z',
+        },
+        {
+          decisionId: 'd_answered',
+          jobId: ids.running,
+          daemonSlug: 'daemon',
+          version: 1,
+          question: 'Should the gate open inward?',
+          options: '[]',
+          status: 'answered',
+          openedAt: '2026-10-31T19:00:00.000Z',
+          answeredAt: '2026-10-31T19:01:00.000Z',
+        },
+        {
+          decisionId: 'd_first',
+          jobId: ids.running,
+          daemonSlug: 'daemon',
+          version: 1,
+          question: 'How many goblins should appear?',
+          options: '[]',
+          status: 'open',
+          openedAt: '2026-10-31T19:01:00.000Z',
+        },
+      ])
+      .run();
+
+    const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, build);
+
+    expect(briefing.questions).toEqual(['How many goblins should appear?', 'Which color should the camp use?']);
+  });
 });
 
 describe('pushBriefing', () => {
