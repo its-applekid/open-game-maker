@@ -1,0 +1,39 @@
+{
+  "schema": "ogm.asset-card/1.1",
+  "vocab": "2026-10-27",
+  "id": "t1:neg-processing@1",
+  "card_type": "collection",
+  "status": "draft",
+  "title": "Vendor asset with cloud processing",
+  "license": "LicenseRef-sidetrax-royalty-free",
+  "rights": {
+    "uses": ["vision-input"],
+    "audience": "private",
+    "redistribution": "none",
+    "attribution": null,
+    "processing": "any",
+    "basis": [
+      {
+        "type": "default",
+        "uses": ["vision-input"],
+        "audience": "private",
+        "redistribution": "none",
+        "set_by": { "role": "intake-code" },
+        "date": "2026-10-27"
+      }
+    ]
+  },
+  "collection_info": {
+    "vendor": "sidetrax",
+    "version": "1",
+    "origin": "vendor-pack",
+    "counts": { "audio": 1 }
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-27T20:00:00-07:00"
+    }
+  }
+}
