@@ -2,4 +2,5 @@
 export * from './app-meta.js';
 export * from './accounts.js';
 export * from './game-daemons.js';
+export * from './aiur-events.js';
 export * from './notify.js';
