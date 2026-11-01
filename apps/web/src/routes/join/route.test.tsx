@@ -40,7 +40,6 @@ function renderJoin() {
         <Route path="/join/:inviteToken" element={<JoinScreen />} />
         <Route path="/age" element={<Location />} />
         <Route path="/g/:gameId" element={<Location />} />
-        <Route path="/games" element={<Location />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -66,7 +65,6 @@ describe('JoinScreen', () => {
     });
 
     renderJoin();
-    expect(screen.getByRole('status')).toHaveTextContent('Joining room');
     await screen.findByText('/g/game-1?v=branch-1&room=room-1');
 
     expect(mockedApi).toHaveBeenCalledWith('/join/invite-token');
@@ -93,7 +91,7 @@ describe('JoinScreen', () => {
     session.current = { data: null, isPending: true };
     renderJoin();
 
-    expect(screen.getByRole('status')).toHaveTextContent('Joining room');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(mockedApi).not.toHaveBeenCalled();
   });
 
@@ -113,7 +111,6 @@ describe('JoinScreen', () => {
     mockedApi.mockRejectedValue(error);
     renderJoin();
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(message));
-    await act(() => screen.getByRole('button', { name: 'Back to games' }).click());
-    await screen.findByText('/games');
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 });
