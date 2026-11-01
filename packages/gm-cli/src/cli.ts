@@ -1,3 +1,4 @@
+import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from '@ogm/config';
@@ -35,6 +36,8 @@ const ENV = {
   GM_VERIFY_QUEUE: { kind: 'bool', required: false },
   PLAYWRIGHT_BROWSERS_PATH: { kind: 'path', required: false },
   XDG_RUNTIME_DIR: { kind: 'path', required: false },
+  OGM_BLOB_ROOT: { kind: 'path', required: false },
+  OGM_BLOCKLIST_FILE: { kind: 'path', required: false },
 } as const;
 
 export async function run(argv: string[], options: RunOptions = {}): Promise<number> {
@@ -92,6 +95,8 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
       out,
       err,
       emit: makeEmitter(env.GM_EVENTS_FILE, env.GM_JOB),
+      blobRoot: env.OGM_BLOB_ROOT ? resolve(cwd, env.OGM_BLOB_ROOT) : null,
+      blocklistFile: env.OGM_BLOCKLIST_FILE ? resolve(cwd, env.OGM_BLOCKLIST_FILE) : null,
     };
     return await command.run(ctx, args, flags);
   } catch (error) {

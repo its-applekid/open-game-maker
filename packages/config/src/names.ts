@@ -139,4 +139,10 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
   { name: 'PLAYWRIGHT_BROWSERS_PATH', unit: 'gm', kind: 'path', doc: 'cached Chromium browsers used by gm verify' },
   { name: 'XDG_RUNTIME_DIR', unit: 'gm', kind: 'path', doc: 'holds the ogm-verify capture slots (2 per host)' },
+  {
+    name: 'OGM_BLOCKLIST_FILE',
+    unit: 'shared',
+    kind: 'path',
+    doc: 'redistribution:none hash feed (gm packs blocklist writes, commit service reads)',
+  },
 ];
