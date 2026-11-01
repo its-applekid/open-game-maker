@@ -37,6 +37,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_BLOB_SIGNING_KEY', unit: 'api', kind: 'secret', doc: 'HMAC key for signed blob URLs' },
   { name: 'OGM_SESSION_SECRET', unit: 'api', kind: 'secret', doc: 'Better Auth secret' },
   { name: 'OGM_WS_TOKEN_SECRET', unit: 'shared', kind: 'secret', doc: 'HS256 key for room/chat grants (api, rooms)' },
+  { name: 'OGM_ROOMS_INTERNAL_SECRET', unit: 'rooms', kind: 'secret', doc: 'backend -> rooms internal bearer' },
   {
     name: 'OGM_VOICE_TOKEN_SECRET',
     unit: 'shared',
