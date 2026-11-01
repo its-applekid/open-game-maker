@@ -1,0 +1,79 @@
+---
+name: gm-core
+description: Load first in every Game Maker build. Routes the work, keeps the brief in control, and defines done.
+---
+
+# Game Maker core
+
+## The job
+
+Build the game in `gm scope`. The scope owns the WHAT: theme, art, names, palette, and mechanics. Templates,
+skills, pattern cards, and engine references are HOW. Never add a mechanic the scope does not list; suggest it in
+the build chat instead.
+
+Before coding, write a five-line plan and a short list titled "defaults I'd reach for." Drop each default or justify
+it against the scope. Templates are engine scaffolds, not game designs: do not inherit a theme, entity, HUD, name,
+or mechanic from them.
+
+## Choose assets before making them
+
+Use this order and say when you move down a tier:
+
+1. Installed packs: search, inspect, and make a labelled lineup before choosing.
+2. Mirrors: search tier 2 when the installed set has no fit.
+3. Variants: clone a selected source and register the derived asset; never edit an original.
+4. Made from scratch: only when the first three tiers cannot satisfy the scope.
+
+Keep one style family per game. Use `gm assets sheet` for visual choices and record why the chosen items fit.
+
+## Build loop
+
+Before a large visible choice, offer distinct options through `gm checkpoint open` (at most three checkpoints per
+creation build), then wait for the choice. Build the selected slice, run it, and look at the result. After every
+`gm run`, send exactly one still or clip with `gm chat post`; do not make the creator ask to see progress.
+
+Done means `gm check`, `gm test`, and `gm run` are green and the PR's binary checklist is answered from the
+evidence sheet. Looking is part of verification: inspect the rendered game before sending it.
+
+## Activity markers
+
+Wrap long work in the Agent Workpad with these exact markers:
+
+```text
+<!-- gm-activity: <activity> start -->
+<!-- gm-activity: <activity> end -->
+```
+
+Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animation_and_vfx`, `audio`,
+`ui_and_hud`, `playtesting_and_verification`, `deploy_and_release`, `writing`.
+
+## `gm` cheat sheet
+
+- `gm assets search|facets|info` finds and inspects candidate cards.
+- `gm assets sheet` makes the labelled lineup; `gm assets use|register|list|why` records choices and derivatives.
+- `gm maps search` finds map sources; `gm build assets` builds the selected asset manifest.
+- `gm check`, `gm test`, and `gm run` are the definition-of-done gates.
+- `gm shot` captures evidence; `gm perf` checks frame and resource budgets.
+- `gm docs pattern` retrieves a mechanic card without loading a whole reference game.
+- `gm chat post` sends the current still or clip to the build chat.
+- `gm checkpoint open|wait` offers and waits on a creator-facing decision.
+- `gm changes` summarizes the current game-repo diff.
+
+## Load when…
+
+| Skill | Load when… |
+|---|---|
+| gm-core | Starting or resuming any Game Maker build. |
+| gm-build | Installing or building in the network-off sandbox. |
+| gm-verify | Checking behavior, visuals, accessibility, performance, or evidence. |
+| gm-genre-platformer | Building or tuning a platformer. |
+| gm-input | Adding input actions, buffering, rebinding, or accessibility. |
+| gm-ui-hud | Building menus, HUD, layout, or readable game text. |
+| gm-audio | Adding or tuning music and sound effects. |
+| gm-multiplayer-ready | Structuring player state or building multiplayer. |
+| gm-scope-options | Turning a vague brief into distinct creator-facing options. |
+| gm-editor-tuning | Exposing safe creator-tunable values. |
+| gm-repair | Repairing a failed build or verification gate. |
+| vendor/phaser | Working in Phaser; load only the capability needed. |
+| vendor/threejs | Working in Three.js; load only the capability needed. |
+| vendor/gamedev | Needing a focused game-development reference not covered above. |
