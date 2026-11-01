@@ -29,7 +29,11 @@ export async function measureImage(file: string): Promise<ImageMeasurement> {
     luminance += (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
   }
   const palette = [...colours.values()]
-    .sort((left, right) => right.count - left.count || hex(left.red, left.green, left.blue).localeCompare(hex(right.red, right.green, right.blue)))
+    .sort(
+      (left, right) =>
+        right.count - left.count ||
+        hex(left.red, left.green, left.blue).localeCompare(hex(right.red, right.green, right.blue)),
+    )
     .slice(0, 5)
     .map(({ red, green, blue }) => hex(red, green, blue));
   const pixelArt = metadata.isPalette || (colours.size <= 64 && Math.max(metadata.width, metadata.height) <= 512);

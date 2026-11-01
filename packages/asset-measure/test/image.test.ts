@@ -23,7 +23,9 @@ describe('measureImage', () => {
       const light = (index / 4) % 2 === 0;
       pixels.set(light ? [255, 255, 255, 255] : [0, 0, 0, 0], index);
     }
-    await sharp(pixels, { raw: { width: 32, height: 16, channels: 4 } }).png({ palette: true }).toFile(file);
+    await sharp(pixels, { raw: { width: 32, height: 16, channels: 4 } })
+      .png({ palette: true })
+      .toFile(file);
 
     const measured = await measureImage(file);
     expect(measured.image).toMatchObject({ width_px: 32, height_px: 16, has_alpha: true, pixel_art: true });

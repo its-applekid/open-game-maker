@@ -10,7 +10,9 @@ describe('rigIdFromJoints', () => {
       { name: 'Head', parentJoint: 'Spine' },
     ];
     const human = orc.map((joint) => ({ ...joint }));
-    const renamed = human.map((joint) => (joint.name === 'Head' ? { name: 'Skull', parentJoint: joint.parentJoint } : joint));
+    const renamed = human.map((joint) =>
+      joint.name === 'Head' ? { name: 'Skull', parentJoint: joint.parentJoint } : joint,
+    );
 
     expect(rigIdFromJoints(orc)).toBe(rigIdFromJoints(human));
     expect(rigIdFromJoints(renamed)).not.toBe(rigIdFromJoints(human));

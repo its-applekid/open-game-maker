@@ -20,13 +20,15 @@ describe('measureFont', () => {
     const file = join(dir, 'fixture.ttf');
     const glyphs = [
       new opentype.Glyph({ name: '.notdef', advanceWidth: 500, path: new opentype.Path() }),
-      ...Array.from({ length: 128 }, (_, index) =>
-        new opentype.Glyph({
-          name: `g${index + 32}`,
-          unicode: index + 32,
-          advanceWidth: 400 + (index % 3) * 50,
-          path: new opentype.Path(),
-        }),
+      ...Array.from(
+        { length: 128 },
+        (_, index) =>
+          new opentype.Glyph({
+            name: `g${index + 32}`,
+            unicode: index + 32,
+            advanceWidth: 400 + (index % 3) * 50,
+            path: new opentype.Path(),
+          }),
       ),
     ];
     const font = new opentype.Font({

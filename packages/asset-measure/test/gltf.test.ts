@@ -20,7 +20,11 @@ async function fixture(name: string, rigged: boolean, mode = 4): Promise<string>
     .setType('VEC3')
     .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]))
     .setBuffer(buffer);
-  const indices = document.createAccessor('indices').setType('SCALAR').setArray(new Uint16Array([0, 1, 2])).setBuffer(buffer);
+  const indices = document
+    .createAccessor('indices')
+    .setType('SCALAR')
+    .setArray(new Uint16Array([0, 1, 2]))
+    .setBuffer(buffer);
   const primitive = document.createPrimitive().setMode(mode).setAttribute('POSITION', positions).setIndices(indices);
   const meshNode = document.createNode('Wall').setMesh(document.createMesh('Wall').addPrimitive(primitive));
   const scene = document.createScene('Scene').addChild(meshNode);
@@ -46,7 +50,11 @@ async function fixture(name: string, rigged: boolean, mode = 4): Promise<string>
       .setArray(new Float32Array([0, 0, 0, 0, 0, 0]))
       .setBuffer(buffer);
     const sampler = document.createAnimationSampler().setInput(times).setOutput(values).setInterpolation('LINEAR');
-    const channel = document.createAnimationChannel().setSampler(sampler).setTargetNode(hips).setTargetPath('translation');
+    const channel = document
+      .createAnimationChannel()
+      .setSampler(sampler)
+      .setTargetNode(hips)
+      .setTargetPath('translation');
     document.createAnimation('Death').addSampler(sampler).addChannel(channel);
   }
 

@@ -8,7 +8,10 @@ export type JointPair = { name: string; parentJoint: string | null };
 export function rigIdFromJoints(joints: JointPair[]): string {
   const stable = joints
     .map(({ name, parentJoint }) => ({ name, parentJoint }))
-    .sort((left, right) => left.name.localeCompare(right.name) || (left.parentJoint ?? '').localeCompare(right.parentJoint ?? ''));
+    .sort(
+      (left, right) =>
+        left.name.localeCompare(right.name) || (left.parentJoint ?? '').localeCompare(right.parentJoint ?? ''),
+    );
   return `rig:${createHash('sha256').update(JSON.stringify(stable)).digest('hex').slice(0, 12)}`;
 }
 

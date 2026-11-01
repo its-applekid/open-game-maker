@@ -34,7 +34,8 @@ export async function measureGltf(file: string): Promise<GltfMeasurement> {
     const image = texture.getImage();
     return image ? [`sha256:${createHash('sha256').update(image).digest('hex')}`] : [];
   });
-  const centered = Math.abs((bounds.min[0] + bounds.max[0]) / 2) < 1e-4 && Math.abs((bounds.min[2] + bounds.max[2]) / 2) < 1e-4;
+  const centered =
+    Math.abs((bounds.min[0] + bounds.max[0]) / 2) < 1e-4 && Math.abs((bounds.min[2] + bounds.max[2]) / 2) < 1e-4;
   const atBase = Math.abs(bounds.min[1]) < 1e-4;
   const geometry: Geometry = {
     bounds_m: { min: [...bounds.min], max: [...bounds.max] },
