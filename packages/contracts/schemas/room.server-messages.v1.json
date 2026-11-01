@@ -1,0 +1,596 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "oneOf": [
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "welcome"
+          },
+          "you": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "playerIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "userId",
+              "playerIndex",
+              "sessionId"
+            ],
+            "additionalProperties": false
+          },
+          "state": {
+            "type": "object",
+            "properties": {
+              "protocol": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "pin": {
+                "type": "object",
+                "properties": {
+                  "gameId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "branchId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "buildId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "gameId",
+                  "branchId",
+                  "buildId"
+                ],
+                "additionalProperties": false
+              },
+              "ownerId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "editorSessionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "editing",
+                  "migrating",
+                  "playing",
+                  "pausedForHost",
+                  "ended"
+                ]
+              },
+              "phaseAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "playRev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "lastRev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "maxPlayers": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              "members": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "player"
+                      ]
+                    },
+                    "playerIndex": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 7
+                    },
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "name",
+                    "role",
+                    "playerIndex",
+                    "connected",
+                    "sessions"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "presence": {
+                "type": "object",
+                "properties": {
+                  "cursor": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "selection": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "focusControlId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "camera": {
+                    "type": "object",
+                    "properties": {
+                      "pos": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 3,
+                        "maxItems": 3
+                      },
+                      "target": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 3,
+                        "maxItems": 3
+                      },
+                      "zoom": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "pos",
+                      "target",
+                      "zoom"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "privateMode": {
+                    "type": "boolean"
+                  },
+                  "building": {
+                    "type": "object",
+                    "properties": {
+                      "jobId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "pct": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "jobId",
+                      "label",
+                      "pct"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "selection",
+                  "privateMode"
+                ],
+                "additionalProperties": false
+              },
+              "draft": {
+                "type": "object",
+                "properties": {
+                  "buildId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "buildId",
+                  "url",
+                  "expiresAt"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "protocol",
+              "pin",
+              "ownerId",
+              "phase",
+              "phaseAt",
+              "playRev",
+              "lastRev",
+              "maxPlayers",
+              "members",
+              "presence"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "t",
+          "you",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "input"
+          },
+          "f": {
+            "type": "object",
+            "properties": {
+              "seq": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "tick": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "axes": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "number"
+                }
+              },
+              "buttons": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "playerIndex": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "from": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "required": [
+              "seq",
+              "tick",
+              "axes",
+              "buttons",
+              "playerIndex",
+              "from"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "t",
+          "f"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "snapshot"
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "data": {
+            "type": "string",
+            "maxLength": 87384,
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+          }
+        },
+        "required": [
+          "t",
+          "seq",
+          "tick",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "event"
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "data": {
+            "type": "string",
+            "maxLength": 21848,
+            "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+          }
+        },
+        "required": [
+          "t",
+          "seq",
+          "data"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "design.tx"
+          },
+          "tx": {
+            "type": "object",
+            "properties": {
+              "branchId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "rev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "baseRev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "actor": {
+                "type": "string",
+                "minLength": 1
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "manual",
+                  "system",
+                  "merge"
+                ]
+              },
+              "patches": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "op": {
+                      "type": "string",
+                      "enum": [
+                        "add",
+                        "replace",
+                        "remove"
+                      ]
+                    },
+                    "path": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^\\/(?:globals|entities)(?:\\/.*)?$"
+                        },
+                        {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 9007199254740991
+                              }
+                            ]
+                          }
+                        }
+                      ]
+                    },
+                    "value": {}
+                  },
+                  "required": [
+                    "op",
+                    "path"
+                  ],
+                  "additionalProperties": {}
+                }
+              }
+            },
+            "required": [
+              "branchId",
+              "rev",
+              "baseRev",
+              "actor",
+              "kind",
+              "patches"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "required": [
+          "t",
+          "tx"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "resync"
+          },
+          "fromRev": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "t",
+          "fromRev"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "ended"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "host-left",
+              "owner-closed",
+              "idle",
+              "revoked"
+            ]
+          }
+        },
+        "required": [
+          "t",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "pong"
+          },
+          "c": {
+            "type": "number"
+          },
+          "s": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "t",
+          "c",
+          "s"
+        ],
+        "additionalProperties": false
+      }
+    ]
+  },
+  "$id": "https://open-game-maker-2000.local/schemas/room.server-messages.v1.json"
+}

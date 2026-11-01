@@ -1,0 +1,78 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-particle-pack/flame-01@1.1",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Flame 01",
+  "kind": "vfx",
+  "subkind": "particle",
+  "collection": "t1:kenney-particle-pack@1.1",
+  "source": {
+    "files": [
+      {
+        "path": "PNG (Transparent)/flame_01.png",
+        "sha256": "sha256:92a70bcb90b1e21c57b2dae42843135703b2e988abee97433f84c3119723d144",
+        "bytes": 54099,
+        "format": "png",
+        "role": "primary"
+      },
+      {
+        "path": "PNG (Black background)/flame_01.png",
+        "sha256": "sha256:dc6b5decd0e7e99900b0493fa1496f80e34d272f5603081634d0e99235ea9d2b",
+        "bytes": 35189,
+        "format": "png",
+        "role": "companion"
+      }
+    ],
+    "content_hash": "sha256:92a70bcb90b1e21c57b2dae42843135703b2e988abee97433f84c3119723d144"
+  },
+  "previews": {
+    "thumb": "previews/92/92a70bcb90b1e21c-thumb.webp"
+  },
+  "describe": {
+    "description": "Soft greyscale flame wisp for particle systems; tint it orange for fire, green or blue for magic.",
+    "objects": ["flame"],
+    "environments": ["neutral"],
+    "roles": ["effect", "light-source"],
+    "materials": ["fire"],
+    "style_family": "any"
+  },
+  "image": {
+    "width_px": 512,
+    "height_px": 512,
+    "has_alpha": true,
+    "indexed_colors": 256,
+    "pixel_art": false
+  },
+  "vfx": {
+    "blend": "additive",
+    "background": "transparent",
+    "tintable": true,
+    "frames": 1,
+    "emitter_preset": null
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.85,
+      "input": "image on dark and light backgrounds"
+    },
+    "vfx.blend": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.7,
+      "input": "greyscale on black companion file suggests additive"
+    }
+  }
+}

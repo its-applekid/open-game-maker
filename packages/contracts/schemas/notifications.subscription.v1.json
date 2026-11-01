@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "endpoint": {
+      "type": "string",
+      "format": "uri"
+    },
+    "expirationTime": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "keys": {
+      "type": "object",
+      "properties": {
+        "p256dh": {
+          "type": "string"
+        },
+        "auth": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "p256dh",
+        "auth"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "endpoint",
+    "keys"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/notifications.subscription.v1.json"
+}

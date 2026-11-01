@@ -1,0 +1,3 @@
+/api/*  https://applekid.tailee0e71.ts.net:8443/api/:splat  200
+/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200
+/*  /index.html  200

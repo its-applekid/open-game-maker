@@ -47,8 +47,7 @@ agent:
   priority:
     - codex
   accounts:
-    codex:
-      - gamebuilder
+    codex: []
   max_concurrent_agents: 1
   max_agent_duration_minutes: 90
   max_dispatches_per_ticket: 3

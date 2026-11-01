@@ -1,0 +1,18 @@
+{
+  "id": "tx_01J",
+  "branchId": "b_01J",
+  "rev": 42,
+  "baseRev": 41,
+  "actor": "u_01JOWNER",
+  "kind": "manual",
+  "leaseToken": "lease_01J",
+  "label": "Move tree",
+  "patches": [
+    { "op": "replace", "path": ["entities", "e_01JTREE", "transform", "pos", 0], "value": 3 },
+    { "op": "add", "path": "/globals/gravity", "value": -9.8 }
+  ],
+  "inverse": [
+    { "op": "replace", "path": ["entities", "e_01JTREE", "transform", "pos", 0], "value": 1 },
+    { "op": "remove", "path": "/globals/gravity" }
+  ]
+}

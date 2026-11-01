@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "error": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "details": {}
+  },
+  "required": [
+    "error"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/api.error.v1.json"
+}

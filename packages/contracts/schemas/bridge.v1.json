@@ -932,7 +932,7 @@
                       "maximum": 9007199254740991
                     },
                     "axes": {
-                      "maxItems": 16,
+                      "maxItems": 8,
                       "type": "array",
                       "items": {
                         "type": "number"
@@ -941,10 +941,7 @@
                     "buttons": {
                       "type": "integer",
                       "minimum": 0,
-                      "maximum": 4294967295
-                    },
-                    "text": {
-                      "not": {}
+                      "maximum": 9007199254740991
                     },
                     "playerIndex": {
                       "type": "integer",
@@ -959,7 +956,7 @@
                     "buttons",
                     "playerIndex"
                   ],
-                  "additionalProperties": {}
+                  "additionalProperties": false
                 }
               },
               "required": [
@@ -2468,7 +2465,7 @@
                       "maximum": 9007199254740991
                     },
                     "axes": {
-                      "maxItems": 16,
+                      "maxItems": 8,
                       "type": "array",
                       "items": {
                         "type": "number"
@@ -2477,10 +2474,7 @@
                     "buttons": {
                       "type": "integer",
                       "minimum": 0,
-                      "maximum": 4294967295
-                    },
-                    "text": {
-                      "not": {}
+                      "maximum": 9007199254740991
                     }
                   },
                   "required": [
@@ -2489,7 +2483,7 @@
                     "axes",
                     "buttons"
                   ],
-                  "additionalProperties": {}
+                  "additionalProperties": false
                 }
               },
               "required": [

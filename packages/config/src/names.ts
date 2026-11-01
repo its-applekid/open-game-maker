@@ -10,6 +10,7 @@ export const OGM_ENV_UNITS = [
   'drive-sync',
   'aiur',
   'backup',
+  'gm',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -51,4 +52,22 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GITHUB_APP_INSTALLATION_ID', unit: 'commit', kind: 'string', doc: "installation id on Kevin's account" },
   { name: 'GITHUB_APP_PRIVATE_KEY_PATH', unit: 'commit', kind: 'path', doc: 'PEM path under ~/.config/ogm' },
   { name: 'OGM_BACKUP_TARGET', unit: 'backup', kind: 'string', doc: 'ssh:<host>:<path> or local:<path>' },
+  {
+    name: 'OGM_INTERNAL_TOKEN',
+    unit: 'shared',
+    kind: 'secret',
+    doc: 'service -> API bearer (X-Ogm-Service names the caller)',
+  },
+  { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
+  { name: 'OGM_ASSETS_ROOT', unit: 'gm', kind: 'path', doc: 'assets-local library root for gm (else found above cwd)' },
+  { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
+  { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
+  { name: 'OGM_API_INTERNAL_URL', unit: 'commit', kind: 'url', doc: 'loopback URL of the internal API' },
+  { name: 'OGM_BUILDER_BOT_LOGIN', unit: 'commit', kind: 'string', doc: 'builder bot invited to game repositories' },
+  {
+    name: 'OGM_PLATFORM_ISSUE_REPO',
+    unit: 'commit',
+    kind: 'string',
+    doc: 'fixed owner/repository for platform bug reports',
+  },
 ];

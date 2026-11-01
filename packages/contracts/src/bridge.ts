@@ -40,15 +40,15 @@ export const patchSchema = z.looseObject({
 export type Patch = z.infer<typeof patchSchema>;
 
 /*
- * Copied from T07 §4.1 (`packages/room-protocol`), owned by OGM-050 (`room.ts`). Copy, never
- * import, so engine packages stay free of room code; OGM-050's tests assert structural equality.
+ * Copied from T07 §4.1, owned by OGM-050 (`room.ts`). Copy, never import, so engine packages
+ * stay free of room code; `test/bridge.test.ts` asserts the emitted shapes stay equal.
+ * Strict, so a `text` key fails.
  */
-export const inputFrameSchema = z.looseObject({
+export const inputFrameSchema = z.strictObject({
   seq: z.number().int().min(0),
   tick: z.number().int().min(0),
-  axes: z.array(z.number()).max(16),
-  buttons: z.number().int().min(0).max(0xffff_ffff),
-  text: z.never().optional(),
+  axes: z.array(z.number()).max(8),
+  buttons: z.number().int().min(0),
 });
 export type InputFrame = z.infer<typeof inputFrameSchema>;
 

@@ -1,0 +1,29 @@
+{
+  "name": "@ogm/gm-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "gm": "dist/index.js"
+  },
+  "types": "./dist/cli.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/cli.d.ts",
+      "default": "./dist/cli.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards build",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@ogm/asset-cards": "workspace:*",
+    "@ogm/config": "workspace:*",
+    "@ogm/contracts": "workspace:*"
+  }
+}

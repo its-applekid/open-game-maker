@@ -11,6 +11,6 @@ export const HealthResponse = z
 
 export type HealthResponse = z.infer<typeof HealthResponse>;
 
-export const healthSchemas = {
+export const schemas = {
   'health.v1': HealthResponse,
 } satisfies Record<'health.v1', z.ZodType>;
