@@ -6,6 +6,7 @@ export type FlagSpec = Record<
 export type GmContext = {
   cwd: string;
   assetsRoot: string | null;
+  skillsDir: string | null;
   json: boolean;
   limit: number;
   fields: string[] | null;
