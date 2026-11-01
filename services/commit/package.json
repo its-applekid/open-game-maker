@@ -1,0 +1,24 @@
+{
+  "name": "@ogm/commit",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "tsx src/index.ts",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "@octokit/auth-app": "8.3.1",
+    "@ogm/config": "workspace:*",
+    "@ogm/contracts": "workspace:*",
+    "hono": "4.13.16",
+    "octokit": "5.0.5"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
+  }
+}
