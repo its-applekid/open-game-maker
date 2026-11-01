@@ -26,6 +26,7 @@
     "@ogm/blob-store": "workspace:*",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
-    "@ogm/gm-verify": "workspace:*"
+    "@ogm/gm-verify": "workspace:*",
+    "ulid": "3.0.2"
   }
 }

@@ -16,7 +16,13 @@ export function parseFlags(
 ): { args: string[]; flags: Record<string, unknown> } {
   const all = { ...SHARED_FLAGS, ...spec };
   const options = Object.fromEntries(
-    Object.entries(all).map(([flag, def]) => [flag, { type: def.type === 'boolean' ? 'boolean' : 'string' }] as const),
+    Object.entries(all).map(
+      ([flag, def]) =>
+        [
+          flag,
+          { type: def.type === 'boolean' ? 'boolean' : 'string', ...(def.multiple ? { multiple: true } : {}) },
+        ] as const,
+    ),
   );
   let parsed: ReturnType<typeof parseArgs>;
   try {
@@ -33,10 +39,11 @@ export function parseFlags(
       continue;
     }
     if (def.type === 'number') {
-      const value = Number(raw);
-      if (!Number.isInteger(value) || value < 0)
+      const values = Array.isArray(raw) ? raw : [raw];
+      const numbers = values.map(Number);
+      if (numbers.some((value) => !Number.isInteger(value) || value < 0))
         throw new UsageError(`--${flag} needs a whole number`, `gm help ${name}`);
-      flags[flag] = value;
+      flags[flag] = def.multiple ? numbers : numbers[0];
     } else flags[flag] = raw;
   }
   return { args: parsed.positionals, flags };
