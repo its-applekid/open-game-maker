@@ -1,0 +1,7124 @@
+{
+ "schema_version": 1,
+ "build_order_id": "its-everdred/open-game-maker-2000:ogm-v1",
+ "ticket_prefix": "OGM",
+ "plan_version": 1,
+ "repository": "its-everdred/open-game-maker-2000",
+ "researched_at_commit": "9508c1c46735e442a2e07a1bffad2bb9f190da8d",
+ "workstreams": [
+  {
+   "id": "platform",
+   "title": "Platform",
+   "icon": "server-stack",
+   "summary": "Monorepo, host units, ingress, blob store, games host, config, backups",
+   "wave": 0
+  },
+  {
+   "id": "backend",
+   "title": "Backend",
+   "icon": "circle-stack",
+   "summary": "API: auth, accounts, policy, admission, budgets, analytics, reports, notifications",
+   "wave": 1
+  },
+  {
+   "id": "aiur",
+   "title": "aiur",
+   "icon": "cpu-chip",
+   "summary": "Driving aiur: client, job intake, events, controls, daemon fleet, repo provisioning, sandbox policy",
+   "wave": 2
+  },
+  {
+   "id": "commit",
+   "title": "Commit",
+   "icon": "lock-closed",
+   "summary": "GitHub App commit service, boundary check run, publication content gate",
+   "wave": 3
+  },
+  {
+   "id": "engine",
+   "title": "Engine",
+   "icon": "cube",
+   "summary": "Engine contracts, bridge, SDK (three, phaser, camera, input, assets, audio), host frame, conformance",
+   "wave": 4
+  },
+  {
+   "id": "design",
+   "title": "Design state",
+   "icon": "pencil-square",
+   "summary": "Transaction log, overrides, branches, merge, releases, saves, achievements, analytics, forks",
+   "wave": 5
+  },
+  {
+   "id": "rooms",
+   "title": "Rooms",
+   "icon": "users",
+   "summary": "Colyseus relay rooms, invites, watcher sync, SDK net layer, multiplayer-ready",
+   "wave": 6
+  },
+  {
+   "id": "assets",
+   "title": "Assets",
+   "icon": "photo",
+   "summary": "Asset cards, gm CLI, lockfile, build tiers, import, taggers, style families, blocklist",
+   "wave": 7
+  },
+  {
+   "id": "web",
+   "title": "Web app",
+   "icon": "device-phone-mobile",
+   "summary": "React app on Netlify: shell, sign-in, picker, creation, game host, editor, chat, admin",
+   "wave": 8
+  },
+  {
+   "id": "chat-voice",
+   "title": "Chat and voice",
+   "icon": "chat-bubble-left-right",
+   "summary": "Build chat, checkpoints, voice client, voice host, budget-aware voice, narration",
+   "wave": 9
+  },
+  {
+   "id": "skills",
+   "title": "Skills",
+   "icon": "academic-cap",
+   "summary": "gm run/shot/perf, skill pack, vendored references, gm-verify gates, genre skills, repair, eval",
+   "wave": 10
+  },
+  {
+   "id": "capstone",
+   "title": "Capstone",
+   "icon": "flag",
+   "summary": "End-to-end proof on this machine and prototype archive",
+   "wave": 11
+  }
+ ],
+ "github_root": null,
+ "github_reconciliation": null,
+ "label_projection": {
+  "build_order": "build-order",
+  "workstreams": {
+   "platform": "build-lane:platform",
+   "backend": "build-lane:backend",
+   "aiur": "build-lane:aiur",
+   "commit": "build-lane:commit",
+   "engine": "build-lane:engine",
+   "design": "build-lane:design",
+   "rooms": "build-lane:rooms",
+   "assets": "build-lane:assets",
+   "web": "build-lane:web",
+   "chat-voice": "build-lane:chat-voice",
+   "skills": "build-lane:skills",
+   "capstone": "build-lane:capstone"
+  },
+  "phases": {
+   "1": "phase:1",
+   "2": "phase:2",
+   "3": "phase:3",
+   "4": "phase:4",
+   "5": "phase:5",
+   "6": "phase:6",
+   "7": "phase:7",
+   "8": "phase:8",
+   "9": "phase:9"
+  },
+  "complexities": {
+   "1": "complexity:1",
+   "2": "complexity:2",
+   "3": "complexity:3",
+   "4": "complexity:4"
+  },
+  "required_ticket_labels": [
+   "agent:queued",
+   "feature:ogm-v1"
+  ],
+  "forbidden_labels": [
+   "agent:in-progress",
+   "agent:rework",
+   "agent:merging"
+  ]
+ },
+ "feature_boundary": {
+  "acceptance_criteria": [
+   "An adult signs in on a phone, makes a game by text, watches stills arrive, plays the draft, edits while a second build runs, branches, invites a family member into a room, and publishes, with every service on this machine and no money spent.",
+   "Every requirement in requirements.md has one disposition; every ticket is merged, green on main, and documented."
+  ],
+  "critical_path_ticket_ids": [
+   "OGM-001",
+   "OGM-004",
+   "OGM-020",
+   "OGM-021",
+   "OGM-022",
+   "OGM-023",
+   "OGM-025",
+   "OGM-054",
+   "OGM-055"
+  ],
+  "required_documentation": [
+   "docs/ops/runbook.md",
+   "AGENTS.md",
+   "docs/plans/ogm-v1-build/acceptance.md"
+  ],
+  "required_cleanup": [
+   "prototypes archived (OGM-101)"
+  ],
+  "end_to_end_proof": [
+   "OGM-100 acceptance checklist with recorded clips"
+  ],
+  "completion_condition": "OGM-100 passes on current main with its evidence committed; the deferred-findings ledger holds everything else."
+ },
+ "external_gates": [
+  {
+   "id": "GATE-TS-OPERATOR",
+   "title": "Kevin runs `sudo tailscale set --operator=orangekid` and approves Funnel on 8443/10000",
+   "owner": "Kevin",
+   "resolution_criteria": "Kevin runs `sudo tailscale set --operator=orangekid` and approves Funnel on 8443/10000"
+  },
+  {
+   "id": "GATE-GITHUB-APP",
+   "title": "Kevin creates the OGM GitHub App (free) and installs it on his account; App id, installation id and PEM path go in the commit service env file",
+   "owner": "Kevin",
+   "resolution_criteria": "Kevin creates the OGM GitHub App (free) and installs it on his account; App id, installation id and PEM path go in the commit service env file"
+  },
+  {
+   "id": "GATE-GOOGLE-OAUTH",
+   "title": "Kevin creates a Google OAuth client (testing mode) for sign-in; passkey and magic link work without it",
+   "owner": "Kevin",
+   "resolution_criteria": "Kevin creates a Google OAuth client (testing mode) for sign-in; passkey and magic link work without it"
+  },
+  {
+   "id": "GATE-BACKUP-TARGET",
+   "title": "Kevin confirms the tailnet node for backups and SSH access from this account",
+   "owner": "Kevin",
+   "resolution_criteria": "Kevin confirms the tailnet node for backups and SSH access from this account"
+  },
+  {
+   "id": "GATE-MIX-DEPS",
+   "title": "A one-time `mix deps.get` for the voice host (network); check aiur/src/deps first",
+   "owner": "Executor with Kevin's go-ahead",
+   "resolution_criteria": "A one-time `mix deps.get` for the voice host (network); check aiur/src/deps first"
+  },
+  {
+   "id": "GATE-PROVIDER-KEY",
+   "title": "A voice provider key; not in V1 unless Kevin approves spend",
+   "owner": "Kevin",
+   "resolution_criteria": "A voice provider key; not in V1 unless Kevin approves spend"
+  }
+ ],
+ "design_evidence": [],
+ "decisions": [
+  {
+   "id": "D-AIUR-MODE",
+   "summary": "D-AIUR-MODE",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-API",
+   "summary": "D-API",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-ARTIFACTS",
+   "summary": "D-ARTIFACTS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-AUTH",
+   "summary": "D-AUTH",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-BRANCH-BASE",
+   "summary": "D-BRANCH-BASE",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-BUCKET",
+   "summary": "D-BUCKET",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-BUDGET-UNIT",
+   "summary": "D-BUDGET-UNIT",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-BUILD-CHAT",
+   "summary": "D-BUILD-CHAT",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-CARDS",
+   "summary": "D-CARDS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-COMMIT",
+   "summary": "D-COMMIT",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-DAEMONS",
+   "summary": "D-DAEMONS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-DB",
+   "summary": "D-DB",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-FAMILIES",
+   "summary": "D-FAMILIES",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-GAMES-ORIGIN",
+   "summary": "D-GAMES-ORIGIN",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-HOOKS",
+   "summary": "D-HOOKS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-HOSTING",
+   "summary": "D-HOSTING",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-JOB-BUS",
+   "summary": "D-JOB-BUS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-LOG",
+   "summary": "D-LOG",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-LOOK",
+   "summary": "D-LOOK",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-MAIL",
+   "summary": "D-MAIL",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-MONOREPO-FIRST",
+   "summary": "D-MONOREPO-FIRST",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-ORIGIN",
+   "summary": "D-ORIGIN",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-ROOMS",
+   "summary": "D-ROOMS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-SBX",
+   "summary": "D-SBX",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-SECRETS",
+   "summary": "D-SECRETS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-SKILLS-IN-REPO",
+   "summary": "D-SKILLS-IN-REPO",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-STACK",
+   "summary": "D-STACK",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-TIERS",
+   "summary": "D-TIERS",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-VERIFY-GPU",
+   "summary": "D-VERIFY-GPU",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-VERSION",
+   "summary": "D-VERSION",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-VOICE-ZERO",
+   "summary": "D-VOICE-ZERO",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  },
+  {
+   "id": "D-WRITE-SURFACES",
+   "summary": "D-WRITE-SURFACES",
+   "status": "accepted",
+   "rationale": "see decisions.md",
+   "design_evidence_refs": []
+  }
+ ],
+ "requirements": [
+  {
+   "id": "R1",
+   "summary": "R1",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-011",
+    "OGM-072"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R2",
+   "summary": "R2",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-011",
+    "OGM-072"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R3",
+   "summary": "R3",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-012",
+    "OGM-017",
+    "OGM-079"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R4",
+   "summary": "R4",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-012",
+    "OGM-052"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R5",
+   "summary": "R5",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-012"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R6",
+   "summary": "R6",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-012",
+    "OGM-072"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R10",
+   "summary": "R10",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-013"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R11",
+   "summary": "R11",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-013"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R12",
+   "summary": "R12",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-013",
+    "OGM-018",
+    "OGM-074",
+    "OGM-086"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R13",
+   "summary": "R13",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-013",
+    "OGM-033"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R20",
+   "summary": "R20",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-066",
+    "OGM-074",
+    "OGM-088"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R21",
+   "summary": "R21",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-018",
+    "OGM-074",
+    "OGM-083",
+    "OGM-085",
+    "OGM-086",
+    "OGM-087",
+    "OGM-088"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R22",
+   "summary": "R22",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-076",
+    "OGM-080",
+    "OGM-081"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R23",
+   "summary": "R23",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-081",
+    "OGM-082"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R24",
+   "summary": "R24",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-076",
+    "OGM-080"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R25",
+   "summary": "R25",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-074"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R26",
+   "summary": "R26",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-031"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R27",
+   "summary": "R27",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-032",
+    "OGM-033"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R30",
+   "summary": "R30",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-075"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R31",
+   "summary": "R31",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-040",
+    "OGM-041"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R32",
+   "summary": "R32",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-041"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R33",
+   "summary": "R33",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-042"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R34",
+   "summary": "R34",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-075"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R35",
+   "summary": "R35",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-041"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R36",
+   "summary": "R36",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-041"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R37",
+   "summary": "R37",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-043",
+    "OGM-077"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R38",
+   "summary": "R38",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-044",
+    "OGM-077"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R40",
+   "summary": "R40",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-007",
+    "OGM-020",
+    "OGM-021",
+    "OGM-028"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R41",
+   "summary": "R41",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-022",
+    "OGM-023",
+    "OGM-024"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R42",
+   "summary": "R42",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-020",
+    "OGM-022"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R43",
+   "summary": "R43",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-025"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R44",
+   "summary": "R44",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-025",
+    "OGM-028"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R45",
+   "summary": "R45",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-020",
+    "OGM-026"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R46",
+   "summary": "R46",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-027"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R47",
+   "summary": "R47",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-029"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R48",
+   "summary": "R48",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-019"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R50",
+   "summary": "R50",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-060"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R51",
+   "summary": "R51",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-004",
+    "OGM-060"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R52",
+   "summary": "R52",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-061",
+    "OGM-065"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R53",
+   "summary": "R53",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-039",
+    "OGM-062",
+    "OGM-067"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R54",
+   "summary": "R54",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-063"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R55",
+   "summary": "R55",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-066"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R56",
+   "summary": "R56",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-005"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R57",
+   "summary": "R57",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-068"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R60",
+   "summary": "R60",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-030"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R61",
+   "summary": "R61",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-034"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R62",
+   "summary": "R62",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-036"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R63",
+   "summary": "R63",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-037",
+    "OGM-038"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R64",
+   "summary": "R64",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-035",
+    "OGM-039"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R65",
+   "summary": "R65",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-036"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R66",
+   "summary": "R66",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-014",
+    "OGM-079"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R67",
+   "summary": "R67",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-016"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R68",
+   "summary": "R68",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-015",
+    "OGM-096"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R69",
+   "summary": "R69",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-002",
+    "OGM-003",
+    "OGM-006",
+    "OGM-007",
+    "OGM-008"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R70",
+   "summary": "R70",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-051",
+    "OGM-078"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R71",
+   "summary": "R71",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-050",
+    "OGM-051"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R72",
+   "summary": "R72",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-050",
+    "OGM-052"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R73",
+   "summary": "R73",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-053",
+    "OGM-078"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R74",
+   "summary": "R74",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-051",
+    "OGM-053"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R75",
+   "summary": "R75",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-051",
+    "OGM-054"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R76",
+   "summary": "R76",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-051",
+    "OGM-055"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R77",
+   "summary": "R77",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-051",
+    "OGM-078"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R78",
+   "summary": "R78",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-054",
+    "OGM-055"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R80",
+   "summary": "R80",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-009",
+    "OGM-064"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R81",
+   "summary": "R81",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-064"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R82",
+   "summary": "R82",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-064"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R83",
+   "summary": "R83",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-067"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R84",
+   "summary": "R84",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-017",
+    "OGM-079"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R85",
+   "summary": "R85",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-064"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R86",
+   "summary": "R86",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-065"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R90",
+   "summary": "R90",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-045",
+    "OGM-077"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R91",
+   "summary": "R91",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-043"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R92",
+   "summary": "R92",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-045",
+    "OGM-077"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R93",
+   "summary": "R93",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-045"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R94",
+   "summary": "R94",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-046"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R95",
+   "summary": "R95",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-048"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R96",
+   "summary": "R96",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-047"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R100",
+   "summary": "R100",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-091",
+    "OGM-092",
+    "OGM-095"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R101",
+   "summary": "R101",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-091"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R102",
+   "summary": "R102",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-090"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R103",
+   "summary": "R103",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-093"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R104",
+   "summary": "R104",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-091",
+    "OGM-094"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R105",
+   "summary": "R105",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-097"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R110",
+   "summary": "R110",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-070"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R111",
+   "summary": "R111",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-071"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R112",
+   "summary": "R112",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-071",
+    "OGM-073",
+    "OGM-075"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R113",
+   "summary": "R113",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-070",
+    "OGM-071"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R114",
+   "summary": "R114",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-070"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R120",
+   "summary": "R120",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-001",
+    "OGM-009",
+    "OGM-010",
+    "OGM-100"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R121",
+   "summary": "R121",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-004",
+    "OGM-010"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R123",
+   "summary": "R123",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-001"
+   ],
+   "reason": null
+  },
+  {
+   "id": "R124",
+   "summary": "R124",
+   "disposition": "ticket",
+   "ticket_ids": [
+    "OGM-101"
+   ],
+   "reason": null
+  }
+ ],
+ "tickets": [
+  {
+   "id": "OGM-001",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Monorepo scaffold and CI",
+   "document": "tickets/OGM-001.md",
+   "outcome": "pnpm workspace (apps/*, packages/*, services/*), tsconfig base, Vitest, ESLint, Prettier, .gitignore rewrite, ci / required green on the empty workspace, AGENTS.md naming the commands.",
+   "scope": [
+    "pnpm workspace (apps/*, packages/*, services/*), tsconfig base, Vitest, ESLint, Prettier, .gitignore rewrite, ci / required green on the empty workspace, AGENTS.md naming the commands."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 1,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R120",
+    "R123"
+   ],
+   "depends_on": [],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "package.json",
+    "pnpm-workspace.yaml",
+    "tsconfig.base.json",
+    ".github/workflows/ci.yml",
+    ".gitignore",
+    "AGENTS.md"
+   ],
+   "contract_surfaces": [
+    "workspace layout"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-STACK",
+    "D-MONOREPO-FIRST",
+    "D-WRITE-SURFACES"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-002",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Host bootstrap: slices and user units",
+   "document": "tickets/OGM-002.md",
+   "outcome": "ops/systemd slices and unit files for api, rooms, games, voice-host, intake, drive-sync, aiur@ template and the backup timer; an idempotent no-sudo install script; systemctl --user status green with placeholders.",
+   "scope": [
+    "ops/systemd slices and unit files for api, rooms, games, voice-host, intake, drive-sync, aiur@ template and the backup timer; an idempotent no-sudo install script; systemctl --user status green with placeholders."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R69"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "ops/systemd/*",
+    "ops/bin/ogm-host-setup.sh"
+   ],
+   "contract_surfaces": [
+    "unit and slice layout",
+    "env file names"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOSTING"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-003",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Config and secrets loader",
+   "document": "tickets/OGM-003.md",
+   "outcome": "packages/config validates named env vars at startup, never logs values; .env.example with names only; ~/.config/ogm/env/<unit>.env convention documented.",
+   "scope": [
+    "packages/config validates named env vars at startup, never logs values; .env.example with names only; ~/.config/ogm/env/<unit>.env convention documented."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 1,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R69"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/config/*",
+    ".env.example"
+   ],
+   "contract_surfaces": [
+    "env names"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SECRETS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-004",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Contracts package bootstrap with asset-card schemas and rights engine",
+   "document": "tickets/OGM-004.md",
+   "outcome": "packages/contracts with the append-only barrel, Zod\u2192JSON Schema emit, the C3 schemas, 16 examples and 4 negatives moved in, validate.mjs ported to TypeScript (effective rights, layout metrics) with the fixtures as tests, a shim at the old path, Python callers updated; cards gain processing: local-only|any.",
+   "scope": [
+    "packages/contracts with the append-only barrel, Zod\u2192JSON Schema emit, the C3 schemas, 16 examples and 4 negatives moved in, validate.mjs ported to TypeScript (effective rights, layout metrics) with the fixtures as tests, a shim at the old path, Python callers updated; cards gain processing: local-only|any."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R121",
+    "R51"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/contracts/*",
+    "docs/research/v0.5/schemas/tools/validate.mjs",
+    "scripts/audio/build_audio_cards.py"
+   ],
+   "contract_surfaces": [
+    "asset card",
+    "layout spec",
+    "rights"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-CARDS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-005",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Filesystem blob store with signed URLs",
+   "document": "tickets/OGM-005.md",
+   "outcome": "packages/blob-store: BlobStore interface (put, head, signedGet, delete), FsBlobStore under OGM_BLOB_ROOT with blobs/sha256/<hex>, HMAC day-rounded signed GET verification helper, GC of unreferenced blobs by a roots list; property tests.",
+   "scope": [
+    "packages/blob-store: BlobStore interface (put, head, signedGet, delete), FsBlobStore under OGM_BLOB_ROOT with blobs/sha256/<hex>, HMAC day-rounded signed GET verification helper, GC of unreferenced blobs by a roots list; property tests."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R56"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/blob-store/*"
+   ],
+   "contract_surfaces": [
+    "BlobStore",
+    "signed URL"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUCKET"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-006",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Ingress: Tailscale serve/funnel and Netlify proxy",
+   "document": "tickets/OGM-006.md",
+   "outcome": "ops/bin/ogm-ingress.sh applies the serve/funnel map (8443 api+ws+blobs, 10000 games) leaving 443 untouched; documented _redirects/_headers lines for the app; an external curl reaches /healthz.",
+   "scope": [
+    "ops/bin/ogm-ingress.sh applies the serve/funnel map (8443 api+ws+blobs, 10000 games) leaving 443 untouched; documented _redirects/_headers lines for the app; an external curl reaches /healthz."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R69"
+   ],
+   "depends_on": [
+    "OGM-002"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [
+    "GATE-TS-OPERATOR"
+   ],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "ops/bin/ogm-ingress.sh",
+    "docs/ops/ingress.md"
+   ],
+   "contract_surfaces": [
+    "ingress map"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOSTING",
+    "D-ORIGIN"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-007",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Games origin host",
+   "document": "tickets/OGM-007.md",
+   "outcome": "services/games-host serves /g/<gameId>/<buildId>/ from the release directory layout it defines, with CSP, COOP, immutable caching, no cookies, 127.0.0.1 bind; cross-site test against the app origin.",
+   "scope": [
+    "services/games-host serves /g/<gameId>/<buildId>/ from the release directory layout it defines, with CSP, COOP, immutable caching, no cookies, 127.0.0.1 bind; cross-site test against the app origin."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R40",
+    "R69"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/games-host/*"
+   ],
+   "contract_surfaces": [
+    "release directory layout",
+    "games origin CSP"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-GAMES-ORIGIN"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-008",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Backups, status and runbook",
+   "document": "tickets/OGM-008.md",
+   "outcome": "ogm-backup.service/timer: SQLite online backup + incremental blob tar to the tailnet node over SSH; restore script proven once; ops/bin/ogm-status (units, ports, disk, journal, stray listeners); docs/ops/runbook.md and remind entries for Kevin's hand steps.",
+   "scope": [
+    "ogm-backup.service/timer: SQLite online backup + incremental blob tar to the tailnet node over SSH; restore script proven once; ops/bin/ogm-status (units, ports, disk, journal, stray listeners); docs/ops/runbook.md and remind entries for Kevin's hand steps."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R69"
+   ],
+   "depends_on": [
+    "OGM-002",
+    "OGM-005"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [
+    "GATE-BACKUP-TARGET"
+   ],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "ops/backup/*",
+    "ops/bin/ogm-status",
+    "docs/ops/runbook.md"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOSTING"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-009",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Python workers convention and CI job",
+   "document": "tickets/OGM-009.md",
+   "outcome": "scripts/py/{audio,maps,drive-sync} with per-tool requirements, documented venv paths, make test; a second workflow runs the venv-free tests (drive-sync unittest) in CI; the audio/maps venv path contract for the gm CLI.",
+   "scope": [
+    "scripts/py/{audio,maps,drive-sync} with per-tool requirements, documented venv paths, make test; a second workflow runs the venv-free tests (drive-sync unittest) in CI; the audio/maps venv path contract for the gm CLI."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 1,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "platform"
+   ],
+   "workstream": "platform",
+   "requirement_refs": [
+    "R120",
+    "R80"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "scripts/py/*",
+    ".github/workflows/ci-python.yml",
+    "Makefile"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-STACK"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-010",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "API skeleton: Hono, Drizzle, SQLite, directory-scanned routes, contracts for jobs/budget/analytics/reports",
+   "document": "tickets/OGM-010.md",
+   "outcome": "services/api boots under the unit, GET /healthz, migrations run, packages/db schema package, routes mounted by scanning services/api/src/<context>/routes.ts, and the shared contract files jobs.ts, budget.ts, analytics.ts, reports.ts, notifications.ts committed with fixtures so other tickets can start against them.",
+   "scope": [
+    "services/api boots under the unit, GET /healthz, migrations run, packages/db schema package, routes mounted by scanning services/api/src/<context>/routes.ts, and the shared contract files jobs.ts, budget.ts, analytics.ts, reports.ts, notifications.ts committed with fixtures so other tickets can start against them."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R120",
+    "R121"
+   ],
+   "depends_on": [
+    "OGM-001",
+    "OGM-003",
+    "OGM-004"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/*",
+    "packages/db/*",
+    "packages/contracts/{api,jobs,budget,analytics,reports,notifications}.ts"
+   ],
+   "contract_surfaces": [
+    "jobs API",
+    "budget tools",
+    "analytics events",
+    "reports",
+    "notifications"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-DB",
+    "D-API"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-011",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Auth: Better Auth with magic link, passkey, Google; age gate; same-origin proxy config",
+   "document": "tickets/OGM-011.md",
+   "outcome": "Sign-up refused under 18 via the signed age cookie; passkey and Google work from the Netlify origin through the /auth proxy; MailSender interface with the admin-inbox default; session and bearer-token middleware for direct WebSocket services.",
+   "scope": [
+    "Sign-up refused under 18 via the signed age cookie; passkey and Google work from the Netlify origin through the /auth proxy; MailSender interface with the admin-inbox default; session and bearer-token middleware for direct WebSocket services."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R1",
+    "R2"
+   ],
+   "depends_on": [
+    "OGM-010"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [
+    "GATE-GOOGLE-OAUTH"
+   ],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/auth/*",
+    "packages/db (auth tables)",
+    "docs/ops/netlify-proxy.md"
+   ],
+   "contract_surfaces": [
+    "auth routes",
+    "age cookie"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-AUTH",
+    "D-ORIGIN",
+    "D-MAIL"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-012",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Accounts, families, games, invitations and the policy module",
+   "document": "tickets/OGM-012.md",
+   "outcome": "packages/policy authorize() with the A7 matrix as a test table; families, members, roles, owner rules; games table with GitHub repo fields; invitations with kinds member/play/room and the family allowlist switch.",
+   "scope": [
+    "packages/policy authorize() with the A7 matrix as a test table; families, members, roles, owner rules; games table with GitHub repo fields; invitations with kinds member/play/room and the family allowlist switch."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R3",
+    "R4",
+    "R5",
+    "R6"
+   ],
+   "depends_on": [
+    "OGM-010"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/policy/*",
+    "services/api/src/{accounts,games,invites}/*"
+   ],
+   "contract_surfaces": [
+    "authorize()",
+    "games API",
+    "invitations"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-AUTH"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-013",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Job admission, budgets, allowance and aiur spend-cap reconciliation",
+   "document": "tickets/OGM-013.md",
+   "outcome": "jobs state machine (queued\u2192admitted\u2192filed\u2192running\u2192paused_budget|done|failed|cancelled), slots 1+3 with repairs sharing edit, reservations by size class, per-member daily allowance with local-midnight reset, the four offers on 402, hard cap mirrored to aiur through the AiurClient contract, queued-at-reset scheduler, platform cap visible to admins.",
+   "scope": [
+    "jobs state machine (queued\u2192admitted\u2192filed\u2192running\u2192paused_budget|done|failed|cancelled), slots 1+3 with repairs sharing edit, reservations by size class, per-member daily allowance with local-midnight reset, the four offers on 402, hard cap mirrored to aiur through the AiurClient contract, queued-at-reset scheduler, platform cap visible to admins."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R10",
+    "R11",
+    "R12",
+    "R13"
+   ],
+   "depends_on": [
+    "OGM-010",
+    "OGM-012",
+    "OGM-030"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/{jobs,budget}/*"
+   ],
+   "contract_surfaces": [
+    "jobs API (implementation)"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUDGET-UNIT",
+    "D-JOB-BUS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-014",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Build-analytics ingestion, aiur join and admin read API",
+   "document": "tickets/OGM-014.md",
+   "outcome": "POST /api/v1/analytics/events with the nine-activity taxonomy and allow-listed meta; join to aiur run ids; per-build timeline merging aiur phases with activities; per-game and per-member roll-ups.",
+   "scope": [
+    "POST /api/v1/analytics/events with the nine-activity taxonomy and allow-listed meta; join to aiur run ids; per-build timeline merging aiur phases with activities; per-game and per-member roll-ups."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R66"
+   ],
+   "depends_on": [
+    "OGM-010"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/analytics/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-JOB-BUS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-015",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Bug-report intake, dedupe, routing and repair admission",
+   "document": "tickets/OGM-015.md",
+   "outcome": "reports and signatures tables, deterministic classifier (game_repair / platform / editor_hint / stored), private bundle upload through the blob store, repair job through admission with kind=repair sharing edit slots, platform route handed to a pluggable IssueWriter.",
+   "scope": [
+    "reports and signatures tables, deterministic classifier (game_repair / platform / editor_hint / stored), private bundle upload through the blob store, repair job through admission with kind=repair sharing edit slots, platform route handed to a pluggable IssueWriter."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R68"
+   ],
+   "depends_on": [
+    "OGM-013",
+    "OGM-005"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/reports/*"
+   ],
+   "contract_surfaces": [
+    "reports API",
+    "IssueWriter"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-COMMIT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-016",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Notifications: Web Push and SSE feed",
+   "document": "tickets/OGM-016.md",
+   "outcome": "VAPID keys generated at first boot into the env dir, push_subscriptions and notifications tables, GET /api/v1/notifications/stream, the three triggers wired (build done, queued job started, intake report).",
+   "scope": [
+    "VAPID keys generated at first boot into the env dir, push_subscriptions and notifications tables, GET /api/v1/notifications/stream, the three triggers wired (build done, queued job started, intake report)."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R67"
+   ],
+   "depends_on": [
+    "OGM-010"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/notify/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOSTING"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-017",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Admin API",
+   "document": "tickets/OGM-017.md",
+   "outcome": "Admin-only routes for membership, peer admins, invites, allowances and reset zone, concurrency, the platform cap, game listing and delisting, Drive intake status; policy-checked and table-tested.",
+   "scope": [
+    "Admin-only routes for membership, peer admins, invites, allowances and reset zone, concurrency, the platform cap, game listing and delisting, Drive intake status; policy-checked and table-tested."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R3",
+    "R84"
+   ],
+   "depends_on": [
+    "OGM-012",
+    "OGM-013"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/admin/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-018",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Voice budget tools and estimate model",
+   "document": "tickets/OGM-018.md",
+   "outcome": "GET budget/status, POST budget/estimate with the seeded size-class table refined from job history, and jobs start=at_reset; the briefing push payload for the voice host.",
+   "scope": [
+    "GET budget/status, POST budget/estimate with the seeded size-class table refined from job history, and jobs start=at_reset; the briefing push payload for the voice host."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "backend"
+   ],
+   "workstream": "backend",
+   "requirement_refs": [
+    "R12",
+    "R21"
+   ],
+   "depends_on": [
+    "OGM-013"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/budget/estimate.ts",
+    "services/api/src/voice/briefing-push.ts"
+   ],
+   "contract_surfaces": [
+    "briefing push"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUDGET-UNIT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-030",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "aiur-client package and zero-cost spike",
+   "document": "tickets/OGM-030.md",
+   "outcome": "packages/aiur-client: typed client for /api/v1 (issue, usage, progress, spend cap, cancel, pause/resume, message, control todo, accounts, events) with Origin and X-Aiur-Request on writes, zod schemas for the versioned contracts, the WebSocket events:feed subscriber; the C0 spike (memory tracker + fake provider: issue\u2192claim latency, cancel confirmation, spend-cap trip) recorded in evidence/T02-spike.md.",
+   "scope": [
+    "packages/aiur-client: typed client for /api/v1 (issue, usage, progress, spend cap, cancel, pause/resume, message, control todo, accounts, events) with Origin and X-Aiur-Request on writes, zod schemas for the versioned contracts, the WebSocket events:feed subscriber; the C0 spike (memory tracker + fake provider: issue\u2192claim latency, cancel confirmation, spend-cap trip) recorded in evidence/T02-spike.md."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R60"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/aiur-client/*",
+    "docs/plans/ogm-v1-build/evidence/T02-spike.md"
+   ],
+   "contract_surfaces": [
+    "AiurClient"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-JOB-BUS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-031",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Job intake to aiur",
+   "document": "tickets/OGM-031.md",
+   "outcome": "Admitted job \u2192 GitHub issue in the game repo with gm-job/gm-ticket markers, complexity and feature:gm-<jobId> labels \u2192 PUT spend-cap \u2192 agent:todo \u2192 control todo nudge; idempotent on markers; uses the builder bot credential.",
+   "scope": [
+    "Admitted job \u2192 GitHub issue in the game repo with gm-job/gm-ticket markers, complexity and feature:gm-<jobId> labels \u2192 PUT spend-cap \u2192 agent:todo \u2192 control todo nudge; idempotent on markers; uses the builder bot credential."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R26"
+   ],
+   "depends_on": [
+    "OGM-030",
+    "OGM-013"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/builder/src/intake/*",
+    "services/builder/src/github/issues.ts"
+   ],
+   "contract_surfaces": [
+    "ticket filing"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-JOB-BUS",
+    "D-SECRETS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-032",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "aiur event ingestion and job projection",
+   "document": "tickets/OGM-032.md",
+   "outcome": "events:feed subscriber per daemon plus progress polling \u2192 job stage, progress and usage rows; lifecycle\u2192creator words mapping; budget-exhausted handled; decisions polled for checkpoints.",
+   "scope": [
+    "events:feed subscriber per daemon plus progress polling \u2192 job stage, progress and usage rows; lifecycle\u2192creator words mapping; budget-exhausted handled; decisions polled for checkpoints."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R27"
+   ],
+   "depends_on": [
+    "OGM-030",
+    "OGM-010"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/builder/src/events/*",
+    "services/api/src/jobs/projection.ts"
+   ],
+   "contract_surfaces": [
+    "job state projection"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-JOB-BUS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-033",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Job controls and usage reconciliation",
+   "document": "tickets/OGM-033.md",
+   "outcome": "Cancel with confirmed exit, pause/resume, send message, answer decision from the OGM API; periodic /usage reconciliation into ledger rows with run_id; reservation release on terminal states.",
+   "scope": [
+    "Cancel with confirmed exit, pause/resume, send message, answer decision from the OGM API; periodic /usage reconciliation into ledger rows with run_id; reservation release on terminal states."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R13",
+    "R27"
+   ],
+   "depends_on": [
+    "OGM-030",
+    "OGM-013"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/jobs/controls.ts",
+    "services/api/src/budget/aiur-usage.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-JOB-BUS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-034",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Daemon fleet manager",
+   "document": "tickets/OGM-034.md",
+   "outcome": "One ogm-aiur@<slug> unit per active game repo rendered from the policy template: start on first admitted job, stop after 30 min idle, cap 4 live, mint a client token per daemon, register in remote-instances, health via /healthz; fleet admission respects 1+3.",
+   "scope": [
+    "One ogm-aiur@<slug> unit per active game repo rendered from the policy template: start on first admitted job, stop after 30 min idle, cap 4 live, mint a client token per daemon, register in remote-instances, health via /healthz; fleet admission respects 1+3."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R61"
+   ],
+   "depends_on": [
+    "OGM-002",
+    "OGM-030",
+    "OGM-037"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/builder/src/fleet/*",
+    "ops/systemd/ogm-aiur@.service"
+   ],
+   "contract_surfaces": [
+    "GameDaemon record"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-DAEMONS",
+    "D-AIUR-MODE"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-035",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Commit service with GitHub App auth",
+   "document": "tickets/OGM-035.md",
+   "outcome": "services/commit: @octokit/auth-app installation tokens, Git Data API CAS writes for create_repo, fold_design, fork, release, merge, set_visibility; loopback-only POST /internal/commit with the backend service token; audit row per op; packages/contracts/commit.ts.",
+   "scope": [
+    "services/commit: @octokit/auth-app installation tokens, Git Data API CAS writes for create_repo, fold_design, fork, release, merge, set_visibility; loopback-only POST /internal/commit with the backend service token; audit row per op; packages/contracts/commit.ts."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "commit"
+   ],
+   "workstream": "commit",
+   "requirement_refs": [
+    "R64"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [
+    "GATE-GITHUB-APP"
+   ],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/commit/*",
+    "packages/contracts/commit.ts"
+   ],
+   "contract_surfaces": [
+    "CommitOp",
+    "BoundaryVerdict"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-COMMIT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-036",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Game-repo provisioning template",
+   "document": "tickets/OGM-036.md",
+   "outcome": "A new game repo gets .aiur/{config,hooks,prompt.md} rendered from the game-builder template, labels, ci.yml with ci / required, .claude/skills/gm-*, .codex/skills and .agents/skills links, AGENTS.md, skills.lock; the after_create hook fetches the job bundle with a per-daemon secret.",
+   "scope": [
+    "A new game repo gets .aiur/{config,hooks,prompt.md} rendered from the game-builder template, labels, ci.yml with ci / required, .claude/skills/gm-*, .codex/skills and .agents/skills links, AGENTS.md, skills.lock; the after_create hook fetches the job bundle with a per-daemon secret."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R62",
+    "R65"
+   ],
+   "depends_on": [
+    "OGM-035",
+    "OGM-037"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-091"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/game-repo-template/*",
+    "services/builder/src/provision.ts",
+    "services/api/src/internal/bundle.ts"
+   ],
+   "contract_surfaces": [
+    "after_create bundle"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SKILLS-IN-REPO",
+    "D-DAEMONS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-037",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Sandbox policy template, Codex permission profile and dispatch preflight",
+   "document": "tickets/OGM-037.md",
+   "outcome": "renderAiurConfig(repo, workspaceRoot, denyReadRoots) emits the game-builder policy (networkAccess false, writable root = workspace, no /tmp, dedicated CODEX_HOME); the Codex permission profile with deny_read over the credential paths proven by a probe script (spike S1); preflight refuses dispatch unless the rendered config matches.",
+   "scope": [
+    "renderAiurConfig(repo, workspaceRoot, denyReadRoots) emits the game-builder policy (networkAccess false, writable root = workspace, no /tmp, dedicated CODEX_HOME); the Codex permission profile with deny_read over the credential paths proven by a probe script (spike S1); preflight refuses dispatch unless the rendered config matches."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R63"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/builder/src/policy/*",
+    "services/builder/sandbox/profile.toml",
+    "scripts/sandbox/probe.sh"
+   ],
+   "contract_surfaces": [
+    "game-builder aiur policy"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SBX"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-038",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Offline dependency store and sandbox proof suite",
+   "document": "tickets/OGM-038.md",
+   "outcome": "Seeded pnpm store and pnpm install --offline for the game templates; the new-dependency request path; B4 \u00a76 proof tests adapted to bwrap/Codex (no network, no secret reads, workspace-only writes, resource caps) runnable here with logged results.",
+   "scope": [
+    "Seeded pnpm store and pnpm install --offline for the game templates; the new-dependency request path; B4 \u00a76 proof tests adapted to bwrap/Codex (no network, no secret reads, workspace-only writes, resource caps) runnable here with logged results."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "aiur"
+   ],
+   "workstream": "aiur",
+   "requirement_refs": [
+    "R63"
+   ],
+   "depends_on": [
+    "OGM-037"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-091"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "scripts/sandbox/*",
+    "docs/ops/sandbox.md"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SBX"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-039",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Boundary check run and publication content gate",
+   "document": "tickets/OGM-039.md",
+   "outcome": "ogm/boundary check on every game-repo PR (paths, size, lockfile rights, secret/PII scan, hash blocklist); the publish gate at Publish and visibility flips with explainable BoundaryVerdict reasons.",
+   "scope": [
+    "ogm/boundary check on every game-repo PR (paths, size, lockfile rights, secret/PII scan, hash blocklist); the publish gate at Publish and visibility flips with explainable BoundaryVerdict reasons."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "commit"
+   ],
+   "workstream": "commit",
+   "requirement_refs": [
+    "R64",
+    "R53"
+   ],
+   "depends_on": [
+    "OGM-035",
+    "OGM-062"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/commit/src/{boundary,publish-gate}/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-COMMIT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-020",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Engine contracts",
+   "document": "tickets/OGM-020.md",
+   "outcome": "packages/contracts/{bridge,game,input,assets}.ts: versioned envelope, HostToGame/GameToHost unions, GameModule/GameInstance, GmTestHooks, ActionFrame, CameraRig, AssetManifest and lockfile types, emitted JSON Schemas and golden fixtures.",
+   "scope": [
+    "packages/contracts/{bridge,game,input,assets}.ts: versioned envelope, HostToGame/GameToHost unions, GameModule/GameInstance, GmTestHooks, ActionFrame, CameraRig, AssetManifest and lockfile types, emitted JSON Schemas and golden fixtures."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R40",
+    "R42",
+    "R45"
+   ],
+   "depends_on": [
+    "OGM-004"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/contracts/{bridge,game,input,assets}.ts",
+    "packages/contracts/schemas/*.v1.json",
+    "packages/contracts/fixtures/*"
+   ],
+   "contract_surfaces": [
+    "engine bridge",
+    "GameModule",
+    "GmTestHooks",
+    "AssetManifest"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOOKS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-021",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "iframe-bridge",
+   "document": "tickets/OGM-021.md",
+   "outcome": "A ~150-line MessageChannel RPC: hello with origin check, port transfer, id-correlated requests, 256 KB cap, 120 msg/s limit, unknown-type drop; unit tests with two jsdom windows.",
+   "scope": [
+    "A ~150-line MessageChannel RPC: hello with origin check, port transfer, id-correlated requests, 256 KB cap, 120 msg/s limit, unknown-type drop; unit tests with two jsdom windows."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R40"
+   ],
+   "depends_on": [
+    "OGM-020"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/iframe-bridge/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOOKS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-022",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "SDK core and test hooks",
+   "document": "tickets/OGM-022.md",
+   "outcome": "@gm/sdk core: GameModule runtime, fixed-step clock, seeded RNG, applyDesign dispatch, serialize/restore/migrate plumbing, GmTestHooks over the bridge and gated window globals, pure-fixture tests.",
+   "scope": [
+    "@gm/sdk core: GameModule runtime, fixed-step clock, seeded RNG, applyDesign dispatch, serialize/restore/migrate plumbing, GmTestHooks over the bridge and gated window globals, pure-fixture tests."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R41",
+    "R42"
+   ],
+   "depends_on": [
+    "OGM-020",
+    "OGM-021"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/core/*",
+    "packages/sdk/src/test/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOOKS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-023",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "three + rapier wrapper and the 3D scaffold template",
+   "document": "tickets/OGM-023.md",
+   "outcome": "@gm/sdk/three: renderer setup with DPR caps, Rapier fixed step with snapshots, GLTF loader wired to meshopt/KTX2; templates/game-3d grey-box scaffold that boots headless and passes the hooks.",
+   "scope": [
+    "@gm/sdk/three: renderer setup with DPR caps, Rapier fixed step with snapshots, GLTF loader wired to meshopt/KTX2; templates/game-3d grey-box scaffold that boots headless and passes the hooks."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R41"
+   ],
+   "depends_on": [
+    "OGM-022",
+    "OGM-026"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/three/*",
+    "templates/game-3d/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-STACK"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-024",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "phaser wrapper and the 2D scaffold template",
+   "document": "tickets/OGM-024.md",
+   "outcome": "@gm/sdk/phaser: Scale FIT/EXPAND presentation, scene lifecycle to GameInstance, 2D camera presets; templates/game-2d from template-vite-ts that boots headless and passes the hooks.",
+   "scope": [
+    "@gm/sdk/phaser: Scale FIT/EXPAND presentation, scene lifecycle to GameInstance, 2D camera presets; templates/game-2d from template-vite-ts that boots headless and passes the hooks."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R41"
+   ],
+   "depends_on": [
+    "OGM-022"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/phaser/*",
+    "templates/game-2d/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-STACK"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-025",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Camera rigs and input merge",
+   "document": "tickets/OGM-025.md",
+   "outcome": "Seven CameraRigs with input mappings and occlusion handling (cutaway proven for iso), one instance per local player; ActionFrame merge of host frames and in-iframe keys/pointer; editor camera and view-as-player hook.",
+   "scope": [
+    "Seven CameraRigs with input mappings and occlusion handling (cutaway proven for iso), one instance per local player; ActionFrame merge of host frames and in-iframe keys/pointer; editor camera and view-as-player hook."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R43",
+    "R44"
+   ],
+   "depends_on": [
+    "OGM-023",
+    "OGM-024"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/camera/*",
+    "packages/sdk/src/input/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOOKS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-026",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Device-tier asset loader",
+   "document": "tickets/OGM-026.md",
+   "outcome": "pickTier() from capability signals with frame-time downgrade and ?tier= override; AssetLoader over AssetManifest with parallel deduped fetches and lazy KTX2; never derives file names.",
+   "scope": [
+    "pickTier() from capability signals with frame-time downgrade and ?tier= override; AssetLoader over AssetManifest with parallel deduped fetches and lazy KTX2; never derives file names."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R45"
+   ],
+   "depends_on": [
+    "OGM-020"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/assets/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-TIERS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-027",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Audio module",
+   "document": "tickets/OGM-027.md",
+   "outcome": "SDK-owned AudioContext with buses, unlock on first pointerup and audioSession playback, ZzFX, optional Tone.js song.json player, renderCue over OfflineAudioContext, audio.relay fallback.",
+   "scope": [
+    "SDK-owned AudioContext with buses, unlock on first pointerup and audioSession playback, ZzFX, optional Tone.js song.json player, renderCue over OfflineAudioContext, audio.relay fallback."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R46"
+   ],
+   "depends_on": [
+    "OGM-022"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/audio/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOOKS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-028",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Host game frame (@gm/host)",
+   "document": "tickets/OGM-028.md",
+   "outcome": "Iframe creation with the sandbox/allow attributes, HostBridge with Zod validation and a role-check hook, the only gamepad poller with playerIndex, touch overlay from declared actions in its own pointer layer, viewport/safe-area, settings broadcast, service-worker asset cache.",
+   "scope": [
+    "Iframe creation with the sandbox/allow attributes, HostBridge with Zod validation and a role-check hook, the only gamepad poller with playerIndex, touch overlay from declared actions in its own pointer layer, viewport/safe-area, settings broadcast, service-worker asset cache."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R40",
+    "R44"
+   ],
+   "depends_on": [
+    "OGM-020",
+    "OGM-021"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/host/*"
+   ],
+   "contract_surfaces": [
+    "host frame API"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-HOOKS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-029",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "SDK conformance (gm-sdk check)",
+   "document": "tickets/OGM-029.md",
+   "outcome": "The nine A4 checks plus B7's two as a Node + Playwright runner on the GPU flags with a SwiftShader fallback; runs green on both templates and the multiplayer template when it exists.",
+   "scope": [
+    "The nine A4 checks plus B7's two as a Node + Playwright runner on the GPU flags with a SwiftShader fallback; runs green on both templates and the multiplayer template when it exists."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R47"
+   ],
+   "depends_on": [
+    "OGM-022",
+    "OGM-023",
+    "OGM-024",
+    "OGM-028"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk-conformance/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VERIFY-GPU"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-019",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "fx, nav and proc helpers",
+   "document": "tickets/OGM-019.md",
+   "outcome": "@gm/sdk/fx (pixelfx adapter for 2D, data-driven 3D sprite port of fx.js), @gm/sdk/nav (grid A*, recast lazily behind a capability), @gm/sdk/proc (seeded FastNoise Lite).",
+   "scope": [
+    "@gm/sdk/fx (pixelfx adapter for 2D, data-driven 3D sprite port of fx.js), @gm/sdk/nav (grid A*, recast lazily behind a capability), @gm/sdk/proc (seeded FastNoise Lite)."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "engine"
+   ],
+   "workstream": "engine",
+   "requirement_refs": [
+    "R48"
+   ],
+   "depends_on": [
+    "OGM-022"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/{fx,nav,proc}/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-STACK"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-040",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Design-log core package",
+   "document": "tickets/OGM-040.md",
+   "outcome": "packages/design-log and packages/contracts/{design-log,branches,releases,saves}.ts: Transaction, DesignDoc, Patch, Branch, WorkingSet, ReapplyReport, MergePlan, Build, Release, SaveSlot types; apply/invert with immer; replay(branch) with fork points; reduce(log)\u2192WorkingSet; validation against manifest controls; property tests.",
+   "scope": [
+    "packages/design-log and packages/contracts/{design-log,branches,releases,saves}.ts: Transaction, DesignDoc, Patch, Branch, WorkingSet, ReapplyReport, MergePlan, Build, Release, SaveSlot types; apply/invert with immer; replay(branch) with fork points; reduce(log)\u2192WorkingSet; validation against manifest controls; property tests."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R31"
+   ],
+   "depends_on": [
+    "OGM-020",
+    "OGM-004"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/design-log/*",
+    "packages/contracts/{design-log,branches,releases,saves}.ts"
+   ],
+   "contract_surfaces": [
+    "Transaction",
+    "Branch",
+    "Release",
+    "SaveSlot"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOG"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-041",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Design-log API, lease and watcher stream",
+   "document": "tickets/OGM-041.md",
+   "outcome": "Tables for transactions, branches, leases; POST/GET transactions with baseRev and lease fencing (409/423); design snapshot at a revision; SSE stream per branch; lease acquire/heartbeat/takeover between the owner's devices.",
+   "scope": [
+    "Tables for transactions, branches, leases; POST/GET transactions with baseRev and lease fencing (409/423); design snapshot at a revision; SSE stream per branch; lease acquire/heartbeat/takeover between the owner's devices."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R31",
+    "R32",
+    "R35",
+    "R36"
+   ],
+   "depends_on": [
+    "OGM-010",
+    "OGM-040"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/design/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOG"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-042",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Re-apply overrides across builds",
+   "document": "tickets/OGM-042.md",
+   "outcome": "On Build.status=tested compute the ReapplyReport with manifest hints and targetControls supersession; GET /branches/:b/reapply/:buildId; needs-a-choice answers as system transactions.",
+   "scope": [
+    "On Build.status=tested compute the ReapplyReport with manifest hints and targetControls supersession; GET /branches/:b/reapply/:buildId; needs-a-choice answers as system transactions."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R33"
+   ],
+   "depends_on": [
+    "OGM-041"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/design/reapply.ts",
+    "packages/design-log/src/reapply.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOG"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-043",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Branches: create, switch, archive, per-branch builds, version numbers",
+   "document": "tickets/OGM-043.md",
+   "outcome": "Branch rows with fork points, branch/<id> refs through the commit contract, cap 5 active, archive, builds keyed by branch, the derived counter version number.",
+   "scope": [
+    "Branch rows with fork points, branch/<id> refs through the commit contract, cap 5 active, archive, builds keyed by branch, the derived counter version number."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R37",
+    "R91"
+   ],
+   "depends_on": [
+    "OGM-041"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-035"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/branches/*",
+    "packages/design-log/src/version.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BRANCH-BASE",
+    "D-VERSION"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-044",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Three-way design merge with voice-guided conflicts",
+   "document": "tickets/OGM-044.md",
+   "outcome": "MergePlan computation, conflict classification (both_changed, delete_vs_edit, control_removed), resolution endpoints and the T06 tool shape, merge transaction, preview build request, land/abandon, inverse on rollback.",
+   "scope": [
+    "MergePlan computation, conflict classification (both_changed, delete_vs_edit, control_removed), resolution endpoints and the T06 tool shape, merge transaction, preview build request, land/abandon, inverse on rollback."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R38"
+   ],
+   "depends_on": [
+    "OGM-043"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/design-log/src/merge.ts",
+    "services/api/src/branches/merge.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOG"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-045",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Builds, releases, publish, fold, rollback, update indicator",
+   "document": "tickets/OGM-045.md",
+   "outcome": "Build, OverrideSnapshot and Release rows; deterministic fold to design/*.json through the commit contract behind the gate; .gm/changes assembly; GET /published with ETag; CAS pointer; rollback with affected-save counts; every artifact kept.",
+   "scope": [
+    "Build, OverrideSnapshot and Release rows; deterministic fold to design/*.json through the commit contract behind the gate; .gm/changes assembly; GET /published with ETag; CAS pointer; rollback with affected-save counts; every artifact kept."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R90",
+    "R92",
+    "R93"
+   ],
+   "depends_on": [
+    "OGM-041"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-035",
+    "OGM-062",
+    "OGM-007"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/releases/*",
+    "packages/design-log/src/fold.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ARTIFACTS",
+    "D-VERSION",
+    "D-COMMIT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-046",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Cloud saves",
+   "document": "tickets/OGM-046.md",
+   "outcome": "Save tables and endpoints (OCC If-Match, Idempotency-Key, 409/423/413), SDK-side outbox (idb) and state machine, lazy one-step migration at load, rollback status marking.",
+   "scope": [
+    "Save tables and endpoints (OCC If-Match, Idempotency-Key, 409/423/413), SDK-side outbox (idb) and state machine, lazy one-step migration at load, rollback status marking."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R94"
+   ],
+   "depends_on": [
+    "OGM-010",
+    "OGM-022"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/saves/*",
+    "packages/sdk/src/saves/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOG"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-047",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Achievements and creator analytics",
+   "document": "tickets/OGM-047.md",
+   "outcome": "achievements.json lint, award/progress endpoints, draft no-op with test toasts; creator analytics ingestion with HMAC pseudonymisation, nightly rollups, creator query endpoints, draft exclusion, 90-day retention.",
+   "scope": [
+    "achievements.json lint, award/progress endpoints, draft no-op with test toasts; creator analytics ingestion with HMAC pseudonymisation, nightly rollups, creator query endpoints, draft exclusion, 90-day retention."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R96"
+   ],
+   "depends_on": [
+    "OGM-010",
+    "OGM-022"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/{achievements,creator-analytics}/*",
+    "packages/sdk/src/{achievements,analytics}.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-048",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Forks",
+   "document": "tickets/OGM-048.md",
+   "outcome": "POST /games/:g/fork {releaseId}: new game row with provenance, new repo and tag push through the commit contract, snapshot and achievement-def copy, uploads copy, rights re-check; never saves, awards or analytics.",
+   "scope": [
+    "POST /games/:g/fork {releaseId}: new game row with provenance, new repo and tag push through the commit contract, snapshot and achievement-def copy, uploads copy, rights re-check; never saves, awards or analytics."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "design"
+   ],
+   "workstream": "design",
+   "requirement_refs": [
+    "R95"
+   ],
+   "depends_on": [
+    "OGM-045",
+    "OGM-062"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/forks.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-COMMIT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-050",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Room protocol package",
+   "document": "tickets/OGM-050.md",
+   "outcome": "packages/room-protocol and packages/contracts/room.ts: RoomPin, RoomGrant, Membership, Presence, RoomState, ClientMessage, ServerMessage, DesignTx validation, size and rate tables, HS256 grant sign/verify helpers; fixtures.",
+   "scope": [
+    "packages/room-protocol and packages/contracts/room.ts: RoomPin, RoomGrant, Membership, Presence, RoomState, ClientMessage, ServerMessage, DesignTx validation, size and rate tables, HS256 grant sign/verify helpers; fixtures."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "rooms"
+   ],
+   "workstream": "rooms",
+   "requirement_refs": [
+    "R71",
+    "R72"
+   ],
+   "depends_on": [
+    "OGM-004"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/room-protocol/*",
+    "packages/contracts/room.ts"
+   ],
+   "contract_surfaces": [
+    "room protocol",
+    "RoomGrant"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-051",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Rooms service: GameRoom relay and lifecycle",
+   "document": "tickets/OGM-051.md",
+   "outcome": "services/rooms on Colyseus 0.18 as a user unit: onAuth grant verification, owner-only messages, playerIndex stamping, caps, privateMode zeroing, phase broadcast, reconnection windows, owner second device, host-leave end-and-record, draft load/ready, idle dispose, revocation list; @colyseus/testing tests for every rule.",
+   "scope": [
+    "services/rooms on Colyseus 0.18 as a user unit: onAuth grant verification, owner-only messages, playerIndex stamping, caps, privateMode zeroing, phase broadcast, reconnection windows, owner second device, host-leave end-and-record, draft load/ready, idle dispose, revocation list; @colyseus/testing tests for every rule."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "rooms"
+   ],
+   "workstream": "rooms",
+   "requirement_refs": [
+    "R70",
+    "R71",
+    "R74",
+    "R75",
+    "R76",
+    "R77"
+   ],
+   "depends_on": [
+    "OGM-050"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/rooms/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-052",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Invite links, room grants and the join page",
+   "document": "tickets/OGM-052.md",
+   "outcome": "POST rooms, POST invites, GET /join/:token (sign-in, age screen, allowlist) returning the grant, revoke, the internal ended callback; the /join route in the app that lands in the room.",
+   "scope": [
+    "POST rooms, POST invites, GET /join/:token (sign-in, age screen, allowlist) returning the grant, revoke, the internal ended callback; the /join route in the app that lands in the room."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "rooms"
+   ],
+   "workstream": "rooms",
+   "requirement_refs": [
+    "R4",
+    "R72"
+   ],
+   "depends_on": [
+    "OGM-012",
+    "OGM-050",
+    "OGM-070"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/rooms/*",
+    "apps/web/src/routes/join/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-053",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Host-app room client and watcher sync",
+   "document": "tickets/OGM-053.md",
+   "outcome": "Colyseus client in the host app forwarding net.* bridge messages, phase UI, watcher catch-up from the design snapshot plus design.tx with resync on gaps, host-left end state.",
+   "scope": [
+    "Colyseus client in the host app forwarding net.* bridge messages, phase UI, watcher catch-up from the design snapshot plus design.tx with resync on gaps, host-left end state."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "rooms"
+   ],
+   "workstream": "rooms",
+   "requirement_refs": [
+    "R73",
+    "R74"
+   ],
+   "depends_on": [
+    "OGM-050",
+    "OGM-028",
+    "OGM-041",
+    "OGM-070"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/net/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-054",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "SDK net layer",
+   "document": "tickets/OGM-054.md",
+   "outcome": "gm.net: host/peer roles, localPlayerIndex, players, onPlayerJoined/Left, onInput, fixed-rate sendSnapshot/applySnapshot with interpolation, events, per-player HUD and camera binding; single player = one host.",
+   "scope": [
+    "gm.net: host/peer roles, localPlayerIndex, players, onPlayerJoined/Left, onInput, fixed-rate sendSnapshot/applySnapshot with interpolation, events, per-player HUD and camera binding; single player = one host."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 8,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "rooms"
+   ],
+   "workstream": "rooms",
+   "requirement_refs": [
+    "R75",
+    "R78"
+   ],
+   "depends_on": [
+    "OGM-022",
+    "OGM-025",
+    "OGM-050"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/sdk/src/net/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-055",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm-multiplayer-ready, multiplayer template, conversion job and two-client verify",
+   "document": "tickets/OGM-055.md",
+   "outcome": "The skill with the eight rules and a checker, templates/game-multiplayer with two spawns and two HUDs, the single\u2192multiplayer edit-job recipe, and the two-client Playwright scenario (welcome, design equality, canary, play within 500 ms, input moves avatar, host leave, draft load).",
+   "scope": [
+    "The skill with the eight rules and a checker, templates/game-multiplayer with two spawns and two HUDs, the single\u2192multiplayer edit-job recipe, and the two-client Playwright scenario (welcome, design equality, canary, play within 500 ms, input moves avatar, host leave, draft load)."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 9,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "rooms"
+   ],
+   "workstream": "rooms",
+   "requirement_refs": [
+    "R78",
+    "R76"
+   ],
+   "depends_on": [
+    "OGM-054",
+    "OGM-051",
+    "OGM-091",
+    "OGM-090"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "skills/gm-multiplayer-ready/*",
+    "templates/game-multiplayer/*",
+    "packages/gm-verify/scenarios/two-client.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-060",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm CLI skeleton and asset search over cards",
+   "document": "tickets/OGM-060.md",
+   "outcome": "packages/gm-cli with directory-scanned commands, --json, exit codes; packages/asset-cards (index builder over existing cards, facets, rights-aware search); gm assets search|facets|info|sheet|list over the 414 packs.",
+   "scope": [
+    "packages/gm-cli with directory-scanned commands, --json, exit codes; packages/asset-cards (index builder over existing cards, facets, rights-aware search); gm assets search|facets|info|sheet|list over the 414 packs."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R50",
+    "R51"
+   ],
+   "depends_on": [
+    "OGM-004"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/*",
+    "packages/asset-cards/*"
+   ],
+   "contract_surfaces": [
+    "gm CLI conventions",
+    "asset index"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-CARDS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-061",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Card migration for all 414 packs and the licence table",
+   "document": "tickets/OGM-061.md",
+   "outcome": "Every pack has a schema-valid collection card with SPDX or LicenseRef-* licences; the 8 uncarded packs and Sidetrax drafts resolved; install_itch_pack.py fixed; processing: local-only defaults applied.",
+   "scope": [
+    "Every pack has a schema-valid collection card with SPDX or LicenseRef-* licences; the 8 uncarded packs and Sidetrax drafts resolved; install_itch_pack.py fixed; processing: local-only defaults applied."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R52"
+   ],
+   "depends_on": [
+    "OGM-060"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/asset-cards/src/licenses.ts",
+    "scripts/assets/build_collection_cards.py",
+    "scripts/assets/install_itch_pack.py"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-CARDS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-062",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Lockfile, gm assets use/register/why, gm check assets, credits",
+   "document": "tickets/OGM-062.md",
+   "outcome": "assets.lock.json written by gm assets use, CREDITS.md, refusals with reasons, gm check assets validating lockfile vs index vs rights at build and at publish (exit 1 on violation).",
+   "scope": [
+    "assets.lock.json written by gm assets use, CREDITS.md, refusals with reasons, gm check assets validating lockfile vs index vs rights at build and at publish (exit 1 on violation)."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R53"
+   ],
+   "depends_on": [
+    "OGM-060",
+    "OGM-061"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/assets/{use,register,why}.ts",
+    "packages/gm-cli/src/commands/check/assets.ts",
+    "packages/contracts/assets.ts (lock)"
+   ],
+   "contract_surfaces": [
+    "assets.lock.json"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-CARDS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-063",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm build assets: tiers, manifest and budgets",
+   "document": "tickets/OGM-063.md",
+   "outcome": "A game's used assets become kit GLBs / per-tier GLBs / MP3s with content-hashed names and assets/manifest.json carrying licence per asset (weld, quantize, meshopt, WebP; KTX2 behind a flag); the mobile budget fails the build.",
+   "scope": [
+    "A game's used assets become kit GLBs / per-tier GLBs / MP3s with content-hashed names and assets/manifest.json carrying licence per asset (weld, quantize, meshopt, WebP; KTX2 behind a flag); the mobile budget fails the build."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R54"
+   ],
+   "depends_on": [
+    "OGM-062",
+    "OGM-020"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/build/assets/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-TIERS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-064",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm packs import and the intake service over the Drive queue",
+   "document": "tickets/OGM-064.md",
+   "outcome": "A settled drop becomes a quarantined collection card, safely unpacked, measured (glTF geometry, rig, clips, images, fonts), previewed; services/intake consumes queue.jsonl and writes intake.json; gm-asset-intake shrinks to licence judgment.",
+   "scope": [
+    "A settled drop becomes a quarantined collection card, safely unpacked, measured (glTF geometry, rig, clips, images, fonts), previewed; services/intake consumes queue.jsonl and writes intake.json; gm-asset-intake shrinks to licence judgment."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R80",
+    "R81",
+    "R82",
+    "R85"
+   ],
+   "depends_on": [
+    "OGM-060",
+    "OGM-061"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-009"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/packs/import.ts",
+    "packages/asset-measure/*",
+    "services/intake/*",
+    ".claude/skills/gm-asset-intake/SKILL.md"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUCKET"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-065",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Local taggers: audio, maps and CLIP on contact sheets",
+   "document": "tickets/OGM-065.md",
+   "outcome": "gm packs tag runs the Python workers through the JSONL contract; a contact-sheet renderer plus CLIP lift-ranking produces measured|tagged 3D/2D asset cards with no spend; respects processing: local-only.",
+   "scope": [
+    "gm packs tag runs the Python workers through the JSONL contract; a contact-sheet renderer plus CLIP lift-ranking produces measured|tagged 3D/2D asset cards with no spend; respects processing: local-only."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R52",
+    "R86"
+   ],
+   "depends_on": [
+    "OGM-064"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/packs/tag.ts",
+    "packages/asset-previews/*",
+    "scripts/py/audio/* (--json)",
+    "scripts/py/maps/tag_maps.py (--json)",
+    "scripts/py/tag/tag_sheets.py"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-CARDS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-066",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Style families and family enforcement in search",
+   "document": "tickets/OGM-066.md",
+   "outcome": "style-families.json with the seven families, views and coverage; gm assets search defaults to the game's family with a logged exception flag; GET /api/catalog/style-families for the creation flow.",
+   "scope": [
+    "style-families.json with the seven families, views and coverage; gm assets search defaults to the game's family with a logged exception flag; GET /api/catalog/style-families for the creation flow."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R55",
+    "R20"
+   ],
+   "depends_on": [
+    "OGM-060"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/asset-cards/data/style-families.json",
+    "packages/asset-cards/src/families.ts",
+    "services/api/src/catalog/routes.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-FAMILIES"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-067",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Hash blocklist feed and map layout search",
+   "document": "tickets/OGM-067.md",
+   "outcome": "gm packs blocklist unions redistribution: none hashes into one sorted feed for the commit service; gm maps search over layout specs behind the derive-layout right; the blob store import of assets-local previews and private manifests.",
+   "scope": [
+    "gm packs blocklist unions redistribution: none hashes into one sorted feed for the commit service; gm maps search over layout specs behind the derive-layout right; the blob store import of assets-local previews and private manifests."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R53",
+    "R83"
+   ],
+   "depends_on": [
+    "OGM-060",
+    "OGM-005"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/packs/{blocklist,index}.ts",
+    "packages/gm-cli/src/commands/maps/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUCKET"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-068",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Tier-2 mirrors (gm packs sync)",
+   "document": "tickets/OGM-068.md",
+   "outcome": "KayKit, LPC, game-icons and Fontsource pinned mirrors imported with per-item licences; no live API adapters.",
+   "scope": [
+    "KayKit, LPC, game-icons and Fontsource pinned mirrors imported with per-item licences; no live API adapters."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "assets"
+   ],
+   "workstream": "assets",
+   "requirement_refs": [
+    "R57"
+   ],
+   "depends_on": [
+    "OGM-064"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/packs/sync.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-CARDS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-070",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Web app scaffold and Netlify delivery",
+   "document": "tickets/OGM-070.md",
+   "outcome": "apps/web (Vite 7, React 19, TS, react-router, TanStack Query, zustand, Vitest, Playwright) builds, tests and deploys to the existing site with _redirects (SPA + /api proxy), _headers, tokens.css from studio-v0, the two-cache sw.js, manifest and icons, window.__ogmHost behind ?test, tools/deploy.sh with the frame-by-frame load check.",
+   "scope": [
+    "apps/web (Vite 7, React 19, TS, react-router, TanStack Query, zustand, Vitest, Playwright) builds, tests and deploys to the existing site with _redirects (SPA + /api proxy), _headers, tokens.css from studio-v0, the two-cache sw.js, manifest and icons, window.__ogmHost behind ?test, tools/deploy.sh with the frame-by-frame load check."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R110",
+    "R113",
+    "R114"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/*",
+    "apps/web/tools/deploy.sh"
+   ],
+   "contract_surfaces": [
+    "route table",
+    "screen module convention"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOOK",
+    "D-ORIGIN"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-071",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Shell: title town, sound, PWA, input, notifications, bug button",
+   "document": "tickets/OGM-071.md",
+   "outcome": "Title with poster\u2192town reveal and the sfx/tap relay from public/town/, sound.ts port, gamepad poller and focus zones (Norigin exception), notification permission and push subscribe, the global bug-report button posting to the reports API.",
+   "scope": [
+    "Title with poster\u2192town reveal and the sfx/tap relay from public/town/, sound.ts port, gamepad poller and focus zones (Norigin exception), notification permission and push subscribe, the global bug-report button posting to the reports API."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 3,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R111",
+    "R112",
+    "R113"
+   ],
+   "depends_on": [
+    "OGM-070"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-016",
+    "OGM-015"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/title/*",
+    "apps/web/src/lib/{sound,input,notify}/*",
+    "apps/web/src/features/bug-report/*",
+    "apps/web/public/town/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOOK"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-072",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Age screen, sign-in and GitHub connect",
+   "document": "tickets/OGM-072.md",
+   "outcome": "Neutral 18+ screen before any collection; email + passkey + Google through the Better Auth client; GitHub connect with the public/private pick.",
+   "scope": [
+    "Neutral 18+ screen before any collection; email + passkey + Google through the Better Auth client; GitHub connect with the public/private pick."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R2",
+    "R1",
+    "R6"
+   ],
+   "depends_on": [
+    "OGM-070",
+    "OGM-011"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/{age,signin,connect}/*",
+    "apps/web/src/lib/api/auth.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-073",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Games picker",
+   "document": "tickets/OGM-073.md",
+   "outcome": "Tiles and spotlight from real games, versions on the card, Play/Edit, building state from the job stream, keyboard and controller browsing.",
+   "scope": [
+    "Tiles and spotlight from real games, versions on the card, Play/Edit, building state from the job stream, keyboard and controller browsing."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R112"
+   ],
+   "depends_on": [
+    "OGM-070",
+    "OGM-012"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/games/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-074",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Creation flow and scope chat",
+   "document": "tickets/OGM-074.md",
+   "outcome": "Steps from catalog data (genre, vibe, style family, world, players, point of view), Other by typing or dictation, the scope chat (text, dictation, voice when flagged) ending in an admitted job, budget offers as choices, image upload with EXIF strip.",
+   "scope": [
+    "Steps from catalog data (genre, vibe, style family, world, players, point of view), Other by typing or dictation, the scope chat (text, dictation, voice when flagged) ending in an admitted job, budget offers as choices, image upload with EXIF strip."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 8,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R20",
+    "R21",
+    "R25",
+    "R12"
+   ],
+   "depends_on": [
+    "OGM-070",
+    "OGM-013",
+    "OGM-066",
+    "OGM-088"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/new/*",
+    "apps/web/src/features/scope-chat/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VOICE-ZERO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-075",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Game host and editor framework",
+   "document": "tickets/OGM-075.md",
+   "outcome": "Separate-origin iframe through @gm/host, Play/Edit, platform HUD (pause, saves, achievements, settings), the editor framework (rail, palette, inspector with scope labels, tools, gizmo overlay, snap prefs) over the design log with undo/redo and the Saved indicator, edit while building, draft vs published, update indicator.",
+   "scope": [
+    "Separate-origin iframe through @gm/host, Play/Edit, platform HUD (pause, saves, achievements, settings), the editor framework (rail, palette, inspector with scope labels, tools, gizmo overlay, snap prefs) over the design log with undo/redo and the Saved indicator, edit while building, draft vs published, update indicator."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R30",
+    "R34",
+    "R112"
+   ],
+   "depends_on": [
+    "OGM-070",
+    "OGM-028",
+    "OGM-041"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/game/*",
+    "apps/web/src/features/editor/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOG"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-076",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Build chat panel",
+   "document": "tickets/OGM-076.md",
+   "outcome": "Replaces the prototype tracker: FAB \u2192 bar \u2192 list, per-job chat with text, dictation and voice modes, media cards, progress rows, usage in friendly units, checkpoint cards, queued-at-reset jobs with edit and cancel, phone layout.",
+   "scope": [
+    "Replaces the prototype tracker: FAB \u2192 bar \u2192 list, per-job chat with text, dictation and voice modes, media cards, progress rows, usage in friendly units, checkpoint cards, queued-at-reset jobs with edit and cancel, phone layout."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R22",
+    "R24"
+   ],
+   "depends_on": [
+    "OGM-070",
+    "OGM-080",
+    "OGM-083"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/features/build-chat/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUILD-CHAT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-077",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Versions, releases and merge screens",
+   "document": "tickets/OGM-077.md",
+   "outcome": "New version from here, switch, play either, cap 5; publish from main with the derived version and editable changelog; rollback with the affected-saves warning; merge flow with side-by-side previews and per-conflict choices.",
+   "scope": [
+    "New version from here, switch, play either, cap 5; publish from main with the derived version and editable changelog; rollback with the affected-saves warning; merge flow with side-by-side previews and per-conflict choices."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 8,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R37",
+    "R38",
+    "R90",
+    "R92"
+   ],
+   "depends_on": [
+    "OGM-075",
+    "OGM-043",
+    "OGM-044",
+    "OGM-045"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/game/{versions,releases,merge}/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VERSION"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-078",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Multiplayer screens",
+   "document": "tickets/OGM-078.md",
+   "outcome": "Invite button with share sheet, /join landing through sign-in into the room, watcher mode (follow camera or free look, 'talking to the builder\u2026'), version badge, host-left end state.",
+   "scope": [
+    "Invite button with share sheet, /join landing through sign-in into the room, watcher mode (follow camera or free look, 'talking to the builder\u2026'), version badge, host-left end state."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R70",
+    "R73",
+    "R77"
+   ],
+   "depends_on": [
+    "OGM-075",
+    "OGM-052",
+    "OGM-053"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/features/room/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-ROOMS"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-079",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Admin and build analytics screens",
+   "document": "tickets/OGM-079.md",
+   "outcome": "Members, peer admins, invites, allowance and reset, concurrency, platform cap, oversight list and actions, Drive intake status; build analytics: aiur phase timeline plus activity breakdown per build and roll-ups.",
+   "scope": [
+    "Members, peer admins, invites, allowance and reset, concurrency, platform cap, oversight list and actions, Drive intake status; build analytics: aiur phase timeline plus activity breakdown per build and roll-ups."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "web"
+   ],
+   "workstream": "web",
+   "requirement_refs": [
+    "R3",
+    "R66",
+    "R84"
+   ],
+   "depends_on": [
+    "OGM-072",
+    "OGM-017",
+    "OGM-014"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "apps/web/src/routes/admin/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-080",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Build chat backend",
+   "document": "tickets/OGM-080.md",
+   "outcome": "Message store, media upload to the blob store, SSE stream, creator text \u2192 aiur messages through the AiurClient contract, aiur progress and lifecycle events \u2192 system rows; packages/contracts/chat.ts with BuildChatMessage.",
+   "scope": [
+    "Message store, media upload to the blob store, SSE stream, creator text \u2192 aiur messages through the AiurClient contract, aiur progress and lifecycle events \u2192 system rows; packages/contracts/chat.ts with BuildChatMessage."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R22",
+    "R24"
+   ],
+   "depends_on": [
+    "OGM-010",
+    "OGM-005",
+    "OGM-030"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/build-chat/*",
+    "packages/contracts/chat.ts"
+   ],
+   "contract_surfaces": [
+    "BuildChatMessage",
+    "chat stream"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUILD-CHAT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-081",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm chat post and gm checkpoint",
+   "document": "tickets/OGM-081.md",
+   "outcome": "Agents post stills and clips from inside a build and open checkpoints (option ids = candidate media ids, --recommend, --blocking) that emit decision.requested through the aiur agent tools; gm checkpoint wait prints the chosen option.",
+   "scope": [
+    "Agents post stills and clips from inside a build and open checkpoints (option ids = candidate media ids, --recommend, --blocking) that emit decision.requested through the aiur agent tools; gm checkpoint wait prints the chosen option."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R22",
+    "R23"
+   ],
+   "depends_on": [
+    "OGM-060",
+    "OGM-080"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-cli/src/commands/{chat,checkpoint}/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUILD-CHAT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-082",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Direction checkpoints bridge",
+   "document": "tickets/OGM-082.md",
+   "outcome": "Open aiur Commands for a job become checkpoint cards with candidate media; answers go to /decide; notification; non-blocking by default; the \u22643 per creation / \u22641 per feature budget enforced in the design skill text and the card.",
+   "scope": [
+    "Open aiur Commands for a job become checkpoint cards with candidate media; answers go to /decide; notification; non-blocking by default; the \u22643 per creation / \u22641 per feature budget enforced in the design skill text and the card."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 5,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R23"
+   ],
+   "depends_on": [
+    "OGM-080",
+    "OGM-032"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/api/src/checkpoints/*",
+    "apps/web/src/features/build-chat/checkpoint-card.tsx"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUILD-CHAT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-083",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Voice client, dictation and read-aloud",
+   "document": "tickets/OGM-083.md",
+   "outcome": "packages/voice-client: TS port of the voice_converse browser client (AudioWorklet capture, PCM playback, captions, drafts) typed from @aiur/contracts; Web Speech push-to-talk dictation with partial/final captions and review-before-send; speechSynthesis read-aloud with sentence highlighting.",
+   "scope": [
+    "packages/voice-client: TS port of the voice_converse browser client (AudioWorklet capture, PCM playback, captions, drafts) typed from @aiur/contracts; Web Speech push-to-talk dictation with partial/final captions and review-before-send; speechSynthesis read-aloud with sentence highlighting."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R21"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/voice-client/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VOICE-ZERO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-085",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Voice host service (Elixir)",
+   "document": "tickets/OGM-085.md",
+   "outcome": "services/voice-host: a supervised voice_converse instance pinned to aiur 0f692a45b with OGM ports, HMAC token secret shared with the API, loopback WebSocket, transcript: :none, privacy policy, briefing cache and internal HTTP (briefing push, instruct callback); e2e test with FakeProvider; POST /api/voice/token in the API.",
+   "scope": [
+    "services/voice-host: a supervised voice_converse instance pinned to aiur 0f692a45b with OGM ports, HMAC token secret shared with the API, loopback WebSocket, transcript: :none, privacy policy, briefing cache and internal HTTP (briefing push, instruct callback); e2e test with FakeProvider; POST /api/voice/token in the API."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R21"
+   ],
+   "depends_on": [
+    "OGM-002",
+    "OGM-003",
+    "OGM-010"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [
+    "GATE-MIX-DEPS"
+   ],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/voice-host/*",
+    "services/api/src/voice/token.ts"
+   ],
+   "contract_surfaces": [
+    "voice token",
+    "VoiceTarget",
+    "briefing push"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VOICE-ZERO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-086",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Budget-aware voice agent",
+   "document": "tickets/OGM-086.md",
+   "outcome": "Budget section and extra block in the briefing, the creator role file (trim, split, queue, ask an admin; quiet when it fits), confirmed drafts routed to admission with now|at_reset, mid-build overrun announcement; tested with FakeProvider.",
+   "scope": [
+    "Budget section and extra block in the briefing, the creator role file (trim, split, queue, ask an admin; quiet when it fits), confirmed drafts routed to admission with now|at_reset, mid-build overrun announcement; tested with FakeProvider."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R12",
+    "R21"
+   ],
+   "depends_on": [
+    "OGM-085",
+    "OGM-018"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/voice-host/lib/ogm_voice/ports/*",
+    "services/voice-host/roles/creator.md",
+    "services/api/src/voice/instruct.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VOICE-ZERO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-087",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Narration pipeline (key-gated)",
+   "document": "tickets/OGM-087.md",
+   "outcome": "render_to_file behind the host's internal HTTP; OGM renders dialogue lines once by content hash to the blob store; SDK SpokenText player with sentence highlighting; works end to end with FakeProvider and switches to a real adapter when a key and upstream render_speech exist.",
+   "scope": [
+    "render_to_file behind the host's internal HTTP; OGM renders dialogue lines once by content hash to the blob store; SDK SpokenText player with sentence highlighting; works end to end with FakeProvider and switches to a real adapter when a key and upstream render_speech exist."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R21"
+   ],
+   "depends_on": [
+    "OGM-085",
+    "OGM-005",
+    "OGM-027"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [
+    "GATE-PROVIDER-KEY"
+   ],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/voice-host/lib/ogm_voice/http/narration.ex",
+    "services/api/src/narration/*",
+    "packages/sdk/src/audio/spoken-text.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VOICE-ZERO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-088",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Scope session as an aiur ticket",
+   "document": "tickets/OGM-088.md",
+   "outcome": "A short scope ticket in the game repo whose worker runs the scope conversation through aiur messages (loading gm-scope-options) and ends by writing the agreed scope to the API; the voice session targets the same ticket when a key exists.",
+   "scope": [
+    "A short scope ticket in the game repo whose worker runs the scope conversation through aiur messages (loading gm-scope-options) and ends by writing the agreed scope to the API; the voice session targets the same ticket when a key exists."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "chat-voice"
+   ],
+   "workstream": "chat-voice",
+   "requirement_refs": [
+    "R20",
+    "R21"
+   ],
+   "depends_on": [
+    "OGM-031",
+    "OGM-036"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-095"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/builder/src/scope/*",
+    "services/api/src/scope/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VOICE-ZERO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-090",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm run, gm shot, gm perf and the verify report",
+   "document": "tickets/OGM-090.md",
+   "outcome": "TypeScript port of capture.mjs, loadtime.mjs and loadrec.mjs on the GPU flags with SwiftShader fallback: stills at desktop and phone, tiled timeline, H.264 clip, renderer string, console dedupe, tier budgets, the verify report JSON, a host-wide capture semaphore of 2.",
+   "scope": [
+    "TypeScript port of capture.mjs, loadtime.mjs and loadrec.mjs on the GPU flags with SwiftShader fallback: stills at desktop and phone, tiled timeline, H.264 clip, renderer string, console dedupe, tier budgets, the verify report JSON, a host-wide capture semaphore of 2."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R102"
+   ],
+   "depends_on": [
+    "OGM-060",
+    "OGM-020"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "packages/gm-verify/*",
+    "packages/gm-cli/src/commands/{run,shot,perf}/*"
+   ],
+   "contract_surfaces": [
+    "verify report"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VERIFY-GPU"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-091",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Skill pack scaffold, gm-core and gm new",
+   "document": "tickets/OGM-091.md",
+   "outcome": "gm new writes the scaffold from templates/, .claude/skills, .codex/skills links, .agents/skills, skills.lock, AGENTS.md; gm-core \u2264120 lines (tier order, gm cheat sheet, done rule, show-as-you-go, anti-sameness rules, activity taxonomy); gm-build with pnpm install --offline.",
+   "scope": [
+    "gm new writes the scaffold from templates/, .claude/skills, .codex/skills links, .agents/skills, skills.lock, AGENTS.md; gm-core \u2264120 lines (tier order, gm cheat sheet, done rule, show-as-you-go, anti-sameness rules, activity taxonomy); gm-build with pnpm install --offline."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R100",
+    "R101",
+    "R104"
+   ],
+   "depends_on": [
+    "OGM-060"
+   ],
+   "serializes_with": [],
+   "suggested_after": [
+    "OGM-023",
+    "OGM-024",
+    "OGM-038"
+   ],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "skills/gm-core/*",
+    "skills/gm-build/*",
+    "packages/gm-cli/src/commands/new/*",
+    "packages/gm-cli/src/commands/skills/*"
+   ],
+   "contract_surfaces": [
+    "skill pack layout"
+   ],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SKILLS-IN-REPO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-092",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Vendored engine reference layer and API-name checker",
+   "document": "tickets/OGM-092.md",
+   "outcome": "Phaser official, CloudAI three.js (minus R3F) and awesome-gamedev adaptations vendored at pinned SHAs with licence front matter, skills.lock, and tools/skills/check-api-names.ts with a test.",
+   "scope": [
+    "Phaser official, CloudAI three.js (minus R3F) and awesome-gamedev adaptations vendored at pinned SHAs with licence front matter, skills.lock, and tools/skills/check-api-names.ts with a test."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 2,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R100"
+   ],
+   "depends_on": [
+    "OGM-001"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "skills/vendor/*",
+    "tools/skills/check-api-names.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SKILLS-IN-REPO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-093",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "gm-verify skill, gm check and gm test gates",
+   "document": "tickets/OGM-093.md",
+   "outcome": "The rewritten skill (look rules, defect checklist, budgets, unchecked list, loopback bind rule); L0 static (typecheck, lint banning Math.random/Date.now in simulation, hook present) and L1 smoke (boot, 3,600 ticks, state round-trip, HUD still) as gm check and gm test.",
+   "scope": [
+    "The rewritten skill (look rules, defect checklist, budgets, unchecked list, loopback bind rule); L0 static (typecheck, lint banning Math.random/Date.now in simulation, hook present) and L1 smoke (boot, 3,600 ticks, state round-trip, HUD still) as gm check and gm test."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 6,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R103"
+   ],
+   "depends_on": [
+    "OGM-090",
+    "OGM-022"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "skills/gm-verify/*",
+    "packages/gm-cli/src/commands/{check,test}/*",
+    "packages/gm-verify/gates/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-VERIFY-GPU"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-094",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Platformer skill, pattern cards and gm docs pattern",
+   "document": "tickets/OGM-094.md",
+   "outcome": "gm-genre-platformer with four to six themeless cards (jump buffer and coyote, deadzone camera, one-way platforms, hit feedback tiers) each with an advanceTime test; gm docs pattern.",
+   "scope": [
+    "gm-genre-platformer with four to six themeless cards (jump buffer and coyote, deadzone camera, one-way platforms, hit feedback tiers) each with an advanceTime test; gm docs pattern."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 2,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R104"
+   ],
+   "depends_on": [
+    "OGM-091",
+    "OGM-092",
+    "OGM-024"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "skills/gm-genre-platformer/*",
+    "packages/gm-cli/src/commands/docs/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SKILLS-IN-REPO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-095",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Skill wave 2: gm-input, gm-ui-hud, gm-audio, gm-scope-options, gm-editor-tuning",
+   "document": "tickets/OGM-095.md",
+   "outcome": "Five short skills written to the B14 verdicts against the SDK's input map, HUD model, audio module (ZzFX, Tone getTransport), the creation options and the editor manifest; one PR each inside one umbrella ticket.",
+   "scope": [
+    "Five short skills written to the B14 verdicts against the SDK's input map, HUD model, audio module (ZzFX, Tone getTransport), the creation options and the editor manifest; one PR each inside one umbrella ticket."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 8,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R100"
+   ],
+   "depends_on": [
+    "OGM-091",
+    "OGM-025",
+    "OGM-027"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "skills/gm-{input,ui-hud,audio,scope-options,editor-tuning}/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SKILLS-IN-REPO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-096",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Repair loop: triage, gm-repair and promise tests",
+   "document": "tickets/OGM-096.md",
+   "outcome": "Signature dedupe, headless replay classification, editor-fix routing, the repair ticket body and after_create diagnostics, promises/*.spec.ts generator, attempts and reservation as config.",
+   "scope": [
+    "Signature dedupe, headless replay classification, editor-fix routing, the repair ticket body and after_create diagnostics, promises/*.spec.ts generator, attempts and reservation as config."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 7,
+   "complexity_points": 4,
+   "complexity_rationale": "see the ticket document",
+   "risk": "high",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R68"
+   ],
+   "depends_on": [
+    "OGM-090",
+    "OGM-093",
+    "OGM-015",
+    "OGM-034"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "services/repair/*",
+    "skills/gm-repair/*",
+    "packages/gm-verify/replay.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-BUILD-CHAT"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-097",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Sameness eval harness",
+   "document": "tickets/OGM-097.md",
+   "outcome": "Ten briefs, with_skill vs baseline configs, M1 (jscpd), M4 (unasked mechanics) and M5 (card-default fingerprint) assertions, benchmark.md; runs on demand on the signed-in agents, never in CI.",
+   "scope": [
+    "Ten briefs, with_skill vs baseline configs, M1 (jscpd), M4 (unasked mechanics) and M5 (card-default fingerprint) assertions, benchmark.md; runs on demand on the signed-in agents, never in CI."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 8,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "skills"
+   ],
+   "workstream": "skills",
+   "requirement_refs": [
+    "R105"
+   ],
+   "depends_on": [
+    "OGM-090",
+    "OGM-094"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "evals/skills/*",
+    "tools/skills/eval.ts"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-SKILLS-IN-REPO"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-100",
+   "kind": "capstone",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "End-to-end proof on this machine",
+   "document": "tickets/OGM-100.md",
+   "outcome": "Kevin's flow proven with evidence: sign in on a phone, make a game by text, see stills arrive, play the draft, edit while a second build runs, branch, invite a family member, publish; all services on this machine; recorded clips and a checklist in docs/plans/ogm-v1-build/acceptance.md.",
+   "scope": [
+    "Kevin's flow proven with evidence: sign in on a phone, make a game by text, see stills arrive, play the draft, edit while a second build runs, branch, invite a family member, publish; all services on this machine; recorded clips and a checklist in docs/plans/ogm-v1-build/acceptance.md."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 9,
+   "complexity_points": 3,
+   "complexity_rationale": "see the ticket document",
+   "risk": "medium",
+   "capability_requirements": [
+    "capstone"
+   ],
+   "workstream": "capstone",
+   "requirement_refs": [
+    "R120"
+   ],
+   "depends_on": [
+    "OGM-034",
+    "OGM-036",
+    "OGM-045",
+    "OGM-053",
+    "OGM-075",
+    "OGM-076",
+    "OGM-096",
+    "OGM-029",
+    "OGM-074",
+    "OGM-006"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "docs/plans/ogm-v1-build/acceptance.md"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-MONOREPO-FIRST"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  },
+  {
+   "id": "OGM-101",
+   "kind": "executable",
+   "provenance": "planned",
+   "introduced_in_plan_version": 1,
+   "discovered_from": null,
+   "title": "Archive the prototypes",
+   "document": "tickets/OGM-101.md",
+   "outcome": "prototypes/README.md and the studio-v0/ui-v0 READMEs point at their successors; title-city sources move under apps/web as the built asset; the old deploy script is retired.",
+   "scope": [
+    "prototypes/README.md and the studio-v0/ui-v0 READMEs point at their successors; title-city sources move under apps/web as the built asset; the old deploy script is retired."
+   ],
+   "non_goals": [
+    "Anything owned by a sibling ticket; see the ticket document"
+   ],
+   "phase_hint": 4,
+   "complexity_points": 1,
+   "complexity_rationale": "see the ticket document",
+   "risk": "low",
+   "capability_requirements": [
+    "capstone"
+   ],
+   "workstream": "capstone",
+   "requirement_refs": [
+    "R124"
+   ],
+   "depends_on": [
+    "OGM-070",
+    "OGM-071"
+   ],
+   "serializes_with": [],
+   "suggested_after": [],
+   "contains": [],
+   "external_gates": [],
+   "read_surfaces": [],
+   "write_surfaces": [
+    "prototypes/README.md",
+    "apps/web/title-town/*"
+   ],
+   "contract_surfaces": [],
+   "safety_surfaces": [],
+   "conflict_exceptions": [],
+   "decision_refs": [
+    "D-LOOK"
+   ],
+   "design_evidence_refs": [],
+   "acceptance": {
+    "agent_gate": [
+     "see the ticket document"
+    ],
+    "at_merge_gate": [
+     "ci / required green on current main"
+    ],
+    "human_or_e2e": []
+   },
+   "github": null
+  }
+ ],
+ "epic_acceptance": {
+  "owner_ticket_id": "OGM-100",
+  "evidence": [
+   "docs/plans/ogm-v1-build/acceptance.md with clips"
+  ]
+ },
+ "graph_summary": {
+  "levels": {
+   "OGM-001": 1,
+   "OGM-002": 2,
+   "OGM-003": 2,
+   "OGM-004": 2,
+   "OGM-005": 2,
+   "OGM-006": 3,
+   "OGM-007": 2,
+   "OGM-008": 3,
+   "OGM-009": 2,
+   "OGM-010": 3,
+   "OGM-011": 4,
+   "OGM-012": 4,
+   "OGM-030": 2,
+   "OGM-013": 5,
+   "OGM-014": 4,
+   "OGM-015": 6,
+   "OGM-016": 4,
+   "OGM-017": 6,
+   "OGM-018": 6,
+   "OGM-031": 6,
+   "OGM-032": 4,
+   "OGM-033": 6,
+   "OGM-037": 2,
+   "OGM-034": 3,
+   "OGM-035": 2,
+   "OGM-036": 3,
+   "OGM-038": 3,
+   "OGM-060": 3,
+   "OGM-061": 4,
+   "OGM-062": 5,
+   "OGM-039": 6,
+   "OGM-020": 3,
+   "OGM-021": 4,
+   "OGM-022": 5,
+   "OGM-026": 4,
+   "OGM-023": 6,
+   "OGM-024": 6,
+   "OGM-025": 7,
+   "OGM-027": 6,
+   "OGM-028": 5,
+   "OGM-029": 7,
+   "OGM-019": 6,
+   "OGM-040": 4,
+   "OGM-041": 5,
+   "OGM-042": 6,
+   "OGM-043": 6,
+   "OGM-044": 7,
+   "OGM-045": 6,
+   "OGM-046": 6,
+   "OGM-047": 6,
+   "OGM-048": 7,
+   "OGM-050": 3,
+   "OGM-051": 4,
+   "OGM-070": 2,
+   "OGM-052": 5,
+   "OGM-053": 6,
+   "OGM-054": 8,
+   "OGM-091": 4,
+   "OGM-090": 4,
+   "OGM-055": 9,
+   "OGM-063": 6,
+   "OGM-064": 5,
+   "OGM-065": 6,
+   "OGM-066": 4,
+   "OGM-067": 4,
+   "OGM-068": 6,
+   "OGM-071": 3,
+   "OGM-072": 5,
+   "OGM-073": 5,
+   "OGM-088": 7,
+   "OGM-074": 8,
+   "OGM-075": 6,
+   "OGM-080": 4,
+   "OGM-083": 2,
+   "OGM-076": 5,
+   "OGM-077": 8,
+   "OGM-078": 7,
+   "OGM-079": 7,
+   "OGM-081": 5,
+   "OGM-082": 5,
+   "OGM-085": 4,
+   "OGM-086": 7,
+   "OGM-087": 7,
+   "OGM-092": 2,
+   "OGM-093": 6,
+   "OGM-094": 7,
+   "OGM-095": 8,
+   "OGM-096": 7,
+   "OGM-097": 8,
+   "OGM-100": 9,
+   "OGM-101": 4
+  },
+  "blocks": {
+   "OGM-001": [
+    "OGM-002",
+    "OGM-003",
+    "OGM-004",
+    "OGM-005",
+    "OGM-007",
+    "OGM-009",
+    "OGM-010",
+    "OGM-030",
+    "OGM-035",
+    "OGM-037",
+    "OGM-070",
+    "OGM-083",
+    "OGM-092"
+   ],
+   "OGM-002": [
+    "OGM-006",
+    "OGM-008",
+    "OGM-034",
+    "OGM-085"
+   ],
+   "OGM-005": [
+    "OGM-008",
+    "OGM-015",
+    "OGM-067",
+    "OGM-080",
+    "OGM-087"
+   ],
+   "OGM-003": [
+    "OGM-010",
+    "OGM-085"
+   ],
+   "OGM-004": [
+    "OGM-010",
+    "OGM-020",
+    "OGM-040",
+    "OGM-050",
+    "OGM-060"
+   ],
+   "OGM-010": [
+    "OGM-011",
+    "OGM-012",
+    "OGM-013",
+    "OGM-014",
+    "OGM-016",
+    "OGM-032",
+    "OGM-041",
+    "OGM-046",
+    "OGM-047",
+    "OGM-080",
+    "OGM-085"
+   ],
+   "OGM-012": [
+    "OGM-013",
+    "OGM-017",
+    "OGM-052",
+    "OGM-073"
+   ],
+   "OGM-030": [
+    "OGM-013",
+    "OGM-031",
+    "OGM-032",
+    "OGM-033",
+    "OGM-034",
+    "OGM-080"
+   ],
+   "OGM-013": [
+    "OGM-015",
+    "OGM-017",
+    "OGM-018",
+    "OGM-031",
+    "OGM-033",
+    "OGM-074"
+   ],
+   "OGM-037": [
+    "OGM-034",
+    "OGM-036",
+    "OGM-038"
+   ],
+   "OGM-035": [
+    "OGM-036",
+    "OGM-039"
+   ],
+   "OGM-062": [
+    "OGM-039",
+    "OGM-048",
+    "OGM-063"
+   ],
+   "OGM-020": [
+    "OGM-021",
+    "OGM-022",
+    "OGM-026",
+    "OGM-028",
+    "OGM-040",
+    "OGM-063",
+    "OGM-090"
+   ],
+   "OGM-021": [
+    "OGM-022",
+    "OGM-028"
+   ],
+   "OGM-022": [
+    "OGM-023",
+    "OGM-024",
+    "OGM-027",
+    "OGM-029",
+    "OGM-019",
+    "OGM-046",
+    "OGM-047",
+    "OGM-054",
+    "OGM-093"
+   ],
+   "OGM-026": [
+    "OGM-023"
+   ],
+   "OGM-023": [
+    "OGM-025",
+    "OGM-029"
+   ],
+   "OGM-024": [
+    "OGM-025",
+    "OGM-029",
+    "OGM-094"
+   ],
+   "OGM-028": [
+    "OGM-029",
+    "OGM-053",
+    "OGM-075"
+   ],
+   "OGM-040": [
+    "OGM-041"
+   ],
+   "OGM-041": [
+    "OGM-042",
+    "OGM-043",
+    "OGM-045",
+    "OGM-053",
+    "OGM-075"
+   ],
+   "OGM-043": [
+    "OGM-044",
+    "OGM-077"
+   ],
+   "OGM-045": [
+    "OGM-048",
+    "OGM-077",
+    "OGM-100"
+   ],
+   "OGM-050": [
+    "OGM-051",
+    "OGM-052",
+    "OGM-053",
+    "OGM-054"
+   ],
+   "OGM-070": [
+    "OGM-052",
+    "OGM-053",
+    "OGM-071",
+    "OGM-072",
+    "OGM-073",
+    "OGM-074",
+    "OGM-075",
+    "OGM-076",
+    "OGM-101"
+   ],
+   "OGM-025": [
+    "OGM-054",
+    "OGM-095"
+   ],
+   "OGM-054": [
+    "OGM-055"
+   ],
+   "OGM-051": [
+    "OGM-055"
+   ],
+   "OGM-091": [
+    "OGM-055",
+    "OGM-094",
+    "OGM-095"
+   ],
+   "OGM-090": [
+    "OGM-055",
+    "OGM-093",
+    "OGM-096",
+    "OGM-097"
+   ],
+   "OGM-060": [
+    "OGM-061",
+    "OGM-062",
+    "OGM-064",
+    "OGM-066",
+    "OGM-067",
+    "OGM-081",
+    "OGM-090",
+    "OGM-091"
+   ],
+   "OGM-061": [
+    "OGM-062",
+    "OGM-064"
+   ],
+   "OGM-064": [
+    "OGM-065",
+    "OGM-068"
+   ],
+   "OGM-011": [
+    "OGM-072"
+   ],
+   "OGM-066": [
+    "OGM-074"
+   ],
+   "OGM-088": [
+    "OGM-074"
+   ],
+   "OGM-080": [
+    "OGM-076",
+    "OGM-081",
+    "OGM-082"
+   ],
+   "OGM-083": [
+    "OGM-076"
+   ],
+   "OGM-075": [
+    "OGM-077",
+    "OGM-078",
+    "OGM-100"
+   ],
+   "OGM-044": [
+    "OGM-077"
+   ],
+   "OGM-052": [
+    "OGM-078"
+   ],
+   "OGM-053": [
+    "OGM-078",
+    "OGM-100"
+   ],
+   "OGM-072": [
+    "OGM-079"
+   ],
+   "OGM-017": [
+    "OGM-079"
+   ],
+   "OGM-014": [
+    "OGM-079"
+   ],
+   "OGM-032": [
+    "OGM-082"
+   ],
+   "OGM-085": [
+    "OGM-086",
+    "OGM-087"
+   ],
+   "OGM-018": [
+    "OGM-086"
+   ],
+   "OGM-027": [
+    "OGM-087",
+    "OGM-095"
+   ],
+   "OGM-031": [
+    "OGM-088"
+   ],
+   "OGM-036": [
+    "OGM-088",
+    "OGM-100"
+   ],
+   "OGM-092": [
+    "OGM-094"
+   ],
+   "OGM-093": [
+    "OGM-096"
+   ],
+   "OGM-015": [
+    "OGM-096"
+   ],
+   "OGM-034": [
+    "OGM-096",
+    "OGM-100"
+   ],
+   "OGM-094": [
+    "OGM-097"
+   ],
+   "OGM-076": [
+    "OGM-100"
+   ],
+   "OGM-096": [
+    "OGM-100"
+   ],
+   "OGM-029": [
+    "OGM-100"
+   ],
+   "OGM-074": [
+    "OGM-100"
+   ],
+   "OGM-006": [
+    "OGM-100"
+   ],
+   "OGM-071": [
+    "OGM-101"
+   ]
+  },
+  "critical_path": [
+   "OGM-001",
+   "OGM-004",
+   "OGM-020",
+   "OGM-021",
+   "OGM-022",
+   "OGM-023",
+   "OGM-025",
+   "OGM-054",
+   "OGM-055"
+  ],
+  "phase_count": 9,
+  "ticket_count": 91
+ }
+}
