@@ -7,7 +7,7 @@ import type { AgentOutboxLine } from '@ogm/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { loadOutboxHandlers, type OutboxHandler } from '../../src/build-chat/outbox-handlers.js';
-import { createOutboxRelay, workspaceForJob } from '../../src/build-chat/outbox-relay.js';
+import { createOutboxRelay, registerWorkspace, workspaceForJob } from '../../src/build-chat/outbox-relay.js';
 import { listSince } from '../../src/build-chat/store.js';
 import { chatJob, FIXTURES, jobTable, JOB_ID, makeChatDeps, OTHER_JOB_ID } from './setup.js';
 
@@ -26,7 +26,11 @@ function line(overrides: Partial<AgentOutboxLine> = {}, payload: Record<string, 
 }
 
 async function setup(
-  options: { handlers?: Map<string, OutboxHandler>; jobs?: ReturnType<typeof jobTable> | null } = {},
+  options: {
+    handlers?: Map<string, OutboxHandler>;
+    jobs?: ReturnType<typeof jobTable> | null;
+    registered?: boolean;
+  } = {},
 ) {
   const root = await mkdtemp(join(tmpdir(), 'ogm-chat-root-'));
   const workspace = join(root, 'its-everdred', 'game-repo', '142');
@@ -35,6 +39,7 @@ async function setup(
   const jobs = options.jobs === undefined ? jobTable(chatJob(), chatJob({ jobId: OTHER_JOB_ID })) : options.jobs;
   const deps = makeChatDeps(jobs ?? undefined);
   if (jobs === null) deps.registry.chatJobs = null;
+  if (options.registered !== false) registerWorkspace(deps.sqlite, JOB_ID, workspace);
   const handlers = options.handlers ?? (await loadOutboxHandlers());
   const publish = vi.fn();
   const relay = () =>
@@ -133,8 +138,8 @@ describe('outbox relay', () => {
     expect(handle.mock.calls.map((call) => (call as unknown as [AgentOutboxLine])[0].id)).toEqual([ULIDS[0], ULIDS[1]]);
   });
 
-  // A workspace that wrote for one job cannot post into another job's chat.
-  it('pins a workspace to the first job it writes for', async () => {
+  // A trusted launcher registration, not sandbox-authored JSON, decides which job owns the workspace.
+  it('rejects a line that names a job other than the workspace registration', async () => {
     const { deps, relay, append, rejected } = await setup();
     await append(
       line({}, { kind: 'text', text: 'mine' }) + line({ id: ULIDS[1], job_id: OTHER_JOB_ID }, { kind: 'text' }),
@@ -142,6 +147,14 @@ describe('outbox relay', () => {
     await relay().scan();
     expect(listSince(deps.sqlite, OTHER_JOB_ID, 0)).toEqual([]);
     expect(rejected()).toEqual([expect.objectContaining({ reason: 'job_mismatch' })]);
+  });
+
+  it('rejects a known job from a workspace the trusted launcher did not register', async () => {
+    const { deps, relay, append, rejected } = await setup({ registered: false });
+    await append(line({}, { kind: 'text', text: 'claim another workspace' }));
+    await relay().scan();
+    expect(listSince(deps.sqlite, JOB_ID, 0)).toEqual([]);
+    expect(rejected()).toEqual([expect.objectContaining({ reason: 'workspace_unregistered' })]);
   });
 
   it('rejects a line for a job the directory does not know', async () => {

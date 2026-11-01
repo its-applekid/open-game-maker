@@ -14,6 +14,7 @@ export type MirrorDeps = {
   log: (line: LogLine) => void;
   sleep?: (ms: number) => Promise<void>;
   attempts?: number;
+  requestTimeoutMs?: number;
 };
 
 export interface Mirror {
@@ -33,7 +34,8 @@ const defaultSleep = (ms: number) =>
 export function createMirror(deps: MirrorDeps): Mirror {
   const sleep = deps.sleep ?? defaultSleep;
   const attempts = deps.attempts ?? 5;
-  const inFlight = new Map<string, Promise<void>>();
+  const requestTimeoutMs = deps.requestTimeoutMs ?? 15_000;
+  const drains = new Map<string, Promise<void>>();
 
   async function send(id: string): Promise<void> {
     const row = getChatRow(deps.sqlite, id);
@@ -45,7 +47,7 @@ export function createMirror(deps: MirrorDeps): Mirror {
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
-        await client.message(job.aiur.ticket, row.text, row.id);
+        await client.message(job.aiur.ticket, row.text, row.id, AbortSignal.timeout(requestTimeoutMs));
         markMirror(deps.sqlite, id, 'sent');
         return;
       } catch (error) {
@@ -71,17 +73,26 @@ export function createMirror(deps: MirrorDeps): Mirror {
   }
 
   function mirror(id: string): Promise<void> {
-    const running = inFlight.get(id);
-    if (running) return running;
-    const task = send(id).finally(() => inFlight.delete(id));
-    inFlight.set(id, task);
-    return task;
+    const row = getChatRow(deps.sqlite, id);
+    return row === null ? Promise.resolve() : flushPending(row.jobId);
+  }
+
+  function flushPending(jobId: string): Promise<void> {
+    const previous = drains.get(jobId) ?? Promise.resolve();
+    const task = previous
+      .catch(() => {})
+      .then(async () => {
+        for (const row of pendingMirrors(deps.sqlite, jobId)) await send(row.id);
+      });
+    const tracked = task.finally(() => {
+      if (drains.get(jobId) === tracked) drains.delete(jobId);
+    });
+    drains.set(jobId, tracked);
+    return tracked;
   }
 
   return {
     mirror,
-    async flushPending(jobId) {
-      for (const row of pendingMirrors(deps.sqlite, jobId)) await mirror(row.id);
-    },
+    flushPending,
   };
 }

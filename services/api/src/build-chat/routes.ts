@@ -81,7 +81,7 @@ export function setup(deps: AppDeps): void {
 }
 
 // Reading needs the owner (`game.edit`; players never read a build chat); posting needs `job.create` on the job's game.
-async function authorizedJob(c: Context<ApiBindings>, action: Action): Promise<ChatJob> {
+async function authorizedJob(c: Context<ApiBindings>, action: Action, ownerOnly = false): Promise<ChatJob> {
   const principal = requirePrincipal(c, ['user']);
   const job = await c.get('deps').registry.chatJobs?.get(c.req.param('jobId') ?? '');
   if (!job) throw new HttpError(404, 'job_not_found');
@@ -92,6 +92,7 @@ async function authorizedJob(c: Context<ApiBindings>, action: Action): Promise<C
       ownerId: job.ownerId,
     }),
   );
+  if (ownerOnly && principal.userId !== job.ownerId) throw new HttpError(403, 'job_owner_required');
   return job;
 }
 
@@ -176,7 +177,7 @@ export default new Hono<ApiBindings>()
     return c.json(page);
   })
   .post('/:jobId/chat', async (c) => {
-    const job = await authorizedJob(c, 'job.create');
+    const job = await authorizedJob(c, 'job.create', true);
     const body = await parseBody(c, ChatPostBody);
     const deps = c.get('deps');
     const runtime = getChatRuntime(deps);

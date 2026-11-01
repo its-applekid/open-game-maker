@@ -62,7 +62,7 @@ export const ChatPostPayload = z.discriminatedUnion('kind', [
 ]);
 
 // POST /api/v1/jobs/:jobId/chat. aiur caps an operator message at 8,000 characters.
-export const ChatPostBody = z.object({ text: z.string().trim().min(1).max(8000) }).strict();
+export const ChatPostBody = z.object({ text: z.string().regex(/\S/).trim().min(1).max(8000) }).strict();
 
 // GET /api/v1/jobs/:jobId/chat/messages?since=<seq> → rows with seq > since, oldest first; pass `last_seq` back as `since`.
 // SSE: GET /api/v1/jobs/:jobId/chat?since=<seq> → "id: <seq>\nevent: message\ndata: <BuildChatMessage JSON>"; Last-Event-ID resumes.

@@ -1,12 +1,12 @@
 import { existsSync } from 'node:fs';
-import { chmod, copyFile, mkdir, mkdtemp, readFile, symlink, truncate, writeFile } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, mkdtemp, open, readFile, symlink, truncate, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
-import { MediaError, probeClip, putMedia } from '../../src/build-chat/media.js';
+import { MAX_MEDIA_BYTES, MediaError, probeClip, putMedia } from '../../src/build-chat/media.js';
 import { makeDeps } from '../helpers.js';
 import { FIXTURES } from './setup.js';
 
@@ -108,6 +108,30 @@ describe('outbox media', () => {
     await writeFile(big, await readFile(fixture('tiny.png')));
     await truncate(big, 30 * 1024 * 1024);
     expect(await code(putMedia(blobStore, root, '.gm/outbox/media/big.png', 'image'))).toBe('media_too_large');
+  });
+
+  it('bounds descriptor reads even if the file grows after its initial stat', async () => {
+    const { blobStore } = makeDeps();
+    const root = await workspace();
+    const big = join(root, '.gm/outbox/media/growing.png');
+    await writeFile(big, await readFile(fixture('tiny.png')));
+    const handle = await open(big, 'r');
+    const prototype = Object.getPrototypeOf(handle) as typeof handle;
+    await handle.close();
+    const originalStat = prototype.stat;
+    const stat = vi.spyOn(prototype, 'stat').mockImplementation(async function () {
+      const result = await originalStat.call(this);
+      await truncate(big, MAX_MEDIA_BYTES + 1);
+      return result;
+    });
+    const readFileSpy = vi.spyOn(prototype, 'readFile').mockRejectedValue(new Error('unbounded read'));
+    try {
+      expect(await code(putMedia(blobStore, root, '.gm/outbox/media/growing.png', 'image'))).toBe('media_too_large');
+      expect(readFileSpy).not.toHaveBeenCalled();
+    } finally {
+      stat.mockRestore();
+      readFileSpy.mockRestore();
+    }
   });
 
   it('sniffs content instead of trusting the name', async () => {

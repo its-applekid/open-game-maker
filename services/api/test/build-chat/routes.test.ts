@@ -111,6 +111,40 @@ describe('build chat routes', () => {
     expect((await app.request(url('/messages'), { headers: as(user) })).status).toBe(status);
   });
 
+  it('does not let a platform maintainer post as the job creator', async () => {
+    const { app } = await makeChatApp();
+    const response = await app.request(url(), {
+      method: 'POST',
+      headers: { ...json, ...as('maintainer') },
+      body: JSON.stringify({ text: 'impersonated instruction' }),
+    });
+    expect(response.status).toBe(403);
+  });
+
+  it('returns a stored post without waiting for the aiur request to finish', async () => {
+    let finishRequest!: (response: Response) => void;
+    const fetchImpl = vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          finishRequest = resolve;
+        }),
+    );
+    const client = createAiurClient({ baseUrl: 'http://127.0.0.1:4101', token: 'aiur-token-for-tests' }, fetchImpl);
+    const { app, deps } = await makeChatApp(jobTable(chatJob()), client);
+
+    const response = await app.request(url(), {
+      method: 'POST',
+      headers: { ...json, ...as('owner') },
+      body: JSON.stringify({ text: 'do not block this response' }),
+    });
+    expect(response.status).toBe(201);
+    expect(listSince(deps.sqlite, JOB_ID, 0)[0]?.mirrorState).toBe('pending');
+
+    await vi.waitFor(() => expect(fetchImpl).toHaveBeenCalledOnce());
+    finishRequest(new Response(JSON.stringify({ request_id: 'req-1' }), { status: 202, headers: json }));
+    await vi.waitFor(() => expect(listSince(deps.sqlite, JOB_ID, 0)[0]?.mirrorState).toBe('sent'));
+  });
+
   it('answers 401 without a session and 404 for an unknown job', async () => {
     const { app } = await makeChatApp(jobTable());
     expect((await app.request(url('/messages'))).status).toBe(401);

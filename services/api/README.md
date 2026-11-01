@@ -18,7 +18,9 @@ The build chat (`/api/v1/jobs/:jobId/chat`) relays agent posts from `<workspace>
 `OGM_BUILDER_WORKSPACES_ROOT`; without it the relay stays off and the API logs the missing name. Lines of other types
 go to a context's `src/<context>/outbox.ts`, which exports `type` and `handle(line, ctx)`. The chat reads jobs through
 `deps.registry.chatJobs` and aiur through `deps.registry.aiurClientFor`. Without a job directory the routes answer
-`404 job_not_found`; without an aiur client creator posts stay pending and nothing is polled.
+`404 job_not_found`; without an aiur client creator posts stay pending and nothing is polled. The trusted job launcher
+must call `registerWorkspace(sqlite, jobId, workspaceRoot)` before sandbox output is accepted; unregistered workspaces
+and lines naming another job are rejected.
 
 ```sh
 pnpm --filter @ogm/api build && pnpm --filter @ogm/api start   # or: pnpm --filter @ogm/api dev

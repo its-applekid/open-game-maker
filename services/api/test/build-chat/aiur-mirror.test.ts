@@ -10,7 +10,11 @@ function fakeAiur(message: FakeAiur['message'] = vi.fn().mockResolvedValue({ req
   };
 }
 
-function setup(jobs = jobTable(chatJob()), client = fakeAiur()) {
+function setup(
+  jobs = jobTable(chatJob()),
+  client = fakeAiur(),
+  mirrorOptions: { attempts?: number; requestTimeoutMs?: number } = {},
+) {
   const deps = makeChatDeps(jobs, client);
   const publish = vi.fn();
   const mirror = createMirror({
@@ -20,6 +24,7 @@ function setup(jobs = jobTable(chatJob()), client = fakeAiur()) {
     publish,
     log: deps.log,
     sleep: async () => {},
+    ...mirrorOptions,
   });
   const post = (text: string) =>
     insertChatRow(deps.sqlite, { jobId: JOB_ID, actor: 'creator', kind: 'text', text, mirrorState: 'pending' }).row!;
@@ -31,8 +36,32 @@ describe('creator to aiur mirror', () => {
     const { mirror, client, post, deps } = setup();
     const row = post('make the door red');
     await mirror.mirror(row.id);
-    expect(client.message).toHaveBeenCalledWith('142', 'make the door red', row.id);
+    expect(client.message).toHaveBeenCalledWith('142', 'make the door red', row.id, expect.any(AbortSignal));
     expect(getChatRow(deps.sqlite, row.id)?.mirrorState).toBe('sent');
+  });
+
+  it('serializes concurrent creator posts by job sequence', async () => {
+    let releaseFirst!: () => void;
+    const firstBlocked = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const message = vi.fn(async (_ticket: string, text: string) => {
+      if (text === 'first') await firstBlocked;
+      return { request_id: text };
+    });
+    const { mirror, post } = setup(jobTable(chatJob()), fakeAiur(message));
+    const first = post('first');
+    const second = post('second');
+
+    const firstSend = mirror.mirror(first.id);
+    await vi.waitFor(() => expect(message).toHaveBeenCalledTimes(1));
+    const secondSend = mirror.mirror(second.id);
+    await Promise.resolve();
+    expect(message.mock.calls.map((call) => call[1])).toEqual(['first']);
+
+    releaseFirst();
+    await Promise.all([firstSend, secondSend]);
+    expect(message.mock.calls.map((call) => call[1])).toEqual(['first', 'second']);
   });
 
   // A job queued or waiting for a reset has no ticket; the creator's words must still reach the worker later, once.
@@ -77,5 +106,24 @@ describe('creator to aiur mirror', () => {
     await mirror.mirror(row.id);
     expect(message).toHaveBeenCalledTimes(3);
     expect(getChatRow(deps.sqlite, row.id)?.mirrorState).toBe('sent');
+  });
+
+  it('times out a stalled aiur request and settles the mirror', async () => {
+    const message = vi.fn(
+      (_ticket: string, _text: string, _messageId?: string, signal?: AbortSignal) =>
+        new Promise<never>((_resolve, reject) => {
+          signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+        }),
+    );
+    const { mirror, post, deps } = setup(jobTable(chatJob()), fakeAiur(message), {
+      attempts: 1,
+      requestTimeoutMs: 5,
+    });
+    const row = post('timeout please');
+
+    await mirror.mirror(row.id);
+
+    expect(message).toHaveBeenCalledOnce();
+    expect(getChatRow(deps.sqlite, row.id)?.mirrorState).toBe('failed');
   });
 });

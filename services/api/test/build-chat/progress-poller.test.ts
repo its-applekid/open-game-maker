@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import type { TicketProgress } from '@ogm/aiur-client';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -47,6 +49,29 @@ function setup(read: () => Promise<TicketProgress>) {
 }
 
 describe('aiur progress poller', () => {
+  it('stores and deduplicates the id-less progress events returned by the real aiur fixture', async () => {
+    const fixture = JSON.parse(
+      readFileSync(new URL('../../../../packages/aiur-client/test/fixtures/progress.json', import.meta.url), 'utf8'),
+    ) as TicketProgress;
+    const { deps, poller, publish } = setup(async () => fixture);
+
+    await poller.tick();
+    await poller.tick();
+
+    const rows = listSince(deps.sqlite, JOB_ID, 0);
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({
+      id: expect.stringMatching(/^m_[0-9a-f-]{36}$/),
+      actor: 'system',
+      kind: 'progress',
+      text: 'work',
+      aiurTicket: '142',
+      aiurTopic: 'progress',
+    });
+    expect(rows[1]).toMatchObject({ text: 'work', aiurTopic: 'phase' });
+    expect(publish).toHaveBeenCalledTimes(1);
+  });
+
   it('turns each new check-in into one progress row and skips it on the next poll', async () => {
     const { deps, poller, client, publish } = setup(async () =>
       progress([checkin(4, 'Door wired up'), checkin(3, 'Room laid out')]),

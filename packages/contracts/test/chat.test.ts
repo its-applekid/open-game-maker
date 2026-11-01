@@ -5,7 +5,7 @@ import addFormats from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 import { toJSONSchema, type z } from 'zod';
 
-import { AgentOutboxLine, BuildChatMessage, ChatPostPayload, chatSchemas } from '../src/chat.js';
+import { AgentOutboxLine, BuildChatMessage, ChatPostBody, ChatPostPayload, chatSchemas } from '../src/chat.js';
 import { loadJson } from './helpers.js';
 
 const packageRoot = new URL('../', import.meta.url);
@@ -48,6 +48,16 @@ describe('build chat contract', () => {
     const result = (schema as z.ZodType).safeParse(loadJson(`fixtures/chat-negative/${file}`));
     expect(result.success).toBe(false);
     expect(result.error!.issues.map((issue) => issue.path.join('.'))).toContain(path);
+  });
+
+  it('rejects whitespace-only creator text in both runtime and emitted JSON schemas', () => {
+    const document = loadJson('fixtures/chat-negative/post.whitespace.json');
+    expect(ChatPostBody.safeParse(document).success).toBe(false);
+
+    const emitted = JSON.parse(readFileSync(new URL('schemas/chat.post.v1.json', packageRoot), 'utf8')) as object;
+    const ajv = new Ajv2020.default({ allErrors: true, strict: true, strictRequired: false });
+    const validate = ajv.compile(emitted);
+    expect(validate(document)).toBe(false);
   });
 
   it('pairs the agent clip outbox line with the row it becomes', () => {

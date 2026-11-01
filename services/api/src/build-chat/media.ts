@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
-import { mkdtemp, open, readlink, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, open, readlink, realpath, rm, writeFile, type FileHandle } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { isAbsolute, join, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
@@ -12,6 +12,7 @@ export const MAX_MEDIA_BYTES = 25 * 1024 * 1024;
 export const MEDIA_DIR = join('.gm', 'outbox', 'media');
 
 const IMAGE_MIME: Record<string, string> = { png: 'image/png', jpeg: 'image/jpeg', webp: 'image/webp' };
+const MIN_READ_BUFFER = 64 * 1024;
 const run = promisify(execFile);
 
 export class MediaError extends Error {
@@ -23,6 +24,27 @@ export class MediaError extends Error {
 
 export type Probed = { bytes: Buffer; mime: string; width: number; height: number; durationMs?: number };
 export type MediaOptions = { ffprobe?: string };
+
+// Reads at most the configured limit plus one sentinel byte. The buffer grows only if the descriptor does, so normal
+// images do not pay the 25 MiB ceiling while a file that grows after stat still cannot trigger an unbounded read.
+async function readMediaBytes(handle: Pick<FileHandle, 'read'>, expectedBytes: number): Promise<Buffer> {
+  const limit = MAX_MEDIA_BYTES + 1;
+  let bytes = Buffer.allocUnsafe(Math.min(limit, Math.max(MIN_READ_BUFFER, expectedBytes + 1)));
+  let offset = 0;
+  for (;;) {
+    if (offset === bytes.length) {
+      if (bytes.length === limit) throw new MediaError('media_too_large');
+      const grown = Buffer.allocUnsafe(Math.min(limit, bytes.length * 2));
+      bytes.copy(grown, 0, 0, offset);
+      bytes = grown;
+    }
+    const { bytesRead } = await handle.read(bytes, offset, bytes.length - offset, offset);
+    if (bytesRead === 0) break;
+    offset += bytesRead;
+    if (offset > MAX_MEDIA_BYTES) throw new MediaError('media_too_large');
+  }
+  return bytes.subarray(0, offset);
+}
 
 // Reads a workspace-relative file that must live inside `<workspace>/.gm/outbox/media/`. The check runs on the opened
 // descriptor (its /proc link), so a symlink or a directory swapped in after the check cannot point the read elsewhere.
@@ -53,9 +75,7 @@ export async function readOutboxMedia(workspaceRoot: string, relative: string): 
     const stats = await handle.stat();
     if (!stats.isFile()) throw new MediaError('media_not_a_file');
     if (stats.size > MAX_MEDIA_BYTES) throw new MediaError('media_too_large');
-    const bytes = await handle.readFile();
-    if (bytes.length > MAX_MEDIA_BYTES) throw new MediaError('media_too_large');
-    return bytes;
+    return await readMediaBytes(handle, stats.size);
   } finally {
     await handle.close();
   }

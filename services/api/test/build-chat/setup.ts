@@ -31,6 +31,13 @@ export const users = {
     platformRole: 'none',
     capability: 'player',
   },
+  maintainer: {
+    kind: 'user',
+    userId: 'u_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e06',
+    familyId: FAMILY,
+    platformRole: 'maintainer',
+    capability: 'creator',
+  },
 } as const satisfies Record<string, Principal>;
 
 export function chatJob(overrides: Partial<ChatJob> = {}): ChatJob {

@@ -1,6 +1,6 @@
 import { constants, watch, type FSWatcher } from 'node:fs';
 import { lstat, open, readdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 
 import { AgentOutboxLine } from '@ogm/contracts';
 import type { Sqlite } from '@ogm/db';
@@ -35,6 +35,18 @@ export function workspaceForJob(sqlite: Sqlite, jobId: string): string | null {
   return row?.root ?? null;
 }
 
+// Called by the trusted job launcher before sandbox output is accepted. Sandbox-authored lines never create this pin.
+export function registerWorkspace(sqlite: Sqlite, jobId: string, workspaceRoot: string): void {
+  const root = resolve(workspaceRoot);
+  const existing = sqlite
+    .prepare('SELECT job_id AS jobId FROM build_chat_workspaces WHERE workspace_root = ?')
+    .get(root) as { jobId: string } | undefined;
+  if (existing && existing.jobId !== jobId) throw new Error('workspace_already_registered');
+  sqlite
+    .prepare('INSERT OR IGNORE INTO build_chat_workspaces (workspace_root, job_id, pinned_at) VALUES (?, ?, ?)')
+    .run(root, jobId, new Date().toISOString());
+}
+
 // Ships `<workspace>/.gm/outbox/*.jsonl` lines (written inside the no-network sandbox) to their handlers. Offsets live
 // in SQLite, so a restart resumes where it stopped; a line is consumed once whether it is stored or rejected, and
 // handlers are idempotent on the line id. A trailing partial line waits for its newline.
@@ -51,9 +63,6 @@ export function createOutboxRelay(deps: RelayDeps) {
      ON CONFLICT(path) DO UPDATE SET offset = excluded.offset, updated_at = excluded.updated_at`,
   );
   const getPin = deps.sqlite.prepare('SELECT job_id AS jobId FROM build_chat_workspaces WHERE workspace_root = ?');
-  const setPin = deps.sqlite.prepare(
-    'INSERT OR IGNORE INTO build_chat_workspaces (workspace_root, job_id, pinned_at) VALUES (?, ?, ?)',
-  );
 
   const reject = (file: string, offset: number, reason: string) =>
     deps.log({ event: 'outbox-line-rejected', file, offset, reason });
@@ -89,12 +98,12 @@ export function createOutboxRelay(deps: RelayDeps) {
     if (!parsed.success) return reject(file, offset, 'line_invalid');
     const line = parsed.data;
 
-    const workspaceRoot = dirname(dirname(dirname(file)));
+    const workspaceRoot = resolve(dirname(dirname(dirname(file))));
     const pinned = (getPin.get(workspaceRoot) as { jobId: string } | undefined)?.jobId;
-    if (pinned !== undefined && pinned !== line.job_id) return reject(file, offset, 'job_mismatch');
+    if (pinned === undefined) return reject(file, offset, 'workspace_unregistered');
+    if (pinned !== line.job_id) return reject(file, offset, 'job_mismatch');
     const job = await deps.jobs()?.get(line.job_id);
     if (!job) return reject(file, offset, 'job_unknown');
-    if (pinned === undefined) setPin.run(workspaceRoot, line.job_id, new Date().toISOString());
 
     const handler = deps.handlers.get(line.type);
     if (!handler) {
