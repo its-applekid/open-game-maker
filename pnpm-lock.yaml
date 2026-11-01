@@ -189,6 +189,16 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/iframe-bridge:
+    dependencies:
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
+      jsdom:
+        specifier: 27.4.0
+        version: 27.4.0
+
   packages/policy: {}
 
   packages/room-protocol:
