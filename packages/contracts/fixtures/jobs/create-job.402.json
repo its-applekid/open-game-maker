@@ -1,0 +1,6 @@
+{
+  "error": "allowance_exceeded",
+  "remainingMicroUsd": 1200000,
+  "resetsAt": "2026-11-01T07:00:00Z",
+  "offers": ["trim", "split", "queue", "ask_admin"]
+}

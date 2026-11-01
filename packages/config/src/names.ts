@@ -51,4 +51,11 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GITHUB_APP_INSTALLATION_ID', unit: 'commit', kind: 'string', doc: "installation id on Kevin's account" },
   { name: 'GITHUB_APP_PRIVATE_KEY_PATH', unit: 'commit', kind: 'path', doc: 'PEM path under ~/.config/ogm' },
   { name: 'OGM_BACKUP_TARGET', unit: 'backup', kind: 'string', doc: 'ssh:<host>:<path> or local:<path>' },
+  {
+    name: 'OGM_INTERNAL_TOKEN',
+    unit: 'shared',
+    kind: 'secret',
+    doc: 'service -> API bearer (X-Ogm-Service names the caller)',
+  },
+  { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
 ];

@@ -1,0 +1,9 @@
+{
+  "error": "invalid_request",
+  "message": "complexity must be at most 5",
+  "details": [
+    {
+      "path": ["complexity"]
+    }
+  ]
+}
