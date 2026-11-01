@@ -62,6 +62,14 @@ async function setup(
     title: 'Castle',
     repoVisibility: 'private',
   });
+  const other = createGameRow(deps.db, {
+    familyId,
+    ownerId: creator.userId,
+    title: 'Moat',
+    repoVisibility: 'private',
+  });
+  insertJob(deps, 'j-1', game.id);
+  insertJob(deps, 'j-other', other.id);
   const { app } = await makeApp(deps);
   const request = (user: TestUser, target: Record<string, string>) =>
     app.request('/api/v1/voice/token', {
@@ -72,10 +80,33 @@ async function setup(
   return { request, gameId: game.id };
 }
 
-const buildTarget = (gameId: string, creatorId = creator.userId) => ({
+function insertJob(deps: ReturnType<typeof makeDeps>, id: string, gameId: string) {
+  deps.db
+    .insert(schema.jobs)
+    .values({
+      id,
+      gameId,
+      branchId: 'main',
+      familyId,
+      creatorId: creator.userId,
+      kind: 'feature',
+      complexity: 1,
+      state: 'running',
+      start: 'now',
+      slot: 'edit',
+      plan: '{}',
+      reservation: '{}',
+      hardCapMicroUsd: 500_000,
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
+}
+
+const buildTarget = (gameId: string, creatorId = creator.userId, jobId = 'j-1') => ({
   kind: 'build',
   game_id: gameId,
-  job_id: 'j-1',
+  job_id: jobId,
   ticket: '142',
   creator_id: creatorId,
 });
@@ -110,6 +141,19 @@ describe('POST /api/v1/voice/token', () => {
     const response = await request(creator, buildTarget(gameId, sibling.userId));
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({ error: 'not_target_creator' });
+  });
+
+  it("refuses another game's job (403): the host reads briefings and sends instructions by job_id alone", async () => {
+    const { request, gameId } = await setup();
+    const response = await request(creator, buildTarget(gameId, creator.userId, 'j-other'));
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ error: 'job_not_in_game' });
+  });
+
+  it('answers 404 for a job that does not exist', async () => {
+    const { request, gameId } = await setup();
+    const response = await request(creator, buildTarget(gameId, creator.userId, 'j-missing'));
+    expect(response.status).toBe(404);
   });
 
   it('answers 503 until the voice secret and URL are configured', async () => {

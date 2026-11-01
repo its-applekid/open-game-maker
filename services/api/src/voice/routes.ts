@@ -9,6 +9,7 @@ import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
 import { findGameForFamily } from '../games/games.js';
+import { findJobRow } from '../jobs/repo.js';
 import { mintVoiceToken } from './token.js';
 
 // POST /api/v1/voice/token: a short-lived token for the voice host, only for a target the caller may edit.
@@ -21,6 +22,10 @@ const routes = new Hono<ApiBindings>().post('/token', async (c) => {
   requireAuthorization(
     authorize(actorFromPrincipal(principal), 'game.edit', { familyId: game.familyId, ownerId: game.ownerId }),
   );
+  // The host keys a build session's briefing and instructions by job_id alone, so the job must be this game's.
+  if (target.kind === 'build' && findJobRow(db, target.job_id).gameId !== game.id) {
+    throw new HttpError(403, 'job_not_in_game');
+  }
   if (!config.voiceTokenSecret || !config.voiceWsUrl) throw new HttpError(503, 'voice_unavailable');
 
   const { token, exp } = mintVoiceToken({ secret: config.voiceTokenSecret, sub: principal.userId, target });

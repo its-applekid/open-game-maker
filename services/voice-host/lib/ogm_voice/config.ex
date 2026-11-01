@@ -53,7 +53,7 @@ defmodule OgmVoice.Config do
   @doc "Reads and validates the environment. Raises `OgmVoice.Config.Error` naming the variable, never its value."
   @spec from_env!(%{optional(String.t()) => String.t()}) :: t()
   def from_env!(env \\ System.get_env()) do
-    provider = Map.get(env, "OGM_VOICE_PROVIDER", "fake")
+    provider = get(env, "OGM_VOICE_PROVIDER", "fake")
     unless Map.has_key?(@providers, provider), do: fail!("OGM_VOICE_PROVIDER", "is not one of #{providers()}")
 
     secret!(env, "OGM_VOICE_TOKEN_SECRET")
@@ -105,10 +105,10 @@ defmodule OgmVoice.Config do
   end
 
   # A real provider needs the operator to choose a model; the fake one ignores it.
-  defp llm!(env, "fake"), do: Map.get(env, "OGM_VOICE_LLM", "fake")
+  defp llm!(env, "fake"), do: get(env, "OGM_VOICE_LLM", "fake")
 
   defp llm!(env, _provider) do
-    case Map.get(env, "OGM_VOICE_LLM", "") |> String.trim() do
+    case get(env, "OGM_VOICE_LLM", "") do
       "" -> fail!("OGM_VOICE_LLM", "is missing")
       llm -> llm
     end
@@ -120,7 +120,7 @@ defmodule OgmVoice.Config do
   end
 
   defp positive!(env, name, default) do
-    case Integer.parse(Map.get(env, name, default)) do
+    case Integer.parse(get(env, name, default)) do
       {value, ""} when value > 0 -> value
       _ -> fail!(name, "is not a positive integer")
     end
@@ -133,6 +133,14 @@ defmodule OgmVoice.Config do
 
       _ ->
         fail!(name, "is missing or not an http(s) URL")
+    end
+  end
+
+  # `ogm-env-init` writes every name as `NAME=`, so a blank value selects the default, as in `@ogm/config`.
+  defp get(env, name, default) do
+    case env |> Map.get(name, "") |> String.trim() do
+      "" -> default
+      value -> value
     end
   end
 

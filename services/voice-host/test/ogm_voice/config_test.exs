@@ -14,6 +14,13 @@ defmodule OgmVoice.ConfigTest do
     assert %Config{provider: "fake", port: 40400, internal_port: 40401, max_sessions: 2, llm: "fake"} = config
   end
 
+  test "boots from the env file ogm-env-init writes, where every non-secret name is blank" do
+    names = ~w(OGM_VOICE_PROVIDER OGM_VOICE_LLM OGM_VOICE_PORT OGM_VOICE_INTERNAL_PORT OGM_VOICE_MAX_SESSIONS)
+    blank = Map.new(names, &{&1, ""})
+    config = Config.from_env!(Map.merge(@env, blank))
+    assert %Config{provider: "fake", port: 40400, internal_port: 40401, max_sessions: 2, llm: "fake"} = config
+  end
+
   test "builds an instance config the package accepts and can start sessions with, storing no transcript" do
     {:ok, vc} = VoiceConverse.Config.new(Config.voice_converse(Config.from_env!(@env)))
 
