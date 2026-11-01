@@ -32,6 +32,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@noriginmedia/norigin-spatial-navigation':
+        specifier: 2.3.0
+        version: 2.3.0(react@19.3.1)
       '@tanstack/react-query':
         specifier: 5.105.1
         version: 5.105.1(@types/react@19.3.0)(react@19.3.1)
@@ -1225,6 +1228,11 @@ packages:
     cpu: [x64]
     os: [linux]
     libc: [glibc]
+
+  '@noriginmedia/norigin-spatial-navigation@2.3.0':
+    resolution: {integrity: sha512-gR//N45NnKz1h0/AVknkfg7QnNATETdgXUUD3EKPxuQPyhk7NhsphODzRamyvjYaxsU6VbY/szcUlzBWWBkNMw==}
+    peerDependencies:
+      react: '>=16.8.0'
 
   '@octokit/app@16.1.4':
     resolution: {integrity: sha512-g70WONQyGoBgqIJtv4O0MUEfOF1iJpTfFt3qAW7HaiwiJ6k607xg/gBezCa4tuq6BpO6qXn7qvq8v9tjWtgGQg==}
@@ -3559,6 +3567,11 @@ snapshots:
 
   '@napi-rs/lzma-linux-x64-gnu@1.5.1':
     optional: true
+
+  '@noriginmedia/norigin-spatial-navigation@2.3.0(react@19.3.1)':
+    dependencies:
+      lodash: 4.18.1
+      react: 19.3.1
 
   '@octokit/app@16.1.4':
     dependencies:
