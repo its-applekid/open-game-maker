@@ -51,6 +51,7 @@ describe('licence table', () => {
     expect(licenseFor('ansimuz-free-commercial')?.id).toBe('LicenseRef-ansimuz-free');
     expect(licenseFor('custom-commercial-ok')?.id).toBe('LicenseRef-hattap-commercial');
     expect(licenseFor('CC0-1.0')?.id).toBe('CC0-1.0');
+    expect(licenseFor('kaykit')?.id).toBe('CC0-1.0');
     expect(licenseFor('made-up')).toBeUndefined();
   });
 
