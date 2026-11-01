@@ -15,9 +15,9 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure build",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/gm-verify build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure build",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/gm-verify build",
     "test": "vitest run",
     "lint": "eslint src"
   },
@@ -28,6 +28,7 @@
     "@ogm/contracts": "workspace:*",
     "adm-zip": "0.6.1",
     "sharp": "0.35.5",
-    "tar": "7.5.22"
+    "tar": "7.5.22",
+    "@ogm/gm-verify": "workspace:*"
   }
 }

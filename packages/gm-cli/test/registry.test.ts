@@ -42,8 +42,12 @@ describe('command registry', () => {
       'assets sheet',
       'new',
       'packs import',
+      'perf',
+      'run',
+      'shot',
       'skills list',
       'skills sync',
+      'verify serve',
     ]);
     for (const command of registry.values()) expect(commandHelp(command).length).toBeLessThanOrEqual(15);
     const help = await gm(['help', 'assets', 'search']);

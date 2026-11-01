@@ -9,6 +9,7 @@
     { "path": "../config" },
     { "path": "../contracts" },
     { "path": "../asset-cards" },
-    { "path": "../asset-measure" }
+    { "path": "../asset-measure" },
+    { "path": "../gm-verify" }
   ]
 }
