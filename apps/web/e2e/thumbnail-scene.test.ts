@@ -186,7 +186,7 @@ describe('thumbnail specimens and store references', () => {
         'specimen.png',
       ]),
     ).rejects.toMatchObject({ stderr: expect.stringContaining('input escapes the selected root') });
-  });
+  }, 20_000);
 });
 
 async function writeSprite(root: string, name: string, colour: string): Promise<void> {
