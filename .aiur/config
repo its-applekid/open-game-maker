@@ -69,7 +69,7 @@ agent:
   # account with the most usage left (Kevin, 2026-10-31: Codex until its limit, then the Claude login with the most tokens).
   priority: [codex, claude]
   accounts:
-    claude: [default, second]
+    claude: [default]   # Kevin's goal: after Codex's limit, the Claude login with the most tokens — default (second is at 15 % left, 2026-11-01 19:10Z)
   account_selection: priority   # Kevin 2026-11-01: Codex first until its limit, then Claude; headroom had put every worker on claude/second (26% vs codex 24%)
   max_concurrent_agents: 10
   max_concurrent_builds: 3
