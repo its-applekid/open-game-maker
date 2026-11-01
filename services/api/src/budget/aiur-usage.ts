@@ -30,6 +30,7 @@ export type UsageReconcilerDeps = {
 };
 
 const ACTIVE_STATES = ['filed', 'running', 'paused_budget'] as const;
+const RECONCILE_STATES = [...ACTIVE_STATES, 'done', 'failed', 'cancelled'] as const;
 const TERMINAL_STAGES = new Set<JobStage>(['done', 'failed', 'cancelled', 'out_of_budget']);
 
 function nowFor(deps: UsageReconcilerDeps): Date {
@@ -204,14 +205,22 @@ export function startUsageReconciler(deps: UsageReconcilerDeps, intervalMs = 60_
 
   const tick = () => {
     const jobs = deps.db
-      .select({ id: schema.jobs.id })
+      .select({ id: schema.jobs.id, state: schema.jobs.state, stage: schema.jobProjections.stage })
       .from(schema.jobs)
-      .where(and(inArray(schema.jobs.state, ACTIVE_STATES), isNull(schema.jobs.releasedAt)))
+      .leftJoin(schema.jobProjections, eq(schema.jobs.id, schema.jobProjections.jobId))
+      .where(and(inArray(schema.jobs.state, RECONCILE_STATES), isNull(schema.jobs.releasedAt)))
       .all();
-    for (const { id } of jobs) schedule(id);
+    for (const { id, state, stage } of jobs) {
+      if (state === 'done' || state === 'failed' || state === 'cancelled') schedule(id, state);
+      else if (stage === 'out_of_budget') schedule(id, stage);
+      else schedule(id);
+    }
   };
 
   const offUsage = deps.events.on('job.usage.changed', ({ jobId }) => schedule(jobId));
+  const offJob = deps.events.on('job.changed', ({ jobId, state }) => {
+    if (state === 'done' || state === 'failed' || state === 'cancelled') schedule(jobId, state);
+  });
   const offStage = deps.events.on('job.stage.changed', ({ jobId, to }) => {
     if (TERMINAL_STAGES.has(to)) schedule(jobId, to);
   });
@@ -223,6 +232,7 @@ export function startUsageReconciler(deps: UsageReconcilerDeps, intervalMs = 60_
     stop() {
       clearInterval(timer);
       offUsage();
+      offJob();
       offStage();
     },
     async idle() {

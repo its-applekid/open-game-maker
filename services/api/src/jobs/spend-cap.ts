@@ -137,11 +137,15 @@ export function markPaused(deps: LifecycleDeps, jobId: string, reason: NonNullab
   return findJob(deps.db, jobId);
 }
 
-export function markTerminal(deps: LifecycleDeps, jobId: string, terminal: 'done' | 'failed' | 'cancelled'): Job {
+export function markTerminal(
+  deps: LifecycleDeps,
+  jobId: string,
+  terminal: 'done' | 'failed' | 'cancelled',
+  options: { deferRelease?: boolean } = {},
+): Job {
   const row = findJobRow(deps.db, jobId);
   const changed = row.state !== terminal;
   const at = nowFor(deps);
-  const settings = getBudgetSettings(deps.db, row.familyId, deps.defaults);
   deps.sqlite
     .transaction(() => {
       if (changed) {
@@ -153,12 +157,15 @@ export function markTerminal(deps: LifecycleDeps, jobId: string, terminal: 'done
           .where(eq(schema.jobs.id, jobId))
           .run();
       }
-      const release = deps.db
-        .update(schema.jobs)
-        .set({ releasedAt: at.toISOString(), updatedAt: at.toISOString() })
-        .where(and(eq(schema.jobs.id, jobId), isNull(schema.jobs.releasedAt)))
-        .run();
-      if (release.changes === 1) releaseReservation({ db: deps.db, jobId, at, zone: settings.resetZone });
+      if (!options.deferRelease) {
+        const settings = getBudgetSettings(deps.db, row.familyId, deps.defaults);
+        const release = deps.db
+          .update(schema.jobs)
+          .set({ releasedAt: at.toISOString(), updatedAt: at.toISOString() })
+          .where(and(eq(schema.jobs.id, jobId), isNull(schema.jobs.releasedAt)))
+          .run();
+        if (release.changes === 1) releaseReservation({ db: deps.db, jobId, at, zone: settings.resetZone });
+      }
     })
     .immediate();
   const stored = findJobRow(deps.db, jobId);

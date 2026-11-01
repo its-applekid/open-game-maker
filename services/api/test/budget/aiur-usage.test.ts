@@ -10,6 +10,7 @@ import {
 } from '../../src/budget/aiur-usage.js';
 import { reserve } from '../../src/budget/ledger.js';
 import { activeJobsForRepo } from '../../src/jobs/repo.js';
+import { markTerminal } from '../../src/jobs/spend-cap.js';
 import { makeDeps } from '../helpers.js';
 
 const NOW = new Date('2026-11-01T22:00:00.000Z');
@@ -168,11 +169,12 @@ describe('aiur usage reconciliation', () => {
   it('reconciles terminal usage and releases reservation and slot once', async () => {
     const { base, deps } = setup();
     expect(activeJobsForRepo(base.db, 'owner/game')).toEqual([{ kind: 'feature' }]);
-    const reconciler = startUsageReconciler(deps, 60_000);
-    await reconciler.idle();
+    const lifecycle = { ...deps, events: base.events };
+    markTerminal(lifecycle, 'j_1', 'done', { deferRelease: true });
+    markTerminal(lifecycle, 'j_1', 'done', { deferRelease: true });
+    expect(base.db.select().from(schema.jobs).get()?.releasedAt).toBeNull();
 
-    base.events.emit('job.stage.changed', { jobId: 'j_1', from: 'building', to: 'done', text: 'Done' });
-    base.events.emit('job.stage.changed', { jobId: 'j_1', from: 'done', to: 'done', text: 'Done' });
+    const reconciler = startUsageReconciler(deps, 60_000);
     await reconciler.idle();
     reconciler.stop();
 

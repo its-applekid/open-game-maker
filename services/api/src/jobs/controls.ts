@@ -94,6 +94,7 @@ function cancelled(deps: AppDeps, row: JobRow, now: () => Date) {
           { db: deps.db, sqlite: deps.sqlite, events: deps.events, defaults: defaults(deps), now },
           row.id,
           'cancelled',
+          { deferRelease: true },
         );
   return { ...job, stage: 'cancelled' as const, stageText: JOB_STAGE_WORDS.cancelled };
 }
