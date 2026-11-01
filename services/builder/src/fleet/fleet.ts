@@ -5,7 +5,7 @@ import { preflight } from '../policy/preflight.js';
 import {
   aiurRoot,
   codexAuthFor,
-  defaultDaemonFiles,
+  gameRepoDaemonFiles,
   materialize,
   materializeCodexHome,
   renderInputFor,
@@ -57,7 +57,7 @@ export function createFleet(deps: FleetDeps) {
   const { store, activeJobs, env } = deps;
   const runner = deps.runner ?? nodeRunner;
   const systemctl = deps.systemctl ?? createSystemctl(runner);
-  const files = deps.files ?? defaultDaemonFiles(env);
+  const files = deps.files ?? gameRepoDaemonFiles;
   const sleep = deps.sleep ?? realSleep;
   const now = deps.now ?? (() => new Date());
   const portFree = deps.portFree ?? probePort;
@@ -270,6 +270,16 @@ export function createFleet(deps: FleetDeps) {
       const promise = ensure(repo, kind).finally(() => inFlight.delete(repo));
       inFlight.set(repo, promise);
       return promise;
+    },
+
+    // Provisioning (OGM-036): renders a new repo's daemon directory and secrets without starting it, so the
+    // first `ensureDaemon` only has to start the unit.
+    prepareDaemonDir(rawRepo: string, kind: JobKind): Promise<void> {
+      return locked(async () => {
+        const row = await rowFor(rawRepo.toLowerCase());
+        const rendered = await render(row, kind, await store.list());
+        await writeDaemonSecrets(rendered.paths, env, rendered.input.codexHome as string);
+      });
     },
 
     async daemonFor(repo: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null> {

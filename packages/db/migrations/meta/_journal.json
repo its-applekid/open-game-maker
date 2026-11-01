@@ -15,6 +15,20 @@
       "when": 1793533628729,
       "tag": "20261101114708_game_daemons",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793535627909,
+      "tag": "20261101122027_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793539983204,
+      "tag": "20261101133303_aiur_events",
+      "breakpoints": true
     }
   ]
 }
