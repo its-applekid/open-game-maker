@@ -14,7 +14,8 @@ export type HookDaemonResolver = (secret: string, deps: AppDeps) => Promise<stri
 export type SkillTarball = { version: string; tgz: Buffer };
 
 // Anything token- or email-shaped never leaves in a bundle.
-const LEAKY = /(aiur_|ghp_|gho_|github_pat_|sk-|whsec_)[A-Za-z0-9_-]{4,}|@/;
+const LEAKY =
+  /(?<![A-Za-z0-9])(aiur_|ghp_|gho_|github_pat_|sk-|whsec_)[A-Za-z0-9_-]{4,}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 
 // OGM-034 writes each daemon's secret to `~/.config/ogm/daemons/<slug>/hook-secret` (0600) and its env file names
 // only that path; the secret itself never sits in the daemon's environment.

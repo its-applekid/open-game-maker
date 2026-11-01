@@ -124,6 +124,15 @@ describe('GET /internal/jobs/by-ticket/:identifier/bundle', () => {
       expect(deps.lines.some((line) => line.event === 'bundle_refused')).toBe(true);
     }
   });
+
+  it('serves titles that merely contain a token prefix or an @ sign', async () => {
+    for (const title of ['Desk-Dash', 'Task-Force 2', 'Whisk-Tail', 'Meet @ the castle']) {
+      const { get } = await setup([job({ game: { ...job().game, title } })]);
+      const response = await get('/internal/jobs/by-ticket/12/bundle', SECRET_A);
+      expect(response.status).toBe(200);
+      expect((await response.json()).game.title).toBe(title);
+    }
+  });
 });
 
 describe('GET /internal/skills/:version.tgz', () => {
