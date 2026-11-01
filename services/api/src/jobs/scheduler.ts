@@ -1,9 +1,9 @@
 import { schema, type Db, type Sqlite } from '@ogm/db';
-import { and, asc, eq, inArray, lte } from 'drizzle-orm';
+import { and, asc, eq, inArray, lte, or, sql } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 import { getBudgetSettings, type BudgetDefaults } from '../budget/settings.js';
-import { transition } from './state.js';
+import { SLOT_STATES, transition } from './state.js';
 
 export type SchedulerDeps = {
   db: Db;
@@ -14,32 +14,28 @@ export type SchedulerDeps = {
   log?: (line: Record<string, unknown>) => void;
 };
 
-const SLOT_STATES = ['admitted', 'filed', 'running', 'paused_budget'] as const;
-
 type Started = { jobId: string; gameId: string; familyId: string; creatorId: string };
 
 export function tick(deps: SchedulerDeps, now = (deps.now ?? (() => new Date()))()): string[] {
   const started = deps.sqlite
     .transaction((): Started[] => {
-      const eligible = deps.db
+      const queued = deps.db
         .select()
         .from(schema.jobs)
-        .where(and(eq(schema.jobs.state, 'queued'), lte(schema.jobs.startAt, now.toISOString())))
-        .orderBy(asc(schema.jobs.createdAt), asc(schema.jobs.id))
+        .where(
+          and(
+            eq(schema.jobs.state, 'queued'),
+            or(eq(schema.jobs.start, 'now'), lte(schema.jobs.startAt, now.toISOString())),
+          ),
+        )
+        .orderBy(asc(schema.jobs.createdAt), sql`rowid`)
         .all();
-      const immediate = deps.db
-        .select()
-        .from(schema.jobs)
-        .where(and(eq(schema.jobs.state, 'queued'), eq(schema.jobs.start, 'now')))
-        .orderBy(asc(schema.jobs.createdAt), asc(schema.jobs.id))
-        .all();
-      const queued = [...immediate, ...eligible]
-        .filter((row, index, rows) => rows.findIndex(({ id }) => id === row.id) === index)
-        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
       const accepted: Started[] = [];
+      const settingsByFamily = new Map<string, ReturnType<typeof getBudgetSettings>>();
 
       for (const row of queued) {
-        const settings = getBudgetSettings(deps.db, row.familyId, deps.defaults);
+        const settings = settingsByFamily.get(row.familyId) ?? getBudgetSettings(deps.db, row.familyId, deps.defaults);
+        settingsByFamily.set(row.familyId, settings);
         const held = deps.db
           .select({ id: schema.jobs.id })
           .from(schema.jobs)

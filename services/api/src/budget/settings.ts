@@ -21,13 +21,20 @@ export function getBudgetSettings(db: Db, familyId: string, defaults: BudgetDefa
     .where(eq(schema.familyBudgetSettings.familyId, familyId))
     .get();
   const members = db
-    .select({ userId: schema.familyMembers.userId })
+    .select({ dailyMicroUsd: schema.allowances.dailyMicroUsd })
     .from(schema.familyMembers)
+    .leftJoin(
+      schema.allowances,
+      and(
+        eq(schema.allowances.familyId, schema.familyMembers.familyId),
+        eq(schema.allowances.userId, schema.familyMembers.userId),
+      ),
+    )
     .where(eq(schema.familyMembers.familyId, familyId))
     .all();
   const defaultPlatformCap = Math.max(
     defaults.dailyAllowanceMicroUsd,
-    members.reduce((total, member) => total + dailyAllowance(db, familyId, member.userId, defaults), 0),
+    members.reduce((total, member) => total + (member.dailyMicroUsd ?? defaults.dailyAllowanceMicroUsd), 0),
   );
 
   return {

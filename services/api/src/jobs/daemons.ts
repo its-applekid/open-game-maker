@@ -8,9 +8,13 @@ import { HttpError } from '../app/errors.js';
 export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fetch = globalThis.fetch) {
   async function clientFor(row: typeof schema.gameDaemons.$inferSelect): Promise<AiurClient> {
     const paths = daemonPaths(home, row.slug);
-    const token = (await readIfPresent(paths.clientToken))?.trim() ?? '';
+    const [clientToken, readToken] = await Promise.all([
+      readIfPresent(paths.clientToken),
+      readIfPresent(paths.readToken),
+    ]);
+    const token = clientToken?.trim() ?? '';
     if (token === '') throw new HttpError(503, 'daemon_credentials_unavailable');
-    const supervisorToken = (await readIfPresent(paths.readToken))?.trim() || undefined;
+    const supervisorToken = readToken?.trim() || undefined;
     return createAiurClient(
       { baseUrl: `http://127.0.0.1:${row.port}`, token, ...(supervisorToken ? { supervisorToken } : {}) },
       fetchImpl,
@@ -34,12 +38,7 @@ export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fe
       const rows = status
         ? db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.status, status)).all()
         : db.select().from(schema.gameDaemons).all();
-      return Promise.all(
-        rows.map(async (row) => {
-          const token = (await readIfPresent(daemonPaths(home, row.slug).clientToken))?.trim() ?? '';
-          return toDaemon(row, token);
-        }),
-      );
+      return rows.map((row) => toDaemon(row, ''));
     },
     async daemonFor(repo) {
       const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.repo, repo)).get();

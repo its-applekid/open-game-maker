@@ -35,14 +35,14 @@ function gameFor(deps: AppDeps, gameId: string) {
   return game;
 }
 
-function requireRead(deps: AppDeps, gameId: string, userId: string, actor: ReturnType<typeof actorFromPrincipal>) {
+function requireRead(deps: AppDeps, gameId: string, actor: ReturnType<typeof actorFromPrincipal>) {
   const game = gameFor(deps, gameId);
   requireAuthorization(
     authorize(actor, 'game.play', {
       familyId: game.familyId,
       ownerId: game.ownerId,
       visibility: game.visibility,
-      granted: hasGameGrant(deps.db, game.id, userId),
+      granted: hasGameGrant(deps.db, game.id, actor.userId),
     }),
   );
   return game;
@@ -71,14 +71,14 @@ const routes = new Hono<ApiBindings>()
     const principal = requirePrincipal(c, ['user']);
     const { gameId } = parseQuery(c, listQuery);
     const deps = c.get('deps');
-    requireRead(deps, gameId, principal.userId, actorFromPrincipal(principal));
+    requireRead(deps, gameId, actorFromPrincipal(principal));
     return c.json({ jobs: listJobs(deps.db, gameId) });
   })
   .get('/jobs/:id', (c) => {
     const principal = requirePrincipal(c, ['user']);
     const deps = c.get('deps');
     const row = findJobRow(deps.db, c.req.param('id'));
-    requireRead(deps, row.gameId, principal.userId, actorFromPrincipal(principal));
+    requireRead(deps, row.gameId, actorFromPrincipal(principal));
     return c.json(findJob(deps.db, row.id));
   })
   .patch('/jobs/:id', async (c) => {

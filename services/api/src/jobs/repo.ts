@@ -3,6 +3,7 @@ import { schema, type Db } from '@ogm/db';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
+import { SLOT_STATES } from './state.js';
 
 export type JobRow = typeof schema.jobs.$inferSelect;
 
@@ -105,7 +106,6 @@ export function byTicket(db: Db, daemonSlug: string, ticket: string): { id: stri
 }
 
 const NON_TERMINAL_STATES: JobState[] = ['queued', 'admitted', 'filed', 'running', 'paused_budget'];
-const SLOT_STATES: JobState[] = ['admitted', 'filed', 'running', 'paused_budget'];
 
 export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket: string }[] {
   return db

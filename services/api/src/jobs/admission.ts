@@ -20,6 +20,7 @@ import { getBudgetSettings, type BudgetDefaults } from '../budget/settings.js';
 import { HttpError } from '../app/errors.js';
 import type { AppEvents } from '../app/events.js';
 import { acceptedFor } from './repo.js';
+import { SLOT_STATES } from './state.js';
 
 export class AdmissionRefused extends Error {
   constructor(readonly body: AllowanceExceeded) {
@@ -37,8 +38,6 @@ export type AdmissionDeps = {
 };
 
 const SIZE_BY_COMPLEXITY: Record<number, SizeClass> = { 1: 'small', 2: 'medium', 3: 'large', 4: 'huge', 5: 'huge' };
-const SLOT_STATES = ['admitted', 'filed', 'running', 'paused_budget'] as const;
-
 function sizeFor(kind: JobKind, complexity: number): SizeClass {
   if (kind === 'scope') return 'small';
   const size = SIZE_BY_COMPLEXITY[complexity] ?? 'huge';

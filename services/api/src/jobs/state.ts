@@ -15,6 +15,8 @@ const TRANSITIONS: Record<JobState, Partial<Record<JobEvent, JobState>>> = {
   cancelled: {},
 };
 
+export const SLOT_STATES = ['admitted', 'filed', 'running', 'paused_budget'] as const satisfies readonly JobState[];
+
 export function transition(state: JobState, event: JobEvent): JobState {
   const next = TRANSITIONS[state][event];
   if (!next) throw new HttpError(409, 'invalid_transition', `invalid_transition: ${state} -> ${event}`);
@@ -23,5 +25,4 @@ export function transition(state: JobState, event: JobEvent): JobState {
 
 export const isTerminal = (state: JobState): boolean => state === 'done' || state === 'failed' || state === 'cancelled';
 
-export const holdsSlot = (state: JobState): boolean =>
-  state === 'admitted' || state === 'filed' || state === 'running' || state === 'paused_budget';
+export const holdsSlot = (state: JobState): boolean => SLOT_STATES.includes(state as (typeof SLOT_STATES)[number]);
