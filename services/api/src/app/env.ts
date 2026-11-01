@@ -1,3 +1,6 @@
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 import { loadEnv } from '@ogm/config';
 
 export const API_HOST = '127.0.0.1';
@@ -14,6 +17,8 @@ export const apiEnvSpec = {
   OGM_COMMIT_INTERNAL_URL: { kind: 'url' },
   OGM_COMMIT_SERVICE_TOKEN: { kind: 'secret' },
   OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'game-2d@1' },
+  OGM_VAPID_KEY_FILE: { kind: 'path', default: join(homedir(), '.config', 'ogm', 'env', 'ogm-api.vapid.json') },
+  OGM_VAPID_SUBJECT: { kind: 'string' },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {
