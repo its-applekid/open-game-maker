@@ -38,9 +38,6 @@ importers:
       '@noriginmedia/norigin-spatial-navigation':
         specifier: 2.3.0
         version: 2.3.0(react@19.3.1)
-      '@ogm/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
       '@tanstack/react-query':
         specifier: 5.105.1
         version: 5.105.1(@types/react@19.3.0)(react@19.3.1)
@@ -60,6 +57,9 @@ importers:
         specifier: 5.0.16
         version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.1)
     devDependencies:
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
