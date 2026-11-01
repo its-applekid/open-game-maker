@@ -78,8 +78,13 @@ agent:
   # 12 cores, ~16 GB free beside other work: start the run with --max-agents 3 and raise it from measured load.
   max_load_average: 10
   target_load_average: 8
-  load_ramp_step: 2
+  # Kevin 2026-11-01: ramp as fast as is safe. PSI target/ceiling instead of the 20% default gate; three slots per poll
+  # below 80% of target; a saved "safe level" older than 10 minutes is ignored so a restart ramps from the step.
+  target_cpu_pressure: 35
+  max_cpu_pressure: 65
+  load_ramp_step: 3
   load_cooldown_seconds: 20
+  load_resume_max_age_seconds: 600
   max_turns: 12
   max_turns_by_complexity:
     1: 4
