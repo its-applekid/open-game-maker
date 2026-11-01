@@ -2,7 +2,7 @@
 # The title scenes' sound effects (kaiju and EarthBound), all Kenney CC0 (Sci-Fi, Impact, Retro 2, Foley, RPG Audio), as MP3 because iPhone
 # Safari can't decode Ogg. Writes models/sounds/<name>.mp3 (models/ is gitignored); earthbound.js cues them by name.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"; K="${K:-$ROOT/assets-local/packs}"; O="$ROOT/prototypes/title-city/models/sounds"; mkdir -p "$O"
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"; K="${K:-$ROOT/assets-local/packs}"; O="$ROOT/apps/web/title-town/models/sounds"; mkdir -p "$O"
 put() { ffmpeg -loglevel error -y -i "$1" -ac 1 -codec:a libmp3lame -q:a 5 "$O/$(basename "${1%.ogg}").mp3"; }
 S="$K/kenney-sci-fi-sounds/1.0/extracted/Audio"; I="$K/kenney-impact-sounds/1.0/extracted/Audio"
 R2="$K/kenney-retro-sounds-2/1.0/extracted/Audio"; F="$K/kenney-foley-sounds/1.0/extracted/Audio"; RPG="$K/kenney-rpg-audio/1.0/extracted/Audio"

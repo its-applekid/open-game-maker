@@ -8,7 +8,7 @@ import { mkdirSync, writeFileSync } from 'fs';
 import { gzipSync } from 'zlib';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../ui-v0/tools') + '/');
+const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../') + '/');
 const { chromium } = require('playwright');
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const p = await b.newPage({ viewport: { width: 320, height: 180 } });
