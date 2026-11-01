@@ -17,6 +17,11 @@ use. Work here the way those agents will work: dogfood the skills.
   generation. Never send paid-pack assets to it as references (no cloud processing of paid assets).
 - **Self-improvement:** keep the hourly `meta-improve` listener running (a silent background shell, `scripts/listen.sh`
   in the skill, that wakes the agent only after Kevin has written; start it at the start of a session, no cron). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
+- **aiur for this repo:** run it with `aiur-main` (`~/.local/bin/aiur-main`: the aiur checkout's own CLI launcher on a copied
+  release at `~/.aiur/ogm-release`, built from `~/github/aiur` main), from this checkout, never `scripts/aiurdev` (it targets
+  the aiur checkout's own daemon) and never the npm `aiur` (a different fork). Kevin's NUC daemon for aiur-team/aiur runs on
+  this host too (instance 5c1b32aea9): never stop or restart it. The OGM daemon is instance e110d74831 on 127.0.0.1:4010.
+  Executor state: `~/.aiur/repo/its-everdred/open-game-maker-2000/executor/handoff.md`.
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
   serials. Origin is an SSH URL with no key here: push over HTTPS with gh credentials,
   `git -C <repo> -c credential.helper='!gh auth git-credential' push "$(git -C <repo> remote get-url origin | sed 's#git@github.com:#https://github.com/#')" research`

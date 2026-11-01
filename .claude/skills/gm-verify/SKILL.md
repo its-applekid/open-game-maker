@@ -24,6 +24,10 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
   a hit and taps the extremes; a tap well off the enemy must not count, and the effect must land where the finger was.
 - Something that blinks in and out with nothing toggling it: try `frustumCulled = false` first (cloned skinned meshes
   keep stale bounds and get culled).
+- A rigged character under a custom ShaderMaterial that never moves (bones animate, mesh stays in bind pose): the shader
+  needs three's skinning chunks (`skinning_pars_vertex`, `skinbase_vertex`, `skinning_vertex`) and clones need
+  `SkeletonUtils.clone`, not `scene.clone()`. Check both before touching the animation code.
+- A follow camera lags one frame in stills: `tools/look.mjs` draws each time twice before the shot (and tiles the frames).
 - Waiting on a background render: `pgrep -f "<pattern>"` also matches the waiting shell's own command line, so it never
   ends; wait on the PID or a done file.
 - Read each tiled image and say what is wrong before fixing; fix the worst thing first. Something blocking the shot
