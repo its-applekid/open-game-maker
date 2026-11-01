@@ -37,7 +37,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('subscribePush', () => {
   it('registers the browser subscription with the backend', async () => {
     respond({
-      '/api/v1/push/vapid': () => json({ publicKey: 'BEl6' }),
+      '/api/v1/push/vapid-public-key': () => json({ publicKey: 'BEl6' }),
       '/api/v1/push/subscriptions': () => json({}, 201),
     });
 
@@ -55,7 +55,7 @@ describe('subscribePush', () => {
     respond({});
 
     await expect(notify.subscribePush()).rejects.toMatchObject({ name: 'ApiError', status: 404 });
-    expect(calls.map((c) => c.url)).toEqual(['/api/v1/push/vapid']);
+    expect(calls.map((c) => c.url)).toEqual(['/api/v1/push/vapid-public-key']);
   });
 });
 
@@ -73,28 +73,80 @@ describe('requestPushPermission', () => {
 describe('useNotificationFeed', () => {
   class FakeEventSource extends EventTarget {
     static CLOSED = 2;
-    static last: FakeEventSource;
+    static instances: FakeEventSource[] = [];
     readyState = 0;
     onopen: (() => void) | null = null;
     onerror: (() => void) | null = null;
     close = vi.fn();
     constructor(public url: string) {
       super();
-      FakeEventSource.last = this;
+      FakeEventSource.instances.push(this);
+    }
+    fail() {
+      this.readyState = FakeEventSource.CLOSED;
+      this.onerror?.();
     }
   }
 
-  it('shows a toast for a finished build', () => {
+  beforeEach(() => {
+    FakeEventSource.instances = [];
     vi.stubGlobal('EventSource', FakeEventSource);
-    const { unmount } = renderHook(() => notify.useNotificationFeed());
+  });
 
-    expect(FakeEventSource.last.url).toBe('/api/v1/notifications/stream');
-    FakeEventSource.last.dispatchEvent(
-      new MessageEvent('build.done', { data: JSON.stringify({ text: 'Mossy Leap is built' }) }),
+  afterEach(() => vi.useRealTimers());
+
+  it('shows a notification title and body for a finished build', () => {
+    const { unmount } = renderHook(() => notify.useNotificationFeed());
+    const source = FakeEventSource.instances.at(-1)!;
+
+    expect(source.url).toBe('/api/v1/notifications/stream');
+    source.dispatchEvent(
+      new MessageEvent('build.done', {
+        data: JSON.stringify({ title: 'Build complete', body: 'Mossy Leap is built', url: '/builds/1' }),
+      }),
     );
 
-    expect(notify.notifyState().toasts.map((t) => t.text)).toEqual(['Mossy Leap is built']);
+    expect(notify.notifyState().toasts.map((t) => t.text)).toEqual(['Build complete — Mossy Leap is built']);
     unmount();
-    expect(FakeEventSource.last.close).toHaveBeenCalled();
+    expect(source.close).toHaveBeenCalled();
+  });
+
+  it('shows the notification body when the title is empty', () => {
+    const { unmount } = renderHook(() => notify.useNotificationFeed());
+    const source = FakeEventSource.instances.at(-1)!;
+
+    source.dispatchEvent(new MessageEvent('job.started', { data: JSON.stringify({ title: '', body: 'Build started' }) }));
+
+    expect(notify.notifyState().toasts.map((t) => t.text)).toEqual(['Build started']);
+    unmount();
+  });
+
+  it('shares one connection until the final feed user unmounts', () => {
+    const first = renderHook(() => notify.useNotificationFeed());
+    const second = renderHook(() => notify.useNotificationFeed());
+    const source = FakeEventSource.instances[0]!;
+
+    expect(FakeEventSource.instances).toHaveLength(1);
+    first.unmount();
+    expect(source.close).not.toHaveBeenCalled();
+
+    second.unmount();
+    expect(source.close).toHaveBeenCalledOnce();
+  });
+
+  it('stops reopening after five failed open attempts', async () => {
+    vi.useFakeTimers();
+    const { unmount } = renderHook(() => notify.useNotificationFeed());
+
+    for (let failedAttempt = 1; failedAttempt < 5; failedAttempt++) {
+      FakeEventSource.instances.at(-1)!.fail();
+      await vi.advanceTimersByTimeAsync(1000 * 2 ** failedAttempt);
+      expect(FakeEventSource.instances).toHaveLength(failedAttempt + 1);
+    }
+
+    FakeEventSource.instances.at(-1)!.fail();
+    await vi.runOnlyPendingTimersAsync();
+    expect(FakeEventSource.instances).toHaveLength(5);
+    unmount();
   });
 });

@@ -5,9 +5,22 @@ const sound = vi.hoisted(() => ({
   ext: vi.fn(),
   extLoop: vi.fn(),
   extSilence: vi.fn(),
-  titleReady: Promise.resolve(null),
+  titleReady: Promise.resolve(null) as Promise<null>,
+  resolveTitleReady: () => {},
+  resetTitleReady() {
+    this.titleReady = new Promise((resolve) => {
+      this.resolveTitleReady = () => resolve(null);
+    });
+  },
 }));
-vi.mock('../../lib/sound', () => sound);
+vi.mock('../../lib/sound', () => ({
+  ext: sound.ext,
+  extLoop: sound.extLoop,
+  extSilence: sound.extSilence,
+  get titleReady() {
+    return sound.titleReady;
+  },
+}));
 
 import { TitleTown, TOWN_SRC } from './TitleTown';
 
@@ -23,19 +36,24 @@ function post(data: unknown, source: Window | null) {
 
 beforeEach(() => {
   vi.useFakeTimers();
-  Object.values(sound).forEach((f) => typeof f === 'function' && f.mockClear());
+  sound.resetTitleReady();
+  sound.ext.mockClear();
+  sound.extLoop.mockClear();
+  sound.extSilence.mockClear();
   vi.stubGlobal('matchMedia', (q: string) => ({ matches: false, media: q }));
 });
 
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
 async function mountActive() {
   const view = render(<TitleTown active />);
   await act(async () => {
+    sound.resolveTitleReady();
     await Promise.resolve();
   });
   return view;
@@ -48,6 +66,7 @@ describe('TitleTown', () => {
 
     view.rerender(<TitleTown active />);
     await act(async () => {
+      sound.resolveTitleReady();
       await Promise.resolve();
     });
 
@@ -55,6 +74,24 @@ describe('TitleTown', () => {
     expect(f.tabIndex).toBe(-1);
     expect(town(view.container)).toHaveAttribute('aria-hidden', 'true');
     expect(f.getAttribute('src')).toBe(TOWN_SRC);
+  });
+
+  it('does not load the town before title audio is ready, but gives up waiting after 2.5 seconds', async () => {
+    const view = render(<TitleTown active />);
+    const frame = frameOf(view.container)!;
+
+    expect(frame.getAttribute('src')).toBeNull();
+    await act(async () => {
+      vi.advanceTimersByTime(2499);
+      await Promise.resolve();
+    });
+    expect(frame.getAttribute('src')).toBeNull();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(frame.getAttribute('src')).toBe(TOWN_SRC);
   });
 
   it('paints the poster first and removes it after the town is ready and the fade is done', async () => {
@@ -130,5 +167,20 @@ describe('TitleTown', () => {
 
     expect(postMessage).toHaveBeenCalledOnce();
     expect(postMessage).toHaveBeenCalledWith({ tap: [0.5, 0.5] }, location.origin);
+  });
+
+  it('pauses the town while hidden and resumes it when visible again', async () => {
+    const { container } = await mountActive();
+    const frame = frameOf(container)!;
+    const postMessage = vi.spyOn(frame.contentWindow!, 'postMessage');
+    const hidden = vi.spyOn(document, 'hidden', 'get');
+
+    hidden.mockReturnValue(true);
+    fireEvent(document, new Event('visibilitychange'));
+    hidden.mockReturnValue(false);
+    fireEvent(document, new Event('visibilitychange'));
+
+    expect(postMessage).toHaveBeenNthCalledWith(1, 'pause', location.origin);
+    expect(postMessage).toHaveBeenNthCalledWith(2, 'resume', location.origin);
   });
 });

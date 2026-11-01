@@ -4,7 +4,7 @@ import { notifyState, setDenied } from './slice';
 // Web Push: asked for only from a tap, never on load. A denial is remembered so the prompt is not offered again.
 // The public-key route is OGM-016's to name; this is the one place to change when it does.
 export async function fetchVapidPublicKey(): Promise<string> {
-  const { publicKey } = await api<{ publicKey: string }>('/push/vapid');
+  const { publicKey } = await api<{ publicKey: string }>('/push/vapid-public-key');
   return publicKey;
 }
 

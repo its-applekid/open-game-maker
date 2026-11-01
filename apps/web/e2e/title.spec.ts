@@ -21,6 +21,26 @@ async function stubTown(page: Page) {
 
 test.use({ serviceWorkers: 'block' });
 
+test('the server paints the poster before the app module loads', async ({ page }) => {
+  await stubTown(page);
+  let releaseApp!: () => void;
+  const appHeld = new Promise<void>((resolve) => {
+    releaseApp = resolve;
+  });
+  await page.route('**/assets/index-*.js', async (route) => {
+    await appHeld;
+    await route.continue();
+  });
+
+  try {
+    await page.goto('/', { waitUntil: 'commit' });
+    await expect(page.locator('#initial-title-poster img')).toBeVisible();
+  } finally {
+    releaseApp();
+    await page.unrouteAll({ behavior: 'wait' });
+  }
+});
+
 test('title paints the poster first, then fades in the live town', async ({ page }) => {
   await stubTown(page);
   await page.goto('/?test', { waitUntil: 'domcontentloaded' });
@@ -48,10 +68,11 @@ test('title Start is a primary-size target and the sound toggle is labelled', as
   await page.goto('/');
 
   const start = page.getByRole('button', { name: 'Start', exact: true });
-  expect((await start.boundingBox())!.height).toBeGreaterThanOrEqual(64);
+  const box = (await start.boundingBox())!;
+  expect(box.height).toBeGreaterThanOrEqual(64);
   await expect(page.getByRole('button', { name: /sound/i })).toBeVisible();
 
-  await start.click();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page).toHaveURL(/\/age$/);
   await expect(page.locator('.title-town iframe')).toHaveCount(0);
 });
