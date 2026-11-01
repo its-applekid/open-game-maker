@@ -5,7 +5,7 @@ import { createBranch } from '../src/ops/create-branch.js';
 import { createRepo } from '../src/ops/create-repo.js';
 import { fileIssue } from '../src/ops/file-issue.js';
 import { foldDesign } from '../src/ops/fold-design.js';
-import { fork } from '../src/ops/fork.js';
+import { fork, MAX_FORK_BYTES, MAX_FORK_FILES } from '../src/ops/fork.js';
 import { merge } from '../src/ops/merge.js';
 import { release } from '../src/ops/release.js';
 import { setVisibility } from '../src/ops/set-visibility.js';
@@ -201,7 +201,7 @@ describe('commit operations', () => {
         return {
           truncated: false,
           tree: [
-            { path: 'src/game.ts', mode: '100644', type: 'blob', sha: 'source-blob' },
+            { path: 'src/game.ts', mode: '100644', type: 'blob', sha: 'source-blob', size: 7 },
             { path: '.gm/context.json', mode: '100644', type: 'blob', sha: 'private-blob' },
             { path: 'saves/slot-1.json', mode: '100644', type: 'blob', sha: 'save-blob' },
           ],
@@ -333,7 +333,13 @@ describe('commit operations', () => {
       if (call.route.endsWith('/git/trees/{tree_sha}')) {
         return {
           truncated: false,
-          tree: paths.map((path, index) => ({ path, mode: '100644', type: 'blob', sha: `source-${index}` })),
+          tree: paths.map((path, index) => ({
+            path,
+            mode: '100644',
+            type: 'blob',
+            sha: `source-${index}`,
+            size: index + 1,
+          })),
         };
       }
       if (call.route.endsWith('/git/blobs/{file_sha}')) {
@@ -365,6 +371,76 @@ describe('commit operations', () => {
     expect(maxActiveReads).toBe(8);
     const tree = calls.find((call) => call.route.endsWith('/git/trees'));
     expect((tree?.parameters.tree as { path: string }[]).map((item) => item.path)).toEqual(paths);
+  });
+
+  it('refuses a fork that exceeds the file-count limit before creating the destination', async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'source-tree' } };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) {
+        return {
+          truncated: false,
+          tree: Array.from({ length: MAX_FORK_FILES + 1 }, (_, index) => ({
+            path: `src/file-${index}.ts`,
+            mode: '100644',
+            type: 'blob',
+            sha: `source-${index}`,
+            size: 1,
+          })),
+        };
+      }
+      throw new Error(`unexpected route ${call.route}`);
+    });
+
+    await expect(
+      fork(
+        {
+          kind: 'fork',
+          sourceGameId: 'game-1',
+          sourceSha: 'source-commit',
+          newGameId: 'game-2',
+          owner: 'alice',
+          visibility: 'private',
+        },
+        contextWith(request),
+      ),
+    ).resolves.toMatchObject({ ok: false, verdict: { reasons: [{ code: 'size' }] } });
+    expect(calls.some((call) => call.route === 'POST /user/repos')).toBe(false);
+  });
+
+  it('refuses a fork that exceeds the total-byte limit before creating the destination', async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'source-tree' } };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) {
+        return {
+          truncated: false,
+          tree: [
+            {
+              path: 'assets/game.bin',
+              mode: '100644',
+              type: 'blob',
+              sha: 'large-blob',
+              size: MAX_FORK_BYTES + 1,
+            },
+          ],
+        };
+      }
+      throw new Error(`unexpected route ${call.route}`);
+    });
+
+    await expect(
+      fork(
+        {
+          kind: 'fork',
+          sourceGameId: 'game-1',
+          sourceSha: 'source-commit',
+          newGameId: 'game-2',
+          owner: 'alice',
+          visibility: 'private',
+        },
+        contextWith(request),
+      ),
+    ).resolves.toMatchObject({ ok: false, verdict: { reasons: [{ code: 'size' }] } });
+    expect(calls.some((call) => call.route === 'POST /user/repos')).toBe(false);
   });
 
   it('does not create a public fork when the gate refuses it', async () => {

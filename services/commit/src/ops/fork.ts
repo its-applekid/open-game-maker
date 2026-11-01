@@ -10,9 +10,13 @@ import { ensurePrivateRepository } from './repository.js';
 type TreeItem = {
   path?: string;
   mode?: string;
+  size?: number;
   type?: 'blob' | 'commit' | 'tree';
   sha?: string;
 };
+
+export const MAX_FORK_FILES = 10_000;
+export const MAX_FORK_BYTES = 100 * 1024 * 1024;
 
 function excluded(path: string): boolean {
   return path === '.gm' || path.startsWith('.gm/') || path === 'saves' || path.startsWith('saves/');
@@ -96,7 +100,7 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
   if (sourceTree.data.truncated) return refused('size', 'source tree is too large to fork');
 
   const files = sourceTree.data.tree.filter(
-    (item): item is Required<Pick<TreeItem, 'path' | 'mode' | 'type' | 'sha'>> =>
+    (item): item is TreeItem & Required<Pick<TreeItem, 'path' | 'mode' | 'type' | 'sha'>> =>
       item.path !== undefined &&
       item.mode !== undefined &&
       item.type !== undefined &&
@@ -105,6 +109,21 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
   );
   if (files.some((item) => item.mode === '120000' || item.type === 'commit')) {
     return refused('path', 'fork source contains a symlink or submodule');
+  }
+
+  const blobs = files.filter((item) => item.type === 'blob');
+  if (blobs.length > MAX_FORK_FILES) {
+    return refused('size', `fork source exceeds the ${MAX_FORK_FILES} file limit`);
+  }
+  let totalBytes = 0;
+  for (const item of blobs) {
+    if (item.size === undefined || !Number.isSafeInteger(item.size) || item.size < 0) {
+      return refused('size', 'fork source blob size is unavailable', item.path);
+    }
+    totalBytes += item.size;
+    if (!Number.isSafeInteger(totalBytes) || totalBytes > MAX_FORK_BYTES) {
+      return refused('size', `fork source exceeds the ${MAX_FORK_BYTES} byte limit`);
+    }
   }
 
   const destinationGitHub = await context.app.forOwner(op.owner);
@@ -116,7 +135,6 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
     if (existingSha !== undefined) return finishFork(op, destinationGitHub.request, destination, existingSha);
   }
 
-  const blobs = files.filter((item) => item.type === 'blob');
   const tree = await mapConcurrent(blobs, 8, async (item) => {
     const blob = await sourceGitHub.request<{ content: string; encoding: string }>(
       'GET /repos/{owner}/{repo}/git/blobs/{file_sha}',

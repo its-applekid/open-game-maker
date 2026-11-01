@@ -195,4 +195,24 @@ describe('GitHub App auth', () => {
     await expect(app.forOwner('alice')).rejects.toBeInstanceOf(GitHubRateLimitError);
     expect(installationLists).toBe(2);
   });
+
+  it('aborts a stalled App installation request at the configured deadline', async () => {
+    const fetchImpl = async (_input: Parameters<typeof fetch>[0], init?: RequestInit): Promise<Response> =>
+      new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (signal?.aborted) {
+          reject(signal.reason);
+          return;
+        }
+        signal?.addEventListener('abort', () => reject(signal.reason), { once: true });
+      });
+    const app = await createGitHubApp({
+      appId: '123',
+      privateKeyPath: await privateKeyFile(),
+      fetch: fetchImpl,
+      timeoutMs: 1,
+    });
+
+    await expect(app.forOwner('alice')).rejects.toBeDefined();
+  });
 });
