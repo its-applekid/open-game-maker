@@ -35,6 +35,7 @@ describe('card schemas', () => {
       cardFixtureDocs().find(({ file }) => file === 'asset-wall.json')?.doc ??
         cardFixtureDocs().find(({ doc }) => (doc as { card_type?: string }).card_type === 'asset')?.doc,
     ) as Record<string, unknown>;
+    delete card.geometry;
     card.flags = ['needs-conversion'];
     expect(validateCard(card)).toMatchObject({ ok: true });
   });

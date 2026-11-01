@@ -209,7 +209,7 @@
 
     "blocksByKind": {
       "allOf": [
-        { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" } }, "required": ["card_type", "kind"] }, "then": { "required": ["geometry"] } },
+        { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "flags": { "not": { "contains": { "const": "needs-conversion" } } } }, "required": ["card_type", "kind"] }, "then": { "required": ["geometry"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "subkind": { "enum": ["character", "creature"] } }, "required": ["card_type", "kind", "subkind"] }, "then": { "required": ["rig"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "subkind": { "const": "kit" } }, "required": ["card_type", "kind", "subkind"] }, "then": { "required": ["kit"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "anim" } }, "required": ["card_type", "kind"] }, "then": { "required": ["anim"] } },
