@@ -1,0 +1,3 @@
+# Feature progress image
+
+Kevin's view of the build (2026-11-01): product features, not lanes, each with merged/total tickets. The Executor renders it with the Pillow one-off in the session scratchpad (feature map = OGM id ranges: platform 001–009; accounts 010–012+072; jobs/budgets/aiur 013,014,018,030–034,037,038 + #118/#121/#129; commit 035,036,039; engine 020–029+092; design 040–048+077; rooms 050–055+078; assets 060–068 + #143/#144/#148/#155/#156; web 070,071,073–075; chat 076,080–082; voice one-way 083,087; voice two-way 085,086,088; bugs/admin/notifications 015–017,079; skills 090,091,093–097; capstone 100,101). Done = issue closed or `agent:done`. Re-render on request; move the script into scripts/ if it is asked for a third time.
