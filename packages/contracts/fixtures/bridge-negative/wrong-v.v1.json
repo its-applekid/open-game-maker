@@ -1,0 +1,6 @@
+{
+  "v": 2,
+  "id": "h2",
+  "t": "hello",
+  "payload": { "protocol": 1, "capabilities": [], "mode": "play", "build": "published", "playerIndex": 0 }
+}
