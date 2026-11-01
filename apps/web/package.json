@@ -7,12 +7,12 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
     "pretest": "pnpm --filter @ogm/contracts build",
-    "test": "vitest run",
+    "test": "vitest run --exclude e2e/render-gltf.test.ts",
     "pretypecheck": "pnpm --filter @ogm/contracts build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
-    "test:browser": "playwright test"
+    "test:browser": "vitest run e2e/render-gltf.test.ts && playwright test"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.15",
@@ -36,6 +36,8 @@
     "esbuild": "0.25.12",
     "jsdom": "27.4.0",
     "playwright": "1.64.1",
+    "sharp": "0.35.5",
+    "three": "0.186.1",
     "typescript": "6.0.3",
     "vite": "7.3.7",
     "vitest": "5.0.5"

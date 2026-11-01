@@ -1,0 +1,2 @@
+{"queued_at": "2026-10-30T09:00:00+00:00", "drop_id": "drive-a", "name": "Forest tiles", "revision": 0, "manifest": "quarantine/drop-a/manifest.json", "files": 3, "bytes": 1024, "integrity_ok": false, "problems": ["size mismatch: a.png", "md5 mismatch: b.png"]}
+{"queued_at": "2026-10-31T09:00:00+00:00", "drop_id": "drive-b", "name": "Door sounds", "revision": 0, "manifest": "quarantine/drop-b/manifest.json", "files": 2, "bytes": 512, "integrity_ok": true, "problems": []}

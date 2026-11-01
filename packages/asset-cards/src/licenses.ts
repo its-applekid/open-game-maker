@@ -28,7 +28,7 @@ const PIXEL_USES: Use[] = ['in-game', 'placeholder', 'style-reference', 'vision-
 export const LICENSES: LicenseRow[] = [
   {
     id: 'CC0-1.0',
-    aliases: [],
+    aliases: ['kaykit'],
     ceiling: { uses: ALL_USES, audience: 'public', redistribution: 'free', attribution: null },
     processing: 'any',
     ref: 'License.txt',
