@@ -7,6 +7,7 @@
     "build": "tsc -b",
     "dev": "tsx src/index.ts",
     "lint": "eslint src",
+    "pretypecheck": "pnpm --filter @ogm/config --filter @ogm/contracts build",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
