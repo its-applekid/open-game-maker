@@ -91,6 +91,7 @@ assets-local/
 - `import_kenney_bundle.py`: splits the Kenney All-in-1 zip into one pack per folder, reads each `License.txt`, and installs the launcher under `tools/`. Some archive packs ship as a zip inside the bundle; those were unpacked afterwards, and `pack.json` records them in `inner_archives_unpacked`.
 - `build_catalog.py`: rebuilds `catalog.json`. Run it after any import.
 - `preprocess_kaykit.py`: validates every canonical KayKit glTF, attaches source variants and resources to one item card, renders thumbnails and pack lineups, writes a QA report, and rebuilds the catalog and card index. Pass `--root <asset-library>` when the library is not at `assets-local/`; the root must already contain `packs/`.
+- `apps/web/tools/thumbnail-scene.mjs`: fetches local vendor references, builds deterministic card-backed specimen sheets, and renders 2D still/living dioramas. See [Thumbnail scenes](thumbnail-scenes.md) for the private output layout and commands.
 
 ## Drive inbox (`scripts/drive-sync/`)
 

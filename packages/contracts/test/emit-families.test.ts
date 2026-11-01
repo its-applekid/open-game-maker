@@ -6,9 +6,16 @@ import { assetsSchemas } from '../src/assets.js';
 import { bridgeSchemas } from '../src/bridge.js';
 import { gameSchemas } from '../src/game.js';
 import { inputSchemas } from '../src/input.js';
+import { thumbnailSchemas } from '../src/thumbnail-scene.js';
 
 // CI runs `pnpm test`, not `check`, so this is the gate that catches a schema edited without `emit`.
-const families: Record<string, z.ZodType> = { ...bridgeSchemas, ...gameSchemas, ...inputSchemas, ...assetsSchemas };
+const families: Record<string, z.ZodType> = {
+  ...bridgeSchemas,
+  ...gameSchemas,
+  ...inputSchemas,
+  ...assetsSchemas,
+  ...thumbnailSchemas,
+};
 
 describe('engine contract schemas', () => {
   it.each(Object.entries(families))('schemas/%s.json matches its Zod source', (stem, schema) => {

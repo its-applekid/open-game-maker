@@ -7,12 +7,13 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
     "pretest": "pnpm --filter @ogm/contracts --filter @ogm/voice-client build",
-    "test": "vitest run --exclude e2e/render-gltf.test.ts",
+    "test": "vitest run --exclude e2e/render-gltf.test.ts --exclude e2e/thumbnail-scene.test.ts",
     "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/voice-client build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
-    "test:browser": "vitest run e2e/render-gltf.test.ts && playwright test"
+    "pretest:browser": "pnpm --filter @ogm/contracts build",
+    "test:browser": "vitest run e2e/render-gltf.test.ts e2e/thumbnail-scene.test.ts && playwright test"
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.15",
