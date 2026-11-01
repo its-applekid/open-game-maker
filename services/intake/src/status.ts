@@ -33,12 +33,6 @@ export async function readStatus(path: string): Promise<IntakeStatus> {
   }
 }
 
-export function countsFor(done: DoneJob[]): IntakeStatus['counts'] {
-  const counts: IntakeStatus['counts'] = {};
-  for (const job of done) counts[job.status] = (counts[job.status] ?? 0) + 1;
-  return counts;
-}
-
 export async function writeStatus(path: string, status: IntakeStatus): Promise<void> {
   await mkdir(dirname(path), { recursive: true });
   const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(5).toString('hex')}.tmp`);

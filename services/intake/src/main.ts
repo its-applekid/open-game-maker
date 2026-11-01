@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import { link, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { link, mkdir, rm, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from '@ogm/config';
 
@@ -25,25 +25,24 @@ type PollOptions = {
 const sleep = (milliseconds: number) => new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
 
 function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'drop';
+  return (
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-|-$/g, '') || 'drop'
+  );
 }
 
-async function intakeExists(path: string): Promise<boolean> {
-  try {
-    await readFile(path);
-    return true;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
-    throw error;
-  }
-}
-
-async function writeOnce(path: string, value: unknown): Promise<void> {
+async function writeOnce(path: string, value: unknown): Promise<boolean> {
   await mkdir(dirname(path), { recursive: true });
   const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(5).toString('hex')}.tmp`);
   try {
     await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' });
     await link(temporary, path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'EEXIST') return false;
+    throw error;
   } finally {
     await rm(temporary, { force: true });
   }
@@ -66,7 +65,8 @@ function eventName(status: JobStatus): string {
 
 export async function pollIntake(options: PollOptions): Promise<{ hadError: boolean }> {
   const runner = options.run ?? runImport;
-  const emit = options.emit ?? ((name, payload) => process.stdout.write(`${JSON.stringify({ event: name, ...payload })}\n`));
+  const emit =
+    options.emit ?? ((name, payload) => process.stdout.write(`${JSON.stringify({ event: name, ...payload })}\n`));
   const now = options.now ?? (() => new Date());
   const statusPath = join(resolve(options.stateDir), 'intake', 'status.json');
   const previous = await readStatus(statusPath);
@@ -92,16 +92,15 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
   };
 
   for (const entry of entries) {
-    if (await intakeExists(entry.intakePath)) continue;
     if (!entry.manifest.integrity_ok) {
       const reason = (entry.manifest.problems ?? ['integrity check failed']).join('; ');
-      await writeOnce(entry.intakePath, { status: 'blocked', reason });
+      if (!(await writeOnce(entry.intakePath, { status: 'blocked', reason }))) continue;
       record(entry, 'blocked', null);
       continue;
     }
     const duplicate = seen.get(entry.fingerprint);
     if (duplicate) {
-      await writeOnce(entry.intakePath, {
+      const wrote = await writeOnce(entry.intakePath, {
         status: 'duplicate',
         collection: duplicate.collection,
         license: null,
@@ -109,6 +108,7 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
         confirmed_by: null,
         date: entry.manifest.downloaded_at?.slice(0, 10) ?? now().toISOString().slice(0, 10),
       });
+      if (!wrote) continue;
       record(entry, 'duplicate', duplicate.collection);
       continue;
     }
@@ -125,9 +125,10 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
         id,
         dropId: entry.entry.drop_id,
       });
-      if (!(await intakeExists(entry.intakePath))) {
-        await writeOnce(entry.intakePath, canonicalIntake(entry, result, license ? 'kevin' : (result.confirmed_by ?? null)));
-      }
+      await writeOnce(
+        entry.intakePath,
+        canonicalIntake(entry, result, license ? 'kevin' : (result.confirmed_by ?? null)),
+      );
       record(entry, result.status, result.collection);
     } catch (error) {
       failures += 1;
@@ -160,7 +161,7 @@ export async function main(): Promise<never> {
 }
 
 const entryPath = process.argv[1] ? resolve(process.argv[1]) : '';
-if (entryPath && pathToFileURL(entryPath).href === import.meta.url && fileURLToPath(import.meta.url) === entryPath) {
+if (entryPath === fileURLToPath(import.meta.url)) {
   void main().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : String(error);
     process.stderr.write(`intake: ${message}\n`);

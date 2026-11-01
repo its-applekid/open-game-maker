@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -8,7 +8,7 @@ import { pollIntake, type ImportRunner } from '../src/main.js';
 const temporary: string[] = [];
 
 async function fresh(): Promise<{ assets: string; state: string }> {
-  const root = await import('node:fs/promises').then(({ mkdtemp }) => mkdtemp(join(process.env.TMPDIR ?? '/tmp', 'ogm-intake-')));
+  const root = await mkdtemp(join(process.env.TMPDIR ?? '/tmp', 'ogm-intake-'));
   temporary.push(root);
   const assets = join(root, 'assets');
   const state = join(root, 'state');
@@ -89,7 +89,10 @@ describe('intake poller', () => {
         license: 'Kenney assets are licensed CC0 1.0.',
       }),
     ];
-    await writeFile(join(assets, 'inbox', 'queue.jsonl'), `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`);
+    await writeFile(
+      join(assets, 'inbox', 'queue.jsonl'),
+      `${entries.map((entry) => JSON.stringify(entry)).join('\n')}\n`,
+    );
     const run = vi.fn<ImportRunner>(async ({ args, id }) => ({
       collection: `t1:${id}@2026-10-26-r1`,
       status: args.includes('--license') ? 'imported' : 'awaiting-license',
@@ -124,12 +127,7 @@ describe('intake poller', () => {
     expect(status.counts).toEqual({ blocked: 1, duplicate: 1, imported: 1, 'awaiting-license': 1 });
     expect(status.done).toHaveLength(4);
     expect(status).toMatchObject({ open: 0, last_error: null });
-    expect(events).toEqual([
-      'intake.blocked',
-      'intake.imported',
-      'intake.awaiting-license',
-      'intake.duplicate',
-    ]);
+    expect(events).toEqual(['intake.blocked', 'intake.imported', 'intake.awaiting-license', 'intake.duplicate']);
   });
 
   it('leaves failed imports open and retries them on the next poll', async () => {
@@ -141,8 +139,13 @@ describe('intake poller', () => {
     const first = await pollIntake({ assetsRoot: assets, stateDir: state, run: failing, emit: () => undefined });
 
     expect(first.hadError).toBe(true);
-    await expect(stat(join(assets, 'inbox', 'quarantine', 'retry', 'intake.json'))).rejects.toMatchObject({ code: 'ENOENT' });
-    expect(await json(join(state, 'intake', 'status.json'))).toMatchObject({ open: 1, last_error: 'RETRY-DROP: gm exited 2' });
+    await expect(stat(join(assets, 'inbox', 'quarantine', 'retry', 'intake.json'))).rejects.toMatchObject({
+      code: 'ENOENT',
+    });
+    expect(await json(join(state, 'intake', 'status.json'))).toMatchObject({
+      open: 1,
+      last_error: 'RETRY-DROP: gm exited 2',
+    });
 
     const succeeding = vi.fn<ImportRunner>().mockResolvedValue({
       collection: 't1:drive-retry-me@2026-10-26-r1',

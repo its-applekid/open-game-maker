@@ -9,7 +9,11 @@ import type { Item } from './identify.js';
 import type { Vendor } from './vendor.js';
 import { writeThumbnail } from './previews.js';
 
-export type CardSet = { collection: AssetCard; assets: AssetCard[]; validationErrors: Array<{ id: string; errors: string[] }> };
+export type CardSet = {
+  collection: AssetCard;
+  assets: AssetCard[];
+  validationErrors: Array<{ id: string; errors: string[] }>;
+};
 
 type CreateCardsOptions = {
   assetsRoot: string;
@@ -42,14 +46,23 @@ function slugFor(path: string): string {
     .replace(/^-|-$/g, '');
 }
 
-async function sourceFile(root: string, path: string, role: 'primary' | 'texture') {
-  const bytes = await readFile(join(root, path));
-  const hash = createHash('sha256').update(bytes).digest('hex');
+type SourceFacts = { path: string; sha256: string; bytes: number; format: string };
+
+async function sourceFile(root: string, path: string, role: 'primary' | 'texture', cache: Map<string, SourceFacts>) {
+  let facts = cache.get(path);
+  if (!facts) {
+    const bytes = await readFile(join(root, path));
+    const hash = createHash('sha256').update(bytes).digest('hex');
+    facts = {
+      path,
+      sha256: `sha256:${hash}`,
+      bytes: bytes.length,
+      format: extname(path).slice(1).toLowerCase() || 'bin',
+    };
+    cache.set(path, facts);
+  }
   return {
-    path,
-    sha256: `sha256:${hash}`,
-    bytes: bytes.length,
-    format: extname(path).slice(1).toLowerCase() || 'bin',
+    ...facts,
     role,
   } as const;
 }
@@ -88,8 +101,20 @@ async function measuredFields(item: Item, file: string): Promise<Partial<AssetCa
   if (item.kind === 'sprite' || item.kind === 'texture') {
     const measured = await measureImage(file);
     return item.kind === 'texture'
-      ? { kind: 'texture', subkind: 'material', image: measured.image, look: measured.look, texture: { maps: [], tileable: false } }
-      : { kind: 'sprite', subkind: item.subkind ?? 'prop', image: measured.image, look: measured.look, sprite: { drawn_view: 'none' } };
+      ? {
+          kind: 'texture',
+          subkind: 'material',
+          image: measured.image,
+          look: measured.look,
+          texture: { maps: [], tileable: false },
+        }
+      : {
+          kind: 'sprite',
+          subkind: item.subkind ?? 'prop',
+          image: measured.image,
+          look: measured.look,
+          sprite: { drawn_view: 'none' },
+        };
   }
   if (item.kind === 'ui' && item.subkind === 'font') {
     return { kind: 'ui', subkind: 'font', font: await measureFont(file) };
@@ -140,16 +165,24 @@ export async function createCards(options: CreateCardsOptions): Promise<CardSet>
 
   const assets: AssetCard[] = [];
   const usedIds = new Set<string>();
+  const sourceFacts = new Map<string, SourceFacts>();
   for (const item of options.items) {
-    const primary = await sourceFile(options.extracted, item.path, 'primary');
-    const companions = await Promise.all(item.companions.map((path) => sourceFile(options.extracted, path, 'texture')));
+    const primary = await sourceFile(options.extracted, item.path, 'primary', sourceFacts);
+    const companions = await Promise.all(
+      item.companions.map((path) => sourceFile(options.extracted, path, 'texture', sourceFacts)),
+    );
     const measured: Partial<AssetCard> = await measuredFields(item, join(options.extracted, item.path)).catch(() => ({
       flags: ['needs-review'],
     }));
     let localId = slugFor(item.path) || primary.sha256.slice(7, 19);
     if (usedIds.has(localId)) localId = `${localId}-${primary.sha256.slice(7, 15)}`;
     usedIds.add(localId);
-    const thumbnail = await writeThumbnail(options.assetsRoot, join(options.extracted, item.path), primary.sha256.slice(7), options.vendor === 'synty').catch(() => undefined);
+    const thumbnail = await writeThumbnail(
+      options.assetsRoot,
+      join(options.extracted, item.path),
+      primary.sha256.slice(7),
+      options.vendor === 'synty',
+    ).catch(() => undefined);
     const card = withValidation(
       {
         schema: 'ogm.asset-card/1.1',
