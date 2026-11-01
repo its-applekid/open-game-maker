@@ -34,8 +34,7 @@ function refusal(id: string, rule: RefusalRule, detail: string): Refusal {
 }
 
 export function rightsForCard(card: ResolvedCard, collections: Record<string, ResolvedCard>): LockRights {
-  const declared =
-    card.rights ?? (card.collection === undefined ? undefined : collections[card.collection]?.rights);
+  const declared = card.rights ?? (card.collection === undefined ? undefined : collections[card.collection]?.rights);
   return {
     uses: [...card.resolved.rights.uses],
     audience: card.resolved.rights.audience,
@@ -72,12 +71,7 @@ export function refusalsForUse(
     result.push(refusal(card.id, 'needs-in-game', 'effective rights do not allow this in-game use'));
   }
   const family = card.resolved.style_family;
-  if (
-    lock !== null &&
-    family !== 'any' &&
-    family !== lock.family &&
-    options.exception === undefined
-  ) {
+  if (lock !== null && family !== 'any' && family !== lock.family && options.exception === undefined) {
     result.push(
       refusal(card.id, 'family-mismatch', `style family ${family ?? 'missing'} does not match ${lock.family}`),
     );
@@ -128,7 +122,9 @@ export function refusalsForCheck(
       refusal(
         entry.id,
         options.publish && hasPlaceholder ? 'placeholder-only' : 'needs-in-game',
-        options.publish ? 'placeholder-only assets cannot be published' : 'rights allow neither in-game nor placeholder use',
+        options.publish
+          ? 'placeholder-only assets cannot be published'
+          : 'rights allow neither in-game nor placeholder use',
       ),
     );
   }
@@ -153,8 +149,14 @@ export function intersectLockRights(rights: LockRights[]): LockRights {
   const attributions = [...new Set(rights.map((candidate) => candidate.attribution).filter((value) => value !== null))];
   return {
     uses,
-    audience: minimum(AUDIENCE, rights.map((candidate) => candidate.audience)),
-    redistribution: minimum(REDISTRIBUTION, rights.map((candidate) => candidate.redistribution)),
+    audience: minimum(
+      AUDIENCE,
+      rights.map((candidate) => candidate.audience),
+    ),
+    redistribution: minimum(
+      REDISTRIBUTION,
+      rights.map((candidate) => candidate.redistribution),
+    ),
     attribution: attributions.length === 0 ? null : attributions.join('; '),
   };
 }

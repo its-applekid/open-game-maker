@@ -39,10 +39,7 @@ export async function writeLock(cwd: string, lock: AssetsLock): Promise<void> {
 }
 
 export async function writeGeneratedText(path: string, content: string): Promise<void> {
-  const temporary = join(
-    dirname(path),
-    `.${basename(path)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`,
-  );
+  const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
   try {
     const handle = await open(temporary, 'wx');
     try {

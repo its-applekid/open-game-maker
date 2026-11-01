@@ -43,10 +43,10 @@ describe('gm assets use', () => {
   it('keeps a mixed refused batch atomic and accepts ids from -f', async () => {
     const root = preparedLibrary();
     const refusedCwd = tempDir();
-    const refused = await gm(
-      ['assets', 'use', ORC, MAP, '--family', 'chunky-low-poly', '--pov', 'iso'],
-      { cwd: refusedCwd, env: { OGM_ASSETS_ROOT: root } },
-    );
+    const refused = await gm(['assets', 'use', ORC, MAP, '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd: refusedCwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
     expect(refused.code).toBe(2);
     expect(() => readFileSync(join(refusedCwd, 'assets.lock.json'))).toThrow();
     expect(() => readFileSync(join(refusedCwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'))).toThrow();
@@ -73,12 +73,14 @@ describe('gm assets use', () => {
     expect(readFileSync(join(companionCwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'utf8')).toBe('map-bytes');
 
     const partialCwd = tempDir();
-    const partial = await gm(
-      ['assets', 'use', ORC, MAP, '--partial', '--family', 'chunky-low-poly', '--pov', 'iso'],
-      { cwd: partialCwd, env: { OGM_ASSETS_ROOT: root } },
-    );
+    const partial = await gm(['assets', 'use', ORC, MAP, '--partial', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd: partialCwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
     expect(partial.code).toBe(2);
-    expect(readFileSync(join(partialCwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'), 'utf8')).toBe('orc-bytes');
+    expect(readFileSync(join(partialCwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'), 'utf8')).toBe(
+      'orc-bytes',
+    );
     const lock = JSON.parse(readFileSync(join(partialCwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
     expect(lock.assets.map((entry) => entry.id)).toEqual([ORC]);
   });
@@ -119,7 +121,9 @@ describe('gm assets use', () => {
       env: { OGM_ASSETS_ROOT: root },
     });
     expect(empty.code).toBe(2);
-    expect(empty.err).toContain('--exception needs a reason. Try: gm assets use <id> --exception "intentional contrast"');
+    expect(empty.err).toContain(
+      '--exception needs a reason. Try: gm assets use <id> --exception "intentional contrast"',
+    );
     const accepted = await gm(['assets', 'use', SYNTY, '--exception', 'intentional contrast'], {
       cwd,
       env: { OGM_ASSETS_ROOT: root, GM_EVENTS_FILE: events },
@@ -174,7 +178,18 @@ describe('gm assets register and why', () => {
     mkdirSync(join(generated, '..'), { recursive: true });
     writeFileSync(generated, 'door-bytes');
     const result = await gm(
-      ['assets', 'register', 'assets/model/boss-door.glb', '--made-by-agent', '--from', ORC, '--from', SYNTY, '--game', 'coin-hop'],
+      [
+        'assets',
+        'register',
+        'assets/model/boss-door.glb',
+        '--made-by-agent',
+        '--from',
+        ORC,
+        '--from',
+        SYNTY,
+        '--game',
+        'coin-hop',
+      ],
       { cwd, env: { OGM_ASSETS_ROOT: root } },
     );
     expect(result.code).toBe(0);
@@ -192,10 +207,10 @@ describe('gm assets register and why', () => {
     const generated = join(cwd, 'assets/model/spark.glb');
     mkdirSync(join(generated, '..'), { recursive: true });
     writeFileSync(generated, 'spark');
-    const result = await gm(
-      ['assets', 'register', 'assets/model/spark.glb', '--made-by-agent', '--game', 'g_01J'],
-      { cwd, env: { OGM_ASSETS_ROOT: root } },
-    );
+    const result = await gm(['assets', 'register', 'assets/model/spark.glb', '--made-by-agent', '--game', 'g_01J'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
     expect(result.code).toBe(0);
     const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
     expect(lock.assets.find((entry) => entry.id === 't3:g_01J/model/spark')).toMatchObject({

@@ -50,7 +50,10 @@ describe('gm check assets', () => {
       env: { OGM_ASSETS_ROOT: root },
     });
     expect(result.code).toBe(1);
-    const verdict = JSON.parse(result.out[0]!) as { allowed: boolean; reasons: Array<{ code: string; detail: string }> };
+    const verdict = JSON.parse(result.out[0]!) as {
+      allowed: boolean;
+      reasons: Array<{ code: string; detail: string }>;
+    };
     expect(verdict.allowed).toBe(false);
     expect(verdict.reasons).toContainEqual(
       expect.objectContaining({ code: 'rights', detail: expect.stringContaining(`${SYNTY} private-in-public`) }),

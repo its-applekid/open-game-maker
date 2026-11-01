@@ -3,11 +3,7 @@ import { copyFile, lstat, mkdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { loadIndex, type ResolvedCard } from '@ogm/asset-cards';
-import {
-  povIdSchema,
-  styleFamilyIdSchema,
-  type LockEntry,
-} from '@ogm/contracts';
+import { povIdSchema, styleFamilyIdSchema, type LockEntry } from '@ogm/contracts';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot, resolveContainedPath } from '../../context.js';
@@ -18,10 +14,14 @@ import { refusalsForUse, rightsForCard, type Refusal } from '../../rules.js';
 type CopySource = { source: string; destination: string; primary: boolean; sha256?: string };
 
 function safeDestination(cwd: string, value: string): string {
-  if (isAbsolute(value)) throw new UsageError('--dest must be relative to the game repo', 'gm assets use --dest assets');
+  if (isAbsolute(value))
+    throw new UsageError('--dest must be relative to the game repo', 'gm assets use --dest assets');
   const parts = value.replaceAll('\\', '/').split('/');
   if (parts.some((part) => part === '..' || part === '.gm' || part === 'node_modules')) {
-    throw new UsageError('--dest must stay inside the game repo and outside .gm and node_modules', 'gm assets use --dest assets');
+    throw new UsageError(
+      '--dest must stay inside the game repo and outside .gm and node_modules',
+      'gm assets use --dest assets',
+    );
   }
   const destination = resolve(cwd, value);
   const root = resolve(cwd);
@@ -56,7 +56,8 @@ async function copySources(
   collection: ResolvedCard,
 ): Promise<{ copies: CopySource[]; refusal?: Refusal }> {
   const sourceFiles = card.source?.files.filter(
-    (file) => file.role === undefined || file.role === 'primary' || file.role === 'texture' || file.role === 'companion',
+    (file) =>
+      file.role === undefined || file.role === 'primary' || file.role === 'texture' || file.role === 'companion',
   );
   const primary = sourceFiles?.find((file) => file.role === 'primary') ?? sourceFiles?.[0];
   if (!primary || !card.kind) {
@@ -157,7 +158,10 @@ export const command: GmCommand = {
       const family = styleFamilyIdSchema.safeParse(flags.family);
       const pov = povIdSchema.safeParse(flags.pov);
       if (!family.success || !pov.success) {
-        throw new UsageError('a new lock needs valid --family and --pov values', 'gm assets use <id> --family <family> --pov <pov>');
+        throw new UsageError(
+          'a new lock needs valid --family and --pov values',
+          'gm assets use <id> --family <family> --pov <pov>',
+        );
       }
       lock = { version: 1, family: family.data, pov: pov.data, assets: [] };
     }
@@ -169,7 +173,12 @@ export const command: GmCommand = {
       throw new UsageError('--exception needs a reason', 'gm assets use <id> --exception "intentional contrast"');
     }
     const refusals: Refusal[] = [];
-    const accepted: Array<{ card: ResolvedCard; copies: CopySource[]; existing?: LockEntry; familyException: boolean }> = [];
+    const accepted: Array<{
+      card: ResolvedCard;
+      copies: CopySource[];
+      existing?: LockEntry;
+      familyException: boolean;
+    }> = [];
     for (const id of ids) {
       const card = byId.get(id);
       if (!card || card.card_type !== 'asset') {
@@ -198,7 +207,12 @@ export const command: GmCommand = {
       }
       const collection = card.collection === undefined ? undefined : index.collections[card.collection];
       if (!collection) {
-        refusals.push({ code: 'rights', rule: 'unknown-id', id, detail: 'asset collection is not present in the index' });
+        refusals.push({
+          code: 'rights',
+          rule: 'unknown-id',
+          id,
+          detail: 'asset collection is not present in the index',
+        });
         continue;
       }
       const sources = await copySources(assetsRoot, destinationRoot, card, collection);

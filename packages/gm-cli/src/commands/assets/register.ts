@@ -19,11 +19,17 @@ async function safeRelativePath(cwd: string, input: string): Promise<{ absolute:
   const absolute = resolve(cwd, input);
   const root = resolve(cwd);
   if (isAbsolute(input) || (absolute !== root && !absolute.startsWith(`${root}${sep}`))) {
-    throw new UsageError('registered path must be relative and inside the game repo', 'gm assets register <path> --made-by-agent');
+    throw new UsageError(
+      'registered path must be relative and inside the game repo',
+      'gm assets register <path> --made-by-agent',
+    );
   }
   const local = relative(root, absolute).replaceAll(sep, '/');
   if (local.split('/').some((part) => part === '..' || part === '.gm' || part === 'node_modules')) {
-    throw new UsageError('registered path cannot be under .gm or node_modules', 'gm assets register <path> --made-by-agent');
+    throw new UsageError(
+      'registered path cannot be under .gm or node_modules',
+      'gm assets register <path> --made-by-agent',
+    );
   }
   try {
     if ((await lstat(absolute)).isSymbolicLink()) throw new Error('symbolic link');
@@ -31,7 +37,10 @@ async function safeRelativePath(cwd: string, input: string): Promise<{ absolute:
     if (realFile === null || !(await lstat(realFile)).isFile()) throw new Error('not a contained file');
     return { absolute: realFile, relative: local };
   } catch {
-    throw new UsageError(`${local} is not a regular file inside the game repo`, 'gm assets register <path> --made-by-agent');
+    throw new UsageError(
+      `${local} is not a regular file inside the game repo`,
+      'gm assets register <path> --made-by-agent',
+    );
   }
 }
 
@@ -51,7 +60,12 @@ function idPath(path: string): string {
   const withoutExtension = path.slice(0, path.length - extname(path).length).replace(/^assets\//, '');
   return withoutExtension
     .split('/')
-    .map((part) => part.toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, ''))
+    .map((part) =>
+      part
+        .toLowerCase()
+        .replace(/[^a-z0-9._-]+/g, '-')
+        .replace(/^-+|-+$/g, ''),
+    )
     .filter(Boolean)
     .join('/');
 }
@@ -72,13 +86,15 @@ export const command: GmCommand = {
     game: { type: 'string', help: 'game id when .gm/game.json does not exist' },
   },
   async run(ctx, args, flags) {
-    if (args.length !== 1) throw new UsageError('register needs exactly one path', 'gm assets register <path> --made-by-agent');
+    if (args.length !== 1)
+      throw new UsageError('register needs exactly one path', 'gm assets register <path> --made-by-agent');
     if (flags['made-by-agent'] !== true) {
       throw new UsageError('--made-by-agent is required', 'gm assets register <path> --made-by-agent');
     }
     const file = await safeRelativePath(ctx.cwd, args[0]!);
     let lock = await readLock(ctx.cwd);
-    if (lock === null) throw new UsageError('no assets.lock.json here', 'gm assets use <id> --family <family> --pov <pov>');
+    if (lock === null)
+      throw new UsageError('no assets.lock.json here', 'gm assets use <id> --family <family> --pov <pov>');
 
     const sourceIds = [...new Set(repeated(flags.from))];
     const sourceRights: LockEntry['rights'][] = [];

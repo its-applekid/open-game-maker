@@ -26,7 +26,8 @@ export const command: GmCommand = {
     const index = await loadIndex(requireAssetsRoot(ctx));
     const card = index.cards.find((candidate) => candidate.id === args[0]);
     if (!card) throw new UsageError(`unknown card id ${args[0]}`, 'gm assets search <words> to find ids');
-    const declared = card.rights ?? (card.collection === undefined ? undefined : index.collections[card.collection]?.rights);
+    const declared =
+      card.rights ?? (card.collection === undefined ? undefined : index.collections[card.collection]?.rights);
     const rights = rightsForCard(card, index.collections);
     ctx.out(
       `${card.id}  ${card.resolved.license}  uses=${rights.uses.join(',')}  audience=${rights.audience}  redistribution=${rights.redistribution}  attribution=${rights.attribution ?? '-'}`,

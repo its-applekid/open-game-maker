@@ -37,9 +37,7 @@ export async function repoVisibility(cwd: string, override?: unknown): Promise<'
 export async function resolveContainedPath(root: string, candidate: string): Promise<string | null> {
   const [realRoot, realCandidate] = await Promise.all([realpath(root), realpath(candidate)]);
   const local = relative(realRoot, realCandidate);
-  return local === '' || (!isAbsolute(local) && local !== '..' && !local.startsWith(`..${sep}`))
-    ? realCandidate
-    : null;
+  return local === '' || (!isAbsolute(local) && local !== '..' && !local.startsWith(`..${sep}`)) ? realCandidate : null;
 }
 
 /** Print one JSON line, keeping only `--fields` keys when given. */

@@ -97,23 +97,28 @@ describe('asset refusal rules', () => {
       },
     });
     expect(
-      refusalsForCheck(entry({
-        rights: {
-          uses: ['placeholder'],
-          audience: 'private',
-          redistribution: 'in-build',
-          attribution: null,
+      refusalsForCheck(
+        entry({
+          rights: {
+            uses: ['placeholder'],
+            audience: 'private',
+            redistribution: 'in-build',
+            attribution: null,
+          },
+        }),
+        current,
+        { exists: true, sha256: '1'.repeat(64) },
+        {
+          publish: true,
+          visibility: 'public',
+          currentRights: {
+            uses: ['in-game'],
+            audience: 'private',
+            redistribution: 'in-build',
+            attribution: null,
+          },
         },
-      }), current, { exists: true, sha256: '1'.repeat(64) }, {
-        publish: true,
-        visibility: 'public',
-        currentRights: {
-          uses: ['in-game'],
-          audience: 'private',
-          redistribution: 'in-build',
-          attribution: null,
-        },
-      }).map((item) => item.rule),
+      ).map((item) => item.rule),
     ).toEqual(['sha-mismatch', 'stale-rights', 'placeholder-only', 'private-in-public']);
   });
 

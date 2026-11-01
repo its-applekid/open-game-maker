@@ -1,7 +1,10 @@
 import type { AssetsLock } from '@ogm/contracts';
 
 function collectionOf(id: string): string {
-  return id.replace(/^t[123]:/, '').split('/')[0]!.replace(/@.*$/, '');
+  return id
+    .replace(/^t[123]:/, '')
+    .split('/')[0]!
+    .replace(/@.*$/, '');
 }
 
 export function renderCredits(lock: AssetsLock): string {
