@@ -82,7 +82,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_ASSETS_ROOT', unit: 'gm', kind: 'path', doc: 'assets-local library root for gm (else found above cwd)' },
   { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
   { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
-  { name: 'OGM_API_INTERNAL_URL', unit: 'commit', kind: 'url', doc: 'loopback URL of the internal API' },
+  {
+    name: 'OGM_API_INTERNAL_URL',
+    unit: 'shared',
+    kind: 'url',
+    doc: 'loopback URL of the internal API (commit, voice-host)',
+  },
   { name: 'OGM_BUILDER_BOT_LOGIN', unit: 'commit', kind: 'string', doc: 'builder bot invited to game repositories' },
   {
     name: 'OGM_PLATFORM_ISSUE_REPO',
@@ -90,4 +95,30 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'string',
     doc: 'fixed owner/repository for platform bug reports',
   },
+  {
+    name: 'OGM_VOICE_INTERNAL_PORT',
+    unit: 'voice-host',
+    kind: 'port',
+    doc: 'loopback port of the voice host internal HTTP',
+  },
+  {
+    name: 'OGM_VOICE_INTERNAL_SECRET',
+    unit: 'shared',
+    kind: 'secret',
+    doc: 'X-OGM-Internal secret between api and voice-host',
+  },
+  { name: 'OGM_VOICE_PROVIDER', unit: 'voice-host', kind: 'string', doc: 'fake, elevenlabs_agents or openai_realtime' },
+  {
+    name: 'OGM_VOICE_LLM',
+    unit: 'voice-host',
+    kind: 'string',
+    doc: 'model the voice provider uses (not needed for fake)',
+  },
+  {
+    name: 'OGM_VOICE_MAX_SESSIONS',
+    unit: 'voice-host',
+    kind: 'int',
+    doc: 'concurrent voice conversations (default 2)',
+  },
+  { name: 'OGM_VOICE_WS_URL', unit: 'api', kind: 'string', doc: 'wss://applekid.tailee0e71.ts.net:8443/ws/voice' },
 ];

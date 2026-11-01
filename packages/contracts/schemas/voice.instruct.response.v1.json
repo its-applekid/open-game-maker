@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "delivery_id": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "delivery_id"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/voice.instruct.response.v1.json"
+}

@@ -20,12 +20,18 @@ export const apiEnvSpec = {
   OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'game-2d@1' },
   OGM_VAPID_KEY_FILE: { kind: 'path', default: join(homedir(), '.config', 'ogm', 'env', 'ogm-api.vapid.json') },
   OGM_VAPID_SUBJECT: { kind: 'string' },
+  OGM_VOICE_TOKEN_SECRET: { kind: 'secret', required: false },
+  OGM_VOICE_WS_URL: { kind: 'string', required: false },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {
   const env = loadEnv('api', apiEnvSpec, source);
   if (env.OGM_ANALYTICS_RETENTION_DAYS <= 0) {
     throw new ConfigError('api', [], [{ name: 'OGM_ANALYTICS_RETENTION_DAYS', reason: 'must be a positive integer' }]);
+  }
+  // The voice host's HMAC issuer refuses a shorter key, so tokens minted with one would never verify.
+  if (env.OGM_VOICE_TOKEN_SECRET !== undefined && Buffer.byteLength(env.OGM_VOICE_TOKEN_SECRET) < 32) {
+    throw new ConfigError('api', [], [{ name: 'OGM_VOICE_TOKEN_SECRET', reason: 'shorter than 32 bytes' }]);
   }
   return env;
 }

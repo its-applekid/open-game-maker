@@ -21,6 +21,9 @@ export interface AppDeps {
     vapidKeyFile: string;
     vapidSubject: string;
     analyticsRetentionDays: number;
+    // Both unset until the voice host is configured; the token route answers 503 meanwhile.
+    voiceTokenSecret?: string;
+    voiceWsUrl?: string;
   };
   blobStore: BlobStore;
   events: AppEvents;

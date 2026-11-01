@@ -34,6 +34,8 @@ const deps: AppDeps = {
     vapidKeyFile: env.OGM_VAPID_KEY_FILE,
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
+    voiceTokenSecret: env.OGM_VOICE_TOKEN_SECRET,
+    voiceWsUrl: env.OGM_VOICE_WS_URL,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,

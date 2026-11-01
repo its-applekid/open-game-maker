@@ -11,6 +11,7 @@ import { budgetSchemas } from '../src/budget.js';
 import { CreateJobAccepted, CreateJobRequest, jobsSchemas } from '../src/jobs.js';
 import { notificationsSchemas } from '../src/notifications.js';
 import { reportsSchemas } from '../src/reports.js';
+import { voiceSchemas } from '../src/voice.js';
 import { loadJson } from './helpers.js';
 
 const families: Record<string, Record<string, z.ZodType>> = {
@@ -20,6 +21,7 @@ const families: Record<string, Record<string, z.ZodType>> = {
   analytics: analyticsSchemas,
   reports: reportsSchemas,
   notifications: notificationsSchemas,
+  voice: voiceSchemas,
 };
 
 const packageRoot = new URL('../', import.meta.url);
