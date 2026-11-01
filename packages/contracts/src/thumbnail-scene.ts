@@ -94,6 +94,10 @@ export const thumbnailSceneSchema = z
     layers: z.array(thumbnailSceneLayerSchema).min(1),
   })
   .superRefine((scene, ctx) => {
+    if (scene.target.kind === 'set' && scene.target.id !== scene.set_id) {
+      ctx.addIssue({ code: 'custom', path: ['target', 'id'], message: 'set target id must match set_id' });
+    }
+
     const layerIds = new Set<string>();
     for (const [index, layer] of scene.layers.entries()) {
       if (layerIds.has(layer.id)) {
