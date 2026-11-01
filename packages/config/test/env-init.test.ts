@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -93,5 +93,21 @@ describe('ogm-env-init', () => {
 
     expect(result.status, result.stderr).toBe(0);
     expect(statSync(envPath).mode & 0o777).toBe(0o600);
+  });
+
+  it('refuses to force-write through a symbolic link', () => {
+    const home = temporaryDirectory();
+    const directory = join(home, '.config', 'ogm', 'env');
+    const victim = join(home, 'victim.env');
+    const envPath = join(directory, 'api.env');
+    mkdirSync(directory, { recursive: true });
+    writeFileSync(victim, 'keep-me\n');
+    symlinkSync(victim, envPath);
+
+    const result = runInitializer(home, 'api', '--force');
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('refusing to overwrite symbolic link');
+    expect(readFileSync(victim, 'utf8')).toBe('keep-me\n');
   });
 });

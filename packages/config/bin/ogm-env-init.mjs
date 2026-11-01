@@ -3,15 +3,17 @@
 import { execFileSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import {
-  chmodSync,
+  closeSync,
   existsSync,
-  lstatSync,
+  fchmodSync,
   mkdirSync,
+  openSync,
   readFileSync,
   readdirSync,
   realpathSync,
   writeFileSync,
 } from 'node:fs';
+import { O_CREAT, O_EXCL, O_NOFOLLOW, O_TRUNC, O_WRONLY } from 'node:constants';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -121,11 +123,6 @@ if (repositoryRoot && pathIsInside(repositoryRoot, resolvedDirectory)) {
 mkdirSync(resolvedDirectory, { recursive: true, mode: 0o700 });
 
 const target = join(resolvedDirectory, `${unit}.env`);
-if (existsSync(target)) {
-  if (lstatSync(target).isSymbolicLink()) fail(`refusing to overwrite symbolic link ${target}`);
-  if (!force) fail(`refusing to overwrite ${target}`);
-}
-
 const existingValues = readExistingValues(resolvedDirectory);
 const rows = OGM_ENV_NAMES.filter(({ unit: owner }) => owner === unit || owner === 'shared');
 let generated = 0;
@@ -137,6 +134,20 @@ const lines = rows.map(({ name, kind }) => {
   return `${name}=${randomBytes(32).toString('hex')}`;
 });
 
-writeFileSync(target, `${lines.join('\n')}\n`, { encoding: 'utf8', flag: force ? 'w' : 'wx', mode: 0o600 });
-chmodSync(target, 0o600);
+const flags = O_WRONLY | O_CREAT | O_NOFOLLOW | (force ? O_TRUNC : O_EXCL);
+let descriptor;
+try {
+  descriptor = openSync(target, flags, 0o600);
+} catch (error) {
+  if (!force && error?.code === 'EEXIST') fail(`refusing to overwrite ${target}`);
+  if (error?.code === 'ELOOP') fail(`refusing to overwrite symbolic link ${target}`);
+  fail(`could not open ${target} (${error?.code ?? 'unknown error'})`);
+}
+
+try {
+  writeFileSync(descriptor, `${lines.join('\n')}\n`, 'utf8');
+  fchmodSync(descriptor, 0o600);
+} finally {
+  closeSync(descriptor);
+}
 process.stdout.write(`wrote ${target} (${rows.length} names, ${generated} generated)\n`);
