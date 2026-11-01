@@ -162,6 +162,7 @@ describe('gm skills sync', () => {
     expect(result.changed).toBe(true);
     expect(lstatSync(join(repo, '.codex/skills/gm-core')).isSymbolicLink()).toBe(false);
     expect(statSync(join(repo, '.codex/skills/gm-core/SKILL.md')).isFile()).toBe(true);
+    expect(readFileSync(join(repo, '.codex/skills/gm-core/.gm-pack-copy'), 'utf8')).toBe('gm-core\n');
     const lock = JSON.parse(readFileSync(join(repo, 'skills.lock'), 'utf8')) as SkillsLock;
     expect(lock.linkMode).toBe('copy');
 
@@ -192,6 +193,27 @@ describe('gm skills sync', () => {
     expect(result.changed).toBe(true);
     expect(readFileSync(mirror, 'utf8')).toBe(readFileSync(join(pack, 'gm-core/SKILL.md'), 'utf8'));
     expect(syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable, checkOnly: true }).drift).toBe(false);
+  });
+
+  it('never claims an unowned copy-fallback discovery collision', () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    const unavailable = (): never => {
+      throw Object.assign(new Error('links unavailable'), { code: 'EPERM' });
+    };
+    syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable });
+    for (const parent of ['.codex', '.agents']) write(repo, `${parent}/skills/gm-extra/SKILL.md`, 'local\n');
+    write(pack, 'gm-extra/SKILL.md', 'upstream\n');
+
+    for (const force of [false, true]) {
+      const result = syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable, force });
+      expect(result.drift).toBe(true);
+      for (const parent of ['.codex', '.agents']) {
+        expect(readFileSync(join(repo, parent, 'skills/gm-extra/SKILL.md'), 'utf8')).toBe('local\n');
+        expect(existsSync(join(repo, parent, 'skills/gm-extra/.gm-pack-copy'))).toBe(false);
+      }
+    }
+    expect(readFileSync(join(repo, '.claude/skills/gm-extra/SKILL.md'), 'utf8')).toBe('upstream\n');
   });
 
   it('removes obsolete owned discovery links but preserves unowned skills', async () => {

@@ -16,12 +16,15 @@ import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { UsageError } from '../command.js';
-import { readSkillsLock, type SkillsLock, writeSkillsLock } from './lock.js';
+import { readSkillsLock, readVendorPins, type SkillsLock, writeSkillsLock } from './lock.js';
 import {
   fileSha256,
   installedHash,
+  isManagedCopy,
   managedPathConflict,
+  markManagedCopy,
   prepareManagedFile,
+  removeManagedCopyMarker,
   removeManagedFile,
 } from './managed-tree.js';
 
@@ -72,19 +75,6 @@ export function gmCliVersion(): string {
   const parsed = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as { version?: unknown };
   if (typeof parsed.version !== 'string') throw new Error('gm-cli package.json has no version');
   return parsed.version;
-}
-
-function readVendorPins(packDir: string): Record<string, string> {
-  const file = join(packDir, 'vendor', 'skills.lock');
-  if (!existsSync(file)) return {};
-  const parsed = JSON.parse(readFileSync(file, 'utf8')) as {
-    sets?: Record<string, { sha?: unknown }>;
-  };
-  return Object.fromEntries(
-    Object.entries(parsed.sets ?? {}).flatMap(([name, entry]) =>
-      typeof entry.sha === 'string' ? [[name, entry.sha] as const] : [],
-    ),
-  );
 }
 
 function sourcePack(packDir: string): { files: SourceFile[]; discovery: DiscoverySkill[] } {
@@ -270,7 +260,8 @@ function refreshManagedCopy(
     if (sourceFiles.has(path)) continue;
     const currentHash = installedHash(destination, path);
     if (currentHash === entry.sha256) {
-      changed ||= removeManagedFile(destination, path);
+      const removed = removeManagedFile(destination, path);
+      changed = removed || changed;
     } else if (currentHash !== null) localEdits = true;
   }
   return { changed, localEdits };
@@ -290,7 +281,8 @@ function removeOwnedDiscovery(
     rmSync(path, { force: true });
     return { changed: true, localEdits: false };
   }
-  if (oldLock.linkMode !== 'copy' || !statSync(path).isDirectory()) return { changed: false, localEdits: true };
+  if (oldLock.linkMode !== 'copy' || !statSync(path).isDirectory() || !isManagedCopy(path, skill.target))
+    return { changed: false, localEdits: true };
 
   const prefix = `${skill.target}/`;
   const owned = new Map(
@@ -307,6 +299,8 @@ function removeOwnedDiscovery(
       changed = true;
     } else if (current !== null) localEdits = true;
   }
+  const markerRemoved = removeManagedCopyMarker(path, skill.target);
+  changed = markerRemoved || changed;
   if (readdirSync(path).length === 0) {
     rmSync(path, { recursive: true, force: true });
     changed = true;
@@ -325,7 +319,6 @@ function installLinks(
   let usesCopy = false;
   const localEdits: string[] = [];
   const oldSkills = oldDiscoverySkills(oldLock);
-  const owned = new Set(oldSkills.map(({ name }) => name));
   const desired = new Set(skills.map(({ name }) => name));
   for (const parentName of ['.codex', '.agents']) {
     const parent = join(repoDir, parentName, 'skills');
@@ -343,21 +336,29 @@ function installLinks(
       const expected = slash(relative(parent, canonical));
       const exists = lstatExists(path);
       if (exists && lstatSync(path).isSymbolicLink() && readlinkSync(path) === expected && existsSync(path)) continue;
-      if (exists && !lstatSync(path).isSymbolicLink() && oldLock?.linkMode === 'copy') {
+      if (
+        exists &&
+        !lstatSync(path).isSymbolicLink() &&
+        oldLock?.linkMode === 'copy' &&
+        isManagedCopy(path, skill.target)
+      ) {
         usesCopy = true;
         const refreshed = refreshManagedCopy(canonical, path, skill.target, oldLock, force);
         changed ||= refreshed.changed;
         if (refreshed.localEdits) localEdits.push(`${parentName}/skills/${skill.name}`);
         continue;
       }
-      if (exists && !owned.has(skill.name)) continue;
-      if (exists) rmSync(path, { recursive: true, force: true });
+      if (exists) {
+        localEdits.push(`${parentName}/skills/${skill.name}`);
+        continue;
+      }
       try {
         createLink(expected, path);
       } catch (error) {
         const code = (error as NodeJS.ErrnoException).code;
         if (!['EACCES', 'EPERM', 'EXDEV', 'ENOSYS'].includes(code ?? '')) throw error;
         cpSync(canonical, path, { recursive: true });
+        markManagedCopy(path, skill.target);
         usesCopy = true;
       }
       changed = true;

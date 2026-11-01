@@ -6,6 +6,7 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
+  rmdirSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -93,7 +94,7 @@ export const command: GmCommand = {
           2,
         )}\n`,
       );
-      if (existsSync(destination)) rmSync(destination, { recursive: true });
+      if (existsSync(destination)) rmdirSync(destination);
       renameSync(staging, destination);
     } finally {
       if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });

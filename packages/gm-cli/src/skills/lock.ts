@@ -12,6 +12,17 @@ export type SkillsLock = {
   linkMode?: 'copy';
 };
 
+export function readVendorPins(packDir: string): Record<string, string> {
+  const file = join(packDir, 'vendor', 'skills.lock');
+  if (!existsSync(file)) return {};
+  const parsed = JSON.parse(readFileSync(file, 'utf8')) as { sets?: Record<string, { sha?: unknown }> };
+  return Object.fromEntries(
+    Object.entries(parsed.sets ?? {}).flatMap(([name, entry]) =>
+      typeof entry.sha === 'string' ? [[name, entry.sha] as const] : [],
+    ),
+  );
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }

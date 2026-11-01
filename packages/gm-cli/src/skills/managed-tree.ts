@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { lstatSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function lstatExists(path: string): boolean {
@@ -9,6 +9,23 @@ function lstatExists(path: string): boolean {
   } catch {
     return false;
   }
+}
+
+const COPY_MARKER = '.gm-pack-copy';
+
+export function isManagedCopy(destination: string, target: string): boolean {
+  const marker = join(destination, COPY_MARKER);
+  return lstatExists(marker) && lstatSync(marker).isFile() && readFileSync(marker, 'utf8') === `${target}\n`;
+}
+
+export function markManagedCopy(destination: string, target: string): void {
+  writeFileSync(join(destination, COPY_MARKER), `${target}\n`);
+}
+
+export function removeManagedCopyMarker(destination: string, target: string): boolean {
+  if (!isManagedCopy(destination, target)) return false;
+  rmSync(join(destination, COPY_MARKER), { force: true });
+  return true;
 }
 
 export function fileSha256(file: string): string {
