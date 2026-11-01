@@ -1,0 +1,38 @@
+{
+  "build": {
+    "id": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gitSha": "0123456789abcdef0123456789abcdef01234567",
+    "sdkVersion": "1.0.0",
+    "saveSchemaVersion": 1,
+    "achievementCatalogHash": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "status": "tested",
+    "artifact": "present",
+    "createdAt": "2026-11-01T12:00:00.000Z"
+  },
+  "overrideSnapshot": {
+    "id": "snapshot_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "buildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "headRev": 1,
+    "sha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "entries": [],
+    "entityOps": []
+  },
+  "release": {
+    "id": "release_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "seq": 1,
+    "version": "1.0.0",
+    "buildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "snapshotId": "snapshot_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gitTag": "v1.0.0",
+    "kind": "publish",
+    "changelog": { "summary": "First release", "items": [{ "kind": "add", "text": "A locked door" }] },
+    "publishedBy": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "publishedAt": "2026-11-01T12:00:00.000Z"
+  },
+  "changeNote": { "kind": "add", "text": "A locked door" }
+}

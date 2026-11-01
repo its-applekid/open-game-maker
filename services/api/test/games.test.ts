@@ -9,6 +9,7 @@ const familyId = 'f-family';
 const creator: TestUser = {
   kind: 'user',
   userId: 'u-creator',
+  displayName: 'Creator',
   email: 'creator@example.com',
   familyId,
   platformRole: 'none',
@@ -17,6 +18,7 @@ const creator: TestUser = {
 const admin: TestUser = {
   kind: 'user',
   userId: 'u-admin',
+  displayName: 'Admin',
   email: 'admin@example.com',
   familyId,
   platformRole: 'admin',
@@ -25,6 +27,7 @@ const admin: TestUser = {
 const player: TestUser = {
   kind: 'user',
   userId: 'u-player',
+  displayName: 'Player',
   email: 'player@example.com',
   familyId,
   platformRole: 'none',

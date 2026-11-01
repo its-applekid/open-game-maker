@@ -1,0 +1,744 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "designDoc": {
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "globals": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {}
+        },
+        "entities": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+              },
+              "prefab": {
+                "type": "string",
+                "minLength": 1
+              },
+              "level": {
+                "type": "string",
+                "minLength": 1
+              },
+              "origin": {
+                "type": "string",
+                "enum": [
+                  "build",
+                  "creator"
+                ]
+              },
+              "props": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              }
+            },
+            "required": [
+              "id",
+              "prefab",
+              "level",
+              "origin",
+              "props"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "schemaVersion",
+        "globals",
+        "entities"
+      ],
+      "additionalProperties": {}
+    },
+    "command": {
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "set"
+            },
+            "control": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targets": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  }
+                },
+                {
+                  "type": "string",
+                  "const": "global"
+                }
+              ]
+            },
+            "value": {}
+          },
+          "required": [
+            "op",
+            "control",
+            "targets",
+            "value"
+          ],
+          "additionalProperties": {}
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "invoke"
+            },
+            "command": {
+              "type": "string",
+              "minLength": 1
+            },
+            "args": {},
+            "targets": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+              }
+            }
+          },
+          "required": [
+            "op",
+            "command",
+            "args"
+          ],
+          "additionalProperties": {}
+        },
+        {
+          "type": "object",
+          "properties": {
+            "op": {
+              "type": "string",
+              "const": "reset"
+            },
+            "control": {
+              "type": "string",
+              "minLength": 1
+            },
+            "targets": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  }
+                },
+                {
+                  "type": "string",
+                  "const": "global"
+                }
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "control",
+            "targets"
+          ],
+          "additionalProperties": {}
+        }
+      ]
+    },
+    "transaction": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "branchId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "rev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "baseRev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "leaseToken": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "actor": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "manual",
+            "system",
+            "merge"
+          ]
+        },
+        "label": {
+          "type": "string"
+        },
+        "baseBuildId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "commands": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "const": "set"
+                  },
+                  "control": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "targets": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                        }
+                      },
+                      {
+                        "type": "string",
+                        "const": "global"
+                      }
+                    ]
+                  },
+                  "value": {}
+                },
+                "required": [
+                  "op",
+                  "control",
+                  "targets",
+                  "value"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "const": "invoke"
+                  },
+                  "command": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "args": {},
+                  "targets": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                    }
+                  }
+                },
+                "required": [
+                  "op",
+                  "command",
+                  "args"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "op": {
+                    "type": "string",
+                    "const": "reset"
+                  },
+                  "control": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "targets": {
+                    "anyOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                        }
+                      },
+                      {
+                        "type": "string",
+                        "const": "global"
+                      }
+                    ]
+                  }
+                },
+                "required": [
+                  "op",
+                  "control",
+                  "targets"
+                ],
+                "additionalProperties": {}
+              }
+            ]
+          }
+        },
+        "patches": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "replace",
+                  "add",
+                  "remove"
+                ]
+              },
+              "path": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              },
+              "value": {}
+            },
+            "required": [
+              "op",
+              "path"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "inverse": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "op": {
+                "type": "string",
+                "enum": [
+                  "replace",
+                  "add",
+                  "remove"
+                ]
+              },
+              "path": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    }
+                  ]
+                }
+              },
+              "value": {}
+            },
+            "required": [
+              "op",
+              "path"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+        }
+      },
+      "required": [
+        "id",
+        "gameId",
+        "branchId",
+        "rev",
+        "baseRev",
+        "leaseToken",
+        "actor",
+        "kind",
+        "label",
+        "baseBuildId",
+        "commands",
+        "patches",
+        "inverse",
+        "createdAt"
+      ],
+      "additionalProperties": {}
+    },
+    "workingSet": {
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "branchId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "buildId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "headRev": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "entries": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "pattern": "^[^@]+@[^@]+$"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              },
+              "controlId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "targetId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  {
+                    "type": "string",
+                    "const": "global"
+                  }
+                ]
+              },
+              "value": {},
+              "baseValueAtEdit": {},
+              "txId": {
+                "type": "string",
+                "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+              },
+              "rev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "carried",
+                  "renamed",
+                  "needs_choice",
+                  "conflict",
+                  "dropped"
+                ]
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "value_invalid",
+                  "control_removed",
+                  "target_removed",
+                  "superseded_by_job",
+                  "builder_changed",
+                  "migration_failed"
+                ]
+              }
+            },
+            "required": [
+              "key",
+              "controlId",
+              "targetId",
+              "value",
+              "baseValueAtEdit",
+              "txId",
+              "rev",
+              "status"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "entityOps": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "oneOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "create"
+                  },
+                  "entityId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  "parent": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "prefab": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "props": {
+                    "type": "object",
+                    "propertyNames": {
+                      "type": "string"
+                    },
+                    "additionalProperties": {}
+                  },
+                  "txId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entityId",
+                  "parent",
+                  "prefab",
+                  "props",
+                  "txId"
+                ],
+                "additionalProperties": {}
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "type": "string",
+                    "const": "delete"
+                  },
+                  "entityId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  },
+                  "txId": {
+                    "type": "string",
+                    "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "entityId",
+                  "txId"
+                ],
+                "additionalProperties": {}
+              }
+            ]
+          }
+        }
+      },
+      "required": [
+        "gameId",
+        "branchId",
+        "buildId",
+        "headRev",
+        "entries",
+        "entityOps"
+      ],
+      "additionalProperties": {}
+    },
+    "reapplyReport": {
+      "type": "object",
+      "properties": {
+        "gameId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "branchId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "fromBuildId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "toBuildId": {
+          "type": "string",
+          "pattern": "^(?:[a-z][a-z0-9]*_)?[0-7][0-9A-HJKMNP-TV-Z]{25}$"
+        },
+        "carried": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[^@]+@[^@]+$"
+          }
+        },
+        "renamed": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "from": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              },
+              "to": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "needsChoice": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              },
+              "mine": {},
+              "allowed": {}
+            },
+            "required": [
+              "key",
+              "mine",
+              "allowed"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "conflicts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              },
+              "mine": {},
+              "builder": {}
+            },
+            "required": [
+              "key",
+              "mine",
+              "builder"
+            ],
+            "additionalProperties": {}
+          }
+        },
+        "dropped": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string",
+                "pattern": "^[^@]+@[^@]+$"
+              },
+              "reason": {
+                "type": "string",
+                "enum": [
+                  "value_invalid",
+                  "control_removed",
+                  "target_removed",
+                  "superseded_by_job",
+                  "builder_changed",
+                  "migration_failed"
+                ]
+              }
+            },
+            "required": [
+              "key",
+              "reason"
+            ],
+            "additionalProperties": {}
+          }
+        }
+      },
+      "required": [
+        "gameId",
+        "branchId",
+        "fromBuildId",
+        "toBuildId",
+        "carried",
+        "renamed",
+        "needsChoice",
+        "conflicts",
+        "dropped"
+      ],
+      "additionalProperties": {}
+    }
+  },
+  "required": [
+    "designDoc",
+    "command",
+    "transaction",
+    "workingSet",
+    "reapplyReport"
+  ],
+  "additionalProperties": {},
+  "$id": "https://open-game-maker-2000.local/schemas/design-log.v1.json"
+}

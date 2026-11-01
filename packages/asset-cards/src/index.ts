@@ -22,3 +22,4 @@ export {
   type StyleFamilyApi,
   type StyleFamilyId,
 } from './families.js';
+export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';
