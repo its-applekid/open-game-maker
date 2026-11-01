@@ -15,8 +15,8 @@ use. Work here the way those agents will work: dogfood the skills.
   `~/.local/share/ogm/forge-venv/bin/python` (no `python` on PATH). No API key is configured, so `route_media.py` falls
   back to the signed-in Codex CLI; never add a provider key (it counts as consent to spend) and ask Kevin before any
   generation. Never send paid-pack assets to it as references (no cloud processing of paid assets).
-- **Self-improvement:** keep the hourly `meta-improve` listener running (it schedules itself; check with `CronList`
-  at the start of a session). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
+- **Self-improvement:** keep the hourly `meta-improve` listener running (a silent background shell, `scripts/listen.sh`
+  in the skill, that wakes the agent only after Kevin has written; start it at the start of a session, no cron). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
   serials. Origin is an SSH URL with no key here: push over HTTPS with gh credentials,
   `git -C <repo> -c credential.helper='!gh auth git-credential' push "$(git -C <repo> remote get-url origin | sed 's#git@github.com:#https://github.com/#')" research`
