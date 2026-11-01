@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import type { ApiBindings, AppDeps } from './types.js';
 
 type RoutesModule = {
+  allowSharedPrefix?: unknown;
   default?: unknown;
   prefix?: unknown;
   setup?: unknown;
@@ -37,8 +38,10 @@ export async function scanRoutes(
     const module = (await import(pathToFileURL(file).href)) as RoutesModule;
     if (!(module.default instanceof Hono)) throw new Error(`${file}: default export must be a Hono app`);
     const prefix = module.prefix ?? `/api/v1/${context}`;
+    const allowSharedPrefix = module.allowSharedPrefix ?? false;
     if (typeof prefix !== 'string' || !prefix.startsWith('/')) throw new Error(`${file}: prefix must start with /`);
-    if (mounted.some((entry) => entry.prefix === prefix))
+    if (typeof allowSharedPrefix !== 'boolean') throw new Error(`${file}: allowSharedPrefix must be a boolean`);
+    if (mounted.some((entry) => entry.prefix === prefix) && !(prefix === '/' && allowSharedPrefix))
       throw new Error(`${file}: prefix ${prefix} is already mounted`);
     if (module.setup !== undefined && typeof module.setup !== 'function') {
       throw new Error(`${file}: setup must be a function`);

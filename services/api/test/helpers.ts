@@ -19,13 +19,20 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
   const { sqlite, db } = openDb(':memory:');
   migrate({ sqlite });
   const lines: LogLine[] = [];
+  const privateDirectory = mkdtempSync(join(tmpdir(), 'ogm-api-private-'));
   const log = (line: LogLine) => {
     lines.push(line);
   };
   return {
     db,
     sqlite,
-    config: { internalToken: INTERNAL_TOKEN, jobTokenSecret: JOB_SECRET, blobSigningKey: BLOB_KEY },
+    config: {
+      internalToken: INTERNAL_TOKEN,
+      jobTokenSecret: JOB_SECRET,
+      blobSigningKey: BLOB_KEY,
+      vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
+      vapidSubject: 'mailto:operator@example.test',
+    },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),
       signingKey: BLOB_KEY,

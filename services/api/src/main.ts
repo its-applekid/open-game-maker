@@ -26,6 +26,8 @@ const deps: AppDeps = {
     internalToken: env.OGM_INTERNAL_TOKEN,
     jobTokenSecret: env.OGM_JOB_TOKEN_SECRET,
     blobSigningKey: env.OGM_BLOB_SIGNING_KEY,
+    vapidKeyFile: env.OGM_VAPID_KEY_FILE,
+    vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,

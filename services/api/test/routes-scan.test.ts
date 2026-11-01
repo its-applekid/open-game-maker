@@ -76,8 +76,17 @@ export default new Hono().get('/seen', (c) => c.text(seen));
     );
   });
 
+  it('allows contexts with non-overlapping absolute routes to share the root prefix', async () => {
+    const first = `import { Hono } from 'hono';\nexport const prefix = '/';\nexport default new Hono().get('/one', (c) => c.text('one'));\n`;
+    const second = `import { Hono } from 'hono';\nexport const prefix = '/';\nexport const allowSharedPrefix = true;\nexport default new Hono().get('/two', (c) => c.text('two'));\n`;
+    const { app, mounted } = await scan(tempRoot({ a: { 'routes.ts': first }, b: { 'routes.ts': second } }));
+    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/', '/']);
+    expect(await (await app.request('/one')).text()).toBe('one');
+    expect(await (await app.request('/two')).text()).toBe('two');
+  });
+
   it('mounts the shipped contexts', async () => {
     const { mounted } = await makeApp();
-    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/blobs', '/']);
+    expect(mounted.map(({ prefix }) => prefix)).toEqual(['/blobs', '/', '/']);
   });
 });

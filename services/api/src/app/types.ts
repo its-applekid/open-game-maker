@@ -10,7 +10,13 @@ export type LogLine = Record<string, unknown>;
 export interface AppDeps {
   db: Db;
   sqlite: Sqlite;
-  config: { internalToken: string; jobTokenSecret: string; blobSigningKey: string };
+  config: {
+    internalToken: string;
+    jobTokenSecret: string;
+    blobSigningKey: string;
+    vapidKeyFile: string;
+    vapidSubject: string;
+  };
   blobStore: BlobStore;
   events: AppEvents;
   registry: Registry;
