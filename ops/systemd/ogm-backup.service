@@ -1,0 +1,16 @@
+# OGM backup. Installed by ops/bin/ogm-host-setup.sh (replaces @REPO@). Logs: journalctl --user -u ogm-backup
+[Unit]
+Description=OGM backup
+
+[Service]
+Type=oneshot
+Slice=ogm.slice
+Environment=OGM_REPO=@REPO@
+EnvironmentFile=-%h/.config/ogm/env/backup.env
+ExecStart=@REPO@/ops/bin/ogm-run backup
+UMask=0077
+NoNewPrivileges=yes
+KillMode=mixed
+TimeoutStopSec=30
+LogRateLimitIntervalSec=30
+LogRateLimitBurst=1000
