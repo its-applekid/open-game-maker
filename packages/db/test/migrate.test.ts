@@ -34,6 +34,9 @@ describe('migrate', () => {
         '20261101170027_design_log.sql',
         '20261101172625_jobs_budget.sql',
         '20261101183204_build_chat.sql',
+        '20261101202553_builds.sql',
+        '20261101202637_releases.sql',
+        '20261101202700_games_published_release.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -54,6 +57,9 @@ describe('migrate', () => {
       'migration:20261101170027_design_log.sql',
       'migration:20261101172625_jobs_budget.sql',
       'migration:20261101183204_build_chat.sql',
+      'migration:20261101202553_builds.sql',
+      'migration:20261101202637_releases.sql',
+      'migration:20261101202700_games_published_release.sql',
     ]);
     sqlite.close();
   });
