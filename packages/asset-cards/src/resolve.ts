@@ -50,7 +50,7 @@ export function resolve(card: AssetCard, collections: Record<string, AssetCard>)
 
   const describe = card.describe ?? {};
   const parentDescribe = parent?.describe ?? {};
-  const pick = <K extends 'style_family' | 'pov_fit' | 'settings' | 'environments'>(key: K) => {
+  const pick = <K extends 'style_family' | 'set' | 'pov_fit' | 'settings' | 'environments'>(key: K) => {
     if (describe[key] !== undefined) return describe[key];
     if (parentDescribe[key] === undefined) return undefined;
     provenance[`describe.${key}`] = { by: 'collection' };
@@ -59,10 +59,12 @@ export function resolve(card: AssetCard, collections: Record<string, AssetCard>)
 
   const resolved: ResolvedCard['resolved'] = { license: license ?? 'NOASSERTION', rights, provenance };
   const styleFamily = pick('style_family');
+  const set = pick('set');
   const povFit = pick('pov_fit');
   const settings = pick('settings');
   const environments = pick('environments');
   if (styleFamily !== undefined) resolved.style_family = styleFamily;
+  if (set !== undefined) resolved.set = set;
   if (povFit !== undefined) resolved.pov_fit = povFit;
   if (settings !== undefined) resolved.settings = settings;
   if (environments !== undefined) resolved.environments = environments;

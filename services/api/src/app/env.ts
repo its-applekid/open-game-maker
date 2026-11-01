@@ -11,6 +11,8 @@ export const apiEnvSpec = {
   OGM_ANALYTICS_RETENTION_DAYS: { kind: 'int', default: '90' },
   OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: { kind: 'int', default: '5000000' },
   OGM_RESET_ZONE_DEFAULT: { kind: 'string', default: hostTimeZone },
+  OGM_INTAKE_DIR: { kind: 'path', required: false },
+  OGM_REPORT_BUNDLE_MAX_BYTES: { kind: 'int', default: '2097152' },
   OGM_DATA_DIR: { kind: 'path' },
   OGM_GAMES_ROOT: { kind: 'path', required: false },
   OGM_INTERNAL_TOKEN: { kind: 'secret' },
@@ -48,6 +50,9 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
   }
   if (voiceUrl !== undefined && env.OGM_VOICE_INTERNAL_SECRET === undefined) {
     throw new ConfigError('api', ['OGM_VOICE_INTERNAL_SECRET'], []);
+  }
+  if (env.OGM_REPORT_BUNDLE_MAX_BYTES <= 0) {
+    throw new ConfigError('api', [], [{ name: 'OGM_REPORT_BUNDLE_MAX_BYTES', reason: 'must be a positive integer' }]);
   }
   return env;
 }

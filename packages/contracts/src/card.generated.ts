@@ -526,6 +526,10 @@ export interface Describe {
     | "photoreal"
     | "any";
   /**
+   * Measured visual-compatibility group nested under style_family.
+   */
+  set?: string;
+  /**
    * Items: SDK camera rig ids (C2 §4).
    */
   pov_fit?: ("iso" | "topdown" | "side" | "follow" | "fps" | "orbit" | "fixed")[];
@@ -3158,6 +3162,7 @@ export interface ProposedTag {
     | "materials"
     | "condition"
     | "style_family"
+    | "set"
     | "pov_fit"
     | "subkind"
     | "kitPiece"
