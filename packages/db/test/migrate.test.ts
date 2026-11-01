@@ -33,7 +33,7 @@ describe('migrate', () => {
         '20261101153851_auth.sql',
         '20261101170027_design_log.sql',
         '20261101172625_jobs_budget.sql',
-        '20261101175004_rooms.sql',
+        '20261101183102_rooms.sql',
         '20261101183204_build_chat.sql',
         '20261101194843_reports.sql',
       ],
@@ -55,7 +55,7 @@ describe('migrate', () => {
       'migration:20261101153851_auth.sql',
       'migration:20261101170027_design_log.sql',
       'migration:20261101172625_jobs_budget.sql',
-      'migration:20261101175004_rooms.sql',
+      'migration:20261101183102_rooms.sql',
       'migration:20261101183204_build_chat.sql',
       'migration:20261101194843_reports.sql',
     ]);

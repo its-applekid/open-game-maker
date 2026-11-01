@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "09e1c883-d53a-4c3d-9867-74721ee2a595",
-  "prevId": "0d258ded-f012-467c-945f-3c13364dd506",
+  "id": "da0c4d1d-a3ac-4f2e-a9ef-71cc9bc79ed4",
+  "prevId": "b0c19459-b595-4388-9493-22694cd687e7",
   "tables": {
     "app_meta": {
       "name": "app_meta",
@@ -2219,6 +2219,571 @@
         "edit_leases_token_check": {
           "name": "edit_leases_token_check",
           "value": "\"edit_leases\".\"token\" > 0"
+        }
+      }
+    },
+    "jobs": {
+      "name": "jobs",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "family_id": {
+          "name": "family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "creator_id": {
+          "name": "creator_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "complexity": {
+          "name": "complexity",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "paused_reason": {
+          "name": "paused_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "start": {
+          "name": "start",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "start_at": {
+          "name": "start_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "slot": {
+          "name": "slot",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "plan": {
+          "name": "plan",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reservation": {
+          "name": "reservation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hard_cap_micro_usd": {
+          "name": "hard_cap_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "usage_micro_usd": {
+          "name": "usage_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "aiur_repo": {
+          "name": "aiur_repo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aiur_issue_number": {
+          "name": "aiur_issue_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aiur_spend_cap_micro_usd": {
+          "name": "aiur_spend_cap_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "idempotency_key": {
+          "name": "idempotency_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "terminal_at": {
+          "name": "terminal_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "jobs_family_state": {
+          "name": "jobs_family_state",
+          "columns": ["family_id", "state"],
+          "isUnique": false
+        },
+        "jobs_game_created": {
+          "name": "jobs_game_created",
+          "columns": ["game_id", "created_at"],
+          "isUnique": false
+        },
+        "jobs_aiur_ticket": {
+          "name": "jobs_aiur_ticket",
+          "columns": ["aiur_repo", "aiur_issue_number"],
+          "isUnique": true
+        },
+        "jobs_creator_idempotency": {
+          "name": "jobs_creator_idempotency",
+          "columns": ["creator_id", "idempotency_key"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "jobs_game_id_games_id_fk": {
+          "name": "jobs_game_id_games_id_fk",
+          "tableFrom": "jobs",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "jobs_family_id_families_id_fk": {
+          "name": "jobs_family_id_families_id_fk",
+          "tableFrom": "jobs",
+          "tableTo": "families",
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "jobs_kind": {
+          "name": "jobs_kind",
+          "value": "\"jobs\".\"kind\" IN ('new_game', 'feature', 'repair', 'scope')"
+        },
+        "jobs_complexity": {
+          "name": "jobs_complexity",
+          "value": "\"jobs\".\"complexity\" BETWEEN 1 AND 5"
+        },
+        "jobs_state": {
+          "name": "jobs_state",
+          "value": "\"jobs\".\"state\" IN ('queued', 'admitted', 'filed', 'running', 'paused_budget', 'done', 'failed', 'cancelled')"
+        },
+        "jobs_paused_reason": {
+          "name": "jobs_paused_reason",
+          "value": "\"jobs\".\"paused_reason\" IS NULL OR \"jobs\".\"paused_reason\" IN ('over_reservation', 'budget_exhausted', 'admin')"
+        },
+        "jobs_start": {
+          "name": "jobs_start",
+          "value": "\"jobs\".\"start\" IN ('now', 'at_reset')"
+        },
+        "jobs_slot": {
+          "name": "jobs_slot",
+          "value": "\"jobs\".\"slot\" IN ('new_game', 'edit')"
+        },
+        "jobs_amounts": {
+          "name": "jobs_amounts",
+          "value": "\"jobs\".\"hard_cap_micro_usd\" >= 0 AND \"jobs\".\"usage_micro_usd\" >= 0"
+        }
+      }
+    },
+    "allowances": {
+      "name": "allowances",
+      "columns": {
+        "family_id": {
+          "name": "family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "daily_micro_usd": {
+          "name": "daily_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "allowances_family_id_families_id_fk": {
+          "name": "allowances_family_id_families_id_fk",
+          "tableFrom": "allowances",
+          "tableTo": "families",
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "allowances_family_id_user_id_pk": {
+          "columns": ["family_id", "user_id"],
+          "name": "allowances_family_id_user_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "allowances_daily": {
+          "name": "allowances_daily",
+          "value": "\"allowances\".\"daily_micro_usd\" >= 0"
+        }
+      }
+    },
+    "budget_ledger": {
+      "name": "budget_ledger",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "family_id": {
+          "name": "family_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "amount_micro_usd": {
+          "name": "amount_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "aiur_run_id": {
+          "name": "aiur_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "day_key": {
+          "name": "day_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "budget_ledger_family_day": {
+          "name": "budget_ledger_family_day",
+          "columns": ["family_id", "day_key"],
+          "isUnique": false
+        },
+        "budget_ledger_user_day": {
+          "name": "budget_ledger_user_day",
+          "columns": ["family_id", "user_id", "day_key"],
+          "isUnique": false
+        },
+        "budget_ledger_job": {
+          "name": "budget_ledger_job",
+          "columns": ["job_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "budget_ledger_family_id_families_id_fk": {
+          "name": "budget_ledger_family_id_families_id_fk",
+          "tableFrom": "budget_ledger",
+          "tableTo": "families",
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "budget_ledger_job_id_jobs_id_fk": {
+          "name": "budget_ledger_job_id_jobs_id_fk",
+          "tableFrom": "budget_ledger",
+          "tableTo": "jobs",
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "budget_ledger_kind": {
+          "name": "budget_ledger_kind",
+          "value": "\"budget_ledger\".\"kind\" IN ('reservation', 'release', 'usage', 'adjustment')"
+        },
+        "budget_ledger_amount": {
+          "name": "budget_ledger_amount",
+          "value": "\"budget_ledger\".\"amount_micro_usd\" >= 0"
+        }
+      }
+    },
+    "family_budget_settings": {
+      "name": "family_budget_settings",
+      "columns": {
+        "family_id": {
+          "name": "family_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reset_zone": {
+          "name": "reset_zone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unit_label": {
+          "name": "unit_label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "micro_usd_per_unit": {
+          "name": "micro_usd_per_unit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "platform_cap_micro_usd": {
+          "name": "platform_cap_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "slots_new_game": {
+          "name": "slots_new_game",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slots_edit": {
+          "name": "slots_edit",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hard_cap_multiplier": {
+          "name": "hard_cap_multiplier",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "family_budget_settings_family_id_families_id_fk": {
+          "name": "family_budget_settings_family_id_families_id_fk",
+          "tableFrom": "family_budget_settings",
+          "tableTo": "families",
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "family_budget_settings_values": {
+          "name": "family_budget_settings_values",
+          "value": "\"family_budget_settings\".\"micro_usd_per_unit\" > 0 AND (\"family_budget_settings\".\"platform_cap_micro_usd\" IS NULL OR \"family_budget_settings\".\"platform_cap_micro_usd\" >= 0)"
+        },
+        "family_budget_settings_slots": {
+          "name": "family_budget_settings_slots",
+          "value": "\"family_budget_settings\".\"slots_new_game\" >= 0 AND \"family_budget_settings\".\"slots_edit\" >= 0 AND \"family_budget_settings\".\"hard_cap_multiplier\" > 0"
+        }
+      }
+    },
+    "size_classes": {
+      "name": "size_classes",
+      "columns": {
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "size_class": {
+          "name": "size_class",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "p50_micro_usd": {
+          "name": "p50_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "p80_micro_usd": {
+          "name": "p80_micro_usd",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "samples": {
+          "name": "samples",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "size_classes_kind_size_class_pk": {
+          "columns": ["kind", "size_class"],
+          "name": "size_classes_kind_size_class_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "size_classes_kind": {
+          "name": "size_classes_kind",
+          "value": "\"size_classes\".\"kind\" IN ('new_game', 'feature', 'repair')"
+        },
+        "size_classes_size": {
+          "name": "size_classes_size",
+          "value": "\"size_classes\".\"size_class\" IN ('small', 'medium', 'large', 'huge')"
+        },
+        "size_classes_amounts": {
+          "name": "size_classes_amounts",
+          "value": "\"size_classes\".\"p50_micro_usd\" >= 0 AND \"size_classes\".\"p80_micro_usd\" >= \"size_classes\".\"p50_micro_usd\" AND \"size_classes\".\"samples\" >= 0"
         }
       }
     },
