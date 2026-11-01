@@ -43,6 +43,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'default IANA time zone for family budget resets',
   },
   {
+    name: 'OGM_INTAKE_DIR',
+    unit: 'api',
+    kind: 'path',
+    doc: 'assets-local/inbox (Drive intake queue, read-only for the admin API)',
+  },
+  {
     name: 'OGM_REPORT_BUNDLE_MAX_BYTES',
     unit: 'api',
     kind: 'int',
