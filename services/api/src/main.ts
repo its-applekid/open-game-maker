@@ -45,6 +45,7 @@ const deps: AppDeps = {
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
+    reportBundleMaxBytes: env.OGM_REPORT_BUNDLE_MAX_BYTES,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,
