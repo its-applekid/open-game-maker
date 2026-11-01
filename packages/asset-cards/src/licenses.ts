@@ -76,6 +76,15 @@ export const LICENSES: LicenseRow[] = [
     confirmed: { by: 'kevin', on: '2026-10-30' },
   },
   {
+    id: 'LicenseRef-smallscaleint-itch',
+    aliases: ['smallscaleint-itch'],
+    ceiling: { uses: PIXEL_USES, audience: 'private', redistribution: 'in-build', attribution: null },
+    processing: 'local-only',
+    ref: 'itch.io store page',
+    note: 'Private SmallScaleInt purchase; use only in builds, never redistribute raw files, and process locally.',
+    confirmed: { by: 'kevin', on: '2026-11-01' },
+  },
+  {
     id: 'LicenseRef-sidetrax-royalty-free',
     aliases: ['sidetrax-royalty-free'],
     ceiling: {

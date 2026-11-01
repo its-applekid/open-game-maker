@@ -58,12 +58,14 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
     ...(describe.keywords ?? []),
     ...(describe.roles ?? []),
     ...(describe.moods ?? []),
+    describe.world,
     ...(card.resolved.environments ?? []),
     ...(card.resolved.settings ?? []),
     card.kind,
     card.subkind,
     card.id,
     ...(card.source?.files ?? []).map((file) => file.path),
+    ...(card.sprite?.animations ?? []).map((animation) => animation.name),
   ];
   return [
     [3, tokens(card.title)],

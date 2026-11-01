@@ -18,9 +18,11 @@ sys.path.insert(0, str(HERE.parent / "py" / "audio"))
 import build_collection_cards as bcc  # noqa: E402
 import import_sidetrax  # noqa: E402
 import install_itch_pack  # noqa: E402
+import test_smallscaleint  # noqa: E402
 
 KENNEY = "kenney-1-bit-pack"  # ids with rows in data/collection_tags.jsonl
 SYNTY = "synty-animation-goblin-locomotion"
+png = test_smallscaleint.png
 
 
 def add_pack(root: Path, pid: str, vendor: str, license: str, files: dict, ver: str = "1.0") -> Path:
@@ -51,6 +53,11 @@ class Library(unittest.TestCase):
         add_pack(self.root, KENNEY, "kenney", "CC0-1.0", {"Tiles/a.png": b"p", "License.txt": b"cc0"})
         add_pack(self.root, SYNTY, "synty", "synty-personal", {"Anim/run.fbx": b"f"}, ver="v1")
         add_pack(self.root, "limezu-test-pack", "limezu", "LimeZu-commercial", {"a.png": b"p"}, ver="2026-10-30")
+        add_pack(self.root, "smallscaleint-2d-character-knight", "smallscaleint", "smallscaleint-itch", {
+            **{f"Knight/Attack/{direction}/{frame}.png": png(64, 64) for direction in ("E", "N", "NE", "NW", "S", "SE", "SW", "W") for frame in range(2)},
+            "Spritesheets/Shadowless/Knight/Attack.png": png(128, 512),
+            "Spritesheets/With shadow/Knight/Attack.png": png(128, 512),
+        })
         add_pack(self.root, "kaykit-adventurers", "kaykit", "kaykit", {"Models/gltf/Barrel.gltf": b"{}", "License.txt": b"cc0"}, ver="1.0")
         side = add_pack(self.root, "sidetrax-pack-60-battle", "sidetrax", "sidetrax-royalty-free", {"Charge.wav": b"RIFF"}, ver="v1")
         (side / "collection.card.json").write_text(json.dumps(import_sidetrax.draft_card("sidetrax-pack-60-battle", "Pack 60: Battle", 1, True)))
@@ -87,6 +94,43 @@ class Library(unittest.TestCase):
         self.assertEqual(c["describe"], {"description": "Test Pack (Limezu)"})
         self.assertEqual(c["provenance"]["describe"]["by"], "filename")
         self.assertEqual(c["rights"]["attribution"], "LimeZu")
+
+    def test_smallscaleint_pack_gets_world_and_one_semantic_character_card(self):
+        rep = bcc.run(self.root)
+        self.assertEqual(rep["failures"], {})
+        pack = "smallscaleint-2d-character-knight"
+        c = card_of(self.root, pack)
+        self.assertEqual((c["describe"]["style_family"], c["describe"]["set"], c["describe"]["world"]),
+                         ("isometric-2d", "smallscaleint", "fantasy"))
+        cards = list((self.root / "packs" / pack / "cards").rglob("*.card.json"))
+        self.assertEqual(len(cards), 1)
+        item = json.loads(cards[0].read_text())
+        self.assertEqual((item["subkind"], [a["name"] for a in item["sprite"]["animations"]]),
+                         ("character", ["attack"]))
+        self.assertTrue(validator_ok(self.root / "packs" / pack / "collection.card.json", cards[0]))
+
+    def test_smallscaleint_layout_failure_replaces_neither_collection_nor_item_cards(self):
+        pack = "smallscaleint-2d-character-knight"
+        sheet = self.root / "packs" / pack / "1.0" / "extracted" / "Spritesheets" / "Shadowless" / "Knight" / "Attack.png"
+        sheet.write_bytes(png(130, 512))
+        rep = bcc.run(self.root, only=pack)
+        self.assertIn(pack, rep["failures"])
+        self.assertFalse((self.root / "packs" / pack / "collection.card.json").exists())
+        self.assertFalse((self.root / "packs" / pack / "cards").exists())
+
+    def test_filtered_smallscaleint_run_preserves_the_complete_sheet_tree(self):
+        second = "smallscaleint-2d-character-pack-1"
+        add_pack(self.root, second, "smallscaleint", "smallscaleint-itch", {
+            "Character/Idle/0.png": png(64, 64),
+            "Character/Idle/1.png": png(64, 64),
+        })
+        self.assertEqual(bcc.run(self.root)["failures"], {})
+        sheets = self.root / "sets" / "smallscaleint" / "sheets"
+        marker = sheets / "complete-run.marker"
+        marker.write_text("preserve until every installed pack is rebuilt")
+
+        self.assertEqual(bcc.run(self.root, only="smallscaleint-2d-character-knight")["failures"], {})
+        self.assertTrue(marker.exists())
 
     def test_sidetrax_gets_the_confirmed_licence_and_keeps_kevins_interpretation(self):
         """Kevin confirmed the Sidetrax licence: in-game opens, vision-input stays through his interpretation."""
@@ -211,6 +255,12 @@ class ItchInstaller(unittest.TestCase):
             rep = bcc.run(root)
             self.assertEqual(rep["failures"], {})
             self.assertEqual(card_of(root, "acme-ufo")["rights"], rights)
+
+
+def load_tests(loader, tests, pattern):
+    """The asset-card package's existing Python entrypoint also owns the SmallScaleInt reader suite."""
+    tests.addTests(loader.loadTestsFromModule(test_smallscaleint))
+    return tests
 
 
 if __name__ == "__main__":
