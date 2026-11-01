@@ -109,6 +109,31 @@ describe('thumbnail specimens and store references', () => {
     );
   });
 
+  it('accepts a store page with more than 20 media items within the bounded cap', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-store-'));
+    const pageUrl = 'https://smallscaleint.itch.io/media-heavy-pack';
+    const media = await Promise.all(
+      Array.from({ length: 21 }, (_, index) =>
+        sharp({ create: { width: 2, height: 2, channels: 4, background: { r: index, g: 0, b: 0, alpha: 1 } } })
+          .png()
+          .toBuffer(),
+      ),
+    );
+    const fetchImpl = async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url === pageUrl) {
+        const images = media.map((_, index) => `<img src="https://img.itch.zone/media-${index}.png">`).join('');
+        return new Response(images, { headers: { 'content-type': 'text/html' } });
+      }
+      const index = Number(/media-(\d+)\.png$/.exec(url)?.[1]);
+      return new Response(media[index], { headers: { 'content-type': 'image/png' } });
+    };
+
+    const manifest = await fetchStoreMedia({ root, packId: 'smallscaleint-media-heavy-pack', pageUrl, fetchImpl });
+
+    expect(manifest.media).toHaveLength(21);
+  });
+
   it('rejects a redirect away from the allowlisted page host without replacing prior metadata', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-store-'));
     const store = join(root, 'packs/smallscaleint-game/store');

@@ -17,7 +17,7 @@ const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
 const RENDERER_PAGE = resolve(TOOL_DIR, 'thumbnail-scene-page.html');
 const PAGE_LIMIT = 2 * 1024 * 1024;
 const MEDIA_LIMIT = 20 * 1024 * 1024;
-const MEDIA_COUNT_LIMIT = 20;
+const MEDIA_COUNT_LIMIT = 64;
 const MIME = { '.gif': 'image/gif', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
 
 function inside(root, candidate) {
