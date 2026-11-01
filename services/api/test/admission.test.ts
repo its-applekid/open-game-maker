@@ -162,6 +162,20 @@ describe('job admission', () => {
     ).resolves.toMatchObject({ state: 'queued', slot: 'edit', position: 2, reservation: { sizeClass: 'small' } });
   });
 
+  it('does not count released jobs against slot admission', async () => {
+    const { deps } = harness({ daily: 100_000_000 });
+    for (const id of ['j_edit_1', 'j_edit_2', 'j_edit_3']) insertActive(deps, id);
+    deps.db.update(schema.jobs).set({ releasedAt: NOW.toISOString() }).run();
+
+    await expect(
+      admit(
+        { db: deps.db, sqlite: deps.sqlite, events: deps.events, now: () => NOW, defaults },
+        request({ complexity: 1 }),
+        actor,
+      ),
+    ).resolves.toMatchObject({ state: 'admitted', slot: 'edit' });
+  });
+
   it('queues a second new-game job', async () => {
     const { deps } = harness({ daily: 100_000_000 });
     insertActive(deps, 'j_new_1', 'new_game');
