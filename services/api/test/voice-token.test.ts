@@ -93,6 +93,7 @@ describe('POST /api/v1/voice/token', () => {
     expect(prefix).toBe('vct1');
     expect(mac).toBe(createHmac('sha256', secret).update(signed).digest('base64url'));
     expect(claims).toMatchObject({ scope: 'converse', sub: creator.userId });
+    expect(claims.target).toEqual(buildTarget(gameId));
     expect(claims.exp as number).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + VOICE_TOKEN_TTL_SEC);
     expect(claims.exp as number).toBeGreaterThanOrEqual(before + VOICE_TOKEN_TTL_SEC);
     expect(Date.parse(body.expires_at)).toBe((claims.exp as number) * 1000);
@@ -145,6 +146,13 @@ describe('voice token configuration', () => {
     expect(loadApiEnv({ ...baseEnv, OGM_VOICE_TOKEN_SECRET: secret }).OGM_VOICE_TOKEN_SECRET).toBe(secret);
     expect(loadApiEnv(baseEnv).OGM_VOICE_TOKEN_SECRET).toBeUndefined();
   });
+
+  it('requires a WebSocket URL when voice is configured', () => {
+    expect(() => loadApiEnv({ ...baseEnv, OGM_VOICE_WS_URL: 'https://voice.example.test/ws/voice' })).toThrow(
+      /OGM_VOICE_WS_URL/,
+    );
+    expect(loadApiEnv({ ...baseEnv, OGM_VOICE_WS_URL: wsUrl }).OGM_VOICE_WS_URL).toBe(wsUrl);
+  });
 });
 
 // Cross-language vectors: the voice host's ExUnit `token_test` verifies each with the same secret
@@ -154,15 +162,16 @@ describe('voice token vectors', () => {
   it('writes the vectors the Elixir verifier checks', () => {
     const nowMs = Date.UTC(2026, 10, 1, 5, 25);
     const verifyAt = nowMs / 1000;
+    const target = buildTarget('g-vector');
     const mint = (opts: { nowMs: number; scope?: string }) =>
-      mintVoiceToken({ secret, sub: 'u-creator', nonce: 'AAAAAAAAAAAAAAAA', ...opts }).token;
+      mintVoiceToken({ secret, sub: 'u-creator', target, nonce: 'AAAAAAAAAAAAAAAA', ...opts }).token;
     const valid = mint({ nowMs });
     const flipped = valid.at(-2) === 'A' ? 'B' : 'A';
     const vectors = {
       secret,
       verify_at: verifyAt,
       vectors: [
-        { name: 'valid', token: valid, sub: 'u-creator', exp: verifyAt + VOICE_TOKEN_TTL_SEC, expect: 'ok' },
+        { name: 'valid', token: valid, sub: 'u-creator', target, exp: verifyAt + VOICE_TOKEN_TTL_SEC, expect: 'ok' },
         { name: 'expired', token: mint({ nowMs: nowMs - 600_000 }), expect: 'expired' },
         { name: 'tampered', token: `${valid.slice(0, -2)}${flipped}${valid.at(-1)}`, expect: 'invalid' },
         { name: 'other scope', token: mint({ nowMs, scope: 'narrate' }), expect: 'wrong_scope' },
@@ -173,6 +182,7 @@ describe('voice token vectors', () => {
       sub: 'u-creator',
       exp: verifyAt + 300,
       nonce: 'AAAAAAAAAAAAAAAA',
+      target,
     });
     writeFileSync(
       new URL('../../voice-host/test/fixtures/token_vectors.json', import.meta.url),

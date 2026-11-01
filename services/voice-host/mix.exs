@@ -28,12 +28,12 @@ defmodule OgmVoice.MixProject do
        git: System.get_env("OGM_AIUR_GIT", "https://github.com/its-everdred/aiur.git"),
        sparse: "packages/elixir/voice_converse",
        ref: @aiur_pin},
-      {:bandit, "~> 1.12"},
-      {:websock_adapter, "~> 0.6"},
-      {:plug, "~> 1.18"},
-      {:jason, "~> 1.4"},
-      {:mint, "~> 1.7"},
-      {:mint_web_socket, "~> 1.0"}
+      {:bandit, "== 1.12.5"},
+      {:websock_adapter, "== 0.6.0"},
+      {:plug, "== 1.20.3"},
+      {:jason, "== 1.4.5"},
+      {:mint, "== 1.11.0"},
+      {:mint_web_socket, "== 1.0.6"}
     ]
   end
 end

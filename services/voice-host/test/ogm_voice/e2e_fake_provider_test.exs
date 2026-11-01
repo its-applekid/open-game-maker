@@ -12,7 +12,9 @@ defmodule OgmVoice.E2EFakeProviderTest do
   @target %{"kind" => "build", "game_id" => "g1", "job_id" => "j1", "ticket" => "142", "creator_id" => "u1"}
 
   setup context do
-    {stub, api_url} = ApiStub.start!(self(), Map.get(context, :api_status, 200))
+    {stub, api_url} =
+      ApiStub.start!(self(), Map.get(context, :api_status, 200), 0, Map.get(context, :api_body))
+
     on_exit(fn -> Process.exit(stub, :shutdown) end)
 
     config = %OgmVoice.Config{
@@ -107,6 +109,34 @@ defmodule OgmVoice.E2EFakeProviderTest do
     assert sessions() == []
   end
 
+  test "a token cannot be replayed for another target owned by the same creator", %{port: port} do
+    {:ok, ws} = WsClient.connect(port, "/?token=" <> token("u1"))
+    ws = WsClient.send_json(ws, %{v: 1, type: "start", target: %{@target | "job_id" => "j2"}})
+    assert {%{"type" => "error"}, _} = WsClient.await(ws, &match?(%{"type" => "error"}, &1))
+    assert sessions() == []
+  end
+
+  @tag api_body: ~s({})
+  test "a malformed successful API response reports delivery failed", %{port: port} do
+    {:ok, ws} = WsClient.connect(port, "/?token=" <> token("u1"))
+    ws = WsClient.send_json(ws, %{v: 1, type: "start", target: @target})
+    {_, ws} = WsClient.await(ws, &match?(%{"type" => "state", "state" => "listening"}, &1))
+
+    :ok =
+      FakeProvider.emit(provider_ref(), %Events.ToolCall{
+        call_id: "c1",
+        name: "propose_instruction",
+        params: %{"text" => "x"}
+      })
+
+    {%{"draft_id" => draft_id}, ws} = WsClient.await(ws, &match?(%{"type" => "draft"}, &1))
+    ws = WsClient.send_json(ws, %{v: 1, type: "confirm_draft", draft_id: draft_id})
+    assert_receive {:api_stub, "POST", _, _, _}, 2_000
+
+    assert {%{"draft_id" => ^draft_id}, _} =
+             WsClient.await(ws, &match?(%{"type" => "delivery", "status" => "failed"}, &1))
+  end
+
   test "text input is refused: voice only in V1", %{port: port} do
     {:ok, ws} = WsClient.connect(port, "/?token=" <> token("u1"))
     ws = WsClient.send_json(ws, %{v: 1, type: "text", text: "hello"})
@@ -122,7 +152,16 @@ defmodule OgmVoice.E2EFakeProviderTest do
   # independently of the host's issuer, so the socket is opened with a token the host did not mint.
   defp token(sub, opts \\ []) do
     secret = Keyword.get(opts, :secret, @token_secret)
-    claims = %{scope: "converse", sub: sub, exp: System.os_time(:second) + 300, nonce: "AAAAAAAAAAAAAAAA"}
+    target = Keyword.get(opts, :target, Map.put(@target, "creator_id", sub))
+
+    claims = %{
+      scope: "converse",
+      sub: sub,
+      exp: System.os_time(:second) + 300,
+      nonce: "AAAAAAAAAAAAAAAA",
+      target: target
+    }
+
     body = "vct1." <> Base.url_encode64(Jason.encode!(claims), padding: false)
     body <> "." <> Base.url_encode64(:crypto.mac(:hmac, :sha256, secret, body), padding: false)
   end

@@ -23,7 +23,7 @@ const routes = new Hono<ApiBindings>().post('/token', async (c) => {
   );
   if (!config.voiceTokenSecret || !config.voiceWsUrl) throw new HttpError(503, 'voice_unavailable');
 
-  const { token, exp } = mintVoiceToken({ secret: config.voiceTokenSecret, sub: principal.userId });
+  const { token, exp } = mintVoiceToken({ secret: config.voiceTokenSecret, sub: principal.userId, target });
   const body: VoiceTokenResponse = {
     token,
     expires_at: new Date(exp * 1000).toISOString(),

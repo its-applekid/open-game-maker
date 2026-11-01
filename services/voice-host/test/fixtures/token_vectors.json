@@ -4,24 +4,31 @@
   "vectors": [
     {
       "name": "valid",
-      "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIiwic3ViIjoidS1jcmVhdG9yIiwiZXhwIjoxNzkzNTExMDAwLCJub25jZSI6IkFBQUFBQUFBQUFBQUFBQUEifQ.LAVMjaxIgPKhzggtmAitQ-WxkywpWtf67EyIVIHvgLE",
+      "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIiwic3ViIjoidS1jcmVhdG9yIiwiZXhwIjoxNzkzNTExMDAwLCJub25jZSI6IkFBQUFBQUFBQUFBQUFBQUEiLCJ0YXJnZXQiOnsia2luZCI6ImJ1aWxkIiwiZ2FtZV9pZCI6ImctdmVjdG9yIiwiam9iX2lkIjoiai0xIiwidGlja2V0IjoiMTQyIiwiY3JlYXRvcl9pZCI6InUtY3JlYXRvciJ9fQ.GoxnZpsfaOkPUl3srpYE6ah_ZVw3YMapUUhli7utAv4",
       "sub": "u-creator",
+      "target": {
+        "kind": "build",
+        "game_id": "g-vector",
+        "job_id": "j-1",
+        "ticket": "142",
+        "creator_id": "u-creator"
+      },
       "exp": 1793511000,
       "expect": "ok"
     },
     {
       "name": "expired",
-      "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIiwic3ViIjoidS1jcmVhdG9yIiwiZXhwIjoxNzkzNTEwNDAwLCJub25jZSI6IkFBQUFBQUFBQUFBQUFBQUEifQ._v7T_rT3ZfuiJIDHiJAux0FdWNYSJdzkbuiBNEhi82w",
+      "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIiwic3ViIjoidS1jcmVhdG9yIiwiZXhwIjoxNzkzNTEwNDAwLCJub25jZSI6IkFBQUFBQUFBQUFBQUFBQUEiLCJ0YXJnZXQiOnsia2luZCI6ImJ1aWxkIiwiZ2FtZV9pZCI6ImctdmVjdG9yIiwiam9iX2lkIjoiai0xIiwidGlja2V0IjoiMTQyIiwiY3JlYXRvcl9pZCI6InUtY3JlYXRvciJ9fQ.OZWo8boTp79HM99xaLd10CCDKJCs79KUlYX0OgW0JII",
       "expect": "expired"
     },
     {
       "name": "tampered",
-      "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIiwic3ViIjoidS1jcmVhdG9yIiwiZXhwIjoxNzkzNTExMDAwLCJub25jZSI6IkFBQUFBQUFBQUFBQUFBQUEifQ.LAVMjaxIgPKhzggtmAitQ-WxkywpWtf67EyIVIHvgAE",
+      "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIiwic3ViIjoidS1jcmVhdG9yIiwiZXhwIjoxNzkzNTExMDAwLCJub25jZSI6IkFBQUFBQUFBQUFBQUFBQUEiLCJ0YXJnZXQiOnsia2luZCI6ImJ1aWxkIiwiZ2FtZV9pZCI6ImctdmVjdG9yIiwiam9iX2lkIjoiai0xIiwidGlja2V0IjoiMTQyIiwiY3JlYXRvcl9pZCI6InUtY3JlYXRvciJ9fQ.GoxnZpsfaOkPUl3srpYE6ah_ZVw3YMapUUhli7utAA4",
       "expect": "invalid"
     },
     {
       "name": "other scope",
-      "token": "vct1.eyJzY29wZSI6Im5hcnJhdGUiLCJzdWIiOiJ1LWNyZWF0b3IiLCJleHAiOjE3OTM1MTEwMDAsIm5vbmNlIjoiQUFBQUFBQUFBQUFBQUFBQSJ9.yFmO6u-wWwGi7jBi2XtTcK8SDKNs5hnIirHoaj7B4CQ",
+      "token": "vct1.eyJzY29wZSI6Im5hcnJhdGUiLCJzdWIiOiJ1LWNyZWF0b3IiLCJleHAiOjE3OTM1MTEwMDAsIm5vbmNlIjoiQUFBQUFBQUFBQUFBQUFBQSIsInRhcmdldCI6eyJraW5kIjoiYnVpbGQiLCJnYW1lX2lkIjoiZy12ZWN0b3IiLCJqb2JfaWQiOiJqLTEiLCJ0aWNrZXQiOiIxNDIiLCJjcmVhdG9yX2lkIjoidS1jcmVhdG9yIn19.-Jn1cwAm2YKb5-j2gKRdmyEOLYGwdGv6bATA1VqX3Qo",
       "expect": "wrong_scope"
     }
   ]

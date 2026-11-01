@@ -1,5 +1,5 @@
 defmodule OgmVoice.ConfigTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias OgmVoice.Config
 
@@ -62,8 +62,13 @@ defmodule OgmVoice.ConfigTest do
 
   test "provider keys are read at use time and only for their provider" do
     assert {:ok, "fake"} = OgmVoice.Ports.Credentials.fetch(:fake, :connect)
+    previous = System.get_env("OPENAI_API_KEY")
+    on_exit(fn -> restore_env("OPENAI_API_KEY", previous) end)
     System.delete_env("OPENAI_API_KEY")
     assert {:error, :missing} = OgmVoice.Ports.Credentials.fetch(:openai_realtime, :connect)
     assert {:error, :missing} = OgmVoice.Ports.Credentials.fetch(:gemini_live, :connect)
   end
+
+  defp restore_env(name, nil), do: System.delete_env(name)
+  defp restore_env(name, value), do: System.put_env(name, value)
 end

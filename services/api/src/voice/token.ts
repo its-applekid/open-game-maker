@@ -1,7 +1,9 @@
 import { createHmac, randomBytes } from 'node:crypto';
 
+import type { VoiceTarget } from '@ogm/contracts';
+
 // Same format as voice_converse's `VoiceConverse.TokenIssuer.Hmac`, which the voice host verifies:
-// `vct1.` + base64url(JSON{scope, sub, exp, nonce}) + `.` + base64url(HMAC-SHA256(secret, body)).
+// `vct1.` + base64url(JSON{scope, sub, exp, nonce, target}) + `.` + base64url(HMAC-SHA256(secret, body)).
 export const VOICE_TOKEN_SCOPE = 'converse';
 export const VOICE_TOKEN_TTL_SEC = 300;
 export const VOICE_TOKEN_MIN_SECRET_BYTES = 32;
@@ -9,6 +11,7 @@ export const VOICE_TOKEN_MIN_SECRET_BYTES = 32;
 export function mintVoiceToken(input: {
   secret: string;
   sub: string;
+  target: VoiceTarget;
   nowMs?: number;
   ttlSec?: number;
   scope?: string;
@@ -23,6 +26,7 @@ export function mintVoiceToken(input: {
     sub: input.sub,
     exp,
     nonce: input.nonce ?? randomBytes(12).toString('base64url'),
+    target: input.target,
   };
   const body = `vct1.${Buffer.from(JSON.stringify(payload)).toString('base64url')}`;
   const mac = createHmac('sha256', input.secret).update(body).digest('base64url');

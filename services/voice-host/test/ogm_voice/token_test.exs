@@ -22,8 +22,9 @@ defmodule OgmVoice.TokenTest do
 
       case expected do
         "ok" ->
-          assert {:ok, %{scope: "converse", subject: sub, expires_at: exp}} = result
+          assert {:ok, %{scope: "converse", subject: sub, expires_at: exp, target: target}} = result
           assert sub == vector["sub"]
+          assert target == vector["target"]
           assert DateTime.to_unix(exp) == vector["exp"]
 
         reason ->
@@ -35,6 +36,13 @@ defmodule OgmVoice.TokenTest do
   test "the valid vector fails once its 300 s are up (expiry is exclusive)", %{"vectors" => vectors} do
     %{"token" => token, "exp" => exp} = Enum.find(vectors, &(&1["expect"] == "ok"))
     assert {:error, :expired} = OgmVoice.TokenIssuer.verify(token, "converse", now: DateTime.from_unix!(exp))
+  end
+
+  test "host-issued tokens bind the target too", %{"verify_at" => at} do
+    target = %{"kind" => "build", "game_id" => "g1", "job_id" => "j1", "ticket" => "44", "creator_id" => "u1"}
+    now = DateTime.from_unix!(at)
+    assert {:ok, token, _expires_at} = OgmVoice.TokenIssuer.issue("converse", subject: "u1", target: target, now: now)
+    assert {:ok, %{subject: "u1", target: ^target}} = OgmVoice.TokenIssuer.verify(token, "converse", now: now)
   end
 
   test "a secret that is unset or too short fails closed", %{"vectors" => [%{"token" => token} | _], "verify_at" => at} do

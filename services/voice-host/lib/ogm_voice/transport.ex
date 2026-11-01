@@ -21,9 +21,9 @@ defmodule OgmVoice.Transport do
 
   @impl true
   def call(%{method: "GET"} = conn, opts) do
-    subject = subject(conn, opts)
-    api = if subject, do: api(opts[:instance], subject), else: %{}
-    state = PackageTransport.socket_state(Keyword.put(opts, :api, api), not is_nil(subject))
+    claims = claims(conn, opts)
+    api = if claims, do: api(opts[:instance], claims), else: %{}
+    state = PackageTransport.socket_state(Keyword.put(opts, :api, api), not is_nil(claims))
 
     WebSockAdapter.upgrade(conn, OgmVoice.Transport.Socket, state,
       max_frame_size: PackageTransport.max_frame_bytes(),
@@ -33,10 +33,10 @@ defmodule OgmVoice.Transport do
 
   def call(conn, _opts), do: Plug.Conn.send_resp(conn, 404, "not found")
 
-  defp api(instance, subject) do
+  defp api(instance, %{subject: subject, target: authorized_target}) do
     %{
       start_session: fn instance, target ->
-        if Target.creator(target) == subject,
+        if target == authorized_target and Target.creator(target) == subject,
           do: VoiceConverse.start_session(instance, target),
           else: {:error, :forbidden}
       end,
@@ -52,11 +52,11 @@ defmodule OgmVoice.Transport do
     }
   end
 
-  defp subject(conn, opts) do
+  defp claims(conn, opts) do
     with token when is_binary(token) <- token(conn),
-         {:ok, %{subject: subject}} when is_binary(subject) <-
+         {:ok, %{subject: subject, target: target} = claims} when is_binary(subject) and is_map(target) <-
            Ports.call_port(opts[:token_issuer], :verify, [token, "converse", []], :token) do
-      subject
+      claims
     else
       _ -> nil
     end

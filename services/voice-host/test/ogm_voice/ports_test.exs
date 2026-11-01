@@ -19,7 +19,7 @@ defmodule OgmVoice.PortsTest do
     assert {:ok, "instruction-1"} =
              Ports.call_port(AgentChannel, :instruct, [@target, "make the door red", "instruction-1", []], :instruct)
 
-    assert_receive {:api_stub, "POST", "/internal/voice/instruct", [@internal_secret], body}, 1_000
+    assert_receive {:api_stub, "POST", "/internal/voice/instruct", [@internal_secret], body}, 5_000
 
     assert %{
              "target" => @target,

@@ -96,8 +96,13 @@ defmodule OgmVoice.Delivery do
     request = {String.to_charlist(url), headers, ~c"application/json", body}
 
     case :httpc.request(:post, request, [timeout: @timeout_ms, connect_timeout: @timeout_ms], []) do
-      {:ok, {{_version, status, _reason}, _headers, _body}} when status in 200..299 ->
-        :delivered
+      {:ok, {{_version, status, _reason}, _headers, response_body}} when status in 200..299 ->
+        if valid_receipt?(response_body) do
+          :delivered
+        else
+          Logger.warning("voice instruct delivery returned an invalid receipt")
+          :failed
+        end
 
       {:ok, {{_version, status, _reason}, _headers, _body}} ->
         Logger.warning("voice instruct delivery refused: HTTP #{status}")
@@ -106,6 +111,13 @@ defmodule OgmVoice.Delivery do
       {:error, reason} ->
         Logger.warning("voice instruct delivery failed: #{inspect(reason)}")
         :failed
+    end
+  end
+
+  defp valid_receipt?(body) do
+    case Jason.decode(body) do
+      {:ok, %{"delivery_id" => id}} when is_binary(id) and id != "" -> true
+      _ -> false
     end
   end
 end

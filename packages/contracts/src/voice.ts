@@ -54,7 +54,7 @@ export const InstructRequest = z.object({
   idempotency_key: z.string().min(1),
   kind: z.enum(['instruct', 'ask']),
 });
-export const InstructResponse = z.object({ delivery_id: z.string() });
+export const InstructResponse = z.object({ delivery_id: z.string().min(1) });
 
 export type VoiceTarget = z.infer<typeof VoiceTarget>;
 export type VoiceTokenRequest = z.infer<typeof VoiceTokenRequest>;

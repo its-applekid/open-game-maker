@@ -33,5 +33,13 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
   if (env.OGM_VOICE_TOKEN_SECRET !== undefined && Buffer.byteLength(env.OGM_VOICE_TOKEN_SECRET) < 32) {
     throw new ConfigError('api', [], [{ name: 'OGM_VOICE_TOKEN_SECRET', reason: 'shorter than 32 bytes' }]);
   }
+  if (env.OGM_VOICE_WS_URL !== undefined) {
+    try {
+      const protocol = new URL(env.OGM_VOICE_WS_URL).protocol;
+      if (protocol !== 'ws:' && protocol !== 'wss:') throw new Error('wrong protocol');
+    } catch {
+      throw new ConfigError('api', [], [{ name: 'OGM_VOICE_WS_URL', reason: 'must be a ws or wss URL' }]);
+    }
+  }
   return env;
 }
