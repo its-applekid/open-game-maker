@@ -23,6 +23,7 @@
     "@better-auth/passkey": "1.7.15",
     "@hono/node-server": "2.1.5",
     "@ogm/aiur-client": "workspace:*",
+    "@ogm/asset-cards": "workspace:*",
     "@ogm/blob-store": "workspace:*",
     "@ogm/builder": "workspace:*",
     "@ogm/config": "workspace:*",

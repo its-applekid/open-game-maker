@@ -12,15 +12,20 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "pretypecheck": "pnpm --filter @ogm/contracts build",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts build",
-    "test": "vitest run && python3 -I ../../scripts/assets/test_build_collection_cards.py",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config build",
+    "test": "vitest run && python3 -I ../../scripts/assets/test_build_collection_cards.py && python3 -I ../../scripts/assets/test_preprocess_kaykit.py",
     "lint": "eslint src",
+    "families:coverage": "tsc -b && node dist/families-coverage.js",
+    "preindex:build": "pnpm --filter @ogm/contracts --filter @ogm/config build",
+    "index:build": "tsc -b && node scripts/build-index.mjs",
     "licenses:emit": "tsc -b && node scripts/emit-licenses.mjs && prettier --write data/licenses.json"
   },
   "dependencies": {
+    "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
-    "sharp": "0.35.5"
+    "sharp": "0.35.5",
+    "zod": "4.6.7"
   }
 }

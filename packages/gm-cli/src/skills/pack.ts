@@ -53,7 +53,6 @@ export type SyncSkillPackResult = {
 const PACKAGE_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const DEFAULT_PACK = fileURLToPath(new URL('../../../../skills/', import.meta.url));
 const DEFAULT_TEMPLATES = fileURLToPath(new URL('../../../../templates/', import.meta.url));
-const DEFAULT_FAMILIES = fileURLToPath(new URL('../../../asset-cards/data/style-families.json', import.meta.url));
 
 function slash(path: string): string {
   return path.split(sep).join('/');
@@ -121,13 +120,6 @@ function findUp(cwd: string, child: string): string | null {
 
 export function locateTemplates(cwd: string): string | null {
   return findUp(cwd, 'templates') ?? (existsSync(DEFAULT_TEMPLATES) ? DEFAULT_TEMPLATES : null);
-}
-
-export function locateStyleFamilies(cwd: string): string | null {
-  return (
-    findUp(cwd, 'packages/asset-cards/data/style-families.json') ??
-    (existsSync(DEFAULT_FAMILIES) ? DEFAULT_FAMILIES : null)
-  );
 }
 
 function assessFiles(installedRoot: string, source: SourceFile[], oldLock: SkillsLock | null): Map<string, FileState> {

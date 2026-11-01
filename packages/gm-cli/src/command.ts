@@ -1,9 +1,20 @@
 export type FlagSpec = Record<string, { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string }>;
 
+export type GmConfig = {
+  eventsFile?: string;
+  jobId?: string;
+  aiurIssue?: number;
+  aiurRunId?: string;
+  verifySoftwareGl: boolean;
+  verifyQueue: boolean;
+  runtimeDir?: string;
+};
+
 export type GmContext = {
   cwd: string;
   assetsRoot: string | null;
   skillsDir: string | null;
+  config: GmConfig;
   json: boolean;
   limit: number;
   fields: string[] | null;

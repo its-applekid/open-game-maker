@@ -1,0 +1,385 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "runId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "jobId": {
+      "type": "string"
+    },
+    "aiurIssue": {
+      "type": "integer",
+      "minimum": -9007199254740991,
+      "maximum": 9007199254740991
+    },
+    "renderer": {
+      "type": "string",
+      "minLength": 1
+    },
+    "software": {
+      "type": "boolean"
+    },
+    "viewport": {
+      "type": "string",
+      "enum": [
+        "desktop",
+        "phone",
+        "both"
+      ]
+    },
+    "tier": {
+      "type": "string",
+      "enum": [
+        "desktop",
+        "mobile",
+        "low"
+      ]
+    },
+    "rig": {
+      "type": "string",
+      "enum": [
+        "iso",
+        "topdown",
+        "side",
+        "follow",
+        "fps",
+        "orbit",
+        "fixed"
+      ]
+    },
+    "frames": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "number",
+            "minimum": 0
+          },
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "pattern": "^(?!\\/)(?![A-Za-z]:[\\\\/])(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[^\\\\]+$"
+          },
+          "viewport": {
+            "type": "string",
+            "enum": [
+              "desktop",
+              "phone"
+            ]
+          }
+        },
+        "required": [
+          "t",
+          "path"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "timeline": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\/)(?![A-Za-z]:[\\\\/])(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[^\\\\]+$"
+    },
+    "clip": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\/)(?![A-Za-z]:[\\\\/])(?!.*(?:^|\\/)\\.\\.(?:\\/|$))[^\\\\]+$"
+    },
+    "console": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning"
+            ]
+          },
+          "text": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "level",
+          "text",
+          "count"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "properties": {
+        "downloadBytes": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "enum": [
+                "ok",
+                "over",
+                "unknown"
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "drawCalls": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "enum": [
+                "ok",
+                "over",
+                "unknown"
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "triangles": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "enum": [
+                "ok",
+                "over",
+                "unknown"
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "textureBytes": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "number",
+              "minimum": 0
+            },
+            {
+              "type": "string",
+              "enum": [
+                "ok",
+                "over",
+                "unknown"
+              ]
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        }
+      },
+      "required": [
+        "downloadBytes",
+        "drawCalls",
+        "triangles",
+        "textureBytes"
+      ],
+      "additionalProperties": false
+    },
+    "probes": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": [
+          "number",
+          "string",
+          "boolean"
+        ]
+      }
+    },
+    "perf": {
+      "type": "object",
+      "properties": {
+        "device": {
+          "type": "string"
+        },
+        "cpu": {
+          "type": "number",
+          "minimum": 1
+        },
+        "firstMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "cachedMs": {
+          "type": "number",
+          "minimum": 0
+        },
+        "fromNetwork": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "fromCache": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bytesByType": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string"
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "n": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "bytes": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "n",
+              "bytes"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "drawCalls": {
+          "type": "number",
+          "minimum": 0
+        },
+        "triangles": {
+          "type": "number",
+          "minimum": 0
+        },
+        "textureBytes": {
+          "type": "number",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "device",
+        "cpu",
+        "firstMs",
+        "cachedMs",
+        "fromNetwork",
+        "fromCache",
+        "bytesByType"
+      ],
+      "additionalProperties": false
+    },
+    "clients": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
+    },
+    "unchecked": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "const": "iPhone Safari"
+          }
+        },
+        {
+          "contains": {
+            "const": "sound"
+          }
+        }
+      ]
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "pass",
+        "fail",
+        "error"
+      ]
+    },
+    "error": {
+      "type": "string"
+    },
+    "startedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "endedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "gmVerifyVersion": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "runId",
+    "renderer",
+    "software",
+    "viewport",
+    "tier",
+    "frames",
+    "console",
+    "budgets",
+    "probes",
+    "clients",
+    "unchecked",
+    "verdict",
+    "startedAt",
+    "endedAt",
+    "gmVerifyVersion"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/verify-report.v1.json"
+}
