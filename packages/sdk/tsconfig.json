@@ -3,7 +3,10 @@
   "compilerOptions": {
     "rootDir": "src",
     "outDir": "dist",
-    "tsBuildInfoFile": "dist/.tsbuildinfo"
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "paths": {
+      "pixelfx/*": ["../../third_party/pixelfx/src/*"]
+    }
   },
   "include": ["src/**/*.ts"],
   "references": [{ "path": "../contracts" }, { "path": "../iframe-bridge" }]
