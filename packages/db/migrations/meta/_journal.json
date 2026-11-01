@@ -8,6 +8,13 @@
       "when": 1793491200000,
       "tag": "20261101000000_app_meta",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1793533628729,
+      "tag": "20261101114708_game_daemons",
+      "breakpoints": true
     }
   ]
 }
