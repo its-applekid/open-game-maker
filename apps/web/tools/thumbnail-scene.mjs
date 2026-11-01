@@ -407,14 +407,16 @@ async function main() {
     return;
   }
   if (command === 'render' && values.root && values.scene && values.output) {
-    const scene = JSON.parse(await readFile(resolve(values.scene), 'utf8'));
+    const root = await realpath(resolve(values.root));
+    const scene = JSON.parse(await readFile(await safeInput(root, values.scene), 'utf8'));
     process.stdout.write(
       `${JSON.stringify(await renderSceneOutputs({ root: values.root, scene, outputBase: values.output }))}\n`,
     );
     return;
   }
   if (command === 'specimen' && values.root && values.cards && values['target-kind'] && values.output) {
-    const document = JSON.parse(await readFile(resolve(values.cards), 'utf8'));
+    const root = await realpath(resolve(values.root));
+    const document = JSON.parse(await readFile(await safeInput(root, values.cards), 'utf8'));
     const cards = Array.isArray(document) ? document : document.cards;
     if (!Array.isArray(cards)) throw new Error('cards file must be an array or an object with a cards array');
     if (!values['target-id']) throw new Error('specimen requires --target-id');

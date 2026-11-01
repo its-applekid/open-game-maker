@@ -71,7 +71,7 @@ Build or refresh `index/cards.index.json`, then generate a specimen from its `ca
 ```bash
 node apps/web/tools/thumbnail-scene.mjs specimen \
   --root assets-local \
-  --cards assets-local/index/cards.index.json \
+  --cards index/cards.index.json \
   --target-kind pack \
   --target-id <pack-id> \
   --output packs/<pack-id>/specimen.png
@@ -82,7 +82,7 @@ For the set, use `--target-kind set --target-id <set-id>`. Render each validated
 ```bash
 node apps/web/tools/thumbnail-scene.mjs render \
   --root assets-local \
-  --scene assets-local/sets/<set-id>/diorama.<world>.scene.json \
+  --scene sets/<set-id>/diorama.<world>.scene.json \
   --output sets/<set-id>/diorama.<world>
 ```
 
