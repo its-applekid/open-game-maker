@@ -1,13 +1,19 @@
 import type { Repository } from './types.js';
+import { fetchWithTimeout } from './fetch-timeout.js';
 
 type Fetch = typeof fetch;
 
 export class RepoResolver {
+  private readonly fetchImpl: Fetch;
+
   constructor(
     private readonly internalUrl: string,
     private readonly serviceToken: string,
-    private readonly fetchImpl: Fetch = fetch,
-  ) {}
+    fetchImpl: Fetch = fetch,
+    timeoutMs?: number,
+  ) {
+    this.fetchImpl = fetchWithTimeout(fetchImpl, timeoutMs);
+  }
 
   async resolve(gameId: string): Promise<Repository> {
     const response = await this.fetchImpl(

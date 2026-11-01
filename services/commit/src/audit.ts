@@ -31,11 +31,7 @@ export class JsonlAuditWriter implements AuditWriter {
   async append(entry: AuditEntry): Promise<void> {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     await chmod(this.directory, 0o700);
-    const handle = await open(
-      this.file,
-      constants.O_APPEND | constants.O_CREAT | constants.O_WRONLY,
-      0o600,
-    );
+    const handle = await open(this.file, constants.O_APPEND | constants.O_CREAT | constants.O_WRONLY, 0o600);
     try {
       await handle.chmod(0o600);
       await handle.writeFile(`${JSON.stringify(entry)}\n`, 'utf8');

@@ -16,17 +16,32 @@ describe('RepoResolver', () => {
       name: 'gm-game-1',
       visibility: 'private',
     });
-    expect(fetchImpl).toHaveBeenCalledWith('http://127.0.0.1:4300/internal/games/game%2F1/repo', {
-      headers: { authorization: 'Bearer service-secret' },
-    });
+    expect(fetchImpl).toHaveBeenCalledWith(
+      'http://127.0.0.1:4300/internal/games/game%2F1/repo',
+      expect.objectContaining({ headers: { authorization: 'Bearer service-secret' } }),
+    );
+    expect(fetchImpl.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it('refuses malformed API responses', async () => {
-    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
-      new Response(JSON.stringify({ owner: 'alice', name: 'gm-game-1', visibility: 'internal' })),
-    );
+    const fetchImpl = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(new Response(JSON.stringify({ owner: 'alice', name: 'gm-game-1', visibility: 'internal' })));
     await expect(
       new RepoResolver('http://127.0.0.1:4300', 'service-secret', fetchImpl).resolve('game-1'),
     ).rejects.toThrow('invalid response');
+  });
+
+  it('bounds a stalled repository lookup', async () => {
+    const fetchImpl = vi.fn<typeof fetch>(
+      async (_input, init) =>
+        new Promise<Response>((_resolve, reject) => {
+          const signal = init?.signal;
+          if (signal === undefined) return reject(new Error('missing abort signal'));
+          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+        }),
+    );
+    const resolver = new RepoResolver('http://127.0.0.1:4300', 'service-secret', fetchImpl, 1);
+    await expect(resolver.resolve('game-1')).rejects.toBeDefined();
   });
 });

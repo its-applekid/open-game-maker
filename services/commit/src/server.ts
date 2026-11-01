@@ -68,8 +68,7 @@ export function createCommitApp(dependencies: ServerDependencies): Hono {
   }
   const app = new Hono();
   const startedAt = Date.now();
-  const remoteAddress =
-    dependencies.remoteAddress ?? ((context: Context) => getConnInfo(context).remote.address);
+  const remoteAddress = dependencies.remoteAddress ?? ((context: Context) => getConnInfo(context).remote.address);
 
   app.get('/healthz', (context) =>
     context.json({

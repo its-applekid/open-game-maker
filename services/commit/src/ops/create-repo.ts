@@ -1,13 +1,11 @@
 import type { ExtractCommitOp } from './operation-types.js';
 import type { OperationContext } from './context.js';
 import { createCommit, createTreeFromFiles } from './git-data.js';
+import { createPrivateRepository } from './repository.js';
 import { repositoryName } from '../paths.js';
 import type { CommitResult, Repository } from '../types.js';
 
-export async function createRepo(
-  op: ExtractCommitOp<'create_repo'>,
-  context: OperationContext,
-): Promise<CommitResult> {
+export async function createRepo(op: ExtractCommitOp<'create_repo'>, context: OperationContext): Promise<CommitResult> {
   const name = repositoryName(op.gameId);
   const repository: Repository = { owner: op.owner, name, visibility: 'private' };
   if (op.visibility === 'public') {
@@ -19,27 +17,12 @@ export async function createRepo(
     if (!verdict.allowed) return { ok: false, verdict };
   }
 
-  const github = await context.app.forOwner(op.owner);
-  const route =
-    github.accountType === 'Organization' ? 'POST /orgs/{org}/repos' : 'POST /user/repos';
-  await github.request(route, {
-    ...(github.accountType === 'Organization' ? { org: op.owner } : {}),
-    name,
-    private: true,
-    auto_init: false,
-    has_issues: true,
-  });
-
   const rendered = await context.templates.render(op.templateRef, op);
+  const github = await context.app.forOwner(op.owner);
+  await createPrivateRepository(github, op.owner, name);
   const identity = await context.app.identity();
   const tree = await createTreeFromFiles(github.request, repository, rendered.files);
-  const sha = await createCommit(
-    github.request,
-    repository,
-    `chore: initialize ${op.gameId}`,
-    tree,
-    identity,
-  );
+  const sha = await createCommit(github.request, repository, `chore: initialize ${op.gameId}`, tree, identity);
   await github.request('POST /repos/{owner}/{repo}/git/refs', {
     ...repository,
     ref: 'refs/heads/main',

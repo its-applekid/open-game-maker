@@ -90,10 +90,7 @@ describe('commit operations', () => {
       throw new Error(`unexpected route ${call.route}`);
     });
     await expect(
-      foldDesign(
-        { kind: 'fold_design', gameId: 'game-1', base: 'base', files: [] },
-        contextWith(request),
-      ),
+      foldDesign({ kind: 'fold_design', gameId: 'game-1', base: 'base', files: [] }, contextWith(request)),
     ).resolves.toMatchObject({ ok: false, verdict: { reasons: [{ code: 'denylist' }] } });
     expect(calls.filter((call) => call.route.endsWith('/git/refs/{ref}'))).toHaveLength(3);
   });
@@ -115,16 +112,15 @@ describe('commit operations', () => {
         ? { head: { sha: 'head-123' }, title: 'Add level' }
         : { merged: true, message: 'ok', sha: 'merge-456' },
     );
-    await expect(
-      merge({ kind: 'merge', gameId: 'game-1', prNumber: 7 }, contextWith(request)),
-    ).resolves.toEqual({ ok: true, sha: 'merge-456' });
+    await expect(merge({ kind: 'merge', gameId: 'game-1', prNumber: 7 }, contextWith(request))).resolves.toEqual({
+      ok: true,
+      sha: 'merge-456',
+    });
     expect(calls[1]?.parameters).toMatchObject({ sha: 'head-123', merge_method: 'squash' });
   });
 
   it('creates an annotated release tag', async () => {
-    const { request, calls } = fakeRequest((call) =>
-      call.route.endsWith('/git/tags') ? { sha: 'tag-object' } : {},
-    );
+    const { request, calls } = fakeRequest((call) => (call.route.endsWith('/git/tags') ? { sha: 'tag-object' } : {}));
     await expect(
       release(
         { kind: 'release', gameId: 'game-1', sha: 'commit-1', semver: '1.2.3', changelog: 'New level' },
@@ -237,5 +233,162 @@ describe('commit operations', () => {
     expect(calls.find((call) => call.route.endsWith('/git/trees'))?.parameters).toMatchObject({
       tree: [{ path: 'src/game.ts', mode: '100644', type: 'blob', sha: 'copied-blob' }],
     });
+  });
+
+  it('resumes a partial fork in the same destination repository', async () => {
+    let repositoryCreated = false;
+    let refAttempts = 0;
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route === 'POST /user/repos') {
+        if (repositoryCreated) throw new GitHubRequestError('already exists', 422);
+        repositoryCreated = true;
+        return {};
+      }
+      if (call.route === 'GET /repos/{owner}/{repo}') return { name: 'gm-game-2' };
+      if (call.route.endsWith('/git/ref/{ref}')) throw new GitHubRequestError('not found', 404);
+      if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'source-tree' } };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) return { truncated: false, tree: [] };
+      if (call.route.endsWith('/git/trees')) return { sha: 'fork-tree' };
+      if (call.route.endsWith('/git/commits')) return { sha: 'fork-commit' };
+      if (call.route.endsWith('/git/refs')) {
+        refAttempts += 1;
+        if (refAttempts === 1) throw new GitHubRequestError('connection lost', 500);
+        return {};
+      }
+      return {};
+    });
+    const operation = {
+      kind: 'fork' as const,
+      sourceGameId: 'game-1',
+      sourceSha: 'source-commit',
+      newGameId: 'game-2',
+      owner: 'alice',
+      visibility: 'private' as const,
+    };
+    const context = contextWith(request);
+
+    await expect(fork(operation, context)).rejects.toThrow('connection lost');
+    await expect(fork(operation, context)).resolves.toEqual({ ok: true, sha: 'fork-commit' });
+    expect(calls.filter((call) => call.route === 'POST /user/repos')).toHaveLength(2);
+    expect(calls.filter((call) => call.route === 'GET /repos/{owner}/{repo}')).toHaveLength(1);
+    expect(refAttempts).toBe(2);
+  });
+
+  it('finishes public visibility after a completed fork is retried', async () => {
+    let repositoryCreated = false;
+    let refWritten = false;
+    let visibilityAttempts = 0;
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route === 'POST /user/repos') {
+        if (repositoryCreated) throw new GitHubRequestError('already exists', 422);
+        repositoryCreated = true;
+        return {};
+      }
+      if (call.route === 'GET /repos/{owner}/{repo}') return { name: 'gm-game-2' };
+      if (call.route.endsWith('/git/ref/{ref}')) {
+        if (!refWritten) throw new GitHubRequestError('not found', 404);
+        return { object: { sha: 'fork-commit' } };
+      }
+      if (call.route.endsWith('/git/commits/{commit_sha}')) {
+        return call.parameters.commit_sha === 'fork-commit'
+          ? { message: 'fork: game-1\n\nForked-From: game-1@source-commit' }
+          : { tree: { sha: 'source-tree' } };
+      }
+      if (call.route.endsWith('/git/trees/{tree_sha}')) return { truncated: false, tree: [] };
+      if (call.route.endsWith('/git/trees')) return { sha: 'fork-tree' };
+      if (call.route.endsWith('/git/commits')) return { sha: 'fork-commit' };
+      if (call.route.endsWith('/git/refs')) {
+        refWritten = true;
+        return {};
+      }
+      if (call.route === 'PATCH /repos/{owner}/{repo}') {
+        visibilityAttempts += 1;
+        if (visibilityAttempts === 1) throw new GitHubRequestError('connection lost', 500);
+        return {};
+      }
+      return {};
+    });
+    const operation = {
+      kind: 'fork' as const,
+      sourceGameId: 'game-1',
+      sourceSha: 'source-commit',
+      newGameId: 'game-2',
+      owner: 'alice',
+      visibility: 'public' as const,
+    };
+    const context = contextWith(request);
+
+    await expect(fork(operation, context)).rejects.toThrow('connection lost');
+    await expect(fork(operation, context)).resolves.toEqual({ ok: true, sha: 'fork-commit' });
+    expect(calls.filter((call) => call.route.endsWith('/git/refs'))).toHaveLength(1);
+    expect(visibilityAttempts).toBe(2);
+  });
+
+  it('copies fork blobs with at most eight concurrent reads and stable tree order', async () => {
+    let activeReads = 0;
+    let maxActiveReads = 0;
+    const paths = Array.from({ length: 10 }, (_, index) => `src/file-${index}.ts`);
+    const { request, calls } = fakeRequest(async (call) => {
+      if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'source-tree' } };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) {
+        return {
+          truncated: false,
+          tree: paths.map((path, index) => ({ path, mode: '100644', type: 'blob', sha: `source-${index}` })),
+        };
+      }
+      if (call.route.endsWith('/git/blobs/{file_sha}')) {
+        activeReads += 1;
+        maxActiveReads = Math.max(maxActiveReads, activeReads);
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        activeReads -= 1;
+        return { content: String(call.parameters.file_sha), encoding: 'utf-8' };
+      }
+      if (call.route.endsWith('/git/blobs')) return { sha: `copied-${String(call.parameters.content)}` };
+      if (call.route.endsWith('/git/trees')) return { sha: 'fork-tree' };
+      if (call.route.endsWith('/git/commits')) return { sha: 'fork-commit' };
+      return {};
+    });
+
+    await expect(
+      fork(
+        {
+          kind: 'fork',
+          sourceGameId: 'game-1',
+          sourceSha: 'source-commit',
+          newGameId: 'game-2',
+          owner: 'alice',
+          visibility: 'private',
+        },
+        contextWith(request),
+      ),
+    ).resolves.toEqual({ ok: true, sha: 'fork-commit' });
+    expect(maxActiveReads).toBe(8);
+    const tree = calls.find((call) => call.route.endsWith('/git/trees'));
+    expect((tree?.parameters.tree as { path: string }[]).map((item) => item.path)).toEqual(paths);
+  });
+
+  it('does not create a public fork when the gate refuses it', async () => {
+    const { request, calls } = fakeRequest(() => ({}));
+    const context = contextWith(request, {
+      gate: {
+        async evaluate() {
+          return { allowed: false, reasons: [{ code: 'denylist', detail: 'blocked' }] };
+        },
+      },
+    });
+    await expect(
+      fork(
+        {
+          kind: 'fork',
+          sourceGameId: 'game-1',
+          sourceSha: 'source-commit',
+          newGameId: 'game-2',
+          owner: 'alice',
+          visibility: 'public',
+        },
+        context,
+      ),
+    ).resolves.toMatchObject({ ok: false });
+    expect(calls).toHaveLength(0);
   });
 });

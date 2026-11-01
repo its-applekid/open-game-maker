@@ -3,10 +3,7 @@ import { refused } from '../result.js';
 import type { OperationContext } from './context.js';
 import type { ExtractCommitOp } from './operation-types.js';
 
-export async function fileIssue(
-  op: ExtractCommitOp<'file_issue'>,
-  context: OperationContext,
-): Promise<CommitResult> {
+export async function fileIssue(op: ExtractCommitOp<'file_issue'>, context: OperationContext): Promise<CommitResult> {
   if (op.labels.some((label) => label !== 'bug' && label !== 'source:report')) {
     return refused('denylist', 'platform issue labels are not allowed');
   }

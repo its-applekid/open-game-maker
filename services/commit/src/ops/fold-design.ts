@@ -17,17 +17,14 @@ function isNonFastForward(error: unknown): boolean {
 }
 
 async function latestHead(request: GitHubRequest, repo: Repository): Promise<string> {
-  const response = await request<{ object: { sha: string } }>(
-    'GET /repos/{owner}/{repo}/git/ref/{ref}',
-    { ...repo, ref: 'heads/main' },
-  );
+  const response = await request<{ object: { sha: string } }>('GET /repos/{owner}/{repo}/git/ref/{ref}', {
+    ...repo,
+    ref: 'heads/main',
+  });
   return response.data.object.sha;
 }
 
-export async function foldDesign(
-  op: ExtractCommitOp<'fold_design'>,
-  context: OperationContext,
-): Promise<CommitResult> {
+export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: OperationContext): Promise<CommitResult> {
   for (const file of op.files) {
     try {
       normalizeCommitPath(file.path);
@@ -53,20 +50,8 @@ export async function foldDesign(
         ...repository,
         commit_sha: base,
       });
-      const tree = await createTreeFromFiles(
-        github.request,
-        repository,
-        op.files,
-        parent.data.tree.sha,
-      );
-      const sha = await createCommit(
-        github.request,
-        repository,
-        `design: fold ${op.gameId}`,
-        tree,
-        identity,
-        [base],
-      );
+      const tree = await createTreeFromFiles(github.request, repository, op.files, parent.data.tree.sha);
+      const sha = await createCommit(github.request, repository, `design: fold ${op.gameId}`, tree, identity, [base]);
       await github.request('PATCH /repos/{owner}/{repo}/git/refs/{ref}', {
         ...repository,
         ref: 'heads/main',

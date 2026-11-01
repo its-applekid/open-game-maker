@@ -1,13 +1,7 @@
 import type { BoundaryGate } from '../src/gate.js';
 import { allowed } from '../src/result.js';
 import type { TemplateSource } from '../src/template-source.js';
-import type {
-  AuthenticatedGitHub,
-  GitHubApp,
-  GitHubIdentity,
-  GitHubRequest,
-  Repository,
-} from '../src/types.js';
+import type { AuthenticatedGitHub, GitHubApp, GitHubIdentity, GitHubRequest, Repository } from '../src/types.js';
 import type { OperationContext } from '../src/ops/context.js';
 
 export type Call = { route: string; parameters: Record<string, unknown> };
@@ -40,7 +34,11 @@ export function contextWith(
       return { name: 'ogm-app[bot]', email: 'ogm-app[bot]@users.noreply.github.com' };
     },
   };
-  const gate: BoundaryGate = { async evaluate() { return allowed(); } };
+  const gate: BoundaryGate = {
+    async evaluate() {
+      return allowed();
+    },
+  };
   const templates: TemplateSource = {
     async render() {
       return { files: [], labels: [], requiredChecks: ['ci / required', 'ogm/boundary'] };
@@ -49,7 +47,11 @@ export function contextWith(
   return {
     app,
     gate,
-    repos: { async resolve() { return repository; } },
+    repos: {
+      async resolve() {
+        return repository;
+      },
+    },
     templates,
     builderBotLogin: 'builder-bot',
     platformIssueRepo: { owner: 'platform', name: 'bugs' },

@@ -7,10 +7,7 @@ import type { ExtractCommitOp } from './operation-types.js';
 type PullRequest = { head: { sha: string }; title: string };
 type MergeResponse = { merged: boolean; message: string; sha?: string };
 
-export async function merge(
-  op: ExtractCommitOp<'merge'>,
-  context: OperationContext,
-): Promise<CommitResult> {
+export async function merge(op: ExtractCommitOp<'merge'>, context: OperationContext): Promise<CommitResult> {
   const repository = await context.repos.resolve(op.gameId);
   const github = await context.app.forOwner(repository.owner);
   const pull = await github.request<PullRequest>('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
@@ -27,16 +24,13 @@ export async function merge(
 
   let response;
   try {
-    response = await github.request<MergeResponse>(
-      'PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge',
-      {
-        ...repository,
-        pull_number: op.prNumber,
-        sha: pull.data.head.sha,
-        merge_method: 'squash',
-        commit_title: `${pull.data.title} (#${op.prNumber})`,
-      },
-    );
+    response = await github.request<MergeResponse>('PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge', {
+      ...repository,
+      pull_number: op.prNumber,
+      sha: pull.data.head.sha,
+      merge_method: 'squash',
+      commit_title: `${pull.data.title} (#${op.prNumber})`,
+    });
   } catch (error) {
     if (error instanceof GitHubRequestError && (error.status === 405 || error.status === 409)) {
       return refused('denylist', 'not mergeable');

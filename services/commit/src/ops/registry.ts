@@ -11,10 +11,7 @@ import { merge } from './merge.js';
 import { release } from './release.js';
 import { setVisibility } from './set-visibility.js';
 
-export async function executeOperation(
-  op: CommitOp,
-  context: OperationContext,
-): Promise<CommitResult> {
+export async function executeOperation(op: CommitOp, context: OperationContext): Promise<CommitResult> {
   try {
     switch (op.kind) {
       case 'create_repo':

@@ -29,9 +29,7 @@ function headersOf(error: unknown): Record<string, string | undefined> {
   const response = error.response;
   if (typeof response !== 'object' || response === null || !('headers' in response)) return {};
   const headers = response.headers;
-  return typeof headers === 'object' && headers !== null
-    ? (headers as Record<string, string | undefined>)
-    : {};
+  return typeof headers === 'object' && headers !== null ? (headers as Record<string, string | undefined>) : {};
 }
 
 function messageOf(error: unknown): string {
@@ -41,7 +39,8 @@ function messageOf(error: unknown): string {
     error !== null &&
     'message' in error &&
     /fast.?forward|reference update failed/iu.test(String(error.message))
-  ) return 'reference update failed';
+  )
+    return 'reference update failed';
   return 'github request failed';
 }
 

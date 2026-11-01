@@ -34,12 +34,7 @@ export function normalizeCommitPath(input: string): string {
 export function normalizeBranchName(input: string): string {
   const hasForbiddenCharacter = [...input].some((character) => {
     const codePoint = character.codePointAt(0) ?? 0;
-    return (
-      codePoint <= 31 ||
-      codePoint === 127 ||
-      /\s/u.test(character) ||
-      '~^:?*[\\'.includes(character)
-    );
+    return codePoint <= 31 || codePoint === 127 || /\s/u.test(character) || '~^:?*[\\'.includes(character);
   });
   if (
     input.length === 0 ||

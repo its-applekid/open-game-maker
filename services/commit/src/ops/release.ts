@@ -4,10 +4,7 @@ import { refused } from '../result.js';
 import type { OperationContext } from './context.js';
 import type { ExtractCommitOp } from './operation-types.js';
 
-export async function release(
-  op: ExtractCommitOp<'release'>,
-  context: OperationContext,
-): Promise<CommitResult> {
+export async function release(op: ExtractCommitOp<'release'>, context: OperationContext): Promise<CommitResult> {
   const repository = await context.repos.resolve(op.gameId);
   const verdict = await context.gate.evaluate({
     kind: op.kind,
