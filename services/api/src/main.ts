@@ -17,6 +17,7 @@ import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
 import { startEstimateRefinement } from './budget/estimate.js';
+import { createApplyUsage, startUsageReconciler } from './budget/aiur-usage.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, activeJobsForRepo, byTicket } from './jobs/repo.js';
@@ -145,6 +146,12 @@ const stopBriefingPush =
         log,
       })
     : () => {};
+const usageReconciler = startUsageReconciler({
+  ...lifecycleDeps,
+  daemonFor: async (repo) => (await daemonDirectory.fleet.daemonFor(repo))?.client ?? null,
+  applyUsage: createApplyUsage(lifecycleDeps),
+  log,
+});
 const feed = startFeedConsumers({
   fleet,
   db,
@@ -168,5 +175,6 @@ process.once('SIGTERM', () => {
   stopScheduler();
   stopEstimateRefinement();
   stopBriefingPush();
+  usageReconciler.stop();
   void feed.stop().finally(() => server.close(() => sqlite.close()));
 });
