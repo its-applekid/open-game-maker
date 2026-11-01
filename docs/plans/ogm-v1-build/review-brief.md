@@ -15,3 +15,5 @@ Return text only; never post, push or merge. One worktree if you need the diff l
 ## Verdict format
 
 `APPROVE` or `CHANGES_REQUESTED`, head SHA, then at most 15 lines: the acceptance table (item → DONE/NOT DONE/DEVIATION), scope notes, evidence state, and any `Blocking:` lines. No narrative, no praise.
+
+Web-lane PRs (apps/web screens): a restyle, new chrome, new labels or helper text, or a changed flow versus the title-town prototype is a scope deviation (D-PROTOTYPE-DESIGN); name it as blocking unless the PR explains why the prototype design could not be kept.
