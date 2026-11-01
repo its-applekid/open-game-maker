@@ -11,7 +11,7 @@ describe('formatUnits', () => {
 
   it('keeps the four-decimal micro-dollar edge visible', () => {
     expect(formatUnits(123, 'dollar')).toBe('0.0001 dollars');
-    expect(formatUnits(1, 'dollar')).toBe('less than 0.0001 dollars');
+    expect(formatUnits(1, 'dollar')).toBe('<0.0001 dollars');
   });
 
   it('places the family unit once after the reservation total', () => {

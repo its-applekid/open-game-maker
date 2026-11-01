@@ -20,7 +20,6 @@ export function CheckpointRow({
             <div className="build-chat-option" key={option.id}>
               {media ? <img alt="" src={media.poster ?? media.url} /> : null}
               <span>{option.label}</span>
-              {checkpoint.recommend === option.id ? <small>Recommended</small> : null}
             </div>
           );
         })}

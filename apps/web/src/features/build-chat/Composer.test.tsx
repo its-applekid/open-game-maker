@@ -33,10 +33,14 @@ describe('Composer', () => {
       />,
     );
 
-    fireEvent.pointerDown(screen.getByRole('button', { name: 'Hold to talk' }));
+    const dictate = screen.getByRole('button', { name: 'Hold to talk' });
+    expect(dictate).toHaveTextContent('');
+    fireEvent.pointerDown(dictate);
     dictation.finish('make the door red');
 
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('make the door red'));
+    expect(screen.getByRole('textbox')).not.toHaveAttribute('placeholder');
+    expect(screen.queryByRole('button', { name: 'Discard' })).not.toBeInTheDocument();
     expect(postText).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(postText).toHaveBeenCalledWith('j_1', 'make the door red'));

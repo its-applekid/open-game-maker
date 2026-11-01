@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { captionsReducer, Dictation, VoiceClient, type Captions, type VoiceClientOptions } from '@ogm/voice-client';
 
+import { Icon } from '../../components/Icon';
 import type { StreamedChatMessage } from './stream';
 import { probeVoice as defaultProbeVoice, type BuildVoiceTarget, type VoiceAvailability } from './voice';
 
@@ -41,7 +42,6 @@ export function Composer({
   );
   const [text, setText] = useState('');
   const [partial, setPartial] = useState('');
-  const [reviewing, setReviewing] = useState(false);
   const [notice, setNotice] = useState('');
   const [voice, setVoice] = useState<VoiceAvailability>({ available: false });
   const [voiceClient, setVoiceClient] = useState<VoiceClient>();
@@ -60,7 +60,6 @@ export function Composer({
       }
       setPartial('');
       setText(transcript.text);
-      setReviewing(Boolean(transcript.text));
     });
     const offError =
       dictation instanceof Dictation ? dictation.on('error', (error) => setNotice(error.message)) : undefined;
@@ -104,7 +103,6 @@ export function Composer({
     };
     onOptimistic?.(optimistic);
     setText('');
-    setReviewing(false);
     try {
       const posted = await postText(jobId, value);
       if (posted && typeof posted === 'object' && 'id' in posted) onPosted?.(posted as StreamedChatMessage);
@@ -174,7 +172,6 @@ export function Composer({
         id={`build-chat-text-${jobId}`}
         rows={2}
         value={text}
-        placeholder="Message the builder…"
         onChange={(event) => setText(event.target.value)}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
@@ -202,7 +199,7 @@ export function Composer({
               if (event.code === 'Space') endDictation();
             }}
           >
-            Hold to talk
+            <Icon name="mic" />
           </button>
         ) : null}
         {voice.available ? (
@@ -213,18 +210,6 @@ export function Composer({
             onClick={() => void startVoice()}
           >
             Start voice chat
-          </button>
-        ) : null}
-        {reviewing ? (
-          <button
-            className="build-chat-discard tap-secondary"
-            type="button"
-            onClick={() => {
-              setText('');
-              setReviewing(false);
-            }}
-          >
-            Discard
           </button>
         ) : null}
         <button

@@ -126,6 +126,12 @@
   color: var(--dark) !important;
 }
 
+.build-chat-dictate .icon {
+  width: 24px;
+  height: 24px;
+  display: grid;
+}
+
 .build-chat-partial,
 .build-chat-composer [role='status'] {
   margin: 0 0 6px;

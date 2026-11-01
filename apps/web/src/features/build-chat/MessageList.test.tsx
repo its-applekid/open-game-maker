@@ -31,6 +31,7 @@ describe('MessageList', () => {
           decision_id: 'd_1',
           question: 'Which door?',
           options: [{ id: 'wood', label: 'Wooden', media_id: 'm_1' }],
+          recommend: 'wood',
           status: 'open',
         },
       },
@@ -44,6 +45,7 @@ describe('MessageList', () => {
     expect(screen.getByText('Wiring the door')).toBeInTheDocument();
     expect(screen.getByText('Which door?')).toBeInTheDocument();
     expect(screen.getByText('Wooden')).toBeInTheDocument();
+    expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Wooden' })).not.toBeInTheDocument();
   });
 
