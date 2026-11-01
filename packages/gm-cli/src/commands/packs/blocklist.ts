@@ -1,12 +1,21 @@
 import { existsSync } from 'node:fs';
-import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, readFile, realpath, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { buildIndex, type CardIndex, type ResolvedCard } from '@ogm/asset-cards';
 
 import { EXIT, type GmCommand, type GmContext } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
-import { LINE, PREVIEW_KINDS, formatLine, relKey, sha256File, sortLines, walk } from '../../packs/hashwalk.js';
+import {
+  LINE,
+  PREVIEW_KINDS,
+  formatLine,
+  libraryPath,
+  relKey,
+  sha256File,
+  sortLines,
+  walk,
+} from '../../packs/hashwalk.js';
 
 export const DEFAULT_OUT = join('private', 'blocklist', 'redistribution-none.txt');
 const CACHE = join('private', 'blocklist', 'cache.json');
@@ -45,7 +54,21 @@ function previewKeysOf(index: CardIndex, collection: ResolvedCard): string[] {
 
 async function readCache(file: string): Promise<Cache> {
   try {
-    return JSON.parse(await readFile(file, 'utf8')) as Cache;
+    const parsed: unknown = JSON.parse(await readFile(file, 'utf8'));
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, CacheEntry] => {
+        const value = entry[1];
+        return (
+          typeof value === 'object' &&
+          value !== null &&
+          Number.isFinite((value as CacheEntry).mtimeMs) &&
+          Number.isSafeInteger((value as CacheEntry).size) &&
+          (value as CacheEntry).size >= 0 &&
+          /^[0-9a-f]{64}$/.test((value as CacheEntry).sha256)
+        );
+      }),
+    );
   } catch {
     return {};
   }
@@ -57,10 +80,20 @@ async function writeAtomic(file: string, text: string): Promise<void> {
   await rename(`${file}.part`, file);
 }
 
+async function checkedLibraryPath(root: string, canonicalRoot: string, key: string): Promise<string | null> {
+  const abs = libraryPath(root, key);
+  if (!abs) return null;
+  const canonical = await realpath(abs).catch(() => null);
+  if (!canonical) return abs;
+  return libraryPath(canonicalRoot, canonical) ? abs : null;
+}
+
 export type BlocklistStats = {
   collections: number;
   /** Collection cards that failed to load: their rights are unknown, so their bytes are not in the feed. */
   collection_errors: string[];
+  /** Card bucket keys rejected because resolving them would leave the asset library. */
+  unsafe_paths: string[];
   files: number;
   hashed: number;
   cached: number;
@@ -80,6 +113,7 @@ export async function buildBlocklist(
 ): Promise<BlocklistStats> {
   // A fresh build, not the cached index: rights decide what is protected, so they must reflect the cards on disk now.
   const index = await buildIndex(root);
+  const canonicalRoot = await realpath(root);
   const collectionErrors = index.errors
     .map((error) => error.path)
     .filter((path) => path.endsWith('collection.card.json'));
@@ -91,6 +125,7 @@ export async function buildBlocklist(
   const cache: Cache = {};
   const lines: string[] = [];
   const missing: string[] = [];
+  const unsafePaths: string[] = [];
   const stats = { files: 0, hashed: 0, cached: 0, manifest_lines: 0 };
 
   const hashOne = async (abs: string, rel: string, size: number, mtimeMs: number): Promise<void> => {
@@ -113,16 +148,25 @@ export async function buildBlocklist(
       for await (const file of walk(root, dir)) await hashOne(file.abs, file.rel, file.size, file.mtimeMs);
     }
     for (const key of previewKeysOf(index, collection)) {
-      const abs = join(root, key);
+      const abs = await checkedLibraryPath(root, canonicalRoot, key);
+      if (!abs) {
+        unsafePaths.push(key);
+        continue;
+      }
       const info = await lstat(abs).catch(() => null);
       if (info?.isFile()) await hashOne(abs, relKey(root, abs), info.size, info.mtimeMs);
       else missing.push(key);
     }
     const manifest = collection.collection_info?.hash_manifest;
     if (manifest) {
+      const manifestPath = await checkedLibraryPath(root, canonicalRoot, manifest);
+      if (!manifestPath) {
+        unsafePaths.push(manifest);
+        continue;
+      }
       let text: string;
       try {
-        text = await readFile(join(root, manifest), 'utf8');
+        text = await readFile(manifestPath, 'utf8');
       } catch {
         missing.push(manifest);
         continue;
@@ -141,10 +185,12 @@ export async function buildBlocklist(
   await writeAtomic(out, sorted.length > 0 ? `${sorted.join('\n')}\n` : '');
   await writeAtomic(cacheFile, `${JSON.stringify(cache)}\n`);
   for (const key of missing) ctx.err(`missing: ${key}`);
+  for (const key of unsafePaths) ctx.err(`unsafe path outside asset library: ${key}`);
   for (const path of collectionErrors) ctx.err(`unreadable collection card, its files are not listed: ${path}`);
   return {
     collections: targets.length,
     collection_errors: collectionErrors,
+    unsafe_paths: unsafePaths,
     ...stats,
     missing,
     unique_hashes: new Set(sorted.map((line) => line.slice(0, 64))).size,
@@ -187,7 +233,8 @@ export const command: GmCommand = {
       ...stats,
       missing: stats.missing.length,
       collection_errors: stats.collection_errors.length,
+      unsafe_paths: stats.unsafe_paths.length,
     });
-    return stats.collection_errors.length > 0 ? EXIT.failed : EXIT.ok;
+    return stats.collection_errors.length > 0 || stats.unsafe_paths.length > 0 ? EXIT.failed : EXIT.ok;
   },
 };

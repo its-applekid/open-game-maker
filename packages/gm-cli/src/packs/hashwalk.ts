@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, readdir } from 'node:fs/promises';
-import { join, relative, sep } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export type WalkedFile = { abs: string; rel: string; size: number; mtimeMs: number };
 
@@ -11,6 +11,14 @@ export type PreviewKind = (typeof PREVIEW_KINDS)[number];
 /** Library-relative path with `/` separators, as written in the feed and the blob mapping. */
 export function relKey(root: string, abs: string): string {
   return relative(root, abs).split(sep).join('/');
+}
+
+/** Resolve a card bucket key without allowing `..` or an absolute path to escape the asset library. */
+export function libraryPath(root: string, key: string): string | null {
+  const abs = resolve(root, key);
+  const rel = relative(root, abs);
+  if (rel === '' || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return null;
+  return abs;
 }
 
 /** Every regular file under `dir` (a missing dir yields nothing, other read errors throw); symlinks are skipped so a link cannot pull in outside files. */

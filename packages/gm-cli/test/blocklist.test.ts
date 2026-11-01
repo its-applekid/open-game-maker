@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { chmodSync, mkdirSync, readFileSync, statSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { basename, dirname, join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
@@ -86,6 +86,21 @@ describe('gm packs blocklist', () => {
     expect(readFileSync(join(root, FEED)).equals(before)).toBe(true);
   });
 
+  it('ignores a malformed cache entry and rehashes the file', async () => {
+    const root = rightsLibrary();
+    await blocklist(root);
+    const cachePath = join(root, 'private/blocklist/cache.json');
+    const cache = JSON.parse(readFileSync(cachePath, 'utf8')) as Record<string, { sha256: string }>;
+    const rel = Object.keys(cache)[0]!;
+    cache[rel]!.sha256 = 'not-a-sha256';
+    writeFileSync(cachePath, JSON.stringify(cache));
+
+    const { code, stats } = await blocklist(root);
+    expect(code).toBe(0);
+    expect(stats.hashed).toBe(1);
+    expect(feedLines(root).every((line) => GRAMMAR.test(line))).toBe(true);
+  });
+
   it('rehashes a file whose size or mtime changed', async () => {
     const root = rightsLibrary();
     await blocklist(root);
@@ -141,6 +156,47 @@ describe('gm packs blocklist', () => {
     expect(err).toContain('missing: previews/90/90f96c5be94642bf-waveform.webp');
     expect(stats.missing).toContain('previews/90/90f96c5be94642bf-waveform.webp');
     expect(feedLines(root).length).toBe(stats.lines);
+  });
+
+  it('refuses preview and manifest keys that escape the asset library', async () => {
+    const root = rightsLibrary();
+    const outside = `${basename(root).toLowerCase()}-outside`;
+    writeFileSync(join(dirname(root), outside), 'outside bytes');
+    const traversal = `nested/../../${outside}`;
+
+    const cardPath = join(root, ANNUAL, 'cards/example-dungeon-01.card.json');
+    const card = JSON.parse(readFileSync(cardPath, 'utf8'));
+    card.previews.thumb = traversal;
+    writeFileSync(cardPath, JSON.stringify(card));
+    const collectionPath = join(root, ANNUAL, 'collection.card.json');
+    const collection = JSON.parse(readFileSync(collectionPath, 'utf8'));
+    collection.collection_info.hash_manifest = traversal;
+    writeFileSync(collectionPath, JSON.stringify(collection));
+
+    const { code, err, stats } = await blocklist(root);
+    expect(code).toBe(1);
+    expect(err.filter((line) => line === `unsafe path outside asset library: ${traversal}`)).toHaveLength(2);
+    expect(stats.unsafe_paths).toEqual([traversal, traversal]);
+    expect(feedLines(root).some((line) => line.includes('..'))).toBe(false);
+    expect(feedLines(root).some((line) => line.startsWith(`${sha('outside bytes')}  `))).toBe(false);
+  });
+
+  it('refuses a preview whose parent symlink escapes the asset library', async () => {
+    const root = rightsLibrary();
+    const outside = join(dirname(root), `${basename(root).toLowerCase()}-outside-dir`);
+    mkdirSync(outside);
+    writeFileSync(join(outside, 'preview.webp'), 'outside preview');
+    symlinkSync(outside, join(root, 'linked'));
+    const cardPath = join(root, ANNUAL, 'cards/example-dungeon-01.card.json');
+    const card = JSON.parse(readFileSync(cardPath, 'utf8'));
+    card.previews.thumb = 'linked/preview.webp';
+    writeFileSync(cardPath, JSON.stringify(card));
+
+    const { code, err, stats } = await blocklist(root);
+    expect(code).toBe(1);
+    expect(err).toContain('unsafe path outside asset library: linked/preview.webp');
+    expect(stats.unsafe_paths).toEqual(['linked/preview.webp']);
+    expect(feedLines(root).some((line) => line.startsWith(`${sha('outside preview')}  `))).toBe(false);
   });
 
   it('writes to --out, else $OGM_BLOCKLIST_FILE', async () => {
