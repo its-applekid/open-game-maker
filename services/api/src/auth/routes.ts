@@ -16,6 +16,7 @@ import {
   isAdult,
   readCookie,
   signAgeCookie,
+  verifyAgeCookie,
 } from './age.js';
 import { createAuth, type Auth } from './auth.js';
 import { loadAuthEnv, type AuthEnv } from './env.js';
@@ -55,6 +56,11 @@ function context(c: Context<ApiBindings>): AuthContext {
   const found = contexts.get(c.get('deps'));
   if (!found) throw new Error('auth context used before setup');
   return found;
+}
+
+export function hasAdultAgeAttestation(c: Context<ApiBindings>): boolean {
+  const { env } = context(c);
+  return Boolean(verifyAgeCookie(readCookie(c.req.header('cookie'), AGE_COOKIE), env.OGM_AGE_COOKIE_SECRET));
 }
 
 const cookie = (name: string, value: string, maxAge: number) =>

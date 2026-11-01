@@ -47,7 +47,7 @@ export interface Auth {
   api: {
     getSession(input: {
       headers: Headers;
-    }): Promise<{ user: { id: string; email: string }; session: { id: string } } | null>;
+    }): Promise<{ user: { id: string; name: string; email: string }; session: { id: string } } | null>;
   };
 }
 

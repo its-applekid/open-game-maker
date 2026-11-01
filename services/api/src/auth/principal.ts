@@ -5,6 +5,7 @@ import type { Resolver } from '../app/registry.js';
 import type { Auth } from './auth.js';
 
 type Membership = { family_id: string; role: string; capability: string };
+const FALLBACK_DISPLAY_NAME = 'Player';
 
 // OGM-012 owns `family_members`; until its migration lands every user is a familyless player.
 function membership(sqlite: Sqlite, userId: string): Membership | undefined {
@@ -24,6 +25,11 @@ export function parseMaintainers(list: string | undefined): Set<string> {
   );
 }
 
+export function sessionDisplayName(name: string, email: string): string {
+  const trimmed = name.trim().slice(0, 40);
+  return trimmed && trimmed.toLowerCase() !== email.trim().toLowerCase() ? trimmed : FALLBACK_DISPLAY_NAME;
+}
+
 // A session cookie or `Authorization: Bearer <session token>` (bearer plugin) becomes a `user`.
 export function sessionResolver(auth: Auth, sqlite: Sqlite, maintainers: Set<string>): Resolver {
   return async (c) => {
@@ -41,6 +47,7 @@ export function sessionResolver(auth: Auth, sqlite: Sqlite, maintainers: Set<str
     return {
       kind: 'user',
       userId: session.user.id,
+      displayName: sessionDisplayName(session.user.name, session.user.email),
       familyId: member?.family_id ?? '',
       platformRole,
       capability: member?.capability === 'creator' ? 'creator' : 'player',

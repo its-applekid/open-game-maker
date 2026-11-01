@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { hasAdultAgeAttestation } from '../src/app/app.js';
 import { isAdult, signAgeCookie, verifyAgeCookie } from '../src/auth/age.js';
 import { AGE_SECRET, cookiePair, postAge } from './auth-helpers.js';
 import { makeApp } from './helpers.js';
@@ -46,6 +47,38 @@ describe('age cookie', () => {
 });
 
 describe('POST /auth/age', () => {
+  it('exports a request-level adult-attestation check without exposing the signing secret', async () => {
+    const { app } = await makeApp();
+    app.get('/api/v1/zz-test/adult-attestation', (c) => c.json({ adult: hasAdultAgeAttestation(c) }));
+
+    expect(await (await app.request('/api/v1/zz-test/adult-attestation')).json()).toEqual({ adult: false });
+    expect(
+      await (
+        await app.request('/api/v1/zz-test/adult-attestation', {
+          headers: { cookie: 'ogm_age=refused' },
+        })
+      ).json(),
+    ).toEqual({ adult: false });
+
+    const ageResponse = await postAge(app, { birthMonth: 5, birthYear: 2000 });
+    const age = cookiePair(ageResponse, 'ogm_age');
+    expect(age).toBeDefined();
+    expect(
+      await (
+        await app.request('/api/v1/zz-test/adult-attestation', {
+          headers: { cookie: age! },
+        })
+      ).json(),
+    ).toEqual({ adult: true });
+    expect(
+      await (
+        await app.request('/api/v1/zz-test/adult-attestation', {
+          headers: { cookie: `${age}tampered` },
+        })
+      ).json(),
+    ).toEqual({ adult: false });
+  });
+
   it('answers an adult 204 with a signed, HttpOnly, Secure, Lax, 24 h cookie', async () => {
     const { app } = await makeApp();
     const response = await postAge(app, { birthMonth: 5, birthYear: 2000 });

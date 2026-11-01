@@ -8,6 +8,7 @@ const users = {
   one: {
     kind: 'user',
     userId: 'u_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e03',
+    displayName: 'One',
     familyId: 'f_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e02',
     platformRole: 'none',
     capability: 'creator',
@@ -15,6 +16,7 @@ const users = {
   two: {
     kind: 'user',
     userId: 'u_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e04',
+    displayName: 'Two',
     familyId: 'f_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e02',
     platformRole: 'none',
     capability: 'creator',

@@ -28,6 +28,7 @@ describe('session principal resolver', () => {
     const expected = {
       kind: 'user',
       userId: userId('kim@example.com'),
+      displayName: 'Player',
       familyId: '',
       platformRole: 'none',
       capability: 'player',
@@ -47,6 +48,18 @@ describe('session principal resolver', () => {
     const { app, outbox } = await setup();
     const { session } = await signIn(app, outbox, 'kevin@example.com');
     expect(await whoami(app, { cookie: session })).toMatchObject({ platformRole: 'maintainer' });
+  });
+
+  it('uses the stored display name and never exposes email as the room name', async () => {
+    const { app, deps, outbox, userId } = await setup();
+    const { session } = await signIn(app, outbox, 'kim@example.com');
+    const id = userId('kim@example.com');
+
+    deps.sqlite.prepare('UPDATE user SET name = ? WHERE id = ?').run('  Kim  ', id);
+    expect(await whoami(app, { cookie: session })).toMatchObject({ displayName: 'Kim' });
+
+    deps.sqlite.prepare('UPDATE user SET name = ? WHERE id = ?').run('kim@example.com', id);
+    expect(await whoami(app, { cookie: session })).toMatchObject({ displayName: 'Player' });
   });
 
   it("reads the family, role and capability from OGM-012's family_members when that table exists", async () => {
