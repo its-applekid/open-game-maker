@@ -45,6 +45,8 @@ export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubAp
     authStrategy: createAppAuth,
     auth: { appId: config.appId, privateKey },
     request: { fetch: boundedFetch },
+    retry: { enabled: false },
+    throttle: { enabled: false },
   });
   const appRequest = withSafeGitHubRequests(appClient.request.bind(appClient) as unknown as GitHubRequest);
   const installations = new Map<string, CachedInstallation>();
@@ -95,6 +97,8 @@ export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubAp
       const client = new Octokit({
         auth: await tokenFor(installation.id),
         request: { fetch: boundedFetch },
+        retry: { enabled: false },
+        throttle: { enabled: false },
       });
       const request = client.request.bind(client) as unknown as GitHubRequest;
       return { accountType: installation.accountType, request: withSafeGitHubRequests(request) };

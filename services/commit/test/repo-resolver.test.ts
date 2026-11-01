@@ -35,10 +35,20 @@ describe('RepoResolver', () => {
   it('bounds a stalled repository lookup', async () => {
     const fetchImpl = vi.fn<typeof fetch>(
       async (_input, init) =>
-        new Promise<Response>((_resolve, reject) => {
+        new Promise<Response>((resolve, reject) => {
           const signal = init?.signal;
-          if (signal === undefined) return reject(new Error('missing abort signal'));
-          signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+          const timer = setTimeout(
+            () => resolve(new Response(JSON.stringify({ owner: 'alice', name: 'gm-game-1', visibility: 'private' }))),
+            20,
+          );
+          signal?.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer);
+              reject(signal.reason);
+            },
+            { once: true },
+          );
         }),
     );
     const resolver = new RepoResolver('http://127.0.0.1:4300', 'service-secret', fetchImpl, 1);

@@ -6,6 +6,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { AppNotInstalledError, createGitHubApp } from '../src/auth/app.js';
+import { GitHubRateLimitError } from '../src/github-request.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -173,6 +174,25 @@ describe('GitHub App auth', () => {
     });
 
     await expect(app.forOwner('alice')).resolves.toMatchObject({ accountType: 'User' });
+    expect(installationLists).toBe(2);
+  });
+
+  it('fails closed after one App installation rate-limit retry', async () => {
+    let installationLists = 0;
+    const fetchImpl: typeof fetch = async () => {
+      installationLists += 1;
+      return new Response(JSON.stringify({ message: 'rate limited' }), {
+        status: 429,
+        headers: { 'content-type': 'application/json', 'retry-after': '0' },
+      });
+    };
+    const app = await createGitHubApp({
+      appId: '123',
+      privateKeyPath: await privateKeyFile(),
+      fetch: fetchImpl,
+    });
+
+    await expect(app.forOwner('alice')).rejects.toBeInstanceOf(GitHubRateLimitError);
     expect(installationLists).toBe(2);
   });
 });
