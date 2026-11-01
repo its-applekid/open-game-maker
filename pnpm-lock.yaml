@@ -295,6 +295,9 @@ importers:
       '@ogm/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ogm/design-log':
+        specifier: workspace:*
+        version: link:../../packages/design-log
       '@ogm/game-repo-template':
         specifier: workspace:*
         version: link:../../packages/game-repo-template
