@@ -41,7 +41,8 @@ const CAPS: UnpackCaps = { maxMembers: 200_000, maxUnpackedMb: 32_768, maxRatio:
 const ARCHIVE = /\.(?:zip|7z|rar|tar|tgz|tar\.gz|unitypackage)$/i;
 
 function safeSegment(value: string, label: string, pattern: RegExp): string {
-  if (!pattern.test(value) || value.includes('..')) throw new PackRefusal(`${label} is unsafe: ${JSON.stringify(value)}`);
+  if (!pattern.test(value) || value.includes('..'))
+    throw new PackRefusal(`${label} is unsafe: ${JSON.stringify(value)}`);
   return value;
 }
 
@@ -51,7 +52,8 @@ function inside(root: string, path: string): boolean {
 }
 
 function resolveInside(root: string, relativePath: string): string {
-  if (relativePath.includes('\\') || relativePath.split('/').includes('..')) throw new PackRefusal(`unsafe relative path ${JSON.stringify(relativePath)}`);
+  if (relativePath.includes('\\') || relativePath.split('/').includes('..'))
+    throw new PackRefusal(`unsafe relative path ${JSON.stringify(relativePath)}`);
   const path = resolve(root, ...relativePath.split('/'));
   if (!inside(root, path)) throw new PackRefusal(`path escapes asset inbox: ${JSON.stringify(relativePath)}`);
   return path;
@@ -68,9 +70,23 @@ function defaultVersion(manifest?: DriveManifest): string {
 async function filesUnder(root: string): Promise<string[]> {
   const files: string[] = [];
   for (const entry of await readdir(root, { recursive: true, withFileTypes: true })) {
-    if (entry.isFile()) files.push(join(entry.parentPath, entry.name));
+    const path = join(entry.parentPath, entry.name);
+    if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isDirectory())) {
+      throw new PackRefusal(`links are not allowed in pack sources: ${relative(root, path)}`);
+    }
+    if (entry.isFile()) files.push(path);
   }
   return files.sort();
+}
+
+async function treeUsage(root: string): Promise<{ members: number; bytes: number }> {
+  let members = 0;
+  let bytes = 0;
+  for (const entry of await readdir(root, { recursive: true, withFileTypes: true })) {
+    members += 1;
+    if (entry.isFile()) bytes += (await stat(join(entry.parentPath, entry.name))).size;
+  }
+  return { members, bytes };
 }
 
 async function copyExclusive(source: string, destination: string): Promise<void> {
@@ -78,7 +94,11 @@ async function copyExclusive(source: string, destination: string): Promise<void>
   await cp(source, destination, { recursive: true, force: false, errorOnExist: true });
 }
 
-async function assembleQueueSource(assetsRoot: string, dropId: string, target: string): Promise<{ manifest: DriveManifest; intakePath: string }> {
+async function assembleQueueSource(
+  assetsRoot: string,
+  dropId: string,
+  target: string,
+): Promise<{ manifest: DriveManifest; intakePath: string }> {
   const inbox = join(assetsRoot, 'inbox');
   const queuePath = join(inbox, 'queue.jsonl');
   const entries = (await readFile(queuePath, 'utf8'))
@@ -91,15 +111,24 @@ async function assembleQueueSource(assetsRoot: string, dropId: string, target: s
   const manifestPath = resolveInside(inbox, entry.manifest);
   const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as DriveManifest;
   if (manifest.drop_id !== dropId) throw new PackRefusal(`queue manifest drop id does not match ${dropId}`);
-  if (!manifest.integrity_ok) throw new PackRefusal(`queue integrity check failed: ${(manifest.problems ?? ['unknown problem']).join('; ')}`);
-  const currentRoot = manifest.files_root ? resolveInside(inbox, manifest.files_root) : join(dirname(manifestPath), 'files');
+  if (!manifest.integrity_ok)
+    throw new PackRefusal(`queue integrity check failed: ${(manifest.problems ?? ['unknown problem']).join('; ')}`);
+  const currentRoot = manifest.files_root
+    ? resolveInside(inbox, manifest.files_root)
+    : join(dirname(manifestPath), 'files');
   for (const file of manifest.files) {
-    const source = file.downloaded === false && file.previous_quarantine
-      ? resolveInside(inbox, `quarantine/${file.previous_quarantine}/files/${file.path}`)
-      : resolveInside(currentRoot, file.path);
+    const source =
+      file.downloaded === false && file.previous_quarantine
+        ? resolveInside(inbox, `quarantine/${file.previous_quarantine}/files/${file.path}`)
+        : resolveInside(currentRoot, file.path);
     await copyExclusive(source, resolveInside(target, file.path));
   }
-  return { manifest, intakePath: relative(assetsRoot, join(dirname(manifestPath), 'intake.json')).split(sep).join('/') };
+  return {
+    manifest,
+    intakePath: relative(assetsRoot, join(dirname(manifestPath), 'intake.json'))
+      .split(sep)
+      .join('/'),
+  };
 }
 
 async function copyExtracted(source: string, extracted: string): Promise<{ nested: number; dropped: string[] }> {
@@ -112,15 +141,34 @@ async function copyExtracted(source: string, extracted: string): Promise<{ neste
   }
   await mkdir(extracted, { recursive: true });
   let nested = 0;
+  let extractedMembers = 0;
+  let extractedBytes = 0;
   const dropped: string[] = [];
   for (const file of await filesUnder(source)) {
     const path = relative(source, file);
     if (!ARCHIVE.test(file)) {
+      const fileBytes = (await stat(file)).size;
+      if (extractedMembers + 1 > CAPS.maxMembers) throw new PackRefusal(`pack exceeds member limit ${CAPS.maxMembers}`);
+      if (extractedBytes + fileBytes > CAPS.maxUnpackedMb * 1024 * 1024)
+        throw new PackRefusal('pack exceeds unpacked-size limit');
       await copyExclusive(file, join(extracted, path));
+      extractedMembers += 1;
+      extractedBytes += fileBytes;
       continue;
     }
+    const remainingMembers = CAPS.maxMembers - extractedMembers;
+    const remainingBytes = CAPS.maxUnpackedMb * 1024 * 1024 - extractedBytes;
+    if (remainingMembers <= 0) throw new PackRefusal(`pack exceeds member limit ${CAPS.maxMembers}`);
+    if (remainingBytes <= 0) throw new PackRefusal('pack exceeds unpacked-size limit');
     const archiveTarget = await mkdtemp(join(dirname(extracted), '.archive-'));
-    const result = await unpack(file, archiveTarget, CAPS);
+    const result = await unpack(file, archiveTarget, {
+      ...CAPS,
+      maxMembers: remainingMembers,
+      maxUnpackedMb: remainingBytes / (1024 * 1024),
+    });
+    const archiveUsage = await treeUsage(archiveTarget);
+    extractedMembers += archiveUsage.members;
+    extractedBytes += archiveUsage.bytes;
     nested += 1 + result.nested;
     dropped.push(...result.dropped.map((droppedPath) => `${path}!/${droppedPath}`));
     const destination = join(extracted, dirname(path) === '.' ? '' : dirname(path));
@@ -163,11 +211,22 @@ function titleFromId(id: string): string {
 }
 
 async function publishCards(packRoot: string, cards: Awaited<ReturnType<typeof createCards>>): Promise<void> {
-  await writeJson(join(packRoot, 'collection.card.json'), cards.collection);
+  const cardRoot = join(packRoot, 'cards');
+  const published = new Set<string>();
   for (const card of cards.assets) {
     const local = card.id.split('/').at(-1)?.split('@')[0] ?? randomBytes(5).toString('hex');
-    await writeJson(join(packRoot, 'cards', `${local}.card.json`), card);
+    const name = `${local}.card.json`;
+    published.add(name);
+    await writeJson(join(cardRoot, name), card);
   }
+  try {
+    for (const name of await readdir(cardRoot)) {
+      if (name.endsWith('.card.json') && !published.has(name)) await rm(join(cardRoot, name));
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+  }
+  await writeJson(join(packRoot, 'collection.card.json'), cards.collection);
 }
 
 async function hasSameVersion(packRoot: string, version: string, hashName: string, hash: string): Promise<boolean> {
@@ -241,8 +300,11 @@ export async function importPack(options: ImportOptions) {
         rights?: unknown;
         collection_info?: { counts?: Record<string, number> };
       };
-      if (collection.id !== collectionId) throw new PackRefusal(`existing collection id does not match ${collectionId}`);
-      if (requestedRow?.confirmed && (collection.status === 'quarantined' || collection.license !== requestedRow.id)) {
+      if (
+        collection.id === collectionId &&
+        requestedRow?.confirmed &&
+        (collection.status === 'quarantined' || collection.license !== requestedRow.id)
+      ) {
         await confirmCollection({
           assetsRoot: options.assetsRoot,
           collectionId,
@@ -251,34 +313,37 @@ export async function importPack(options: ImportOptions) {
         });
         collection = JSON.parse(await readFile(join(packRoot, 'collection.card.json'), 'utf8')) as typeof collection;
       }
-      const status = collection.status === 'quarantined'
-        ? (manifest ? 'awaiting-license' : 'quarantined')
-        : 'imported';
-      if (intakePath) {
-        await writeIntakeIfMissing(resolveInside(options.assetsRoot, intakePath), {
-          status,
+      if (collection.id === collectionId) {
+        const status =
+          collection.status === 'quarantined' ? (manifest ? 'awaiting-license' : 'quarantined') : 'imported';
+        if (intakePath) {
+          await writeIntakeIfMissing(resolveInside(options.assetsRoot, intakePath), {
+            status,
+            collection: collection.id,
+            license: collection.license === 'NOASSERTION' ? null : collection.license,
+            rights: collection.rights ?? null,
+            confirmed_by: status === 'imported' ? (requestedRow?.confirmed?.by ?? null) : null,
+            date: dateOnly(manifest?.downloaded_at),
+          });
+        }
+        let cardCount = 0;
+        try {
+          cardCount = (await readdir(join(packRoot, 'cards'))).filter((name) => name.endsWith('.card.json')).length;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        }
+        return {
           collection: collection.id,
+          status,
           license: collection.license === 'NOASSERTION' ? null : collection.license,
           rights: collection.rights ?? null,
-          confirmed_by: status === 'imported' ? requestedRow?.confirmed?.by ?? null : null,
-          date: dateOnly(manifest?.downloaded_at),
-        });
+          confirmed_by: status === 'imported' ? (requestedRow?.confirmed?.by ?? null) : null,
+          cards: cardCount,
+          counts: collection.collection_info?.counts ?? {},
+          flags: [],
+          dropped: identified.dropped,
+        };
       }
-      let cardCount = 0;
-      try {
-        cardCount = (await readdir(join(packRoot, 'cards'))).filter((name) => name.endsWith('.card.json')).length;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-      }
-      return {
-        collection: collection.id,
-        status,
-        license: collection.license === 'NOASSERTION' ? null : collection.license,
-        cards: cardCount,
-        counts: collection.collection_info?.counts ?? {},
-        flags: [],
-        dropped: identified.dropped,
-      };
     }
     const top = options.inspiration ? 'inspiration' : 'packs';
     const cards = await createCards({
@@ -336,7 +401,8 @@ export async function importPack(options: ImportOptions) {
       const targetVersion = join(packRoot, version);
       try {
         const existing = await readFile(join(targetVersion, hashName), 'utf8');
-        if (existing !== identified.hashManifest) throw new PackRefusal(`version ${version} already exists with different content`);
+        if (existing !== identified.hashManifest)
+          throw new PackRefusal(`version ${version} already exists with different content`);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
         await rename(stagedVersion, targetVersion);
@@ -355,6 +421,8 @@ export async function importPack(options: ImportOptions) {
 
     let status: 'quarantined' | 'awaiting-license' | 'imported' = manifest ? 'awaiting-license' : 'quarantined';
     let license = options.license ?? identified.license ?? undefined;
+    let rights: unknown = cards.collection.rights;
+    let confirmedBy: string | null = null;
     const row = license ? licenseFor(license) : undefined;
     if (row?.confirmed) {
       await confirmCollection({
@@ -365,6 +433,11 @@ export async function importPack(options: ImportOptions) {
       });
       status = 'imported';
       license = row.id;
+      confirmedBy = row.confirmed.by;
+      const confirmed = JSON.parse(await readFile(join(packRoot, 'collection.card.json'), 'utf8')) as {
+        rights?: unknown;
+      };
+      rights = confirmed.rights ?? null;
     } else if (intakePath) {
       await writeJson(resolveInside(options.assetsRoot, intakePath), {
         status: 'awaiting-license',
@@ -379,6 +452,8 @@ export async function importPack(options: ImportOptions) {
       collection: cards.collection.id,
       status,
       license: license ?? null,
+      rights,
+      confirmed_by: confirmedBy,
       cards: cards.assets.length,
       counts: cards.collection.collection_info?.counts ?? {},
       flags: cards.validationErrors,

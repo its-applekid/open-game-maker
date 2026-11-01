@@ -71,6 +71,23 @@ describe('unpack', () => {
     expect(await readdir(destination)).toEqual([]);
   });
 
+  it('enforces the unpacked-size cap across multiple nested archives', async () => {
+    const root = await directory('gm-unpack-nested-cap-');
+    const first = new AdmZip();
+    first.addFile('first.bin', Buffer.alloc(600 * 1024));
+    const second = new AdmZip();
+    second.addFile('second.bin', Buffer.alloc(600 * 1024));
+    const outer = new AdmZip();
+    outer.addFile('first.zip', first.toBuffer());
+    outer.addFile('second.zip', second.toBuffer());
+    const archive = join(root, 'nested.zip');
+    outer.writeZip(archive);
+
+    await expect(
+      unpack(archive, join(root, 'out'), { maxMembers: 20, maxUnpackedMb: 1, maxRatio: 10_000 }),
+    ).rejects.toThrow(/unpacked-size limit/);
+  });
+
   it('extracts one nested archive pass and drops executable files', async () => {
     const root = await directory('gm-unpack-nested-');
     const archive = join(root, 'outer.zip');

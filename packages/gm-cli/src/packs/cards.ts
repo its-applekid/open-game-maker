@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 
 import { measureFont, measureGltf, measureImage } from '@ogm/asset-measure';
@@ -46,17 +46,31 @@ function slugFor(path: string): string {
     .replace(/^-|-$/g, '');
 }
 
+function descriptionFor(path: string): string {
+  const title = titleFor(path);
+  return title.length >= 10 ? title : `${title} game asset`;
+}
+
 type SourceFacts = { path: string; sha256: string; bytes: number; format: string };
 
-async function sourceFile(root: string, path: string, role: 'primary' | 'texture', cache: Map<string, SourceFacts>) {
+async function sourceFile(
+  root: string,
+  path: string,
+  role: 'primary' | 'texture' | 'metadata',
+  cache: Map<string, SourceFacts>,
+) {
   let facts = cache.get(path);
   if (!facts) {
-    const bytes = await readFile(join(root, path));
-    const hash = createHash('sha256').update(bytes).digest('hex');
+    const hash = createHash('sha256');
+    let bytes = 0;
+    for await (const chunk of createReadStream(join(root, path))) {
+      hash.update(chunk);
+      bytes += chunk.length;
+    }
     facts = {
       path,
-      sha256: `sha256:${hash}`,
-      bytes: bytes.length,
+      sha256: `sha256:${hash.digest('hex')}`,
+      bytes,
       format: extname(path).slice(1).toLowerCase() || 'bin',
     };
     cache.set(path, facts);
@@ -98,26 +112,20 @@ async function measuredFields(item: Item, file: string): Promise<Partial<AssetCa
   if (['fbx', 'obj', 'blend', 'dae', '3ds', 'stl', 'ply', 'usd', 'usdz', 'vox'].includes(extension)) {
     return { kind: 'model', flags: ['needs-conversion'] };
   }
-  if (item.kind === 'sprite' || item.kind === 'texture') {
-    const measured = await measureImage(file);
-    return item.kind === 'texture'
-      ? {
-          kind: 'texture',
-          subkind: 'material',
-          image: measured.image,
-          look: measured.look,
-          texture: { maps: [], tileable: false },
-        }
-      : {
-          kind: 'sprite',
-          subkind: item.subkind ?? 'prop',
-          image: measured.image,
-          look: measured.look,
-          sprite: { drawn_view: 'none' },
-        };
-  }
   if (item.kind === 'ui' && item.subkind === 'font') {
-    return { kind: 'ui', subkind: 'font', font: await measureFont(file) };
+    return { font: await measureFont(file) };
+  }
+  if (item.kind === 'sprite' || item.kind === 'texture' || item.kind === 'ui' || item.kind === 'vfx') {
+    const measured = await measureImage(file);
+    if (item.kind === 'texture')
+      return { image: measured.image, look: measured.look, texture: { maps: [], tileable: false } };
+    if (item.kind === 'vfx') return { image: measured.image, look: measured.look, vfx: { blend: 'alpha' } };
+    if (item.kind === 'ui') return { image: measured.image, look: measured.look };
+    return {
+      image: measured.image,
+      look: measured.look,
+      sprite: { drawn_view: 'none', ...(item.vendor?.tilePx ? { tile_px: item.vendor.tilePx } : {}) },
+    };
   }
   return { flags: ['needs-review'] };
 }
@@ -169,13 +177,26 @@ export async function createCards(options: CreateCardsOptions): Promise<CardSet>
   for (const item of options.items) {
     const primary = await sourceFile(options.extracted, item.path, 'primary', sourceFacts);
     const companions = await Promise.all(
-      item.companions.map((path) => sourceFile(options.extracted, path, 'texture', sourceFacts)),
+      item.companions.map((path) =>
+        sourceFile(
+          options.extracted,
+          path,
+          /^MaterialList_.*\.txt$/i.test(basename(path)) ? 'metadata' : 'texture',
+          sourceFacts,
+        ),
+      ),
     );
     const measured: Partial<AssetCard> = await measuredFields(item, join(options.extracted, item.path)).catch(() => ({
       flags: ['needs-review'],
     }));
     let localId = slugFor(item.path) || primary.sha256.slice(7, 19);
-    if (usedIds.has(localId)) localId = `${localId}-${primary.sha256.slice(7, 15)}`;
+    const baseId = localId;
+    if (usedIds.has(localId)) localId = `${baseId}-${primary.sha256.slice(7, 15)}`;
+    let suffix = 2;
+    while (usedIds.has(localId)) {
+      localId = `${baseId}-${suffix}`;
+      suffix += 1;
+    }
     usedIds.add(localId);
     const thumbnail = await writeThumbnail(
       options.assetsRoot,
@@ -191,14 +212,26 @@ export async function createCards(options: CreateCardsOptions): Promise<CardSet>
         card_type: 'asset',
         status: measured.geometry || measured.image || measured.font ? 'measured' : 'draft',
         title: titleFor(item.path),
+        kind: item.kind,
+        ...(item.subkind ? { subkind: item.subkind } : {}),
         collection: collectionId,
         source: { files: [primary, ...companions], content_hash: primary.sha256 },
-        describe: { description: titleFor(item.path) },
+        describe: { description: descriptionFor(item.path) },
         ...(thumbnail ? { previews: { thumb: thumbnail } } : {}),
         ...measured,
         provenance: {
           '*': { by: 'code', tool: 'gm-intake@0.1', at },
           describe: { by: 'filename', tool: 'gm-intake@0.1', at },
+          ...(item.vendor?.tilePx
+            ? {
+                'sprite.tile_px': {
+                  by: 'vendor-metadata' as const,
+                  tool: 'gm-intake@0.1',
+                  at,
+                  input: 'Tilesheet.txt',
+                },
+              }
+            : {}),
         },
       },
       validationErrors,

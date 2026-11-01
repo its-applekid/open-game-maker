@@ -1,4 +1,4 @@
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import sharp from 'sharp';
@@ -47,6 +47,11 @@ describe('gm packs import', () => {
     expect(collection.collection_info).not.toHaveProperty('creation_choice');
     expect(collection.collection_info.files_total).toBe(2);
     expect(validateCard(collection)).toMatchObject({ ok: true });
+    for (const name of await readdir(join(pack, 'cards'))) {
+      const card = JSON.parse(await readFile(join(pack, 'cards', name), 'utf8'));
+      const validation = validateCard(card);
+      expect(validation.ok ? [] : validation.errors, name).toEqual([]);
+    }
     const before = await readFile(join(pack, 'collection.card.json'), 'utf8');
     const beforePack = await readFile(join(pack, 'pack.json'), 'utf8');
     const beforeCard = await readFile(join(pack, 'cards', 'wall.card.json'), 'utf8');
@@ -57,11 +62,43 @@ describe('gm packs import', () => {
     expect(await readFile(join(pack, 'pack.json'), 'utf8')).toBe(beforePack);
     expect(await readFile(join(pack, 'cards', 'wall.card.json'), 'utf8')).toBe(beforeCard);
 
-    const search = await gm(
-      ['assets', 'search', '--include-draft', '--collection', 't1:vendor-test@1', '--json'],
-      { env },
-    );
+    const search = await gm(['assets', 'search', '--include-draft', '--collection', 't1:vendor-test@1', '--json'], {
+      env,
+    });
     expect(search.out).toEqual([]);
+  });
+
+  it('publishes only cards from the current version while preserving old originals', async () => {
+    const assets = fresh('gm-pack-assets-');
+    const firstInput = fresh('gm-pack-input-');
+    const secondInput = fresh('gm-pack-input-');
+    await writeFile(join(firstInput, 'wall.obj'), 'o wall\n');
+    await writeFile(join(secondInput, 'floor.obj'), 'o floor\n');
+    const env = { OGM_ASSETS_ROOT: assets };
+
+    expect((await gm(['packs', 'import', firstInput, '--id', 'versioned', '--version', '1'], { env })).code).toBe(0);
+    expect((await gm(['packs', 'import', secondInput, '--id', 'versioned', '--version', '2'], { env })).code).toBe(0);
+
+    const pack = join(assets, 'packs', 'versioned');
+    expect((await readdir(join(pack, 'cards'))).sort()).toEqual(['floor.card.json']);
+    await expect(stat(join(pack, '1', 'originals', 'wall.obj'))).resolves.toBeTruthy();
+    await expect(stat(join(pack, '2', 'originals', 'floor.obj'))).resolves.toBeTruthy();
+  });
+
+  it('refuses symlinked files in a direct source tree', async () => {
+    const assets = fresh('gm-pack-assets-');
+    const input = fresh('gm-pack-input-');
+    const outside = join(fresh('gm-pack-outside-'), 'outside.obj');
+    await writeFile(outside, 'o outside\n');
+    await symlink(outside, join(input, 'linked.obj'));
+
+    const result = await gm(['packs', 'import', input, '--id', 'linked-pack', '--version', '1'], {
+      env: { OGM_ASSETS_ROOT: assets },
+    });
+
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain('links are not allowed');
+    await expect(stat(join(assets, 'packs', 'linked-pack'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('refuses a bad queue manifest before writing collection files', async () => {
@@ -70,7 +107,13 @@ describe('gm packs import', () => {
     await mkdir(join(quarantine, 'files'), { recursive: true });
     await writeFile(
       join(quarantine, 'manifest.json'),
-      JSON.stringify({ drop_id: 'drop-bad', name: 'Bad', integrity_ok: false, problems: ['checksum mismatch'], files: [] }),
+      JSON.stringify({
+        drop_id: 'drop-bad',
+        name: 'Bad',
+        integrity_ok: false,
+        problems: ['checksum mismatch'],
+        files: [],
+      }),
     );
     await writeFile(
       join(assets, 'inbox', 'queue.jsonl'),
@@ -90,16 +133,19 @@ describe('gm packs import', () => {
     const quarantine = join(assets, 'inbox', 'quarantine', 'confirm-drop');
     await mkdir(join(quarantine, 'files'), { recursive: true });
     await writeFile(join(quarantine, 'files', 'wall.obj'), 'o wall\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n');
-    await writeFile(join(quarantine, 'manifest.json'), JSON.stringify({
-      drop_id: 'drop-confirm',
-      name: 'Confirm Test',
-      revision: 1,
-      downloaded_at: '2026-10-26T10:00:00Z',
-      files_root: 'quarantine/confirm-drop/files',
-      files: [{ path: 'wall.obj', downloaded: true }],
-      integrity_ok: true,
-      problems: [],
-    }));
+    await writeFile(
+      join(quarantine, 'manifest.json'),
+      JSON.stringify({
+        drop_id: 'drop-confirm',
+        name: 'Confirm Test',
+        revision: 1,
+        downloaded_at: '2026-10-26T10:00:00Z',
+        files_root: 'quarantine/confirm-drop/files',
+        files: [{ path: 'wall.obj', downloaded: true }],
+        integrity_ok: true,
+        problems: [],
+      }),
+    );
     await writeFile(
       join(assets, 'inbox', 'queue.jsonl'),
       `${JSON.stringify({ drop_id: 'drop-confirm', name: 'Confirm Test', manifest: 'quarantine/confirm-drop/manifest.json' })}\n`,
@@ -116,7 +162,17 @@ describe('gm packs import', () => {
     expect(before.rights).toMatchObject({ processing: 'local-only' });
 
     const result = await gm(
-      ['packs', 'import', '--confirm', 't1:confirm-test@1', '--license', 'CC0-1.0', '--confirmed-by', 'kevin', '--json'],
+      [
+        'packs',
+        'import',
+        '--confirm',
+        't1:confirm-test@1',
+        '--license',
+        'CC0-1.0',
+        '--confirmed-by',
+        'kevin',
+        '--json',
+      ],
       { env },
     );
     expect(result.code, result.err.join('\n')).toBe(0);
@@ -131,13 +187,15 @@ describe('gm packs import', () => {
     expect(Object.keys(intake).sort()).toEqual(['collection', 'confirmed_by', 'date', 'license', 'rights', 'status']);
     expect(intake).toMatchObject({ status: 'imported', license: 'CC0-1.0', confirmed_by: 'kevin' });
     expect(intake.rights).toMatchObject({ processing: 'any' });
-    const search = await gm(
-      ['assets', 'search', '--include-draft', '--collection', 't1:confirm-test@1', '--json'],
-      { env },
-    );
-    expect(search.out.map((line) => {
-      const hit = JSON.parse(line) as { id: string; collection?: string };
-      return hit.collection ?? hit.id;
-    })).toContain('t1:confirm-test@1');
+    const search = await gm(['assets', 'search', '--include-draft', '--collection', 't1:confirm-test@1', '--json'], {
+      env,
+    });
+    expect(search.out.map((line) => (JSON.parse(line) as { id: string }).id)).toContain('t1:confirm-test/wall@1');
+    expect(
+      search.out.map((line) => {
+        const hit = JSON.parse(line) as { id: string; collection?: string };
+        return hit.collection ?? hit.id;
+      }),
+    ).toContain('t1:confirm-test@1');
   });
 });

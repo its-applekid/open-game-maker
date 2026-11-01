@@ -39,7 +39,11 @@ export const command: GmCommand = {
       return EXIT.ok;
     }
     if (typeof flags.id !== 'string') throw new UsageError('--id is required', 'gm help packs import');
-    if (args.length > 1 || (args.length === 0 && typeof flags['from-queue'] !== 'string')) {
+    if (
+      args.length > 1 ||
+      (args.length === 0 && typeof flags['from-queue'] !== 'string') ||
+      (args.length > 0 && typeof flags['from-queue'] === 'string')
+    ) {
       throw new UsageError('give one input directory/archive, or --from-queue', 'gm help packs import');
     }
     const { importPack, PackRefusal } = await import('../../packs/importer.js');

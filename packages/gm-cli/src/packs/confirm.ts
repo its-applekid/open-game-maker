@@ -33,20 +33,26 @@ async function findPack(assetsRoot: string, id: string): Promise<string> {
     try {
       const card = JSON.parse(await readFile(path, 'utf8')) as AssetCard;
       if (card.id === id) return dirname(path);
-    } catch {
-      // Keep looking in the other collection root.
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
   }
   throw new Error(`collection not found: ${id}`);
 }
 
 function parseDecision(value: string, date: string, name: string): RightsBasis {
-  const fields = Object.fromEntries(value.split(';').map((part) => {
-    const split = part.indexOf('=');
-    return [part.slice(0, split).trim(), part.slice(split + 1).trim()];
-  }));
-  const uses = (fields.uses ?? '').split(',').map((use) => use.trim()).filter(Boolean) as RightsBasis['uses'];
-  if (!fields.audience || !fields.redistribution || uses.length === 0) throw new Error('decision requires uses, audience, and redistribution');
+  const fields = Object.fromEntries(
+    value.split(';').map((part) => {
+      const split = part.indexOf('=');
+      return [part.slice(0, split).trim(), part.slice(split + 1).trim()];
+    }),
+  );
+  const uses = (fields.uses ?? '')
+    .split(',')
+    .map((use) => use.trim())
+    .filter(Boolean) as RightsBasis['uses'];
+  if (!fields.audience || !fields.redistribution || uses.length === 0)
+    throw new Error('decision requires uses, audience, and redistribution');
   return {
     type: 'decision',
     uses,
@@ -58,7 +64,9 @@ function parseDecision(value: string, date: string, name: string): RightsBasis {
   };
 }
 
-export async function confirmCollection(options: ConfirmOptions): Promise<{ collection: string; status: 'imported'; license: string }> {
+export async function confirmCollection(
+  options: ConfirmOptions,
+): Promise<{ collection: string; status: 'imported'; license: string }> {
   const row = licenseFor(options.license);
   if (!row) throw new Error(`unknown license ${JSON.stringify(options.license)}`);
   if (!options.confirmedBy.trim()) throw new Error('--confirmed-by must name the human who confirmed the license');
@@ -80,7 +88,10 @@ export async function confirmCollection(options: ConfirmOptions): Promise<{ coll
     date,
     note: options.note ?? row.note,
   };
-  const basis = [licenseBasis, ...(options.decision ? [parseDecision(options.decision, date, options.confirmedBy)] : [])] as [RightsBasis, ...RightsBasis[]];
+  const basis = [
+    licenseBasis,
+    ...(options.decision ? [parseDecision(options.decision, date, options.confirmedBy)] : []),
+  ] as [RightsBasis, ...RightsBasis[]];
   const effective = effectiveRights(basis);
   card.license = row.id;
   card.status = 'draft';

@@ -97,6 +97,7 @@ describe('intake poller', () => {
       collection: `t1:${id}@2026-10-26-r1`,
       status: args.includes('--license') ? 'imported' : 'awaiting-license',
       license: args.includes('--license') ? 'CC0-1.0' : null,
+      confirmed_by: args.includes('--license') ? 'kevin' : null,
     }));
     const events: string[] = [];
 

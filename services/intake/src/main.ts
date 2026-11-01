@@ -125,10 +125,7 @@ export async function pollIntake(options: PollOptions): Promise<{ hadError: bool
         id,
         dropId: entry.entry.drop_id,
       });
-      await writeOnce(
-        entry.intakePath,
-        canonicalIntake(entry, result, license ? 'kevin' : (result.confirmed_by ?? null)),
-      );
+      await writeOnce(entry.intakePath, canonicalIntake(entry, result, result.confirmed_by ?? null));
       record(entry, result.status, result.collection);
     } catch (error) {
       failures += 1;
@@ -155,7 +152,13 @@ export async function main(): Promise<never> {
     OGM_STATE_DIR: { kind: 'path' },
   });
   while (true) {
-    const { hadError } = await pollIntake({ assetsRoot: config.OGM_ASSETS_ROOT, stateDir: config.OGM_STATE_DIR });
+    let hadError = true;
+    try {
+      ({ hadError } = await pollIntake({ assetsRoot: config.OGM_ASSETS_ROOT, stateDir: config.OGM_STATE_DIR }));
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`intake poll failed: ${message}\n`);
+    }
     await sleep(hadError ? 5 * 60_000 : 30_000);
   }
 }

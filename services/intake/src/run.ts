@@ -25,6 +25,7 @@ export const runImport: ImportRunner = async (invocation) => {
   const { stdout } = await execFileAsync('nice', [...invocation.nice, invocation.gmBin, ...invocation.args], {
     encoding: 'utf8',
     maxBuffer: 2 * 1024 * 1024,
+    timeout: 2 * 60 * 60_000,
   });
   const line = stdout.split(/\r?\n/).filter(Boolean).at(-1);
   if (!line) throw new Error('gm returned no JSON result');

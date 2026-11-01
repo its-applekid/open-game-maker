@@ -35,10 +35,12 @@ describe('identify', () => {
     temporary.push(root);
     await writeFile(join(root, 'readme.txt'), 'hello');
     await writeFile(join(root, 'run.sh'), '#!/bin/sh\necho unsafe\n');
+    await writeFile(join(root, 'asset.meta'), 'engine-only');
 
     const result = await identify(root);
-    expect(result.dropped).toEqual(['run.sh']);
+    expect(result.dropped).toEqual(['asset.meta', 'run.sh']);
     await expect(readFile(join(root, 'run.sh'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(root, 'asset.meta'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('links only matching texture siblings to each model', async () => {
@@ -56,5 +58,28 @@ describe('identify', () => {
     const result = await identify(root);
     expect(result.items.find(({ path }) => path.endsWith('wall.obj'))?.companions).toEqual(['House/Textures/wall.png']);
     expect(result.items.find(({ path }) => path.endsWith('orc.obj'))?.companions).toEqual(['Hero/Textures/orc.png']);
+  });
+
+  it('parses Synty material lists and Kenney tilesheet dimensions', async () => {
+    const root = tempDir('gm-identify-metadata-');
+    temporary.push(root);
+    await mkdir(join(root, 'Models'), { recursive: true });
+    await mkdir(join(root, 'Tiles'), { recursive: true });
+    await writeFile(join(root, 'Models', 'SM_Prop_Torch_01.fbx'), 'model');
+    await writeFile(
+      join(root, 'MaterialList_Test.txt'),
+      'SM_Prop_Torch_01\nMaterial: Torch\nTexture: Torch_Albedo.png\n',
+    );
+    await writeFile(join(root, 'Tilesheet.txt'), 'Tile width: 16\nTile height: 16\nTile spacing: 1\n');
+    await writeFile(join(root, 'Tiles', 'tile_0001.png'), 'pixels');
+
+    const result = await identify(root);
+
+    expect(result.items.find(({ path }) => path.endsWith('.fbx'))?.companions).toContain('MaterialList_Test.txt');
+    expect(result.items.find(({ path }) => path.endsWith('.png'))).toMatchObject({
+      kind: 'sprite',
+      subkind: 'tile',
+      vendor: { tilePx: 16, spacingPx: 1 },
+    });
   });
 });
