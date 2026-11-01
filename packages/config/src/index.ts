@@ -66,7 +66,11 @@ export function loadEnv<S extends EnvSpec>(
   const values: Record<string, ParsedEnvValue | undefined> = {};
 
   for (const [name, definition] of Object.entries(spec)) {
-    const raw = source[name] ?? definition.default;
+    const configured = source[name];
+    const raw =
+      configured === undefined || (configured === '' && definition.default !== undefined)
+        ? definition.default
+        : configured;
 
     if (raw === undefined) {
       if (definition.required ?? true) missing.push(name);

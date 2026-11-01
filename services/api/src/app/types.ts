@@ -18,6 +18,8 @@ export interface AppDeps {
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
+    vapidKeyFile: string;
+    vapidSubject: string;
   };
   blobStore: BlobStore;
   events: AppEvents;

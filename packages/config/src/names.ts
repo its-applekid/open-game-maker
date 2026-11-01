@@ -35,6 +35,13 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
   { name: 'OGM_GAMES_ROOT', unit: 'games', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
   { name: 'OGM_BLOB_SIGNING_KEY', unit: 'api', kind: 'secret', doc: 'HMAC key for signed blob URLs' },
+  {
+    name: 'OGM_VAPID_KEY_FILE',
+    unit: 'api',
+    kind: 'path',
+    doc: '~/.config/ogm/env/ogm-api.vapid.json (generated Web Push keys)',
+  },
+  { name: 'OGM_VAPID_SUBJECT', unit: 'api', kind: 'string', doc: 'contact email for Web Push (without mailto:)' },
   { name: 'OGM_SESSION_SECRET', unit: 'api', kind: 'secret', doc: 'Better Auth secret' },
   { name: 'OGM_WS_TOKEN_SECRET', unit: 'shared', kind: 'secret', doc: 'HS256 key for room/chat grants (api, rooms)' },
   { name: 'OGM_ROOMS_INTERNAL_SECRET', unit: 'rooms', kind: 'secret', doc: 'backend -> rooms internal bearer' },
