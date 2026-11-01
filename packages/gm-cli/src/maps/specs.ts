@@ -31,7 +31,7 @@ export type SpecQuery = {
 
 export type SpecFlags = { rooms?: string; loops?: number; secret?: boolean; size?: string; type?: string };
 
-const SIZES = ['tiny', 'small', 'medium', 'large', 'huge'];
+export const SIZES = ['tiny', 'small', 'medium', 'large', 'huge'];
 const TYPES = new Set([
   ...['dungeon', 'cave', 'castle', 'keep', 'temple', 'crypt', 'building', 'tavern', 'town', 'city', 'ship'],
   ...['sewer', 'mine', 'wilderness', 'battlemap', 'region', 'ruins', 'graveyard', 'camp', 'village', 'interior'],

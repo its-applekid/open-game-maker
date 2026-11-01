@@ -2,15 +2,14 @@ import { existsSync } from 'node:fs';
 import { lstat, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
-import { loadIndex, type CardIndex, type ResolvedCard } from '@ogm/asset-cards';
+import { buildIndex, type CardIndex, type ResolvedCard } from '@ogm/asset-cards';
 
 import { EXIT, type GmCommand, type GmContext } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
-import { LINE, formatLine, relKey, sha256File, sortLines, walk } from '../../packs/hashwalk.js';
+import { LINE, PREVIEW_KINDS, formatLine, relKey, sha256File, sortLines, walk } from '../../packs/hashwalk.js';
 
 export const DEFAULT_OUT = join('private', 'blocklist', 'redistribution-none.txt');
 const CACHE = join('private', 'blocklist', 'cache.json');
-const PREVIEW_KINDS = ['thumb', 'sheet', 'waveform', 'clip'] as const;
 
 type CacheEntry = { mtimeMs: number; size: number; sha256: string };
 type Cache = Record<string, CacheEntry>;
@@ -60,6 +59,8 @@ async function writeAtomic(file: string, text: string): Promise<void> {
 
 export type BlocklistStats = {
   collections: number;
+  /** Collection cards that failed to load: their rights are unknown, so their bytes are not in the feed. */
+  collection_errors: string[];
   files: number;
   hashed: number;
   cached: number;
@@ -71,13 +72,22 @@ export type BlocklistStats = {
 };
 
 /** Build the feed: one `sha256  bytes  path` line per byte of every `redistribution: none` collection. */
-export async function buildBlocklist(ctx: GmContext, root: string, out: string): Promise<BlocklistStats> {
-  const index = await loadIndex(root);
+export async function buildBlocklist(
+  ctx: GmContext,
+  root: string,
+  out: string,
+  useCache: boolean,
+): Promise<BlocklistStats> {
+  // A fresh build, not the cached index: rights decide what is protected, so they must reflect the cards on disk now.
+  const index = await buildIndex(root);
+  const collectionErrors = index.errors
+    .map((error) => error.path)
+    .filter((path) => path.endsWith('collection.card.json'));
   const targets = Object.values(index.collections)
     .filter((collection) => collection.resolved.rights.redistribution === 'none')
     .sort((a, b) => (a.id < b.id ? -1 : 1));
   const cacheFile = join(root, CACHE);
-  const oldCache = await readCache(cacheFile);
+  const oldCache = useCache ? await readCache(cacheFile) : {};
   const cache: Cache = {};
   const lines: string[] = [];
   const missing: string[] = [];
@@ -131,8 +141,10 @@ export async function buildBlocklist(ctx: GmContext, root: string, out: string):
   await writeAtomic(out, sorted.length > 0 ? `${sorted.join('\n')}\n` : '');
   await writeAtomic(cacheFile, `${JSON.stringify(cache)}\n`);
   for (const key of missing) ctx.err(`missing: ${key}`);
+  for (const path of collectionErrors) ctx.err(`unreadable collection card, its files are not listed: ${path}`);
   return {
     collections: targets.length,
+    collection_errors: collectionErrors,
     ...stats,
     missing,
     unique_hashes: new Set(sorted.map((line) => line.slice(0, 64))).size,
@@ -151,6 +163,7 @@ export const command: GmCommand = {
       type: 'string',
       help: 'feed file (default $OGM_BLOCKLIST_FILE, else private/blocklist/redistribution-none.txt)',
     },
+    'no-cache': { type: 'boolean', default: false, help: 'rehash every file instead of trusting size and mtime' },
   },
   async run(ctx, _args, flags) {
     const root = requireAssetsRoot(ctx);
@@ -158,11 +171,11 @@ export const command: GmCommand = {
       typeof flags.out === 'string' ? resolve(ctx.cwd, flags.out) : (ctx.blocklistFile ?? join(root, DEFAULT_OUT));
     let stats: BlocklistStats;
     try {
-      stats = await buildBlocklist(ctx, root, out);
+      stats = await buildBlocklist(ctx, root, out, flags['no-cache'] !== true);
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code;
       if (code !== 'EACCES' && code !== 'EROFS' && code !== 'ENOTDIR' && code !== 'EPERM') throw error;
-      ctx.err(`cannot write the feed: ${(error as NodeJS.ErrnoException).path ?? out} (${code})`);
+      ctx.err(`cannot read or write ${(error as NodeJS.ErrnoException).path ?? out} (${code})`);
       return EXIT.failed;
     }
     if (ctx.json) printJson(ctx, stats);
@@ -170,7 +183,11 @@ export const command: GmCommand = {
       ctx.out(
         `${stats.lines} lines, ${stats.unique_hashes} unique hashes from ${stats.collections} collections -> ${stats.out}`,
       );
-    ctx.emit('assets.blocklist', { ...stats, missing: stats.missing.length });
-    return EXIT.ok;
+    ctx.emit('assets.blocklist', {
+      ...stats,
+      missing: stats.missing.length,
+      collection_errors: stats.collection_errors.length,
+    });
+    return stats.collection_errors.length > 0 ? EXIT.failed : EXIT.ok;
   },
 };

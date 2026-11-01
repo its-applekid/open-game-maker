@@ -1,12 +1,12 @@
 import { createHash } from 'node:crypto';
-import { chmodSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, readFileSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { sortLines } from '../src/packs/hashwalk.js';
 import { gm, tempDir } from './helpers.js';
-import { ANNUAL, MANIFEST_LINES, put, rightsLibrary } from './library-rights.js';
+import { ANNUAL, MANIFEST_LINES, SIDETRAX, put, rightsLibrary } from './library-rights.js';
 
 const FEED = 'private/blocklist/redistribution-none.txt';
 const GRAMMAR = /^[0-9a-f]{64} {2}[0-9]+ {2}[^\n]+$/;
@@ -37,6 +37,9 @@ describe('gm packs blocklist', () => {
     expect(lines).toContain(`${sha('private map bytes')}  17  ${ANNUAL}/maps/example-dungeon-01.png`);
     expect(lines).toContain(`${sha('private thumb bytes')}  19  private/previews/00/0000000000000000-thumb.webp`);
     expect(lines).toContain(`${sha('derived variant bytes')}  21  derived/profantasy-cartographers-annual/variant.png`);
+    // A none pack: both its untouched download and its extracted files.
+    expect(lines).toContain(`${sha('sidetrax zip bytes')}  18  ${SIDETRAX}/originals/sidetrax-60.zip`);
+    expect(lines).toContain(`${sha('sidetrax wav bytes')}  18  ${SIDETRAX}/extracted/war-drums.wav`);
     for (const line of MANIFEST_LINES) {
       const [hash, bytes, path] = line.split('  ');
       expect(lines).toContain(`${hash}  ${bytes}  manifest/profantasy-cartographers-annual/${path}`);
@@ -47,7 +50,7 @@ describe('gm packs blocklist', () => {
     expect(lines.filter((line) => cc0.includes(line.slice(0, 64)))).toEqual([]);
     expect(lines.filter((line) => line.includes('kenney-mini-dungeon'))).toEqual([]);
 
-    expect(stats).toMatchObject({ collections: 3, manifest_lines: 2, lines: lines.length });
+    expect(stats).toMatchObject({ collections: 3, collection_errors: [], manifest_lines: 2, lines: lines.length });
   });
 
   it('writes the consumer grammar: relative paths, two-space fields, bytewise sorted, unique', async () => {
@@ -90,6 +93,44 @@ describe('gm packs blocklist', () => {
     const { stats } = await blocklist(root);
     expect(stats.hashed).toBe(1);
     expect(feedLines(root)).toContain(`${sha('changed map bytes!')}  18  ${ANNUAL}/maps/example-dungeon-01.png`);
+  });
+
+  it('rehashes a same-size edit whose mtime moved, and everything with --no-cache', async () => {
+    const root = rightsLibrary();
+    const first = await blocklist(root);
+    const map = join(root, ANNUAL, 'maps/example-dungeon-01.png');
+    const { mtime } = statSync(map);
+    put(root, `${ANNUAL}/maps/example-dungeon-01.png`, 'PRIVATE MAP BYTES');
+    utimesSync(map, mtime, new Date(mtime.getTime() + 5000));
+    const { stats } = await blocklist(root);
+    expect(stats.hashed).toBe(1);
+    expect(feedLines(root)).toContain(`${sha('PRIVATE MAP BYTES')}  17  ${ANNUAL}/maps/example-dungeon-01.png`);
+    expect((await blocklist(root, ['--no-cache'])).stats.hashed).toBe(first.stats.hashed);
+  });
+
+  it('reads rights from the cards on disk, not an older saved index', async () => {
+    const root = rightsLibrary();
+    await blocklist(root);
+    const card = join(root, 'packs/kenney-mini-dungeon/collection.card.json');
+    const doc = JSON.parse(readFileSync(card, 'utf8'));
+    doc.rights.redistribution = 'none';
+    for (const basis of doc.rights.basis) basis.redistribution = 'none';
+    const { mtime } = statSync(card);
+    writeFileSync(card, JSON.stringify(doc));
+    utimesSync(card, mtime, new Date(mtime.getTime() - 60_000)); // older than the saved index
+    await blocklist(root);
+    expect(feedLines(root)).toContain(`${sha('cc0 wall bytes')}  14  packs/kenney-mini-dungeon/2.0/extracted/wall.glb`);
+  });
+
+  it('exits 1 naming a collection card it cannot read, still writing the rest', async () => {
+    const root = rightsLibrary();
+    writeFileSync(join(root, 'packs/sidetrax-pack-60-battle/collection.card.json'), '{ not json');
+    const { code, err, stats } = await blocklist(root);
+    expect(code).toBe(1);
+    expect(err).toContain(
+      'unreadable collection card, its files are not listed: packs/sidetrax-pack-60-battle/collection.card.json',
+    );
+    expect(feedLines(root).length).toBe(stats.lines);
   });
 
   it('warns about a referenced preview missing on disk and still writes the rest', async () => {

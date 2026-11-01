@@ -5,18 +5,23 @@ import { join, relative, sep } from 'node:path';
 
 export type WalkedFile = { abs: string; rel: string; size: number; mtimeMs: number };
 
+export const PREVIEW_KINDS = ['thumb', 'sheet', 'waveform', 'clip'] as const;
+export type PreviewKind = (typeof PREVIEW_KINDS)[number];
+
 /** Library-relative path with `/` separators, as written in the feed and the blob mapping. */
 export function relKey(root: string, abs: string): string {
   return relative(root, abs).split(sep).join('/');
 }
 
-/** Every regular file under `dir` (missing dir yields nothing); symlinks are skipped so a link cannot pull in outside files. */
+/** Every regular file under `dir` (a missing dir yields nothing, other read errors throw); symlinks are skipped so a link cannot pull in outside files. */
 export async function* walk(root: string, dir: string): AsyncGenerator<WalkedFile> {
   let names: string[];
   try {
     names = (await readdir(dir)).sort();
-  } catch {
-    return;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ENOTDIR') return;
+    throw error;
   }
   for (const name of names) {
     const abs = join(dir, name);

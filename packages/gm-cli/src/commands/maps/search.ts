@@ -2,9 +2,7 @@ import { loadIndex, type ResolvedCard } from '@ogm/asset-cards';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
-import { loadSpecs, matchSpec, parseQuery, type SpecQuery } from '../../maps/specs.js';
-
-const SIZES = ['tiny', 'small', 'medium', 'large', 'huge'];
+import { SIZES, loadSpecs, matchSpec, parseQuery, type SpecQuery } from '../../maps/specs.js';
 
 type Row = {
   kind: 'spec' | 'card';
@@ -29,10 +27,9 @@ function line(row: Row): string {
     .join('  ');
 }
 
+/** Terms that must match at least once; a size word only ranks, so on its own it filters nothing. */
 function hasTerms(q: SpecQuery): boolean {
-  return Boolean(
-    q.rooms || q.loops || q.secrets !== undefined || q.size || q.sizeWord || q.types.length || q.words.length,
-  );
+  return Boolean(q.rooms || q.loops || q.secrets !== undefined || q.size || q.types.length || q.words.length);
 }
 
 /** Weaker fallback over map cards themselves: map type, environments and description words. */
