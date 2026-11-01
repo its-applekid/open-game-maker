@@ -5,15 +5,7 @@
     "dimension": "3d",
     "fidelity": "low-poly, flat colours, shared colormap",
     "packs": {
-      "primary": [
-        "kenney-mini-dungeon",
-        "kenney-mini-characters",
-        "kenney-mini-forest",
-        "kenney-castle-kit",
-        "kenney-nature-kit",
-        "kenney-fantasy-town-kit",
-        "kenney-animated-characters-bundle"
-      ],
+      "primary": ["kenney-mini-dungeon", "kenney-mini-characters", "kenney-mini-forest", "kenney-castle-kit", "kenney-nature-kit", "kenney-fantasy-town-kit", "kenney-animated-characters-bundle"],
       "extras": [
         "kenney-graveyard-kit",
         "kenney-pirate-kit",
@@ -143,16 +135,7 @@
           "perspective": "3d",
           "judgment": "Looked at as one mixable POLYGON world."
         },
-        "packs": [
-          { "id": "synty-polygon-generic" },
-          { "id": "synty-polygon-viking-realm" },
-          { "id": "synty-polygon-goblin-war-camp" },
-          { "id": "synty-polygon-nature-biomes-alpine-mountain" },
-          { "id": "synty-polygon-shops" },
-          { "id": "synty-polygon-shopping-plaza-map" },
-          { "id": "synty-polygon-prototype" },
-          { "id": "synty-polygon-particle-fx" }
-        ]
+        "packs": [{ "id": "synty-polygon-generic" }, { "id": "synty-polygon-viking-realm" }, { "id": "synty-polygon-goblin-war-camp" }, { "id": "synty-polygon-nature-biomes-alpine-mountain" }, { "id": "synty-polygon-shops" }, { "id": "synty-polygon-shopping-plaza-map" }, { "id": "synty-polygon-prototype" }, { "id": "synty-polygon-particle-fx" }]
       }
     ],
     "views": ["follow", "orbit", "fps", "iso"],
@@ -210,25 +193,7 @@
     "fidelity": "low-resolution pixel sprites and tiles",
     "packs": {
       "primary": ["kenney-micro-roguelike", "kenney-pico-8-city", "kenney-pico-8-platformer", "kenney-pixel-shmup"],
-      "extras": [
-        "kenney-block-pack-pixel",
-        "kenney-cursor-pixel-pack",
-        "kenney-desert-shooter-pack",
-        "kenney-input-prompts-pixel",
-        "kenney-minimap-pack",
-        "kenney-monochrome-pirates",
-        "kenney-monochrome-rpg-tileset",
-        "kenney-pattern-pack-pixel",
-        "kenney-pixel-line-platformer",
-        "kenney-pixel-vehicle-pack",
-        "kenney-platformer-assets-pixel",
-        "kenney-retro-textures-fantasy",
-        "kenney-rpg-urban-pack",
-        "kenney-rts-medieval-pixel",
-        "kenney-topdown-shooter-pixel",
-        "kenney-ui-pack-pixel-adventure",
-        "kenney-ui-pixel-pack"
-      ]
+      "extras": ["kenney-block-pack-pixel", "kenney-cursor-pixel-pack", "kenney-desert-shooter-pack", "kenney-input-prompts-pixel", "kenney-minimap-pack", "kenney-monochrome-pirates", "kenney-monochrome-rpg-tileset", "kenney-pattern-pack-pixel", "kenney-pixel-line-platformer", "kenney-pixel-vehicle-pack", "kenney-platformer-assets-pixel", "kenney-retro-textures-fantasy", "kenney-rpg-urban-pack", "kenney-rts-medieval-pixel", "kenney-topdown-shooter-pixel", "kenney-ui-pack-pixel-adventure", "kenney-ui-pixel-pack"]
     },
     "sets": [
       {
@@ -243,11 +208,7 @@
           "perspective": "topdown",
           "judgment": "Looked at as one modern-world line at a shared base resolution."
         },
-        "packs": [
-          { "id": "limezu-modern-interiors" },
-          { "id": "limezu-modern-exteriors" },
-          { "id": "limezu-modern-user-interface" }
-        ]
+        "packs": [{ "id": "limezu-modern-interiors" }, { "id": "limezu-modern-exteriors" }, { "id": "limezu-modern-user-interface" }]
       },
       {
         "id": "limezu-fantasy",
@@ -275,11 +236,7 @@
           "perspective": "topdown and side",
           "judgment": "Looked at as a mixable monochrome line."
         },
-        "packs": [
-          { "id": "kenney-1-bit-pack" },
-          { "id": "kenney-1-bit-platformer-pack" },
-          { "id": "kenney-input-prompts-pixel-1-bit" }
-        ]
+        "packs": [{ "id": "kenney-1-bit-pack" }, { "id": "kenney-1-bit-platformer-pack" }, { "id": "kenney-input-prompts-pixel-1-bit" }]
       },
       {
         "id": "kenney-pixel-platformer",
@@ -293,13 +250,7 @@
           "perspective": "side",
           "judgment": "Base pack and named expansions were looked at as one platformer line."
         },
-        "packs": [
-          { "id": "kenney-pixel-platformer" },
-          { "id": "kenney-pixel-platformer-blocks" },
-          { "id": "kenney-pixel-platformer-farm-expansion" },
-          { "id": "kenney-pixel-platformer-food-expansion" },
-          { "id": "kenney-pixel-platformer-industrial-expansion" }
-        ]
+        "packs": [{ "id": "kenney-pixel-platformer" }, { "id": "kenney-pixel-platformer-blocks" }, { "id": "kenney-pixel-platformer-farm-expansion" }, { "id": "kenney-pixel-platformer-food-expansion" }, { "id": "kenney-pixel-platformer-industrial-expansion" }]
       },
       {
         "id": "kenney-tiny",
@@ -313,13 +264,7 @@
           "perspective": "topdown",
           "judgment": "Looked at as one tiny top-down world."
         },
-        "packs": [
-          { "id": "kenney-tiny-battle" },
-          { "id": "kenney-tiny-dungeon" },
-          { "id": "kenney-tiny-farm" },
-          { "id": "kenney-tiny-ski" },
-          { "id": "kenney-tiny-town" }
-        ]
+        "packs": [{ "id": "kenney-tiny-battle" }, { "id": "kenney-tiny-dungeon" }, { "id": "kenney-tiny-farm" }, { "id": "kenney-tiny-ski" }, { "id": "kenney-tiny-town" }]
       },
       {
         "id": "kenney-roguelike",
@@ -333,14 +278,7 @@
           "perspective": "topdown",
           "judgment": "Looked at as one roguelike world; the archived 1.5x release shares its source style."
         },
-        "packs": [
-          { "id": "kenney-roguelike-base-pack" },
-          { "id": "kenney-roguelike-characters-pack" },
-          { "id": "kenney-roguelike-city-pack" },
-          { "id": "kenney-roguelike-dungeon-pack" },
-          { "id": "kenney-roguelike-interior-pack" },
-          { "id": "kenney-roguelike-pack-15x-archive" }
-        ]
+        "packs": [{ "id": "kenney-roguelike-base-pack" }, { "id": "kenney-roguelike-characters-pack" }, { "id": "kenney-roguelike-city-pack" }, { "id": "kenney-roguelike-dungeon-pack" }, { "id": "kenney-roguelike-interior-pack" }, { "id": "kenney-roguelike-pack-15x-archive" }]
       }
     ],
     "views": ["topdown", "side"],
@@ -361,18 +299,7 @@
     "dimension": "2d",
     "fidelity": "flat vector shapes, bold outlines",
     "packs": {
-      "primary": [
-        "kenney-platformer-pack-remastered",
-        "kenney-platformer-assets-base",
-        "kenney-toon-characters",
-        "kenney-space-shooter-remastered",
-        "kenney-topdown-shooter",
-        "kenney-tower-defense",
-        "kenney-rpg-tiles-vector",
-        "kenney-abstract-platformer",
-        "kenney-jumper-pack",
-        "kenney-physics-assets"
-      ],
+      "primary": ["kenney-platformer-pack-remastered", "kenney-platformer-assets-base", "kenney-toon-characters", "kenney-space-shooter-remastered", "kenney-topdown-shooter", "kenney-tower-defense", "kenney-rpg-tiles-vector", "kenney-abstract-platformer", "kenney-jumper-pack", "kenney-physics-assets"],
       "extras": [
         "kenney-alien-ufo-pack",
         "kenney-animal-pack",
@@ -485,37 +412,47 @@
     "dimension": "2d",
     "fidelity": "pre-rendered isometric sprites and tiles",
     "packs": {
-      "primary": [
-        "kenney-isometric-miniature-dungeon",
-        "kenney-isometric-miniature-farm",
-        "kenney-isometric-miniature-overworld",
-        "kenney-isometric-miniature-library",
-        "kenney-isometric-tiles-base",
-        "kenney-isometric-tiles-buildings",
-        "kenney-isometric-tiles-city",
-        "kenney-isometric-medieval-town"
-      ],
-      "extras": [
-        "kenney-axonometric-blocks",
-        "kenney-isometric-blocks",
-        "kenney-isometric-miniature-bases",
-        "kenney-isometric-miniature-prototype",
-        "kenney-isometric-minigolf",
-        "kenney-isometric-modular-buildings",
-        "kenney-isometric-modular-roads",
-        "kenney-isometric-nature",
-        "kenney-isometric-space-interior",
-        "kenney-isometric-tiles-vehicles",
-        "kenney-isometric-tower-defense",
-        "kenney-isometric-vector-buildings",
-        "kenney-isometric-vector-roads-base",
-        "kenney-isometric-vector-roads-water",
-        "kenney-isometric-watercraft"
-      ]
+      "primary": ["kenney-isometric-miniature-dungeon", "kenney-isometric-miniature-farm", "kenney-isometric-miniature-overworld", "kenney-isometric-miniature-library", "kenney-isometric-tiles-base", "kenney-isometric-tiles-buildings", "kenney-isometric-tiles-city", "kenney-isometric-medieval-town"],
+      "extras": ["kenney-axonometric-blocks", "kenney-isometric-blocks", "kenney-isometric-miniature-bases", "kenney-isometric-miniature-prototype", "kenney-isometric-minigolf", "kenney-isometric-modular-buildings", "kenney-isometric-modular-roads", "kenney-isometric-nature", "kenney-isometric-space-interior", "kenney-isometric-tiles-vehicles", "kenney-isometric-tower-defense", "kenney-isometric-vector-buildings", "kenney-isometric-vector-roads-base", "kenney-isometric-vector-roads-water", "kenney-isometric-watercraft"]
     },
-    "sets": [],
+    "sets": [
+      {
+        "id": "smallscaleint",
+        "label": "SmallScaleInt",
+        "vendors": ["smallscaleint"],
+        "traits": { "pixel_size": "64/128/256 px and HD", "tile_grid": "64/128/256 px", "palette": "pack-defined pixel palettes", "outline_style": "outlined and shadowless variants", "perspective": "isometric 2:1", "judgment": "Kevin identified the imported packs as one seamless set; cross-vendor visual review remains a post-deploy check." },
+        "packs": [
+          { "id": "smallscaleint-2d-animals-mega-pack-1" },
+          { "id": "smallscaleint-2d-character-knight" },
+          { "id": "smallscaleint-2d-character-pack-1" },
+          { "id": "smallscaleint-2d-character-pack-2" },
+          { "id": "smallscaleint-2d-demons-topdown-assetpack" },
+          { "id": "smallscaleint-2d-desert-fantasy-tileset" },
+          { "id": "smallscaleint-2d-hd-barbarian-pack-1" },
+          { "id": "smallscaleint-2d-hd-character-knight" },
+          { "id": "smallscaleint-2d-hd-character-pack-1" },
+          { "id": "smallscaleint-2d-hd-enemy-pack-1" },
+          { "id": "smallscaleint-2d-hd-undead-pack-1" },
+          { "id": "smallscaleint-2d-hd-zombie-individual-sprites" },
+          { "id": "smallscaleint-2d-hd-zombie-interior-tiles" },
+          { "id": "smallscaleint-2d-hd-zombie-pack-1" },
+          { "id": "smallscaleint-2d-hd-zombie-rural-tileset" },
+          { "id": "smallscaleint-2d-orcs-and-goblins-topdown" },
+          { "id": "smallscaleint-2d-projectiles-character-pack-1" },
+          { "id": "smallscaleint-2d-projectiles-character-pack-2" },
+          { "id": "smallscaleint-2d-topdown-archer-character" },
+          { "id": "smallscaleint-2d-zombie-pack-2-top-down" },
+          { "id": "smallscaleint-fantasy-tileset-2d-isometric" },
+          { "id": "smallscaleint-free-character-16-bit-thug-outlined" },
+          { "id": "smallscaleint-free-character-hd-survivor-w-bike" },
+          { "id": "smallscaleint-knight-demo-character" },
+          { "id": "smallscaleint-projectiles-2d-hd-character-pack-1" },
+          { "id": "smallscaleint-projectiles-barbarian-pack-hd" }
+        ]
+      }
+    ],
     "views": ["iso"],
-    "license_note": "CC0",
+    "license_note": "CC0 and private vendor licences; see collection cards",
     "coverage": {
       "characters": true,
       "environment": true,
@@ -532,13 +469,7 @@
     "dimension": "2d",
     "fidelity": "hand-drawn pencil and ink lines",
     "packs": {
-      "primary": [
-        "kenney-sketch-town",
-        "kenney-sketch-town-expansion",
-        "kenney-sketch-desert",
-        "kenney-scribble-dungeons",
-        "kenney-scribble-platformer"
-      ],
+      "primary": ["kenney-sketch-town", "kenney-sketch-town-expansion", "kenney-sketch-desert", "kenney-scribble-dungeons", "kenney-scribble-platformer"],
       "extras": ["kenney-cartography-pack"]
     },
     "sets": [],
