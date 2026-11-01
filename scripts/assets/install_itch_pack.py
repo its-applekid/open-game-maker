@@ -20,8 +20,9 @@ from build_collection_cards import basis_from_row, effective, license_row, load_
 
 def rights_for(license_id: str, ref: str, day: str) -> dict:
     """usage_rights in the card schema's rights shape, from the licence table row."""
-    basis = basis_from_row(license_row(license_id, load_table()), ref, day)
-    return {**effective(basis), 'processing': processing_for(license_id, 'draft'), 'basis': basis}
+    row = license_row(license_id, load_table())
+    basis = basis_from_row(row, ref, day)
+    return {**effective(basis), 'processing': processing_for(row, 'draft'), 'basis': basis}
 
 
 def main(argv=None):

@@ -122,6 +122,52 @@ class Library(unittest.TestCase):
         self.assertEqual(after["describe"]["pov_fit"], ["iso"])
         self.assertTrue(after["provenance"]["describe.pov_fit"]["locked"])
 
+    def test_locked_describe_drives_status(self):
+        """Status is derived from what is written, so a locked full describe on an untagged pack makes it tagged."""
+        bcc.run(self.root)
+        cc = self.root / "packs" / "limezu-test-pack" / "collection.card.json"
+        c = json.loads(cc.read_text())
+        c["describe"] = {"description": "Modern rooms", "objects": ["sofa"], "roles": ["furniture"]}
+        c["provenance"]["describe"] = {"by": "human", "at": "2026-10-31T00:00:00-07:00", "locked": True}
+        cc.write_text(json.dumps(c))
+        bcc.run(self.root)
+        self.assertEqual(card_of(self.root, "limezu-test-pack")["status"], "tagged")
+
+    def test_interpretation_is_dropped_when_the_licence_changes(self):
+        """Kevin's reading of one licence must not widen a different licence's rights."""
+        cc = self.root / "packs" / "sidetrax-pack-60-battle" / "collection.card.json"
+        old = json.loads(cc.read_text())
+        old["license"] = "LicenseRef-itch-custom"
+        old["rights"]["basis"][2]["uses"] = ["vision-input", "derive-layout"]
+        cc.write_text(json.dumps(old))
+        bcc.run(self.root)
+        c = card_of(self.root, "sidetrax-pack-60-battle")
+        self.assertEqual([b["type"] for b in c["rights"]["basis"]], ["license"])
+        self.assertNotIn("derive-layout", c["rights"]["uses"])
+
+    def test_admin_decision_survives_and_narrows(self):
+        """A decision Kevin recorded on a card is kept across rebuilds and still narrows the rights."""
+        bcc.run(self.root)
+        cc = self.root / "packs" / KENNEY / "collection.card.json"
+        c = json.loads(cc.read_text())
+        c["rights"]["basis"].append({"type": "decision", "uses": ["in-game"], "audience": "private", "redistribution": "none",
+                                     "set_by": {"role": "admin", "name": "kevin"}, "date": "2026-10-31"})
+        cc.write_text(json.dumps(c))
+        self.assertEqual(bcc.run(self.root)["failures"], {})
+        r = card_of(self.root, KENNEY)["rights"]
+        self.assertEqual((r["uses"], r["audience"], r["redistribution"]), (["in-game"], "private", "none"))
+
+    def test_audio_counts_from_the_audio_tagger_survive(self):
+        """build_audio_cards.py owns the audio counts; rebuilding the collection card must not reset them."""
+        bcc.run(self.root)
+        cc = self.root / "packs" / KENNEY / "collection.card.json"
+        c = json.loads(cc.read_text())
+        c["collection_info"]["counts"].update({"audio": 3, "audio/music/stinger": 3})
+        cc.write_text(json.dumps(c))
+        bcc.run(self.root)
+        counts = card_of(self.root, KENNEY)["collection_info"]["counts"]
+        self.assertEqual((counts["audio"], counts["audio/music/stinger"], counts["sprite"]), (3, 3, 1))
+
     def test_unknown_licence_fails_loudly_and_writes_nothing(self):
         """An unmapped licence must not silently get someone else's ceiling."""
         add_pack(self.root, "acme-mystery", "acme", "made-up", {"a.png": b"p"})

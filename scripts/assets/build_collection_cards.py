@@ -54,6 +54,9 @@ def license_row(value: str, table: dict) -> dict:
 
 def basis_from_row(row: dict, ref: str, day: str) -> list:
     """The licence basis entry, plus the strict default while the row is unconfirmed (C3 §5)."""
+    default = {"type": "default", **STRICT_DEFAULT, "set_by": {"role": "intake-code"}, "date": day}
+    if row["id"] == "NOASSERTION":
+        return [default]
     c = row["ceiling"]
     lic = {"type": "license", "license": row["id"], "ref": ref, "uses": c["uses"], **({"forbids": c["forbids"]} if "forbids" in c else {}),
            "audience": c["audience"], "redistribution": c["redistribution"], "attribution": c["attribution"],
@@ -63,12 +66,7 @@ def basis_from_row(row: dict, ref: str, day: str) -> list:
     else:
         lic["date"] = day
     lic["note"] = row["note"]
-    if row["id"] == "NOASSERTION":
-        return [{"type": "default", **STRICT_DEFAULT, "set_by": {"role": "intake-code"}, "date": day}]
-    out = [lic]
-    if not row.get("confirmed"):
-        out.append({"type": "default", **STRICT_DEFAULT, "set_by": {"role": "intake-code"}, "date": day})
-    return out
+    return [lic] if row.get("confirmed") else [lic, default]
 
 
 def effective(basis: list) -> dict:
@@ -89,9 +87,9 @@ def effective(basis: list) -> dict:
     return {"uses": uses, "audience": audience, "redistribution": redistribution, "attribution": attribution}
 
 
-def processing_for(license_id: str, status: str) -> str:
-    """Mirror of defaultProcessing in packages/contracts/src/rights.ts."""
-    return "local-only" if status == "quarantined" or license_id == "NOASSERTION" or license_id.startswith("LicenseRef-") else "any"
+def processing_for(row: dict, status: str) -> str:
+    """The row's processing; quarantined cards are always local-only (defaultProcessing in packages/contracts/src/rights.ts)."""
+    return "local-only" if status == "quarantined" else row["processing"]
 
 
 def status_for(describe: dict) -> str:
@@ -150,7 +148,10 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
     row = license_row(m["license"], table)
     day = v.get("added") or TODAY
     ref = m.get("license_source") or row["ref"]
-    kept = [b for b in (old or {}).get("rights", {}).get("basis", []) if b["type"] in ("interpretation", "decision")]
+    # Decisions only narrow, so they always survive; an interpretation belongs to the licence it was made for.
+    same_licence = old is not None and table.get(str(old.get("license", "")).lower(), {}).get("id") == row["id"]
+    kept = [b for b in (old or {}).get("rights", {}).get("basis", [])
+            if b["type"] == "decision" or (b["type"] == "interpretation" and same_licence)]
     basis = basis_from_row(row, ref, day) + kept
     t = tags.get(pid)
     # An importer's card (Sidetrax) keeps its describe and collection info; a tags row or this tool's own card is rebuilt.
@@ -183,12 +184,9 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
         if any(k.startswith("audio/") for k in old_counts):  # build_audio_cards.py owns the audio counts
             info["counts"] = {**{k: n for k, n in info["counts"].items() if not k.startswith("audio")},
                               **{k: n for k, n in old_counts.items() if k.startswith("audio")}}
-    status = status_for(describe)
-    eff = effective(basis)
-    out = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}@{ver}", "card_type": "collection", "status": status,
+    out = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}@{ver}", "card_type": "collection", "status": None,
            "title": (old or {}).get("title") if keep_old else f"{m['title']} ({vendor.capitalize()})", "license": row["id"],
-           "rights": {**eff, "processing": processing_for(row["id"], status), "basis": basis},
-           "describe": describe, "collection_info": info, "provenance": prov}
+           "rights": None, "describe": describe, "collection_info": info, "provenance": prov}
     if keep_old:
         for k in ("previews", "flags"):
             if k in old:
@@ -197,10 +195,17 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
         out["previews"] = {"thumb": f"packs/{pid}/icon.png"}
     else:
         out["flags"] = ["missing-preview"]
-    for path, entry in (old or {}).get("provenance", {}).items():  # locked fields are never overwritten
-        if entry.get("locked") and path != "*":
+    locks = {path: entry for path, entry in (old or {}).get("provenance", {}).items() if entry.get("locked") and path != "*"}
+
+    def restore_locks():  # locked fields are never overwritten
+        for path, entry in locks.items():
             set_path(out, path, copy.deepcopy(get_path(old, path)))
             out["provenance"][path] = entry
+
+    restore_locks()
+    out["status"] = status_for(out["describe"])  # derived from the content actually written, locks included
+    out["rights"] = {**effective(basis), "processing": processing_for(row, out["status"]), "basis": basis}
+    restore_locks()  # a locked status or rights block stays as it was
     return old if old and without_at(old) == without_at(out) else out  # equal content keeps the old timestamps
 
 
@@ -208,18 +213,17 @@ def validate(cards: dict) -> dict:
     """Run the contracts validator once over all cards; returns {pid: [failure lines]}."""
     failures = defaultdict(list)
     with tempfile.TemporaryDirectory() as tmp:
-        files = []
-        for pid, c in cards.items():
-            f = Path(tmp) / f"{pid}.json"
-            f.write_text(json.dumps(c))
+        pids, files = list(cards), []
+        for i, pid in enumerate(pids):  # numbered names: pack ids may hold characters the output format splits on
+            f = Path(tmp) / f"{i}.json"
+            f.write_text(json.dumps(cards[pid]))
             files.append(str(f))
         r = subprocess.run(["node", str(VALIDATOR), "--no-fixtures", *files], capture_output=True, text=True)
         if r.returncode not in (0, 1):
             sys.exit(f"validator failed to run: {r.stderr.strip()}")
         for line in r.stdout.splitlines():
             if line.startswith("FAIL"):
-                parts = line.split()
-                failures[parts[2].removesuffix(".json")].append(line)
+                failures[pids[int(line.split()[2].removesuffix(".json"))]].append(line)
     return failures
 
 
