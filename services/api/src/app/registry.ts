@@ -7,16 +7,40 @@ import type { ApiBindings } from './types.js';
 export type Resolver = (c: Context<ApiBindings>) => Promise<Principal | null>;
 export type GameInfo = { familyId: string; ownerId: string; visibility: string };
 export type GameResolver = (gameId: string) => Promise<GameInfo | null>;
+export type RepoProvisioner = {
+  provision(game: {
+    id: string;
+    title: string;
+    owner: { login: string; installationId: string };
+    visibility: 'public' | 'private';
+  }): Promise<{ owner: string; repo: string; url: string }>;
+};
+export type MailSender = {
+  send(message: { to: string; subject: string; text: string }): Promise<void>;
+};
+export type UserDirectory = {
+  emailForUser(userId: string): Promise<string | null>;
+  userIdForEmail(email: string): Promise<string | null>;
+};
 
-// Seams filled by later contexts from their `setup(deps)`: OGM-011 adds the session resolver,
-// OGM-012 sets the game resolver.
+// Seams filled by contexts from `setup(deps)`: auth adds session, user-directory and mail
+// providers; accounts/games add repository provisioning and game lookup.
 export interface Registry {
   principalResolvers: Resolver[];
   gameResolver: GameResolver | null;
+  repoProvisioner: RepoProvisioner | null;
+  mailSender: MailSender | null;
+  userDirectory: UserDirectory | null;
 }
 
 export function createRegistry(): Registry {
-  return { principalResolvers: [], gameResolver: null };
+  return {
+    principalResolvers: [],
+    gameResolver: null,
+    repoProvisioner: null,
+    mailSender: null,
+    userDirectory: null,
+  };
 }
 
 // `null` until a game resolver is registered; callers answer 403 `game_unresolved`.

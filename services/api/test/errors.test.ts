@@ -52,6 +52,33 @@ describe('error envelope', () => {
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual({ error: 'not_found' });
   });
+
+  it('redacts invite tokens from unmatched request paths', async () => {
+    const { app, deps } = appWith(routes);
+    const requests = [
+      { method: 'POST', path: '/api/v1/invites/trailing-secret/accept/' },
+      { method: 'GET', path: '/api/v1/invites/get-secret' },
+      { method: 'POST', path: '/api/v1/invites/extra-secret/accept/extra' },
+      { method: 'POST', path: '//api/v1/invites/double-slash-secret/accept' },
+    ];
+
+    for (const request of requests) {
+      const response = await app.request(`http://localhost${request.path}`, { method: request.method });
+      expect(response.status).toBe(404);
+    }
+
+    const requestPaths = deps.lines.filter(({ event }) => event === 'request').map(({ path }) => path);
+    expect(requestPaths).toEqual([
+      '/api/v1/invites/:token/accept/',
+      '/api/v1/invites/:token',
+      '/api/v1/invites/:token/accept/extra',
+      '//api/v1/invites/:token/accept',
+    ]);
+    for (const { path } of requests) {
+      const token = path.split('/invites/')[1]?.split('/')[0];
+      expect(JSON.stringify(deps.lines)).not.toContain(token);
+    }
+  });
 });
 
 describe('validation helpers', () => {

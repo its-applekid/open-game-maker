@@ -44,6 +44,13 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'HMAC key for voice tokens (api, voice-host)',
   },
   { name: 'OGM_COMMIT_SERVICE_TOKEN', unit: 'shared', kind: 'secret', doc: 'backend -> commit service bearer' },
+  {
+    name: 'OGM_COMMIT_INTERNAL_URL',
+    unit: 'api',
+    kind: 'url',
+    doc: 'http://127.0.0.1:4301 (loopback commit service)',
+  },
+  { name: 'OGM_GAME_TEMPLATE_REF', unit: 'api', kind: 'string', doc: 'game repository template ref' },
   { name: 'AIUR_API_URL', unit: 'api', kind: 'url', doc: 'http://127.0.0.1:4001 (platform) or the daemon in question' },
   { name: 'AIUR_API_TOKEN', unit: 'api', kind: 'secret', doc: 'one write token per daemon; never in the sandbox' },
   { name: 'AIUR_ERLANG_COOKIE', unit: 'aiur', kind: 'secret', doc: 'aiur run --container cookie (>= 16 chars)' },

@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "id": "h1",
+  "t": "hello",
+  "payload": {
+    "protocol": 1,
+    "capabilities": ["editor.design", "state.serialize", "debug"],
+    "mode": "edit",
+    "build": "draft",
+    "playerIndex": 0,
+    "tier": "mobile"
+  }
+}
