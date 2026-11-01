@@ -18,6 +18,7 @@ Turns a downloaded Drive drop into a library entry. The listener (`scripts/drive
 - `assets-local/inbox/queue.jsonl`: one JSON line per drop. An entry is open while `intake.json` is missing next to its `manifest`.
 - `assets-local/inbox/<manifest>`: Drive ids, paths under `files/`, sizes, MD5s, kinds, `license_files` (`archive.zip!/member` means the file is inside an archive), `problems`, `warnings`, and the default `usage_rights`.
 - `scripts/drive-sync/drive_sync.py status` lists the open entries.
+- `scripts/drive-sync/listen.sh <repo>` is the wake-up: a silent background shell that exits, printing the open entries, when a drop awaits intake. Keep one running (start it at session start, re-arm after each pass). The listener service itself needs no input.
 
 ## Steps (per open queue entry)
 
@@ -39,6 +40,13 @@ Turns a downloaded Drive drop into a library entry. The listener (`scripts/drive
    - **Inspiration-only material** (rights without `in-game`): put it under `assets-local/inspiration/<id>/<version>/` with the same `pack.json` shape, so `build_catalog.py`, which reads `packs/` only, never offers it as game material. Turning maps into layout specs is the map-inspiration step (C2 §9), not this skill.
 6. **Catalog.** Run `python3 -I scripts/assets/build_catalog.py`, and confirm the new pack id appears in `assets-local/catalog.json`.
 7. **Tagging hand-off.** Set the manifest's `tagging` block aside for the tagging pass. Follow `docs/research/v0.5/C3-asset-metadata-standard.md` §13 (and its schemas in `docs/research/v0.5/schemas/`) once they're final: measure with code first, render contact sheets, and use a vision model only if the effective rights include `vision-input` and Kevin has approved the spend. Until C3 lands, record `"tagging": "pending"` in `intake.json`.
+7b. **Preprocess** so an agent can use the drop at once through the CLI (`gm assets search`) and a lineup, without opening the files. Decide what is needed by kind (Kevin, 2026-11-01: "whatever you anticipate the agent would need to do in order to quickly use the asset"):
+   - **Sprites and sheets:** split packed sheets where the pack ships no atlas, name frames, and render a contact sheet per sheet (`scripts/assets/sprite_libraries.py` style). Characters and creatures get a lineup page like `gm-assets` uses.
+   - **3D models:** convert to glTF when the pack ships FBX/OBJ only, render a thumbnail per model and a lineup per category, record polycounts in the cards (device tiers, OGM-026), and build the pack's **thumbnail scene** (a standardized scene composed from the pack, rendered once, so a creator picking a visual style sees the pack at a glance; spec in the thumbnail-scenes ticket).
+   - **Audio:** tag with the local audio model pipeline the music plan chose (`docs/plans/2026-10-27-001-feat-music-library-preprocessing-plan.md`: key, tempo, energy, instrumentation, mood, loopability, sections) into C3 audio cards; SFX get a one-line contact listing with durations.
+   - **Maps, textures, tilesets:** contact sheets, tile size and grid detection, map-feature tags (rooms, roads, water, biome, scale) and the map's own JSON unpacked into the card so an agent can read the layout without the image (OGM-067 map-layout cards).
+   - Always: a `collection.card.json` and item cards (`scripts/assets/build_collection_cards.py`, OGM-061) so the catalog and `gm assets search` find them, and a lineup the creator can look at.
+   **Who does it:** small and deterministic (a sheet, a lineup, cards): do it now. Larger (a whole pack to convert, tag or render): file an aiur ticket (`feature:ogm-v1`, `build-lane:assets`, `agent:queued`, the manifest path and the exact preprocess list in the body) when the OGM daemon is running (`aiur-main status` answers), else run a background agent with the same brief. Record the ticket number or agent in `intake.json` under `preprocess`.
 8. **Record and report.** Write `intake.json` next to the manifest: `{"status": "imported" | "awaiting-license" | "blocked" | "duplicate", "collection": "<id or null>", "license": ..., "usage_rights": ..., "confirmed_by": ..., "date": ..., "notes": ...}`. Send Kevin one line per drop: what arrived, its license and rights, how many items by kind, where it lives now, and anything stuck in quarantine or waiting on him.
 
 ## Cleanup

@@ -17,6 +17,9 @@ use. Work here the way those agents will work: dogfood the skills.
   generation. Never send paid-pack assets to it as references (no cloud processing of paid assets).
 - **Self-improvement:** keep the hourly `meta-improve` listener running (a silent background shell, `scripts/listen.sh`
   in the skill, that wakes the agent only after Kevin has written; start it at the start of a session, no cron). Lessons persist in skills, scripts and memory; `docs/meta/` is the hourly record.
+- **Asset drops:** keep the Drive intake wake-up running too (`scripts/drive-sync/listen.sh <repo>`, same silent-shell
+  pattern); when it fires, run `gm-asset-intake` (licence first, then unpack, catalog, preprocess; big preprocessing goes
+  to an aiur ticket when the daemon is up, else a background agent).
 - **aiur for this repo:** run it with `aiur-main` (`~/.local/bin/aiur-main`: the aiur checkout's own CLI launcher on a copied
   release at `~/.aiur/ogm-release`, built from `~/github/aiur` main), from this checkout, never `scripts/aiurdev` (it targets
   the aiur checkout's own daemon) and never the npm `aiur` (a different fork). Kevin's NUC daemon for aiur-team/aiur runs on
