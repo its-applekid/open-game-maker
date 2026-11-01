@@ -90,4 +90,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'string',
     doc: 'fixed owner/repository for platform bug reports',
   },
+  { name: 'GM_VERIFY_SOFTWARE_GL', unit: 'gm', kind: 'bool', doc: 'gm run uses SwiftShader instead of the GPU (CI)' },
+  { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
+  { name: 'XDG_RUNTIME_DIR', unit: 'gm', kind: 'path', doc: 'holds the ogm-verify capture slots (2 per host)' },
 ];
