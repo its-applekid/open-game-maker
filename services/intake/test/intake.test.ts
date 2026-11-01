@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -129,6 +129,28 @@ describe('intake poller', () => {
     expect(status.done).toHaveLength(4);
     expect(status).toMatchObject({ open: 0, last_error: null });
     expect(events).toEqual(['intake.blocked', 'intake.imported', 'intake.awaiting-license', 'intake.duplicate']);
+  });
+
+  it('does not grant a known licence through symlinked licence evidence', async () => {
+    // A drop could otherwise point its licence file at any readable CC0 text and be auto-imported without a human.
+    const { assets, state } = await fresh();
+    const entry = await fixture(assets, { dropId: 'LINK-DROP', directory: 'link', name: 'Kenney Lookalike' });
+    const outside = join(assets, 'outside-license.txt');
+    await writeFile(outside, 'Kenney assets are licensed CC0 1.0.');
+    await symlink(outside, join(assets, 'inbox', 'quarantine', 'link', 'files', 'License.txt'));
+    const manifestPath = join(assets, 'inbox', 'quarantine', 'link', 'manifest.json');
+    await writeFile(manifestPath, JSON.stringify({ ...(await json(manifestPath)), license_files: ['License.txt'] }));
+    await writeFile(join(assets, 'inbox', 'queue.jsonl'), `${JSON.stringify(entry)}\n`);
+    const run = vi.fn<ImportRunner>().mockResolvedValue({
+      collection: 't1:drive-kenney-lookalike@2026-10-26-r1',
+      status: 'awaiting-license',
+      license: null,
+    });
+
+    await pollIntake({ assetsRoot: assets, stateDir: state, run, emit: () => undefined });
+
+    expect(run).toHaveBeenCalledOnce();
+    expect(run.mock.calls[0]?.[0].args).not.toContain('--license');
   });
 
   it('leaves failed imports open and retries them on the next poll', async () => {

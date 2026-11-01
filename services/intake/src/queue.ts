@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { readFile, stat } from 'node:fs/promises';
+import { lstat, readFile, stat } from 'node:fs/promises';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export type QueueEntry = {
@@ -47,7 +47,9 @@ export function resolveInboxPath(inbox: string, value: string): string {
 
 function fingerprint(manifest: DriveManifest): string {
   const md5s = manifest.files.map(({ md5 }) => md5 ?? '').sort();
-  return createHash('sha256').update(`${manifest.drop_id}\n${md5s.join('\n')}`).digest('hex');
+  return createHash('sha256')
+    .update(`${manifest.drop_id}\n${md5s.join('\n')}`)
+    .digest('hex');
 }
 
 async function exists(path: string): Promise<boolean> {
@@ -77,7 +79,8 @@ export async function openQueue(assetsRoot: string): Promise<OpenEntry[]> {
     const intakePath = join(dirname(manifestPath), 'intake.json');
     if (await exists(intakePath)) continue;
     const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as DriveManifest;
-    if (manifest.drop_id !== entry.drop_id) throw new Error(`manifest drop id does not match queue entry ${entry.drop_id}`);
+    if (manifest.drop_id !== entry.drop_id)
+      throw new Error(`manifest drop id does not match queue entry ${entry.drop_id}`);
     open.push({ entry, manifest, manifestPath, intakePath, fingerprint: fingerprint(manifest) });
   }
   return open;
@@ -91,7 +94,10 @@ export async function knownLicense(entry: OpenEntry, assetsRoot: string): Promis
   for (const name of entry.manifest.license_files ?? []) {
     if (name.includes('!/')) continue;
     try {
-      const text = await readFile(resolveInboxPath(filesRoot, name), 'utf8');
+      const path = resolveInboxPath(filesRoot, name);
+      const info = await lstat(path);
+      if (!info.isFile() || info.size > 1024 * 1024) continue;
+      const text = await readFile(path, 'utf8');
       if (/kenney/i.test(text) && /(?:cc0|public domain)/i.test(text)) return 'CC0-1.0';
     } catch {
       // Unreadable licence evidence remains a human judgment instead of widening rights.

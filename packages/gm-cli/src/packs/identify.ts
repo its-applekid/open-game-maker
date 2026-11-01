@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { readFile, readdir, rm, stat } from 'node:fs/promises';
+import { open, readFile, readdir, rm, stat } from 'node:fs/promises';
 import { extname, join, posix as pathPosix, relative, sep } from 'node:path';
 
 import { detectVendor, type Vendor } from './vendor.js';
@@ -195,11 +195,33 @@ async function digest(file: string): Promise<{ sha: string; bytes: number }> {
   return { sha: hash.digest('hex'), bytes };
 }
 
+async function hasExecutableMagic(file: string): Promise<boolean> {
+  const handle = await open(file, 'r');
+  try {
+    const header = Buffer.alloc(4);
+    const { bytesRead } = await handle.read(header, 0, header.length, 0);
+    if (
+      bytesRead >= 2 &&
+      (header.subarray(0, 2).equals(Buffer.from('MZ')) || header.subarray(0, 2).equals(Buffer.from('#!')))
+    ) {
+      return true;
+    }
+    if (bytesRead === 4 && header.equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) return true;
+    if (bytesRead === 4) {
+      const magic = header.readUInt32BE(0);
+      return [0xfeedface, 0xfeedfacf, 0xcefaedfe, 0xcffaedfe, 0xcafebabe].includes(magic);
+    }
+    return false;
+  } finally {
+    await handle.close();
+  }
+}
+
 export async function identify(root: string): Promise<IdentifyResult> {
   const dropped: string[] = [];
   for (const file of await filesUnder(root)) {
     const extension = extname(file).slice(1).toLowerCase();
-    if (!EXECUTABLE.has(extension) && !ENGINE_ONLY.has(extension)) continue;
+    if (!EXECUTABLE.has(extension) && !ENGINE_ONLY.has(extension) && !(await hasExecutableMagic(file))) continue;
     dropped.push(relativePosix(root, file));
     await rm(file, { force: true });
   }
@@ -229,7 +251,9 @@ export async function identify(root: string): Promise<IdentifyResult> {
       ...classification,
       companions: [...new Set(companions)].sort(),
       role: 'primary',
-      ...(classification.kind === 'sprite' && tilesheet ? { vendor: tilesheet } : {}),
+      ...(classification.kind === 'sprite' && tilesheet && /(^|\/)(tiles?|sprites?)(\/|$)/i.test(path)
+        ? { vendor: tilesheet }
+        : {}),
     });
   }
   const lines: string[] = [];

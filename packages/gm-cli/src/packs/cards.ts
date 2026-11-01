@@ -35,7 +35,8 @@ const VOCAB = '2026-11-01';
 function titleFor(path: string): string {
   return basename(path, extname(path))
     .replace(/[_-]+/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+    .slice(0, 120);
 }
 
 function slugFor(path: string): string {
@@ -190,6 +191,7 @@ export async function createCards(options: CreateCardsOptions): Promise<CardSet>
       flags: ['needs-review'],
     }));
     let localId = slugFor(item.path) || primary.sha256.slice(7, 19);
+    if (localId.length > 180) localId = `${localId.slice(0, 160)}-${primary.sha256.slice(7, 19)}`;
     const baseId = localId;
     if (usedIds.has(localId)) localId = `${baseId}-${primary.sha256.slice(7, 15)}`;
     let suffix = 2;

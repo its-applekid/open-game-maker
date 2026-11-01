@@ -36,11 +36,13 @@ describe('identify', () => {
     await writeFile(join(root, 'readme.txt'), 'hello');
     await writeFile(join(root, 'run.sh'), '#!/bin/sh\necho unsafe\n');
     await writeFile(join(root, 'asset.meta'), 'engine-only');
+    await writeFile(join(root, 'renamed-binary'), Buffer.from([0x7f, 0x45, 0x4c, 0x46, 0x00]));
 
     const result = await identify(root);
-    expect(result.dropped).toEqual(['asset.meta', 'run.sh']);
+    expect(result.dropped).toEqual(['asset.meta', 'renamed-binary', 'run.sh']);
     await expect(readFile(join(root, 'run.sh'))).rejects.toMatchObject({ code: 'ENOENT' });
     await expect(readFile(join(root, 'asset.meta'))).rejects.toMatchObject({ code: 'ENOENT' });
+    await expect(readFile(join(root, 'renamed-binary'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
   it('links only matching texture siblings to each model', async () => {
@@ -72,14 +74,16 @@ describe('identify', () => {
     );
     await writeFile(join(root, 'Tilesheet.txt'), 'Tile width: 16\nTile height: 16\nTile spacing: 1\n');
     await writeFile(join(root, 'Tiles', 'tile_0001.png'), 'pixels');
+    await writeFile(join(root, 'preview.png'), 'pixels');
 
     const result = await identify(root);
 
     expect(result.items.find(({ path }) => path.endsWith('.fbx'))?.companions).toContain('MaterialList_Test.txt');
-    expect(result.items.find(({ path }) => path.endsWith('.png'))).toMatchObject({
+    expect(result.items.find(({ path }) => path.startsWith('Tiles/'))).toMatchObject({
       kind: 'sprite',
       subkind: 'tile',
       vendor: { tilePx: 16, spacingPx: 1 },
     });
+    expect(result.items.find(({ path }) => path === 'preview.png')).not.toHaveProperty('vendor');
   });
 });
