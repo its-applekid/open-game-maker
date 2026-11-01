@@ -198,6 +198,34 @@ describe('job controls', () => {
     expect(setStateLabel).toHaveBeenCalledWith('owner/game', 142, 'cancelled');
   });
 
+  it('alerts and leaves the job active when the label fallback fails', async () => {
+    const deps = setup('filed');
+    const setStateLabel = vi.fn().mockRejectedValue(new Error('github unavailable'));
+    const { app } = appWith(deps, { client: null, issues: { setStateLabel } });
+
+    const response = await post(app, 'cancel');
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'cancel_fallback_failed' });
+    expect(deps.db.select().from(schema.jobs).get()?.state).toBe('filed');
+    expect(deps.lines).toContainEqual(
+      expect.objectContaining({ event: 'admin-alert', code: 'cancel_fallback_failed', jobId: ids.job }),
+    );
+  });
+
+  it('maps daemon HTTP failures without exposing upstream details', async () => {
+    const deps = setup();
+    const pause = vi
+      .fn()
+      .mockRejectedValue(new AiurHttpError(503, 'internal_secret_code', 'secret detail', 'http://127.0.0.1:4101'));
+    const { app } = appWith(deps, { client: { pause } });
+
+    const response = await post(app, 'pause');
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'daemon_unavailable' });
+  });
+
   it('forwards message ids and pause/resume controls', async () => {
     const deps = setup();
     const message = vi.fn().mockResolvedValue({ request_id: 'request-1' });

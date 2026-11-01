@@ -78,6 +78,22 @@ export async function reconcileJob(
   for (const session of usage.sessions) {
     const apiEquivalentMicro = money(session.api_equivalent.amount.USD);
     const providerReportedMicro = money(session.provider_reported.USD);
+    const previous = deps.db
+      .select({ apiEquivalentMicro: schema.usageSamples.apiEquivalentMicro })
+      .from(schema.usageSamples)
+      .where(and(eq(schema.usageSamples.jobId, job.id), eq(schema.usageSamples.runId, session.run_id)))
+      .get();
+    // The ledger write comes first: a crash can repeat it safely, while a sample written first could hide missing usage.
+    if (previous === undefined || apiEquivalentMicro > previous.apiEquivalentMicro) {
+      recordUsage({
+        db: deps.db,
+        jobId: job.id,
+        microUsd: apiEquivalentMicro,
+        runId: session.run_id,
+        at: observedAt,
+        zone: settings.resetZone,
+      });
+    }
     deps.db
       .insert(schema.usageSamples)
       .values({
@@ -102,14 +118,6 @@ export async function reconcileJob(
         },
       })
       .run();
-    recordUsage({
-      db: deps.db,
-      jobId: job.id,
-      microUsd: apiEquivalentMicro,
-      runId: session.run_id,
-      at: observedAt,
-      zone: settings.resetZone,
-    });
   }
 
   const total = money(usage.totals.api_equivalent.amount.USD);
@@ -117,16 +125,22 @@ export async function reconcileJob(
   const latestRunId = usage.sessions.at(-1)?.run_id ?? job.aiurRunId;
   const current = deps.db.select().from(schema.jobs).where(eq(schema.jobs.id, job.id)).get()!;
   const usageMicroUsd = Math.max(current.usageMicroUsd, total);
-  deps.db
-    .update(schema.jobs)
-    .set({
-      usageMicroUsd,
-      usageCoverage: coverage,
-      aiurRunId: latestRunId,
-      updatedAt: observedAt.toISOString(),
-    })
-    .where(eq(schema.jobs.id, job.id))
-    .run();
+  if (
+    usageMicroUsd !== current.usageMicroUsd ||
+    coverage !== current.usageCoverage ||
+    latestRunId !== current.aiurRunId
+  ) {
+    deps.db
+      .update(schema.jobs)
+      .set({
+        usageMicroUsd,
+        usageCoverage: coverage,
+        aiurRunId: latestRunId,
+        updatedAt: observedAt.toISOString(),
+      })
+      .where(eq(schema.jobs.id, job.id))
+      .run();
+  }
 
   const reservation = Reservation.parse(JSON.parse(job.reservation)).amountMicroUsd;
   const pessimisticMicroUsd = coverage === 'complete' ? usageMicroUsd : Math.max(usageMicroUsd, reservation);
