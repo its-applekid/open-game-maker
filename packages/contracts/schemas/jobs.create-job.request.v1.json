@@ -15,7 +15,8 @@
       "enum": [
         "new_game",
         "feature",
-        "repair"
+        "repair",
+        "scope"
       ]
     },
     "complexity": {

@@ -1,4 +1,5 @@
 import type { BlobStore } from '@ogm/blob-store';
+import type { AiurClient } from '@ogm/aiur-client';
 import type { Principal } from '@ogm/contracts';
 import type { Db, Sqlite } from '@ogm/db';
 
@@ -25,10 +26,13 @@ export interface AppDeps {
     // Both unset until the voice host is configured; the token route answers 503 meanwhile.
     voiceTokenSecret?: string;
     voiceWsUrl?: string;
+    defaultDailyAllowanceMicroUsd: number;
+    resetZoneDefault: string;
   };
   blobStore: BlobStore;
   events: AppEvents;
   registry: Registry;
+  aiurClientForRepo: (repo: string) => Promise<AiurClient>;
   version: string;
   startedAtMs: number;
   log: (line: LogLine) => void;
