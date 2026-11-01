@@ -84,7 +84,9 @@ export function refineSizeClasses(db: Db): { updated: { kind: RowKind; sizeClass
       if (job.kind === 'scope') continue;
       const { sizeClass } = JSON.parse(job.reservation) as { sizeClass: SizeClass };
       const key = `${job.kind}/${sizeClass}`;
-      usage.set(key, [...(usage.get(key) ?? []), job.usage]);
+      const amounts = usage.get(key);
+      if (amounts) amounts.push(job.usage);
+      else usage.set(key, [job.usage]);
     }
     const updated: { kind: RowKind; sizeClass: SizeClass; samples: number }[] = [];
     for (const [key, amounts] of usage) {
