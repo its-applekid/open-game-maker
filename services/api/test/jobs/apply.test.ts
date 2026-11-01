@@ -16,7 +16,10 @@ import {
 const DAEMON = 'everdred-games-castle-run';
 const JOB = 'j_142';
 
-function setup(jobs: Record<string, JobRef> = { '142': { id: JOB, state: 'running' } }) {
+function setup(
+  jobs: Record<string, JobRef> = { '142': { id: JOB, state: 'running' } },
+  lifecycle?: NonNullable<Parameters<typeof applyAiurEvent>[0]['lifecycle']>,
+) {
   const { sqlite, db } = openDb(':memory:');
   migrate({ sqlite });
   const events = createAppEvents();
@@ -28,6 +31,7 @@ function setup(jobs: Record<string, JobRef> = { '142': { id: JOB, state: 'runnin
     db,
     events,
     jobs: { byTicket: (daemon: string, ticket: string) => (daemon === DAEMON ? (jobs[ticket] ?? null) : null) },
+    ...(lifecycle ? { lifecycle } : {}),
     now: () => new Date('2026-11-01T03:12:10Z'),
   };
   const projection = () => db.select().from(schema.jobProjections).all();
@@ -138,6 +142,35 @@ describe('applyAiurEvent', () => {
     applyAiurEvent(deps, DAEMON, { type: 'gap', seq: 30 });
     expect(cursor()).toBe(30);
     expect(stored()).toEqual([]);
+  });
+
+  it('applies each lifecycle transition to the jobs table seam before projecting it', () => {
+    const jobs: Record<string, JobRef> = { '142': { id: JOB, state: 'filed' } };
+    const calls: string[] = [];
+    const { deps, projection } = setup(jobs, {
+      markRunning(jobId) {
+        calls.push(`run:${jobId}`);
+        jobs['142'] = { id: jobId, state: 'running' };
+      },
+      markPaused(jobId, reason) {
+        calls.push(`pause:${jobId}:${reason}`);
+        jobs['142'] = { id: jobId, state: 'paused_budget' };
+      },
+      markTerminal(jobId, state) {
+        calls.push(`terminal:${jobId}:${state}`);
+        jobs['142'] = { id: jobId, state };
+      },
+    });
+
+    applyAiurEvent(deps, DAEMON, event(1, 'ticket.142.lifecycle.changed', { lifecycle: 'running' }));
+    applyAiurEvent(deps, DAEMON, event(2, 'ticket.142.lifecycle.changed', { lifecycle: 'paused', reason: 'budget' }));
+    applyAiurEvent(deps, DAEMON, event(3, 'ticket.142.lifecycle.changed', { lifecycle: 'running' }));
+    const completed = event(4, 'ticket.142.lifecycle.changed', { lifecycle: 'completed' });
+    applyAiurEvent(deps, DAEMON, completed);
+    applyAiurEvent(deps, DAEMON, completed);
+
+    expect(calls).toEqual([`run:${JOB}`, `pause:${JOB}:budget_exhausted`, `run:${JOB}`, `terminal:${JOB}:done`]);
+    expect(projection()[0]).toMatchObject({ stage: 'done', stageText: 'Done', lastEventSeq: 4 });
   });
 });
 

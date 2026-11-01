@@ -1,4 +1,5 @@
 import { Activity, Rollup } from '@ogm/contracts';
+import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import type { AppDeps } from '../src/app/types.js';
@@ -15,7 +16,14 @@ const ids = {
 function registerAdmin(deps: AppDeps, role: 'admin' | 'none' = 'admin') {
   deps.registry.principalResolvers.push(async (c) =>
     c.req.header('x-test-user')
-      ? { kind: 'user', userId: ids.user, familyId: ids.family, platformRole: role, capability: 'creator' }
+      ? {
+          kind: 'user',
+          userId: ids.user,
+          displayName: 'Test User',
+          familyId: ids.family,
+          platformRole: role,
+          capability: 'creator',
+        }
       : null,
   );
   deps.registry.gameResolver = async (gameId) =>
@@ -60,6 +68,46 @@ function insert(
     );
 }
 
+function insertJob(deps: AppDeps, usageMicroUsd: number): void {
+  deps.db
+    .insert(schema.families)
+    .values({ id: ids.family, name: 'Family', ownerUserId: ids.user, createdAt: '2026-11-01T00:00:00.000Z' })
+    .run();
+  deps.db
+    .insert(schema.games)
+    .values({
+      id: ids.game,
+      familyId: ids.family,
+      ownerId: ids.user,
+      title: 'Game',
+      visibility: 'private',
+      repoVisibility: 'private',
+      createdAt: '2026-11-01T00:00:00.000Z',
+    })
+    .run();
+  deps.db
+    .insert(schema.jobs)
+    .values({
+      id: ids.job,
+      gameId: ids.game,
+      branchId: 'main',
+      familyId: ids.family,
+      creatorId: ids.user,
+      kind: 'feature',
+      complexity: 1,
+      state: 'running',
+      start: 'now',
+      slot: 'edit',
+      plan: '{}',
+      reservation: '{"amountMicroUsd":500000,"sizeClass":"small","confidence":"low"}',
+      hardCapMicroUsd: 500_000,
+      usageMicroUsd,
+      createdAt: '2026-11-01T00:00:00.000Z',
+      updatedAt: '2026-11-01T00:00:00.000Z',
+    })
+    .run();
+}
+
 describe('GET /api/v1/analytics/rollups', () => {
   it('aggregates paired and point events with zero defaults inside one family', async () => {
     const { app, deps } = await makeApp();
@@ -91,7 +139,7 @@ describe('GET /api/v1/analytics/rollups', () => {
     });
     expect(response.status).toBe(200);
     const body = Rollup.parse(await response.json());
-    expect(body).toMatchObject({ scope: 'game', id: ids.game, builds: 1, usageMicroUsd: null });
+    expect(body).toMatchObject({ scope: 'game', id: ids.game, builds: 1, usageMicroUsd: 0 });
     expect(body.byActivity.playtesting).toEqual({ count: 1, durationMs: 2000 });
     expect(body.byActivity.audio).toEqual({ count: 1, durationMs: 0 });
     expect(Object.keys(body.byActivity)).toEqual(Activity.options);
@@ -129,10 +177,7 @@ describe('GET /api/v1/analytics/rollups', () => {
   it('uses optional job creator ownership and usage without crossing families', async () => {
     const { app, deps } = await makeApp();
     registerAdmin(deps);
-    deps.sqlite.exec(
-      'CREATE TABLE jobs (id TEXT PRIMARY KEY, family_id TEXT, creator_id TEXT, usage_micro_usd INTEGER)',
-    );
-    deps.sqlite.prepare('INSERT INTO jobs VALUES (?, ?, ?, ?)').run(ids.job, ids.family, ids.user, 3456);
+    insertJob(deps, 3456);
     insert(deps, {
       id: 'i_30000000-0000-4000-8000-000000000020',
       ts: '2026-11-01T01:00:00Z',

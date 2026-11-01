@@ -12,6 +12,9 @@ export { JOB_TOKEN_TTL_SEC, signJobToken, verifyJobToken } from './job-token.js'
 export { requirePrincipal } from './principal.js';
 export {
   createRegistry,
+  type AiurClientResolver,
+  type ChatJob,
+  type ChatJobDirectory,
   resolveGame,
   type GameInfo,
   type GameResolver,
@@ -23,6 +26,8 @@ export {
 export { scanRoutes } from './routes-scan.js';
 export type { ApiBindings, AppDeps, LogLine } from './types.js';
 export { parseBody, parseQuery } from './validate.js';
+export { WS_TOKEN_TTL_SEC, signWsToken, verifyWsToken, type WsTokenClaims } from '../auth/ws-token.js';
+export { hasAdultAgeAttestation } from '../auth/routes.js';
 
 const requestIdPattern = /^[A-Za-z0-9-]{1,64}$/;
 const invitePathSegment = /(\/api\/v1\/invites\/)[^/]+/gi;

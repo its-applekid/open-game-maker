@@ -1,0 +1,40 @@
+{
+  "name": "@gm/host",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./sw": {
+      "types": "./dist/sw/register.d.ts",
+      "default": "./dist/sw/register.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b && pnpm run build:sw",
+    "build:sw": "esbuild src/sw/game-cache.ts --bundle --format=iife --platform=browser --outfile=dist/game-cache.js",
+    "build:fixtures": "esbuild test/app/main.ts test/stub-game/main.ts --bundle --format=esm --platform=browser --outdir=dist/test --outbase=test --entry-names=[dir]/[name]",
+    "pretypecheck": "pnpm --filter @ogm/contracts build && pnpm --filter @ogm/iframe-bridge build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/contracts build && pnpm --filter @ogm/iframe-bridge build",
+    "test": "vitest run",
+    "test:browser": "pnpm run build && pnpm run build:fixtures && playwright test",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@ogm/contracts": "workspace:*",
+    "@ogm/iframe-bridge": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "esbuild": "0.28.2",
+    "jsdom": "27.4.0",
+    "tsx": "4.23.15"
+  }
+}

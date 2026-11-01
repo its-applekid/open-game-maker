@@ -23,6 +23,28 @@
   "previews": {
     "thumb": "previews/20/20915fde756b990f-thumb.webp"
   },
+  "license": "CC0-1.0",
+  "rights": {
+    "uses": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
+    "audience": "public",
+    "redistribution": "free",
+    "attribution": null,
+    "basis": [
+      {
+        "type": "license",
+        "license": "CC0-1.0",
+        "ref": "License.txt",
+        "uses": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
+        "audience": "public",
+        "redistribution": "free",
+        "attribution": null,
+        "set_by": { "role": "intake-code" },
+        "confirmed_by": "kevin",
+        "date": "2026-10-26",
+        "note": "Kenney CC0; credit optional."
+      }
+    ]
+  },
   "describe": {
     "description": "16 px pixel-art knight in a grey visored helmet and armour, facing the viewer; a hero or guard for top-down dungeon games.",
     "objects": ["knight", "helmet", "armor"],

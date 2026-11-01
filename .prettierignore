@@ -3,6 +3,7 @@ dist
 pnpm-lock.yaml
 docs/
 prototypes/
+apps/web/title-town/
 third_party/
 assets-local/
 .claude/

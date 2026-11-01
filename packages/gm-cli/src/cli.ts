@@ -26,6 +26,7 @@ export type RunOptions = {
 
 const ENV = {
   OGM_ASSETS_ROOT: { kind: 'path', required: false },
+  GM_SKILLS_DIR: { kind: 'path', required: false },
   GM_EVENTS_FILE: { kind: 'path', required: false },
   GM_JOB: { kind: 'string', required: false },
   AIUR_HOOK_TICKET_IDENTIFIER: { kind: 'int', required: false },
@@ -69,6 +70,7 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
     const ctx: GmContext = {
       cwd,
       assetsRoot: findAssetsRoot(cwd, env.OGM_ASSETS_ROOT),
+      skillsDir: env.GM_SKILLS_DIR ?? null,
       config: {
         eventsFile: env.GM_EVENTS_FILE,
         jobId: env.GM_JOB,

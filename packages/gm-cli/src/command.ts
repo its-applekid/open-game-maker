@@ -13,6 +13,7 @@ export type GmConfig = {
 export type GmContext = {
   cwd: string;
   assetsRoot: string | null;
+  skillsDir: string | null;
   config: GmConfig;
   json: boolean;
   limit: number;

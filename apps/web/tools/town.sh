@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 # Build the title's castle town and music into public/ (both gitignored). Operator-run: needs assets-local/ and a built
-# prototypes/title-city. Ports prototypes/studio-v0/tools/build.sh lines 30–38 (music) and 85–103 (town copy and bundle).
+# apps/web/title-town. Ports prototypes/studio-v0/tools/build.sh lines 30–38 (music) and 85–103 (town copy and bundle).
 # --public leaves out the Sidetrax tracks (Kevin's personal licence): the public deploy plays MUSIC.title.fallback.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"; WEB="$ROOT/apps/web"; K="${K:-$ROOT/assets-local/packs}"
 PY="${PY:-$ROOT/scripts/audio/.venv/bin/python}"
 PUBLIC=0; [[ "${1:-}" == "--public" ]] && PUBLIC=1
-TC="$ROOT/prototypes/title-city"; OUT="$WEB/public/town"; A="$WEB/public/art"
+TC="$WEB/title-town"; OUT="$WEB/public/town"; A="$WEB/public/art"
 
 if [[ ! -d "$TC/models/bake" ]]; then
-  echo "prototypes/title-city is not built; run these first:" >&2
-  echo "  bash prototypes/title-city/tools/build.sh" >&2
-  echo "  node prototypes/title-city/tools/bake.mjs" >&2
-  echo "  node prototypes/title-city/tools/poster.mjs" >&2
+  echo "apps/web/title-town is not built; run these first:" >&2
+  echo "  bash apps/web/title-town/tools/build.sh" >&2
+  echo "  node apps/web/title-town/tools/bake.mjs" >&2
+  echo "  node apps/web/title-town/tools/poster.mjs" >&2
   exit 2
 fi
 

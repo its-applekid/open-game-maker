@@ -1,0 +1,272 @@
+import {
+  SDK_PROTOCOL,
+  hostToGameSchema,
+  type ActionFrame,
+  type Envelope,
+  type GameModule,
+  type HostToGame,
+  type PlayerSettings,
+  type SaveData,
+  type Viewport,
+} from '@ogm/contracts';
+import { openGameBridge, type Bridge } from '@ogm/iframe-bridge';
+
+import { EventRing } from './events.js';
+import { SdkHostApi, type SendEnvelope } from './host-api.js';
+import { RuntimeImpl, type BuildKind, type Runtime } from './runtime.js';
+import { dispatchTest } from '../test/dispatch.js';
+import { SdkHooks } from '../test/hooks.js';
+
+declare const __GM_BUILD__: BuildKind | undefined;
+
+export interface BootOptions {
+  hostOrigin?: string;
+  build?: BuildKind;
+  headless?: boolean;
+}
+
+function originFromDocument(): string {
+  if (!document.referrer) throw new Error('boot requires hostOrigin when document.referrer is empty');
+  return new URL(document.referrer).origin;
+}
+
+function markNow(): number {
+  return performance.now();
+}
+
+function compiledBuild(): BuildKind {
+  return typeof __GM_BUILD__ === 'undefined' ? 'draft' : __GM_BUILD__;
+}
+
+export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions = {}): Promise<Runtime<D, S>> {
+  const hostOrigin = options.hostOrigin ?? originFromDocument();
+  const marks: [string, number][] = [['start', markNow()]];
+  const queued: HostToGame[] = [];
+  const events = new EventRing();
+  const runtimeState: { current?: RuntimeImpl<D, S> } = {};
+  let eventCursor = 0;
+  let nextId = 0;
+  let resolveHello!: (hello: Extract<HostToGame, { t: 'hello' }>) => void;
+  let rejectHello!: (error: unknown) => void;
+  let helloSettled = false;
+  const helloPromise = new Promise<Extract<HostToGame, { t: 'hello' }>>((resolve, reject) => {
+    resolveHello = resolve;
+    rejectHello = reject;
+  });
+
+  const send: SendEnvelope = (type, payload, replyTo) => {
+    const envelope: Envelope<string, unknown> = {
+      v: 1,
+      id: `sdk-${++nextId}`,
+      t: type,
+      payload,
+      ...(replyTo ? { replyTo } : {}),
+    };
+    bridge.send(envelope);
+  };
+
+  const handleIncoming = (raw: Envelope<string, unknown>) => {
+    const parsed = hostToGameSchema.safeParse(raw);
+    if (!parsed.success) return;
+    const envelope = parsed.data;
+    if (envelope.t === 'hello' && !helloSettled) {
+      helloSettled = true;
+      resolveHello(envelope);
+      return;
+    }
+    if (!runtimeState.current) queued.push(envelope);
+    else dispatchRuntime(envelope);
+  };
+
+  const bridge: Bridge = openGameBridge({
+    hostOrigin,
+    validate: (raw) => {
+      const parsed = hostToGameSchema.safeParse(raw);
+      return parsed.success ? parsed.data : null;
+    },
+    onMessage: handleIncoming,
+    helloPayload: { protocol: SDK_PROTOCOL, manifest: module.manifest },
+  });
+  void bridge.ready.catch((error) => {
+    if (!helloSettled) {
+      helloSettled = true;
+      rejectHello(error);
+    }
+  });
+
+  const hello = await helloPromise;
+  if (hello.payload.protocol !== SDK_PROTOCOL) {
+    send('error', { code: 'protocol_mismatch', message: `expected protocol ${SDK_PROTOCOL}` });
+    bridge.close();
+    throw new Error(`unsupported host protocol ${hello.payload.protocol}`);
+  }
+
+  const build = options.build ?? compiledBuild();
+  if (build === 'published' && new URLSearchParams(location.search).get('build') === 'test') {
+    send('error', { code: 'published_test_mode', message: 'published build cannot enable test mode' });
+    bridge.close();
+    throw new Error('published build cannot enable test mode');
+  }
+
+  const host = new SdkHostApi<S>(send, (kind, payload) => events.push(++eventCursor, kind, payload));
+  const designState: { current?: D } = {};
+  try {
+    host.setCapabilities(hello.payload.capabilities);
+    const initialDesign = module.designSchema.parse({});
+    designState.current = structuredClone(initialDesign);
+    const instance = await module.mount(host, initialDesign);
+    const runtime = new RuntimeImpl(
+      instance,
+      host,
+      build,
+      hello.payload.mode === 'edit' ? 'edit' : 'play',
+      events,
+      () => bridge.close(),
+    );
+    runtimeState.current = runtime;
+    const hooks = new SdkHooks(runtime, module.manifest, marks);
+    runtime.attachHooks(hooks);
+    host.test.register(hooks);
+    host.setSaveProvider(() => instance.serialize());
+
+    if (build !== 'published') {
+      const { installGlobals } = await import('../test/globals.js');
+      runtime.addCleanup(installGlobals(hooks, build));
+    }
+
+    marks.push(['frame0', markNow()]);
+    hooks.ready = true;
+    send('ready', { protocol: SDK_PROTOCOL, manifest: module.manifest, marks });
+    for (const envelope of queued.splice(0)) dispatchRuntime(envelope);
+    if (!options.headless) runtime.startLiveLoop();
+    return runtime;
+  } catch (error) {
+    try {
+      send('error', { code: 'boot_failed', message: String(error) });
+    } catch {
+      // The bridge may be the failing dependency; preserve the boot error.
+    }
+    try {
+      if (runtimeState.current) runtimeState.current.dispose();
+      else bridge.close();
+    } catch {
+      // Teardown is best-effort on a failed boot; preserve the boot error.
+    }
+    throw error;
+  }
+
+  function dispatchRuntime(envelope: HostToGame): void {
+    const active = runtimeState.current;
+    if (!active) return;
+    if (dispatchTest(envelope, host.registeredHooks() ?? active.hooks, send)) return;
+
+    try {
+      switch (envelope.t) {
+        case 'hello':
+          return;
+        case 'lifecycle.pause':
+          active.clock.pause();
+          active.instance.pause();
+          events.push(++eventCursor, 'pause');
+          return;
+        case 'lifecycle.resume':
+          active.instance.resume();
+          active.clock.resume();
+          events.push(++eventCursor, 'resume');
+          return;
+        case 'lifecycle.dispose':
+          active.dispose();
+          return;
+        case 'mode.set':
+          active.setMode(envelope.payload.mode);
+          return;
+        case 'design.apply': {
+          const design = module.designSchema.safeParse(envelope.payload.doc);
+          if (!design.success) {
+            send('error', { code: 'apply_failed', message: design.error.message }, envelope.id);
+            return;
+          }
+          const before = active.instance.serialize();
+          const nextDesign = structuredClone(design.data);
+          try {
+            const result = active.instance.applyDesign(nextDesign, envelope.payload.patches);
+            designState.current = structuredClone(design.data);
+            send('design.applied', { rev: envelope.payload.rev, result }, envelope.id);
+          } catch (error) {
+            try {
+              if ('current' in designState) active.instance.applyDesign(structuredClone(designState.current as D), []);
+            } catch {
+              // The original apply failure remains the useful host-facing error.
+            }
+            try {
+              active.instance.restore(before);
+            } catch {
+              // Preserve the original apply failure when game rollback also fails.
+            }
+            send('error', { code: 'apply_failed', message: String(error) }, envelope.id);
+          }
+          return;
+        }
+        case 'editor.select':
+          if (active.instance.setSelection) active.instance.setSelection(envelope.payload.ids);
+          else send('error', { code: 'unsupported', message: 'selection is not supported' }, envelope.id);
+          return;
+        case 'editor.pick':
+          send(
+            'editor.picked',
+            { targets: active.instance.pick?.(envelope.payload.x, envelope.payload.y) ?? [] },
+            envelope.id,
+          );
+          return;
+        case 'editor.validatePlacement':
+          send(
+            'editor.placement',
+            active.instance.validatePlacement?.(envelope.payload.prefab, envelope.payload.pose) ?? {
+              ok: false,
+              reason: 'placement is not supported',
+            },
+            envelope.id,
+          );
+          return;
+        case 'input.frame':
+          active.inject(envelope.payload as ActionFrame);
+          return;
+        case 'viewport':
+          host.updateViewport(envelope.payload as Viewport);
+          return;
+        case 'settings':
+          host.updateSettings(envelope.payload as PlayerSettings);
+          return;
+        case 'save.restore': {
+          let save = envelope.payload as SaveData<unknown>;
+          const currentVersion = active.instance.serialize().saveSchemaVersion;
+          if (save.saveSchemaVersion !== currentVersion) {
+            if (!active.instance.migrate) {
+              send('error', { code: 'save_unsupported', message: 'save version is not supported' }, envelope.id);
+              return;
+            }
+            save = active.instance.migrate(save);
+          }
+          active.instance.restore(save as SaveData<S>);
+          return;
+        }
+        case 'net.players':
+          active.players.splice(0, active.players.length, ...structuredClone(envelope.payload.players));
+          active.emitNet(envelope.t, envelope.payload);
+          return;
+        case 'net.role':
+        case 'net.input':
+        case 'net.snapshot':
+        case 'net.event':
+          active.emitNet(envelope.t, envelope.payload);
+          return;
+        case 'phase':
+          events.push(++eventCursor, 'phase', envelope.payload);
+          return;
+      }
+    } catch (error) {
+      const code = envelope.t === 'save.restore' ? 'save_unsupported' : 'runtime_failed';
+      send('error', { code, message: String(error) }, envelope.id);
+    }
+  }
+}

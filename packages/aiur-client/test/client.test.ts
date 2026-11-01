@@ -114,6 +114,15 @@ describe('createAiurClient', () => {
     expect(fetchImpl).toHaveBeenCalledOnce();
   });
 
+  it('passes a caller timeout signal to message requests', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(fixture('message'), 202));
+    const signal = AbortSignal.timeout(1000);
+
+    await createAiurClient(daemon, fetchImpl).message('142', 'hello', 'stable-id', signal);
+
+    expect(fetchImpl.mock.calls[0]![1]?.signal).toBe(signal);
+  });
+
   it('builds the exact allowlisted control expression and validates ids locally', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(fixture('control')));
     const client = createAiurClient(daemon, fetchImpl);

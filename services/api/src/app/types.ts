@@ -1,4 +1,5 @@
 import type { BlobStore } from '@ogm/blob-store';
+import type { AiurClient } from '@ogm/aiur-client';
 import type { Principal } from '@ogm/contracts';
 import type { Db, Sqlite } from '@ogm/db';
 
@@ -18,13 +19,20 @@ export interface AppDeps {
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
+    gamesRoot: string;
     vapidKeyFile: string;
     vapidSubject: string;
+    // Build chat: the relay starts only with a workspaces root; the progress poller only with a period.
+    builderWorkspacesRoot?: string;
+    chatPollMs?: number;
     analyticsRetentionDays: number;
+    defaultDailyAllowanceMicroUsd: number;
+    resetZoneDefault: string;
   };
   blobStore: BlobStore;
   events: AppEvents;
   registry: Registry;
+  aiurClientForRepo: (repo: string) => Promise<AiurClient>;
   version: string;
   startedAtMs: number;
   log: (line: LogLine) => void;
