@@ -1,4 +1,4 @@
-import { readFileSync, realpathSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync, readlinkSync, realpathSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 
 import { z } from 'zod';
@@ -32,15 +32,36 @@ export type IntakeStatus = { drops: IntakeDrop[]; parseErrors: number };
 
 type FileResult<T> = { kind: 'missing' } | { kind: 'invalid' } | { kind: 'ok'; value: T };
 
-function readJson<S extends z.ZodType>(path: string, schema: S): FileResult<z.output<S>> {
-  let text: string;
+function readText(realRoot: string, path: string): FileResult<string> {
+  let fd: number;
   try {
-    text = readFileSync(path, 'utf8');
+    fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch (error) {
+    return (error as NodeJS.ErrnoException).code === 'ENOENT' ? { kind: 'missing' } : { kind: 'invalid' };
+  }
+  let result: FileResult<string>;
+  try {
+    const opened = readlinkSync(`/proc/self/fd/${fd}`);
+    result =
+      isUnder(opened, realRoot) && fstatSync(fd).isFile()
+        ? { kind: 'ok', value: readFileSync(fd, 'utf8') }
+        : { kind: 'invalid' };
   } catch {
-    return { kind: 'missing' };
+    result = { kind: 'invalid' };
   }
   try {
-    const parsed = schema.safeParse(JSON.parse(text));
+    closeSync(fd);
+  } catch {
+    return { kind: 'invalid' };
+  }
+  return result;
+}
+
+function readJson<S extends z.ZodType>(realRoot: string, path: string, schema: S): FileResult<z.output<S>> {
+  const text = readText(realRoot, path);
+  if (text.kind !== 'ok') return text;
+  try {
+    const parsed = schema.safeParse(JSON.parse(text.value));
     return parsed.success ? { kind: 'ok', value: parsed.data } : { kind: 'invalid' };
   } catch {
     return { kind: 'invalid' };
@@ -75,7 +96,10 @@ export function readIntake(dir: string | undefined): IntakeStatus {
   if (realRoot === null) return empty;
   let queue: string;
   try {
-    queue = readFileSync(join(realRoot, 'queue.jsonl'), 'utf8');
+    const queueFile = readText(realRoot, join(realRoot, 'queue.jsonl'));
+    if (queueFile.kind === 'invalid') return { drops: [], parseErrors: 1 };
+    if (queueFile.kind === 'missing') return empty;
+    queue = queueFile.value;
   } catch {
     return empty;
   }
@@ -99,8 +123,8 @@ export function readIntake(dir: string | undefined): IntakeStatus {
       continue;
     }
 
-    const intake = readJson(join(folder, 'intake.json'), IntakeRecord);
-    const manifest = readJson(join(folder, 'manifest.json'), Manifest);
+    const intake = readJson(realRoot, join(folder, 'intake.json'), IntakeRecord);
+    const manifest = readJson(realRoot, join(folder, 'manifest.json'), Manifest);
     if (intake.kind === 'invalid') parseErrors += 1;
     if (manifest.kind === 'invalid') parseErrors += 1;
     const record = intake.kind === 'ok' ? intake.value : null;

@@ -91,6 +91,35 @@ describe('intake status reader', () => {
     ]);
   });
 
+  it('rejects queue and drop-file symlinks that escape the intake directory', () => {
+    const outside = tree({
+      'queue.jsonl': line('outside-queue', 'q/manifest.json'),
+      'intake.json': '{"status":"imported"}',
+      'manifest.json': '{"problems":[1,2]}',
+    });
+    const queueRoot = tree({});
+    symlinkSync(join(outside, 'queue.jsonl'), join(queueRoot, 'queue.jsonl'));
+    expect(readIntake(queueRoot)).toEqual({ drops: [], parseErrors: 1 });
+
+    const root = tree({
+      'queue.jsonl': [
+        line('intake-link', 'q/intake-link/manifest.json'),
+        line('manifest-link', 'q/manifest-link/manifest.json'),
+      ].join('\n'),
+      'q/intake-link/manifest.json': '{"problems":[]}',
+      'q/manifest-link/intake.json': '{"status":"imported"}',
+    });
+    symlinkSync(join(outside, 'intake.json'), join(root, 'q/intake-link/intake.json'));
+    symlinkSync(join(outside, 'manifest.json'), join(root, 'q/manifest-link/manifest.json'));
+
+    const result = readIntake(root);
+    expect(result.parseErrors).toBe(2);
+    expect(result.drops.map((drop) => [drop.dropId, drop.status, drop.problems])).toEqual([
+      ['intake-link', 'queued', 0],
+      ['manifest-link', 'imported', 0],
+    ]);
+  });
+
   it('is served read-only to admins from OGM_INTAKE_DIR', async () => {
     const deps = makeDeps();
     deps.config.intakeDir = FIXTURE;
