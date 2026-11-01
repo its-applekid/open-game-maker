@@ -17,7 +17,13 @@ function lockFamily(cwd: string): string | undefined {
   } catch {
     throw new UsageError('assets.lock.json is not valid JSON', 'git diff assets.lock.json');
   }
-  return typeof lock.family === 'string' && lock.family ? lock.family : undefined;
+  if (typeof lock.family !== 'string' || !lock.family) {
+    throw new UsageError(
+      'assets.lock.json has no style family',
+      'set "family" in assets.lock.json (gm help assets search)',
+    );
+  }
+  return lock.family;
 }
 
 export const command: GmCommand = {
@@ -28,7 +34,7 @@ export const command: GmCommand = {
   flags: {
     ...FILTER_FLAGS,
     'any-family': { type: 'boolean', default: false, help: "search outside this game's style family (needs --reason)" },
-    reason: { type: 'string', help: 'why --any-family is needed (logged)' },
+    reason: { type: 'string', help: "why the search leaves this game's family (logged)" },
   },
   async run(ctx, args, flags) {
     const index = await loadIndex(requireAssetsRoot(ctx));
@@ -39,13 +45,20 @@ export const command: GmCommand = {
     if (anyFamily && !reason) {
       throw new UsageError('--any-family needs --reason', 'gm assets search <words> --any-family --reason "<why>"');
     }
-    const gameFamily = q.family ? undefined : lockFamily(ctx.cwd);
-    if (gameFamily && !anyFamily) q.gameFamily = gameFamily;
+    const gameFamily = lockFamily(ctx.cwd);
+    // `--family` picks another family for a lineup; leaving the game's family still needs a logged reason.
+    const leaves = gameFamily !== undefined && (anyFamily || (q.family !== undefined && q.family !== gameFamily));
+    if (leaves && !reason) {
+      throw new UsageError(
+        `--family ${q.family} is outside this game's family (${gameFamily})`,
+        `gm assets search <words> --family ${q.family} --reason "<why>"`,
+      );
+    }
+    if (gameFamily && !anyFamily && !q.family) q.gameFamily = gameFamily;
     if (q.sameRigAs && !index.cards.some((card) => card.id === q.sameRigAs)) {
       throw new UsageError(`unknown card id "${q.sameRigAs}"`, 'gm assets search <words> to find an id');
     }
-    if (gameFamily && anyFamily)
-      ctx.emit('assets.family_exception', { family: gameFamily, reason, query: args.join(' ') });
+    if (leaves) ctx.emit('assets.family_exception', { family: gameFamily, reason, query: args.join(' ') });
     const hits = search(index, { ...q, limit: ctx.limit });
     for (const card of hits) {
       if (ctx.json) printJson(ctx, card);

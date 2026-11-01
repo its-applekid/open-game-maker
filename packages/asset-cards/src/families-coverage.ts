@@ -6,7 +6,7 @@ import { parseArgs } from 'node:util';
 import { loadEnv } from '@ogm/config';
 
 import { loadIndex } from './build.js';
-import { FAMILIES_PATH, StyleFamiliesSchema, computeCoverage, type StyleFamily } from './families.js';
+import { COVERAGE_KEYS, FAMILIES_PATH, StyleFamiliesSchema, computeCoverage, type StyleFamily } from './families.js';
 import type { CardIndex } from './types.js';
 
 export const CATALOG_IDS_PATH = fileURLToPath(new URL('../test/fixtures/catalog-ids.json', import.meta.url));
@@ -25,16 +25,17 @@ export function recompute(index: CardIndex, families: StyleFamily[]): { families
 }
 
 function table(families: StyleFamily[]): string[] {
-  const keys = ['characters', 'environment', 'props', 'ui', 'sfx', 'music'] as const;
   return [
-    ['family', ...keys, 'creation_choice'].join('  '),
+    ['family', ...COVERAGE_KEYS, 'creation_choice'].join('  '),
     ...families.map((f) =>
-      [f.id, ...keys.map((key) => (f.coverage[key] ? 'yes' : '-')), f.creation_choice ? 'yes' : '-'].join('  '),
+      [f.id, ...COVERAGE_KEYS.map((key) => (f.coverage[key] ? 'yes' : '-')), f.creation_choice ? 'yes' : '-'].join(
+        '  ',
+      ),
     ),
   ];
 }
 
-/** `families:coverage [--root <assets-local>] [--emit-ids]`: exit 1 when a creation choice lacks characters, environment or props. */
+/** `families:coverage [--root <assets-local>] [--emit-ids]`: rewrites coverage; exit 1 (file untouched) when a creation choice lacks characters, environment or props. */
 async function main(argv: string[]): Promise<number> {
   const { values } = parseArgs({
     args: argv,
@@ -57,10 +58,14 @@ async function main(argv: string[]): Promise<number> {
 
   const families = JSON.parse(readFileSync(FAMILIES_PATH, 'utf8')) as StyleFamily[];
   const { families: next, failures } = recompute(await loadIndex(root), families);
-  writeFileSync(FAMILIES_PATH, `${JSON.stringify(next, null, 2)}\n`);
   for (const line of table(next)) console.log(line);
   for (const failure of failures) console.error(failure);
-  return failures.length > 0 ? 1 : 0;
+  if (failures.length > 0) {
+    console.error(`${FAMILIES_PATH} left unchanged: fix the packs or set creation_choice false, then re-run`);
+    return 1;
+  }
+  writeFileSync(FAMILIES_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  return 0;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -21,7 +21,7 @@ export type StyleFamilyId = (typeof STYLE_FAMILY_IDS)[number];
 export const POV_IDS = ['iso', 'topdown', 'side', 'follow', 'fps', 'orbit', 'fixed'] as const;
 export type PovId = (typeof POV_IDS)[number];
 
-const COVERAGE_KEYS = ['characters', 'environment', 'props', 'ui', 'sfx', 'music'] as const;
+export const COVERAGE_KEYS = ['characters', 'environment', 'props', 'ui', 'sfx', 'music'] as const;
 type CoverageKey = (typeof COVERAGE_KEYS)[number];
 export type Coverage = Record<CoverageKey, boolean>;
 

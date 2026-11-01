@@ -131,6 +131,22 @@ describe('computeCoverage', () => {
     expect(computeCoverage({ ...index, cards }, miniDungeon).characters).toBe(false);
   });
 
+  it('ignores quarantined and rejected cards, and cards in a quarantined collection', () => {
+    const orc = 't1:kenney-mini-dungeon/character-orc@2.0';
+    const only = (status: 'quarantined' | 'rejected') => ({
+      ...index,
+      cards: assetsOnly().cards.map((card) => (card.id === orc ? { ...card, status } : card)),
+    });
+    expect(computeCoverage(only('quarantined'), miniDungeon).characters).toBe(false);
+    expect(computeCoverage(only('rejected'), miniDungeon).characters).toBe(false);
+    const collection = index.collections['t1:kenney-mini-dungeon@2.0'];
+    const quarantined = {
+      ...assetsOnly(),
+      collections: { ...index.collections, [collection.id]: { ...collection, status: 'quarantined' as const } },
+    };
+    expect(computeCoverage(quarantined, miniDungeon).characters).toBe(false);
+  });
+
   it('reads a collection card counts and curated family_coverage', () => {
     expect(computeCoverage(index, miniDungeon).props).toBe(true);
     const collections = index.cards.filter((card) => card.card_type === 'collection');

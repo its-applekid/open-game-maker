@@ -98,6 +98,8 @@ describe('GET /api/catalog/style-families', () => {
     const families = (await (await get(app)).json()) as StyleFamilyApi[];
     const url = packOf(families, 'kenney-mini-dungeon')?.thumbnailUrl;
     expect(url).toMatch(/\/blobs\/sha256\/[0-9a-f]{64}\?exp=\d+&sig=[0-9a-f]{64}$/);
+    // Valid well past the server cache (5 min) plus the client max-age (300 s).
+    expect(Number(new URL(url as string).searchParams.get('exp'))).toBeGreaterThan(Date.now() / 1000 + 86_400);
     expect(packOf(families, 'synty-polygon-goblin-war-camp')?.thumbnailUrl).toBeNull();
   });
 

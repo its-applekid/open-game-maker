@@ -14,6 +14,8 @@ export type { StyleFamilyApi } from '@ogm/asset-cards';
 export const prefix = '/api/catalog';
 
 const CACHE_MS = 5 * 60_000;
+// Outlives a body cached here (5 min) and then by the client (max-age 300); the store rounds it up to a day anyway.
+const THUMB_TTL_MS = 24 * 60 * 60_000;
 const blobHash = /^sha256:[0-9a-f]{64}$/;
 
 /** What `gm packs index --import-previews` (OGM-067) adds to an index entry; card files never carry it. */
@@ -26,7 +28,7 @@ async function thumbnailUrl(blobStore: BlobStore, card: (ResolvedCard & Imported
   if (card.visibility === 'private' || card.resolved.rights.audience !== 'public') return null;
   const hash = thumb as BlobHash;
   if (!(await blobStore.head(hash))) return null;
-  return (await blobStore.signedGet(hash, new Date(Date.now() + CACHE_MS))).url;
+  return (await blobStore.signedGet(hash, new Date(Date.now() + THUMB_TTL_MS))).url;
 }
 
 async function styleFamilies(assetsRoot: string | undefined, blobStore: BlobStore): Promise<StyleFamilyApi[]> {
@@ -59,17 +61,27 @@ async function styleFamilies(assetsRoot: string | undefined, blobStore: BlobStor
 
 /** `GET /style-families`: public (no principal), cached in memory for five minutes, with an ETag. */
 export function catalogRoutes(opts: { assetsRoot?: string }): Hono<ApiBindings> {
-  let cached: { at: number; body: string; etag: string } | undefined;
+  type Entry = { body: string; etag: string };
+  let cached: { at: number; entry: Promise<Entry> } | undefined;
+  const build = async (blobStore: BlobStore): Promise<Entry> => {
+    const body = JSON.stringify(await styleFamilies(opts.assetsRoot, blobStore));
+    return { body, etag: `"${createHash('sha256').update(body).digest('hex').slice(0, 32)}"` };
+  };
   return new Hono<ApiBindings>().get('/style-families', async (c) => {
+    // One shared build per cache period, so a burst never rebuilds the index concurrently; a failed build is retried.
     if (!cached || Date.now() - cached.at > CACHE_MS) {
-      const body = JSON.stringify(await styleFamilies(opts.assetsRoot, c.get('deps').blobStore));
-      cached = { at: Date.now(), body, etag: `"${createHash('sha256').update(body).digest('hex').slice(0, 32)}"` };
+      const next = { at: Date.now(), entry: build(c.get('deps').blobStore) };
+      cached = next;
+      next.entry.catch(() => {
+        if (cached === next) cached = undefined;
+      });
     }
-    c.header('ETag', cached.etag);
+    const entry = await cached.entry;
+    c.header('ETag', entry.etag);
     c.header('Cache-Control', 'public, max-age=300');
-    if (c.req.header('if-none-match') === cached.etag) return c.body(null, 304);
+    if (c.req.header('if-none-match') === entry.etag) return c.body(null, 304);
     c.header('Content-Type', 'application/json');
-    return c.body(cached.body);
+    return c.body(entry.body);
   });
 }
 

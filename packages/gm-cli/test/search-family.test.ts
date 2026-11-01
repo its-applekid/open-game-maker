@@ -51,11 +51,31 @@ describe('gm assets search in a game repo (R55 family default)', () => {
     expect(result.err[0]).toContain('--reason');
   });
 
-  it('--family overrides the lockfile family without an exception', async () => {
+  it('--family of another family is a lineup that needs a logged reason; the game family itself needs none', async () => {
     const { cwd, env, events } = game('pixel-art');
-    const result = await gm(['assets', 'search', 'orc', '--family', 'chunky-low-poly'], { cwd, env });
-    expect(rows(result.out)[0]).toBe(ORC);
-    expect(eventsIn(events).some((line) => line.event === 'assets.family_exception')).toBe(false);
+    const refused = await gm(['assets', 'search', 'orc', '--family', 'chunky-low-poly'], { cwd, env });
+    expect(refused.code).toBe(2);
+    expect(refused.err[0]).toContain('--reason');
+
+    const lineup = await gm(['assets', 'search', 'orc', '--family', 'chunky-low-poly', '--reason', 'lineup'], {
+      cwd,
+      env,
+    });
+    expect(rows(lineup.out)[0]).toBe(ORC);
+    const same = await gm(['assets', 'search', 'tile', '--family', 'pixel-art'], { cwd, env });
+    expect(same.code).toBe(0);
+    const exceptions = eventsIn(events).filter((line) => line.event === 'assets.family_exception');
+    expect(exceptions.map((line) => line.payload)).toEqual([{ family: 'pixel-art', reason: 'lineup', query: 'orc' }]);
+  });
+
+  it('refuses a lockfile that is not JSON or has no family instead of searching every family', async () => {
+    const { cwd, env } = game('pixel-art');
+    writeFileSync(join(cwd, 'assets.lock.json'), JSON.stringify({ version: 1, pov: 'topdown', assets: [] }));
+    const missing = await gm(['assets', 'search', 'orc'], { cwd, env });
+    expect(missing.code).toBe(2);
+    expect(missing.err[0]).toContain('no style family');
+    writeFileSync(join(cwd, 'assets.lock.json'), '{ not json');
+    expect((await gm(['assets', 'search', 'orc'], { cwd, env })).code).toBe(2);
   });
 
   it('applies no default without a lockfile', async () => {
