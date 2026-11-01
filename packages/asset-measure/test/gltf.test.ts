@@ -9,7 +9,7 @@ import { measureGltf } from '../src/index.js';
 
 const temporary: string[] = [];
 
-async function fixture(name: string, rigged: boolean): Promise<string> {
+async function fixture(name: string, rigged: boolean, mode = 4): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'asset-measure-gltf-'));
   temporary.push(dir);
   const file = join(dir, `${name}.glb`);
@@ -21,7 +21,7 @@ async function fixture(name: string, rigged: boolean): Promise<string> {
     .setArray(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]))
     .setBuffer(buffer);
   const indices = document.createAccessor('indices').setType('SCALAR').setArray(new Uint16Array([0, 1, 2])).setBuffer(buffer);
-  const primitive = document.createPrimitive().setAttribute('POSITION', positions).setIndices(indices);
+  const primitive = document.createPrimitive().setMode(mode).setAttribute('POSITION', positions).setIndices(indices);
   const meshNode = document.createNode('Wall').setMesh(document.createMesh('Wall').addPrimitive(primitive));
   const scene = document.createScene('Scene').addChild(meshNode);
 
@@ -74,5 +74,10 @@ describe('measureGltf', () => {
     const measured = await measureGltf(await fixture('wall', false));
     expect(measured.rig).toBeUndefined();
     expect(measured.geometry.normalized).toBe(false);
+  });
+
+  it('does not count line primitives as triangles', async () => {
+    const measured = await measureGltf(await fixture('lines', false, 1));
+    expect(measured.geometry.triangles).toBe(0);
   });
 });

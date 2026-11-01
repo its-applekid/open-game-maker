@@ -23,7 +23,7 @@ export async function measureGltf(file: string): Promise<GltfMeasurement> {
     for (const primitive of mesh.listPrimitives()) {
       const positions = primitive.getAttribute('POSITION');
       const count = primitive.getIndices()?.getCount() ?? positions?.getCount() ?? 0;
-      triangles += Math.floor(count / 3);
+      if (primitive.getMode() === 4) triangles += Math.floor(count / 3);
       vertices += positions?.getCount() ?? 0;
       const material = primitive.getMaterial()?.getName();
       if (material) materials.add(material);

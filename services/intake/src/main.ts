@@ -1,0 +1,169 @@
+import { randomBytes } from 'node:crypto';
+import { link, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { loadEnv } from '@ogm/config';
+
+import { knownLicense, openQueue, type OpenEntry } from './queue.js';
+import { runImport, type ImportResult, type ImportRunner } from './run.js';
+import { readStatus, writeStatus, type DoneJob, type JobStatus } from './status.js';
+
+export type { ImportRunner } from './run.js';
+
+type Emit = (name: string, payload: Record<string, unknown>) => void;
+
+type PollOptions = {
+  assetsRoot: string;
+  stateDir: string;
+  gmBin?: string;
+  run?: ImportRunner;
+  emit?: Emit;
+  now?: () => Date;
+};
+
+const sleep = (milliseconds: number) => new Promise((resolveSleep) => setTimeout(resolveSleep, milliseconds));
+
+function slug(value: string): string {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'drop';
+}
+
+async function intakeExists(path: string): Promise<boolean> {
+  try {
+    await readFile(path);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function writeOnce(path: string, value: unknown): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  const temporary = join(dirname(path), `.${basename(path)}.${process.pid}.${randomBytes(5).toString('hex')}.tmp`);
+  try {
+    await writeFile(temporary, `${JSON.stringify(value, null, 2)}\n`, { flag: 'wx' });
+    await link(temporary, path);
+  } finally {
+    await rm(temporary, { force: true });
+  }
+}
+
+function canonicalIntake(entry: OpenEntry, result: ImportResult, confirmedBy: string | null) {
+  return {
+    status: result.status,
+    collection: result.collection,
+    license: result.license,
+    rights: result.rights ?? entry.manifest.usage_rights ?? null,
+    confirmed_by: confirmedBy,
+    date: entry.manifest.downloaded_at?.slice(0, 10) ?? new Date().toISOString().slice(0, 10),
+  };
+}
+
+function eventName(status: JobStatus): string {
+  return `intake.${status}`;
+}
+
+export async function pollIntake(options: PollOptions): Promise<{ hadError: boolean }> {
+  const runner = options.run ?? runImport;
+  const emit = options.emit ?? ((name, payload) => process.stdout.write(`${JSON.stringify({ event: name, ...payload })}\n`));
+  const now = options.now ?? (() => new Date());
+  const statusPath = join(resolve(options.stateDir), 'intake', 'status.json');
+  const previous = await readStatus(statusPath);
+  const entries = await openQueue(options.assetsRoot);
+  const done = [...previous.done];
+  const counts = { ...previous.counts };
+  const seen = new Map(done.map((job) => [job.fingerprint, job]));
+  let lastError: string | null = null;
+  let failures = 0;
+
+  const record = (entry: OpenEntry, status: JobStatus, collection: string | null): void => {
+    const job: DoneJob = {
+      drop_id: entry.entry.drop_id,
+      status,
+      collection,
+      at: now().toISOString(),
+      fingerprint: entry.fingerprint,
+    };
+    done.push(job);
+    counts[status] = (counts[status] ?? 0) + 1;
+    seen.set(entry.fingerprint, job);
+    emit(eventName(status), { drop_id: entry.entry.drop_id, status, collection });
+  };
+
+  for (const entry of entries) {
+    if (await intakeExists(entry.intakePath)) continue;
+    if (!entry.manifest.integrity_ok) {
+      const reason = (entry.manifest.problems ?? ['integrity check failed']).join('; ');
+      await writeOnce(entry.intakePath, { status: 'blocked', reason });
+      record(entry, 'blocked', null);
+      continue;
+    }
+    const duplicate = seen.get(entry.fingerprint);
+    if (duplicate) {
+      await writeOnce(entry.intakePath, {
+        status: 'duplicate',
+        collection: duplicate.collection,
+        license: null,
+        rights: entry.manifest.usage_rights ?? null,
+        confirmed_by: null,
+        date: entry.manifest.downloaded_at?.slice(0, 10) ?? now().toISOString().slice(0, 10),
+      });
+      record(entry, 'duplicate', duplicate.collection);
+      continue;
+    }
+    try {
+      const license = await knownLicense(entry, options.assetsRoot);
+      const prefix = license === 'CC0-1.0' ? 'kenney' : 'drive';
+      const id = `${prefix}-${slug(entry.entry.name)}`;
+      const args = ['packs', 'import', '--from-queue', entry.entry.drop_id, '--id', id, '--json'];
+      if (license) args.push('--license', license);
+      const result = await runner({
+        gmBin: options.gmBin ?? 'gm',
+        nice: ['-n', '10'],
+        args,
+        id,
+        dropId: entry.entry.drop_id,
+      });
+      if (!(await intakeExists(entry.intakePath))) {
+        await writeOnce(entry.intakePath, canonicalIntake(entry, result, license ? 'kevin' : (result.confirmed_by ?? null)));
+      }
+      record(entry, result.status, result.collection);
+    } catch (error) {
+      failures += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      lastError = `${entry.entry.drop_id}: ${message}`;
+      emit('intake.error', { drop_id: entry.entry.drop_id, error: message });
+    }
+  }
+
+  const recent = done.slice(-50);
+  await writeStatus(statusPath, {
+    updated: now().toISOString(),
+    open: failures,
+    counts,
+    done: recent,
+    last_error: lastError,
+  });
+  return { hadError: failures > 0 };
+}
+
+export async function main(): Promise<never> {
+  const config = loadEnv('intake', {
+    OGM_ASSETS_ROOT: { kind: 'path' },
+    OGM_STATE_DIR: { kind: 'path' },
+  });
+  while (true) {
+    const { hadError } = await pollIntake({ assetsRoot: config.OGM_ASSETS_ROOT, stateDir: config.OGM_STATE_DIR });
+    await sleep(hadError ? 5 * 60_000 : 30_000);
+  }
+}
+
+const entryPath = process.argv[1] ? resolve(process.argv[1]) : '';
+if (entryPath && pathToFileURL(entryPath).href === import.meta.url && fileURLToPath(import.meta.url) === entryPath) {
+  void main().catch((error: unknown) => {
+    const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`intake: ${message}\n`);
+    process.exitCode = 1;
+  });
+}

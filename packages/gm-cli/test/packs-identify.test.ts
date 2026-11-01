@@ -40,4 +40,21 @@ describe('identify', () => {
     expect(result.dropped).toEqual(['run.sh']);
     await expect(readFile(join(root, 'run.sh'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
+
+  it('links only matching texture siblings to each model', async () => {
+    const root = tempDir('gm-identify-companions-');
+    temporary.push(root);
+    await mkdir(join(root, 'House', 'Models'), { recursive: true });
+    await mkdir(join(root, 'House', 'Textures'), { recursive: true });
+    await mkdir(join(root, 'Hero', 'Models'), { recursive: true });
+    await mkdir(join(root, 'Hero', 'Textures'), { recursive: true });
+    await writeFile(join(root, 'House', 'Models', 'wall.obj'), 'o wall');
+    await writeFile(join(root, 'House', 'Textures', 'wall.png'), 'wall pixels');
+    await writeFile(join(root, 'Hero', 'Models', 'orc.obj'), 'o orc');
+    await writeFile(join(root, 'Hero', 'Textures', 'orc.png'), 'orc pixels');
+
+    const result = await identify(root);
+    expect(result.items.find(({ path }) => path.endsWith('wall.obj'))?.companions).toEqual(['House/Textures/wall.png']);
+    expect(result.items.find(({ path }) => path.endsWith('orc.obj'))?.companions).toEqual(['Hero/Textures/orc.png']);
+  });
 });

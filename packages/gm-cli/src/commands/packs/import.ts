@@ -1,7 +1,5 @@
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
-import { confirmCollection } from '../../packs/confirm.js';
-import { importPack, PackRefusal } from '../../packs/importer.js';
 
 export const command: GmCommand = {
   name: 'packs import',
@@ -27,6 +25,7 @@ export const command: GmCommand = {
         if (typeof flags.license !== 'string' || typeof flags['confirmed-by'] !== 'string') {
           throw new UsageError('--confirm requires --license and --confirmed-by', 'gm help packs import');
         }
+        const { confirmCollection } = await import('../../packs/confirm.js');
         const result = await confirmCollection({
           assetsRoot,
           collectionId: flags.confirm,
@@ -44,23 +43,29 @@ export const command: GmCommand = {
       if (args.length > 1 || (args.length === 0 && typeof flags['from-queue'] !== 'string')) {
         throw new UsageError('give one input directory/archive, or --from-queue', 'gm help packs import');
       }
-      const result = await importPack({
-        assetsRoot,
-        cwd: ctx.cwd,
-        ...(args[0] ? { input: args[0] } : {}),
-        id: flags.id,
-        ...(typeof flags.version === 'string' ? { version: flags.version } : {}),
-        ...(typeof flags.license === 'string' ? { license: flags.license } : {}),
-        inspiration: flags.inspiration === true,
-        ...(typeof flags['from-queue'] === 'string' ? { fromQueue: flags['from-queue'] } : {}),
-      });
+      const { importPack, PackRefusal } = await import('../../packs/importer.js');
+      let result: Awaited<ReturnType<typeof importPack>>;
+      try {
+        result = await importPack({
+          assetsRoot,
+          cwd: ctx.cwd,
+          ...(args[0] ? { input: args[0] } : {}),
+          id: flags.id,
+          ...(typeof flags.version === 'string' ? { version: flags.version } : {}),
+          ...(typeof flags.license === 'string' ? { license: flags.license } : {}),
+          inspiration: flags.inspiration === true,
+          ...(typeof flags['from-queue'] === 'string' ? { fromQueue: flags['from-queue'] } : {}),
+        });
+      } catch (error) {
+        if (error instanceof PackRefusal) throw new UsageError(error.message, 'gm help packs import');
+        throw error;
+      }
       if (ctx.json) printJson(ctx, result);
       else ctx.out(`${result.collection}  ${result.status}  ${result.cards} card(s)`);
       ctx.emit('packs.import', result);
       return EXIT.ok;
     } catch (error) {
       if (error instanceof UsageError) throw error;
-      if (error instanceof PackRefusal) throw new UsageError(error.message, 'gm help packs import');
       throw error;
     }
   },

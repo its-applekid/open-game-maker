@@ -170,6 +170,26 @@ async function publishCards(packRoot: string, cards: Awaited<ReturnType<typeof c
   }
 }
 
+async function hasSameVersion(packRoot: string, version: string, hashName: string, hash: string): Promise<boolean> {
+  try {
+    const existing = await readFile(join(packRoot, version, hashName), 'utf8');
+    if (existing !== hash) throw new PackRefusal(`version ${version} already exists with different content`);
+    return true;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+async function writeIntakeIfMissing(path: string, value: unknown): Promise<void> {
+  try {
+    await readFile(path);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    await writeJson(path, value);
+  }
+}
+
 export async function importPack(options: ImportOptions) {
   const id = safeSegment(options.id, 'pack id', /^[a-z0-9][a-z0-9-]*$/);
   const topDir = join(options.assetsRoot, options.inspiration ? 'inspiration' : 'packs');
@@ -206,8 +226,60 @@ export async function importPack(options: ImportOptions) {
     await copyExclusive(source, originals);
     const unpacked = await copyExtracted(source, extracted);
     const identified = await identify(extracted);
+    const extractedFiles = await filesUnder(extracted);
     const hashName = 'hash-manifest.txt';
     await writeText(join(stagedVersion, hashName), identified.hashManifest);
+    const packRoot = join(topDir, id);
+    const collectionId = `t1:${id}@${version}`;
+    const requestedLicense = options.license ?? identified.license ?? undefined;
+    const requestedRow = requestedLicense ? licenseFor(requestedLicense) : undefined;
+    if (await hasSameVersion(packRoot, version, hashName, identified.hashManifest)) {
+      let collection = JSON.parse(await readFile(join(packRoot, 'collection.card.json'), 'utf8')) as {
+        id: string;
+        status: string;
+        license: string;
+        rights?: unknown;
+        collection_info?: { counts?: Record<string, number> };
+      };
+      if (collection.id !== collectionId) throw new PackRefusal(`existing collection id does not match ${collectionId}`);
+      if (requestedRow?.confirmed && (collection.status === 'quarantined' || collection.license !== requestedRow.id)) {
+        await confirmCollection({
+          assetsRoot: options.assetsRoot,
+          collectionId,
+          license: requestedRow.id,
+          confirmedBy: requestedRow.confirmed.by,
+        });
+        collection = JSON.parse(await readFile(join(packRoot, 'collection.card.json'), 'utf8')) as typeof collection;
+      }
+      const status = collection.status === 'quarantined'
+        ? (manifest ? 'awaiting-license' : 'quarantined')
+        : 'imported';
+      if (intakePath) {
+        await writeIntakeIfMissing(resolveInside(options.assetsRoot, intakePath), {
+          status,
+          collection: collection.id,
+          license: collection.license === 'NOASSERTION' ? null : collection.license,
+          rights: collection.rights ?? null,
+          confirmed_by: status === 'imported' ? requestedRow?.confirmed?.by ?? null : null,
+          date: dateOnly(manifest?.downloaded_at),
+        });
+      }
+      let cardCount = 0;
+      try {
+        cardCount = (await readdir(join(packRoot, 'cards'))).filter((name) => name.endsWith('.card.json')).length;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+      return {
+        collection: collection.id,
+        status,
+        license: collection.license === 'NOASSERTION' ? null : collection.license,
+        cards: cardCount,
+        counts: collection.collection_info?.counts ?? {},
+        flags: [],
+        dropped: identified.dropped,
+      };
+    }
     const top = options.inspiration ? 'inspiration' : 'packs';
     const cards = await createCards({
       assetsRoot: options.assetsRoot,
@@ -219,11 +291,12 @@ export async function importPack(options: ImportOptions) {
       origin: manifest ? 'drive-drop' : 'vendor-pack',
       extracted,
       items: identified.items,
+      filesTotal: extractedFiles.length,
       hashManifest: hashName,
       date: dateOnly(manifest?.downloaded_at),
     });
     const types: Record<string, number> = {};
-    for (const file of await filesUnder(extracted)) {
+    for (const file of extractedFiles) {
       const extension = extname(file).slice(1).toLowerCase() || 'none';
       types[extension] = (types[extension] ?? 0) + 1;
     }
@@ -237,7 +310,7 @@ export async function importPack(options: ImportOptions) {
         [version]: {
           format: options.fromQueue ? 'drive-drop' : directFormat,
           originals: await originalNames(originals),
-          extracted_files: (await filesUnder(extracted)).length,
+          extracted_files: extractedFiles.length,
           file_types: types,
           added: dateOnly(manifest?.downloaded_at),
           nested_archives: unpacked.nested,
@@ -258,7 +331,6 @@ export async function importPack(options: ImportOptions) {
     await writeJson(join(stagedPack, 'pack.json'), pack);
     await publishCards(stagedPack, cards);
 
-    const packRoot = join(topDir, id);
     try {
       await lstat(packRoot);
       const targetVersion = join(packRoot, version);
@@ -298,10 +370,9 @@ export async function importPack(options: ImportOptions) {
         status: 'awaiting-license',
         collection: cards.collection.id,
         license: license ?? null,
-        usage_rights: cards.collection.rights,
+        rights: cards.collection.rights,
         confirmed_by: null,
         date: dateOnly(manifest?.downloaded_at),
-        notes: 'A named human must confirm the license before this collection leaves quarantine.',
       });
     }
     return {

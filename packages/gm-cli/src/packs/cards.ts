@@ -21,6 +21,7 @@ type CreateCardsOptions = {
   origin: 'vendor-pack' | 'drive-drop';
   extracted: string;
   items: Item[];
+  filesTotal: number;
   hashManifest: string;
   date: string;
 };
@@ -130,7 +131,7 @@ export async function createCards(options: CreateCardsOptions): Promise<CardSet>
         counts,
         pack_manifest: `${options.top}/${options.id}/pack.json`,
         hash_manifest: `${options.top}/${options.id}/${options.version}/${options.hashManifest}`,
-        files_total: options.items.reduce((total, item) => total + 1 + item.companions.length, 0),
+        files_total: options.filesTotal,
       },
       provenance: { '*': { by: 'code', tool: 'gm-intake@0.1', at } },
     },

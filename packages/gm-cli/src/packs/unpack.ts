@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 import { constants } from 'node:fs';
-import { access, chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import { access, chmod, copyFile, lstat, mkdir, mkdtemp, readFile, readdir, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, normalize, relative, resolve, sep } from 'node:path';
 import { promisify } from 'node:util';
 
@@ -69,6 +69,10 @@ async function extractZip(file: string, destination: string, caps: UnpackCaps): 
       throw new Error(`archive member exceeds compression-ratio limit: ${entry.entryName}`);
     }
   }
+  const archiveBytes = (await stat(file)).size;
+  if (total > 1024 * 1024 && archiveBytes > 0 && total / archiveBytes > caps.maxRatio) {
+    throw new Error('archive exceeds compression-ratio limit');
+  }
   for (const entry of entries) {
     const target = checkedPath(destination, entry.entryName);
     if (entry.isDirectory) {
@@ -110,6 +114,10 @@ async function preflightTar(file: string, destination: string, caps: UnpackCaps)
     },
   });
   if (problem) throw problem;
+  const archiveBytes = (await stat(file)).size;
+  if (total > 1024 * 1024 && archiveBytes > 0 && total / archiveBytes > caps.maxRatio) {
+    throw new Error('archive exceeds compression-ratio limit');
+  }
 }
 
 async function reassembleUnityPackage(destination: string): Promise<void> {
@@ -148,8 +156,8 @@ async function extractTar(file: string, destination: string, caps: UnpackCaps, u
   if (unity) await reassembleUnityPackage(destination);
 }
 
-function parse7zList(stdout: string): Array<{ path: string; folder: boolean; size: number }> {
-  const entries: Array<{ path: string; folder: boolean; size: number }> = [];
+function parse7zList(stdout: string): Array<{ path: string; folder: boolean; size: number; link: boolean }> {
+  const entries: Array<{ path: string; folder: boolean; size: number; link: boolean }> = [];
   for (const block of stdout.split(/\r?\n\r?\n/)) {
     const values = Object.fromEntries(
       block.split(/\r?\n/).flatMap((line) => {
@@ -157,7 +165,15 @@ function parse7zList(stdout: string): Array<{ path: string; folder: boolean; siz
         return split < 0 ? [] : [[line.slice(0, split), line.slice(split + 3)]];
       }),
     );
-    if (values.Path && values.Size !== undefined) entries.push({ path: values.Path, folder: values.Folder === '+', size: Number(values.Size) || 0 });
+    if (values.Path && values.Size !== undefined) {
+      const unixMode = (values.Attributes ?? '').split(/\s+/).some((value) => /^l[rwx-]{9}$/.test(value));
+      entries.push({
+        path: values.Path,
+        folder: values.Folder === '+',
+        size: Number(values.Size) || 0,
+        link: Boolean(values['Symbolic Link'] || values['Hard Link'] || unixMode),
+      });
+    }
   }
   return entries;
 }
@@ -167,22 +183,43 @@ async function extract7z(file: string, destination: string, caps: UnpackCaps): P
   const entries = parse7zList(stdout);
   if (entries.length > caps.maxMembers) throw new Error(`archive exceeds member limit ${caps.maxMembers}`);
   let total = 0;
+  const paths = new Set<string>();
   for (const entry of entries) {
     checkedPath(destination, entry.path);
+    if (paths.has(entry.path)) throw new Error(`duplicate archive member ${JSON.stringify(entry.path)}`);
+    paths.add(entry.path);
+    if (entry.link) throw new Error(`archive link is not allowed: ${entry.path}`);
     total += entry.size;
     if (total > limitBytes(caps)) throw new Error('archive exceeds unpacked-size limit');
+  }
+  const archiveBytes = (await stat(file)).size;
+  if (total > 1024 * 1024 && archiveBytes > 0 && total / archiveBytes > caps.maxRatio) {
+    throw new Error('archive exceeds compression-ratio limit');
   }
   await execFileAsync('7z', ['x', '-y', `-o${destination}`, '--', file], { maxBuffer: 16 * 1024 * 1024 });
 }
 
+async function assertPlainTree(root: string): Promise<void> {
+  for (const entry of await readdir(root, { recursive: true, withFileTypes: true })) {
+    const path = join(entry.parentPath, entry.name);
+    checkedPath(root, relative(root, path).split(sep).join('/'));
+    if (entry.isSymbolicLink() || (!entry.isFile() && !entry.isDirectory())) {
+      throw new Error(`archive link or device is not allowed: ${relative(root, path)}`);
+    }
+  }
+}
+
 async function extractArchive(file: string, destination: string, caps: UnpackCaps): Promise<void> {
   const lower = file.toLowerCase();
-  if (lower.endsWith('.zip')) return extractZip(file, destination, caps);
+  if (lower.endsWith('.zip')) await extractZip(file, destination, caps);
   if (lower.endsWith('.tar') || lower.endsWith('.tgz') || lower.endsWith('.tar.gz') || lower.endsWith('.unitypackage')) {
-    return extractTar(file, destination, caps, lower.endsWith('.unitypackage'));
+    await extractTar(file, destination, caps, lower.endsWith('.unitypackage'));
+  } else if (lower.endsWith('.7z') || lower.endsWith('.rar')) {
+    await extract7z(file, destination, caps);
+  } else if (!lower.endsWith('.zip')) {
+    throw new Error(`${file}: unsupported archive format`);
   }
-  if (lower.endsWith('.7z') || lower.endsWith('.rar')) return extract7z(file, destination, caps);
-  throw new Error(`${file}: unsupported archive format`);
+  await assertPlainTree(destination);
 }
 
 async function walk(root: string): Promise<string[]> {
@@ -221,7 +258,10 @@ export async function unpack(source: string, destination: string, caps: UnpackCa
     const nestedArchives = (await walk(staging)).filter((file) => ARCHIVE.test(file));
     for (const archive of nestedArchives) {
       const target = join(dirname(archive), archiveStem(archive));
-      await extractArchive(archive, target, caps);
+      const nestedStaging = await mkdtemp(join(dirname(archive), `.${archiveStem(archive)}.nested-`));
+      await extractArchive(archive, nestedStaging, caps);
+      await stripWrapper(nestedStaging);
+      await rename(nestedStaging, target);
       nested += 1;
     }
     await stripWrapper(staging);

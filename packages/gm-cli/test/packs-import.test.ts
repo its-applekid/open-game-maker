@@ -45,12 +45,17 @@ describe('gm packs import', () => {
     await expect(stat(join(pack, '1', 'extracted', 'wall.obj'))).resolves.toBeTruthy();
     const collection = JSON.parse(await readFile(join(pack, 'collection.card.json'), 'utf8'));
     expect(collection.collection_info).not.toHaveProperty('creation_choice');
+    expect(collection.collection_info.files_total).toBe(2);
     expect(validateCard(collection)).toMatchObject({ ok: true });
     const before = await readFile(join(pack, 'collection.card.json'), 'utf8');
+    const beforePack = await readFile(join(pack, 'pack.json'), 'utf8');
+    const beforeCard = await readFile(join(pack, 'cards', 'wall.card.json'), 'utf8');
 
     const second = await gm(['packs', 'import', input, '--id', 'vendor-test', '--version', '1', '--json'], { env });
     expect(second.code).toBe(0);
     expect(await readFile(join(pack, 'collection.card.json'), 'utf8')).toBe(before);
+    expect(await readFile(join(pack, 'pack.json'), 'utf8')).toBe(beforePack);
+    expect(await readFile(join(pack, 'cards', 'wall.card.json'), 'utf8')).toBe(beforeCard);
 
     const search = await gm(
       ['assets', 'search', '--include-draft', '--collection', 't1:vendor-test@1', '--json'],
@@ -82,9 +87,33 @@ describe('gm packs import', () => {
 
   it('confirms a quarantined collection with a named human and updates intake state', async () => {
     const assets = fresh('gm-pack-confirm-');
-    const input = await unknownFixture();
+    const quarantine = join(assets, 'inbox', 'quarantine', 'confirm-drop');
+    await mkdir(join(quarantine, 'files'), { recursive: true });
+    await writeFile(join(quarantine, 'files', 'wall.obj'), 'o wall\nv 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n');
+    await writeFile(join(quarantine, 'manifest.json'), JSON.stringify({
+      drop_id: 'drop-confirm',
+      name: 'Confirm Test',
+      revision: 1,
+      downloaded_at: '2026-10-26T10:00:00Z',
+      files_root: 'quarantine/confirm-drop/files',
+      files: [{ path: 'wall.obj', downloaded: true }],
+      integrity_ok: true,
+      problems: [],
+    }));
+    await writeFile(
+      join(assets, 'inbox', 'queue.jsonl'),
+      `${JSON.stringify({ drop_id: 'drop-confirm', name: 'Confirm Test', manifest: 'quarantine/confirm-drop/manifest.json' })}\n`,
+    );
     const env = { OGM_ASSETS_ROOT: assets };
-    await gm(['packs', 'import', input, '--id', 'confirm-test', '--version', '1', '--json'], { env });
+    const imported = await gm(
+      ['packs', 'import', '--from-queue', 'drop-confirm', '--id', 'confirm-test', '--version', '1', '--json'],
+      { env },
+    );
+    expect(imported.code, imported.err.join('\n')).toBe(0);
+    const before = JSON.parse(await readFile(join(quarantine, 'intake.json'), 'utf8')) as Record<string, unknown>;
+    expect(Object.keys(before).sort()).toEqual(['collection', 'confirmed_by', 'date', 'license', 'rights', 'status']);
+    expect(before).toMatchObject({ status: 'awaiting-license', license: null, confirmed_by: null, date: '2026-10-26' });
+    expect(before.rights).toMatchObject({ processing: 'local-only' });
 
     const result = await gm(
       ['packs', 'import', '--confirm', 't1:confirm-test@1', '--license', 'CC0-1.0', '--confirmed-by', 'kevin', '--json'],
@@ -94,6 +123,14 @@ describe('gm packs import', () => {
     const card = JSON.parse(await readFile(join(assets, 'packs', 'confirm-test', 'collection.card.json'), 'utf8'));
     expect(card).toMatchObject({ status: 'draft', license: 'CC0-1.0', rights: { processing: 'any' } });
     expect(card.rights.basis[0]).toMatchObject({ type: 'license', confirmed_by: 'kevin' });
+    expect(JSON.parse(await readFile(join(assets, 'packs', 'confirm-test', 'pack.json'), 'utf8'))).toMatchObject({
+      license: 'CC0-1.0',
+      license_source: 'License.txt',
+    });
+    const intake = JSON.parse(await readFile(join(quarantine, 'intake.json'), 'utf8')) as Record<string, unknown>;
+    expect(Object.keys(intake).sort()).toEqual(['collection', 'confirmed_by', 'date', 'license', 'rights', 'status']);
+    expect(intake).toMatchObject({ status: 'imported', license: 'CC0-1.0', confirmed_by: 'kevin' });
+    expect(intake.rights).toMatchObject({ processing: 'any' });
     const search = await gm(
       ['assets', 'search', '--include-draft', '--collection', 't1:confirm-test@1', '--json'],
       { env },

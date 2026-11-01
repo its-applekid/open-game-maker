@@ -96,20 +96,22 @@ export async function confirmCollection(options: ConfirmOptions): Promise<{ coll
   if (!validation.ok) throw new Error(`confirmed collection card is invalid: ${validation.errors.join('; ')}`);
   await atomicJson(path, card);
 
-  const pack = JSON.parse(await readFile(join(packRoot, 'pack.json'), 'utf8')) as { source?: { intake_path?: string } };
+  const packPath = join(packRoot, 'pack.json');
+  const pack = JSON.parse(await readFile(packPath, 'utf8')) as {
+    license?: string;
+    license_source?: string;
+    source?: { intake_path?: string };
+  };
+  pack.license = row.id;
+  pack.license_source = row.ref;
+  await atomicJson(packPath, pack);
   if (pack.source?.intake_path) {
     const intakePath = join(options.assetsRoot, ...pack.source.intake_path.split('/'));
-    let previous: Record<string, unknown> = {};
-    try {
-      previous = JSON.parse(await readFile(intakePath, 'utf8')) as Record<string, unknown>;
-    } catch {
-      // The queue status is created on first confirmation if the prior write was interrupted.
-    }
     await atomicJson(intakePath, {
-      ...previous,
       status: 'imported',
       collection: card.id,
       license: row.id,
+      rights: card.rights,
       confirmed_by: options.confirmedBy,
       date,
     });

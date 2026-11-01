@@ -1,6 +1,6 @@
 # Local asset library (`assets-local/`)
 
-Purchased and downloaded asset packs live in `assets-local/` at the repo root. Git ignores the folder, because some packs are personal licenses and none of the raw files may be committed. This layout copies the bucket layout in B11 §4.1, so the future `gm packs import` can read straight from it, and the originals here are the off-Railway backup that B11 asks for.
+Purchased and downloaded asset packs live in `assets-local/` at the repo root. Git ignores the folder, because some packs are personal licenses and none of the raw files may be committed. `gm packs import` writes this layout, and the originals here are the off-Railway backup that B11 asks for.
 
 ## Layout
 
@@ -24,7 +24,7 @@ assets-local/
     quarantine/<time>-<slug>-<id8>/
       manifest.json                    # Drive ids, MD5s, kinds, license files, archive checks, strict default rights
       files/...                        # downloaded files, read-only, never unpacked or run here
-      intake.json                      # written by the gm-asset-intake skill when the drop is handled
+      intake.json                      # service result; confirmation updates awaiting-license to imported
 ```
 
 - **Pack ids** are `<vendor>-<name>` in kebab case, e.g. `synty-polygon-viking-realm` or `kenney-racing-kit`. Kenney's `Archive` and `Early access` copies add `-archive` and `-early-access` suffixes, because their names clash with current packs.
@@ -78,6 +78,20 @@ assets-local/
 
 ## Drive inbox (`scripts/drive-sync/`)
 
-`drive_sync.py` watches one shared Google Drive folder with a read-only service account. It waits until each drop (a top-level file or subfolder) has settled, downloads it into a fresh `inbox/quarantine/` folder, verifies MD5s, and tests archives for zip-slip, links, corruption and size limits without unpacking them. Then it writes `manifest.json` with strict default rights (`vision-input` only, private, no redistribution) and queues the drop. It never imports into `packs/`. The `gm-asset-intake` skill (`.claude/skills/gm-asset-intake/`) does that once the license is known and Kevin has confirmed the rights. Setup and details are in `scripts/drive-sync/README.md`.
+`drive_sync.py` watches one shared Google Drive folder with a read-only service account. It waits until each drop (a top-level file or subfolder) has settled, downloads it into a fresh `inbox/quarantine/` folder, verifies MD5s, and tests archives for zip-slip, links, corruption and size limits without unpacking them. Then it writes `manifest.json` with strict default rights (`vision-input` only, private, no redistribution) and queues the drop. Setup and details are in `scripts/py/drive-sync/README.md`.
 
-Every archive is checked for absolute and `..` paths before it is extracted. Conversion to GLB, tagging and previews (B11 §4.2 steps 2–5) are not done yet; this library is the input for that importer.
+`@ogm/intake` polls the queue every 30 seconds. It records failed integrity checks as `blocked`, skips duplicate drop-id/MD5 sets, and runs the safe importer for valid drops. Unknown licences remain `awaiting-license` and invisible to game search until a named human confirms them. The service status is `~/.local/state/ogm/intake/status.json`; it never moves or deletes quarantine or Drive files.
+
+Import a local directory or archive directly:
+
+```sh
+gm packs import <dir-or-archive> --id <vendor-name> --version <version> --json
+```
+
+The importer copies originals, preflights every archive member before extraction, performs one nested-archive pass, drops executables, writes cards and image thumbnails, and leaves unknown licences quarantined. Confirm a reviewed collection with:
+
+```sh
+gm packs import --confirm <collection-id> --license <SPDX-or-LicenseRef> --confirmed-by kevin --json
+```
+
+Confirmation recomputes effective rights from the licence table and makes draft/measured assets searchable. Tagging and rendered 3D previews remain OGM-065 work.

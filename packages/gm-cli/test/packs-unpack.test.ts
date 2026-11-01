@@ -57,6 +57,20 @@ describe('unpack', () => {
     expect(await readdir(destination)).toEqual([]);
   });
 
+  it('refuses a tar compression bomb before publishing any files', async () => {
+    const root = await directory('gm-unpack-ratio-');
+    const source = join(root, 'source');
+    const destination = join(root, 'out');
+    await mkdir(source);
+    await mkdir(destination);
+    await writeFile(join(source, 'zeros.bin'), Buffer.alloc(2 * 1024 * 1024));
+    const archive = join(root, 'bomb.tgz');
+    await tar.c({ gzip: true, cwd: source, file: archive }, ['zeros.bin']);
+
+    await expect(unpack(archive, destination, { ...caps, maxUnpackedMb: 3, maxRatio: 2 })).rejects.toThrow(/ratio/i);
+    expect(await readdir(destination)).toEqual([]);
+  });
+
   it('extracts one nested archive pass and drops executable files', async () => {
     const root = await directory('gm-unpack-nested-');
     const archive = join(root, 'outer.zip');
