@@ -14,6 +14,12 @@ Product code lives in `apps/*`, `packages/*`, `services/*`, `skills/*`, `templat
 (see `docs/plans/ogm-v1-build/architecture.md` §2 on the `research` branch). Package names are `@ogm/<dir>`;
 the engine-side exceptions are `@gm/sdk` and `@gm/host`.
 
+## New package
+
+A package has `package.json` scripts `build: tsc -b`, `typecheck: tsc -p tsconfig.json --noEmit`, `test: vitest run`,
+`lint: eslint src`, and a `tsconfig.json` that extends `../../tsconfig.base.json` with `rootDir: src`, `outDir: dist` and
+`references` to its workspace dependencies. Adding a package needs no root edits: the workspace globs pick it up.
+
 ## Write-surface rules
 
 - Do not edit the root `package.json` except to add a workspace script; packages own their dependencies and scripts.
@@ -33,11 +39,13 @@ Pin exact versions. A new dependency with fewer than 1,000 GitHub stars needs th
 ## Tests
 
 Use Vitest for unit tests. Every new test must fail without the production change. Run browser tests with the flags above.
+A package `test` script must find at least one test file (or pass `--passWithNoTests`): `vitest run` with none exits 1 and
+turns `ci / required` red.
 
 ## Pull requests
 
 Start the body with `Closes #<issue>`. Include `## Local tests` with Policy, a 40-character Tested head SHA, Base as
-`<ref> @ <sha>`, Selection, and one command/result bullet. Update the evidence after every push.
+`<ref> @ <sha>`, Selection, and one bullet per command with its result. Update the evidence after every push.
 
 ## Never commit
 

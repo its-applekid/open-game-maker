@@ -35,7 +35,7 @@ jobs:
       - run: pnpm build
       - name: Browser tests (packages that declare test:browser)
         run: |
-          browser_package=$(grep -rls '"test:browser"' --include=package.json apps packages services 2>/dev/null | head -n 1)
+          browser_package=$(grep -rls '"test:browser"' --include=package.json apps packages services skills templates 2>/dev/null | head -n 1)
           if [[ -n "$browser_package" ]]; then
             pnpm --dir "$(dirname "$browser_package")" exec playwright install --with-deps chromium
             pnpm -r --if-present run test:browser

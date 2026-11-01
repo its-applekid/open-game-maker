@@ -8,6 +8,22 @@ const smokeDir = join(packagesDir, '_smoke');
 const sourceDir = join(smokeDir, 'src');
 const packagesDirExisted = existsSync(packagesDir);
 
+function cleanup() {
+  if (existsSync(smokeDir)) {
+    rmSync(smokeDir, { recursive: true, force: true });
+  }
+  if (!packagesDirExisted && existsSync(packagesDir) && readdirSync(packagesDir).length === 0) {
+    rmdirSync(packagesDir);
+  }
+}
+
+for (const signal of ['SIGINT', 'SIGTERM']) {
+  process.on(signal, () => {
+    cleanup();
+    process.exit(1);
+  });
+}
+
 if (existsSync(smokeDir)) {
   throw new Error(`refusing to overwrite existing smoke package: ${smokeDir}`);
 }
@@ -77,10 +93,5 @@ try {
 
   process.stdout.write('smoke: test ok, typecheck fails on type error ok\n');
 } finally {
-  if (existsSync(smokeDir)) {
-    rmSync(smokeDir, { recursive: true, force: true });
-  }
-  if (!packagesDirExisted && existsSync(packagesDir) && readdirSync(packagesDir).length === 0) {
-    rmdirSync(packagesDir);
-  }
+  cleanup();
 }
