@@ -1,0 +1,21 @@
+# OGM game-builder daemon. OGM-034 owns ExecStart and WorkingDirectory later.
+[Unit]
+Description=OGM game-builder aiur daemon (%i)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Slice=ogm-agents.slice
+Environment=OGM_REPO=@REPO@
+EnvironmentFile=-%h/.config/ogm/env/aiur.env
+EnvironmentFile=-%h/.config/ogm/env/aiur-%i.env
+ExecStart=@REPO@/ops/bin/ogm-run aiur %i
+Restart=on-failure
+RestartSec=10
+KillMode=mixed
+TimeoutStopSec=65
+UMask=0077
+NoNewPrivileges=yes
+LogRateLimitIntervalSec=30
+LogRateLimitBurst=1000
