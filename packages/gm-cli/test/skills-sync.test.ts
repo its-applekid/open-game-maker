@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, lstatSync, mkdirSync, readFileSync, readlinkSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -140,6 +140,66 @@ describe('gm skills sync', () => {
     const again = syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable });
     expect(again.changed).toBe(false);
     expect(statSync(join(repo, 'skills.lock')).mtimeMs).toBe(before);
+
+    write(repo, '.codex/skills/gm-build/notes.md', 'keep me\n');
+    rmSync(join(pack, 'gm-build'), { recursive: true });
+    syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable });
+    expect(existsSync(join(repo, '.codex/skills/gm-build/SKILL.md'))).toBe(false);
+    expect(readFileSync(join(repo, '.codex/skills/gm-build/notes.md'), 'utf8')).toBe('keep me\n');
+  });
+
+  it('forces edited copy mirrors back to the committed pack', () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    const unavailable = (): never => {
+      throw Object.assign(new Error('links unavailable'), { code: 'EPERM' });
+    };
+    syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable });
+    const mirror = join(repo, '.codex/skills/gm-core/SKILL.md');
+    writeFileSync(mirror, 'local mirror edit\n');
+
+    const result = syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable, force: true });
+
+    expect(result.changed).toBe(true);
+    expect(readFileSync(mirror, 'utf8')).toBe(readFileSync(join(pack, 'gm-core/SKILL.md'), 'utf8'));
+    expect(syncSkillPack({ repoDir: repo, packDir: pack, createLink: unavailable, checkOnly: true }).drift).toBe(false);
+  });
+
+  it('removes obsolete owned discovery links but preserves unowned skills', async () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    write(repo, '.codex/skills/my-local/SKILL.md', 'local\n');
+    rmSync(join(pack, 'gm-build'), { recursive: true });
+
+    await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+
+    expect(existsSync(join(repo, '.codex/skills/gm-build'))).toBe(false);
+    expect(existsSync(join(repo, '.agents/skills/gm-build'))).toBe(false);
+    expect(readFileSync(join(repo, '.codex/skills/my-local/SKILL.md'), 'utf8')).toBe('local\n');
+  });
+
+  it('refuses traversal paths in skills.lock without touching their target', async () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    const sentinel = join(repo, 'keep.txt');
+    writeFileSync(sentinel, 'keep me\n');
+    writeFileSync(
+      join(repo, 'skills.lock'),
+      `${JSON.stringify({
+        v: 1,
+        pack: '0.0.0',
+        installedAt: new Date().toISOString(),
+        skills: { '../../keep.txt': { sha256: sha(sentinel) } },
+        vendored: {},
+      })}\n`,
+    );
+
+    const result = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+
+    expect(result.code).toBe(2);
+    expect(result.err).toEqual(['skills.lock is not valid. Try: restore it or remove it before gm skills sync']);
+    expect(readFileSync(sentinel, 'utf8')).toBe('keep me\n');
   });
 
   it('does not create a lock when no pack can be located', async () => {

@@ -12,21 +12,14 @@ import {
   rmSync,
   statSync,
   symlinkSync,
-  writeFileSync,
 } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { UsageError } from '../command.js';
+import { readSkillsLock, type SkillsLock, writeSkillsLock } from './lock.js';
 
-export type SkillsLock = {
-  v: 1;
-  pack: string;
-  installedAt: string;
-  skills: Record<string, { sha256: string }>;
-  vendored: Record<string, string>;
-  linkMode?: 'copy';
-};
+export { readSkillsLock, type SkillsLock } from './lock.js';
 
 type SourceFile = { path: string; source: string; sha256: string };
 type DiscoverySkill = { name: string; target: string };
@@ -145,20 +138,6 @@ export function locateStyleFamilies(cwd: string): string | null {
   );
 }
 
-export function readSkillsLock(repoDir: string): SkillsLock | null {
-  const file = join(repoDir, 'skills.lock');
-  if (!existsSync(file)) return null;
-  try {
-    const parsed = JSON.parse(readFileSync(file, 'utf8')) as Partial<SkillsLock>;
-    if (parsed.v !== 1 || typeof parsed.pack !== 'string' || typeof parsed.installedAt !== 'string') throw new Error();
-    if (!parsed.skills || typeof parsed.skills !== 'object' || !parsed.vendored || typeof parsed.vendored !== 'object')
-      throw new Error();
-    return parsed as SkillsLock;
-  } catch {
-    throw new UsageError('skills.lock is not valid', 'restore it or remove it before gm skills sync');
-  }
-}
-
 function installedHash(root: string, path: string): string | null {
   const file = join(root, path);
   return existsSync(file) && statSync(file).isFile() ? sha256(file) : null;
@@ -184,14 +163,14 @@ function assessFiles(installedRoot: string, source: SourceFile[], oldLock: Skill
   return states;
 }
 
-function oldDiscoveryNames(lock: SkillsLock | null): Set<string> {
-  const names = new Set<string>();
+function oldDiscoverySkills(lock: SkillsLock | null): DiscoverySkill[] {
+  const skills: DiscoverySkill[] = [];
   for (const path of Object.keys(lock?.skills ?? {}).filter((candidate) => candidate.endsWith('/SKILL.md'))) {
     const target = path.slice(0, -'/SKILL.md'.length);
     const name = target.startsWith('vendor/') ? target.split('/').at(-1) : target;
-    if (name) names.add(name);
+    if (name && !skills.some((skill) => skill.name === name)) skills.push({ name, target });
   }
-  return names;
+  return skills;
 }
 
 function managedTreeMatches(source: string, installed: string): boolean {
@@ -252,17 +231,12 @@ function replaceDirectory(destination: string, staging: string): void {
   }
 }
 
-function writeLock(repoDir: string, lock: SkillsLock): void {
-  const temporary = join(repoDir, `.skills.lock.${process.pid}.tmp`);
-  writeFileSync(temporary, `${JSON.stringify(lock, null, 2)}\n`);
-  renameSync(temporary, join(repoDir, 'skills.lock'));
-}
-
 function refreshManagedCopy(
   source: string,
   destination: string,
   target: string,
   oldLock: SkillsLock,
+  force: boolean,
 ): { changed: boolean; localEdits: boolean } {
   let changed = false;
   let localEdits = false;
@@ -272,7 +246,7 @@ function refreshManagedCopy(
     const currentHash = installedHash(destination, path);
     if (currentHash === sourceHash) continue;
     const previousHash = oldLock.skills[slash(join(target, path))]?.sha256;
-    if (currentHash !== null && currentHash !== previousHash) {
+    if (currentHash !== null && currentHash !== previousHash && !force) {
       localEdits = true;
       continue;
     }
@@ -295,19 +269,67 @@ function refreshManagedCopy(
   return { changed, localEdits };
 }
 
+function removeOwnedDiscovery(
+  path: string,
+  parent: string,
+  skill: DiscoverySkill,
+  oldLock: SkillsLock,
+): { changed: boolean; localEdits: boolean } {
+  if (!lstatExists(path)) return { changed: false, localEdits: false };
+  const canonical = join(dirname(dirname(parent)), '.claude', 'skills', skill.target);
+  const expected = slash(relative(parent, canonical));
+  if (lstatSync(path).isSymbolicLink()) {
+    if (readlinkSync(path) !== expected) return { changed: false, localEdits: true };
+    rmSync(path, { force: true });
+    return { changed: true, localEdits: false };
+  }
+  if (oldLock.linkMode !== 'copy' || !statSync(path).isDirectory()) return { changed: false, localEdits: true };
+
+  const prefix = `${skill.target}/`;
+  const owned = new Map(
+    Object.entries(oldLock.skills)
+      .filter(([lockedPath]) => lockedPath.startsWith(prefix))
+      .map(([lockedPath, entry]) => [lockedPath.slice(prefix.length), entry.sha256]),
+  );
+  let changed = false;
+  let localEdits = false;
+  for (const [file, hash] of owned) {
+    const current = installedHash(path, file);
+    if (current === hash) {
+      rmSync(join(path, file), { force: true });
+      changed = true;
+    } else if (current !== null) localEdits = true;
+  }
+  if (readdirSync(path).length === 0) {
+    rmSync(path, { recursive: true, force: true });
+    changed = true;
+  }
+  return { changed, localEdits: localEdits || lstatExists(path) };
+}
+
 function installLinks(
   repoDir: string,
   skills: DiscoverySkill[],
   oldLock: SkillsLock | null,
   createLink: CreateLink,
+  force: boolean,
 ): { changed: boolean; usesCopy: boolean; localEdits: string[] } {
   let changed = false;
   let usesCopy = false;
   const localEdits: string[] = [];
-  const owned = oldDiscoveryNames(oldLock);
+  const oldSkills = oldDiscoverySkills(oldLock);
+  const owned = new Set(oldSkills.map(({ name }) => name));
+  const desired = new Set(skills.map(({ name }) => name));
   for (const parentName of ['.codex', '.agents']) {
     const parent = join(repoDir, parentName, 'skills');
     mkdirSync(parent, { recursive: true });
+    if (oldLock) {
+      for (const skill of oldSkills.filter(({ name }) => !desired.has(name))) {
+        const removed = removeOwnedDiscovery(join(parent, skill.name), parent, skill, oldLock);
+        changed ||= removed.changed;
+        if (removed.localEdits) localEdits.push(`${parentName}/skills/${skill.name}`);
+      }
+    }
     for (const skill of skills) {
       const path = join(parent, skill.name);
       const canonical = join(repoDir, '.claude', 'skills', skill.target);
@@ -316,7 +338,7 @@ function installLinks(
       if (exists && lstatSync(path).isSymbolicLink() && readlinkSync(path) === expected && existsSync(path)) continue;
       if (exists && !lstatSync(path).isSymbolicLink() && oldLock?.linkMode === 'copy') {
         usesCopy = true;
-        const refreshed = refreshManagedCopy(canonical, path, skill.target, oldLock);
+        const refreshed = refreshManagedCopy(canonical, path, skill.target, oldLock, force);
         changed ||= refreshed.changed;
         if (refreshed.localEdits) localEdits.push(`${parentName}/skills/${skill.name}`);
         continue;
@@ -403,7 +425,7 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
   }
 
   const createLink = options.createLink ?? ((target, path) => symlinkSync(target, path, 'dir'));
-  const installedLinks = installLinks(repoDir, source.discovery, oldLock, createLink);
+  const installedLinks = installLinks(repoDir, source.discovery, oldLock, createLink, options.force === true);
   for (const path of installedLinks.localEdits) actions.push(`kept local edit ${path}`);
   const changed = filesChanged || installedLinks.changed || oldLock === null || oldLock.pack !== currentVersion;
   if (!changed)
@@ -434,7 +456,7 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
     vendored: readVendorPins(packDir),
     ...(installedLinks.usesCopy ? { linkMode: 'copy' as const } : {}),
   };
-  writeLock(repoDir, lock);
+  writeSkillsLock(repoDir, lock);
   return { changed: true, drift: localEdits.size > 0 || remainingLinkDrift.length > 0, actions, lock };
 }
 
