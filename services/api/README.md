@@ -8,6 +8,8 @@ Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_DATA_DIR`, `OGM_INTERNAL_TOKEN
 
 `OGM_VAPID_KEY_FILE` defaults to `~/.config/ogm/env/ogm-api.vapid.json`; the API creates the key pair with mode
 `0600` on first boot. Set `OGM_VAPID_SUBJECT` to the contact email used for the Web Push `mailto:` subject.
+Push requests use a 10-second socket timeout. Expired subscriptions are removed immediately; other failures are
+removed after five consecutive attempts without failing the notification emitter.
 
 ```sh
 pnpm --filter @ogm/api build && pnpm --filter @ogm/api start   # or: pnpm --filter @ogm/api dev
