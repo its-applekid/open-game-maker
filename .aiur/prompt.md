@@ -12,3 +12,6 @@ Rules that hold on every ticket:
 - Tests must fail without the production change they guard. Report the exact commands you ran and their results.
 - Open the PR with `Closes #<issue>` as its first line and the `## Local tests` section the aiur-agent skill requires.
 - Before opening the PR, run the `ce-code-review` skill on your branch's full diff against `main` and fix every finding it rates blocking (re-run until it reports none). Add a `## Review` section to the PR body: which reviewer personas ran, each blocking finding and the commit that fixed it, and the non-blocking findings you left with a one-line reason each. The Executor's check only verifies that the PR does what the ticket says; a PR without a `## Review` section is sent back without being read.
+
+## Design is fixed
+The web screens (title town, games selection, creation, editor, chat panel) keep the design landed in the studio-v0 / title-town prototype (`apps/web/title-town`, archived `prototypes/`): same layout, flow, motion and copy. Implement the logic behind it; never redesign, restyle or add chrome (no new nav, panels, labels or helper text). Where a ticket and the prototype differ in look or flow, the prototype wins; say so in the PR.
