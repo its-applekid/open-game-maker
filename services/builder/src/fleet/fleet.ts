@@ -1,9 +1,16 @@
 import { createServer } from 'node:net';
-
 import { createAiurClient, type AiurClient } from '@ogm/aiur-client';
 
 import { preflight } from '../policy/preflight.js';
-import { aiurRoot, defaultDaemonFiles, materialize, renderInputFor, type DaemonFilesProvider } from './daemon-dir.js';
+import {
+  aiurRoot,
+  codexAuthFor,
+  defaultDaemonFiles,
+  materialize,
+  materializeCodexHome,
+  renderInputFor,
+  type DaemonFilesProvider,
+} from './daemon-dir.js';
 import { createMissCounter, passes, realSleep, waitHealthy, type Sleep } from './health.js';
 import { writeRegistry } from './registry.js';
 import { daemonPaths, parseEnv, readIfPresent, writeDaemonSecrets } from './secrets.js';
@@ -61,6 +68,12 @@ export function createFleet(deps: FleetDeps) {
   // Slugs this process is starting; a stored `starting` row outside this set was left by a previous process.
   const starting = new Set<string>();
   let chain: Promise<unknown> = Promise.resolve();
+
+  class FleetPreflightError extends Error {
+    constructor(readonly reasons: string[]) {
+      super(reasons.join('; '));
+    }
+  }
 
   // Serializes every read-check-write on rows (capacity claims, port allocation, idle stops, health stops).
   function locked<T>(fn: () => Promise<T>): Promise<T> {
@@ -127,11 +140,34 @@ export function createFleet(deps: FleetDeps) {
     return { kind: creating ? 'new_game' : kind, max: creating && editing ? 2 : 1 };
   }
 
-  async function render(row: DaemonRow, kind: JobKind) {
+  async function render(row: DaemonRow, kind: JobKind, rows: DaemonRow[]) {
     const paths = daemonPaths(env.home, row.slug);
-    const input = renderInputFor(row, paths, env, kind);
-    await materialize(paths, input, await files(row));
+    const input = renderInputFor(row, paths, env, kind, rows);
+    await materialize(paths, input, await files(row), codexAuthFor(env));
     return { paths, input };
+  }
+
+  async function refreshLiveProfiles(rows: DaemonRow[], currentSlug: string): Promise<void> {
+    for (const row of rows) {
+      if (!LIVE_STATUSES.includes(row.status)) continue;
+      const paths = daemonPaths(env.home, row.slug);
+      const input = renderInputFor(row, paths, env, 'feature', rows);
+      if (row.slug !== currentSlug) await materializeCodexHome(input, codexAuthFor(env));
+      const verdict = await checkPolicy(paths.dir, input);
+      if (!verdict.ok) {
+        const reasons =
+          row.slug === currentSlug ? verdict.reasons : verdict.reasons.map((reason) => `${row.slug}: ${reason}`);
+        throw new FleetPreflightError(reasons);
+      }
+    }
+  }
+
+  async function prepare(row: DaemonRow, kind: JobKind) {
+    const rows = await store.list();
+    const rendered = await render(row, kind, rows);
+    await writeDaemonSecrets(rendered.paths, env, rendered.input.codexHome as string);
+    await refreshLiveProfiles(rows, row.slug);
+    return rendered;
   }
 
   async function toDaemon(row: DaemonRow): Promise<GameDaemon> {
@@ -157,10 +193,7 @@ export function createFleet(deps: FleetDeps) {
     let current = row;
     let unitStarted = false;
     try {
-      const { paths, input } = await render(row, kind);
-      await writeDaemonSecrets(paths, env);
-      const verdict = await checkPolicy(paths.dir, input);
-      if (!verdict.ok) return await fail(current, verdict.reasons);
+      const { paths } = await locked(() => prepare(row, kind));
 
       unitStarted = true;
       await systemctl.start(row.slug);
@@ -185,7 +218,7 @@ export function createFleet(deps: FleetDeps) {
       return { status: 'running', daemon: await toDaemon(current) };
     } catch (error) {
       if (unitStarted) await systemctl.stop(row.slug).catch(() => undefined);
-      return fail(current, [(error as Error).message]);
+      return fail(current, error instanceof FleetPreflightError ? error.reasons : [(error as Error).message]);
     }
   }
 
@@ -198,7 +231,7 @@ export function createFleet(deps: FleetDeps) {
 
     if (shape.max !== row.maxConcurrentAgents) {
       row = await store.update(row.slug, { maxConcurrentAgents: shape.max });
-      if (LIVE_STATUSES.includes(row.status)) await render(row, shape.kind);
+      if (LIVE_STATUSES.includes(row.status)) await prepare(row, shape.kind);
     }
     if (row.status === 'running' || row.status === 'idle') {
       row = await setStatus(row, 'running', { idleSince: null });
@@ -263,6 +296,7 @@ export function createFleet(deps: FleetDeps) {
           if (isStale(row)) {
             await systemctl.stop(row.slug).catch(() => undefined);
             await setStatus(row, 'stopped', { lastError: 'start interrupted by an API restart' });
+            await refreshLiveProfiles(await store.list(), row.slug);
             stopped.push(row.slug);
             return;
           }
@@ -280,6 +314,7 @@ export function createFleet(deps: FleetDeps) {
               return;
             }
             await setStatus(row, 'stopped', { idleSince: null });
+            await refreshLiveProfiles(await store.list(), row.slug);
             stopped.push(row.slug);
           }
         });
@@ -300,6 +335,7 @@ export function createFleet(deps: FleetDeps) {
             if (current?.status !== 'running' && current?.status !== 'idle') return;
             await systemctl.stop(row.slug).catch(() => undefined);
             await setStatus(current, 'stopped', { lastError: 'healthz missed six times', idleSince: null });
+            await refreshLiveProfiles(await store.list(), row.slug);
             await alert(`${row.unit} stayed unhealthy after a restart and was stopped`);
           });
           continue;

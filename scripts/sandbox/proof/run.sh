@@ -2,6 +2,7 @@
 # Runs the sandbox proof tests (B4 §6 3, 6, 9, 11, 13, 14 adapted to Codex/bwrap on one uid) and prints a
 # Markdown results table. Exits 1 if any test FAILs.
 #   --only tNN   run one test (repeatable)
+#   --fleet      render t03's two daemon homes through createFleet
 #   --write      also replace the proof-results block in docs/ops/sandbox.md
 #   --self-test  run against deliberately wrong invocations and exit 0 only if the tests catch them
 set -euo pipefail
@@ -14,6 +15,7 @@ all_tests=(t03 t06 t09 t10 t11 t13 t14)
 only=()
 write=0
 self_test=0
+fleet=0
 while (($# > 0)); do
   case "$1" in
     --only)
@@ -26,8 +28,9 @@ while (($# > 0)); do
       ;;
     --write) write=1 && shift ;;
     --self-test) self_test=1 && shift ;;
+    --fleet) fleet=1 && shift ;;
     -h | --help)
-      echo "usage: $0 [--only tNN]... [--write] [--self-test]"
+      echo "usage: $0 [--only tNN]... [--fleet] [--write] [--self-test]"
       exit 0
       ;;
     *)
@@ -39,6 +42,10 @@ done
 tests=("${only[@]}")
 if ((${#only[@]} == 0)); then
   tests=("${all_tests[@]}")
+fi
+if ((fleet)) && { ((${#tests[@]} != 1)) || [[ "${tests[0]}" != "t03" ]] || ((self_test)); }; then
+  echo "--fleet requires --only t03 and cannot be combined with --self-test" >&2
+  exit 2
 fi
 
 test_name() {
@@ -55,33 +62,101 @@ test_name() {
 
 # --- setup: two workspaces and a CODEX_HOME with the profile rendered by OGM-037's renderer --------------
 # Not under /tmp: the profile denies /tmp, and a workspace there could not be the writable root.
-root_parent="${OGM_PROOF_ROOT:-$HOME/.cache}"
+if [[ -n "${OGM_PROOF_ROOT:-}" ]]; then
+  root_parent="$OGM_PROOF_ROOT"
+elif [[ -n "${TMPDIR:-}" && "$TMPDIR" != /tmp && "$TMPDIR" != /tmp/* ]]; then
+  root_parent="$TMPDIR"
+else
+  root_parent="$HOME/.cache"
+fi
 mkdir -p "$root_parent"
 root="$(mktemp -d "$root_parent/ogm-proof.XXXXXX")"
 trap 'chmod -R u+w -- "$root" 2>/dev/null; rm -rf -- "$root"' EXIT
-export OGM_PROOF_WS_A="$root/ws-a"
-export OGM_PROOF_WS_B="$root/ws-b"
-export OGM_PROOF_CODEX_HOME="$root/codex-home"
-mkdir -p "$OGM_PROOF_WS_A" "$OGM_PROOF_WS_B" "$OGM_PROOF_CODEX_HOME/runtime"
-chmod 700 "$OGM_PROOF_CODEX_HOME" "$OGM_PROOF_CODEX_HOME/runtime"
+if ((fleet)); then
+  fleet_home="$root/fleet-home"
+  export OGM_PROOF_WS_A="$fleet_home/.local/share/ogm/daemons/proof-workspace-a/workspaces"
+  export OGM_PROOF_WS_B="$fleet_home/.local/share/ogm/daemons/proof-workspace-b/workspaces"
+  export OGM_PROOF_CODEX_HOME="$fleet_home/.config/ogm/codex/proof-workspace-a"
+else
+  export OGM_PROOF_WS_A="$root/ws-a"
+  export OGM_PROOF_WS_B="$root/ws-b"
+  export OGM_PROOF_CODEX_HOME="$root/codex-home"
+  mkdir -p "$OGM_PROOF_WS_A" "$OGM_PROOF_WS_B" "$OGM_PROOF_CODEX_HOME/runtime"
+  chmod 700 "$OGM_PROOF_CODEX_HOME" "$OGM_PROOF_CODEX_HOME/runtime"
+fi
 
 codex_ok=1
 command -v codex >/dev/null 2>&1 || codex_ok=0
 
 if ((codex_ok)); then
   renderer="$OGM_REPO_ROOT/services/builder/dist/index.js"
-  if [[ ! -f "$renderer" ]]; then
-    pnpm --dir "$OGM_REPO_ROOT" --filter @ogm/builder build >/dev/null
+  pnpm --dir "$OGM_REPO_ROOT" --filter @ogm/builder build >/dev/null
+  if ((fleet)); then
+    node --input-type=module -e '
+      import { mkdir, writeFile } from "node:fs/promises";
+      import { join } from "node:path";
+      const [renderer, home, repoRoot] = process.argv.slice(1);
+      const { createFleet } = await import(renderer);
+      const rows = new Map();
+      const store = {
+        async byRepo(repo) { return [...rows.values()].find((row) => row.repo === repo); },
+        async list() { return [...rows.values()]; },
+        async insert(row) { rows.set(row.slug, { ...row }); },
+        async update(slug, patch) {
+          const row = { ...rows.get(slug), ...patch };
+          rows.set(slug, row);
+          return row;
+        },
+      };
+      const auth = join(home, ".config/ogm/codex-gamebuilder/auth.json");
+      await mkdir(join(home, ".config/ogm/codex-gamebuilder"), { recursive: true });
+      await writeFile(auth, "{\"tokens\":{}}\n", { mode: 0o600 });
+      let token = 0;
+      const fleet = createFleet({
+        store,
+        activeJobs: async () => [],
+        env: {
+          home,
+          builderBotToken: "proof-token",
+          builderBotLogin: "ogm-builder",
+          intakeLogin: "ogm-intake",
+          assetsLocalDir: join(repoRoot, "assets-local"),
+          aiurRoot: join(home, "aiur"),
+        },
+        runner: async (_cmd, args) => ({
+          code: 0,
+          stdout: args[0] === "token" && args[1] === "create" ? `aiur_proof_token_${++token}\n` : "",
+          stderr: "",
+        }),
+        systemctl: {
+          start: async () => undefined,
+          stop: async () => undefined,
+          restart: async () => undefined,
+          isActive: async () => true,
+        },
+        files: async () => ({ hooks: "after_create: echo proof\n", prompt: "Work the proof.\n" }),
+        fetch: async () => new Response(null, { status: 200 }),
+        sleep: async () => undefined,
+        portFree: async () => true,
+      });
+      for (const repo of ["proof/workspace-a", "proof/workspace-b"]) {
+        const result = await fleet.ensureDaemon(repo, "feature");
+        if (result.status !== "running") throw new Error(`${repo}: ${JSON.stringify(result)}`);
+      }
+    ' "$renderer" "$fleet_home" "$OGM_REPO_ROOT"
+    mkdir -p "$OGM_PROOF_CODEX_HOME/runtime"
+    chmod 700 "$OGM_PROOF_CODEX_HOME" "$OGM_PROOF_CODEX_HOME/runtime"
+  else
+    # Extra deny roots a game-builder daemon passes: the other workspace, the aiur repo env, assets-local.
+    node --input-type=module -e '
+      const [renderer, ws, other, repo] = process.argv.slice(1);
+      const { renderCodexProfile } = await import(renderer);
+      process.stdout.write(renderCodexProfile({
+        repo: "ogm-proof/game", workspaceRoot: ws, port: 4000, intakeLogin: "ogm-intake",
+        botAccount: "ogm-builder", kind: "feature",
+        denyReadRoots: [other, "~/github/aiur/.env", `${repo}/assets-local`],
+      }));' "$renderer" "$OGM_PROOF_WS_A" "$OGM_PROOF_WS_B" "$OGM_REPO_ROOT" >"$OGM_PROOF_CODEX_HOME/config.toml"
   fi
-  # Extra deny roots a game-builder daemon passes: the other workspace, the aiur repo env, assets-local.
-  node --input-type=module -e '
-    const [renderer, ws, other, repo] = process.argv.slice(1);
-    const { renderCodexProfile } = await import(renderer);
-    process.stdout.write(renderCodexProfile({
-      repo: "ogm-proof/game", workspaceRoot: ws, port: 4000, intakeLogin: "ogm-intake",
-      botAccount: "ogm-builder", kind: "feature",
-      denyReadRoots: [other, "~/github/aiur/.env", `${repo}/assets-local`],
-    }));' "$renderer" "$OGM_PROOF_WS_A" "$OGM_PROOF_WS_B" "$OGM_REPO_ROOT" >"$OGM_PROOF_CODEX_HOME/config.toml"
 fi
 
 # --- run --------------------------------------------------------------------------------------------------
