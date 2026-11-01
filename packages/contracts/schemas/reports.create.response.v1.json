@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "reportId": {
+      "type": "string",
+      "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 64,
+      "maxLength": 64
+    },
+    "route": {
+      "type": "string",
+      "enum": [
+        "game_repair",
+        "platform",
+        "editor_hint",
+        "stored"
+      ]
+    },
+    "jobId": {
+      "type": "string",
+      "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+    }
+  },
+  "required": [
+    "reportId",
+    "signature",
+    "route"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/reports.create.response.v1.json"
+}

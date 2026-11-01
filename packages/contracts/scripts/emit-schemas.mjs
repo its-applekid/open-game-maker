@@ -9,7 +9,10 @@ for (const file of (await readdir(dist)).filter(
   (name) => name.endsWith('.js') && name !== 'index.js' && !name.endsWith('.generated.js'),
 )) {
   const module = await import(new URL(file, dist).href);
-  for (const [stem, schema] of Object.entries(module.schemas ?? {})) {
+  const records = Object.entries(module)
+    .filter(([name]) => name === 'schemas' || /^[a-z]+Schemas$/.test(name))
+    .map(([, record]) => record);
+  for (const [stem, schema] of records.flatMap((record) => Object.entries(record))) {
     const jsonSchema = toJSONSchema(schema, { target: 'draft-2020-12' });
     const output = `${JSON.stringify(
       {

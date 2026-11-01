@@ -1,0 +1,8 @@
+{
+  "endpoint": "https://push.example.test/sub/abc",
+  "expirationTime": null,
+  "keys": {
+    "p256dh": "BNcR",
+    "auth": "tBHI"
+  }
+}

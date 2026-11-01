@@ -1,0 +1,12 @@
+{
+  "familyId": "f_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e02",
+  "resetZone": "America/Los_Angeles",
+  "unitLabel": "stars",
+  "microUsdPerUnit": 100000,
+  "platformCapMicroUsd": 50000000,
+  "slots": {
+    "new_game": 1,
+    "edit": 2
+  },
+  "hardCapMultiplier": 2
+}
