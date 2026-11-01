@@ -1,4 +1,4 @@
-import { BRIDGE_MAX_BYTES, BRIDGE_MAX_MSGS_PER_S, type Envelope } from '@ogm/contracts';
+import { BRIDGE_MAX_BYTES, BRIDGE_MAX_MSGS_PER_S, type Envelope } from '@ogm/contracts/bridge';
 import { BridgeError } from './errors.js';
 import { TokenBucket } from './limits.js';
 import type { Bridge, BridgeStats, Validator } from './types.js';

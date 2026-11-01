@@ -32,7 +32,7 @@ describe('command registry', () => {
     await expect(loadCommands(dir)).rejects.toThrow(/duplicate command "zzz ping" in .*a\.js and .*b\.js/);
   });
 
-  it('registers the five asset commands, each with help of at most 15 lines', async () => {
+  it('registers every dropped-in command, each with help of at most 15 lines', async () => {
     const registry = await loadCommands(COMMANDS_DIR);
     expect([...registry.keys()].sort()).toEqual([
       'assets facets',
@@ -40,6 +40,9 @@ describe('command registry', () => {
       'assets list',
       'assets search',
       'assets sheet',
+      'new',
+      'skills list',
+      'skills sync',
     ]);
     for (const command of registry.values()) expect(commandHelp(command).length).toBeLessThanOrEqual(15);
     const help = await gm(['help', 'assets', 'search']);

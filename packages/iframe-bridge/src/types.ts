@@ -1,4 +1,4 @@
-import type { Envelope } from '@ogm/contracts';
+import type { Envelope } from '@ogm/contracts/bridge';
 export type Validator = (raw: unknown) => Envelope<string, unknown> | null;
 // prettier-ignore
 export type BridgeStats = { dropped: { tooLarge: number; rateLimited: number; invalid: number }; sent: number; received: number };

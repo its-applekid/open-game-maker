@@ -1,4 +1,5 @@
-import { mkdirSync, mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -51,6 +52,30 @@ describe('renderRepoTemplate', () => {
     expect(JSON.parse(files.find((f) => f.path === 'skills.lock')!.content).pack).toBe('1.0.0');
     expect(files.find((f) => f.path === '.claude/skills/gm-core/SKILL.md')!.content).toBe('real core\n');
     expect(files.find((f) => f.path === '.codex/skills/gm-repair')).toMatchObject({ mode: '120000' });
+  });
+
+  it('renders the real workspace skill pack with a complete matching lock', () => {
+    const { files } = renderRepoTemplate('game-2d@1', ctx);
+    const lock = JSON.parse(files.find((file) => file.path === 'skills.lock')!.content) as {
+      v: number;
+      pack: string;
+      installedAt: string;
+      skills: Record<string, { sha256: string }>;
+      vendored: Record<string, string>;
+    };
+
+    expect(lock).toMatchObject({ v: 1, pack: '0.0.0', installedAt: '' });
+    expect(Object.keys(lock.skills)).toEqual(expect.arrayContaining(['gm-core/SKILL.md', 'gm-build/SKILL.md']));
+    expect(Object.keys(lock.vendored).length).toBeGreaterThan(0);
+    for (const [path, entry] of Object.entries(lock.skills)) {
+      const content = files.find((file) => file.path === `.claude/skills/${path}`)?.content;
+      expect(content, path).toBeTypeOf('string');
+      expect(createHash('sha256').update(content!).digest('hex'), path).toBe(entry.sha256);
+    }
+    expect(files.find((file) => file.path === '.codex/skills/gm-core')).toMatchObject({
+      content: '../../.claude/skills/gm-core',
+      mode: '120000',
+    });
   });
 
   it('names the ci job `required` and runs the commands AGENTS.md names', () => {
