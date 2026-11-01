@@ -25,9 +25,9 @@ describe('migrate', () => {
     expect(migrate({ sqlite })).toEqual({
       applied: [
         '20261101000000_app_meta.sql',
-        '20261101040000_notify.sql',
         '20261101114708_game_daemons.sql',
         '20261101122027_accounts.sql',
+        '20261101133518_notify.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -39,9 +39,9 @@ describe('migrate', () => {
         .map(({ key }) => key),
     ).toEqual([
       'migration:20261101000000_app_meta.sql',
-      'migration:20261101040000_notify.sql',
       'migration:20261101114708_game_daemons.sql',
       'migration:20261101122027_accounts.sql',
+      'migration:20261101133518_notify.sql',
     ]);
     sqlite.close();
   });
