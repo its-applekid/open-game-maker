@@ -1,0 +1,6 @@
+dist/
+public/town/
+public/art/
+.netlify/
+test-results/
+playwright-report/
