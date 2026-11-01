@@ -8,7 +8,9 @@ import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
+import type { AppDeps } from '../app/types.js';
 import { hasAdultAgeAttestation } from '../auth/routes.js';
+import { clientIp, createRateLimiter } from '../auth/rate-limit.js';
 import {
   createRoom,
   createRoomInvitation,
@@ -19,6 +21,18 @@ import {
 } from './rooms.js';
 
 export const prefix = '/';
+
+const joinLimiters = new WeakMap<AppDeps, ReturnType<typeof createRateLimiter>>();
+
+export function setup(deps: AppDeps): void {
+  joinLimiters.set(deps, createRateLimiter(10));
+}
+
+function joinLimiter(c: Context<ApiBindings>): ReturnType<typeof createRateLimiter> {
+  const limiter = joinLimiters.get(c.get('deps'));
+  if (!limiter) throw new Error('rooms context used before setup');
+  return limiter;
+}
 
 const invitationBody = z.object({ email: z.email().optional() }).strict();
 const createRoomBody = z
@@ -62,6 +76,7 @@ const routes = new Hono<ApiBindings>()
   .get('/api/v1/join/:inviteToken', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     if (!hasAdultAgeAttestation(c)) throw new HttpError(403, 'age_required');
+    if (!joinLimiter(c)(clientIp(c.req.raw.headers))) throw new HttpError(429, 'rate_limited');
     return c.json(await joinRoom(c.get('deps'), principal, c.req.param('inviteToken')));
   })
   .get('/api/v1/rooms/:roomId/grant', async (c) => {

@@ -1,6 +1,7 @@
+import type { RoomPin } from '@ogm/contracts';
+
 import { useHostStore } from '../../app/store';
 
-export type RoomPin = { gameId: string; branchId: string; buildId: string };
 export type RoomGrant = {
   roomId: string;
   grant: string;
@@ -21,7 +22,10 @@ function grantExpiry(token: string): number {
   try {
     const encoded = token.split('.')[1];
     if (!encoded) throw new Error('missing payload');
-    const base64 = encoded.replaceAll('-', '+').replaceAll('_', '/').padEnd(Math.ceil(encoded.length / 4) * 4, '=');
+    const base64 = encoded
+      .replaceAll('-', '+')
+      .replaceAll('_', '/')
+      .padEnd(Math.ceil(encoded.length / 4) * 4, '=');
     const payload = JSON.parse(atob(base64)) as { exp?: unknown };
     if (typeof payload.exp !== 'number') throw new Error('missing expiry');
     return payload.exp * 1000;

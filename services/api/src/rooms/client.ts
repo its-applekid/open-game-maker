@@ -25,7 +25,7 @@ async function request(
         'content-type': 'application/json',
       },
       body: JSON.stringify(body),
-      signal: AbortSignal.timeout(10_000),
+      signal: AbortSignal.timeout(2_000),
     });
   } catch {
     throw new HttpError(503, 'rooms_unavailable');

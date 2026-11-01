@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router';
 
+import type { RoomPin } from '@ogm/contracts';
+
 import type { ScreenRoute } from '../../app/screen';
-import { storeRoomGrant, type RoomPin } from '../../features/rooms/grant';
+import { storeRoomGrant } from '../../features/rooms/grant';
 import { api, ApiError } from '../../lib/api/client';
 import { useSession } from '../../lib/api/session';
 import './join.css';
@@ -30,11 +32,11 @@ export function JoinScreen() {
   const location = useLocation();
   const navigate = useNavigate();
   const [failure, setFailure] = useState<string | null>(null);
-  const signedIn = session !== null;
 
   useEffect(() => {
     const next = `${location.pathname}${location.search}`;
-    if (!signedIn) {
+    if (session === undefined) return;
+    if (session === null) {
       navigate('/age', { replace: true, state: { next } });
       return;
     }
@@ -48,9 +50,8 @@ export function JoinScreen() {
       .then((joined) => {
         if (!active) return;
         storeRoomGrant(joined);
-        navigate(`/g/${encodeURIComponent(joined.pin.gameId)}?room=${encodeURIComponent(joined.roomId)}`, {
-          replace: true,
-        });
+        const query = new URLSearchParams({ v: joined.pin.branchId, room: joined.roomId });
+        navigate(`/g/${encodeURIComponent(joined.pin.gameId)}?${query.toString()}`, { replace: true });
       })
       .catch((error: unknown) => {
         if (!active) return;
@@ -63,13 +64,22 @@ export function JoinScreen() {
     return () => {
       active = false;
     };
-  }, [inviteToken, location.pathname, location.search, navigate, signedIn]);
+  }, [inviteToken, location.pathname, location.search, navigate, session]);
 
   return (
     <main className="join-screen">
       <section className="join-card" aria-live="polite">
         <h1>Join room</h1>
-        {failure ? <p role="alert">{failure}</p> : <p role="status">Joining room…</p>}
+        {failure ? (
+          <>
+            <p role="status">{failure}</p>
+            <button className="tap-primary join-recovery" type="button" onClick={() => navigate('/games')}>
+              Back to games
+            </button>
+          </>
+        ) : (
+          <p role="status">Joining room…</p>
+        )}
       </section>
     </main>
   );

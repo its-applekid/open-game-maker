@@ -1,5 +1,4 @@
-import { sql } from 'drizzle-orm';
-import { check, index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 import { games, invitations } from './accounts.js';
 
@@ -13,7 +12,7 @@ export const rooms = sqliteTable(
     branchId: text('branch_id').notNull(),
     buildId: text('build_id').notNull(),
     ownerId: text('owner_id').notNull(),
-    maxPlayers: integer('max_players').notNull(),
+    maxPlayers: integer('max_players').notNull().default(4),
     createdAt: text('created_at').notNull(),
     endedAt: text('ended_at'),
     endReason: text('end_reason'),
@@ -21,7 +20,6 @@ export const rooms = sqliteTable(
   (table) => [
     index('rooms_game_branch_open_index').on(table.gameId, table.branchId, table.endedAt),
     index('rooms_owner_id_index').on(table.ownerId),
-    check('rooms_max_players_check', sql`${table.maxPlayers} BETWEEN 1 AND 8`),
   ],
 );
 

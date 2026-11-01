@@ -6,7 +6,7 @@ import { api, ApiError } from '../../lib/api/client';
 import { clearRoomGrant, roomGrantState } from '../../features/rooms/grant';
 import { JoinScreen } from './route';
 
-const session = vi.hoisted(() => ({ current: { userId: 'u-player' } as object | null }));
+const session = vi.hoisted(() => ({ current: { userId: 'u-player' } as object | null | undefined }));
 
 vi.mock('../../lib/api/session', () => ({ useSession: () => session.current }));
 vi.mock('../../lib/api/client', async (original) => {
@@ -33,6 +33,7 @@ function renderJoin() {
         <Route path="/join/:inviteToken" element={<JoinScreen />} />
         <Route path="/age" element={<Location />} />
         <Route path="/g/:gameId" element={<Location />} />
+        <Route path="/games" element={<Location />} />
       </Routes>
     </MemoryRouter>,
   );
@@ -42,6 +43,7 @@ describe('JoinScreen', () => {
   beforeEach(() => {
     session.current = { userId: 'u-player' };
     mockedApi.mockReset();
+    localStorage.clear();
     act(() => clearRoomGrant());
   });
 
@@ -58,9 +60,11 @@ describe('JoinScreen', () => {
 
     renderJoin();
     expect(screen.getByRole('status')).toHaveTextContent('Joining room');
-    await screen.findByText('/g/game-1?room=room-1');
+    await screen.findByText('/g/game-1?v=branch-1&room=room-1');
 
     expect(mockedApi).toHaveBeenCalledWith('/join/invite-token');
+    expect(screen.getByText('/g/game-1?v=branch-1&room=room-1').textContent).not.toContain('header.');
+    expect(localStorage).toHaveLength(0);
     expect(roomGrantState()).toEqual({
       roomId: 'room-1',
       grant: expect.any(String),
@@ -78,6 +82,21 @@ describe('JoinScreen', () => {
     expect(mockedApi).not.toHaveBeenCalled();
   });
 
+  it('waits for session loading before choosing the join path', async () => {
+    session.current = undefined;
+    renderJoin();
+
+    expect(screen.getByRole('status')).toHaveTextContent('Joining room');
+    expect(mockedApi).not.toHaveBeenCalled();
+  });
+
+  it('sends a rejected age attestation back through the age gate', async () => {
+    mockedApi.mockRejectedValue(new ApiError(403, { error: 'age_required' }));
+    renderJoin();
+
+    await screen.findByText('/age');
+  });
+
   it.each([
     [new ApiError(410, { error: 'invite_gone' }), 'Link expired or already used'],
     [new ApiError(410, { error: 'room_ended' }), 'Room ended'],
@@ -86,6 +105,8 @@ describe('JoinScreen', () => {
   ])('renders a stable join failure for %s', async (error, message) => {
     mockedApi.mockRejectedValue(error);
     renderJoin();
-    await waitFor(() => expect(screen.getByRole('alert')).toHaveTextContent(message));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent(message));
+    await act(() => screen.getByRole('button', { name: 'Back to games' }).click());
+    await screen.findByText('/games');
   });
 });

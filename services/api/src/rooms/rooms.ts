@@ -1,4 +1,4 @@
-import type { Principal } from '@ogm/contracts';
+import type { Principal, RoomPin } from '@ogm/contracts';
 import { LIMITS } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { authorize } from '@ogm/policy';
@@ -19,9 +19,19 @@ type RoomRow = typeof schema.rooms.$inferSelect;
 type RoomGrantResponse = {
   roomId: string;
   grant: string;
-  pin: { gameId: string; branchId: string; buildId: string };
+  pin: RoomPin;
   roomsUrl: string;
 };
+
+const pendingCreations = new WeakMap<AppDeps, Map<string, Promise<RoomRow>>>();
+
+function pendingFor(deps: AppDeps): Map<string, Promise<RoomRow>> {
+  const existing = pendingCreations.get(deps);
+  if (existing) return existing;
+  const created = new Map<string, Promise<RoomRow>>();
+  pendingCreations.set(deps, created);
+  return created;
+}
 
 function requireRoomOwner(room: RoomRow, principal: UserPrincipal): void {
   if (room.ownerId !== principal.userId) throw new HttpError(403, 'not_owner');
@@ -68,6 +78,13 @@ export async function createRoom(
   const game = deps.db.select().from(schema.games).where(eq(schema.games.id, input.gameId)).get();
   if (!game) throw new HttpError(404, 'game_not_found');
   if (game.ownerId !== principal.userId) throw new HttpError(403, 'not_owner');
+  requireAuthorization(
+    authorize(actorFromPrincipal(principal), 'game.play', {
+      familyId: game.familyId,
+      ownerId: game.ownerId,
+      visibility: game.visibility,
+    }),
+  );
 
   const existing = deps.db
     .select()
@@ -82,33 +99,48 @@ export async function createRoom(
     .get();
   if (existing) return grantResponse(deps, existing, principal.userId, 'owner', principal.displayName, nowMs);
 
-  const maxPlayers = Math.min(
-    Math.max(Math.floor(input.maxPlayers ?? LIMITS.maxPlayersDefault), 1),
-    LIMITS.maxPlayersCeiling,
-  );
-  const created = await createRelayRoom(
-    deps,
-    {
-      gameId: input.gameId,
-      branchId: input.branchId,
-      buildId: input.buildId,
-      ownerId: principal.userId,
-      maxPlayers,
-    },
-    fetchImpl,
-  );
-  const room: RoomRow = {
-    id: created.roomId,
-    gameId: input.gameId,
-    branchId: input.branchId,
-    buildId: input.buildId,
-    ownerId: principal.userId,
-    maxPlayers,
-    createdAt: new Date(nowMs).toISOString(),
-    endedAt: null,
-    endReason: null,
-  };
-  deps.db.insert(schema.rooms).values(room).run();
+  const key = `${input.gameId}\0${input.branchId}`;
+  const pending = pendingFor(deps);
+  let creation = pending.get(key);
+  if (!creation) {
+    creation = (async () => {
+      const maxPlayers = Math.min(
+        Math.max(Math.floor(input.maxPlayers ?? LIMITS.maxPlayersDefault), 1),
+        LIMITS.maxPlayersCeiling,
+      );
+      const created = await createRelayRoom(
+        deps,
+        {
+          gameId: input.gameId,
+          branchId: input.branchId,
+          buildId: input.buildId,
+          ownerId: principal.userId,
+          maxPlayers,
+        },
+        fetchImpl,
+      );
+      const room: RoomRow = {
+        id: created.roomId,
+        gameId: input.gameId,
+        branchId: input.branchId,
+        buildId: input.buildId,
+        ownerId: principal.userId,
+        maxPlayers,
+        createdAt: new Date(nowMs).toISOString(),
+        endedAt: null,
+        endReason: null,
+      };
+      deps.db.insert(schema.rooms).values(room).run();
+      return room;
+    })();
+    pending.set(key, creation);
+  }
+  let room: RoomRow;
+  try {
+    room = await creation;
+  } finally {
+    if (pending.get(key) === creation) pending.delete(key);
+  }
   return grantResponse(deps, room, principal.userId, 'owner', principal.displayName, nowMs);
 }
 

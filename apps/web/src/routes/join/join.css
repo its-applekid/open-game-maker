@@ -3,9 +3,7 @@
   min-height: 100svh;
   place-items: center;
   padding: max(24px, var(--safe-t)) max(24px, var(--safe-r)) max(24px, var(--safe-b)) max(24px, var(--safe-l));
-  background:
-    radial-gradient(circle at 50% 25%, rgba(131, 165, 152, 0.24), transparent 40%),
-    var(--night);
+  background: radial-gradient(circle at 50% 25%, rgba(131, 165, 152, 0.24), transparent 40%), var(--night);
 }
 
 .join-card {
@@ -30,4 +28,15 @@
   margin: 0;
   color: var(--ink-2);
   font-size: 1.1rem;
+}
+
+.join-recovery {
+  margin-top: 24px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  padding: 0 24px;
+  background: var(--cream);
+  color: var(--night);
+  font: inherit;
+  font-weight: 700;
 }
