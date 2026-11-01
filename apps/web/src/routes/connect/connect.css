@@ -1,0 +1,68 @@
+@import '../auth.css';
+
+.connect-card,
+.connect-stack {
+  display: grid;
+  gap: 20px;
+}
+
+.connect-card h1,
+.connect-card p {
+  margin-block: 0;
+}
+
+.connect-copy,
+.github-connected {
+  color: var(--ink-2);
+  line-height: 1.55;
+}
+
+.visibility-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0;
+  border: 0;
+}
+
+.visibility-options legend {
+  grid-column: 1 / -1;
+  margin-bottom: 10px;
+  color: var(--ink-2);
+  font-weight: 800;
+}
+
+.visibility-option {
+  display: grid;
+  min-height: 132px;
+  align-content: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  background: var(--paper-2);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+}
+
+.visibility-option span {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.visibility-option[aria-pressed='true'] {
+  border-color: var(--aqua-b);
+  background: color-mix(in srgb, var(--aqua-b) 13%, var(--paper-2));
+  box-shadow: 0 12px 36px -20px var(--aqua-b);
+}
+
+@media (max-width: 430px) {
+  .visibility-options {
+    grid-template-columns: 1fr;
+  }
+
+  .visibility-option {
+    min-height: 112px;
+  }
+}
