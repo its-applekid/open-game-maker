@@ -6,7 +6,9 @@ import { api, ApiError } from '../../lib/api/client';
 import { clearRoomGrant, roomGrantState } from './grant-store';
 import { JoinScreen } from './route';
 
-const session = vi.hoisted(() => ({ current: { userId: 'u-player' } as object | null | undefined }));
+const session = vi.hoisted(() => ({
+  current: { data: { user: { id: 'u-player' } } as object | null, isPending: false },
+}));
 
 vi.mock('../../lib/api/session', () => ({ useSession: () => session.current }));
 vi.mock('../../lib/api/client', async (original) => {
@@ -46,7 +48,7 @@ function renderJoin() {
 
 describe('JoinScreen', () => {
   beforeEach(() => {
-    session.current = { userId: 'u-player' };
+    session.current = { data: { user: { id: 'u-player' } }, isPending: false };
     mockedApi.mockReset();
     localStorage.clear();
     act(() => clearRoomGrant());
@@ -80,7 +82,7 @@ describe('JoinScreen', () => {
   });
 
   it('sends an unauthenticated visitor through the age gate with the join path preserved', async () => {
-    session.current = null;
+    session.current = { data: null, isPending: false };
     renderJoin();
 
     await screen.findByText('/age');
@@ -89,7 +91,7 @@ describe('JoinScreen', () => {
   });
 
   it('waits for session loading before choosing the join path', async () => {
-    session.current = undefined;
+    session.current = { data: null, isPending: true };
     renderJoin();
 
     expect(screen.getByRole('status')).toHaveTextContent('Joining room');

@@ -27,7 +27,7 @@ function joinError(error: unknown): string {
 }
 
 export function JoinScreen() {
-  const session = useSession();
+  const { data: session, isPending: sessionPending } = useSession();
   const { inviteToken } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,7 +35,7 @@ export function JoinScreen() {
 
   useEffect(() => {
     const next = `${location.pathname}${location.search}`;
-    if (session === undefined) return;
+    if (sessionPending) return;
     if (session === null) {
       navigate('/age', { replace: true, state: { next } });
       return;
@@ -64,7 +64,7 @@ export function JoinScreen() {
     return () => {
       active = false;
     };
-  }, [inviteToken, location.pathname, location.search, navigate, session]);
+  }, [inviteToken, location.pathname, location.search, navigate, session, sessionPending]);
 
   return (
     <main className="join-screen">
