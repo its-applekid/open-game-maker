@@ -23,7 +23,12 @@ function jwt(exp: number): string {
 
 function Location() {
   const location = useLocation();
-  return <output>{`${location.pathname}${location.search}`}</output>;
+  return (
+    <>
+      <output>{`${location.pathname}${location.search}`}</output>
+      <output data-testid="location-state">{JSON.stringify(location.state)}</output>
+    </>
+  );
 }
 
 function renderJoin() {
@@ -79,6 +84,7 @@ describe('JoinScreen', () => {
     renderJoin();
 
     await screen.findByText('/age');
+    expect(screen.getByTestId('location-state')).toHaveTextContent(JSON.stringify({ next: '/join/invite-token' }));
     expect(mockedApi).not.toHaveBeenCalled();
   });
 
@@ -95,6 +101,7 @@ describe('JoinScreen', () => {
     renderJoin();
 
     await screen.findByText('/age');
+    expect(screen.getByTestId('location-state')).toHaveTextContent(JSON.stringify({ next: '/join/invite-token' }));
   });
 
   it.each([

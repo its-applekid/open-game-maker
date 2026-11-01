@@ -259,6 +259,10 @@ describe('room lifecycle service', () => {
       status: 403,
       code: 'friends_not_allowed',
     });
+    deps.db.update(schema.families).set({ friendsAllowed: true }).run();
+    await expect(joinRoom(deps, friend, openInvite.url.split('/').at(-1) ?? '', nowMs)).resolves.toMatchObject({
+      roomId: 'room-1',
+    });
 
     const boundInvite = await createRoomInvitation(deps, owner, 'room-1', { email: member.email }, nowMs);
     await expect(joinRoom(deps, other, boundInvite.url.split('/').at(-1) ?? '', nowMs)).rejects.toMatchObject({
@@ -326,6 +330,7 @@ describe('room lifecycle service', () => {
         body: JSON.stringify({ branchId: 'branch-1', buildId: 'build-1', maxPlayers: 4 }),
       });
       expect(created.status).toBe(201);
+      expect(created.headers.get('cache-control')).toBe('no-store');
       expect(await created.json()).toMatchObject({
         roomId: 'room-1',
         pin: { gameId: 'g-1', branchId: 'branch-1', buildId: 'build-1' },
@@ -349,12 +354,14 @@ describe('room lifecycle service', () => {
         headers: { ...asUser(member.userId), cookie },
       });
       expect(joined.status).toBe(200);
+      expect(joined.headers.get('cache-control')).toBe('no-store');
       expect(await joined.json()).toMatchObject({ roomId: 'room-1', grant: expect.any(String) });
 
       const refreshed = await app.request('/api/v1/rooms/room-1/grant', {
         headers: asUser(member.userId),
       });
       expect(refreshed.status).toBe(200);
+      expect(refreshed.headers.get('cache-control')).toBe('no-store');
       expect(await refreshed.json()).toMatchObject({ roomId: 'room-1', grant: expect.any(String) });
     } finally {
       relay.mockRestore();

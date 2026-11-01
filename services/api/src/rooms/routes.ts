@@ -65,6 +65,7 @@ function requireRoomsSecret(c: Context<ApiBindings>): void {
 const routes = new Hono<ApiBindings>()
   .post('/api/v1/games/:gameId/rooms', async (c) => {
     const principal = requirePrincipal(c, ['user']);
+    c.header('cache-control', 'no-store');
     return c.json(
       await createRoom(c.get('deps'), principal, {
         gameId: c.req.param('gameId'),
@@ -77,10 +78,12 @@ const routes = new Hono<ApiBindings>()
     const principal = requirePrincipal(c, ['user']);
     if (!hasAdultAgeAttestation(c)) throw new HttpError(403, 'age_required');
     if (!joinLimiter(c)(clientIp(c.req.raw.headers))) throw new HttpError(429, 'rate_limited');
+    c.header('cache-control', 'no-store');
     return c.json(await joinRoom(c.get('deps'), principal, c.req.param('inviteToken')));
   })
   .get('/api/v1/rooms/:roomId/grant', async (c) => {
     const principal = requirePrincipal(c, ['user']);
+    c.header('cache-control', 'no-store');
     return c.json(await freshRoomGrant(c.get('deps'), principal, c.req.param('roomId')));
   })
   .post('/api/v1/rooms/:roomId/invites', async (c) => {
