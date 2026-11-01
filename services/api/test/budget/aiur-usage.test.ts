@@ -9,6 +9,7 @@ import {
   type UsageReconcilerDeps,
 } from '../../src/budget/aiur-usage.js';
 import { reserve } from '../../src/budget/ledger.js';
+import { activeJobsForRepo } from '../../src/jobs/repo.js';
 import { makeDeps } from '../helpers.js';
 
 const NOW = new Date('2026-11-01T22:00:00.000Z');
@@ -166,6 +167,7 @@ describe('aiur usage reconciliation', () => {
 
   it('reconciles terminal usage and releases reservation and slot once', async () => {
     const { base, deps } = setup();
+    expect(activeJobsForRepo(base.db, 'owner/game')).toEqual([{ kind: 'feature' }]);
     const reconciler = startUsageReconciler(deps, 60_000);
     await reconciler.idle();
 
@@ -185,5 +187,6 @@ describe('aiur usage reconciliation', () => {
         .all()
         .filter(({ kind }) => kind === 'release'),
     ).toEqual([expect.objectContaining({ amountMicroUsd: 3_265_488 })]);
+    expect(activeJobsForRepo(base.db, 'owner/game')).toEqual([]);
   });
 });
