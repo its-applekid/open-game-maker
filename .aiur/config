@@ -71,7 +71,7 @@ agent:
   accounts:
     claude: [default]   # Kevin's goal: after Codex's limit, the Claude login with the most tokens — default (second is at 15 % left, 2026-11-01 19:10Z)
   account_selection: priority   # Kevin 2026-11-01: Codex first until its limit, then Claude; headroom had put every worker on claude/second (26% vs codex 24%)
-  max_concurrent_agents: 10
+  max_concurrent_agents: 12
   max_concurrent_builds: 3
   build_start_stagger_seconds: 5
   build_nice: 10
@@ -80,8 +80,8 @@ agent:
   target_load_average: 8
   # Kevin 2026-11-01: ramp as fast as is safe. PSI target/ceiling instead of the 20% default gate; three slots per poll
   # below 80% of target; a saved "safe level" older than 10 minutes is ignored so a restart ramps from the step.
-  target_cpu_pressure: 60
-  max_cpu_pressure: 75
+  target_cpu_pressure: 70
+  max_cpu_pressure: 85
   load_ramp_step: 3
   load_cooldown_seconds: 20
   load_resume_max_age_seconds: 600
