@@ -93,7 +93,7 @@ async function routeRepair(
   { report, signature: sig }: Intake,
   game: { id: string; ownerId: string; familyId: string },
 ): Promise<{ route?: ReportRoute; jobId?: string; pendingBudget?: true }> {
-  const previousJobId = sig.status === 'open' ? sig.openJobId : null;
+  const previousJobId = sig.openJobId;
   const previousState = previousJobId ? jobState(deps.db, previousJobId) : undefined;
   if (previousJobId && previousState && LIVE_JOB_STATES.has(previousState)) {
     setReportJob(deps.db, report.id, sig.signature, previousJobId);

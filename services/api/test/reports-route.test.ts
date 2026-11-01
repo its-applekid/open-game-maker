@@ -157,6 +157,24 @@ describe('POST /api/v1/reports', () => {
     file.mockRestore();
   });
 
+  it('files one platform issue when matching reports arrive together', async () => {
+    const { deps, post } = await reportsApp();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    const file = vi.spyOn(StoredIssueWriter.prototype, 'file').mockImplementation(async () => {
+      await held;
+      return { ref: 'queue:held' };
+    });
+    const report = crash(ids.game, '@ogm/host/bridge.js');
+    const both = Promise.all([post(report), post(report)]);
+    await vi.waitFor(() => expect(deps.db.select().from(schema.reports).all()).toHaveLength(2));
+    release();
+    expect((await both).map((r) => r.status)).toEqual([201, 201]);
+    expect(file).toHaveBeenCalledTimes(1);
+    expect(deps.db.select().from(schema.reportSignatures).get()?.platformRef).toBe('queue:held');
+    file.mockRestore();
+  });
+
   it('refuses players who cannot play the game', async () => {
     const { deps, post } = await reportsApp();
     const response = await post(crash(ids.privateGame), ids.player);
@@ -234,10 +252,11 @@ describe('report bundles and reads', () => {
     expect(put).not.toHaveBeenCalled();
   });
 
-  it('keeps the first bundle: a second upload is 409', async () => {
+  it('keeps the first bundle: a second upload is 409, also when both race', async () => {
     const { upload } = await withReport();
-    expect((await upload(new Uint8Array([1]))).status).toBe(201);
-    expect((await upload(new Uint8Array([2]))).status).toBe(409);
+    const racing = await Promise.all([upload(new Uint8Array([1])), upload(new Uint8Array([2]))]);
+    expect(racing.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect((await upload(new Uint8Array([3]))).status).toBe(409);
   });
 
   it('accepts bundles only from the reporter and only as octet-stream, json or gzip', async () => {
