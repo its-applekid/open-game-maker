@@ -4,11 +4,15 @@ import { join } from 'node:path';
 import { ConfigError, loadEnv } from '@ogm/config';
 
 export const API_HOST = '127.0.0.1';
+const hostTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 export const apiEnvSpec = {
   OGM_API_PORT: { kind: 'port' },
   OGM_ANALYTICS_RETENTION_DAYS: { kind: 'int', default: '90' },
+  OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: { kind: 'int', default: '5000000' },
+  OGM_RESET_ZONE_DEFAULT: { kind: 'string', default: hostTimeZone },
   OGM_DATA_DIR: { kind: 'path' },
+  OGM_GAMES_ROOT: { kind: 'path', required: false },
   OGM_INTERNAL_TOKEN: { kind: 'secret' },
   OGM_JOB_TOKEN_SECRET: { kind: 'secret' },
   OGM_BLOB_ROOT: { kind: 'path' },
@@ -26,6 +30,13 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
   const env = loadEnv('api', apiEnvSpec, source);
   if (env.OGM_ANALYTICS_RETENTION_DAYS <= 0) {
     throw new ConfigError('api', [], [{ name: 'OGM_ANALYTICS_RETENTION_DAYS', reason: 'must be a positive integer' }]);
+  }
+  if (env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD <= 0) {
+    throw new ConfigError(
+      'api',
+      [],
+      [{ name: 'OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD', reason: 'must be a positive integer' }],
+    );
   }
   return env;
 }

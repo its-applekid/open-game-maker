@@ -67,9 +67,12 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
       gameTemplateRef: 'game-2d@1',
+      gamesRoot: mkdtempSync(join(tmpdir(), 'ogm-api-games-')),
       vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
       vapidSubject: 'mailto:operator@example.test',
       analyticsRetentionDays: 90,
+      defaultDailyAllowanceMicroUsd: 5_000_000,
+      resetZoneDefault: 'America/Los_Angeles',
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),
@@ -78,6 +81,9 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
     }),
     events: createAppEvents(log),
     registry: createRegistry(),
+    aiurClientForRepo: async () => {
+      throw new Error('test aiur client not configured');
+    },
     version: 'test-version',
     startedAtMs: Date.now() - 5_000,
     log,

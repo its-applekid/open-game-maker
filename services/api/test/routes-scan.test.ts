@@ -103,8 +103,10 @@ export default new Hono().get('/seen', (c) => c.text(seen));
       '/blobs',
       '/api/catalog',
       '/api/v1',
+      '/api/v1',
       '/',
       '/internal',
+      '/api/v1',
       '/api/v1',
       '/',
     ]);

@@ -24,8 +24,14 @@ describe('analytics retention', () => {
   });
 
   it('defaults to 90 days and rejects non-positive retention', () => {
-    expect(loadApiEnv(baseEnv).OGM_ANALYTICS_RETENTION_DAYS).toBe(90);
+    expect(loadApiEnv(baseEnv)).toMatchObject({
+      OGM_ANALYTICS_RETENTION_DAYS: 90,
+      OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: 5_000_000,
+    });
     expect(() => loadApiEnv({ ...baseEnv, OGM_ANALYTICS_RETENTION_DAYS: '0' })).toThrow(/OGM_ANALYTICS_RETENTION_DAYS/);
+    expect(() => loadApiEnv({ ...baseEnv, OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: '0' })).toThrow(
+      /OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD/,
+    );
   });
 
   it('deletes only expired activity events and keeps phase history', () => {

@@ -72,6 +72,9 @@ importers:
       '@vitejs/plugin-react':
         specifier: 5.2.0
         version: 5.2.0(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))
+      esbuild:
+        specifier: 0.25.12
+        version: 0.25.12
       jsdom:
         specifier: 27.4.0
         version: 27.4.0(@noble/hashes@2.4.0)
@@ -223,6 +226,31 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
+  packages/host:
+    dependencies:
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@ogm/iframe-bridge':
+        specifier: workspace:*
+        version: link:../iframe-bridge
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      jsdom:
+        specifier: 27.4.0
+        version: 27.4.0(@noble/hashes@2.4.0)
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
+
   packages/iframe-bridge:
     dependencies:
       '@ogm/contracts':
@@ -249,19 +277,37 @@ importers:
       '@ogm/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@ogm/iframe-bridge':
+        specifier: workspace:*
+        version: link:../iframe-bridge
+      fastnoise-lite:
+        specifier: 1.1.1
+        version: 1.1.1
       meshoptimizer:
         specifier: 1.3.0
         version: 1.3.0
       three:
         specifier: 0.186.1
         version: 0.186.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
     devDependencies:
+      '@types/jsdom':
+        specifier: 27.0.0
+        version: 27.0.0
       '@types/three':
         specifier: 0.186.0
         version: 0.186.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       jsdom:
         specifier: 27.4.0
         version: 27.4.0(@noble/hashes@2.4.0)
+      recast-navigation:
+        specifier: 0.43.1
+        version: 0.43.1
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -292,12 +338,18 @@ importers:
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.16)
+      '@ogm/aiur-client':
+        specifier: workspace:*
+        version: link:../../packages/aiur-client
       '@ogm/asset-cards':
         specifier: workspace:*
         version: link:../../packages/asset-cards
       '@ogm/blob-store':
         specifier: workspace:*
         version: link:../../packages/blob-store
+      '@ogm/builder':
+        specifier: workspace:*
+        version: link:../builder
       '@ogm/config':
         specifier: workspace:*
         version: link:../../packages/config
@@ -307,6 +359,9 @@ importers:
       '@ogm/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@ogm/design-log':
+        specifier: workspace:*
+        version: link:../../packages/design-log
       '@ogm/game-repo-template':
         specifier: workspace:*
         version: link:../../packages/game-repo-template
@@ -1765,6 +1820,15 @@ packages:
     resolution: {integrity: sha512-IxHuYURa3+FQ6BKePlgChZkqABUKFYH6Bwbw7V/pWU1pP6iR1sCI26l7P9ThUEB385ruZn/tZS3CXDUF5IA1NQ==}
     engines: {node: '>=6.0'}
 
+  '@recast-navigation/core@0.43.1':
+    resolution: {integrity: sha512-4igfPgnoV90O92sDSIA0xHa6tanh3z/udlgGmD0SqGQ6PKV4JS2l9jWO8YnxfZuXP/NV52H4c5FU6pSdZc9WDA==}
+
+  '@recast-navigation/generators@0.43.1':
+    resolution: {integrity: sha512-w7r6k/A93wWxuSN+Lg+PmlsUVXq06r5bqXmBglolxqDt2O/Y776BIhYtb6P2P6pbYqDWORu9NCZZJzfY4FNpaA==}
+
+  '@recast-navigation/wasm@0.43.1':
+    resolution: {integrity: sha512-XFL6PhO8JodwXUHBSAkfaLUdUEweIkJsdP3HTmtJvMs5fkqEWxWJmBskZlACHJepv55NAriqWxOtuLlG3t7+Hg==}
+
   '@rolldown/binding-android-arm-eabi@1.2.16':
     resolution: {integrity: sha512-ia3DwAs0OsMGS7+IConptSiyk9pEXkOx/AbJ2n/lAGxH3QkWQus1t8d7gnAT38FCU2sQu8lUbeR6AiZFv4JxaA==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -2097,6 +2161,9 @@ packages:
   '@types/estree@1.0.10':
     resolution: {integrity: sha512-lTyOMnOcmRBzdCv6/4zUZCrEhV0xrqQiUZBZtVcbmLHBXKLnN8q89v/wKRF/Q0HbwVsqbIG3o5HDoFl9sduM+g==}
 
+  '@types/jsdom@27.0.0':
+    resolution: {integrity: sha512-NZyFl/PViwKzdEkQg96gtnB8wm+1ljhdDay9ahn4hgb+SfVtPCbm3TlmDUFXTA+MGN3CijicnMhG18SI5H3rFw==}
+
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
 
@@ -2125,6 +2192,9 @@ packages:
 
   '@types/three@0.186.0':
     resolution: {integrity: sha512-mxYSBpDC+D0pLfSP6sW4WZTcT+nrtmZcimMqnVmy36Hte3XpeYSrvgg4TRdaM1GemGog1AWzI5qL2VoIfMXbJQ==}
+
+  '@types/tough-cookie@4.0.5':
+    resolution: {integrity: sha512-/Ad8+nIOV7Rl++6f1BdKxFSMgmoqEoYbHRpPcx3JEfv8VRsQe9Z4mCXeJBzxs7mbHY/XOZZuXlRNfhpVPbs6ZA==}
 
   '@types/web-push@3.6.4':
     resolution: {integrity: sha512-GnJmSr40H3RAnj0s34FNTcJi1hmWFV5KXugE0mYWnYhgTAHLJ/dJKAwDmvPJYMke0RplY2XE9LnM4hqSqKIjhQ==}
@@ -2633,6 +2703,10 @@ packages:
     resolution: {integrity: sha512-Ev/hIyePLZtpL98x562lvPtenrUfGr0lfaf44HFZ+hDEwso7ccV9QAZrEVLg0hxNAzygaAFxy2dYaAKKM0G06A==}
     engines: {node: '>= 0.8'}
 
+  entities@6.0.1:
+    resolution: {integrity: sha512-aN97NXWF6AWBTahfVOIrB/NShkzi5H7F9r1s9mD3cDj4Ko5f2qhhVoYMibXF7GlLveb/D2ioWay8lxI97Ven3g==}
+    engines: {node: '>=0.12'}
+
   entities@8.1.0:
     resolution: {integrity: sha512-kxL7msIffSuh9aaFAMD7rxAIuTRMAHMeBtgHW2yUdWw732ZNh4MehkF2gdjvtdmikkaIP9bFDDJOPlsvm7avrA==}
     engines: {node: '>=20.19.0'}
@@ -2756,6 +2830,9 @@ packages:
 
   fast-uri@3.1.9:
     resolution: {integrity: sha512-hS/0Wt3Ya043oKXs0sIxrMpKQITXhMLIrVAKKXi4gozGC9v7YRWVnXIZzjNPTO02M9BdxLCWqK1yRXgNziVyJQ==}
+
+  fastnoise-lite@1.1.1:
+    resolution: {integrity: sha512-3XEk16gmVq1HUL0+BdoR+/wD/tfB6VQjpliqQ7rSSE2omh23wrJGidQ5Mfr4mECCUtBGtcEov44BGIyVqs+U4w==}
 
   fdir@6.5.0:
     resolution: {integrity: sha512-tIbYtZbucOs0BRGqPJkshJUYdL+SDH7dVM8gjy+ERp3WAUjLEFJE+02kanyHtwjWOnwrKYBiwAmM0p4kLJAnXg==}
@@ -3212,6 +3289,9 @@ packages:
     resolution: {integrity: sha512-LaNjtRWUBY++zB5nE/NwcaoMylSPk+S+ZHNB1TzdbMJMny6dynpAGt7X/tl/QYq3TIeE6nxHppbo2LGymrG5Pw==}
     engines: {node: '>=10'}
 
+  parse5@7.3.0:
+    resolution: {integrity: sha512-IInvU7fabl34qmi9gY8XOVxhYyMyuH2xUNpb2q8/Y+7552KlejkRvqvD19nMoUW/uQGGbqNpA6Tufu5FL5BZgw==}
+
   parse5@8.0.1:
     resolution: {integrity: sha512-z1e/HMG90obSGeidlli3hj7cbocou0/wa5HacvI3ASx34PecNjNQeaHNo5WIZpWofN9kgkqV1q5YvXe3F0FoPw==}
 
@@ -3332,6 +3412,9 @@ packages:
   react@19.3.1:
     resolution: {integrity: sha512-QNhWdt7nrgVWWQG58QuGsAR3jv3Hbe4mb4vz7w2csnHavciZJgda1CPNaldF6eVxv90ud3jUXpKlHL69gO38yw==}
     engines: {node: '>=0.10.0'}
+
+  recast-navigation@0.43.1:
+    resolution: {integrity: sha512-BVBQEHE6uqD36opJomVkI5TxMVZ8bBLdDn90mYtBUYJnNlqEuNFOL8DH8lLOksfVVaC+kjykYuS57P6MrxVB7A==}
 
   redent@3.0.0:
     resolution: {integrity: sha512-6tDA8g98We0zd0GvVeMT9arEOnTw9qM03L9cJXaCjrip1OO764RDBLBfrB4cwzNGDj5OA5ioymC9GkizgWJDUg==}
@@ -4901,6 +4984,17 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  '@recast-navigation/core@0.43.1':
+    dependencies:
+      '@recast-navigation/wasm': 0.43.1
+
+  '@recast-navigation/generators@0.43.1':
+    dependencies:
+      '@recast-navigation/core': 0.43.1
+      '@recast-navigation/wasm': 0.43.1
+
+  '@recast-navigation/wasm@0.43.1': {}
+
   '@rolldown/binding-android-arm-eabi@1.2.16':
     optional: true
 
@@ -5127,6 +5221,12 @@ snapshots:
 
   '@types/estree@1.0.10': {}
 
+  '@types/jsdom@27.0.0':
+    dependencies:
+      '@types/node': 26.6.6
+      '@types/tough-cookie': 4.0.5
+      parse5: 7.3.0
+
   '@types/json-schema@7.0.15': {}
 
   '@types/lodash@4.17.27': {}
@@ -5159,6 +5259,8 @@ snapshots:
       '@types/webxr': 0.5.24
       fflate: 0.8.3
       meshoptimizer: 1.1.1
+
+  '@types/tough-cookie@4.0.5': {}
 
   '@types/web-push@3.6.4':
     dependencies:
@@ -5564,6 +5666,8 @@ snapshots:
 
   encodeurl@2.0.1: {}
 
+  entities@6.0.1: {}
+
   entities@8.1.0: {}
 
   es-define-property@1.0.1: {}
@@ -5785,6 +5889,8 @@ snapshots:
   fast-levenshtein@2.0.6: {}
 
   fast-uri@3.1.9: {}
+
+  fastnoise-lite@1.1.1: {}
 
   fdir@6.5.0(picomatch@4.0.7):
     optionalDependencies:
@@ -6213,6 +6319,10 @@ snapshots:
     dependencies:
       p-limit: 3.1.0
 
+  parse5@7.3.0:
+    dependencies:
+      entities: 6.0.1
+
   parse5@8.0.1:
     dependencies:
       entities: 8.1.0
@@ -6310,6 +6420,11 @@ snapshots:
       react-dom: 19.3.1(react@19.3.1)
 
   react@19.3.1: {}
+
+  recast-navigation@0.43.1:
+    dependencies:
+      '@recast-navigation/core': 0.43.1
+      '@recast-navigation/generators': 0.43.1
 
   redent@3.0.0:
     dependencies:

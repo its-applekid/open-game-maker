@@ -6,6 +6,10 @@
   "types": "./dist/index.d.ts",
   "exports": {
     ".": "./dist/index.js",
+    "./assets": "./dist/assets.js",
+    "./bridge": "./dist/bridge.js",
+    "./game": "./dist/game.js",
+    "./input": "./dist/input.js",
     "./schemas/*": "./schemas/*",
     "./fixtures/*": "./fixtures/*"
   },
