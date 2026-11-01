@@ -57,3 +57,5 @@ Technical decisions for the V1 build, each with its evidence. Precedence: Kevin'
 6. Decision events in the outbound feed (T06 E06-15).
 7. Tag `voice_converse` so it can be pinned to a tag (T06 §6).
 8. Already reported: `aiur login --dir` hang, `missing_prewarm_file` with `enabled: false`, prewarm root detection, `.env` wording.
+
+Filed by the aiur agent (2026-11-01): per-ticket base branch #7353; provider cleanup under `transcript: :none` #7354; host tool port #7355; `render_speech` on ElevenLabs #7357 (alignment frames #4105, usage frames #5687); links for repo-shipped skills #7358; job-create API + per-ticket skills #7359; decision events in outbound webhooks #7360; live briefing refresh #7361; init missing `agent:queued`/`priority:*` labels #7362; the voice_converse tag is #5936 (pin a nightly tag such as `nightly/voice_converse/20261030` until then).
