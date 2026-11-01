@@ -7,12 +7,20 @@ import { pushToast } from './slice';
 // after a dropped connection; a stream that never opens (OGM-016 not merged, signed out) gets at most five open
 // attempts (four retries) with backoff and is then left closed.
 const EVENTS = ['build.done', 'job.started', 'intake.report'] as const;
+type NotificationKind = (typeof EVENTS)[number];
+type NotificationListener = (kind: NotificationKind, event: MessageEvent<string>) => void;
 const MAX_FAILED_OPENS = 5;
 
 let users = 0;
 let source: EventSource | null = null;
 let retry: ReturnType<typeof setTimeout> | undefined;
 let failedOpens = 0;
+const listeners = new Set<NotificationListener>();
+
+export function subscribeNotification(listener: NotificationListener): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
 
 export function useNotificationFeed(): void {
   useEffect(() => {
@@ -28,7 +36,13 @@ function open(): void {
   es.onopen = () => {
     failedOpens = 0;
   };
-  for (const name of EVENTS) es.addEventListener(name, (e) => pushToast(toastText(e as MessageEvent<string>)));
+  for (const name of EVENTS) {
+    es.addEventListener(name, (event) => {
+      const message = event as MessageEvent<string>;
+      pushToast(toastText(message));
+      for (const listener of listeners) listener(name, message);
+    });
+  }
   es.onerror = () => {
     if (es.readyState !== EventSource.CLOSED) return;
     source = null;
