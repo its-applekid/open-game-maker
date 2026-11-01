@@ -4,9 +4,9 @@ import { useLocation, useNavigate, useParams } from 'react-router';
 import type { RoomPin } from '@ogm/contracts';
 
 import type { ScreenRoute } from '../../app/screen';
-import { storeRoomGrant } from '../../features/rooms/grant';
 import { api, ApiError } from '../../lib/api/client';
 import { useSession } from '../../lib/api/session';
+import { storeRoomGrant } from './grant-store';
 import './join.css';
 
 type JoinResponse = { roomId: string; grant: string; pin: RoomPin; roomsUrl: string };

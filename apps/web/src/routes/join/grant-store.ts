@@ -1,6 +1,5 @@
 import type { RoomPin } from '@ogm/contracts';
-
-import { useHostStore } from '../../app/store';
+import { create } from 'zustand';
 
 export type RoomGrant = {
   roomId: string;
@@ -10,13 +9,17 @@ export type RoomGrant = {
   expiresAt: number;
 };
 
-type RoomGrantSlice = { current: RoomGrant | null };
+type JoinGrantStore = {
+  value: RoomGrant | null;
+  set: (value: RoomGrant) => void;
+  clear: () => void;
+};
 
-useHostStore.getState().registerSlice<RoomGrantSlice>('roomGrant', () => ({ current: null }));
-
-const read = () => useHostStore.getState().slices.roomGrant as RoomGrantSlice;
-const write = (current: RoomGrant | null) =>
-  useHostStore.setState((state) => ({ slices: { ...state.slices, roomGrant: { current } } }));
+export const useJoinGrant = create<JoinGrantStore>()((set) => ({
+  value: null,
+  set: (value) => set({ value }),
+  clear: () => set({ value: null }),
+}));
 
 function grantExpiry(token: string): number {
   try {
@@ -34,10 +37,10 @@ function grantExpiry(token: string): number {
   }
 }
 
-export const roomGrantState = () => read().current;
-export const clearRoomGrant = () => write(null);
+export const roomGrantState = () => useJoinGrant.getState().value;
+export const clearRoomGrant = () => useJoinGrant.getState().clear();
 export function storeRoomGrant(input: Omit<RoomGrant, 'expiresAt'>): RoomGrant {
   const stored = { ...input, expiresAt: grantExpiry(input.grant) };
-  write(stored);
+  useJoinGrant.getState().set(stored);
   return stored;
 }

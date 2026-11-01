@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { api, ApiError } from '../../lib/api/client';
-import { clearRoomGrant, roomGrantState } from '../../features/rooms/grant';
+import { clearRoomGrant, roomGrantState } from './grant-store';
 import { JoinScreen } from './route';
 
 const session = vi.hoisted(() => ({ current: { userId: 'u-player' } as object | null | undefined }));
