@@ -1,5 +1,9 @@
 default_permissions = "gamebuilder"
 
+[shell_environment_policy]
+inherit = "core"
+ignore_default_excludes = false
+
 [permissions.gamebuilder]
 extends = ":workspace"
 
