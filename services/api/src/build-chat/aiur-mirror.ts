@@ -42,7 +42,9 @@ export function createMirror(deps: MirrorDeps): Mirror {
     if (row === null || row.mirrorState !== 'pending' || row.text === null) return;
     const job = await deps.jobs()?.get(row.jobId);
     if (!job?.aiur) return;
-    const client = deps.clientFor()?.(job.aiur.daemonSlug);
+    const resolveClient = deps.clientFor();
+    if (!resolveClient) return;
+    const client = await resolveClient(job.aiur.daemonSlug);
     if (!client) return;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {

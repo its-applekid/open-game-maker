@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 import { Id, IsoTime, MicroUsd } from './api.js';
-import { Confidence, JobKind, SizeClass } from './jobs.js';
+import { Confidence, SizeClass } from './jobs.js';
+
+const SizeClassKind = z.enum(['new_game', 'feature', 'repair']);
 
 export const BudgetStatus = z.object({
   remainingMicroUsd: MicroUsd,
@@ -19,7 +21,7 @@ export const Estimate = z.object({
   fits: z.boolean(),
 });
 export const SizeClassRow = z.object({
-  kind: JobKind,
+  kind: SizeClassKind,
   sizeClass: SizeClass,
   p50MicroUsd: MicroUsd,
   p80MicroUsd: MicroUsd,

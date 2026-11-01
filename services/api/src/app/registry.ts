@@ -44,15 +44,17 @@ export interface ChatJobDirectory {
   // Jobs in `filed`, `running` or `paused_budget` with a ticket: the ones the progress poller reads.
   active(): Promise<ChatJob[]>;
 }
-export type AiurClientResolver = (daemonSlug: string) => Pick<AiurClient, 'message' | 'progress'> | null;
+export type AiurClientResolver = (
+  daemonSlug: string,
+) => Pick<AiurClient, 'message' | 'progress'> | null | Promise<Pick<AiurClient, 'message' | 'progress'> | null>;
 export type UserDirectory = {
   emailForUser(userId: string): Promise<string | null>;
   userIdForEmail(email: string): Promise<string | null>;
 };
 
 // Seams filled by contexts from `setup(deps)`: auth adds session, user-directory and mail
-// providers; accounts/games add repository provisioning and game lookup; OGM-013 the ticket job resolver and
-// the chat job directory; OGM-030/032 the per-daemon aiur client.
+// providers; accounts/games add repository provisioning and game lookup; jobs adds the ticket/chat directories;
+// the daemon directory adds per-daemon aiur clients.
 export interface Registry {
   principalResolvers: Resolver[];
   gameResolver: GameResolver | null;

@@ -61,8 +61,15 @@
     {
       "idx": 8,
       "version": "6",
-      "when": 1793556257806,
-      "tag": "20261101180417_build_chat",
+      "when": 1793553985817,
+      "tag": "20261101172625_jobs_budget",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1793557924613,
+      "tag": "20261101183204_build_chat",
       "breakpoints": true
     }
   ]

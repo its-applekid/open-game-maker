@@ -329,6 +329,9 @@ importers:
       '@ogm/blob-store':
         specifier: workspace:*
         version: link:../../packages/blob-store
+      '@ogm/builder':
+        specifier: workspace:*
+        version: link:../builder
       '@ogm/config':
         specifier: workspace:*
         version: link:../../packages/config

@@ -113,9 +113,9 @@ export function createProgressPoller(deps: PollerDeps) {
       if (!directory || !resolveClient) return;
       for (const job of await directory.active()) {
         if (!job.aiur) continue;
-        const client = resolveClient(job.aiur.daemonSlug);
-        if (!client) continue;
         try {
+          const client = await resolveClient(job.aiur.daemonSlug);
+          if (!client) continue;
           const progress = await client.progress(job.aiur.ticket, 20);
           if (ingestProgress(deps.sqlite, { jobId: job.jobId, ticket: job.aiur.ticket }, progress) > 0) {
             deps.publish(job.jobId);

@@ -114,4 +114,31 @@ describe('aiur progress poller', () => {
     await poller.tick();
     expect(listSince(deps.sqlite, JOB_ID, 0)).toHaveLength(1);
   });
+
+  it('continues with later jobs when one daemon client cannot be resolved', async () => {
+    const secondJobId = 'j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e72';
+    const deps = makeChatDeps(
+      jobTable(chatJob(), chatJob({ jobId: secondJobId, aiur: { daemonSlug: 'game-2', ticket: '143' } })),
+    );
+    const client = {
+      message: vi.fn(),
+      progress: vi.fn(async () => progress([checkin(6, 'Second daemon answered')])),
+    } as unknown as FakeAiur;
+    deps.registry.aiurClientFor = async (slug) => {
+      if (slug === 'game-1') throw new Error('credentials unavailable');
+      return client;
+    };
+    const poller = createProgressPoller({
+      sqlite: deps.sqlite,
+      jobs: () => deps.registry.chatJobs,
+      clientFor: () => deps.registry.aiurClientFor,
+      publish: vi.fn(),
+      log: deps.log,
+    });
+
+    await poller.tick();
+
+    expect(deps.lines).toContainEqual(expect.objectContaining({ event: 'chat-progress-error', jobId: JOB_ID }));
+    expect(listSince(deps.sqlite, secondJobId, 0)).toMatchObject([{ text: 'Second daemon answered' }]);
+  });
 });

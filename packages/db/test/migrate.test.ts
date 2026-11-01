@@ -32,7 +32,8 @@ describe('migrate', () => {
         '20261101145358_analytics.sql',
         '20261101153851_auth.sql',
         '20261101170027_design_log.sql',
-        '20261101180417_build_chat.sql',
+        '20261101172625_jobs_budget.sql',
+        '20261101183204_build_chat.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -51,7 +52,8 @@ describe('migrate', () => {
       'migration:20261101145358_analytics.sql',
       'migration:20261101153851_auth.sql',
       'migration:20261101170027_design_log.sql',
-      'migration:20261101180417_build_chat.sql',
+      'migration:20261101172625_jobs_budget.sql',
+      'migration:20261101183204_build_chat.sql',
     ]);
     sqlite.close();
   });

@@ -24,6 +24,7 @@
     "@hono/node-server": "2.1.5",
     "@ogm/aiur-client": "workspace:*",
     "@ogm/blob-store": "workspace:*",
+    "@ogm/builder": "workspace:*",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
     "@ogm/db": "workspace:*",
