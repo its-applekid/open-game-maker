@@ -11,3 +11,4 @@ export * from './reports.js';
 export * from './notifications.js';
 export * from './room.js';
 export { BoundaryVerdict, CommitOp, CommitResult } from './commit.js';
+export * from './job-bundle.js';

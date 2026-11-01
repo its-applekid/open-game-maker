@@ -1,0 +1,11 @@
+{
+  "name": "{{gameId}}",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "gm check",
+    "test": "gm test",
+    "build": "gm build"
+  }
+}

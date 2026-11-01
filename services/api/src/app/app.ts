@@ -17,6 +17,8 @@ export {
   type GameResolver,
   type Registry,
   type Resolver,
+  type TicketJob,
+  type TicketJobResolver,
 } from './registry.js';
 export { scanRoutes } from './routes-scan.js';
 export type { ApiBindings, AppDeps, LogLine } from './types.js';

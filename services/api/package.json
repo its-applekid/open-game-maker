@@ -25,6 +25,7 @@
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
     "@ogm/db": "workspace:*",
+    "@ogm/game-repo-template": "workspace:*",
     "@ogm/health": "workspace:*",
     "hono": "4.13.16",
     "zod": "4.6.7"

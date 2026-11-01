@@ -1,7 +1,7 @@
 import { normalizeCommitPath } from './paths.js';
 import type { Visibility } from './types.js';
 
-export type TemplateFile = { path: string; content: string };
+export type TemplateFile = { path: string; content: string; mode?: '100644' | '100755' | '120000' };
 export type TemplateLabel = { name: string; color: string; description?: string };
 export type RenderedTemplate = {
   files: TemplateFile[];
@@ -50,6 +50,13 @@ const labels: TemplateLabel[] = [
   ...[1, 2, 3, 4, 5].map((level) => ({ name: `complexity:${level}`, color: '1d76db' })),
   { name: 'flake', color: 'fbca04' },
 ];
+
+// `game-*` refs render the game-repo template (OGM-036); anything else goes to `fallback`.
+export function withGameTemplates(game: TemplateSource, fallback: TemplateSource): TemplateSource {
+  return {
+    render: (templateRef, context) => (templateRef.startsWith('game-') ? game : fallback).render(templateRef, context),
+  };
+}
 
 export class DefaultTemplateSource implements TemplateSource {
   async render(
