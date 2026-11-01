@@ -51,6 +51,7 @@ class Library(unittest.TestCase):
         add_pack(self.root, KENNEY, "kenney", "CC0-1.0", {"Tiles/a.png": b"p", "License.txt": b"cc0"})
         add_pack(self.root, SYNTY, "synty", "synty-personal", {"Anim/run.fbx": b"f"}, ver="v1")
         add_pack(self.root, "limezu-test-pack", "limezu", "LimeZu-commercial", {"a.png": b"p"}, ver="2026-10-30")
+        add_pack(self.root, "kaykit-test-pack", "kaykit", "kaykit", {"Models/gltf/Barrel.gltf": b"{}", "License.txt": b"cc0"}, ver="1.0")
         side = add_pack(self.root, "sidetrax-pack-60-battle", "sidetrax", "sidetrax-royalty-free", {"Charge.wav": b"RIFF"}, ver="v1")
         (side / "collection.card.json").write_text(json.dumps(import_sidetrax.draft_card("sidetrax-pack-60-battle", "Pack 60: Battle", 1, True)))
 
@@ -61,12 +62,14 @@ class Library(unittest.TestCase):
         """Packs the old script skipped (LimeZu) were invisible to search; vendor-licensed bytes must stay local."""
         rep = bcc.run(self.root)
         self.assertEqual(rep["failures"], {})
-        pids = [KENNEY, SYNTY, "limezu-test-pack", "sidetrax-pack-60-battle"]
+        pids = [KENNEY, SYNTY, "limezu-test-pack", "kaykit-test-pack", "sidetrax-pack-60-battle"]
         self.assertTrue(validator_ok(*(self.root / "packs" / p / "collection.card.json" for p in pids)))
         processing = {p: card_of(self.root, p)["rights"]["processing"] for p in pids}
-        self.assertEqual(processing, {KENNEY: "any", SYNTY: "local-only", "limezu-test-pack": "local-only",
+        self.assertEqual(processing, {KENNEY: "any", SYNTY: "local-only", "limezu-test-pack": "local-only", "kaykit-test-pack": "any",
                                       "sidetrax-pack-60-battle": "local-only"})
         self.assertEqual(card_of(self.root, SYNTY)["license"], "LicenseRef-synty-personal")
+        self.assertEqual(card_of(self.root, "kaykit-test-pack")["license"], "CC0-1.0")
+        self.assertEqual(card_of(self.root, "kaykit-test-pack")["collection_info"]["counts"], {"model": 1})
         self.assertEqual(card_of(self.root, KENNEY)["status"], "tagged")
 
     def test_untagged_pack_is_a_draft_seeded_from_its_title(self):
