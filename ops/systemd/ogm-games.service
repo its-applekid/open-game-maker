@@ -1,0 +1,23 @@
+# OGM games host. Installed by ops/bin/ogm-host-setup.sh (replaces @REPO@). Logs: journalctl --user -u ogm-games -f
+[Unit]
+Description=OGM games host
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+Slice=ogm.slice
+Environment=OGM_REPO=@REPO@
+EnvironmentFile=-%h/.config/ogm/env/games.env
+ExecStart=@REPO@/ops/bin/ogm-run games
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=yes
+KillMode=mixed
+TimeoutStopSec=30
+LogRateLimitIntervalSec=30
+LogRateLimitBurst=1000
+
+[Install]
+WantedBy=default.target

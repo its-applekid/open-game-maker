@@ -1,0 +1,7 @@
+[Unit]
+Description=OGM coding agents, builds and verify captures
+
+[Slice]
+CPUWeight=50
+MemoryMax=16G
+TasksMax=4096

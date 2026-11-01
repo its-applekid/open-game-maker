@@ -1,0 +1,54 @@
+{
+  "contract": "aiur.ticket_usage",
+  "contract_version": 1,
+  "schema_version": 1,
+  "ticket": { "owner": "its-everdred", "repository": "game", "identifier": "142" },
+  "currency": "USD",
+  "state": "available",
+  "authority": { "schema_version": 1, "aggregate_generation": 7 },
+  "freshness": { "status": "fresh", "projected_position": 23, "ledger_position": 23 },
+  "totals": {
+    "tokens": 184210,
+    "provider_reported": { "USD": "0.000000" },
+    "api_equivalent": {
+      "amount": { "USD": "0.734512" },
+      "coverage": { "status": "complete", "known": 3, "unknown": 0, "reasons": [] }
+    }
+  },
+  "by_model": [
+    {
+      "model": "fake-1",
+      "tokens": 184210,
+      "provider_reported": { "USD": "0.000000" },
+      "api_equivalent": {
+        "amount": { "USD": "0.734512" },
+        "coverage": { "status": "complete", "known": 3, "unknown": 0, "reasons": [] }
+      }
+    }
+  ],
+  "by_provider": [
+    {
+      "provider": "fake",
+      "upstream_provider": "fake",
+      "tokens": 184210,
+      "provider_reported": { "USD": "0.000000" },
+      "api_equivalent": {
+        "amount": { "USD": "0.734512" },
+        "coverage": { "status": "complete", "known": 3, "unknown": 0, "reasons": [] }
+      }
+    }
+  ],
+  "sessions": [
+    {
+      "run_id": "r_8f3c",
+      "tokens": 184210,
+      "provider_reported": { "USD": "0.000000" },
+      "api_equivalent": {
+        "amount": { "USD": "0.734512" },
+        "coverage": { "status": "complete", "known": 3, "unknown": 0, "reasons": [] }
+      },
+      "by_model": [],
+      "by_provider": []
+    }
+  ]
+}
