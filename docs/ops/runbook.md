@@ -24,8 +24,11 @@ journalctl --user -u ogm-api -f             # follow one unit
 journalctl --user -u 'ogm-*' --since -1h    # everything recent
 ```
 
-Builder daemons run as `ogm-aiur@<slug>` (one per game repo under `~/.local/share/ogm/repos/<slug>`). `aiur status`
-against one needs `AIUR_ERLANG_COOKIE` in the caller's own environment.
+Builder daemons run as `ogm-aiur@<slug>`, one per active game repo, at most four live. The API's fleet manager
+(`@ogm/builder`) renders `~/.local/share/ogm/daemons/<slug>/` and `~/.config/ogm/env/ogm-aiur@<slug>.env`, starts the
+unit on the first admitted job and stops it after 30 min with no active job; stopping keeps `workspaces/`. Each daemon
+is registered in `~/.aiur/remote-instances.yaml` with a read token, so
+`~/github/aiur/scripts/aiurdev --instance <slug> status` works without the cookie.
 
 ## Status
 
@@ -43,7 +46,8 @@ not killed: stop the process that owns the pid.
 
 `PLACEHOLDER <service>` in the journal means `ops/bin/ogm-run` found no build (or no setup) for that unit and is
 idling. It clears when the service's build lands and the unit restarts. drive-sync waits for the Drive setup steps in
-`~/remind.md`; `ogm-aiur@<slug>` waits for `~/.local/bin/aiur`, the game repo's `.aiur/config` and the cookie.
+`~/remind.md`. `ogm-aiur@<slug>` has no placeholder: a failing preflight keeps it from starting, and the reasons
+are on its `game_daemons` row.
 
 ## Env files and rotation
 
