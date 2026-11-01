@@ -7,6 +7,7 @@ import { asUser, installUsers, makeApp, makeDeps, type TestUser } from './helper
 const owner: TestUser = {
   kind: 'user',
   userId: 'u-owner',
+  displayName: 'Owner',
   email: 'owner@example.com',
   familyId: '',
   platformRole: 'admin',

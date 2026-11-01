@@ -12,6 +12,7 @@ export const apiEnvSpec = {
   OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: { kind: 'int', default: '5000000' },
   OGM_RESET_ZONE_DEFAULT: { kind: 'string', default: hostTimeZone },
   OGM_DATA_DIR: { kind: 'path' },
+  OGM_GAMES_ROOT: { kind: 'path', required: false },
   OGM_INTERNAL_TOKEN: { kind: 'secret' },
   OGM_JOB_TOKEN_SECRET: { kind: 'secret' },
   OGM_BLOB_ROOT: { kind: 'path' },

@@ -17,7 +17,14 @@ const ids = {
 function registerUser(deps: AppDeps, role: 'admin' | 'maintainer' | 'none' = 'admin') {
   deps.registry.principalResolvers.push(async (c) =>
     c.req.header('x-test-user')
-      ? { kind: 'user', userId: ids.user, familyId: ids.family, platformRole: role, capability: 'creator' }
+      ? {
+          kind: 'user',
+          userId: ids.user,
+          displayName: 'Test User',
+          familyId: ids.family,
+          platformRole: role,
+          capability: 'creator',
+        }
       : null,
   );
 }

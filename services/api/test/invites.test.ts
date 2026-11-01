@@ -10,6 +10,7 @@ const familyId = 'f-family';
 const admin: TestUser = {
   kind: 'user',
   userId: 'u-admin',
+  displayName: 'Admin',
   email: 'admin@example.com',
   familyId,
   platformRole: 'admin',
@@ -18,6 +19,7 @@ const admin: TestUser = {
 const creator: TestUser = {
   kind: 'user',
   userId: 'u-creator',
+  displayName: 'Creator',
   email: 'creator@example.com',
   familyId,
   platformRole: 'none',
@@ -26,6 +28,7 @@ const creator: TestUser = {
 const invitee: TestUser = {
   kind: 'user',
   userId: 'u-invitee',
+  displayName: 'Invitee',
   email: 'invitee@example.com',
   familyId: '',
   platformRole: 'none',
@@ -34,6 +37,7 @@ const invitee: TestUser = {
 const wrongUser: TestUser = {
   kind: 'user',
   userId: 'u-wrong',
+  displayName: 'Wrong User',
   email: 'wrong@example.com',
   familyId: '',
   platformRole: 'none',

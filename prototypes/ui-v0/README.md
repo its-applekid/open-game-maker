@@ -1,3 +1,5 @@
+**Archived (OGM-101).** Replaced by `apps/web`; kept for history and the write-up below.
+
 # UI prototype v0 (throwaway)
 
 Home screen (2D paper-cut layers, wind, music) → editor (Kenney Mini Dungeon + baked Synty goblins) → play mode (sword fight, chest, win/lose) → back to the editor. No build step: plain ES modules, three.js r170 from jsDelivr.
