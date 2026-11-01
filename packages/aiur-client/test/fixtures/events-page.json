@@ -1,0 +1,24 @@
+{
+  "records": [
+    {
+      "type": "event",
+      "seq": 11,
+      "v": 1,
+      "instance": "local",
+      "id": 11,
+      "topic": "ticket.142.lifecycle.changed",
+      "class": "live",
+      "occurred_at": null,
+      "observed_at": "2026-10-31T18:00:00Z",
+      "source": "test",
+      "refs": {},
+      "attrs": { "lifecycle": "running" },
+      "payload_version": 1,
+      "anchor": null
+    }
+  ],
+  "oldest_seq": 1,
+  "head_seq": 11,
+  "epoch": "epoch-1",
+  "instance": "local"
+}
