@@ -5,6 +5,7 @@ export { formatRow, info, kindsOf, passes, search, statusAllowed } from './searc
 export { facets } from './facets.js';
 export { SHEET_MAX, labelOf, writeSheet } from './sheet.js';
 export {
+  COVERAGE_KEYS,
   FAMILIES_PATH,
   POV_IDS,
   STYLE_FAMILY_IDS,
@@ -18,6 +19,7 @@ export {
   packOf,
   packsOfFamily,
   setFor,
+  writeFamilies,
   type Coverage,
   type PovId,
   type StyleFamily,
@@ -27,4 +29,5 @@ export {
   type StyleSetPack,
   type StyleSetTraits,
 } from './families.js';
+export { coverageTable, recompute } from './families-coverage.js';
 export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';
