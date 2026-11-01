@@ -1,0 +1,119 @@
+tracker:
+  kind: github
+  base_branch: main
+  active_states:
+    - todo
+    - in-progress
+    - human-review
+    - rework
+    - merging
+  terminal_states:
+    - done
+    - closed
+    - cancelled
+    - canceled
+  github:
+    repo: its-everdred/open-game-maker-2000
+    label_prefix: agent
+    # Agents push and post as Kevin's own login (single-identity install); the credential is GITHUB_TOKEN in ~/.aiur/.env.
+    bot_account: its-everdred
+    identity_mode: single_account
+    allowed_users:
+      - its-everdred
+    human_mergers:
+      - its-everdred
+    planning_root_limit: 100
+    planning_page_budget: 4
+    planning_call_budget: 4
+    max_inflight: 4
+    max_inflight_per_endpoint: 2
+    requests_per_minute: 300
+    stagger_ms: 75
+instance:
+  mode: local
+  deployment_kind: operator
+  role: primary
+merge_policy:
+  ci: wait
+  local_tests: partial
+  full_ci_labels: [main-fix]
+  full_ci_paths: [".github/workflows/**", "package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+  attribution_scan: false
+build_queue:
+  set_order: ranked
+build_order:
+  graph_refresh_timeout_ms: 30000
+  graph_max_selected_roots: 32
+  graph_max_inflight: 4
+  general_epics:
+    - { key: bugs, label: Bugs, labels: [bug], hue: 38, icon: bug }
+    - { key: infra, label: Infra, labels: [refactor, chore], hue: 200, icon: server }
+    - { key: docs, label: Docs, labels: [documentation], hue: 100, icon: docs }
+polling:
+  interval_seconds: 60
+  idle_widen_factor: 5.0
+  intervals:
+    dispatch: 60
+    review: 300
+    planning: 0
+server:
+  host: 127.0.0.1
+  port: 4010
+  tailscale_funnel: false
+workspace:
+  root: ~/.aiur/workspaces/its-everdred/open-game-maker-2000
+hooks_file: hooks
+prompt_file: prompt.md
+agent:
+  # Codex (ChatGPT login) first; both Claude logins behind it. headroom sends each new ticket to the backend and
+  # account with the most usage left (Kevin, 2026-10-31: Codex until its limit, then the Claude login with the most tokens).
+  priority: [codex, claude]
+  accounts:
+    claude: [default, second]
+  account_selection: headroom
+  max_concurrent_agents: 6
+  max_concurrent_builds: 3
+  build_start_stagger_seconds: 5
+  build_nice: 10
+  # 12 cores, ~16 GB free beside other work: start the run with --max-agents 3 and raise it from measured load.
+  max_load_average: 10
+  target_load_average: 8
+  load_ramp_step: 2
+  load_cooldown_seconds: 20
+  max_turns: 12
+  max_turns_by_complexity:
+    1: 4
+    2: 8
+    3: 12
+  max_dispatches_per_ticket: 80
+  max_agent_duration_minutes: 90
+  stall_timeout_ms: 3600000
+  prior_work_continuation: true
+  codex:
+    command: codex app-server
+    approval_policy: never
+    thread_sandbox: workspace-write
+    turn_sandbox_policy:
+      type: workspaceWrite
+      writableRoots:
+        - /home/orangekid/.aiur/workspaces
+        - /tmp
+      networkAccess: true
+  claude:
+    command: aiur-claude
+    permission_mode: bypassPermissions
+executor:
+  relay_operator_answers: false
+observability:
+  telemetry_retention_max_bytes: 67108864
+  telemetry_retention_max_age_days: 30
+
+# === Warm base pre-warm (added by `aiur init`) ===
+prewarm:
+  enabled: true
+  base_build_file: prewarm
+  poll_seconds: 0
+
+# === Voice input and playback (declined in `aiur init`; ElevenLabs) ===
+elevenlabs:
+  enabled: false

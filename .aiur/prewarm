@@ -1,0 +1,2 @@
+# Warm base for aiur workspaces: install the TypeScript workspace when it exists (wave 1 scaffolds it); nothing before that.
+if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile; elif [ -f package-lock.json ]; then npm ci; else echo "no workspace yet"; fi
