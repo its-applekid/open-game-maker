@@ -16,7 +16,7 @@ export const apiEnvSpec = {
   OGM_APP_ORIGIN: { kind: 'url' },
   OGM_COMMIT_INTERNAL_URL: { kind: 'url' },
   OGM_COMMIT_SERVICE_TOKEN: { kind: 'secret' },
-  OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'templates/game-2d@main' },
+  OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'game-2d@1' },
   OGM_VAPID_KEY_FILE: { kind: 'path', default: join(homedir(), '.config', 'ogm', 'env', 'ogm-api.vapid.json') },
   OGM_VAPID_SUBJECT: { kind: 'string' },
 } as const;

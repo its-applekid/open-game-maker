@@ -12,8 +12,6 @@ const homes: string[] = [];
 export async function tempHome(): Promise<string> {
   const home = await mkdtemp(join(homedir(), '.ogm-fleet-test-'));
   homes.push(home);
-  await mkdir(join(home, 'github/aiur/src/examples/workflows'), { recursive: true });
-  await writeFile(join(home, 'github/aiur/src/examples/workflows/github-codex.prompt.md'), 'Work the ticket.\n');
   await mkdir(join(home, '.config/ogm/codex-gamebuilder'), { recursive: true });
   await writeFile(join(home, '.config/ogm/codex-gamebuilder/auth.json'), '{"tokens":{}}\n', { mode: 0o600 });
   return home;
