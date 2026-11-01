@@ -1,0 +1,93 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-mini-dungeon/wall@2.0",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Wall",
+  "kind": "model",
+  "subkind": "kit",
+  "collection": "t1:kenney-mini-dungeon@2.0",
+  "related": [
+    {
+      "rel": "same-set",
+      "id": "t1:kenney-mini-dungeon/wall-half@2.0"
+    },
+    {
+      "rel": "same-set",
+      "id": "t1:kenney-mini-dungeon/wall-opening@2.0"
+    }
+  ],
+  "previews": {
+    "thumb": "previews/ed/ed9fc37375fc85fa-thumb.webp",
+    "sheet": "previews/ed/ed9fc37375fc85fa-sheet.webp"
+  },
+  "describe": {
+    "description": "Pale lavender-grey stone wall block, one tile square, with a raised rim on top; builds dungeon room and corridor walls.",
+    "objects": ["wall", "stone-block"],
+    "environments": ["dungeon", "castle", "crypt"],
+    "roles": ["wall"],
+    "materials": ["stone"],
+    "condition": "new",
+    "moods": ["neutral"]
+  },
+  "geometry": {
+    "bounds_m": {
+      "min": [-0.5, 0.0, -0.5],
+      "max": [0.5, 1.1, 0.5]
+    },
+    "footprint_cells": {
+      "w": 1,
+      "d": 1,
+      "cell_m": 1.0
+    },
+    "pivot": "base-center",
+    "triangles": 186,
+    "materials": ["colormap"],
+    "texture_keys": ["Models/GLB format/Textures/colormap.png"],
+    "normalized": true
+  },
+  "kit": {
+    "piece": "wall",
+    "grid_m": 1.0,
+    "height_m": 1.1,
+    "open_edges": ["e", "w"],
+    "connects_to": ["wall", "wall-half", "wall-narrow", "wall-opening", "column", "gate"]
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.9,
+      "input": "sheet + measured facts"
+    },
+    "kit.piece": {
+      "by": "filename",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "kit.open_edges": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.6,
+      "input": "sheet; to confirm with a snap test"
+    },
+    "kit.connects_to": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.7,
+      "input": "sibling filenames + bounds"
+    }
+  }
+}

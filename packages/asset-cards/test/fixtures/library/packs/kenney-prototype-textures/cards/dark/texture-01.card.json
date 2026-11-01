@@ -1,0 +1,72 @@
+{
+  "schema": "ogm.asset-card/1.0",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-prototype-textures/dark/texture-01@1.0",
+  "card_type": "asset",
+  "status": "tagged",
+  "title": "Prototype grid, dark 01",
+  "kind": "texture",
+  "subkind": "material",
+  "collection": "t1:kenney-prototype-textures@1.0",
+  "source": {
+    "files": [
+      {
+        "path": "PNG/Dark/texture_01.png",
+        "sha256": "sha256:07e28d7a86396fa4f1d7c43040f8e57e2374f6fa35b02bc48e70f9ccd4041c1a",
+        "bytes": 2774,
+        "format": "png",
+        "role": "primary"
+      }
+    ],
+    "content_hash": "sha256:07e28d7a86396fa4f1d7c43040f8e57e2374f6fa35b02bc48e70f9ccd4041c1a"
+  },
+  "previews": {
+    "thumb": "previews/07/07e28d7a86396fa4-thumb.webp"
+  },
+  "describe": {
+    "description": "Dark grey grid texture with a faint fine grid and a brighter 2x2 major grid, for blocking out levels before real art.",
+    "objects": ["grid"],
+    "environments": ["neutral"],
+    "settings": ["none"],
+    "roles": ["floor", "wall", "terrain"],
+    "style_family": "any",
+    "moods": ["neutral"]
+  },
+  "look": {
+    "mean_luminance": 0.21
+  },
+  "image": {
+    "width_px": 1024,
+    "height_px": 1024,
+    "has_alpha": false,
+    "indexed_colors": 16,
+    "pixel_art": false
+  },
+  "texture": {
+    "maps": ["albedo"],
+    "tileable": true,
+    "color_space": "srgb",
+    "pattern": "grid"
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.95,
+      "input": "image"
+    },
+    "look.mean_luminance": {
+      "by": "code",
+      "tool": "gm-measure@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "illustrative value; measure when the tool exists"
+    }
+  }
+}

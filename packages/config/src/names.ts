@@ -10,6 +10,7 @@ export const OGM_ENV_UNITS = [
   'drive-sync',
   'aiur',
   'backup',
+  'gm',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -58,4 +59,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'service -> API bearer (X-Ogm-Service names the caller)',
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
+  { name: 'OGM_ASSETS_ROOT', unit: 'gm', kind: 'path', doc: 'assets-local library root for gm (else found above cwd)' },
+  { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
+  { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
 ];

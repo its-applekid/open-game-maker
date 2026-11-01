@@ -1,0 +1,79 @@
+{
+  "schema": "ogm.asset-card/1.1",
+  "vocab": "2026-10-26",
+  "id": "t1:kenney-music-loops@1.1",
+  "card_type": "collection",
+  "status": "tagged",
+  "title": "Music Loops (Kenney)",
+  "license": "CC0-1.0",
+  "rights": {
+    "uses": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
+    "audience": "public",
+    "redistribution": "free",
+    "attribution": null,
+    "processing": "any",
+    "basis": [
+      {
+        "type": "license",
+        "license": "CC0-1.0",
+        "ref": "License.txt",
+        "uses": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
+        "audience": "public",
+        "redistribution": "free",
+        "attribution": null,
+        "set_by": {
+          "role": "intake-code"
+        },
+        "confirmed_by": "kevin",
+        "date": "2026-10-26",
+        "note": "Kenney CC0; credit optional."
+      }
+    ]
+  },
+  "describe": {
+    "description": "Short looping game music tracks from Kenney, CC0.",
+    "objects": [],
+    "style_family": "any"
+  },
+  "collection_info": {
+    "vendor": "kenney",
+    "version": "1.1",
+    "origin": "bundle",
+    "counts": {
+      "audio": 2
+    },
+    "creation_choice": false
+  },
+  "provenance": {
+    "*": {
+      "by": "code",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "rights": {
+      "by": "license",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00"
+    },
+    "describe": {
+      "by": "model",
+      "model": "vision-model-tbd",
+      "tool": "gm-tag@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "confidence": 0.85,
+      "input": "collection sheet + item cards"
+    },
+    "describe.pov_fit": {
+      "by": "human",
+      "at": "2026-10-26T20:00:00-07:00",
+      "locked": true,
+      "input": "C2 \u00a74: short walls, no ceilings, so no fps"
+    },
+    "collection_info.counts": {
+      "by": "code",
+      "tool": "gm-intake@0.1",
+      "at": "2026-10-26T20:00:00-07:00",
+      "input": "split classified by hand from the 30 preview names for this example"
+    }
+  }
+}
