@@ -25,7 +25,12 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
   return {
     db,
     sqlite,
-    config: { internalToken: INTERNAL_TOKEN, jobTokenSecret: JOB_SECRET, blobSigningKey: BLOB_KEY },
+    config: {
+      internalToken: INTERNAL_TOKEN,
+      jobTokenSecret: JOB_SECRET,
+      blobSigningKey: BLOB_KEY,
+      analyticsRetentionDays: 90,
+    },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),
       signingKey: BLOB_KEY,

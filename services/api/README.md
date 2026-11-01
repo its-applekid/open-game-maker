@@ -3,8 +3,8 @@
 The platform API: Hono on `127.0.0.1:$OGM_API_PORT`, the only process that opens the SQLite database
 (`$OGM_DATA_DIR/ogm.sqlite3`). Boot runs the `@ogm/db` migrations, then mounts every context.
 
-Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_DATA_DIR`, `OGM_INTERNAL_TOKEN`, `OGM_JOB_TOKEN_SECRET`,
-`OGM_BLOB_ROOT`, `OGM_BLOB_SIGNING_KEY`, `OGM_PUBLIC_ORIGIN`.
+Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_ANALYTICS_RETENTION_DAYS` (default `90`), `OGM_DATA_DIR`,
+`OGM_INTERNAL_TOKEN`, `OGM_JOB_TOKEN_SECRET`, `OGM_BLOB_ROOT`, `OGM_BLOB_SIGNING_KEY`, `OGM_PUBLIC_ORIGIN`.
 
 ```sh
 pnpm --filter @ogm/api build && pnpm --filter @ogm/api start   # or: pnpm --filter @ogm/api dev
