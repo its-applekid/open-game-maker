@@ -61,7 +61,7 @@ server:
   port: 4010
   tailscale_funnel: false
 workspace:
-  root: ~/.aiur/ws/ogm   # short: Unix-socket paths under the workspace must stay under 108 bytes
+  root: ~/.aiur/w   # aiur appends <owner>/<repo>/<id>/.aiur-runtime/tmp/aiur-mcp-<pid>-<n>.sock; the whole path must stay under 108 bytes
 hooks_file: hooks
 prompt_file: prompt.md
 agent:
