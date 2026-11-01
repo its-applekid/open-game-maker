@@ -1,6 +1,6 @@
 import { schema } from '@ogm/db';
 import type { Actor } from '@ogm/policy';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, gt, inArray, isNull, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 import type { AppDeps } from '../app/types.js';
@@ -119,22 +119,46 @@ export async function budgetOverview(deps: AppDeps, familyId: string, now: Date)
   };
 }
 
-// `mail_outbox` has no family column, so a family sees only mail addressed to its members or invitees.
-export async function familyRecipients(deps: AppDeps, familyId: string): Promise<string[]> {
+// `mail_outbox` has no family column, so whose mail an admin may read is decided by address:
+// - members' mail, except that only the owner reads other admins' (their sign-in links are their accounts);
+// - a pending invitation's address, only while no account owns it, so inviting someone else's address
+//   never exposes their sign-in links.
+export async function familyRecipients(deps: AppDeps, actor: Actor, now = new Date()): Promise<string[]> {
+  const family = deps.db
+    .select({ ownerUserId: schema.families.ownerUserId })
+    .from(schema.families)
+    .where(eq(schema.families.id, actor.familyId))
+    .get();
+  const isOwner = family?.ownerUserId === actor.userId;
   const members = deps.db
-    .select({ userId: schema.familyMembers.userId })
+    .select({ userId: schema.familyMembers.userId, role: schema.familyMembers.role })
     .from(schema.familyMembers)
-    .where(eq(schema.familyMembers.familyId, familyId))
-    .all();
-  const emails = await emailsFor(
-    deps,
-    members.map((member) => member.userId),
-  );
-  const invited = deps.db
+    .where(eq(schema.familyMembers.familyId, actor.familyId))
+    .all()
+    .filter((member) => isOwner || member.role === 'member' || member.userId === actor.userId);
+  const emails = [
+    ...(
+      await emailsFor(
+        deps,
+        members.map((member) => member.userId),
+      )
+    ).values(),
+  ];
+  const pending = deps.db
     .select({ email: schema.invitations.email })
     .from(schema.invitations)
-    .where(eq(schema.invitations.familyId, familyId))
+    .where(
+      and(
+        eq(schema.invitations.familyId, actor.familyId),
+        isNull(schema.invitations.acceptedAt),
+        isNull(schema.invitations.revokedAt),
+        gt(schema.invitations.expiresAt, now.toISOString()),
+      ),
+    )
     .all();
-  const all = [...emails.values(), ...invited.map((row) => row.email)];
-  return [...new Set(all.filter((email): email is string => Boolean(email)).map((email) => email.toLowerCase()))];
+  const directory = deps.registry.userDirectory!;
+  for (const { email } of pending) {
+    if ((await directory.userIdForEmail(email)) === null) emails.push(email);
+  }
+  return [...new Set(emails.filter((email): email is string => Boolean(email)).map((email) => email.toLowerCase()))];
 }

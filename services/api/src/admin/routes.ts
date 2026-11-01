@@ -38,10 +38,11 @@ export const prefix = '/api/v1/admin';
 
 const flag = z.enum(['0', '1']).optional();
 
-// Every route acts on the caller's own family; no route takes a family id.
-function admin(c: Context<ApiBindings>, action: Action, resource: { ownerId?: string } = {}): Actor {
+// Every route acts on the caller's own family; no route takes a family id. Without an `ownerId`,
+// `game.delist` is admin-only, so a game's owner cannot relist what an admin delisted.
+function admin(c: Context<ApiBindings>, action: Action): Actor {
   const actor = actorFromPrincipal(requirePrincipal(c, ['user']));
-  requireAuthorization(authorize(actor, action, { familyId: actor.familyId, ...resource }));
+  requireAuthorization(authorize(actor, action, { familyId: actor.familyId }));
   return actor;
 }
 
@@ -201,9 +202,8 @@ const routes = new Hono<ApiBindings>()
   })
   .post('/games/:id/delist', (c) => {
     const { db } = c.get('deps');
-    const principal = requirePrincipal(c, ['user']);
-    const game = findGameForFamily(db, c.req.param('id'), principal.familyId);
-    admin(c, 'game.delist', { ownerId: game.ownerId });
+    const actor = admin(c, 'game.delist');
+    const game = findGameForFamily(db, c.req.param('id'), actor.familyId);
     db.update(schema.games)
       .set({ delistedAt: game.delistedAt ?? new Date().toISOString() })
       .where(eq(schema.games.id, game.id))
@@ -212,9 +212,8 @@ const routes = new Hono<ApiBindings>()
   })
   .post('/games/:id/relist', (c) => {
     const { db } = c.get('deps');
-    const principal = requirePrincipal(c, ['user']);
-    const game = findGameForFamily(db, c.req.param('id'), principal.familyId);
-    admin(c, 'game.delist', { ownerId: game.ownerId });
+    const actor = admin(c, 'game.delist');
+    const game = findGameForFamily(db, c.req.param('id'), actor.familyId);
     db.update(schema.games).set({ delistedAt: null }).where(eq(schema.games.id, game.id)).run();
     return c.json(gameResponse(findGame(db, game.id)));
   })
@@ -225,7 +224,7 @@ const routes = new Hono<ApiBindings>()
   .get('/mail', async (c) => {
     const actor = admin(c, 'admin.members.manage');
     const query = parseQuery(c, z.object({ unopened: flag }));
-    const recipients = await familyRecipients(c.get('deps'), actor.familyId);
+    const recipients = await familyRecipients(c.get('deps'), actor);
     if (recipients.length === 0) return c.json({ mail: [] });
     const toFamily = inArray(sql`lower(${schema.mailOutbox.to})`, recipients);
     const mail = c
@@ -255,7 +254,7 @@ const routes = new Hono<ApiBindings>()
       .from(schema.mailOutbox)
       .where(eq(schema.mailOutbox.id, c.req.param('id')))
       .get();
-    const recipients = await familyRecipients(deps, actor.familyId);
+    const recipients = await familyRecipients(deps, actor);
     if (!row || !recipients.includes(row.to.toLowerCase())) throw new HttpError(404, 'mail_not_found');
     markOpened(deps.sqlite, c.req.param('id'));
     return c.body(null, 204);

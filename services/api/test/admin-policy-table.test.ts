@@ -5,7 +5,6 @@ import type { TestUser } from './helpers.js';
 
 // Every admin route against the four actors. A family admin acts only on their own family, so
 // family Y's admin gets 200 with only Y's data on list routes and 404 on X's ids, never X's rows.
-// The member owns nothing: `game.delist` also lets a game's owner delist their own game.
 type Actor = 'owner' | 'admin' | 'member' | 'otherAdmin';
 const ACTORS: Record<Actor, TestUser> = { owner: X.owner, admin: X.admin, member: X.player, otherAdmin: Y.admin };
 type Row = { method: string; path: string; body?: unknown; expect: Record<Actor, number> };

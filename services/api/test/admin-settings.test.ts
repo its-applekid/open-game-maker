@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 
 import { allowanceRemaining } from '../src/budget/allowance.js';
 import { dayKey } from '../src/budget/reset.js';
-import { seededApp, X } from './admin-fixture.js';
-import { asUser } from './helpers.js';
+import { seededApp, X, Y } from './admin-fixture.js';
+import { asUser, type TestUser } from './helpers.js';
 
 type Deps = Awaited<ReturnType<typeof seededApp>>['deps'];
 const NOW = new Date().toISOString();
@@ -68,6 +68,17 @@ describe('admin settings and budget', () => {
     expect(after.platformCapMicroUsd).toBe(before.platformCapMicroUsd - 5_000_000 + 50_000_000);
   });
 
+  it('keeps a pinned platform cap through later settings and allowance changes', async () => {
+    const { call } = await seededApp();
+    await call(X.admin, 'PATCH', '/settings', { platformCapMicroUsd: 20_000_000 });
+    await call(X.admin, 'PATCH', '/settings', { unitLabel: 'stars' });
+    await call(X.admin, 'PUT', `/allowances/${X.player.userId}`, { dailyMicroUsd: 50_000_000 });
+    expect(await (await call(X.admin, 'GET', '/settings')).json()).toMatchObject({
+      unitLabel: 'stars',
+      platformCapMicroUsd: 20_000_000,
+    });
+  });
+
   it('rejects an unknown reset zone and accepts UTC', async () => {
     const { call } = await seededApp();
     expect((await call(X.admin, 'PATCH', '/settings', { resetZone: 'Mars/Olympus' })).status).toBe(400);
@@ -126,6 +137,16 @@ describe('admin members, games and mail', () => {
     expect(await demoted.json()).toEqual({ userId: X.admin2.userId, role: 'member', capability: 'creator' });
     const promoted = await call(X.admin, 'PATCH', `/members/${X.player.userId}`, { role: 'admin' });
     expect(promoted.status).toBe(200);
+    expect((await call(X.owner, 'PATCH', `/members/${X.owner.userId}`, { capability: 'player' })).status).toBe(409);
+    const stepDown = await call(X.admin, 'PATCH', `/members/${X.admin.userId}`, { role: 'member' });
+    expect(await stepDown.json()).toMatchObject({ role: 'member' });
+  });
+
+  it('keeps delist and relist admin-only, even for the game owner', async () => {
+    const { call } = await seededApp();
+    expect((await call(X.creator, 'POST', `/games/${X.game}/delist`)).status).toBe(403);
+    expect((await call(X.admin, 'POST', `/games/${X.game}/delist`)).status).toBe(200);
+    expect((await call(X.creator, 'POST', `/games/${X.game}/relist`)).status).toBe(403);
   });
 
   it('delists a member game from the picker without giving admins an edit path', async () => {
@@ -175,5 +196,44 @@ describe('admin members, games and mail', () => {
     const invites = (await (await call(X.admin, 'GET', '/invites')).json()) as { invitations: { id: string }[] };
     expect(invites.invitations).toHaveLength(2);
     expect((await call(X.admin, 'DELETE', `/invites/${X.invite}`)).status).toBe(204);
+  });
+
+  it('never shows sign-in mail an admin may not read', async () => {
+    const { deps, call } = await seededApp();
+    const mail = (id: string, to: string) =>
+      deps.db
+        .insert(schema.mailOutbox)
+        .values({ id, to, subject: 'Sign in', text: 'https://x/auth/magic', createdAt: NOW })
+        .run();
+    // Y's admin invites X's owner, then X's owner signs in: Y must not see that link.
+    deps.db
+      .insert(schema.invitations)
+      .values({
+        id: 'i-y',
+        familyId: Y.family,
+        kind: 'member',
+        email: X.owner.email,
+        tokenHash: 'hash-y',
+        capability: 'player',
+        inviterId: Y.admin.userId,
+        expiresAt: '2099-01-01T00:00:00.000Z',
+        createdAt: NOW,
+      })
+      .run();
+    mail('m-owner', X.owner.email);
+    mail('m-admin2', X.admin2.email);
+    mail('m-player', X.player.email);
+    const ids = async (actor: TestUser) =>
+      ((await (await call(actor, 'GET', '/mail')).json()) as { mail: { id: string }[] }).mail.map((row) => row.id);
+    expect(await ids(Y.admin)).toEqual([]);
+    expect(await ids(X.admin)).toEqual(expect.arrayContaining(['m-player', X.mail]));
+    expect(await ids(X.admin)).not.toContain('m-owner');
+    expect(await ids(X.admin)).not.toContain('m-admin2');
+    expect((await call(X.admin, 'POST', '/mail/m-owner/opened')).status).toBe(404);
+    expect(await ids(X.owner)).toEqual(expect.arrayContaining(['m-owner', 'm-admin2', 'm-player']));
+
+    // A revoked invitation's address stops being readable.
+    await call(X.admin, 'DELETE', `/invites/${X.invite}`);
+    expect(await ids(X.admin)).not.toContain(X.mail);
   });
 });
