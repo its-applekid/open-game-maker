@@ -1,0 +1,79 @@
+tracker:
+  kind: github
+  base_branch: main
+  active_states:
+    - todo
+    - in-progress
+    - human-review
+    - rework
+    - merging
+  terminal_states:
+    - done
+    - closed
+    - cancelled
+    - canceled
+  github:
+    repo: everdred-games/castle-run
+    bot_account: ogm-builder
+    identity_mode: separate_account
+    allowed_users:
+      - ogm-intake
+    trusted_accounts:
+      - ogm-intake
+    human_mergers: []
+instance:
+  mode: local
+  deployment_kind: operator
+  role: primary
+  id: everdred-games-castle-run
+merge_policy:
+  ci: wait
+  local_tests: partial
+polling:
+  interval_seconds: 60
+  intervals:
+    dispatch: 60
+    review: 300
+    planning: 0
+server:
+  host: 127.0.0.1
+  port: 4101
+  tailscale_funnel: false
+workspace:
+  root: /home/orangekid/.local/share/ogm/daemons/castle-run/workspaces
+hooks_file: hooks
+prompt_file: prompt.md
+agent:
+  priority:
+    - codex
+  accounts:
+    codex:
+      - gamebuilder
+  max_concurrent_agents: 1
+  max_agent_duration_minutes: 90
+  max_dispatches_per_ticket: 3
+  max_turns_by_complexity:
+    1: 4
+    2: 8
+    3: 12
+    4: 16
+    5: 20
+  build_nice: 10
+  codex:
+    approval_policy: on-request
+    thread_sandbox: workspace-write
+    turn_sandbox_policy:
+      type: workspaceWrite
+      writableRoots:
+        - /home/orangekid/.local/share/ogm/daemons/castle-run/workspaces
+      networkAccess: false
+      excludeSlashTmp: true
+events:
+  export:
+    enabled: true
+decisions:
+  supervisor_allowed_kinds:
+    - direction_checkpoint
+observability:
+  capture_label_prefixes:
+    - 'feature:'

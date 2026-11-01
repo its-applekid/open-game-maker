@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "vendoredAt": "2026-11-01",
+  "sets": {
+    "phaserjs/phaser": {
+      "sha": "f84916099a9fac952679fc71a978fea2e60eafcb",
+      "license": "MIT",
+      "path": "phaser"
+    },
+    "CloudAI-X/threejs-skills": {
+      "sha": "0e181866f095b5f06d005133876e926515390d95",
+      "license": "MIT",
+      "path": "threejs"
+    },
+    "gamedev-skills/awesome-gamedev-agent-skills": {
+      "sha": "184b72be02884f782a0058f2eeae2ce4277453e4",
+      "license": "Apache-2.0",
+      "path": "gamedev",
+      "modified": true
+    }
+  }
+}
