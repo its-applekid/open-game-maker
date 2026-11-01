@@ -1,0 +1,16 @@
+<!doctype html>
+<meta charset="utf-8" />
+<body style="margin: 0; background: #2a4">
+  <script>
+    // Stands in for the 44 MB castle town in e2e: speaks the title protocol and records what the host sent.
+    setTimeout(() => parent.postMessage('town-ready', location.origin), 100);
+    addEventListener('message', (e) => {
+      if (e.origin !== location.origin) return;
+      if (e.data && e.data.tap) {
+        parent.__tapSeen = e.data.tap;
+        parent.postMessage({ sfx: ['tick', 1, 1] }, location.origin);
+      }
+      if (e.data === 'pause') parent.__paused = true;
+    });
+  </script>
+</body>

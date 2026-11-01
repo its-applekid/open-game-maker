@@ -8,6 +8,8 @@ import { queryClient } from './app/query';
 import { createAppRouter } from './app/router';
 import { registerServiceWorker } from './app/sw-register';
 import { installTestHook } from './app/testHook';
+import { flushQueue, installErrorCapture } from './features/bug-report';
+import { initFocus, startGamepadPoller } from './lib/input';
 import './tokens.css';
 import './app/chrome.css';
 
@@ -16,6 +18,10 @@ applyHashRedirect();
 const router = createAppRouter();
 installTestHook(router);
 registerServiceWorker();
+installErrorCapture();
+void flushQueue();
+initFocus();
+startGamepadPoller();
 
 const root = document.querySelector('#root');
 if (!root) throw new Error('missing #root');

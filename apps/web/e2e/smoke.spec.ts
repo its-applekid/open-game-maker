@@ -12,7 +12,9 @@ test('loads the title and exposes the opt-in test hook', async ({ page }) => {
   await page.goto('/?test');
 
   await expect(page.getByRole('heading', { name: 'Open Game Maker 2000' })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => window.__ogmHost?.snapshot())).toEqual({ route: '/', registered: [] });
+  await expect
+    .poll(() => page.evaluate(() => window.__ogmHost?.snapshot()))
+    .toEqual({ route: '/', registered: ['title'] });
 });
 
 test('serves a deep SPA link through preview', async ({ page }) => {
