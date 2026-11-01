@@ -4,6 +4,7 @@ packages:
   - 'services/*'
   - 'skills/*'
   - 'templates/*'
+  - 'tools/*'
 
 onlyBuiltDependencies:
   - better-sqlite3

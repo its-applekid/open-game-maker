@@ -1,0 +1,14 @@
+{
+  "common": [],
+  "three": [],
+  "phaser": [
+    "animations:checkHit",
+    "data-manager:updateHUD",
+    "events-system:doStuff",
+    "game-object-components:laserBeam",
+    "scenes:LevelScene",
+    "time-and-timers:showBonusRound",
+    "v3-to-v4-migration:BitmapMask",
+    "v4-new-features:BitmapMask"
+  ]
+}

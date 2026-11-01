@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# OGM host status: units, placeholders, listeners, disk, sizes, backup, ingress. Names and sizes only.
+# usage: ogm-status [--json] [--check]
+# exit 0 always; with --check, 1 when a unit failed, a listener is STRAY, or the last backup is over 48 h old.
+
+set -uo pipefail
+
+json=0
+check=0
+for arg in "$@"; do
+  case "$arg" in
+    --json) json=1 ;;
+    --check) check=1 ;;
+    *) printf 'usage: ogm-status [--json] [--check]\n' >&2; exit 64 ;;
+  esac
+done
+
+proc=${OGM_PROC:-/proc}
+backup_state=${OGM_BACKUP_STATE:-$HOME/.local/state/ogm/backup}
+sections=(units placeholders listeners disk sizes backup ingress)
+declare -A out
+problems=()
+
+out[units]=$(systemctl --user list-units 'ogm-*' --all --no-pager --plain --no-legend 2>&1)
+while read -r unit _ active _; do
+  [[ $active == failed ]] && problems+=("unit failed: $unit")
+done <<< "${out[units]}"
+
+out[placeholders]=$(journalctl --user -u 'ogm-*' -b -o cat --no-pager 2>/dev/null | grep '^PLACEHOLDER' | sort -u)
+
+# An OGM listener is any socket owned by a process in an ogm cgroup; python3 -m http.server is the known stray.
+listeners=()
+while read -r _ _ _ local_addr _ users; do
+  [[ $users =~ \(\(\"([^\"]+)\",pid=([0-9]+) ]] || continue
+  name=${BASH_REMATCH[1]}
+  pid=${BASH_REMATCH[2]}
+  if grep -qs 'ogm' "$proc/$pid/cgroup"; then
+    :
+  elif [[ $name == python3* ]]; then
+    cmdline=$(tr '\0' ' ' < "$proc/$pid/cmdline" 2>/dev/null) || cmdline=
+    [[ -z $cmdline || $cmdline == *http.server* ]] || continue
+  else
+    continue
+  fi
+  if [[ $local_addr == 127.0.0.1:* || $local_addr == '[::1]:'* ]]; then
+    listeners+=("ok $local_addr $name pid=$pid")
+  else
+    listeners+=("STRAY $local_addr $name pid=$pid")
+    problems+=("stray listener: $local_addr $name")
+  fi
+done < <(ss -tlnpH 2>/dev/null)
+out[listeners]=$(printf '%s\n' "${listeners[@]}")
+
+out[disk]=$(df -h "$HOME" 2>&1)
+
+sizes=()
+for path in "$HOME/.local/share/ogm" "$HOME/.local/state/ogm" "$HOME/.aiur" "$HOME/.local/share/aiur"; do
+  [[ -e $path ]] && sizes+=("$(du -sh -- "$path" 2>/dev/null | cut -f1) $path")
+done
+sizes+=("journal: $(journalctl --user --disk-usage 2>/dev/null | grep -oE '[0-9.]+[KMGT]?B?' | head -n 1)")
+out[sizes]=$(printf '%s\n' "${sizes[@]}")
+
+if [[ -f $backup_state/last-ok && -f $backup_state/last-stamp ]]; then
+  age_h=$(( ($(date +%s) - $(stat -c %Y "$backup_state/last-ok")) / 3600 ))
+  out[backup]="last $(< "$backup_state/last-stamp"), ${age_h} h ago"
+  [[ -f $backup_state/last-summary ]] && out[backup]+=$'\n'"$(< "$backup_state/last-summary")"
+  (( age_h > 48 )) && problems+=("backup stale: ${age_h} h")
+else
+  out[backup]='never'
+  problems+=('backup stale: never ran')
+fi
+
+if command -v tailscale > /dev/null; then
+  out[ingress]=$(tailscale serve status 2>/dev/null | head -n 5) || out[ingress]='not operator'
+else
+  out[ingress]='tailscale not found'
+fi
+
+out[problems]=$(printf '%s\n' "${problems[@]}")
+
+if (( json )); then
+  args=()
+  for section in "${sections[@]}" problems; do
+    args+=("$section" "${out[$section]}")
+  done
+  node --no-warnings -e 'const a = process.argv.slice(1); const o = {};
+    for (let i = 0; i < a.length; i += 2) o[a[i]] = a[i + 1].split("\n").filter(Boolean);
+    process.stdout.write(`${JSON.stringify(o, null, 2)}\n`);' "${args[@]}"
+else
+  for section in "${sections[@]}" problems; do
+    [[ $section == problems && -z ${out[problems]} ]] && continue
+    printf '== %s\n%s\n' "$section" "${out[$section]:-(none)}"
+  done
+fi
+
+if (( check )) && [[ -n ${out[problems]} ]]; then
+  exit 1
+fi
+exit 0
