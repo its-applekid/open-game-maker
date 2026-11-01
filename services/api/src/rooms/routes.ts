@@ -88,6 +88,7 @@ const routes = new Hono<ApiBindings>()
   })
   .post('/api/v1/rooms/:roomId/invites', async (c) => {
     const principal = requirePrincipal(c, ['user']);
+    c.header('cache-control', 'no-store');
     return c.json(
       await createRoomInvitation(c.get('deps'), principal, c.req.param('roomId'), await parseBody(c, invitationBody)),
       201,

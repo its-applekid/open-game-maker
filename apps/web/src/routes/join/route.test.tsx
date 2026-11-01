@@ -85,8 +85,7 @@ describe('JoinScreen', () => {
     session.current = { data: null, isPending: false };
     renderJoin();
 
-    await screen.findByText('/age');
-    expect(screen.getByTestId('location-state')).toHaveTextContent(JSON.stringify({ next: '/join/invite-token' }));
+    await screen.findByText('/age?next=%2Fsignin%3Fnext%3D%252Fjoin%252Finvite-token');
     expect(mockedApi).not.toHaveBeenCalled();
   });
 
@@ -102,8 +101,7 @@ describe('JoinScreen', () => {
     mockedApi.mockRejectedValue(new ApiError(403, { error: 'age_required' }));
     renderJoin();
 
-    await screen.findByText('/age');
-    expect(screen.getByTestId('location-state')).toHaveTextContent(JSON.stringify({ next: '/join/invite-token' }));
+    await screen.findByText('/age?next=%2Fjoin%2Finvite-token&attest=1');
   });
 
   it.each([

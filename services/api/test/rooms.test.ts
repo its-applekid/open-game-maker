@@ -343,6 +343,7 @@ describe('room lifecycle service', () => {
         body: JSON.stringify({}),
       });
       const invite = (await inviteResponse.json()) as { url: string };
+      expect(inviteResponse.headers.get('cache-control')).toBe('no-store');
       const token = invite.url.split('/').at(-1) ?? '';
 
       const noAge = await app.request(`/api/v1/join/${token}`, { headers: asUser(member.userId) });
