@@ -22,7 +22,6 @@
     "@ogm/contracts": "workspace:*",
     "@ogm/health": "workspace:*",
     "@ogm/room-protocol": "workspace:*",
-    "colyseus": "0.18.10",
     "hono": "4.13.16",
     "zod": "4.6.7"
   },
