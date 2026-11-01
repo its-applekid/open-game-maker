@@ -39,7 +39,7 @@ describe('release schema', () => {
         (id, game_id, branch_id, build_id, head_rev, sha256, entries_json, entity_ops_json, fold_sha, created_at)
       VALUES
         ('snap_1', 'g_1', 'br_1', 'bld_1', 0,
-         'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', '{}', '{}',
+         'cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc', '[]', '[]',
          'dddddddddddddddddddddddddddddddddddddddd', '2026-11-01T00:00:00.000Z');
       INSERT INTO releases
         (id, game_id, seq, version, build_id, snapshot_id, git_tag, kind, changelog_json, published_by, published_at)

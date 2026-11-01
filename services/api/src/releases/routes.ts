@@ -146,7 +146,11 @@ const routes = new Hono<ApiBindings>()
   .post('/internal/games/:gameId/builds', async (c) => {
     requireBuilder(c);
     const body = await parseBody(c, buildBody);
-    return c.json(registerBuild(c.get('deps'), runtime(c), c.req.param('gameId'), body), 201);
+    try {
+      return c.json(registerBuild(c.get('deps'), runtime(c), c.req.param('gameId'), body), 201);
+    } catch (error) {
+      return errorResponse(c, error);
+    }
   })
   .patch('/internal/builds/:buildId', async (c) => {
     requireBuilder(c);

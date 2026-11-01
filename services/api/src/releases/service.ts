@@ -87,11 +87,20 @@ function requireBuild(deps: AppDeps, gameId: string, buildId: string): BuildRow 
   return build;
 }
 
+function requireGameBranch(deps: AppDeps, gameId: string, branchId: string) {
+  const branch = deps.db
+    .select()
+    .from(schema.branches)
+    .where(and(eq(schema.branches.id, branchId), eq(schema.branches.gameId, gameId)))
+    .get();
+  if (!branch) throw new ReleaseError('branch_not_found', 404);
+  return branch;
+}
+
 function requireMainBuild(deps: AppDeps, gameId: string, buildId: string): { build: BuildRow; game: GameRow } {
   const build = requireBuild(deps, gameId, buildId);
   if (build.status !== 'tested') throw new ReleaseError('not_tested', 409);
-  const branch = deps.db.select().from(schema.branches).where(eq(schema.branches.id, build.branchId)).get();
-  if (!branch || branch.name !== 'main') throw new ReleaseError('not_main', 409);
+  if (requireGameBranch(deps, gameId, build.branchId).name !== 'main') throw new ReleaseError('not_main', 409);
   const game = deps.db.select().from(schema.games).where(eq(schema.games.id, gameId)).get();
   if (!game) throw new ReleaseError('game_not_found', 404);
   return { build, game };
@@ -178,6 +187,7 @@ export function registerBuild(
     changeNotes?: ChangeNote[];
   },
 ): Build {
+  requireGameBranch(deps, gameId, input.branchId);
   const createdAt = runtime.now().toISOString();
   const build: typeof schema.builds.$inferInsert = {
     id: stableId('build', runtime.now()),
@@ -499,5 +509,11 @@ export function addChangeNote(
 }
 
 export function listBuilds(deps: AppDeps, gameId: string): Build[] {
-  return deps.db.select().from(schema.builds).where(eq(schema.builds.gameId, gameId)).all().map(buildResponse);
+  return deps.db
+    .select()
+    .from(schema.builds)
+    .where(eq(schema.builds.gameId, gameId))
+    .orderBy(asc(schema.builds.createdAt), asc(schema.builds.id))
+    .all()
+    .map(buildResponse);
 }

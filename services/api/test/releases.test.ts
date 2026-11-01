@@ -184,6 +184,21 @@ describe('release routes', () => {
     expect(deps.db.select().from(schema.changeNotes).get()).toMatchObject({ jobId: ids.job, text: 'A new level' });
     expect(runtime.onBuildTested).toHaveBeenCalledWith(ids.game, ids.main, build.id);
 
+    const wrongBranch = await app.request(`/internal/games/${ids.game}/builds`, {
+      method: 'POST',
+      headers: builderHeaders,
+      body: JSON.stringify({
+        branchId: 'b_missing',
+        gitSha: sha,
+        sdkVersion: '1.0.0',
+        saveSchemaVersion: 1,
+        achievementCatalogHash: hash,
+        artifactPath: '/artifacts/missing-branch',
+      }),
+    });
+    expect(wrongBranch.status).toBe(404);
+    expect(await wrongBranch.json()).toEqual({ error: 'branch_not_found' });
+
     const wrongService = await app.request(`/internal/games/${ids.game}/builds`, {
       method: 'POST',
       headers: { ...builderHeaders, 'x-ogm-service': 'commit' },
