@@ -50,6 +50,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_VAPID_SUBJECT', unit: 'api', kind: 'string', doc: 'contact email for Web Push (without mailto:)' },
   { name: 'OGM_SESSION_SECRET', unit: 'api', kind: 'secret', doc: 'Better Auth secret' },
   { name: 'OGM_WS_TOKEN_SECRET', unit: 'shared', kind: 'secret', doc: 'HS256 key for room/chat grants (api, rooms)' },
+  { name: 'OGM_ROOMS_INTERNAL_SECRET', unit: 'rooms', kind: 'secret', doc: 'backend -> rooms internal bearer' },
   {
     name: 'OGM_VOICE_TOKEN_SECRET',
     unit: 'shared',
@@ -79,7 +80,24 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'service -> API bearer (X-Ogm-Service names the caller)',
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
+  { name: 'OGM_AGE_COOKIE_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for the ogm_age cookie' },
+  { name: 'OGM_MAINTAINER_EMAILS', unit: 'api', kind: 'string', doc: 'comma-separated maintainer emails (optional)' },
+  {
+    name: 'GOOGLE_CLIENT_ID',
+    unit: 'api',
+    kind: 'string',
+    doc: 'Google OAuth client id (optional; Google off when unset)',
+  },
+  { name: 'GOOGLE_CLIENT_SECRET', unit: 'api', kind: 'string', doc: 'Google OAuth client secret (optional)' },
+  {
+    name: 'SMTP_URL',
+    unit: 'api',
+    kind: 'string',
+    doc: 'smtp(s)://user:pass@host:port (optional; admin inbox when unset)',
+  },
+  { name: 'SMTP_FROM', unit: 'api', kind: 'string', doc: 'From address for SMTP mail (optional)' },
   { name: 'OGM_ASSETS_ROOT', unit: 'gm', kind: 'path', doc: 'assets-local library root for gm (else found above cwd)' },
+  { name: 'GM_SKILLS_DIR', unit: 'gm', kind: 'path', doc: 'platform skill-pack root used by gm skills sync' },
   { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
   { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
   {

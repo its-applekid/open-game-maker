@@ -18,6 +18,7 @@ export interface AppDeps {
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
+    gamesRoot: string;
     vapidKeyFile: string;
     vapidSubject: string;
     analyticsRetentionDays: number;

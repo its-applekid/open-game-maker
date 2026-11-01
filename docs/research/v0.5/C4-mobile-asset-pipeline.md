@@ -6,7 +6,7 @@ the title town) plus what was applied to the title town the same day.
 
 ## Applied to the title town (2026-10-31)
 
-Measured with `prototypes/title-city/tools/loadtime.mjs`-style runs (iPhone 13 profile, CPU 4x slower, localhost).
+Measured with `apps/web/title-town/tools/loadtime.mjs`-style runs (iPhone 13 profile, CPU 4x slower, localhost).
 
 | Change | Where | Effect |
 |---|---|---|
@@ -30,7 +30,7 @@ per-game asset build with a manifest (5.1-5.2), which is the piece every game ne
 ---
 
 Date: 2026-10-31. Scope: Open Game Maker 2000 games (TypeScript + three.js r170, static sites, often opened on iPhones).
-Grounded on `prototypes/title-city` (the studio's title town, deployed as `studio-v0/town/`). Nothing in the repo was
+Grounded on the town source now archived at `apps/web/title-town` (formerly the studio's title town, deployed as `studio-v0/town/`). Nothing in the repo was
 changed. Every experiment ran on copies in the scratchpad.
 
 ---

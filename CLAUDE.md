@@ -20,5 +20,5 @@ use. Work here the way those agents will work: dogfood the skills.
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
   serials. Origin is an SSH URL with no key here: push over HTTPS with gh credentials,
   `git -C <repo> -c credential.helper='!gh auth git-credential' push "$(git -C <repo> remote get-url origin | sed 's#git@github.com:#https://github.com/#')" research`
-  (one commit at a time if it disconnects). Deploy the prototype (`prototypes/studio-v0/tools/deploy.sh`) only when Kevin says so; Netlify credits
+  (one commit at a time if it disconnects). Deploy the web app (`apps/web/tools/deploy.sh`) only when Kevin says so; Netlify credits
   are limited.
