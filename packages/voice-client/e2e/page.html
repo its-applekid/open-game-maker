@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Voice client e2e</title>
+  </head>
+  <body>
+    <button id="start" type="button">Start voice</button>
+    <div id="captions" aria-label="Builder captions"></div>
+    <div id="drafts" aria-label="Drafts"></div>
+    <script type="module">
+      import { VoiceClient } from '/dist/index.js';
+
+      const state = {
+        errors: [],
+        playbackStarts: 0,
+        playbackStops: 0,
+        playbackStartedAt: 0,
+        playbackTime: 0,
+      };
+      window.__ogm = state;
+
+      const nativeStart = AudioBufferSourceNode.prototype.start;
+      const nativeStop = AudioBufferSourceNode.prototype.stop;
+      AudioBufferSourceNode.prototype.start = function (...args) {
+        if ((this.buffer?.length ?? 0) > 1) {
+          state.playbackStarts += 1;
+          state.playbackStartedAt = this.context.currentTime;
+          const context = this.context;
+          const timer = setInterval(() => {
+            state.playbackTime = context.currentTime;
+          }, 20);
+          this.addEventListener('ended', () => clearInterval(timer), { once: true });
+        }
+        return nativeStart.apply(this, args);
+      };
+      AudioBufferSourceNode.prototype.stop = function (...args) {
+        if ((this.buffer?.length ?? 0) > 1) state.playbackStops += 1;
+        return nativeStop.apply(this, args);
+      };
+
+      const token = new URLSearchParams(location.search).get('token') ?? 'good';
+      const client = new VoiceClient({
+        url: `ws://${location.host}/voice`,
+        token,
+        target: { id: 'ticket-42' },
+      });
+
+      client.on('agent_text', (frame) => {
+        document.querySelector('#captions').textContent = frame.text;
+      });
+      client.on('draft', (frame) => {
+        const card = document.createElement('article');
+        card.textContent = frame.text;
+        const confirm = document.createElement('button');
+        confirm.id = 'confirm-draft';
+        confirm.type = 'button';
+        confirm.textContent = 'Confirm';
+        confirm.addEventListener('click', () => client.confirmDraft(frame.draft_id));
+        card.append(confirm);
+        document.querySelector('#drafts').replaceChildren(card);
+      });
+      client.on('error', (frame) => state.errors.push(frame.code));
+
+      document.querySelector('#start').addEventListener('click', () => {
+        client.startFromGesture().catch((error) => state.errors.push(error.code ?? 'start_failed'));
+      });
+    </script>
+  </body>
+</html>
