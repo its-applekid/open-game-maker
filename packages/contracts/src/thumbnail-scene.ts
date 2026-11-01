@@ -7,9 +7,16 @@ const hexColourSchema = z.string().regex(/^#[0-9a-f]{6}$/);
 export const thumbnailCardIdSchema = z
   .string()
   .regex(/^t[1-3]:[a-z0-9][a-z0-9-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._/-]*)?@[0-9]+(?:\.[0-9]+)*$/)
-  .refine((id) => !id.split('@', 1)[0]!.split('/').some((segment) => segment === '.' || segment === '..'), {
-    message: 'card id may not contain traversal segments',
-  });
+  .refine(
+    (id) =>
+      !id
+        .split('@', 1)[0]!
+        .split('/')
+        .some((segment) => segment === '.' || segment === '..'),
+    {
+      message: 'card id may not contain traversal segments',
+    },
+  );
 
 const sceneTargetSchema = z.strictObject({
   kind: z.enum(['set', 'pack']),
@@ -70,10 +77,7 @@ export const thumbnailSceneLayerSchema = z.strictObject({
 function projectedAnchor(layer: z.infer<typeof thumbnailSceneLayerSchema>): [number, number] {
   const [gridX, gridY, gridZ] = layer.position.grid;
   const [offsetX, offsetY] = layer.position.offset_px;
-  return [
-    512 + (gridX - gridY) * 64 + offsetX,
-    256 + (gridX + gridY) * 32 - gridZ * 32 + offsetY,
-  ];
+  return [512 + (gridX - gridY) * 64 + offsetX, 256 + (gridX + gridY) * 32 - gridZ * 32 + offsetY];
 }
 
 /** Deterministic, card-backed input for one square style-picker diorama. */
@@ -100,7 +104,11 @@ export const thumbnailSceneSchema = z
         ctx.addIssue({ code: 'custom', path: ['layers', index, 'role'], message: 'character layers require a role' });
       }
       if (layer.kind !== 'character' && layer.role) {
-        ctx.addIssue({ code: 'custom', path: ['layers', index, 'role'], message: 'only character layers may have a role' });
+        ctx.addIssue({
+          code: 'custom',
+          path: ['layers', index, 'role'],
+          message: 'only character layers may have a role',
+        });
       }
     }
 

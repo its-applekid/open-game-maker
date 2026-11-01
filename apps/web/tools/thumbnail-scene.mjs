@@ -18,7 +18,13 @@ const RENDERER_PAGE = resolve(TOOL_DIR, 'thumbnail-scene-page.html');
 const PAGE_LIMIT = 2 * 1024 * 1024;
 const MEDIA_LIMIT = 20 * 1024 * 1024;
 const MEDIA_COUNT_LIMIT = 64;
-const MIME = { '.gif': 'image/gif', '.jpeg': 'image/jpeg', '.jpg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+const MIME = {
+  '.gif': 'image/gif',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+};
 
 function inside(root, candidate) {
   const rel = relative(root, candidate);
@@ -83,7 +89,11 @@ export function selectSpecimenCards(cards, target) {
 }
 
 function validItchPage(url, expectedHost) {
-  return url.protocol === 'https:' && /^[a-z0-9-]+\.itch\.io$/.test(url.hostname) && (!expectedHost || url.hostname === expectedHost);
+  return (
+    url.protocol === 'https:' &&
+    /^[a-z0-9-]+\.itch\.io$/.test(url.hostname) &&
+    (!expectedHost || url.hostname === expectedHost)
+  );
 }
 
 function validMediaUrl(url) {
@@ -139,19 +149,37 @@ function imageExtension(contentType, body) {
   if (type === 'image/png' && body.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))) return 'png';
   if (type === 'image/gif' && ['GIF87a', 'GIF89a'].includes(body.subarray(0, 6).toString('ascii'))) return 'gif';
   if (type === 'image/jpeg' && body[0] === 0xff && body[1] === 0xd8) return 'jpg';
-  if (type === 'image/webp' && body.subarray(0, 4).toString('ascii') === 'RIFF' && body.subarray(8, 12).toString('ascii') === 'WEBP') return 'webp';
+  if (
+    type === 'image/webp' &&
+    body.subarray(0, 4).toString('ascii') === 'RIFF' &&
+    body.subarray(8, 12).toString('ascii') === 'WEBP'
+  )
+    return 'webp';
   throw new Error(`media response is not a verified supported image (${type || 'no content type'})`);
 }
 
-export async function fetchStoreMedia({ root: assetRoot, packId, pageUrl, fetchImpl = globalThis.fetch, fetchedAt = new Date().toISOString() }) {
+export async function fetchStoreMedia({
+  root: assetRoot,
+  packId,
+  pageUrl,
+  fetchImpl = globalThis.fetch,
+  fetchedAt = new Date().toISOString(),
+}) {
   const root = await realpath(resolve(assetRoot));
   const page = new URL(pageUrl);
-  if (!validItchPage(page) || page.search || page.hash || page.username || page.password) throw new Error('page URL must be a plain HTTPS itch.io creator page');
+  if (!validItchPage(page) || page.search || page.hash || page.username || page.password)
+    throw new Error('page URL must be a plain HTTPS itch.io creator page');
   const store = await safeOutput(root, `packs/${packId}/store/media.json`).then(dirname);
   const stage = await mkdtemp(join(dirname(store), '.thumbnail-store-'));
   try {
-    const pageResult = await boundedResponse(page, { fetchImpl, kind: 'page', expectedHost: page.hostname, byteLimit: PAGE_LIMIT });
-    if (!pageResult.response.headers.get('content-type')?.toLowerCase().startsWith('text/html')) throw new Error('store page is not HTML');
+    const pageResult = await boundedResponse(page, {
+      fetchImpl,
+      kind: 'page',
+      expectedHost: page.hostname,
+      byteLimit: PAGE_LIMIT,
+    });
+    if (!pageResult.response.headers.get('content-type')?.toLowerCase().startsWith('text/html'))
+      throw new Error('store page is not HTML');
     const urls = extractItchMedia(pageResult.body.toString('utf8'), pageResult.url);
     if (urls.length === 0) throw new Error('store page contains no allowlisted image media');
     if (urls.length > MEDIA_COUNT_LIMIT) throw new Error('store page exceeds media count limit');
@@ -162,10 +190,27 @@ export async function fetchStoreMedia({ root: assetRoot, packId, pageUrl, fetchI
       const digest = createHash('sha256').update(result.body).digest('hex');
       const filename = `${digest.slice(0, 20)}.${extension}`;
       await writeFile(join(stage, filename), result.body);
-      media.push({ source_url: sourceUrl, path: filename, sha256: `sha256:${digest}`, bytes: result.body.length, content_type: `image/${extension === 'jpg' ? 'jpeg' : extension}` });
+      media.push({
+        source_url: sourceUrl,
+        path: filename,
+        sha256: `sha256:${digest}`,
+        bytes: result.body.length,
+        content_type: `image/${extension === 'jpg' ? 'jpeg' : extension}`,
+      });
     }
-    const fallback = [...media].sort((left, right) => Number(right.path.endsWith('.gif')) - Number(left.path.endsWith('.gif')) || left.path.localeCompare(right.path))[0];
-    const manifest = { schema: 'ogm.vendor-store-media/1.0', pack_id: packId, page_url: page.href, fetched_at: fetchedAt, provenance: 'vendor-metadata', media, selected_fallback: fallback.path };
+    const fallback = [...media].sort(
+      (left, right) =>
+        Number(right.path.endsWith('.gif')) - Number(left.path.endsWith('.gif')) || left.path.localeCompare(right.path),
+    )[0];
+    const manifest = {
+      schema: 'ogm.vendor-store-media/1.0',
+      pack_id: packId,
+      page_url: page.href,
+      fetched_at: fetchedAt,
+      provenance: 'vendor-metadata',
+      media,
+      selected_fallback: fallback.path,
+    };
     await mkdir(store, { recursive: true });
     for (const item of media) await rename(join(stage, item.path), join(store, item.path));
     const temporary = join(store, `.media-${process.pid}.json`);
@@ -187,8 +232,40 @@ export function frameTimes() {
 
 export function videoArgs(framePattern, mp4, gif) {
   return {
-    mp4: ['-hide_banner', '-loglevel', 'error', '-framerate', '24', '-i', framePattern, '-frames:v', '96', '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4],
-    gif: ['-hide_banner', '-loglevel', 'error', '-framerate', '24', '-i', framePattern, '-frames:v', '96', '-vf', 'fps=24,scale=256:256:flags=neighbor,split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=none', '-loop', '0', gif],
+    mp4: [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-framerate',
+      '24',
+      '-i',
+      framePattern,
+      '-frames:v',
+      '96',
+      '-c:v',
+      'libx264',
+      '-pix_fmt',
+      'yuv420p',
+      '-movflags',
+      '+faststart',
+      mp4,
+    ],
+    gif: [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-framerate',
+      '24',
+      '-i',
+      framePattern,
+      '-frames:v',
+      '96',
+      '-vf',
+      'fps=24,scale=256:256:flags=neighbor,split[s0][s1];[s0]palettegen=max_colors=256[p];[s1][p]paletteuse=dither=none',
+      '-loop',
+      '0',
+      gif,
+    ],
   };
 }
 
@@ -204,7 +281,9 @@ async function loadCard(root, cardId) {
 
 function frameFromCard(card, layer, time) {
   const selection = layer.selection;
-  const animation = selection.action ? card.sprite?.animations?.find((item) => item.name === selection.action) : undefined;
+  const animation = selection.action
+    ? card.sprite?.animations?.find((item) => item.name === selection.action)
+    : undefined;
   if (selection.action && !animation) throw new Error(`${card.id} has no action ${selection.action}`);
   let frame = selection.frame;
   if (animation) {
@@ -215,8 +294,12 @@ function frameFromCard(card, layer, time) {
     if (animation.sheets?.length) {
       const sheet = animation.sheets.find((item) => item.variant === selection.variant) ?? animation.sheets[0];
       const row = animation.directions?.indexOf(selection.direction);
-      if (row === undefined || row < 0) throw new Error(`${card.id} action ${selection.action} has no direction ${selection.direction}`);
-      return { path: sheet.path, crop: { x: frame * sheet.frame_w, y: row * sheet.frame_h, width: sheet.frame_w, height: sheet.frame_h } };
+      if (row === undefined || row < 0)
+        throw new Error(`${card.id} action ${selection.action} has no direction ${selection.direction}`);
+      return {
+        path: sheet.path,
+        crop: { x: frame * sheet.frame_w, y: row * sheet.frame_h, width: sheet.frame_w, height: sheet.frame_h },
+      };
     }
     const directed = animation.direction_files?.[selection.direction];
     if (directed) return { path: directed[frame] };
@@ -255,7 +338,8 @@ export async function renderSpecimen({ root: assetRoot, cards, target, output })
   for (const selectedCard of selected) {
     const { card, extracted } = await loadCard(root, selectedCard.id);
     const frame = frameFromCard(card, specimenLayer(card), 0);
-    if (!frame.path || !card.source?.files?.some((source) => source.path === frame.path)) throw new Error(`${card.id} frame is not declared in source.files`);
+    if (!frame.path || !card.source?.files?.some((source) => source.path === frame.path))
+      throw new Error(`${card.id} frame is not declared in source.files`);
     const path = await safeInput(extracted, frame.path);
     const image = sharp(path);
     const metadata = await image.metadata();
@@ -272,8 +356,17 @@ export async function renderSpecimen({ root: assetRoot, cards, target, output })
   const composite = [];
   for (const [index, frame] of frames.entries()) {
     let image = sharp(frame.path);
-    if (frame.crop) image = image.extract({ left: frame.crop.x, top: frame.crop.y, width: frame.crop.width, height: frame.crop.height });
-    const input = await image.resize(frame.width * scale, frame.height * scale, { kernel: 'nearest' }).png().toBuffer();
+    if (frame.crop)
+      image = image.extract({
+        left: frame.crop.x,
+        top: frame.crop.y,
+        width: frame.crop.width,
+        height: frame.crop.height,
+      });
+    const input = await image
+      .resize(frame.width * scale, frame.height * scale, { kernel: 'nearest' })
+      .png()
+      .toBuffer();
     const column = index % columns;
     const row = Math.floor(index / columns);
     composite.push({
@@ -301,11 +394,20 @@ async function payloadFor(root, serverUrl, scene, compiled, time) {
   const layers = [];
   for (const { layer, card, extracted } of compiled) {
     const frame = frameFromCard(card, layer, time);
-    if (!frame.path || !card.source?.files?.some((source) => source.path === frame.path)) throw new Error(`${card.id} frame is not declared in source.files`);
+    if (!frame.path || !card.source?.files?.some((source) => source.path === frame.path))
+      throw new Error(`${card.id} frame is not declared in source.files`);
     const file = await safeInput(extracted, frame.path);
     const rootRelative = relative(root, file).split(sep).map(encodeURIComponent).join('/');
     const [anchorX, anchorY] = projectPoint(layer.position.grid, layer.position.offset_px);
-    layers.push({ id: layer.id, url: `${serverUrl}/assets/${rootRelative}`, crop: frame.crop, anchorX, anchorY, scale: layer.position.scale, zOrder: layer.z_order });
+    layers.push({
+      id: layer.id,
+      url: `${serverUrl}/assets/${rootRelative}`,
+      crop: frame.crop,
+      anchorX,
+      anchorY,
+      scale: layer.position.scale,
+      zOrder: layer.z_order,
+    });
   }
   return { background: scene.canvas.background, layers };
 }
@@ -328,14 +430,22 @@ async function startServer(root) {
     if (pathname.startsWith('/assets/')) return void sendFile(response, root, pathname.slice('/assets/'.length));
     response.writeHead(404).end('not found');
   });
-  await new Promise((accept, reject) => { server.once('error', reject); server.listen(0, '127.0.0.1', accept); });
+  await new Promise((accept, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', accept);
+  });
   const address = server.address();
   if (!address || typeof address === 'string') throw new Error('renderer did not receive a loopback port');
-  return { url: `http://127.0.0.1:${address.port}`, close: () => new Promise((accept, reject) => server.close((error) => error ? reject(error) : accept())) };
+  return {
+    url: `http://127.0.0.1:${address.port}`,
+    close: () => new Promise((accept, reject) => server.close((error) => (error ? reject(error) : accept()))),
+  };
 }
 
 function browserArgs(softwareGL) {
-  return softwareGL ? ['--use-angle=swiftshader', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'];
+  return softwareGL
+    ? ['--use-angle=swiftshader', '--enable-gpu', '--ignore-gpu-blocklist']
+    : ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'];
 }
 
 async function withRenderer(root, scene, softwareGL, callback) {
@@ -344,7 +454,9 @@ async function withRenderer(root, scene, softwareGL, callback) {
   try {
     browser = await chromium.launch({ headless: true, args: browserArgs(softwareGL) });
     const page = await browser.newPage({ viewport: { width: 1024, height: 1024 }, deviceScaleFactor: 1 });
-    await page.route('**/*', async (route) => new URL(route.request().url()).origin === server.url ? route.continue() : route.abort('blockedbyclient'));
+    await page.route('**/*', async (route) =>
+      new URL(route.request().url()).origin === server.url ? route.continue() : route.abort('blockedbyclient'),
+    );
     await page.goto(`${server.url}/renderer`, { waitUntil: 'networkidle' });
     await page.waitForFunction(() => globalThis.rendererReady === true);
     await callback(page, server.url, await compiledLayers(root, scene));
@@ -354,14 +466,22 @@ async function withRenderer(root, scene, softwareGL, callback) {
   }
 }
 
-export async function renderStill({ root: assetRoot, scene: input, output, softwareGL = process.env.GM_VERIFY_SOFTWARE_GL === '1' }) {
+export async function renderStill({
+  root: assetRoot,
+  scene: input,
+  output,
+  softwareGL = process.env.GM_VERIFY_SOFTWARE_GL === '1',
+}) {
   const scene = thumbnailSceneSchema.parse(input);
   const root = await realpath(resolve(assetRoot));
   const target = await safeOutput(root, output);
   const temporary = `${target}.tmp-${process.pid}.png`;
   try {
     await withRenderer(root, scene, softwareGL, async (page, serverUrl, compiled) => {
-      await page.evaluate((payload) => globalThis.renderThumbnailScene(payload), await payloadFor(root, serverUrl, scene, compiled, 0));
+      await page.evaluate(
+        (payload) => globalThis.renderThumbnailScene(payload),
+        await payloadFor(root, serverUrl, scene, compiled, 0),
+      );
       await page.locator('canvas').screenshot({ path: temporary });
     });
     await rename(temporary, target);
@@ -376,13 +496,26 @@ async function runFfmpeg(args) {
   await new Promise((accept, reject) => {
     const child = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
     let stderr = '';
-    child.stderr.on('data', (chunk) => { stderr += chunk; });
-    child.once('error', (error) => reject(error.code === 'ENOENT' ? new Error('ffmpeg is required; install it with: sudo apt install ffmpeg') : error));
-    child.once('exit', (code) => code === 0 ? accept() : reject(new Error(`ffmpeg exited ${code}: ${stderr.trim()}`)));
+    child.stderr.on('data', (chunk) => {
+      stderr += chunk;
+    });
+    child.once('error', (error) =>
+      reject(
+        error.code === 'ENOENT' ? new Error('ffmpeg is required; install it with: sudo apt install ffmpeg') : error,
+      ),
+    );
+    child.once('exit', (code) =>
+      code === 0 ? accept() : reject(new Error(`ffmpeg exited ${code}: ${stderr.trim()}`)),
+    );
   });
 }
 
-export async function renderSceneOutputs({ root: assetRoot, scene: input, outputBase, softwareGL = process.env.GM_VERIFY_SOFTWARE_GL === '1' }) {
+export async function renderSceneOutputs({
+  root: assetRoot,
+  scene: input,
+  outputBase,
+  softwareGL = process.env.GM_VERIFY_SOFTWARE_GL === '1',
+}) {
   const scene = thumbnailSceneSchema.parse(input);
   const root = await realpath(resolve(assetRoot));
   const still1024 = await safeOutput(root, `${outputBase}.1024.png`);
@@ -393,7 +526,10 @@ export async function renderSceneOutputs({ root: assetRoot, scene: input, output
   try {
     await withRenderer(root, scene, softwareGL, async (page, serverUrl, compiled) => {
       for (const [index, time] of frameTimes().entries()) {
-        await page.evaluate((payload) => globalThis.renderThumbnailScene(payload), await payloadFor(root, serverUrl, scene, compiled, time));
+        await page.evaluate(
+          (payload) => globalThis.renderThumbnailScene(payload),
+          await payloadFor(root, serverUrl, scene, compiled, time),
+        );
         await page.locator('canvas').screenshot({ path: join(stage, `${String(index).padStart(3, '0')}.png`) });
       }
     });
@@ -416,7 +552,8 @@ function parseArgs(argv) {
   const [command, ...rest] = argv;
   const values = {};
   for (let index = 0; index < rest.length; index += 2) {
-    if (!rest[index]?.startsWith('--') || rest[index + 1] === undefined) throw new Error('arguments must be --name value pairs');
+    if (!rest[index]?.startsWith('--') || rest[index + 1] === undefined)
+      throw new Error('arguments must be --name value pairs');
     values[rest[index].slice(2)] = rest[index + 1];
   }
   return { command, values };
@@ -425,12 +562,16 @@ function parseArgs(argv) {
 async function main() {
   const { command, values } = parseArgs(process.argv.slice(2));
   if (command === 'fetch-store' && values.root && values.pack && values.page) {
-    process.stdout.write(`${JSON.stringify(await fetchStoreMedia({ root: values.root, packId: values.pack, pageUrl: values.page }))}\n`);
+    process.stdout.write(
+      `${JSON.stringify(await fetchStoreMedia({ root: values.root, packId: values.pack, pageUrl: values.page }))}\n`,
+    );
     return;
   }
   if (command === 'render' && values.root && values.scene && values.output) {
     const scene = JSON.parse(await readFile(resolve(values.scene), 'utf8'));
-    process.stdout.write(`${JSON.stringify(await renderSceneOutputs({ root: values.root, scene, outputBase: values.output }))}\n`);
+    process.stdout.write(
+      `${JSON.stringify(await renderSceneOutputs({ root: values.root, scene, outputBase: values.output }))}\n`,
+    );
     return;
   }
   if (command === 'specimen' && values.root && values.cards && values['target-kind'] && values.output) {
@@ -438,12 +579,19 @@ async function main() {
     const cards = Array.isArray(document) ? document : document.cards;
     if (!Array.isArray(cards)) throw new Error('cards file must be an array or an object with a cards array');
     const target = { kind: values['target-kind'], ...(values['target-id'] ? { id: values['target-id'] } : {}) };
-    process.stdout.write(`${JSON.stringify(await renderSpecimen({ root: values.root, cards, target, output: values.output }))}\n`);
+    process.stdout.write(
+      `${JSON.stringify(await renderSpecimen({ root: values.root, cards, target, output: values.output }))}\n`,
+    );
     return;
   }
-  throw new Error('usage: thumbnail-scene.mjs fetch-store --root DIR --pack ID --page URL | specimen --root DIR --cards FILE --target-kind set|pack [--target-id ID] --output FILE | render --root DIR --scene FILE --output RELATIVE_BASE');
+  throw new Error(
+    'usage: thumbnail-scene.mjs fetch-store --root DIR --pack ID --page URL | specimen --root DIR --cards FILE --target-kind set|pack [--target-id ID] --output FILE | render --root DIR --scene FILE --output RELATIVE_BASE',
+  );
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  main().catch((error) => { process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`); process.exitCode = 2; });
+  main().catch((error) => {
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exitCode = 2;
+  });
 }

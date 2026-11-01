@@ -86,10 +86,9 @@ describe('thumbnail specimens and store references', () => {
     const fetchImpl = async (input: string | URL | Request) => {
       const url = String(input);
       if (url === pageUrl)
-        return new Response(
-          '<img src="https://img.itch.zone/demo.png"><img src="https://img.itch.zone/demo.gif">',
-          { headers: { 'content-type': 'text/html' } },
-        );
+        return new Response('<img src="https://img.itch.zone/demo.png"><img src="https://img.itch.zone/demo.gif">', {
+          headers: { 'content-type': 'text/html' },
+        });
       if (url.endsWith('.png')) return new Response(png, { headers: { 'content-type': 'image/png' } });
       return new Response(gif, { headers: { 'content-type': 'image/gif' } });
     };
@@ -288,7 +287,12 @@ describe('headless thumbnail scene renderer', () => {
     );
 
     await renderSpecimen({ root, cards, target: { kind: 'pack', id: 'fixture-pack' }, output: 'first.png' });
-    await renderSpecimen({ root, cards: [...cards].reverse(), target: { kind: 'pack', id: 'fixture-pack' }, output: 'second.png' });
+    await renderSpecimen({
+      root,
+      cards: [...cards].reverse(),
+      target: { kind: 'pack', id: 'fixture-pack' },
+      output: 'second.png',
+    });
 
     expect(await readFile(join(root, 'first.png'))).toEqual(await readFile(join(root, 'second.png')));
   });
