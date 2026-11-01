@@ -1,0 +1,11 @@
+{
+  "jobId": "j_short",
+  "state": "queued",
+  "reservation": {
+    "amountMicroUsd": 3000000,
+    "sizeClass": "medium",
+    "confidence": "low"
+  },
+  "slot": "edit",
+  "position": 2
+}

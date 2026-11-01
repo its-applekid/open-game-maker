@@ -251,7 +251,7 @@ export type NetGameToHost = z.infer<typeof NetGameToHostSchema>;
 export const ClientMessageJsonSchema = json.client;
 export const ServerMessageJsonSchema = json.server;
 
-export const schemas = {
+export const roomSchemas = {
   'room.grant.v1': RoomGrantSchema,
   'room.state.v1': RoomStateSchema,
   'room.design-tx.v1': DesignTxSchema,

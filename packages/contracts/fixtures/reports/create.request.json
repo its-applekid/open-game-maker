@@ -1,0 +1,19 @@
+{
+  "gameId": "g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01",
+  "releaseId": "r_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e04",
+  "buildHash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "text": "The goblin got stuck in the wall.",
+  "error": {
+    "type": "TypeError",
+    "message": "x is undefined",
+    "frames": [
+      {
+        "file": "game.js",
+        "line": 12,
+        "col": 4,
+        "fn": "spawn"
+      }
+    ]
+  },
+  "bundleKey": "reports/r1.zip"
+}

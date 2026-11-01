@@ -13,18 +13,18 @@ import {
   RoomGrantSchema,
   RoomStateSchema,
   ServerMessageSchema,
-  schemas,
+  roomSchemas as schemas,
 } from '../src/room.js';
 import { loadJson } from './helpers.js';
 
 type Stem = keyof typeof schemas;
 type Json = Record<string, unknown>;
 
-const grant = loadJson<Json>('fixtures/room.grant.v1.json');
-const state = loadJson<Json>('fixtures/room.state.v1.json');
-const designTx = loadJson<Json>('fixtures/room.design-tx.v1.json');
-const clientMessages = loadJson<Json[]>('fixtures/room.client-messages.v1.json');
-const serverMessages = loadJson<Json[]>('fixtures/room.server-messages.v1.json');
+const grant = loadJson<Json>('fixtures/room/grant.json');
+const state = loadJson<Json>('fixtures/room/state.json');
+const designTx = loadJson<Json>('fixtures/room/design-tx.json');
+const clientMessages = loadJson<Json[]>('fixtures/room/client-messages.json');
+const serverMessages = loadJson<Json[]>('fixtures/room/server-messages.json');
 
 /* fixtures carry binary as base64; the wire carries bytes */
 function toWire(message: Json): Json {
@@ -38,17 +38,16 @@ function tsOf(messages: Json[]): unknown[] {
 }
 
 describe('room fixtures', () => {
-  const files = readdirSync(new URL('../fixtures/', import.meta.url)).filter((file) =>
-    /^room\..+\.v1\.json$/.test(file),
-  );
+  const files = readdirSync(new URL('../fixtures/room/', import.meta.url)).filter((file) => file.endsWith('.json'));
+  const stemOf = (file: string) => `room.${file.replace(/\.json$/, '')}.v1` as Stem;
 
   it('has one fixture per emitted room schema', () => {
-    expect(files.map((file) => file.replace(/\.json$/, '')).sort()).toEqual(Object.keys(schemas).sort());
+    expect(files.map(stemOf).sort()).toEqual(Object.keys(schemas).sort());
   });
 
-  it.each(files)('%s parses with its schema and round-trips', (file) => {
-    const doc = loadJson(`fixtures/${file}`);
-    const result = schemas[file.replace(/\.json$/, '') as Stem].safeParse(doc);
+  it.each(files)('room/%s parses with its schema and round-trips', (file) => {
+    const doc = loadJson(`fixtures/room/${file}`);
+    const result = schemas[stemOf(file)].safeParse(doc);
     expect(result.error?.issues ?? [], file).toEqual([]);
     expect(result.data).toEqual(doc);
   });

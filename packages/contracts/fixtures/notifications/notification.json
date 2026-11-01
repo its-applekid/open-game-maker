@@ -1,0 +1,14 @@
+{
+  "id": "n_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e05",
+  "userId": "u_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e03",
+  "kind": "build.done",
+  "title": "Your game is ready",
+  "body": "Goblin camp level is ready to play.",
+  "url": "/g/goblin-camp",
+  "data": {
+    "jobId": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+    "attempt": 1
+  },
+  "createdAt": "2026-11-01T09:30:00Z",
+  "readAt": null
+}

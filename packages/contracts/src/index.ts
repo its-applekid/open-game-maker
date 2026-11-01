@@ -3,6 +3,10 @@ export * from './rights.js';
 export * from './layout.js';
 export * from './validate.js';
 export * from './health.js';
+export * from './api.js';
+export * from './jobs.js';
+export * from './budget.js';
+export * from './analytics.js';
+export * from './reports.js';
+export * from './notifications.js';
 export * from './room.js';
-/* every family exports a `schemas` record for the emit script; the barrel keeps health's */
-export { schemas } from './health.js';

@@ -1,0 +1,35 @@
+{
+  "name": "@ogm/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/app/app.d.ts",
+      "default": "./dist/app/app.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "lint": "eslint src test vitest.config.ts",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.5",
+    "@ogm/blob-store": "workspace:*",
+    "@ogm/config": "workspace:*",
+    "@ogm/contracts": "workspace:*",
+    "@ogm/db": "workspace:*",
+    "@ogm/health": "workspace:*",
+    "hono": "4.13.16",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "tsx": "4.23.15"
+  }
+}
