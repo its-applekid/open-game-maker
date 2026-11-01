@@ -79,9 +79,7 @@ export function ConnectGitHubScreen() {
   return (
     <main className="auth-screen connect-screen">
       <section className="auth-card connect-card">
-        <p className="auth-kicker">One last step</p>
         <h1>Connect GitHub</h1>
-        <p className="connect-copy">Your games live in repositories owned by your GitHub account.</p>
 
         {status.kind === 'loading' && <p role="status">Checking your connection…</p>}
         {status.kind === 'error' && (
@@ -113,7 +111,6 @@ export function ConnectGitHubScreen() {
                 onClick={() => choose('public')}
               >
                 <strong>Public</strong>
-                <span>Anyone can see the repository.</span>
               </button>
               <button
                 aria-pressed={visibility === 'private'}
@@ -122,7 +119,6 @@ export function ConnectGitHubScreen() {
                 onClick={() => choose('private')}
               >
                 <strong>Private</strong>
-                <span>Only people you invite can see it.</span>
               </button>
             </fieldset>
             <button className="auth-primary" type="button" onClick={() => navigate(next, { replace: true })}>

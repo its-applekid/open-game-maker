@@ -56,10 +56,19 @@ describe('ConnectGitHubScreen', () => {
     renderConnect();
 
     expect(await screen.findByText('@octocat')).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /public/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Public' }));
 
     expect(auth.setRepoVisibilityDefault).toHaveBeenCalledWith('public');
-    expect(screen.getByRole('button', { name: /public/i })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Public' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('keeps visibility tiles to a bare label like the prototype option tiles', async () => {
+    auth.getGitHubStatus.mockResolvedValue({ connected: true, login: 'octocat' });
+    renderConnect();
+
+    await screen.findByText('@octocat');
+    expect(screen.getByRole('button', { name: 'Public' })).toHaveTextContent(/^Public$/);
+    expect(screen.getByRole('button', { name: 'Private' })).toHaveTextContent(/^Private$/);
   });
 
   it('continues to next after GitHub is connected', async () => {

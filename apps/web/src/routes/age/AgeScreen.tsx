@@ -89,7 +89,6 @@ export function AgeScreen() {
   return (
     <main className="auth-screen age-screen">
       <section className="auth-card">
-        <p className="auth-kicker">One quick question</p>
         <h1>When were you born?</h1>
         <form aria-label="Birth date" className="age-form" onSubmit={submit}>
           <label>

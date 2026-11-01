@@ -124,7 +124,6 @@ export function SignInScreen() {
     return (
       <main className="auth-screen signin-screen">
         <section className="auth-card">
-          <p className="auth-kicker">Link sent</p>
           <div role="status">
             <h1>Check your email</h1>
             <p>Open the sign-in link we sent to {sentTo}.</p>
@@ -140,7 +139,6 @@ export function SignInScreen() {
   return (
     <main className="auth-screen signin-screen">
       <section className="auth-card">
-        <p className="auth-kicker">Welcome</p>
         <h1>Sign in</h1>
         <form className="signin-form" onSubmit={(event) => void sendMagicLink(event)}>
           <label>
