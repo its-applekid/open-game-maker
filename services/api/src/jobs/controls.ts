@@ -1,13 +1,7 @@
 import { Hono, type Context } from 'hono';
 import { z } from 'zod';
 
-import {
-  AiurConfigError,
-  AiurHttpError,
-  AiurUnavailableError,
-  type AiurClient,
-  type CancelResult,
-} from '@ogm/aiur-client';
+import { AiurConfigError, AiurHttpError, AiurUnavailableError, type AiurClient } from '@ogm/aiur-client';
 import { JOB_STAGE_WORDS } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { authorize, type Action } from '@ogm/policy';
@@ -105,13 +99,19 @@ function cancelled(deps: AppDeps, row: JobRow, now: () => Date) {
 }
 
 function controlError(error: unknown): never {
-  if (error instanceof AiurHttpError && error.status === 409) throw new HttpError(409, error.code);
+  if (error instanceof AiurHttpError) {
+    if (error.status === 409) throw new HttpError(409, error.code);
+    if (error.status >= 500) throw new HttpError(503, 'daemon_unavailable');
+    throw new HttpError(502, 'aiur_control_failed');
+  }
   if (error instanceof AiurUnavailableError) throw new HttpError(503, 'daemon_unavailable');
   throw error;
 }
 
-function unconfirmed(result: CancelResult): string {
-  return result.process.status;
+async function requireDaemon(services: ControlsServices, deps: AppDeps, repo: string): Promise<AiurClient> {
+  const client = await services.daemonFor(deps, repo);
+  if (client === null) throw new HttpError(503, 'daemon_unavailable');
+  return client;
 }
 
 export function createControlsRoutes(services: ControlsServices): Hono<ApiBindings> {
@@ -132,7 +132,17 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       const filed = ticket(row);
       const client = await services.daemonFor(deps, filed.repo);
       const labelFallback = async () => {
-        await services.issues.setStateLabel(filed.repo, filed.issue, 'cancelled');
+        try {
+          await services.issues.setStateLabel(filed.repo, filed.issue, 'cancelled');
+        } catch (error) {
+          deps.log({
+            event: 'admin-alert',
+            code: 'cancel_fallback_failed',
+            jobId: row.id,
+            error: (error as Error).name,
+          });
+          throw new HttpError(503, 'cancel_fallback_failed');
+        }
         return c.json(cancelled(deps, row, now));
       };
       if (client === null) return labelFallback();
@@ -141,7 +151,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       for (let attempt = 0; attempt < 3; attempt += 1) {
         try {
           const result = await client.cancel(String(filed.issue));
-          status = unconfirmed(result);
+          status = result.process.status;
           if (status === 'exited') return c.json(cancelled(deps, row, now));
         } catch (error) {
           if (error instanceof AiurHttpError && error.status === 409 && error.code === 'agent_not_running') {
@@ -161,8 +171,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       if (row.state === 'paused_budget') throw new HttpError(409, 'job_budget_paused');
       const deps = c.get('deps');
       const filed = ticket(row);
-      const client = await services.daemonFor(deps, filed.repo);
-      if (client === null) throw new HttpError(503, 'daemon_unavailable');
+      const client = await requireDaemon(services, deps, filed.repo);
       try {
         await client.pause(String(filed.issue));
       } catch (error) {
@@ -177,8 +186,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       if (row.state === 'paused_budget') throw new HttpError(409, 'job_budget_paused');
       const deps = c.get('deps');
       const filed = ticket(row);
-      const client = await services.daemonFor(deps, filed.repo);
-      if (client === null) throw new HttpError(503, 'daemon_unavailable');
+      const client = await requireDaemon(services, deps, filed.repo);
       try {
         await client.resume(String(filed.issue));
       } catch (error) {
@@ -193,8 +201,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       const body = await parseBody(c, messageBody);
       const deps = c.get('deps');
       const filed = ticket(row);
-      const client = await services.daemonFor(deps, filed.repo);
-      if (client === null) throw new HttpError(503, 'daemon_unavailable');
+      const client = await requireDaemon(services, deps, filed.repo);
       try {
         return c.json(await client.message(String(filed.issue), body.text, body.messageId), 202);
       } catch (error) {
@@ -214,8 +221,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       if (!checkpoint) throw new HttpError(404, 'checkpoint_not_found');
       if (checkpoint.status !== 'open') throw new HttpError(409, 'checkpoint_not_open');
       const filed = ticket(row);
-      const client = await services.daemonFor(deps, filed.repo);
-      if (client === null) throw new HttpError(503, 'daemon_unavailable');
+      const client = await requireDaemon(services, deps, filed.repo);
 
       try {
         await client.decide(checkpoint.decisionId, {
