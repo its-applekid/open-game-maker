@@ -1,20 +1,50 @@
 name: ci
+
 on:
   pull_request:
     branches: [main]
   push:
     branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  GM_VERIFY_SOFTWARE_GL: '1'
+
 jobs:
   required:
     name: required
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install and test (when a workspace exists)
+      - name: Enable pnpm
+        run: corepack enable || npm i -g pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: Browser tests (packages that declare test:browser)
         run: |
-          if [ -f pnpm-lock.yaml ]; then corepack enable && pnpm install --frozen-lockfile && pnpm -r --if-present run lint && pnpm -r --if-present run typecheck && pnpm -r --if-present run test;
-          elif [ -f package-lock.json ]; then npm ci && npm test --if-present;
-          else echo "no workspace yet; nothing to test"; fi
+          browser_package=$(grep -rls '"test:browser"' --include=package.json apps packages services skills templates 2>/dev/null | head -n 1)
+          if [[ -n "$browser_package" ]]; then
+            pnpm --dir "$(dirname "$browser_package")" exec playwright install --with-deps chromium
+            pnpm -r --if-present run test:browser
+          else
+            echo "no browser tests"
+          fi
+      - name: Ops shell tests (ops/test/*.sh, added by OGM-002/006/008)
+        run: |
+          shopt -s nullglob; rc=0
+          for t in ops/test/*.sh; do echo "== $t"; bash "$t" || rc=1; done
+          exit $rc
+      - run: node .github/scripts/smoke-workspace.mjs

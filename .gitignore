@@ -10,3 +10,26 @@ scripts/drive-sync/.venv/
 __pycache__/
 docs/research/v0.5/schemas/tools/node_modules/
 scripts/audio/.venv/
+
+# workspace
+node_modules/
+dist/
+*.tsbuildinfo
+coverage/
+test-results/
+playwright-report/
+.turbo/
+*.local
+.env
+.env.*
+!.env.example
+
+# python workers (OGM-009 layout)
+scripts/py/*/.venv/
+.pytest_cache/
+
+# host and tool state
+.netlify/
+**/.netlify/
+.claude/worktrees/
+prototypes/ui-v0/tools/_pf.mjs
