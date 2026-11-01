@@ -13,8 +13,8 @@ The destination must be empty. The command copies the scaffold-only engine templ
 `gm.lock.json`, writes `AGENTS.md`, and installs the committed skill layout and `skills.lock`. It does not install
 packages or add game entities. Install afterward with `pnpm install --offline --frozen-lockfile`.
 
-When `packages/asset-cards/data/style-families.json` is available, `--family` must name one of its ids. Before that
-registry ships, the choice is recorded with a warning.
+`--family` must name a family id from `packages/asset-cards/data/style-families.json`, the registry `gm assets search`
+reads. A set id (for example `limezu-modern`) is refused with its family named; sets stay nested under their family.
 
 ## Refresh the skill pack
 

@@ -121,6 +121,13 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_API_INTERNAL_URL', unit: 'commit', kind: 'url', doc: 'loopback URL of the internal API' },
   { name: 'OGM_BUILDER_BOT_LOGIN', unit: 'commit', kind: 'string', doc: 'builder bot invited to game repositories' },
   {
+    name: 'OGM_BUILDER_WORKSPACES_ROOT',
+    unit: 'api',
+    kind: 'path',
+    doc: "root of the builder agents' aiur workspaces; the build chat relay reads <ws>/.gm/outbox/*.jsonl",
+  },
+  { name: 'OGM_CHAT_POLL_MS', unit: 'api', kind: 'int', doc: 'build chat aiur progress poll period (default 10000)' },
+  {
     name: 'OGM_PLATFORM_ISSUE_REPO',
     unit: 'commit',
     kind: 'string',

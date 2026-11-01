@@ -1,3 +1,1 @@
-export function useSession(): null {
-  return null;
-}
+export { useSession } from './auth';

@@ -68,6 +68,10 @@ class Library(unittest.TestCase):
                                       "sidetrax-pack-60-battle": "local-only"})
         self.assertEqual(card_of(self.root, SYNTY)["license"], "LicenseRef-synty-personal")
         self.assertEqual(card_of(self.root, KENNEY)["status"], "tagged")
+        self.assertEqual(card_of(self.root, KENNEY)["describe"]["set"], "kenney-1-bit")
+        set_provenance = card_of(self.root, KENNEY)["provenance"]["describe.set"]
+        self.assertEqual(set_provenance["by"], "code")
+        self.assertEqual(set_provenance["input"], "packages/asset-cards/data/style-families.json")
 
     def test_untagged_pack_is_a_draft_seeded_from_its_title(self):
         """No describe tags are invented for packs the tags file does not cover."""

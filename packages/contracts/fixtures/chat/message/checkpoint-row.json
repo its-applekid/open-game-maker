@@ -1,0 +1,25 @@
+{
+  "id": "01JBX2R1A2B3C4D5E6F7G8H9JK",
+  "job_id": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+  "at": "2026-11-01T09:15:00Z",
+  "actor": "agent",
+  "kind": "checkpoint",
+  "text": "Which door looks right?",
+  "checkpoint": {
+    "decision_id": "",
+    "question": "Which door looks right?",
+    "options": [
+      {
+        "id": "a",
+        "label": "Wooden",
+        "media_id": "01JBX2Q7M3K8V5N4R6T9W0YZAB"
+      },
+      {
+        "id": "b",
+        "label": "Iron"
+      }
+    ],
+    "recommend": "a",
+    "status": "open"
+  }
+}
