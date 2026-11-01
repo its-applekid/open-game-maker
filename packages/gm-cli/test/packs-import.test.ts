@@ -91,6 +91,26 @@ describe('gm packs import', () => {
     expect(await readFile(join(extracted, 'Demons', 'readme.txt'), 'utf8')).toBe('Demons');
   });
 
+  it('confirms a collection with measured assets as measured', async () => {
+    // The ticket's confirm step lands on `measured` when measurement ran, so default search shows measured kinds.
+    const assets = fresh('gm-pack-assets-');
+    const env = { OGM_ASSETS_ROOT: assets };
+    expect(
+      (await gm(['packs', 'import', await unknownFixture(), '--id', 'measured-test', '--version', '1'], { env })).code,
+    ).toBe(0);
+
+    const confirm = await gm(
+      ['packs', 'import', '--confirm', 't1:measured-test@1', '--license', 'CC0-1.0', '--confirmed-by', 'kevin'],
+      { env },
+    );
+
+    expect(confirm.code, confirm.err.join('\n')).toBe(0);
+    const collection = JSON.parse(
+      await readFile(join(assets, 'packs', 'measured-test', 'collection.card.json'), 'utf8'),
+    );
+    expect(collection.status).toBe('measured');
+  });
+
   it('never confirms a licence from evidence inside the drop', async () => {
     // Anyone can put a CC0 note or a Synty folder layout in a drop; only --license (or --confirm) may widen rights.
     const assets = fresh('gm-pack-assets-');

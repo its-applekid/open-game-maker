@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import { readFile, rename, writeFile } from 'node:fs/promises';
+import { readFile, readdir, rename, writeFile } from 'node:fs/promises';
 import { basename, dirname, join } from 'node:path';
 
 import { licenseFor } from '@ogm/asset-cards';
@@ -64,6 +64,15 @@ function parseDecision(value: string, date: string, name: string): RightsBasis {
   };
 }
 
+async function anyMeasured(cardsDir: string): Promise<boolean> {
+  const names = await readdir(cardsDir, { recursive: true }).catch(() => [] as string[]);
+  for (const name of names.filter((file) => file.endsWith('.card.json'))) {
+    const asset = JSON.parse(await readFile(join(cardsDir, name), 'utf8')) as { status?: string };
+    if (asset.status === 'measured') return true;
+  }
+  return false;
+}
+
 export async function confirmCollection(
   options: ConfirmOptions,
 ): Promise<{ collection: string; status: 'imported'; license: string }> {
@@ -94,7 +103,7 @@ export async function confirmCollection(
   ] as [RightsBasis, ...RightsBasis[]];
   const effective = effectiveRights(basis);
   card.license = row.id;
-  card.status = 'draft';
+  card.status = (await anyMeasured(join(packRoot, 'cards'))) ? 'measured' : 'draft';
   card.rights = {
     uses: [...effective.uses],
     audience: effective.audience,
