@@ -2,5 +2,11 @@
   "printWidth": 120,
   "singleQuote": true,
   "semi": true,
-  "trailingComma": "all"
+  "trailingComma": "all",
+  "overrides": [
+    {
+      "files": "packages/asset-cards/data/style-families.json",
+      "options": { "printWidth": 1000 }
+    }
+  ]
 }
