@@ -23,7 +23,7 @@ export class CommitServiceRepoProvisioner implements RepoProvisioner {
   constructor(input: { baseUrl: string; token: string; templateRef?: string; fetch?: typeof fetch }) {
     this.#baseUrl = input.baseUrl.replace(/\/$/, '');
     this.#token = input.token;
-    this.#templateRef = input.templateRef ?? 'templates/game-2d@main';
+    this.#templateRef = input.templateRef ?? 'game-2d@1';
     this.#fetch = input.fetch ?? fetch;
   }
 

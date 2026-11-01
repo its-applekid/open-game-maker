@@ -11,6 +11,12 @@
     },
     {
       "path": "../../packages/db"
+    },
+    {
+      "path": "../../packages/contracts"
+    },
+    {
+      "path": "../../packages/game-repo-template"
     }
   ]
 }

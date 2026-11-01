@@ -1,7 +1,8 @@
 import { normalizeCommitPath } from '../paths.js';
 import type { GitHubIdentity, GitHubRequest } from '../types.js';
 
-export type ContentFile = { path: string; content: string };
+// `120000` is a symlink whose content is its target; `100755` an executable.
+export type ContentFile = { path: string; content: string; mode?: '100644' | '100755' | '120000' };
 
 export async function createTreeFromFiles(
   request: GitHubRequest,
@@ -9,7 +10,7 @@ export async function createTreeFromFiles(
   files: ContentFile[],
   baseTree?: string,
 ): Promise<string> {
-  const tree: { path: string; mode: '100644'; type: 'blob'; sha: string }[] = [];
+  const tree: { path: string; mode: NonNullable<ContentFile['mode']>; type: 'blob'; sha: string }[] = [];
   for (const file of files) {
     const path = normalizeCommitPath(file.path);
     const blob = await request<{ sha: string }>('POST /repos/{owner}/{repo}/git/blobs', {
@@ -17,7 +18,7 @@ export async function createTreeFromFiles(
       content: Buffer.from(file.content, 'utf8').toString('base64'),
       encoding: 'base64',
     });
-    tree.push({ path, mode: '100644', type: 'blob', sha: blob.data.sha });
+    tree.push({ path, mode: file.mode ?? '100644', type: 'blob', sha: blob.data.sha });
   }
   const response = await request<{ sha: string }>('POST /repos/{owner}/{repo}/git/trees', {
     ...repo,
