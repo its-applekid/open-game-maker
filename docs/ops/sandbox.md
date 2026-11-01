@@ -26,11 +26,11 @@ credential files out of reach) is not needed.
 
 What stays open:
 
-- **Commands inherit the daemon's environment.** The profile sets no `shell_environment_policy`, and Codex 0.162.1
-  then passes every variable through, including `*_TOKEN` and `*_KEY` names (t06 shows them when run from an
-  environment that has them). Setting `shell_environment_policy.ignore_default_excludes = false` in the profile
-  drops them (checked by hand); until the profile carries it, start the game-builder daemon with no secret in its
-  environment.
+- **Commands no longer inherit the daemon's environment** (closed by #118). The profile carries
+  `[shell_environment_policy] inherit = "core", ignore_default_excludes = false`, so a sandboxed command sees only
+  HOME, PATH, LANG, USER, LOGNAME, SHELL and PWD; `*_TOKEN` and `*_KEY` names from the caller never reach it, and
+  t06 PASSes from an environment that carries them. The results block below predates that change (its t06 row
+  shows the FAIL that found the gap); refresh it with `--write` from a plain host shell.
 - **Same uid.** A kernel or sandbox escape is the user's own account, and the bot PAT in
   `~/.aiur/github-budget/agent-token` is readable by the daemon's processes outside Layer A (E03-8). The real fix is
   a second user: `sudo adduser ogm-builder` plus an SSH key, so the daemon runs its Codex workers over aiur's SSH
