@@ -1,8 +1,9 @@
 import type { ScreenRoute } from '../../app/screen';
+import { TitleScreen } from './TitleScreen';
 
 export const route: ScreenRoute = {
   path: '/',
-  element: <h1>Open Game Maker 2000</h1>,
+  element: <TitleScreen />,
   chrome: 'bare',
   auth: 'none',
 };

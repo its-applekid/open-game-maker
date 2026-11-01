@@ -1,0 +1,21 @@
+.toasts {
+  position: fixed;
+  inset-inline: 0;
+  top: max(12px, var(--safe-t));
+  z-index: 40;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: var(--r);
+  background: var(--paper);
+  backdrop-filter: var(--glass);
+  color: var(--ink);
+  font: 700 15px var(--body);
+  box-shadow: var(--pop-sm);
+}
