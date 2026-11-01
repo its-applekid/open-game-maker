@@ -1,0 +1,26 @@
+{
+  "name": "@ogm/config",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./names": {
+      "types": "./dist/names.d.ts",
+      "default": "./dist/names.js"
+    }
+  },
+  "bin": {
+    "ogm-env-init": "bin/ogm-env-init.mjs"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "pretest": "pnpm run build",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src"
+  }
+}

@@ -1,0 +1,254 @@
+import { AiurConfigError, AiurHttpError, AiurUnavailableError } from './errors.js';
+import {
+  CancelResultSchema,
+  ControlResultSchema,
+  DecisionMutationSchema,
+  DecisionPageSchema,
+  DecisionSchema,
+  EventPageSchema,
+  EventsTokenSchema,
+  IssueEntrySchema,
+  MessageResultSchema,
+  SpendCapSchema,
+  TicketProgressSchema,
+  TicketUsageSchema,
+  UsageAccountsSchema,
+  parseContract,
+  type CancelResult,
+  type Decision,
+  type EventPage,
+  type IssueEntry,
+  type SpendCap,
+  type TicketProgress,
+  type TicketUsage,
+  type UsageAccounts,
+} from './schemas.js';
+
+export type AiurDaemon = {
+  baseUrl: string;
+  token: string;
+  supervisorToken?: string;
+};
+
+type DecisionReasoning = {
+  expected_version: number;
+  idempotency_key: string;
+  rationale: string;
+  confidence: number;
+  alternatives_considered: string[];
+  reversibility_belief: 'reversible' | 'partially_reversible' | 'irreversible';
+};
+
+export type DecisionAnswer = DecisionReasoning &
+  ({ option: string; response?: never } | { option?: never; response: string });
+
+export interface AiurClient {
+  readonly baseUrl: string;
+  issue(id: string): Promise<IssueEntry>;
+  usage(id: string): Promise<TicketUsage>;
+  progress(id: string, limit?: number): Promise<TicketProgress>;
+  setSpendCap(id: string, usd: string): Promise<SpendCap>;
+  cancel(id: string): Promise<CancelResult>;
+  pause(id: string): Promise<void>;
+  resume(id: string): Promise<void>;
+  message(id: string, text: string, messageId?: string): Promise<{ request_id: string; warning?: 'outcome_unknown' }>;
+  nudgeTodo(ids: string[]): Promise<void>;
+  accounts(): Promise<UsageAccounts>;
+  events(after: number, limit: number, patterns: string[]): Promise<EventPage>;
+  eventsToken(): Promise<{ token: string; expires_in_seconds: number }>;
+  decisions(): Promise<Decision[]>;
+  decision(id: string): Promise<Decision>;
+  decide(id: string, answer: DecisionAnswer): Promise<Decision>;
+  healthz(): Promise<boolean>;
+}
+
+export type AiurClientOptions = {
+  messageRetryDelayMs?: number;
+};
+
+type RequestOptions = {
+  body?: unknown;
+  write?: boolean;
+  supervisor?: boolean;
+  allowStatuses?: number[];
+};
+
+const ISSUE_ID = /^[1-9][0-9]{0,18}$/;
+const USD = /^(?:0|[1-9][0-9]{0,11})(?:\.[0-9]{1,6})?$/;
+
+export function createAiurClient(
+  daemon: AiurDaemon,
+  fetchImpl: typeof fetch = globalThis.fetch,
+  options: AiurClientOptions = {},
+): AiurClient {
+  const baseUrl = daemon.baseUrl.replace(/\/$/, '');
+  const retryDelay = options.messageRetryDelayMs ?? 1000;
+
+  async function fetchResponse(
+    method: string,
+    path: string,
+    request: RequestOptions = {},
+  ): Promise<{ response: Response; body: unknown }> {
+    const token = request.supervisor ? daemon.supervisorToken : daemon.token;
+    if (!token) throw new AiurConfigError('A supervisor token is required for Decision API calls');
+
+    const headers = new Headers({ authorization: `Bearer ${token}`, accept: 'application/json' });
+    if (request.body !== undefined) headers.set('content-type', 'application/json');
+    if (request.write) {
+      headers.set('origin', baseUrl);
+      headers.set('x-aiur-request', '1');
+    }
+
+    let response: Response;
+    let body: unknown;
+    try {
+      response = await fetchImpl(`${baseUrl}${path}`, {
+        method,
+        headers,
+        body: request.body === undefined ? undefined : JSON.stringify(request.body),
+      });
+      body = await responseBody(response);
+    } catch (cause) {
+      throw new AiurUnavailableError(baseUrl, cause);
+    }
+
+    if (!response.ok && !request.allowStatuses?.includes(response.status)) {
+      throw httpError(response.status, body, baseUrl);
+    }
+    return { response, body };
+  }
+
+  async function writeWithoutResult(path: string): Promise<void> {
+    await fetchResponse('POST', path, { write: true });
+  }
+
+  async function sendMessage(id: string, text: string, messageId?: string, retry = false) {
+    const body = messageId ? { text, message_id: messageId } : { text };
+    const result = await fetchResponse('POST', `/api/v1/${encodeURIComponent(id)}/messages`, { body, write: true });
+    const parsed = MessageResultSchema.parse(result.body);
+    if (parsed.outcome === 'unknown' && messageId && !retry) {
+      await sleep(retryDelay);
+      return sendMessage(id, text, messageId, true);
+    }
+    return {
+      request_id: parsed.request_id ?? '',
+      ...(parsed.outcome === 'unknown' ? { warning: 'outcome_unknown' as const } : {}),
+    };
+  }
+
+  return {
+    baseUrl,
+    async issue(id) {
+      const { body } = await fetchResponse('GET', `/api/v1/${encodeURIComponent(id)}`);
+      return parseContract(IssueEntrySchema, body);
+    },
+    async usage(id) {
+      const { body } = await fetchResponse('GET', `/api/v1/${encodeURIComponent(id)}/usage`);
+      return parseContract(TicketUsageSchema, body);
+    },
+    async progress(id, limit) {
+      const query = limit === undefined ? '' : `?limit=${encodeURIComponent(String(limit))}`;
+      const { body } = await fetchResponse('GET', `/api/v1/${encodeURIComponent(id)}/progress${query}`);
+      return parseContract(TicketProgressSchema, body);
+    },
+    async setSpendCap(id, usd) {
+      if (!USD.test(usd) || Number(usd) <= 0)
+        throw new TypeError('USD amount must be a positive decimal string with at most 6 fraction digits');
+      const { body } = await fetchResponse('PUT', `/api/v1/${encodeURIComponent(id)}/spend-cap`, {
+        body: { amount: usd, currency: 'USD' },
+        write: true,
+      });
+      return parseContract(SpendCapSchema, body);
+    },
+    async cancel(id) {
+      const { body, response } = await fetchResponse('POST', `/api/v1/${encodeURIComponent(id)}/cancel`, {
+        write: true,
+        allowStatuses: [409],
+      });
+      const parsed = CancelResultSchema.safeParse(body);
+      if (parsed.success) return parsed.data;
+      if (!response.ok) throw httpError(response.status, body, baseUrl);
+      return CancelResultSchema.parse(body);
+    },
+    pause: (id) => writeWithoutResult(`/api/v1/${encodeURIComponent(id)}/pause`),
+    resume: (id) => writeWithoutResult(`/api/v1/${encodeURIComponent(id)}/resume`),
+    message: (id, text, messageId) => sendMessage(id, text, messageId),
+    async nudgeTodo(ids) {
+      if (ids.length === 0 || ids.some((id) => !ISSUE_ID.test(id)))
+        throw new TypeError('Invalid issue identifier in todo list');
+      const expression = `todo([${ids.map((id) => JSON.stringify(id)).join(',')}], only: true)`;
+      const { body } = await fetchResponse('POST', '/api/v1/control', {
+        body: {
+          contract: 'aiur.control.call',
+          contract_version: 1,
+          expression,
+          max_scope: 'write',
+        },
+        write: true,
+      });
+      parseContract(ControlResultSchema, body);
+    },
+    async accounts() {
+      const { body } = await fetchResponse('GET', '/api/v1/usage/accounts');
+      return parseContract(UsageAccountsSchema, body);
+    },
+    async events(after, limit, patterns) {
+      const query = new URLSearchParams({ after: String(after), limit: String(limit), topics: patterns.join(',') });
+      const { body } = await fetchResponse('GET', `/api/v1/events?${query.toString()}`);
+      return EventPageSchema.parse(body);
+    },
+    async eventsToken() {
+      const { body } = await fetchResponse('POST', '/api/v1/events/token', { write: true });
+      return EventsTokenSchema.parse(body);
+    },
+    async decisions() {
+      const { body } = await fetchResponse('GET', '/api/v1/decisions', { supervisor: true });
+      return DecisionPageSchema.parse(body).decisions;
+    },
+    async decision(id) {
+      const { body } = await fetchResponse('GET', `/api/v1/decisions/${encodeURIComponent(id)}`, { supervisor: true });
+      return DecisionSchema.parse(body);
+    },
+    async decide(id, answer) {
+      const { option, response, ...reasoning } = answer;
+      const { body } = await fetchResponse('POST', `/api/v1/decisions/${encodeURIComponent(id)}/decide`, {
+        body: { ...reasoning, ...(option === undefined ? { custom_response: response } : { option_id: option }) },
+        write: true,
+        supervisor: true,
+      });
+      return DecisionMutationSchema.parse(body).decision;
+    },
+    async healthz() {
+      try {
+        const response = await fetchImpl(`${baseUrl}/healthz`);
+        return response.ok;
+      } catch (cause) {
+        throw new AiurUnavailableError(baseUrl, cause);
+      }
+    },
+  };
+}
+
+async function responseBody(response: Response): Promise<unknown> {
+  if (response.status === 204) return undefined;
+  const text = await response.text();
+  if (text === '') return undefined;
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return text;
+  }
+}
+
+function httpError(status: number, body: unknown, daemon: string): AiurHttpError {
+  const record = typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {};
+  const rawError = record.error;
+  const error = typeof rawError === 'object' && rawError !== null ? (rawError as Record<string, unknown>) : {};
+  const code = typeof error.code === 'string' ? error.code : typeof rawError === 'string' ? rawError : `http_${status}`;
+  const message = typeof error.message === 'string' ? error.message : `Aiur request failed with HTTP ${status}`;
+  return new AiurHttpError(status, code, message, daemon);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}

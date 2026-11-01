@@ -1,0 +1,95 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+  printf 'usage: ogm-run <api|rooms|games|voice-host|intake|drive-sync|aiur|backup> [slug]\n' >&2
+  exit 64
+}
+
+placeholder() {
+  local service=$1
+  local reason=${2:-waiting for service build}
+
+  printf 'PLACEHOLDER %s: %s\n' "$service" "$reason" >&2
+  if [[ -n ${OGM_SLEEP:-} ]]; then
+    exec bash -c "$OGM_SLEEP"
+  fi
+  exec sleep infinity
+}
+
+placeholder_once() {
+  local service=$1
+
+  printf 'PLACEHOLDER %s\n' "$service" >&2
+  exit 0
+}
+
+run_node_service() {
+  local service=$1
+  local entrypoint=$2
+
+  [[ -f $entrypoint ]] || placeholder "$service"
+  exec node "$entrypoint"
+}
+
+[[ $# -ge 1 ]] || usage
+name=$1
+shift
+: "${OGM_REPO:?OGM_REPO must be set}"
+: "${HOME:?HOME must be set}"
+
+case "$name" in
+  api)
+    run_node_service api "$OGM_REPO/services/api/dist/index.js"
+    ;;
+  rooms)
+    run_node_service rooms "$OGM_REPO/services/rooms/dist/index.js"
+    ;;
+  games)
+    run_node_service games "$OGM_REPO/services/games-host/dist/index.js"
+    ;;
+  voice-host)
+    mise=$HOME/.local/bin/mise
+    release=$OGM_REPO/services/voice-host/_build/prod/rel/voice_host/bin/voice_host
+    [[ -x $mise && -x $release ]] || placeholder voice-host
+    exec "$mise" exec -- "$release" start
+    ;;
+  intake)
+    run_node_service intake "$OGM_REPO/services/intake/dist/index.js"
+    ;;
+  drive-sync)
+    worker_dir=
+    for candidate in "$OGM_REPO/scripts/py/drive-sync" "$OGM_REPO/scripts/drive-sync"; do
+      if [[ -f $candidate/drive_sync.py && -x $candidate/.venv/bin/python ]]; then
+        worker_dir=$candidate
+        break
+      fi
+    done
+
+    config=$HOME/.config/ogm/drive-sync.toml
+    credentials=$HOME/.config/ogm/drive-sa.json
+    if [[ -z $worker_dir || ! -f $config || ! -f $credentials ]]; then
+      placeholder drive-sync 'waiting for Drive setup'
+    fi
+    exec "$worker_dir/.venv/bin/python" -I "$worker_dir/drive_sync.py" run
+    ;;
+  aiur)
+    [[ $# -eq 1 && -n ${1:-} ]] || usage
+    slug=$1
+    game_repo=$HOME/.local/share/ogm/repos/$slug
+    aiur=$HOME/.local/bin/aiur
+    [[ -f $game_repo/.aiur/config && -x $aiur && -n ${AIUR_ERLANG_COOKIE:-} ]] ||
+      placeholder aiur "waiting for aiur setup ($slug)"
+    cd -- "$game_repo"
+    exec "$aiur" run --container
+    ;;
+  backup)
+    backup=$OGM_REPO/ops/backup/backup.sh
+    [[ -x $backup ]] || placeholder_once backup
+    exec "$backup"
+    ;;
+  *)
+    usage
+    ;;
+esac
