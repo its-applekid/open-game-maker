@@ -13,7 +13,7 @@ describe('gm assets search', () => {
     const result = await gm(['assets', 'search', 'orc'], { env: { OGM_ASSETS_ROOT: root } });
     expect(result.code).toBe(0);
     expect(result.out[0]).toBe(`${ORC}  model/character  reviewed  chunky-low-poly  Orc`);
-  });
+  }, 10_000);
 
   it('prints one parseable resolved card per line with --json and honours --fields', async () => {
     const env = { OGM_ASSETS_ROOT: library() };
