@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# superseded by gm run / gm shot / gm perf (OGM-090); kept for the town only
 """Build a phone-friendly page of video clips to publish as an artifact (one section per clip, poster frames).
 
     python3 -I tools/clips_page.py <out dir> "<title>" "<one-paragraph intro>" <clip.mp4>="<heading>|<one line>" ...

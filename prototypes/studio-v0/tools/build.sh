@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# archived; the town builds from apps/web/title-town
 # Assemble the publishable folder: page code + Kenney CC0 sprites (art/) + a copy of the ui-v0 dungeon (demo/) with its
 # GLB models re-saved as glTF JSON (artifacts don't serve .glb). art/ and demo/ are gitignored; rebuild them with this script.
 # Goblin Cellar covers (art/goblin-*.webp) come from ui-v0's tools/e2e.mjs screenshots: OUT=<dir> W=1280 H=720 node e2e.mjs,

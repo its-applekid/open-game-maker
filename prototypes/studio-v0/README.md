@@ -1,3 +1,5 @@
+**Archived (OGM-101).** Replaced by `apps/web`; kept for history and the write-up below.
+
 # Studio prototype v0 (throwaway)
 
 The whole studio loop as one page: title screen (big logo and Start over an opinionated scene, three directions to compare at

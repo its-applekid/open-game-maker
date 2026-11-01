@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+// superseded by gm run / gm shot / gm perf (OGM-090); kept for the town only
 // How long a page takes to show on a phone-class device: iPhone 13 profile, CPU slowed 4x (override with a second
 // argument), then a reload to see what the local cache (sw.js) saves. Waits for the studio's town (.t-scene.on) or a
 // page's window.__ready.   node tools/loadtime.mjs <url> [cpu slowdown]
 import { createRequire } from 'module';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../ui-v0/tools') + '/');
+const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../') + '/');
 const { chromium, devices } = require('playwright');
 const [url, rate = 4] = process.argv.slice(2);
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });

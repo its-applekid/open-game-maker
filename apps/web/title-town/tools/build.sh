@@ -2,7 +2,7 @@
 # Copy what the city title prototype loads: three.js r170 (from the studio prototype's vendored copy) and the Kenney city and car
 # models (CC0). vendor/ and models/ are gitignored; rebuild them with this script.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"; HERE="$ROOT/prototypes/title-city"; K="$ROOT/assets-local/packs"
+ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"; HERE="$ROOT/apps/web/title-town"; K="$ROOT/assets-local/packs"
 rm -rf "$HERE/vendor" "$HERE/models"; mkdir -p "$HERE/vendor" "$HERE/models/city" "$HERE/models/cars"
 cp -r "$ROOT/prototypes/studio-v0/demo/vendor/three" "$HERE/vendor/"
 mkdir -p "$HERE/vendor/three/examples/jsm/exporters"; curl -sfL https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/exporters/GLTFExporter.js -o "$HERE/vendor/three/examples/jsm/exporters/GLTFExporter.js"

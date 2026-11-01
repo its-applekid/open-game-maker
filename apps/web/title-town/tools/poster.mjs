@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// superseded by gm run / gm shot / gm perf (OGM-090); kept for the town only
 // The looping poster the studio menu shows while the town loads: the menu view exactly as it first appears (with the
 // scenes set up but held at their first moment, as the reveal shows it), only the water moving (?poster), the end
 // cross-faded into the start so it loops without a seam.
@@ -10,9 +11,9 @@ import { mkdirSync, rmSync } from 'fs';
 import { execFileSync } from 'child_process';
 import { dirname, resolve, join } from 'path';
 import { fileURLToPath } from 'url';
-const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../ui-v0/tools') + '/');
+const HERE = dirname(fileURLToPath(import.meta.url)), require = createRequire(resolve(HERE, '../../') + '/');
 const { chromium } = require('playwright');
-const PY = resolve(HERE, '../../../scripts/audio/.venv/bin/python'), OUT = resolve(HERE, '../models/bake'), FPS = 12, L = 4, X = .8;   // loop seconds, cross-fade seconds
+const PY = resolve(HERE, '../../../../scripts/audio/.venv/bin/python'), OUT = resolve(HERE, '../models/bake'), FPS = 12, L = 4, X = .8;   // loop seconds, cross-fade seconds
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
 // each at the widest shape of its orientation: the camera keeps its vertical view, so cropping the sides (object-fit: cover) on
 // a narrower screen gives exactly the live framing

@@ -6,7 +6,7 @@ import { createRequire } from 'module';
 import { mkdirSync, writeFileSync } from 'fs';
 import { dirname, join, resolve } from 'path';
 import { fileURLToPath } from 'url';
-const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../ui-v0/tools') + '/');
+const require = createRequire(resolve(dirname(fileURLToPath(import.meta.url)), '../../') + '/');
 const { chromium } = require('playwright');
 
 const HERE = resolve(dirname(fileURLToPath(import.meta.url)), '..'), OUT = join(HERE, 'models/variants'), PORT = process.env.PORT || 8792;
