@@ -32,7 +32,7 @@ afterEach(() => {
   for (const cleanup of cleanups.splice(0)) cleanup();
 });
 
-async function fakeHost(delayMs = 0) {
+async function fakeHost(delayMs = 0, status = 204) {
   const received: Received[] = [];
   const server: Server = createServer((req: IncomingMessage, res) => {
     let raw = '';
@@ -41,7 +41,7 @@ async function fakeHost(delayMs = 0) {
       if (req.url === '/internal/briefing' && req.method === 'POST') {
         received.push({ auth: req.headers.authorization, body: JSON.parse(raw) as Record<string, unknown> });
       }
-      setTimeout(() => res.writeHead(204).end(), delayMs);
+      setTimeout(() => res.writeHead(status).end(), delayMs);
     });
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
@@ -135,6 +135,22 @@ describe('pushBriefing', () => {
     await pushBriefing(pushDeps, slow);
     expect(deps.lines.filter((line) => line.event === 'briefing-push-failed')).toHaveLength(1);
     cleanups.push(startBriefingPush({ ...pushDeps, events: deps.events })); // clears the failure log
+  });
+
+  it('logs a voice host that refuses the push', async () => {
+    const deps = worked();
+    const host = await fakeHost(0, 401);
+    await pushBriefing(
+      { db: deps.db, defaults, url: host.url, secret: SECRET, log: deps.log, timeoutMs: 5_000 },
+      { ...scope, session_id: 's_401' },
+    );
+    expect(deps.lines).toContainEqual(
+      expect.objectContaining({
+        event: 'briefing-push-failed',
+        target_key: 'scope:s_401',
+        error: 'voice host answered 401',
+      }),
+    );
   });
 
   it('survives a voice host that is down', async () => {

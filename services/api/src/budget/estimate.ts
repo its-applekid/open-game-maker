@@ -69,8 +69,8 @@ export function estimate(
   };
 }
 
-const percentile = (sorted: readonly number[], p: number) =>
-  sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
+// Nearest rank: p80 of five samples is the fourth, so one outlier does not become the price.
+const percentile = (sorted: readonly number[], p: number) => sorted[Math.max(0, Math.ceil(p * sorted.length) - 1)];
 
 // Replaces a seed row only once a (kind, size class) has MIN_SAMPLES done jobs with real usage.
 export function refineSizeClasses(db: Db): { updated: { kind: RowKind; sizeClass: SizeClass; samples: number }[] } {

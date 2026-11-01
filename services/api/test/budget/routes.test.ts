@@ -61,6 +61,16 @@ describe('POST /api/v1/budget/estimate', () => {
     });
   });
 
+  it('answers 404 for an unknown game', async () => {
+    const { app } = await makeApp(worked());
+    const response = await app.request('/api/v1/budget/estimate', {
+      method: 'POST',
+      headers: { ...asUser(ids.creator), 'content-type': 'application/json' },
+      body: JSON.stringify({ gameId: 'g_18000000-0000-4000-8000-00000000ffff', summary: 'fix the jump' }),
+    });
+    expect(response.status).toBe(404);
+  });
+
   it('refuses a game the caller cannot build', async () => {
     const { app } = await makeApp(worked());
     const response = await app.request('/api/v1/budget/estimate', {

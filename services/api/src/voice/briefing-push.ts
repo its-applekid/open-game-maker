@@ -117,7 +117,9 @@ export async function pushBriefing(deps: PushDeps, target: VoiceTarget): Promise
       headers: { authorization: `Bearer ${deps.secret}`, 'content-type': 'application/json' },
       body: JSON.stringify(briefing),
       signal: AbortSignal.timeout(deps.timeoutMs ?? 300),
+      redirect: 'error',
     });
+    await response.body?.cancel();
     if (!response.ok) throw new Error(`voice host answered ${response.status}`);
   } catch (error) {
     const at = Date.now();
