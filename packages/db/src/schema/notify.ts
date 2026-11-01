@@ -1,4 +1,5 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { sql } from 'drizzle-orm';
+import { check, index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const pushSubscriptions = sqliteTable(
   'push_subscriptions',
@@ -14,6 +15,7 @@ export const pushSubscriptions = sqliteTable(
     failures: integer('failures').notNull().default(0),
   },
   (table) => [
+    check('push_subscriptions_failures_check', sql`${table.failures} >= 0`),
     uniqueIndex('push_subscriptions_endpoint_unique').on(table.endpoint),
     index('push_subscriptions_user_idx').on(table.userId),
   ],
