@@ -1,6 +1,6 @@
 import { JobPlan, Reservation, type CreateJobAccepted, type Job, type JobState } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 import { SLOT_STATES } from './state.js';
@@ -122,7 +122,7 @@ export function activeJobsForRepo(db: Db, repo: string): { kind: 'new_game' | 'f
   return db
     .select({ kind: schema.jobs.kind })
     .from(schema.jobs)
-    .where(and(eq(schema.jobs.aiurRepo, repo), inArray(schema.jobs.state, SLOT_STATES)))
+    .where(and(eq(schema.jobs.aiurRepo, repo), inArray(schema.jobs.state, SLOT_STATES), isNull(schema.jobs.releasedAt)))
     .all()
     .map(({ kind }) => ({ kind: kind === 'scope' ? ('feature' as const) : kind }));
 }

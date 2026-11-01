@@ -1,7 +1,7 @@
 import { AiurHttpError, type AiurClient } from '@ogm/aiur-client';
 import type { Job } from '@ogm/contracts';
 import { schema, type Db, type Sqlite } from '@ogm/db';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 import type { AppEvents } from '../app/events.js';
@@ -153,7 +153,12 @@ export function markTerminal(deps: LifecycleDeps, jobId: string, terminal: 'done
           .where(eq(schema.jobs.id, jobId))
           .run();
       }
-      releaseReservation({ db: deps.db, jobId, at, zone: settings.resetZone });
+      const release = deps.db
+        .update(schema.jobs)
+        .set({ releasedAt: at.toISOString(), updatedAt: at.toISOString() })
+        .where(and(eq(schema.jobs.id, jobId), isNull(schema.jobs.releasedAt)))
+        .run();
+      if (release.changes === 1) releaseReservation({ db: deps.db, jobId, at, zone: settings.resetZone });
     })
     .immediate();
   const stored = findJobRow(deps.db, jobId);

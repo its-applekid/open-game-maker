@@ -10,7 +10,7 @@ import type {
 } from '@ogm/contracts';
 import { schema, type Db, type Sqlite } from '@ogm/db';
 import { authorize, type Actor } from '@ogm/policy';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { requireAuthorization } from '../accounts/families.js';
 import { allowanceRemaining, familyDayTotal, platformRemaining } from '../budget/allowance.js';
@@ -132,6 +132,7 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
             eq(schema.jobs.familyId, game.familyId),
             eq(schema.jobs.slot, slot),
             inArray(schema.jobs.state, SLOT_STATES),
+            isNull(schema.jobs.releasedAt),
           ),
         )
         .all().length;

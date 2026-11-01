@@ -15,6 +15,7 @@ import { scanRoutes } from './app/routes-scan.js';
 import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
+import { createApplyUsage, startUsageReconciler } from './budget/aiur-usage.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, byTicket } from './jobs/repo.js';
@@ -88,6 +89,12 @@ const stopAnalyticsRetention = startAnalyticsRetention({
   log,
 });
 const stopScheduler = startScheduler({ ...lifecycleDeps, log });
+const usageReconciler = startUsageReconciler({
+  ...lifecycleDeps,
+  daemonFor: async (repo) => (await daemonDirectory.fleet.daemonFor(repo))?.client ?? null,
+  applyUsage: createApplyUsage(lifecycleDeps),
+  log,
+});
 const feed = startFeedConsumers({
   fleet: daemonDirectory.fleet,
   db,
@@ -108,5 +115,6 @@ server.once('listening', () => log({ event: 'listening', host: API_HOST, port: e
 process.once('SIGTERM', () => {
   stopAnalyticsRetention();
   stopScheduler();
+  usageReconciler.stop();
   void feed.stop().finally(() => server.close(() => sqlite.close()));
 });
