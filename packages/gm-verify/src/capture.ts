@@ -9,6 +9,8 @@ export const SOFTWARE_MAX_FRAMES = 6;
 export const SOFTWARE_MAX_RECORD_S = 5;
 export const MAX_CAPTURE_FRAMES = 120;
 export const FFMPEG_HINT = 'sudo apt install ffmpeg';
+/** A synchronous encode blocks the run's timeout timer, so ffmpeg carries its own limit. */
+export const FFMPEG_TIMEOUT_MS = 5 * 60_000;
 
 /** ffmpeg is missing: the caller refuses (exit 2) with the install hint; stills are already written. */
 export class FfmpegMissingError extends Error {
@@ -25,7 +27,7 @@ export function hasFfmpeg(binary = 'ffmpeg'): boolean {
 
 function ffmpeg(binary: string, args: string[]): void {
   if (!hasFfmpeg(binary)) throw new FfmpegMissingError(binary);
-  execFileSync(binary, ['-loglevel', 'error', '-y', ...args]);
+  execFileSync(binary, ['-loglevel', 'error', '-y', ...args], { timeout: FFMPEG_TIMEOUT_MS, killSignal: 'SIGKILL' });
 }
 
 async function shot(h: HookDriver, ms: number, path: string, type: 'png' | 'jpeg' = 'png'): Promise<void> {

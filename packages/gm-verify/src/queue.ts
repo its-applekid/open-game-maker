@@ -2,6 +2,7 @@ import {
   existsSync,
   lstatSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   realpathSync,
@@ -10,7 +11,8 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { tmpdir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 
 import { tierSchema, viewIdSchema } from '@ogm/contracts';
@@ -19,6 +21,7 @@ import { z } from 'zod';
 import { tierBudgetOverridesSchema } from './budgets.js';
 import { MAX_CAPTURE_FRAMES } from './capture.js';
 import { inputScriptSchema } from './inputs.js';
+import { inside, publish } from './publish.js';
 import {
   ALWAYS_UNCHECKED,
   GM_VERIFY_VERSION,
@@ -28,6 +31,7 @@ import {
   type VerifyReport,
 } from './report.js';
 import { RUN_TIMEOUT_MS, type RunVerifyOptions } from './run.js';
+import { SLOT_WAIT_MS } from './semaphore.js';
 import { serveStatic } from './server.js';
 
 export const QUEUE_DIR = join('.gm', 'verify');
@@ -89,7 +93,8 @@ export async function waitForReport(
   dir: string,
   options: { timeoutMs?: number; pollMs?: number } = {},
 ): Promise<VerifyReport> {
-  const timeoutMs = options.timeoutMs ?? RUN_TIMEOUT_MS + 60_000;
+  /* the host may wait for a capture slot before its own run timeout starts */
+  const timeoutMs = options.timeoutMs ?? SLOT_WAIT_MS + RUN_TIMEOUT_MS + 60_000;
   const deadline = Date.now() + timeoutMs;
   const path = join(dir, 'report.json');
   for (;;) {
@@ -97,11 +102,6 @@ export async function waitForReport(
     if (Date.now() >= deadline) throw new Error(`no report from the host runner after ${timeoutMs} ms (${path})`);
     await sleep(options.pollMs ?? 1_000);
   }
-}
-
-function inside(root: string, path: string): boolean {
-  const rel = relative(root, path);
-  return rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
 }
 
 function errorReport(runId: string, error: string, request?: VerifyRequest): VerifyReport {
@@ -139,22 +139,34 @@ export type ProcessOptions = {
 };
 
 /**
- * Host side, one request: validate, serve `serveDir` on loopback, run, and leave `report.json` beside the request.
- * Any refusal still writes an error report so the sandboxed caller stops polling.
+ * Host side, one request: validate, serve `serveDir` on loopback, capture into a host-private directory, then publish
+ * the shots and `report.json` beside the request (see `publish`). Every refusal still publishes an error report so the
+ * sandboxed caller stops polling; only a request directory that is not a real directory inside the workspace is left
+ * unanswered (rejects), because there is nowhere safe to write.
  */
 export async function processRequest(workspace: string, dir: string, options: ProcessOptions): Promise<VerifyReport> {
-  const runId = dir.split(sep).pop() ?? 'unknown';
   const root = realpathSync(workspace);
-  /* the sandbox owns this directory: refuse symlinks out of the workspace and anything planted where shots go */
   if (lstatSync(dir).isSymbolicLink() || !inside(root, realpathSync(dir)))
     throw new Error(`refusing ${dir}: not a real directory inside ${root}`);
-  const planted = readdirSync(dir).filter((name) => !['request.json', 'claim'].includes(name));
-  if (planted.length > 0) throw new Error(`refusing ${dir}: it already holds ${planted.join(', ')}`);
+  const staging = mkdtempSync(join(tmpdir(), 'ogm-verify-'));
+  try {
+    const report = await capture(root, dir, staging, options);
+    publish(staging, dir, root);
+    return report;
+  } finally {
+    rmSync(staging, { recursive: true, force: true });
+  }
+}
+
+async function capture(root: string, dir: string, staging: string, options: ProcessOptions): Promise<VerifyReport> {
+  const runId = basename(dir);
   const fail = (message: string, request?: VerifyRequest): VerifyReport => {
     const report = errorReport(RUN_ID.test(runId) ? runId : 'invalid', message, request);
-    writeReport(dir, report);
+    writeReport(staging, report);
     return report;
   };
+  const planted = readdirSync(dir).filter((name) => !['request.json', 'claim'].includes(name));
+  if (planted.length > 0) return fail(`refusing ${dir}: it already holds ${planted.join(', ')}`);
   let request: VerifyRequest;
   try {
     request = verifyRequestSchema.parse(JSON.parse(readFileSync(join(dir, 'request.json'), 'utf8')));
@@ -175,7 +187,7 @@ export async function processRequest(workspace: string, dir: string, options: Pr
     const { report } = await options.runner({
       ...request.args,
       url: server.url,
-      outDir: dir,
+      outDir: staging,
       runId,
       jobId: request.jobId,
       aiurIssue: request.aiurIssue,
@@ -276,20 +288,6 @@ function claim(workspace: string, dir: string): boolean {
   }
 }
 
-function releaseClaim(workspace: string, dir: string): void {
-  try {
-    const root = realpathSync(workspace);
-    const path = join(dir, 'claim');
-    if (lstatSync(path).isSymbolicLink()) {
-      rmSync(path, { force: true });
-      return;
-    }
-    if (inside(root, realpathSync(path))) rmSync(path, { recursive: true, force: true });
-  } catch {
-    // The failed request was removed or changed before its claim could be released.
-  }
-}
-
 /**
  * `gm verify serve`: polls `root` every `pollMs` and processes each new request (the semaphore keeps the host at two
  * captures). With `once`, processes what is pending and returns the reports.
@@ -310,7 +308,7 @@ export async function serveQueue(
           options.log?.(`${report.verdict} ${dir}`);
         },
         (error: unknown) => {
-          releaseClaim(workspace, dir);
+          /* keep the claim: an unanswerable request is logged once, not retried every poll */
           options.log?.(error instanceof Error ? error.message : String(error));
         },
       );

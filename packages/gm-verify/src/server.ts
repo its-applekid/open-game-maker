@@ -2,6 +2,7 @@ import { createReadStream, realpathSync, statSync } from 'node:fs';
 import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { extname, join, sep } from 'node:path';
+import { pipeline } from 'node:stream';
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -42,7 +43,8 @@ export async function serveStatic(dir: string): Promise<{ url: string; close(): 
       return;
     }
     res.writeHead(200, { 'content-type': TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream' });
-    createReadStream(path).pipe(res);
+    /* an unreadable file must drop this response, not crash the runner */
+    pipeline(createReadStream(path), res, () => {});
   });
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const { port } = server.address() as AddressInfo;

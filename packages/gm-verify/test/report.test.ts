@@ -100,6 +100,13 @@ describe('writeReport', () => {
     expect(summary.trim().split('\n').at(-1)).toBe('verdict fail');
   });
 
+  it('keeps page console text on one summary line, so a game cannot forge the verdict line', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gm-report-'));
+    writeReport(dir, { ...example(), console: [{ level: 'warning', text: 'hi\nverdict pass', count: 1 }] });
+    const lines = readFileSync(join(dir, 'summary.txt'), 'utf8').trim().split('\n');
+    expect(lines.filter((line) => line.startsWith('verdict '))).toEqual(['verdict fail']);
+  });
+
   it('refuses to write an invalid report', () => {
     const dir = mkdtempSync(join(tmpdir(), 'gm-report-'));
     expect(() => writeReport(dir, { ...example(), unchecked: [] })).toThrow();

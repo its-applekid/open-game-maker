@@ -107,14 +107,18 @@ export function unknownBudgets(): VerifyReport['budgets'] {
   };
 }
 
+/** Page-controlled text stays on its own line, so a game cannot print a fake `verdict` line into the summary. */
+// eslint-disable-next-line no-control-regex -- stripping control characters is the point
+const oneLine = (text: string): string => text.replace(/[\u0000-\u001f\u007f]+/g, ' ');
+
 export function summaryLines(report: VerifyReport): string[] {
   const lines = [`renderer ${report.renderer}${report.software ? ' (software)' : ''}`];
   for (const key of BUDGET_KEYS) {
     const [actual, limit, status] = report.budgets[key];
     lines.push(`${key} ${actual} / ${limit} ${status}`);
   }
-  for (const entry of report.console) lines.push(`console ${entry.level} x${entry.count} ${entry.text}`);
-  if (report.error) lines.push(`error ${report.error}`);
+  for (const entry of report.console) lines.push(`console ${entry.level} x${entry.count} ${oneLine(entry.text)}`);
+  if (report.error) lines.push(`error ${oneLine(report.error)}`);
   lines.push(`unchecked ${report.unchecked.join(', ')}`);
   lines.push(`verdict ${report.verdict}`);
   return lines;

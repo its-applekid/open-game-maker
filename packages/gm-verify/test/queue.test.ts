@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -71,7 +71,8 @@ describe('verify queue', () => {
     expect(report.verdict).toBe('pass');
     expect(report.probes.served).toBe('<p>game</p>');
     expect(seen[0].url).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/$/);
-    expect(seen[0].outDir).toBe(dir);
+    expect(seen[0].outDir).not.toBe(dir);
+    expect(existsSync(join(dir, 'summary.txt'))).toBe(true);
     expect(seen[0].frames).toEqual([0]);
     expect(seen[0].aiurIssue).toBe(45);
     expect(seen[0].aiurRunId).toBe('aiur/45');
@@ -163,6 +164,32 @@ describe('verify queue', () => {
       processRequest(workspace, requestDir(workspace, 'link'), { runner: fakeRunner([]), software: false }),
     ).rejects.toThrow(/not a real directory/);
     expect(existsSync(join(outside, 'report.json'))).toBe(false);
+  });
+
+  it('never writes through a symlink the sandbox plants in its request directory during the run', async () => {
+    const { workspace } = workspaces();
+    const victim = join(mkdtempSync(join(tmpdir(), 'gm-victim-')), 'precious.txt');
+    writeFileSync(victim, 'keep me');
+    const dir = submitRequest(workspace, request({ runId: 'swap' }));
+    const planting: Runner = async (options) => {
+      symlinkSync(victim, join(dir, 'summary.txt'));
+      return fakeRunner([])(options);
+    };
+    await expect(processRequest(workspace, dir, { runner: planting, software: false })).rejects.toThrow(/EEXIST/);
+    expect(readFileSync(victim, 'utf8')).toBe('keep me');
+  });
+
+  it('answers a refused request with an error report and does not run it again', async () => {
+    const { root, workspace } = workspaces();
+    const dir = submitRequest(workspace, request({ runId: 'planted' }));
+    writeFileSync(join(dir, 'stray.png'), '');
+    const seen: RunVerifyOptions[] = [];
+    await serveQueue(root, { runner: fakeRunner(seen), software: false, once: true });
+    await serveQueue(root, { runner: fakeRunner(seen), software: false, once: true });
+    expect(seen).toHaveLength(0);
+    const report = await waitForReport(dir, { timeoutMs: 100 });
+    expect(report.verdict).toBe('error');
+    expect(report.error).toMatch(/already holds stray\.png/);
   });
 
   it('does not create a claim through a symlinked request during queue scans', async () => {
