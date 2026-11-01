@@ -3,7 +3,15 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+import hash_manifest as h
+import import_profantasy_docs as d
 import tag_maps as t
+
+
+def test_repo_root_tracks_the_worker_layout():
+    """Every map worker must resolve repository paths correctly from scripts/py/maps."""
+    assert (t.REPO / "scripts/py/maps").is_dir()
+    assert t.REPO == h.REPO == d.REPO
 
 
 def test_standees_and_symbol_sheets_are_not_maps():

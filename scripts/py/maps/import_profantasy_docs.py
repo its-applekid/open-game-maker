@@ -1,6 +1,6 @@
 """Copy every ProFantasy PDF (install tree + downloads) into the inspiration collection and index it (goal item 11).
 
-usage: python3 -I scripts/maps/import_profantasy_docs.py
+usage: python3 -I scripts/py/maps/import_profantasy_docs.py
 writes assets-local/inspiration/profantasy-cc3/docs/<source>/<path>.pdf (deduplicated by sha256) and docs/index.json:
   [{"path", "title", "source", "sha256", "bytes", "pages", "keywords"}]
 C3 has no asset kind for documents, so manuals and Annual write-ups are indexed for agents to read (how a map style was
@@ -9,7 +9,7 @@ import hashlib, json, re, shutil, subprocess
 from pathlib import Path
 
 HOME = Path.home()
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 OUT = REPO / "assets-local/inspiration/profantasy-cc3/docs"
 SOURCES = {"install": HOME / ".wine-cc3/drive_c/ProgramData/Profantasy", "downloads": HOME / "Downloads/profantasy",
            "downloads-top": HOME / "Downloads"}

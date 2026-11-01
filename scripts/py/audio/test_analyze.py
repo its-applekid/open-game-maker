@@ -6,6 +6,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 import analyze as a
 
 
+def test_repo_root_tracks_the_worker_layout():
+    """The worker must resolve repository paths correctly from scripts/py/audio."""
+    assert (a.ROOT.parent / "scripts/py/audio").is_dir()
+
+
 def test_short_music_gets_two_excerpts():
     """A 40 s stinger or a 12 s jingle must still be judged on two excerpts (its halves), not one window."""
     for dur in (12.0, 40.0, 60.0):

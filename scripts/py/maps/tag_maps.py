@@ -1,7 +1,7 @@
 """Tag the exported CC3+ maps per C3 at three depths (cards, CAD sidecar, the image) and write validated cards.
 
-usage: scripts/audio/.venv/bin/python -I scripts/maps/tag_maps.py analyse [--workers N]   # sha, thumbnail, CLIP embedding per map
-       scripts/audio/.venv/bin/python -I scripts/maps/tag_maps.py cards                   # score labels, write cards, validate
+usage: scripts/py/audio/.venv/bin/python -I scripts/py/maps/tag_maps.py analyse [--workers N]   # sha, thumbnail, CLIP embedding per map
+       scripts/py/audio/.venv/bin/python -I scripts/py/maps/tag_maps.py cards                   # score labels, write cards, validate
 
 Depth 1 (card): map type, setting (folder only), environment, objects (from CAD symbol names), keywords (from map labels), grid,
 publication. Depth 2 (sidecar, already written by the export): every symbol and label with coordinates, referenced from
@@ -19,7 +19,7 @@ from pathlib import Path
 
 import numpy as np
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 COLL_DIR = REPO / "assets-local/inspiration/profantasy-cc3"
 MAPS = COLL_DIR / "maps"
 ANALYSIS = COLL_DIR / "analysis"

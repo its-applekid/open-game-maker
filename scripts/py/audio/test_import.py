@@ -7,7 +7,12 @@ import pytest
 sys.path.insert(0, str(Path(__file__).parent))
 import import_sidetrax as imp
 
-VALIDATOR = Path(__file__).parents[2] / "docs/research/v0.5/schemas/tools/validate.mjs"
+VALIDATOR = Path(__file__).resolve().parents[3] / "docs/research/v0.5/schemas/tools/validate.mjs"
+
+
+def test_validator_path_tracks_the_worker_layout():
+    """The relocated test must still find the repository's card validator."""
+    assert VALIDATOR.is_file()
 
 
 def make_zip(path: Path, members: dict):

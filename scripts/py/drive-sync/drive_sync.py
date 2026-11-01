@@ -8,8 +8,8 @@ writes a manifest with strict usage-rights defaults (C2 §10), and queues it for
 gm-asset-intake skill. It never imports into packs and never deletes anything in Drive.
 
 Run (see README.md):
-  scripts/drive-sync/.venv/bin/python -I scripts/drive-sync/drive_sync.py run --once
-  scripts/drive-sync/.venv/bin/python -I scripts/drive-sync/drive_sync.py status
+  scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py run --once
+  scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py status
 """
 from __future__ import annotations
 
@@ -35,7 +35,7 @@ import zlib
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 ASSETS_LOCAL = REPO / "assets-local"
 FOLDER_MIME = "application/vnd.google-apps.folder"
 NATIVE_PREFIX = "application/vnd.google-apps."  # Docs, Sheets, shortcuts...: no bytes to download
@@ -83,7 +83,7 @@ def load_config(path: str | None = None, need_folder: bool = True) -> dict:
     if p.exists():
         cfg.update(tomllib.loads(p.read_text()))
     elif need_folder:
-        sys.exit(f"config not found: {p} (copy scripts/drive-sync/drive-sync.example.toml there)")
+        sys.exit(f"config not found: {p} (copy scripts/py/drive-sync/drive-sync.example.toml there)")
     unknown = set(cfg) - set(DEFAULTS)
     if unknown:
         sys.exit(f"unknown config keys in {p}: {sorted(unknown)}")

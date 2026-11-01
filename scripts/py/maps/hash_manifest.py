@@ -1,13 +1,13 @@
 """Hash every ProFantasy file we hold (C3 §7 hash manifest): the CC3+ install tree, the exported maps and the copied PDFs.
 
-usage: python3 -I scripts/maps/hash_manifest.py
+usage: python3 -I scripts/py/maps/hash_manifest.py
 writes assets-local/private/hash-manifests/profantasy-cc3-v1.txt ("sha256  bytes  path" per line, sorted, unique by hash+path).
 The repo commit check blocks every hash listed, so symbol bitmaps and fills that never get cards still can't reach a game repo."""
 import hashlib, os
 from pathlib import Path
 
 HOME = Path.home()
-REPO = Path(__file__).resolve().parents[2]
+REPO = Path(__file__).resolve().parents[3]
 ROOTS = {"install": HOME / ".wine-cc3/drive_c/ProgramData/Profantasy", "maps": REPO / "assets-local/inspiration/profantasy-cc3/maps",
          "docs": REPO / "assets-local/inspiration/profantasy-cc3/docs"}
 OUT = REPO / "assets-local/private/hash-manifests/profantasy-cc3-v1.txt"
