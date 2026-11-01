@@ -17,10 +17,14 @@ function temporaryDirectory(): string {
 }
 
 function runInitializer(home: string, ...args: string[]) {
+  return runInitializerWithEnvironment(home, {}, ...args);
+}
+
+function runInitializerWithEnvironment(home: string, environment: Record<string, string>, ...args: string[]) {
   return spawnSync(process.execPath, [binPath, ...args], {
     cwd: repositoryRoot,
     encoding: 'utf8',
-    env: { ...process.env, HOME: home },
+    env: { ...process.env, ...environment, HOME: home },
   });
 }
 
@@ -82,6 +86,30 @@ describe('ogm-env-init', () => {
     expect(result.stdout).not.toContain(sharedSecret);
   });
 
+  it.each(['intake', 'drive-sync'])('creates %s files from shared rows before the unit owns a name', (unit) => {
+    const home = temporaryDirectory();
+    const result = runInitializer(home, unit);
+    const contents = readFileSync(join(home, '.config', 'ogm', 'env', `${unit}.env`), 'utf8');
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(contents).toContain('OGM_PUBLIC_ORIGIN=');
+    expect(contents).toMatch(/^OGM_WS_TOKEN_SECRET=[a-f0-9]{64}$/m);
+  });
+
+  it('refuses a repository target when Git is unavailable', () => {
+    const home = temporaryDirectory();
+    const result = runInitializerWithEnvironment(
+      home,
+      { PATH: '' },
+      'api',
+      '--dir',
+      join(repositoryRoot, '.aiur-runtime', 'tmp', 'env-init-without-git'),
+    );
+
+    expect(result.status).toBe(2);
+    expect(result.stderr).toContain('refusing to write inside the repository');
+  });
+
   it('repairs the file mode when force-writing an existing file', () => {
     const home = temporaryDirectory();
     expect(runInitializer(home, 'api').status).toBe(0);
@@ -109,5 +137,25 @@ describe('ogm-env-init', () => {
     expect(result.status).toBe(2);
     expect(result.stderr).toContain('refusing to overwrite symbolic link');
     expect(readFileSync(victim, 'utf8')).toBe('keep-me\n');
+  });
+
+  it('preserves an existing file when an atomic force-write cannot start', () => {
+    const home = temporaryDirectory();
+    expect(runInitializer(home, 'api').status).toBe(0);
+    const directory = join(home, '.config', 'ogm', 'env');
+    const envPath = join(directory, 'api.env');
+    const before = 'OGM_API_PORT=9999\n';
+    writeFileSync(envPath, before);
+    chmodSync(directory, 0o500);
+
+    let result;
+    try {
+      result = runInitializer(home, 'api', '--force');
+    } finally {
+      chmodSync(directory, 0o700);
+    }
+
+    expect(result.status).toBe(2);
+    expect(readFileSync(envPath, 'utf8')).toBe(before);
   });
 });

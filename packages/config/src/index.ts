@@ -4,19 +4,25 @@ import { OGM_ENV_NAMES } from './names.js';
 
 export type { EnvKind } from './kinds.js';
 export type { EnvName, EnvUnit } from './names.js';
-export { OGM_ENV_NAMES } from './names.js';
+export { OGM_ENV_NAMES, OGM_ENV_UNITS } from './names.js';
 
 export type EnvSpec = Record<
   string,
   { readonly kind: EnvKind; readonly required?: boolean; readonly default?: string }
 >;
 
+type EnvValue<D extends EnvSpec[string]> = D['kind'] extends 'port' | 'int'
+  ? number
+  : D['kind'] extends 'bool'
+    ? boolean
+    : string;
+
 export type EnvValues<S extends EnvSpec> = {
-  readonly [K in keyof S]: S[K]['kind'] extends 'port' | 'int'
-    ? number
-    : S[K]['kind'] extends 'bool'
-      ? boolean
-      : string;
+  readonly [K in keyof S]: S[K] extends { readonly default: string }
+    ? EnvValue<S[K]>
+    : S[K] extends { readonly required: false }
+      ? EnvValue<S[K]> | undefined
+      : EnvValue<S[K]>;
 };
 
 type InvalidDetail = { readonly name: string; readonly reason: string };

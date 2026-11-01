@@ -51,6 +51,25 @@ describe('loadEnv', () => {
     expect(values).toEqual({ OGM_API_PORT: 42, GITHUB_APP_ID: true });
   });
 
+  it('returns undefined for an absent optional value', () => {
+    const values = loadEnv('example', { OGM_API_PORT: { kind: 'port', required: false } } as const, {});
+
+    expect(values).toEqual({ OGM_API_PORT: undefined });
+  });
+
+  it('parses every false boolean spelling', () => {
+    const values = loadEnv(
+      'example',
+      {
+        OGM_API_PORT: { kind: 'bool' },
+        GITHUB_APP_ID: { kind: 'bool' },
+      } as const,
+      { OGM_API_PORT: 'false', GITHUB_APP_ID: '0' },
+    );
+
+    expect(values).toEqual({ OGM_API_PORT: false, GITHUB_APP_ID: false });
+  });
+
   it('collects missing names without revealing another value', () => {
     const secret = 'hunter2-hunter2-hunter2-hunter2';
 
@@ -90,6 +109,7 @@ describe('loadEnv', () => {
     ['bad port', 'OGM_API_PORT', 'port', 'abc', 'port'],
     ['out-of-range port', 'OGM_API_PORT', 'port', '65536', 'port'],
     ['non-integer', 'OGM_API_PORT', 'int', '1.5', 'int'],
+    ['malformed URL', 'OGM_PUBLIC_ORIGIN', 'url', 'not a url', 'url'],
     ['non-http URL', 'OGM_PUBLIC_ORIGIN', 'url', 'file:///tmp/secret', 'url'],
     ['short secret', 'OGM_BLOB_SIGNING_KEY', 'secret', 'hunter2', 'secret'],
     ['invalid bool', 'GITHUB_APP_ID', 'bool', 'yes', 'bool'],

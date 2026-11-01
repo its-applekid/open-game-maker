@@ -6,22 +6,25 @@ import {
   closeSync,
   existsSync,
   fchmodSync,
+  linkSync,
+  lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
   realpathSync,
+  renameSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { O_CREAT, O_EXCL, O_NOFOLLOW, O_TRUNC, O_WRONLY } from 'node:constants';
+import { O_CREAT, O_EXCL, O_NOFOLLOW, O_WRONLY } from 'node:constants';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { OGM_ENV_NAMES } from '../dist/names.js';
+import { OGM_ENV_NAMES, OGM_ENV_UNITS } from '../dist/names.js';
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url));
-const validUnits = [...new Set(OGM_ENV_NAMES.map(({ unit }) => unit).filter((unit) => unit !== 'shared'))];
 
 function fail(message) {
   process.stderr.write(`ogm-env-init: ${message}\n`);
@@ -51,8 +54,8 @@ function parseArguments(args) {
     }
   }
 
-  if (!unit || !validUnits.includes(unit)) {
-    fail(`unit must be one of: ${validUnits.join(', ')}`);
+  if (!unit || !OGM_ENV_UNITS.includes(unit)) {
+    fail(`unit must be one of: ${OGM_ENV_UNITS.join(', ')}`);
   }
 
   return { unit, directory, force };
@@ -81,7 +84,13 @@ function findRepositoryRoot() {
       }).trim(),
     );
   } catch {
-    return undefined;
+    let directory = realpathSync(scriptDirectory);
+    while (true) {
+      if (existsSync(join(directory, '.git'))) return directory;
+      const parent = dirname(directory);
+      if (parent === directory) return undefined;
+      directory = parent;
+    }
   }
 }
 
@@ -112,6 +121,60 @@ function readExistingValues(directory) {
   return values;
 }
 
+function errorCode(error) {
+  return error && typeof error === 'object' && 'code' in error ? error.code : 'unknown error';
+}
+
+function isSymbolicLink(path) {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch (error) {
+    if (errorCode(error) === 'ENOENT') return false;
+    throw error;
+  }
+}
+
+function writeEnvironmentFile(target, contents, force) {
+  if (force && isSymbolicLink(target)) fail(`refusing to overwrite symbolic link ${target}`);
+
+  const temporary = join(dirname(target), `.${basename(target)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`);
+  let descriptor;
+
+  try {
+    descriptor = openSync(temporary, O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW, 0o600);
+    writeFileSync(descriptor, contents, 'utf8');
+    fchmodSync(descriptor, 0o600);
+    closeSync(descriptor);
+    descriptor = undefined;
+
+    if (force) {
+      renameSync(temporary, target);
+    } else {
+      linkSync(temporary, target);
+      unlinkSync(temporary);
+    }
+  } catch (error) {
+    if (descriptor !== undefined) {
+      try {
+        closeSync(descriptor);
+      } catch {
+        // The original write error is the useful failure.
+      }
+    }
+
+    try {
+      unlinkSync(temporary);
+    } catch (cleanupError) {
+      if (errorCode(cleanupError) !== 'ENOENT') {
+        fail(`could not clean up a temporary environment file (${errorCode(cleanupError)})`);
+      }
+    }
+
+    if (!force && errorCode(error) === 'EEXIST') fail(`refusing to overwrite ${target}`);
+    fail(`could not write ${target} (${errorCode(error)})`);
+  }
+}
+
 const { unit, directory, force } = parseArguments(process.argv.slice(2));
 const resolvedDirectory = realpathAllowMissing(directory);
 const repositoryRoot = findRepositoryRoot();
@@ -134,20 +197,5 @@ const lines = rows.map(({ name, kind }) => {
   return `${name}=${randomBytes(32).toString('hex')}`;
 });
 
-const flags = O_WRONLY | O_CREAT | O_NOFOLLOW | (force ? O_TRUNC : O_EXCL);
-let descriptor;
-try {
-  descriptor = openSync(target, flags, 0o600);
-} catch (error) {
-  if (!force && error?.code === 'EEXIST') fail(`refusing to overwrite ${target}`);
-  if (error?.code === 'ELOOP') fail(`refusing to overwrite symbolic link ${target}`);
-  fail(`could not open ${target} (${error?.code ?? 'unknown error'})`);
-}
-
-try {
-  writeFileSync(descriptor, `${lines.join('\n')}\n`, 'utf8');
-  fchmodSync(descriptor, 0o600);
-} finally {
-  closeSync(descriptor);
-}
+writeEnvironmentFile(target, `${lines.join('\n')}\n`, force);
 process.stdout.write(`wrote ${target} (${rows.length} names, ${generated} generated)\n`);

@@ -1,7 +1,18 @@
 import type { EnvKind } from './kinds.js';
 
-export type EnvUnit =
-  'api' | 'rooms' | 'games' | 'commit' | 'voice-host' | 'intake' | 'drive-sync' | 'aiur' | 'backup' | 'shared';
+export const OGM_ENV_UNITS = [
+  'api',
+  'rooms',
+  'games',
+  'commit',
+  'voice-host',
+  'intake',
+  'drive-sync',
+  'aiur',
+  'backup',
+] as const;
+
+export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
 
 export type EnvName = {
   readonly name: string;
