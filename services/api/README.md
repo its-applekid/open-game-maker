@@ -7,8 +7,13 @@ Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_DATA_DIR`, `OGM_INTERNAL_TOKEN
 `OGM_BLOB_ROOT`, `OGM_BLOB_SIGNING_KEY`, `OGM_PUBLIC_ORIGIN`; the auth context adds `OGM_APP_ORIGIN`,
 `OGM_SESSION_SECRET`, `OGM_AGE_COOKIE_SECRET`, `OGM_WS_TOKEN_SECRET` and the optional `OGM_MAINTAINER_EMAILS`,
 `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_URL`, `SMTP_FROM` (see `docs/ops/netlify-proxy.md`), plus
-`OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, and `OGM_GAME_TEMPLATE_REF` (defaults to
-`game-2d@1`).
+`OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_GAME_TEMPLATE_REF` (defaults to
+`game-2d@1`), `OGM_VAPID_KEY_FILE`, and `OGM_VAPID_SUBJECT`.
+
+`OGM_VAPID_KEY_FILE` defaults to `~/.config/ogm/env/ogm-api.vapid.json`; the API creates the key pair with mode
+`0600` on first boot. Set `OGM_VAPID_SUBJECT` to the contact email used for the Web Push `mailto:` subject.
+Push requests use a 10-second socket timeout. Expired subscriptions are removed immediately; other failures are
+removed after five consecutive attempts without failing the notification emitter.
 
 ```sh
 pnpm --filter @ogm/api build && pnpm --filter @ogm/api start   # or: pnpm --filter @ogm/api dev

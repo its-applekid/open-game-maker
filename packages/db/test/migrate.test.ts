@@ -28,7 +28,8 @@ describe('migrate', () => {
         '20261101114708_game_daemons.sql',
         '20261101122027_accounts.sql',
         '20261101133303_aiur_events.sql',
-        '20261101135953_auth.sql',
+        '20261101135125_notify.sql',
+        '20261101144931_auth.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -43,7 +44,8 @@ describe('migrate', () => {
       'migration:20261101114708_game_daemons.sql',
       'migration:20261101122027_accounts.sql',
       'migration:20261101133303_aiur_events.sql',
-      'migration:20261101135953_auth.sql',
+      'migration:20261101135125_notify.sql',
+      'migration:20261101144931_auth.sql',
     ]);
     sqlite.close();
   });
