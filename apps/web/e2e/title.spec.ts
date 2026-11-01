@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 
 import { expect, test, type Page } from '@playwright/test';
 
+import { installAuthRoutes } from './fixtures/auth-routes';
+
 type StubbedWindow = Window & { __tapSeen?: [number, number]; __ogmHost?: { get(name: string): unknown } };
 
 const stub = readFileSync(new URL('./fixtures/town-stub/index.html', import.meta.url), 'utf8');
@@ -20,6 +22,8 @@ async function stubTown(page: Page) {
 }
 
 test.use({ serviceWorkers: 'block' });
+
+test.beforeEach(({ page }) => installAuthRoutes(page));
 
 test('the server paints the poster before the app module loads', async ({ page }) => {
   await stubTown(page);
@@ -73,6 +77,6 @@ test('title Start is a primary-size target and the sound toggle is labelled', as
   await expect(page.getByRole('button', { name: /sound/i })).toBeVisible();
 
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page).toHaveURL(/\/age$/);
+  await expect(page).toHaveURL(/\/age\?next=%2Fconnect%2Fgithub$/);
   await expect(page.locator('.title-town iframe')).toHaveCount(0);
 });

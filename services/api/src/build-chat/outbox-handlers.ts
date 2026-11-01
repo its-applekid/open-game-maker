@@ -1,0 +1,49 @@
+import { existsSync, readdirSync } from 'node:fs';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import type { BlobStore } from '@ogm/blob-store';
+import type { AgentOutboxLine } from '@ogm/contracts';
+import type { Sqlite } from '@ogm/db';
+
+import type { LogLine } from '../app/types.js';
+
+// What a handler gets for one outbox line. `workspaceRoot` is host-side only: never put it in a row or a response.
+export interface OutboxContext {
+  jobId: string;
+  workspaceRoot: string;
+  sqlite: Sqlite;
+  blobStore: BlobStore;
+  publish: (jobId: string) => void;
+  log: (line: LogLine) => void;
+}
+
+export interface OutboxHandler {
+  type: string;
+  handle(line: AgentOutboxLine, ctx: OutboxContext): Promise<void>;
+}
+
+const contextName = /^[a-z][a-z0-9-]*$/;
+const extension = import.meta.url.endsWith('.ts') ? 'ts' : 'js';
+
+// Collects `<root>/<context>/outbox.<ext>` modules exporting `type` and `handle`, in name order (the routes scan's
+// layout). Two modules claiming one type is a startup error.
+export async function loadOutboxHandlers(root?: URL): Promise<Map<string, OutboxHandler>> {
+  const directory = fileURLToPath(root ?? new URL('../', import.meta.url));
+  const handlers = new Map<string, OutboxHandler>();
+  const contexts = readdirSync(directory, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name !== 'app' && contextName.test(entry.name))
+    .map((entry) => entry.name)
+    .sort();
+
+  for (const context of contexts) {
+    const file = `${directory}/${context}/outbox.${extension}`;
+    if (!existsSync(file)) continue;
+    const module = (await import(pathToFileURL(file).href)) as Partial<OutboxHandler>;
+    if (typeof module.type !== 'string' || typeof module.handle !== 'function') {
+      throw new Error(`${context}/outbox.${extension}: must export type and handle`);
+    }
+    if (handlers.has(module.type)) throw new Error(`${context}/outbox.${extension}: ${module.type} is already handled`);
+    handlers.set(module.type, { type: module.type, handle: module.handle });
+  }
+  return handlers;
+}

@@ -1,0 +1,51 @@
+@import '../auth.css';
+
+.signin-form,
+.signin-form label,
+.auth-methods,
+.passkey-offer {
+  display: grid;
+  gap: 12px;
+}
+
+.signin-form label {
+  color: var(--ink-2);
+  font-weight: 800;
+}
+
+.auth-method {
+  border-color: var(--rule);
+  background: var(--paper-2);
+  backdrop-filter: var(--glass);
+}
+
+.auth-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin: 22px 0;
+  color: var(--muted);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  height: 1px;
+  background: var(--rule);
+  content: '';
+}
+
+.auth-skip {
+  min-height: var(--tap-secondary);
+  border: 0;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.passkey-offer p {
+  margin: 0 0 12px;
+  color: var(--ink-2);
+  line-height: 1.6;
+}

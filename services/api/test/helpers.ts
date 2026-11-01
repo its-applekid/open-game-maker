@@ -71,6 +71,9 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
       vapidSubject: 'mailto:operator@example.test',
       analyticsRetentionDays: 90,
+      defaultDailyAllowanceMicroUsd: 5_000_000,
+      resetZoneDefault: 'America/Los_Angeles',
+      reportBundleMaxBytes: 2 * 1024 * 1024,
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),
@@ -79,6 +82,9 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
     }),
     events: createAppEvents(log),
     registry: createRegistry(),
+    aiurClientForRepo: async () => {
+      throw new Error('test aiur client not configured');
+    },
     version: 'test-version',
     startedAtMs: Date.now() - 5_000,
     log,

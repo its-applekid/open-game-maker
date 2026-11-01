@@ -4,4 +4,27 @@ export { INDEX_PATH, buildIndex, cardFiles, isStale, loadIndex, writeIndex } fro
 export { formatRow, info, kindsOf, passes, search, statusAllowed } from './search.js';
 export { facets } from './facets.js';
 export { SHEET_MAX, labelOf, writeSheet } from './sheet.js';
+export {
+  FAMILIES_PATH,
+  POV_IDS,
+  STYLE_FAMILY_IDS,
+  StyleFamiliesSchema,
+  StyleFamilySchema,
+  computeCoverage,
+  familyFor,
+  inFamily,
+  isCreationChoice,
+  loadFamilies,
+  packOf,
+  packsOfFamily,
+  setFor,
+  type Coverage,
+  type PovId,
+  type StyleFamily,
+  type StyleFamilyApi,
+  type StyleFamilyId,
+  type StyleSet,
+  type StyleSetPack,
+  type StyleSetTraits,
+} from './families.js';
 export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';

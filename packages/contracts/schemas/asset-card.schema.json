@@ -343,6 +343,7 @@
         "materials": { "type": "array", "items": { "$ref": "#/$defs/vocab/material" }, "uniqueItems": true },
         "condition": { "$ref": "#/$defs/vocab/condition" },
         "style_family": { "$ref": "#/$defs/vocab/styleFamily" },
+        "set": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "Measured visual-compatibility group nested under style_family." },
         "pov_fit": { "type": "array", "items": { "$ref": "#/$defs/vocab/pov" }, "uniqueItems": true },
         "keywords": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "maxItems": 12, "uniqueItems": true, "description": "Free search words that fit no other field (e.g. colour names, vendor naming). Not faceted." },
         "genre": { "type": "array", "items": { "$ref": "#/$defs/vocab/genre" }, "uniqueItems": true, "maxItems": 3 },
@@ -665,7 +666,7 @@
       "type": "object",
       "required": ["field", "tag"],
       "properties": {
-        "field": { "enum": ["environments", "settings", "roles", "moods", "materials", "condition", "style_family", "pov_fit", "subkind", "kitPiece", "mapType", "genre", "instruments", "era", "game_fit"] },
+        "field": { "enum": ["environments", "settings", "roles", "moods", "materials", "condition", "style_family", "set", "pov_fit", "subkind", "kitPiece", "mapType", "genre", "instruments", "era", "game_fit"] },
         "tag": { "$ref": "#/$defs/tag" },
         "nearest": { "type": "string", "description": "Closest existing tag the tagger used instead, if any." },
         "reason": { "type": "string", "maxLength": 200 }

@@ -1,9 +1,12 @@
-import { existsSync, readFileSync, utimesSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { INDEX_PATH, buildIndex, isStale, loadIndex, writeIndex } from '../src/index.js';
+import { INDEX_PATH, buildIndex, isStale, loadIndex, resolve, writeIndex } from '../src/index.js';
 import { FIXTURE, libraryCopy } from './helpers.js';
 
 const ORC = 't1:kenney-mini-dungeon/character-orc@2.0';
@@ -18,6 +21,22 @@ describe('buildIndex', () => {
       'packs/kenney-mini-dungeon/cards/broken-status.card.json',
     ]);
   });
+
+  it('keeps the previous on-disk index when the command encounters an invalid card', () => {
+    const root = mkdtempSync(join(tmpdir(), 'asset-index-command-'));
+    mkdirSync(join(root, 'packs', 'broken', 'cards'), { recursive: true });
+    mkdirSync(join(root, 'index'));
+    writeFileSync(join(root, 'packs', 'broken', 'cards', 'bad.card.json'), '{not json');
+    const indexPath = join(root, INDEX_PATH);
+    writeFileSync(indexPath, '{"previous":true}\n');
+
+    const script = fileURLToPath(new URL('../scripts/build-index.mjs', import.meta.url));
+    const result = spawnSync(process.execPath, [script, root], { encoding: 'utf8' });
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('refusing to replace the asset index: 1 invalid card(s)');
+    expect(readFileSync(indexPath, 'utf8')).toBe('{"previous":true}\n');
+  }, 30_000);
 
   it("gives an asset without rights its collection's rights, licence and family, marked by: collection", async () => {
     const index = await buildIndex(FIXTURE);
@@ -41,6 +60,20 @@ describe('buildIndex', () => {
     // the asset's own environments win over the collection's
     expect(orc?.resolved.environments).toEqual(['dungeon', 'cave', 'camp']);
     expect(orc?.resolved.provenance['describe.environments']).toBeUndefined();
+  });
+
+  it('inherits the collection compatibility set with provenance', () => {
+    type Card = Parameters<typeof resolve>[0];
+    const collection = JSON.parse(
+      readFileSync(join(FIXTURE, 'packs/kenney-mini-dungeon/collection.card.json'), 'utf8'),
+    ) as Card;
+    const asset = JSON.parse(
+      readFileSync(join(FIXTURE, 'packs/kenney-mini-dungeon/cards/character-orc.card.json'), 'utf8'),
+    ) as Card;
+    collection.describe = { ...collection.describe, set: 'kenney-mini-3d' };
+    const resolved = resolve(asset, { [collection.id]: collection });
+    expect(resolved.resolved.set).toBe('kenney-mini-3d');
+    expect(resolved.resolved.provenance['describe.set']).toEqual({ by: 'collection' });
   });
 
   it('never widens: an asset basis granting in-game inside a vision-input-only collection stays vision-input', async () => {

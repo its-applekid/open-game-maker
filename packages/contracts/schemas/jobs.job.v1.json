@@ -26,7 +26,8 @@
       "enum": [
         "new_game",
         "feature",
-        "repair"
+        "repair",
+        "scope"
       ]
     },
     "complexity": {
@@ -269,6 +270,40 @@
           "type": "null"
         }
       ]
+    },
+    "stage": {
+      "type": "string",
+      "enum": [
+        "queued_ogm",
+        "waiting_capacity",
+        "waiting_provider",
+        "building",
+        "final_tests",
+        "fixing",
+        "ready",
+        "out_of_budget",
+        "paused",
+        "done",
+        "failed",
+        "cancelled"
+      ]
+    },
+    "stageText": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "brainstorm",
+        "plan",
+        "work",
+        "review"
+      ]
+    },
+    "progressPercent": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
     }
   },
   "required": [
