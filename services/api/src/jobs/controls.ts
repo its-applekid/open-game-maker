@@ -177,7 +177,11 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       } catch (error) {
         controlError(error);
       }
-      deps.db.update(schema.jobs).set({ updatedAt: now().toISOString() }).where(eq(schema.jobs.id, row.id)).run();
+      deps.db
+        .update(schema.jobs)
+        .set({ pausedReason: 'admin', updatedAt: now().toISOString() })
+        .where(eq(schema.jobs.id, row.id))
+        .run();
       return c.json({ ...findJob(deps.db, row.id), stage: 'paused' as const, stageText: JOB_STAGE_WORDS.paused });
     })
     .post('/:id/resume', async (c) => {
@@ -192,7 +196,11 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       } catch (error) {
         controlError(error);
       }
-      deps.db.update(schema.jobs).set({ updatedAt: now().toISOString() }).where(eq(schema.jobs.id, row.id)).run();
+      deps.db
+        .update(schema.jobs)
+        .set({ pausedReason: null, updatedAt: now().toISOString() })
+        .where(eq(schema.jobs.id, row.id))
+        .run();
       return c.json(findJob(deps.db, row.id));
     })
     .post('/:id/message', async (c) => {
