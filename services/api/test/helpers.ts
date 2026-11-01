@@ -64,6 +64,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       jobTokenSecret: JOB_SECRET,
       blobSigningKey: BLOB_KEY,
       appOrigin: 'https://app.example.test',
+      gamesOrigin: 'https://games.example.test',
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
       gameTemplateRef: 'game-2d@1',

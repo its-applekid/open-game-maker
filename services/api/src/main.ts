@@ -37,6 +37,7 @@ const deps: AppDeps = {
     jobTokenSecret: env.OGM_JOB_TOKEN_SECRET,
     blobSigningKey: env.OGM_BLOB_SIGNING_KEY,
     appOrigin: env.OGM_APP_ORIGIN,
+    gamesOrigin: env.OGM_GAMES_ORIGIN,
     commitInternalUrl: env.OGM_COMMIT_INTERNAL_URL,
     commitServiceToken: env.OGM_COMMIT_SERVICE_TOKEN,
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,

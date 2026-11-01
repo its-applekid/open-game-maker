@@ -13,6 +13,7 @@ const baseEnv = {
   OGM_BLOB_SIGNING_KEY: 'blob-signing-key-for-tests-with-32-bytes',
   OGM_PUBLIC_ORIGIN: 'https://api.example.test',
   OGM_APP_ORIGIN: 'https://app.example.test',
+  OGM_GAMES_ORIGIN: 'https://games.example.test',
   OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
   OGM_COMMIT_SERVICE_TOKEN: 'commit-service-token-for-tests',
   OGM_VAPID_SUBJECT: 'operator@example.test',

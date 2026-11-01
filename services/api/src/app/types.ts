@@ -16,6 +16,7 @@ export interface AppDeps {
     jobTokenSecret: string;
     blobSigningKey: string;
     appOrigin: string;
+    gamesOrigin: string;
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
