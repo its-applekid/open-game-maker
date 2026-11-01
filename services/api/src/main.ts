@@ -176,5 +176,5 @@ process.once('SIGTERM', () => {
   stopEstimateRefinement();
   stopBriefingPush();
   usageReconciler.stop();
-  void feed.stop().finally(() => server.close(() => sqlite.close()));
+  void Promise.all([feed.stop(), usageReconciler.idle()]).finally(() => server.close(() => sqlite.close()));
 });

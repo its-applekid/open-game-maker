@@ -111,7 +111,13 @@ export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket:
     .select({ jobId: schema.jobs.id, issueNumber: schema.jobs.aiurIssueNumber })
     .from(schema.gameDaemons)
     .innerJoin(schema.jobs, eq(schema.jobs.aiurRepo, schema.gameDaemons.repo))
-    .where(and(eq(schema.gameDaemons.slug, daemonSlug), inArray(schema.jobs.state, NON_TERMINAL_STATES)))
+    .where(
+      and(
+        eq(schema.gameDaemons.slug, daemonSlug),
+        inArray(schema.jobs.state, NON_TERMINAL_STATES),
+        isNull(schema.jobs.releasedAt),
+      ),
+    )
     .orderBy(asc(schema.jobs.aiurIssueNumber), asc(schema.jobs.id))
     .all()
     .filter((row): row is { jobId: string; issueNumber: number } => row.issueNumber !== null)
