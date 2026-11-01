@@ -80,6 +80,9 @@ describe('projectStage', () => {
     const previous = { stage: 'final_tests', text: 'Running final tests' } as const;
     expect(projectStage({ ...running, trackerState: 'something-new', previous })).toEqual(previous);
     expect(projectStage({ ...running, previous })).toEqual(previous);
+    expect(projectStage({ ...running, trackerState: 'constructor', lifecycle: 'toString' as never, previous })).toEqual(
+      previous,
+    );
   });
 
   it('with no signal and no previous stage, waits for capacity', () => {

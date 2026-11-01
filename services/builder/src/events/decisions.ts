@@ -20,7 +20,9 @@ const STATUS: Record<string, CheckpointStatus> = {
 
 function statusOf(decision: Decision): CheckpointStatus {
   if (decision.answer !== undefined && decision.answer !== null) return 'answered';
-  return STATUS[decision.decision_status] ?? 'open';
+  return Object.hasOwn(STATUS, decision.decision_status)
+    ? (STATUS[decision.decision_status] as CheckpointStatus)
+    : 'open';
 }
 
 function recommendOf(decision: Decision): string | null {

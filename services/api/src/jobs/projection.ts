@@ -57,7 +57,10 @@ export function projectStage(i: ProjectionInput): Projected {
   if (i.spendCapReached) return word('out_of_budget');
   if (i.prMerged) return word('done');
 
-  const tracker = i.trackerState === undefined ? undefined : TRACKER_STAGES[i.trackerState];
+  const tracker =
+    i.trackerState !== undefined && Object.hasOwn(TRACKER_STAGES, i.trackerState)
+      ? TRACKER_STAGES[i.trackerState]
+      : undefined;
   if (tracker) return word(tracker);
 
   const reasons = i.reasonLabels ?? [];
@@ -65,7 +68,8 @@ export function projectStage(i: ProjectionInput): Projected {
   if (reasons.includes('paused-usage-limit')) return word('waiting_provider');
   if (reasons.includes('paused-agent')) return word('paused');
 
-  if (i.lifecycle !== undefined && i.lifecycle in LIFECYCLE_STAGES) return word(LIFECYCLE_STAGES[i.lifecycle]);
+  if (i.lifecycle !== undefined && Object.hasOwn(LIFECYCLE_STAGES, i.lifecycle))
+    return word(LIFECYCLE_STAGES[i.lifecycle]);
   if (i.trackerState === 'in-progress') return word('building');
   if (i.trackerState === 'todo') return word('waiting_capacity');
 
