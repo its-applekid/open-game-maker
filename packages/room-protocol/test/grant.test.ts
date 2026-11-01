@@ -17,6 +17,12 @@ describe('signGrant / verifyGrant', () => {
     });
   });
 
+  it('accepts the secret as the env string', async () => {
+    const secret = new TextDecoder().decode(FIXTURE_SECRET);
+    const token = await signGrant(claims, secret, now);
+    expect((await verifyGrant(token, FIXTURE_SECRET, now)).ok).toBe(true);
+  });
+
   it('never issues a grant longer than 10 minutes', async () => {
     const payload = decodeJwt(await signGrant({ ...claims, ttlSec: 3600 }, FIXTURE_SECRET, now));
     expect(payload.exp! - payload.iat!).toBe(600);
