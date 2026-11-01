@@ -6,12 +6,10 @@ import { FsBlobStore, type BlobHash } from '@ogm/blob-store';
 
 import { EXIT, UsageError, type GmCommand, type GmContext } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
-import { sha256File, walk } from '../../packs/hashwalk.js';
+import { PREVIEW_KINDS, sha256File, walk, type PreviewKind } from '../../packs/hashwalk.js';
 
 /** Library prefixes copied into the blob store; originals are never read here, let alone moved. */
 const IMPORT_PREFIXES = ['previews', join('private', 'previews'), join('private', 'hash-manifests')];
-const PREVIEW_KINDS = ['thumb', 'sheet', 'waveform', 'clip'] as const;
-type PreviewKind = (typeof PREVIEW_KINDS)[number];
 
 const MIME: Record<string, string> = {
   '.webp': 'image/webp',
@@ -84,15 +82,15 @@ export async function importPreviews(root: string, blobRoot: string, index: Card
 
 async function runIndex(ctx: GmContext, flags: Record<string, unknown>): Promise<number> {
   const root = requireAssetsRoot(ctx);
-  const importing = flags['import-previews'] === true;
-  if (importing && !ctx.blobRoot) {
+  const blobRoot = flags['import-previews'] === true ? ctx.blobRoot : undefined;
+  if (blobRoot === null) {
     throw new UsageError(
       'OGM_BLOB_ROOT is unset; --import-previews needs the blob store root',
       'OGM_BLOB_ROOT=~/.local/share/ogm/blobs gm packs index --import-previews',
     );
   }
   const index = await buildIndex(root);
-  const imported = importing && ctx.blobRoot ? await importPreviews(root, ctx.blobRoot, index) : null;
+  const imported = blobRoot ? await importPreviews(root, blobRoot, index) : null;
   await writeIndex(root, index);
 
   const summary = {

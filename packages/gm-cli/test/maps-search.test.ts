@@ -58,6 +58,11 @@ describe('gm maps search', () => {
     expect(small.out.map((line) => line.split('  ')[0])).toEqual([CAVE]);
   });
 
+  it('ranks by a size word without filtering on it', async () => {
+    const result = await search(['small']);
+    expect(result.out.map((line) => line.split('  ')[0])).toEqual([CAVE, EXAMPLE_SPEC]);
+  });
+
   it('prints no matches and exits 0 for a type nothing has', async () => {
     const result = await search(['--type', 'tavern']);
     expect(result.code).toBe(0);

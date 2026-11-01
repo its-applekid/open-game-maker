@@ -7,6 +7,8 @@ import { library } from './helpers.js';
 export const ANNUAL = 'inspiration/profantasy-cartographers-annual';
 export const SOURCE_CARD = 't1:profantasy-cartographers-annual/example-dungeon-01@illustrative';
 export const EXAMPLE_SPEC = 'layout:profantasy-cartographers-annual/example-dungeon-01@illustrative#1';
+/** A redistribution:none pack laid out as packs/<id>/<version>/{originals,extracted}. */
+export const SIDETRAX = 'packs/sidetrax-pack-60-battle/v1';
 export const MANIFEST = 'private/hash-manifests/profantasy-cartographers-annual-illustrative.txt';
 export const MANIFEST_LINES = [
   `${'a'.repeat(64)}  12  install/symbols/door.png`,
@@ -28,7 +30,8 @@ function readJson<T>(path: string): T {
 
 /**
  * The asset-cards fixture library plus bytes on disk: the ProFantasy collection (redistribution none) gets a map,
- * its card's private preview, a derived variant and a hash manifest; the Kenney mini dungeon (CC0, free) gets an
+ * its card's private preview, a derived variant and a hash manifest; the Sidetrax pack (none) gets an original and an
+ * extracted file; the Kenney mini dungeon (CC0, free) gets an
  * extracted file and a public preview, neither of which may ever reach the feed.
  */
 export function rightsLibrary(): string {
@@ -37,6 +40,8 @@ export function rightsLibrary(): string {
   put(root, 'private/previews/00/0000000000000000-thumb.webp', 'private thumb bytes');
   put(root, 'derived/profantasy-cartographers-annual/variant.png', 'derived variant bytes');
   put(root, MANIFEST, `${MANIFEST_LINES.join('\n')}\n`);
+  put(root, `${SIDETRAX}/originals/sidetrax-60.zip`, 'sidetrax zip bytes');
+  put(root, `${SIDETRAX}/extracted/war-drums.wav`, 'sidetrax wav bytes');
   put(root, 'packs/kenney-mini-dungeon/2.0/extracted/wall.glb', 'cc0 wall bytes');
   put(root, 'packs/kenney-mini-dungeon/2.0/originals/kenney_mini-dungeon.zip', 'cc0 zip bytes');
   put(root, 'previews/e0/e0b021c98b34a633-thumb.webp', 'cc0 orc thumb bytes');
