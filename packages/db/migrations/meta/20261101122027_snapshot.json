@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "29077f5a-c529-4eb8-831b-9279f3f1a703",
-  "prevId": "9522bcdf-d455-4475-898e-11b3b018a8dd",
+  "prevId": "0dd68942-46c9-4f77-ad4b-4d59df70f2ff",
   "tables": {
     "app_meta": {
       "name": "app_meta",
@@ -529,6 +529,128 @@
         "invitations_target_check": {
           "name": "invitations_target_check",
           "value": "(\"invitations\".\"kind\" = 'member' AND \"invitations\".\"capability\" IS NOT NULL AND \"invitations\".\"game_id\" IS NULL AND \"invitations\".\"room_id\" IS NULL) OR (\"invitations\".\"kind\" = 'play' AND \"invitations\".\"capability\" IS NULL AND \"invitations\".\"game_id\" IS NOT NULL AND \"invitations\".\"room_id\" IS NULL) OR (\"invitations\".\"kind\" = 'room' AND \"invitations\".\"capability\" IS NULL AND \"invitations\".\"game_id\" IS NOT NULL AND \"invitations\".\"room_id\" IS NOT NULL)"
+        }
+      }
+    },
+    "game_daemons": {
+      "name": "game_daemons",
+      "columns": {
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "repo": {
+          "name": "repo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "checkout_path": {
+          "name": "checkout_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "env_file": {
+          "name": "env_file",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "port": {
+          "name": "port",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_health_at": {
+          "name": "last_health_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "last_error": {
+          "name": "last_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "idle_since": {
+          "name": "idle_since",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "max_concurrent_agents": {
+          "name": "max_concurrent_agents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "game_daemons_repo_unique": {
+          "name": "game_daemons_repo_unique",
+          "columns": ["repo"],
+          "isUnique": true
+        },
+        "game_daemons_port_unique": {
+          "name": "game_daemons_port_unique",
+          "columns": ["port"],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "game_daemons_status": {
+          "name": "game_daemons_status",
+          "value": "\"game_daemons\".\"status\" IN ('stopped', 'starting', 'running', 'idle')"
+        },
+        "game_daemons_max_agents": {
+          "name": "game_daemons_max_agents",
+          "value": "\"game_daemons\".\"max_concurrent_agents\" IN (1, 2)"
         }
       }
     }

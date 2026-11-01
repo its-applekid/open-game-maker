@@ -65,4 +65,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'service -> API bearer (X-Ogm-Service names the caller)',
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
+  { name: 'OGM_API_INTERNAL_URL', unit: 'commit', kind: 'url', doc: 'loopback URL of the internal API' },
+  { name: 'OGM_BUILDER_BOT_LOGIN', unit: 'commit', kind: 'string', doc: 'builder bot invited to game repositories' },
+  {
+    name: 'OGM_PLATFORM_ISSUE_REPO',
+    unit: 'commit',
+    kind: 'string',
+    doc: 'fixed owner/repository for platform bug reports',
+  },
 ];
