@@ -92,14 +92,6 @@ export function GamesScreen() {
 
   return (
     <div className="games-screen">
-      <header className="games-header">
-        <div>
-          <p className="games-eyebrow">Your library</p>
-          <h1>{selected ? 'Choose what happens next' : 'My games'}</h1>
-        </div>
-        <span>{sortedGames.length} games</span>
-      </header>
-
       {selected && (
         <Spotlight
           game={selected}

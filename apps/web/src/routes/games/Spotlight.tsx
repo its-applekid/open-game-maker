@@ -18,8 +18,10 @@ export function Spotlight({ game, branches, job, onPlay, onEdit, onClose }: Spot
 
   return (
     <section className="games-spotlight" aria-live="polite" aria-label={`${game.title} spotlight`}>
+      <button type="button" className="games-close" aria-label="Close game" onClick={onClose}>
+        <span aria-hidden="true">×</span>
+      </button>
       <div className="games-spotlight-copy">
-        <p className="games-eyebrow">Selected game</p>
         <h1>{game.title}</h1>
         {game.tagline && <p className="games-tagline">{game.tagline}</p>}
         {tags.length > 0 && (
@@ -32,8 +34,7 @@ export function Spotlight({ game, branches, job, onPlay, onEdit, onClose }: Spot
         {job && <p className="games-spotlight-job">{jobLabel(job)}</p>}
       </div>
       <div className="games-versions">
-        <span>Versions</span>
-        <ul>
+        <ul aria-label="Versions">
           {branches.map((branch) => (
             <li
               key={branch.id}
@@ -63,14 +64,6 @@ export function Spotlight({ game, branches, job, onPlay, onEdit, onClose }: Spot
           onClick={() => activeBranch && onEdit(activeBranch.id)}
         >
           Edit
-        </button>
-        <button
-          type="button"
-          className="tap-secondary games-close"
-          aria-label={`Close ${game.title}`}
-          onClick={onClose}
-        >
-          Close
         </button>
       </div>
     </section>

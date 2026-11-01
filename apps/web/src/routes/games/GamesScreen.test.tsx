@@ -129,6 +129,8 @@ describe('GamesScreen', () => {
     renderGames('/games?spotlight=g_1');
 
     expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' })).toBeVisible();
+    expect(screen.queryByText(/Your library|My games|Selected game|Choose what happens next|Versions/)).toBeNull();
+    expect(screen.getByRole('button', { name: 'Close game' })).toHaveTextContent('×');
     expect(screen.getByRole('listitem', { name: 'main' })).toHaveAttribute('aria-current', 'true');
     expect(screen.getByRole('button', { name: 'Play Midnight Crumbs' })).toBeDisabled();
     expect(screen.getByRole('button', { name: 'Edit Midnight Crumbs' })).toBeDisabled();
@@ -142,7 +144,7 @@ describe('GamesScreen', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
     expect(await screen.findByRole('button', { name: 'Play Goblin Cellar' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close Goblin Cellar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close game' }));
     await waitFor(() => expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight'));
     expect(tile).toHaveFocus();
   });

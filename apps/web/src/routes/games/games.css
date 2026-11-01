@@ -4,40 +4,14 @@
   padding-bottom: 96px;
 }
 
-.games-header {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 20px;
-}
-
-.games-header h1,
 .games-spotlight h1 {
   margin: 0;
   font-family: var(--display);
   line-height: 1;
 }
 
-.games-header h1 {
-  font-size: clamp(2rem, 6vw, 4.5rem);
-}
-
-.games-header > span,
-.games-eyebrow,
-.games-versions > span {
-  color: var(--muted);
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.games-eyebrow {
-  margin: 0 0 8px;
-  font-size: 0.75rem;
-}
-
 .games-spotlight {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(170px, 0.45fr) auto;
   gap: clamp(20px, 4vw, 56px);
@@ -115,6 +89,7 @@
 }
 
 .games-spotlight-actions button,
+.games-close,
 .games-new,
 .games-retry button {
   border: 1px solid var(--rule);
@@ -133,8 +108,19 @@
 }
 
 .games-close {
-  grid-column: 1 / -1;
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  border-radius: 50%;
   background: var(--paper-2);
+  font-size: 1.4rem;
+  line-height: 1;
 }
 
 .games-spotlight-actions button:disabled {
@@ -286,10 +272,6 @@
 }
 
 @media (max-width: 720px) {
-  .games-header > span {
-    display: none;
-  }
-
   .games-spotlight {
     grid-template-columns: 1fr;
     min-height: auto;
@@ -312,14 +294,6 @@
 }
 
 @media (orientation: landscape) and (max-height: 540px) {
-  .games-header {
-    margin-bottom: 10px;
-  }
-
-  .games-header h1 {
-    font-size: 2rem;
-  }
-
   .games-spotlight {
     grid-template-columns: minmax(0, 1fr) minmax(140px, 0.45fr) auto;
     min-height: 0;
