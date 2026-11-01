@@ -60,34 +60,96 @@ export interface AssetLoader<Mesh = unknown, Texture = unknown> {
 
 // ---- lockfile (OGM-062 edits below this line) ----
 
-/* Plain strings until OGM-066 / OGM-004 narrow them. */
-export const styleFamilyIdSchema = z.string().min(1);
-export const povIdSchema = z.string().min(1);
-export const useSchema = z.string().min(1);
+export const styleFamilyIdSchema = z.enum([
+  'chunky-low-poly',
+  'detailed-low-poly',
+  'simple-low-poly',
+  'pixel-art',
+  'flat-cartoon',
+  'isometric-2d',
+  'sketch',
+  'photoreal',
+  'any',
+]);
+export type StyleFamilyId = z.infer<typeof styleFamilyIdSchema>;
+
+export const povIdSchema = z.enum(['iso', 'topdown', 'side', 'follow', 'fps', 'orbit', 'fixed']);
+export type PovId = z.infer<typeof povIdSchema>;
+
+export const useSchema = z.enum([
+  'in-game',
+  'placeholder',
+  'derive-layout',
+  'style-reference',
+  'vision-input',
+  'edit-audio',
+  'derive-audio',
+]);
+
+const lockAssetIdSchema = z.string().regex(
+  /^(?:t[12]:[a-z0-9][a-z0-9-]*\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+|t3:[A-Za-z0-9][A-Za-z0-9_-]*\/[a-z0-9][a-z0-9/._-]*)$/,
+  'invalid lock asset id',
+);
+
+const lockEntrySchema = z.looseObject({
+  id: lockAssetIdSchema,
+  sha256: z.string().regex(/^[0-9a-f]{64}$/),
+  path: z.string().min(1),
+  license: z.string().min(1),
+  rights: z.looseObject({
+    uses: z.array(useSchema),
+    audience: z.enum(['private', 'public']),
+    redistribution: z.enum(['none', 'in-build', 'free']),
+    attribution: z.string().nullable(),
+  }),
+  derived_from: z.array(lockAssetIdSchema).optional(),
+  added: z.iso.date(),
+});
+
+function safeRepoPath(path: string): boolean {
+  if (path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:[\\/]/.test(path)) return false;
+  const segments = path.replaceAll('\\', '/').split('/');
+  return !segments.some((segment) => segment === '..' || segment === 'node_modules' || segment === '.gm');
+}
 
 /** T05 §4 `assets.lock.json`: committed, the source of truth for rights. */
-export const assetsLockSchema = z.looseObject({
-  version: z.literal(1),
-  family: styleFamilyIdSchema,
-  pov: povIdSchema,
-  assets: z.array(
-    z.looseObject({
-      id: z.string().min(1),
-      sha256: z.string().regex(/^[0-9a-f]{64}$/),
-      path: z.string().min(1),
-      license: z.string().min(1),
-      rights: z.looseObject({
-        uses: z.array(useSchema),
-        audience: z.enum(['private', 'public']),
-        redistribution: z.enum(['none', 'in-build', 'free']),
-        attribution: z.string().nullable(),
-      }),
-      derived_from: z.array(z.string()).optional(),
-      added: z.string().min(1),
-    }),
-  ),
-});
-export type AssetsLock = z.infer<typeof assetsLockSchema>;
+export const AssetsLockSchema = z
+  .looseObject({
+    version: z.literal(1),
+    family: styleFamilyIdSchema,
+    pov: povIdSchema,
+    assets: z.array(lockEntrySchema),
+  })
+  .superRefine((lock, ctx) => {
+    let previous: string | undefined;
+    for (const [index, entry] of lock.assets.entries()) {
+      if (previous !== undefined && entry.id <= previous) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['assets', index, 'id'],
+          message: entry.id === previous ? 'asset ids must be unique' : 'asset ids must be sorted ascending',
+        });
+      }
+      previous = entry.id;
+      if (entry.rights.redistribution === 'none') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['assets', index, 'rights', 'redistribution'],
+          message: 'assets with redistribution none cannot enter the lock',
+        });
+      }
+      if (!safeRepoPath(entry.path)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['assets', index, 'path'],
+          message: 'path must be relative, inside the repo, and outside node_modules and .gm',
+        });
+      }
+    }
+  });
+export const assetsLockSchema = AssetsLockSchema;
+export type AssetsLock = z.infer<typeof AssetsLockSchema>;
+export type LockEntry = AssetsLock['assets'][number];
 
 export const assetsSchemas = {
   'assets.v1': assetManifestSchema,

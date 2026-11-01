@@ -1,4 +1,7 @@
-export type FlagSpec = Record<string, { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string }>;
+export type FlagSpec = Record<
+  string,
+  { type: 'string' | 'number' | 'boolean'; default?: unknown; help: string; multiple?: boolean; short?: string }
+>;
 
 export type GmContext = {
   cwd: string;
