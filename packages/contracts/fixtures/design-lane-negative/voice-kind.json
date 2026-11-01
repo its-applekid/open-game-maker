@@ -1,0 +1,16 @@
+{
+  "id": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "rev": 1,
+  "baseRev": 0,
+  "leaseToken": 1,
+  "actor": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "kind": "voice",
+  "label": "Lock the door",
+  "baseBuildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "commands": [],
+  "patches": [],
+  "inverse": [],
+  "createdAt": "2026-11-01T12:00:00.000Z"
+}

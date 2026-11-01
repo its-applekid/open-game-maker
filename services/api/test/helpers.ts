@@ -68,6 +68,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       gameTemplateRef: 'game-2d@1',
       vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
       vapidSubject: 'mailto:operator@example.test',
+      analyticsRetentionDays: 90,
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),

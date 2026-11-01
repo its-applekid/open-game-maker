@@ -1,0 +1,71 @@
+{
+  "designDoc": {
+    "schemaVersion": 1,
+    "globals": { "world.gravity": 9.8 },
+    "entities": {
+      "e_01ARZ3NDEKTSV4RRFFQ69G5FAV": {
+        "id": "e_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "prefab": "door",
+        "level": "level_1",
+        "origin": "creator",
+        "props": { "door.locked": false }
+      }
+    }
+  },
+  "command": {
+    "op": "set",
+    "control": "door.locked",
+    "targets": ["e_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+    "value": true
+  },
+  "transaction": {
+    "id": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "rev": 1,
+    "baseRev": 0,
+    "leaseToken": 1,
+    "actor": "u_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "kind": "manual",
+    "label": "Lock the door",
+    "baseBuildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "commands": [{ "op": "set", "control": "door.locked", "targets": ["e_01ARZ3NDEKTSV4RRFFQ69G5FAV"], "value": true }],
+    "patches": [
+      { "op": "replace", "path": ["entities", "e_01ARZ3NDEKTSV4RRFFQ69G5FAV", "props", "door.locked"], "value": true }
+    ],
+    "inverse": [
+      { "op": "replace", "path": ["entities", "e_01ARZ3NDEKTSV4RRFFQ69G5FAV", "props", "door.locked"], "value": false }
+    ],
+    "createdAt": "2026-11-01T12:00:00.000Z"
+  },
+  "workingSet": {
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "buildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "headRev": 1,
+    "entries": {
+      "door.locked@e_01ARZ3NDEKTSV4RRFFQ69G5FAV": {
+        "key": "door.locked@e_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "controlId": "door.locked",
+        "targetId": "e_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "value": true,
+        "baseValueAtEdit": false,
+        "txId": "tx_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+        "rev": 1,
+        "status": "carried"
+      }
+    },
+    "entityOps": {}
+  },
+  "reapplyReport": {
+    "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "fromBuildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+    "toBuildId": "build_01BX5ZZKBKACTAV9WEVGEMMVRZ",
+    "carried": ["door.locked@e_01ARZ3NDEKTSV4RRFFQ69G5FAV"],
+    "renamed": [],
+    "needsChoice": [],
+    "conflicts": [],
+    "dropped": []
+  }
+}
