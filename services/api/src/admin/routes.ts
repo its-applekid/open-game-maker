@@ -33,6 +33,7 @@ import {
   requireMayManage,
   settingsResponse,
 } from './family.js';
+import { familyBuilds } from './builds.js';
 import { readIntake } from './intake-status.js';
 import {
   FlagGameAbuseBody,
@@ -246,6 +247,10 @@ const routes = new Hono<ApiBindings>()
       createdAt: flag.createdAt,
     } satisfies GameAbuseFlag;
     return c.json({ flag: response }, 201);
+  })
+  .get('/builds', async (c) => {
+    const actor = admin(c, 'admin.analytics.read');
+    return c.json({ builds: await familyBuilds(c.get('deps'), actor.familyId) });
   })
   .get('/intake', (c) => {
     admin(c, 'admin.settings.set');

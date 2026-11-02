@@ -1,0 +1,1 @@
+Build a contemplative musical toy that becomes a short puzzle. The player can trace constellations in any order and layer tones that belong to each traced shape. There is no avatar, combat, score, timer, health, or collectible currency. The player wins when the chosen constellations harmonize and they complete the song.

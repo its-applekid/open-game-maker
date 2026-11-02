@@ -1,0 +1,6 @@
+[
+  { "t": 0.1, "action": "moveX", "value": 1 },
+  { "t": 0.5, "action": "jump", "phase": "down" },
+  { "t": 0.7, "action": "jump", "phase": "up" },
+  { "t": 1.2, "action": "moveX", "value": 0 }
+]

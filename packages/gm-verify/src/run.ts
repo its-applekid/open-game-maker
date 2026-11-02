@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { assetManifestSchema, type Tier, type ViewId } from '@ogm/contracts';
@@ -91,6 +92,7 @@ export async function runVerify(options: RunVerifyOptions): Promise<RunVerifyRes
   let timelinePath: string | undefined;
   let clipPath: string | undefined;
   let probes: VerifyReport['probes'] = {};
+  let textState: unknown;
   let error: string | undefined;
   let ffmpegMissing = false;
   let browser: Browser | undefined;
@@ -160,6 +162,7 @@ export async function runVerify(options: RunVerifyOptions): Promise<RunVerifyRes
         if (last) {
           measured.downloadBytes = await downloadBytes(game, options.url, options.tier);
           if (options.inputs) await replayInputs(game.hooks, options.inputs);
+          textState = await game.hooks.text();
           probes = await game.hooks.probes();
         }
       } finally {
@@ -208,6 +211,8 @@ export async function runVerify(options: RunVerifyOptions): Promise<RunVerifyRes
     gmVerifyVersion: GM_VERIFY_VERSION,
   };
   const reportPath = writeReport(outDir, report);
+  if (textState !== null && textState !== undefined)
+    writeFileSync(join(outDir, 'state.json'), `${JSON.stringify(textState, null, 2)}\n`);
   playtesting(options, 'end');
   return { report, reportPath, ffmpegMissing };
 }

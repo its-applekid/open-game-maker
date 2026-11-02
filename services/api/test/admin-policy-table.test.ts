@@ -52,6 +52,7 @@ const ROUTES: Row[] = [
     body: { reason: 'spam' },
     expect: ok(201, 404),
   },
+  { method: 'GET', path: '/builds', expect: ok(200) },
   { method: 'GET', path: '/intake', expect: ok(200) },
   { method: 'GET', path: '/mail?unopened=1', expect: ok(200) },
   { method: 'POST', path: `/mail/${X.mail}/opened`, expect: ok(204, 404) },
