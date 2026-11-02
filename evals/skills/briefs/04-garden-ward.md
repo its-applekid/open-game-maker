@@ -1,0 +1,1 @@
+Build a brisk top-down garden defense game during a single windy night. The player can move in four directions and plant wards on six fixed soil patches to turn back drifting spores. Wards recharge over time, and no weapon, health system, lives, or score is needed. The player wins when they protect the tree until dawn.

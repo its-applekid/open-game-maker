@@ -153,6 +153,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GM_SKILLS_DIR', unit: 'gm', kind: 'path', doc: 'platform skill-pack root used by gm skills sync' },
   { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
   { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
+  { name: 'OGM_EVAL_CORPUS', unit: 'gm', kind: 'path', doc: 'optional local reference-game corpus for skill evals' },
   { name: 'AIUR_HOOK_TICKET_IDENTIFIER', unit: 'gm', kind: 'int', doc: 'Aiur issue number stamped on gm activity' },
   { name: 'AIUR_TICKET_BRANCH', unit: 'gm', kind: 'string', doc: 'Aiur run branch stamped on gm activity' },
   {
