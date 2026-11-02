@@ -61,7 +61,8 @@ export async function planBuild(
       slug: slugFromId(entry.id),
       items: [item],
       tiers,
-      recipe: { ...recipe(kind, tiers, [item]), ...(pixelArt ? { pixel_art: true } : {}) },
+      /* `unscaled` changes the cache key so builds cached while pixel art was still downscaled are not reused. */
+      recipe: { ...recipe(kind, tiers, [item]), ...(pixelArt ? { pixel_art: true, unscaled: true } : {}) },
       ...(pixelArt ? { pixelArt } : {}),
     });
   }

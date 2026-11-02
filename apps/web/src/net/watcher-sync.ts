@@ -1,5 +1,5 @@
-import type { Envelope, RoomPin, RoomState, DesignTx as RoomDesignTx } from '@ogm/contracts';
-import { apply, type DesignDoc, type Patch } from '@ogm/design-log';
+import type { Envelope, RoomPin, RoomState, DesignTx as RoomDesignTx } from '@ogm/contracts/browser';
+import { apply, type DesignDoc, type Patch } from '@ogm/design-log/browser';
 
 import type { RoomStoreApi } from './room-store';
 
