@@ -48,10 +48,16 @@ async function existingTagSha(
   tag: string,
   commitSha: string,
 ): Promise<string | null> {
-  const ref = await request<{ object: { sha: string; type: string } }>('GET /repos/{owner}/{repo}/git/ref/{ref}', {
-    ...repository,
-    ref: `tags/${tag}`,
-  });
+  let ref: { data: { object: { sha: string; type: string } } };
+  try {
+    ref = await request<{ object: { sha: string; type: string } }>('GET /repos/{owner}/{repo}/git/ref/{ref}', {
+      ...repository,
+      ref: `tags/${tag}`,
+    });
+  } catch (error) {
+    if (error instanceof GitHubRequestError && error.status === 404) return null;
+    throw error;
+  }
   if (ref.data.object.type !== 'tag') return null;
   const object = await request<{ object: { sha: string } }>('GET /repos/{owner}/{repo}/git/tags/{tag_sha}', {
     ...repository,
