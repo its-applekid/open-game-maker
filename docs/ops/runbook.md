@@ -30,6 +30,11 @@ unit on the first admitted job and stops it after 30 min with no active job; sto
 is registered in `~/.aiur/remote-instances.yaml` with a read token, so
 `~/github/aiur/scripts/aiurdev --instance <slug> status` works without the cookie.
 
+Two launchers exist for the same daemon: `ops/systemd/ogm-aiur@.service` runs `%h/github/aiur/scripts/aiurdev run
+--container` (what the fleet manager starts), and `ops/bin/ogm-run aiur <slug>` runs `~/.local/bin/aiur run --container`.
+Setup step 3 links `~/.local/bin/aiur` to `~/github/aiur/scripts/aiurdev`, so both start the same checkout. Which one is
+canonical is open (setup-site plan, open question 3) until Kevin answers.
+
 ## Status
 
 ```
@@ -52,7 +57,8 @@ are on its `game_daemons` row.
 ## Env files and rotation
 
 Each unit reads `~/.config/ogm/env/<unit>.env` (mode 0600). Create one with
-`pnpm --filter @ogm/config exec ogm-env-init <unit>`. Secrets shared between units (for example
+`pnpm --filter @ogm/config exec ogm-env-init <unit>`. The commit unit is the exception: it reads `ogm-commit.env`,
+copied from `services/commit/ops/ogm-commit.env.example` ([services/commit/README.md](../../services/commit/README.md)). Secrets shared between units (for example
 `OGM_WS_TOKEN_SECRET` for api and rooms) are copied from whichever unit file already holds them.
 The API file must set `OGM_APP_ORIGIN`, `OGM_COMMIT_INTERNAL_URL`, and `OGM_COMMIT_SERVICE_TOKEN`;
 `OGM_GAME_TEMPLATE_REF` defaults to `game-2d@1` when left blank. Job admission defaults each member to
@@ -63,6 +69,46 @@ The commit file must also set the shared `OGM_INTERNAL_TOKEN` so boundary checks
 creator PII terms. `OGM_BLOCKLIST_FILE` defaults to `$OGM_DATA_DIR/blocklist.txt`. Set
 `OGM_GITHUB_WEBHOOK_SECRET` when GitHub pull-request webhooks are exposed; the 60-second poller remains active as the
 fallback when it is blank.
+
+### Per-unit values
+
+`ogm-env-init` generates the secrets. These are the non-secret values a new host fills in each file, from the
+`[unit]` tags in `.env.example`; an optional name has a default or turns its feature off when blank. Paths are absolute (systemd does not expand
+`~`).
+
+| Unit file | Fill | Optional |
+| --- | --- | --- |
+| `api.env` | `OGM_API_PORT`, `OGM_PUBLIC_ORIGIN`, `OGM_APP_ORIGIN`, `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_ROOMS_INTERNAL_URL`, `OGM_COMMIT_INTERNAL_URL`, `OGM_BUILDER_BOT_LOGIN`, `OGM_INTAKE_BOT_LOGIN`, `OGM_VAPID_SUBJECT`; tokens you obtain: `OGM_BUILDER_BOT_TOKEN`, `OGM_INTAKE_GITHUB_TOKEN` | `OGM_GAMES_ROOT`, `OGM_ASSETS_ROOT`, `OGM_INTAKE_DIR`, `OGM_VOICE_HOST_INTERNAL_URL`, `OGM_VOICE_WS_URL`, `OGM_BUILDER_WORKSPACES_ROOT`, `OGM_VAPID_KEY_FILE`, `OGM_GAME_TEMPLATE_REF`, `OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD`, `OGM_RESET_ZONE_DEFAULT`, `OGM_ANALYTICS_RETENTION_DAYS`, `OGM_REPORT_BUNDLE_MAX_BYTES`, `OGM_NARRATION_CONCURRENCY`, `OGM_INTAKE_SWEEP_SECONDS`, `OGM_CHAT_POLL_MS`, `OGM_CHECKPOINT_POLL_MS`, `OGM_MAINTAINER_EMAILS`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, `SMTP_URL`/`SMTP_FROM` |
+| `rooms.env` | `OGM_ROOMS_PORT`, `OGM_GAMES_ORIGIN`, `OGM_API_INTERNAL_URL` | |
+| `games.env` | `OGM_GAMES_PORT`, `OGM_GAMES_ROOT`, `OGM_APP_ORIGIN` | |
+| `voice-host.env` | `OGM_VOICE_PORT`, `OGM_VOICE_INTERNAL_PORT`, `OGM_API_INTERNAL_URL`, `OGM_VOICE_PROVIDER` (`fake`) | `OGM_VOICE_LLM`, `OGM_VOICE_MAX_SESSIONS`, `OGM_VOICE_RENDER_DIR`, `OGM_VOICE_NARRATION_ENABLED` |
+| `intake.env` | `OGM_ASSETS_ROOT`, `OGM_STATE_DIR` | |
+| `drive-sync.env` | none; the worker reads `~/.config/ogm/drive-sync.toml` and `drive-sa.json` (`scripts/py/drive-sync/README.md`) | |
+| `backup.env` | `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_BACKUP_TARGET` | |
+| `ogm-commit.env` | `OGM_COMMIT_PORT`, `OGM_DATA_DIR`, `OGM_API_INTERNAL_URL`, `OGM_PLATFORM_ISSUE_REPO`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `OGM_BUILDER_BOT_LOGIN` | `OGM_BLOCKLIST_FILE`, `OGM_GITHUB_WEBHOOK_SECRET` |
+
+Names read by more than one unit must hold the same value in each file:
+
+| Name | Files |
+| --- | --- |
+| `OGM_DATA_DIR` | `api`, `backup`, `ogm-commit` |
+| `OGM_BLOB_ROOT` | `api`, `backup` |
+| `OGM_GAMES_ROOT`, `OGM_APP_ORIGIN` | `api`, `games` |
+| `OGM_ASSETS_ROOT` | `api`, `intake` |
+| `OGM_API_INTERNAL_URL` | `rooms`, `voice-host`, `ogm-commit` (the API's port) |
+| `OGM_BUILDER_BOT_LOGIN` | `api`, `ogm-commit` |
+| `OGM_WS_TOKEN_SECRET`, `OGM_ROOMS_INTERNAL_SECRET` | `api`, `rooms` |
+| `OGM_VOICE_TOKEN_SECRET`, `OGM_VOICE_INTERNAL_SECRET` | `api`, `voice-host` |
+| `OGM_COMMIT_SERVICE_TOKEN`, `OGM_INTERNAL_TOKEN` | `api`, `ogm-commit` |
+
+The API's internal URLs carry the other units' ports: `OGM_ROOMS_INTERNAL_URL` uses `OGM_ROOMS_PORT`,
+`OGM_VOICE_HOST_INTERNAL_URL` uses `OGM_VOICE_INTERNAL_PORT`, `OGM_COMMIT_INTERNAL_URL` uses `OGM_COMMIT_PORT`.
+`ogm-env-init` writes every `[shared]` name into every file; a unit ignores the ones it does not read.
+`AIUR_ERLANG_COOKIE` and `GITHUB_TOKEN` (`[aiur]`) go in `~/.aiur/.env`; the fleet writes them into each
+`ogm-aiur@<slug>.env`. `AIUR_API_URL`, `AIUR_API_TOKEN` and `GITHUB_APP_INSTALLATION_ID` are read by no unit today, and
+the `[gm]` names belong to the `gm` CLI, not a unit.
+
+### Rotation
 
 `ogm-env-init` only generates a secret no unit file holds yet, and `--force` keeps existing secrets while blanking
 non-secret values. To rotate a secret, replace its value by hand in every file that has it, then restart those units:
