@@ -121,8 +121,8 @@ describe('GizmoOverlay', () => {
 
     vi.advanceTimersByTime(70);
     fireEvent.pointerDown(canvas, { clientX: 20, clientY: 20, pointerId: 2 });
-    test.placement({ ok: true });
     fireEvent.pointerUp(canvas, { clientX: 20, clientY: 20, pointerId: 2 });
+    test.placement({ ok: true });
 
     expect(test.submit).toHaveBeenCalledOnce();
   });

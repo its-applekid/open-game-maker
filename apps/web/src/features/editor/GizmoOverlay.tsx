@@ -39,6 +39,7 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
   const validationAtRef = useRef(-Infinity);
   const validationTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const pendingValidationRef = useRef<Ghost | undefined>(undefined);
+  const dropRequestedRef = useRef(false);
   const [ghost, setGhost] = useState<Ghost>();
   const [anchor, setAnchor] = useState<{ id: string; x: number; y: number }>();
   const selectedId = session.getState().selection[0];
@@ -53,6 +54,10 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
       const next = { ...current, result };
       ghostRef.current = next;
       setGhost(next);
+      if (dropRequestedRef.current) {
+        dropRequestedRef.current = false;
+        if (result.ok) commitPlacement(next, manifest, session, setGhost, ghostRef);
+      }
     });
     const stopScreen = frame.onScreen((position) => {
       if ('offscreen' in position) {
@@ -66,7 +71,7 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
       stopPlacement();
       stopScreen();
     };
-  }, [frame, session]);
+  }, [frame, manifest, session]);
 
   useEffect(
     () => () => {
@@ -109,6 +114,7 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
     if (session.getState().readOnly) return;
     capturePointer(event.currentTarget, event.pointerId);
     if (activePrefab !== undefined) {
+      dropRequestedRef.current = false;
       updateGhost(event.clientX, event.clientY);
       return;
     }
@@ -147,17 +153,11 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
     }
     if (activePrefab === undefined) return;
     const current = ghostRef.current;
-    if (current?.result?.ok !== true) return;
-    const entity: Entity = {
-      id: createStableId('e_'),
-      prefab: current.prefab,
-      level: manifest.view,
-      origin: 'creator',
-      props: { pose: current.pose },
-    };
-    void session.getState().submit(createEntityIntent(session.getState().doc, entity, `Placed ${current.prefab}`));
-    ghostRef.current = undefined;
-    setGhost(undefined);
+    if (current?.result === undefined) {
+      dropRequestedRef.current = current !== undefined;
+      return;
+    }
+    if (current.result.ok) commitPlacement(current, manifest, session, setGhost, ghostRef);
   };
 
   const beginGizmo = (event: React.PointerEvent<HTMLButtonElement>, entity: Entity, gizmo: GizmoKind) => {
@@ -233,6 +233,25 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
       </div>
     </FocusZone>
   );
+}
+
+function commitPlacement(
+  ghost: Ghost,
+  manifest: GameManifest,
+  session: StoreApi<EditorSessionState>,
+  setGhost: (ghost: Ghost | undefined) => void,
+  ghostRef: React.RefObject<Ghost | undefined>,
+): void {
+  const entity: Entity = {
+    id: createStableId('e_'),
+    prefab: ghost.prefab,
+    level: manifest.view,
+    origin: 'creator',
+    props: { pose: ghost.pose },
+  };
+  void session.getState().submit(createEntityIntent(session.getState().doc, entity, `Placed ${ghost.prefab}`));
+  ghostRef.current = undefined;
+  setGhost(undefined);
 }
 
 function receivePicked(
