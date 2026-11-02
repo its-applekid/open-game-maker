@@ -106,7 +106,7 @@ const rows = Object.entries(actors).flatMap(([name, actor]) =>
 
 describe(`authorization matrix (${rows.length} rows)`, () => {
   it('exposes abuse flags as an admin-only family action', () => {
-    const action = 'game.flag_abuse' as Action;
+    const action: Action = 'game.flag_abuse';
     expect(ACTIONS).toContain(action);
     expect(authorize(actors.maintainer, action, resource(actors.maintainer, action, 'other')).ok).toBe(true);
     expect(authorize(actors.admin, action, resource(actors.admin, action, 'other')).ok).toBe(true);
