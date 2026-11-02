@@ -27,6 +27,8 @@ export type GmContext = {
   emit(event: string, payload: unknown, jobId?: string): void;
   /** `OGM_BLOB_ROOT`, resolved against cwd; null when unset. */
   blobRoot: string | null;
+  /** A game daemon's route to the blob store (`OGM_INTERNAL_URL` + `OGM_HOOK_SECRET_FILE`); used when blobRoot is null. */
+  blobApi?: { url: string; secretFile: string } | null;
   /** `OGM_BLOCKLIST_FILE`, resolved against cwd; null when unset. */
   blocklistFile: string | null;
 };

@@ -1,9 +1,12 @@
 import { join } from 'node:path';
 
+import { loadIndex } from '@ogm/asset-cards';
 import { tierSchema, type Tier } from '@ogm/contracts';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
+import { requireAssetsRoot } from '../../context.js';
 import { readLock } from '../../lock.js';
+import { entrySource } from '../../resolve.js';
 import { command as checkAssetsCommand } from '../check/assets.js';
 import { buildAudio } from './assets/audio.js';
 import { budgetReport } from './assets/budget.js';
@@ -69,7 +72,7 @@ async function runAssetCheck(ctx: Parameters<GmCommand['run']>[0]): Promise<numb
   const code = await checkAssetsCommand.run(
     { ...ctx, out: (line) => output.push(line), err: (line) => errors.push(line) },
     [],
-    { publish: false },
+    { publish: false, skipFiles: true },
   );
   if (code !== EXIT.ok) {
     output.forEach(ctx.out);
@@ -130,12 +133,22 @@ export const command: GmCommand = {
     if (!lock) throw new UsageError('assets.lock.json not found', 'gm assets use <id>');
     await assertNoSymlinks(ctx.cwd, outDir);
     await assertNoSymlinks(ctx.cwd, join(ctx.cwd, '.gm/cache/assets'));
-    for (const entry of lock.assets) await assertNoSymlinks(ctx.cwd, join(ctx.cwd, entry.path));
+    for (const entry of lock.assets) {
+      if (entrySource(entry) === 'vendored') await assertNoSymlinks(ctx.cwd, join(ctx.cwd, entry.path));
+    }
 
     const checkCode = await runAssetCheck(ctx);
     if (checkCode !== EXIT.ok) return checkCode;
 
-    const planned = await planBuild(lock, ctx.cwd, tiers, useCache);
+    const collections = lock.assets.some((entry) => entrySource(entry) === 'library')
+      ? (await loadIndex(requireAssetsRoot(ctx))).collections
+      : {};
+    const planned = await planBuild(lock, ctx.cwd, tiers, useCache, {
+      cwd: ctx.cwd,
+      assetsRoot: ctx.assetsRoot,
+      blobRoot: ctx.blobRoot,
+      collections,
+    });
     const failures: BuildFailure[] = [...planned.failures];
     if (strict && failures.length > 0) {
       reportBuildFailures(ctx, { tiers, failures: failures.slice(0, 1), strict });

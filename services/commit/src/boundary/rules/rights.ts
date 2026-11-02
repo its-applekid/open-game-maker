@@ -6,6 +6,10 @@ function isAsset(file: BoundaryFile): boolean {
   return file.status !== 'removed' && file.path.replaceAll('\\', '/').startsWith('assets/');
 }
 
+function inRepo(entry: LockEntry): boolean {
+  return (entry.source ?? 'vendored') === 'vendored';
+}
+
 function detail(entry: LockEntry, rule: string): BoundaryReason {
   return { code: 'rights', path: entry.path, detail: `${entry.id}: ${rule}` };
 }
@@ -47,7 +51,13 @@ export const rightsRule: BoundaryRule = (input) => {
     return [];
   }
 
-  const entries = new Map(input.lockfile.assets.map((entry) => [entry.path.replaceAll('\\', '/'), entry]));
+  /* Library and blob entries name bytes outside the repo (D-ASSETS-REFERENCE); only vendored ones own repo files. */
+  const repoFiles = new Map<string, { entry: LockEntry; sha256: string }>();
+  for (const entry of input.lockfile.assets.filter(inRepo)) {
+    for (const locked of [{ path: entry.path, sha256: entry.sha256 }, ...(entry.files ?? [])]) {
+      repoFiles.set(locked.path.replaceAll('\\', '/'), { entry, sha256: locked.sha256 });
+    }
+  }
   const files = new Map(
     input.files.filter((file) => file.status !== 'removed').map((file) => [file.path.replaceAll('\\', '/'), file]),
   );
@@ -55,24 +65,27 @@ export const rightsRule: BoundaryRule = (input) => {
   const checked = new Set<string>();
 
   for (const file of input.files.filter(isAsset)) {
-    const normalized = file.path.replaceAll('\\', '/');
-    const entry = entries.get(normalized);
-    if (entry === undefined) {
+    const locked = repoFiles.get(file.path.replaceAll('\\', '/'));
+    if (locked === undefined) {
       reasons.push({ code: 'rights', path: file.path, detail: 'asset is not listed in assets.lock.json' });
       continue;
     }
-    checked.add(normalized);
-    if (file.sha256 !== entry.sha256) reasons.push(detail(entry, 'sha256 does not match assets.lock.json'));
-    reasons.push(...entryReasons(entry, input));
+    if (file.sha256 !== locked.sha256) {
+      reasons.push({ ...detail(locked.entry, 'sha256 does not match assets.lock.json'), path: file.path });
+    }
+    if (checked.has(locked.entry.id)) continue;
+    checked.add(locked.entry.id);
+    reasons.push(...entryReasons(locked.entry, input));
   }
 
   const checkWholeLock = input.mode === 'tree' || files.has('assets.lock.json');
   if (checkWholeLock) {
     for (const entry of input.lockfile.assets) {
-      const normalized = entry.path.replaceAll('\\', '/');
-      if (!checked.has(normalized)) reasons.push(...entryReasons(entry, input));
-      if (input.mode === 'tree' && !files.has(normalized)) {
-        reasons.push(detail(entry, 'locked asset file is missing'));
+      if (!checked.has(entry.id)) reasons.push(...entryReasons(entry, input));
+    }
+    if (input.mode === 'tree') {
+      for (const [path, locked] of repoFiles) {
+        if (!files.has(path)) reasons.push({ ...detail(locked.entry, 'locked asset file is missing'), path });
       }
     }
   }

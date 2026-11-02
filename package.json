@@ -10,7 +10,7 @@
     "build": "pnpm -r --if-present run build",
     "test": "pnpm -r --if-present run test",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "lint": "pnpm -r --if-present run lint && prettier --check . && node .github/scripts/check-ignore.mjs",
+    "lint": "pnpm -r --if-present run lint && prettier --check . && node .github/scripts/check-ignore.mjs && node .github/scripts/check-host-names.mjs",
     "format": "prettier --write ."
   },
   "devDependencies": {

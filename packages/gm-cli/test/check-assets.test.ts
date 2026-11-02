@@ -1,4 +1,5 @@
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -6,10 +7,34 @@ import { describe, expect, it } from 'vitest';
 import type { AssetsLock } from '@ogm/contracts';
 
 import { gm, tempDir } from './helpers.js';
-import { ORC, SYNTY, preparedLibrary, useOrc } from './assets-fixture.js';
+import { ORC, SYNTY, WALL, preparedLibrary, useOrc } from './assets-fixture.js';
+
+const ORC_FILE = 'packs/kenney-mini-dungeon/2.0/extracted/Models/GLB format/character-orc.glb';
+
+function writeBlobLock(cwd: string, bytes: string): void {
+  writeFileSync(
+    join(cwd, 'assets.lock.json'),
+    `${JSON.stringify({
+      version: 1,
+      family: 'chunky-low-poly',
+      pov: 'iso',
+      assets: [
+        {
+          id: 't3:coin-hop/model/door',
+          sha256: createHash('sha256').update(bytes).digest('hex'),
+          path: 'model/door.glb',
+          source: 'blob',
+          license: 'LicenseRef-made-by-agent',
+          rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+          added: '2026-11-02',
+        },
+      ],
+    })}\n`,
+  );
+}
 
 describe('gm check assets', () => {
-  it('accepts a clean lock and reports a changed file by id and sha rule', async () => {
+  it('accepts a lock resolvable from the library and reports a changed or missing library file by id', async () => {
     const cwd = tempDir();
     const root = preparedLibrary();
     await useOrc(cwd, root);
@@ -18,10 +43,46 @@ describe('gm check assets', () => {
       out: [],
       err: [],
     });
-    writeFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'), 'changed');
+    writeFileSync(join(root, ORC_FILE), 'changed');
     const changed = await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } });
     expect(changed.code).toBe(1);
     expect(changed.err.join('\n')).toContain(`${ORC}  sha-mismatch`);
+    rmSync(join(root, ORC_FILE));
+    const missing = await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } });
+    expect(missing.code).toBe(1);
+    expect(missing.err.join('\n')).toContain(
+      `${ORC}  missing-file  Models/GLB format/character-orc.glb is missing from the library source. Try: gm packs import`,
+    );
+  });
+
+  it('verifies vendored files and their companions in the repo', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    await gm(['assets', 'use', WALL, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
+    expect((await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } })).code).toBe(0);
+    writeFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'changed');
+    const changed = await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } });
+    expect(changed.code).toBe(1);
+    expect(changed.err.join('\n')).toContain(
+      `${WALL}  sha-mismatch  assets/model/kenney-mini-dungeon/colormap.png sha256 does not match the lock`,
+    );
+  });
+
+  it('resolves a tier-3 entry from the blob store by sha', async () => {
+    const cwd = tempDir();
+    const blobs = tempDir('gm-blobs-');
+    writeBlobLock(cwd, 'door-bytes');
+    const hex = createHash('sha256').update('door-bytes').digest('hex');
+    mkdirSync(join(blobs, 'blobs/sha256'), { recursive: true });
+    writeFileSync(join(blobs, 'blobs/sha256', hex), 'door-bytes');
+    expect((await gm(['check', 'assets'], { cwd, env: { OGM_BLOB_ROOT: blobs } })).code).toBe(0);
+    rmSync(join(blobs, 'blobs/sha256', hex));
+    const missing = await gm(['check', 'assets'], { cwd, env: { OGM_BLOB_ROOT: blobs } });
+    expect(missing.code).toBe(1);
+    expect(missing.err.join('\n')).toContain('t3:coin-hop/model/door  missing-file');
   });
 
   it('detects stale lock rights from the current index', async () => {

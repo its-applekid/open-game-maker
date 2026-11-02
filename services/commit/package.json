@@ -9,6 +9,7 @@
     "lint": "eslint src",
     "pretest": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/game-repo-template build",
     "pretypecheck": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/game-repo-template build",
+    "start": "node dist/index.js",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

@@ -1,12 +1,15 @@
 import type { SaveData, SaveSlot } from '@ogm/contracts/browser';
 
+import type { SaveContext } from '../api';
+
 export const SAVE_SLOT_IDS = ['auto', '1', '2', '3'] as const satisfies readonly SaveSlot['slotId'][];
 export type SaveSlotId = (typeof SAVE_SLOT_IDS)[number];
 export type SaveWrite = (
   gameId: string,
   slotId: SaveSlotId,
   payload: SaveData<unknown>,
-  headRevision?: number,
+  headRevision: number | undefined,
+  context: SaveContext,
 ) => Promise<unknown>;
 
 export function saveSlotOptions(slots: readonly SaveSlot[]): Array<{ id: SaveSlotId; slot?: SaveSlot }> {
@@ -20,9 +23,10 @@ export function storeSaveWrite(
   payload: SaveData<unknown>,
   slots: readonly SaveSlot[],
   write: SaveWrite,
+  context: SaveContext,
 ): Promise<unknown> {
   const headRevision = slots.find((slot) => slot.slotId === slotId)?.headRevision;
-  return write(gameId, slotId, payload, headRevision);
+  return write(gameId, slotId, payload, headRevision, context);
 }
 
 export function saveSlotLabel(slotId: SaveSlotId): string {

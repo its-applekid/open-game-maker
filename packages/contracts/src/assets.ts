@@ -144,6 +144,14 @@ const lockEntrySchema = z.looseObject({
   id: lockAssetIdSchema,
   sha256: z.string().regex(/^[0-9a-f]{64}$/),
   path: z.string().min(1),
+  /**
+   * Where `gm build assets` finds the bytes (D-ASSETS-REFERENCE): `library` reads `path` inside the pack's extracted
+   * folder under `OGM_ASSETS_ROOT`, `blob` reads the instance blob store by `sha256`, `vendored` reads `path` in the
+   * repo. Absent on older locks, which still hold repo copies.
+   */
+  source: z.enum(['library', 'blob', 'vendored']).optional(),
+  /** Companion and texture files beside the primary `path`, each pinned by sha256. */
+  files: z.array(z.object({ path: z.string().min(1), sha256: z.string().regex(/^[0-9a-f]{64}$/) })).optional(),
   license: z.string().min(1),
   rights: z.looseObject({
     uses: z.array(useSchema),
@@ -187,6 +195,13 @@ export const AssetsLockSchema = z
           code: 'custom',
           path: ['assets', index, 'rights', 'redistribution'],
           message: 'assets with redistribution none cannot enter the lock',
+        });
+      }
+      if (entry.source === 'library' && entry.id.startsWith('t3:')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['assets', index, 'source'],
+          message: 'tier-3 assets live in the blob store or the repo, not the library',
         });
       }
       if (!safeRepoPath(entry.path)) {

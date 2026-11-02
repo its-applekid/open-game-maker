@@ -1,3 +1,4 @@
+import { savesPath } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
@@ -51,7 +52,7 @@ async function setup() {
 }
 
 const jsonHeaders = { ...asUser(ids.user), 'content-type': 'application/json' };
-const base = `/api/v1/saves/${ids.game}`;
+const base = `/api/v1${savesPath(ids.game)}`;
 
 async function lease(app: Awaited<ReturnType<typeof makeApp>>['app'], deviceId = ids.device, takeover = false) {
   return app.request(`${base}/lease`, {
@@ -193,5 +194,20 @@ describe('save routes', () => {
     });
     expect(staleHeartbeat.status).toBe(423);
     expect(await staleHeartbeat.json()).toEqual({ heldBy: ids.otherDevice });
+  });
+
+  it('keeps the pre-#281 /saves/:gameId path as an alias of the game-scoped saves', async () => {
+    const { app } = await setup();
+    const legacy = `/api/v1/saves/${ids.game}`;
+    expect(base).toBe(`/api/v1/games/${ids.game}/saves`);
+    expect((await lease(app)).status).toBe(200);
+    const payload = new Uint8Array([7, 8, 9]);
+    const written = await app.request(`${legacy}/1`, { method: 'PUT', headers: saveHeaders(1, 0), body: payload });
+    expect(written.status).toBe(200);
+
+    const loaded = await app.request(`${base}/1`, { headers: asUser(ids.user) });
+    expect(new Uint8Array(await loaded.arrayBuffer())).toEqual(payload);
+    const listed = await app.request(`${legacy}?schema=3`, { headers: asUser(ids.user) });
+    expect(await listed.json()).toEqual({ slots: [expect.objectContaining({ slotId: '1', headRevision: 1 })] });
   });
 });

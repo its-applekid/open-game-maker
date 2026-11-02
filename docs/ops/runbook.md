@@ -1,6 +1,6 @@
 # Runbook
 
-Everything runs as `orangekid` under `systemd --user`; nothing here needs sudo. Steps only Kevin can do are in
+Everything runs as `<user>` under `systemd --user`; nothing here needs sudo. Steps only Kevin can do are in
 [hand-steps.md](hand-steps.md).
 
 ## Install
@@ -40,7 +40,7 @@ canonical is open (setup-site plan, open question 3) until Kevin answers.
 ```
 ops/bin/ogm-status            # units, placeholders, listeners, disk, sizes, backup, ingress
 ops/bin/ogm-status --json
-ops/bin/ogm-status --check    # exit 1 on a failed unit, a STRAY listener, or a backup older than 48 h
+ops/bin/ogm-status --check    # exit 1 on a failed unit, a STRAY listener, a missing service build, or a backup over 48 h
 ```
 
 It prints names and sizes only, never env values. A listener is `STRAY` when an OGM process (any process in an `ogm`
@@ -50,7 +50,8 @@ not killed: stop the process that owns the pid.
 ## Placeholders
 
 `PLACEHOLDER <service>` in the journal means `ops/bin/ogm-run` found no build (or no setup) for that unit and is
-idling. It clears when the service's build lands and the unit restarts. drive-sync waits for the Drive setup steps in
+idling. Node units run the file their package's `start` script names; `ogm-status --check` reports a missing one, and a
+unit still idling after its build lands. It clears when the unit restarts. drive-sync waits for the Drive setup steps in
 `~/remind.md`. `ogm-aiur@<slug>` has no placeholder: a failing preflight keeps it from starting, and the reasons
 are on its `game_daemons` row.
 
@@ -134,9 +135,9 @@ step.
 boot). It reads `~/.config/ogm/env/backup.env` (systemd does not expand `~` there, so local paths are absolute):
 
 ```
-OGM_DATA_DIR=/home/orangekid/.local/share/ogm/data
-OGM_BLOB_ROOT=/home/orangekid/.local/share/ogm/blobs
-OGM_BACKUP_TARGET=ssh:orangekid:~/ogm-backups      # or local:<absolute path>; ~/ is the remote home
+OGM_DATA_DIR=/home/<user>/.local/share/ogm/data
+OGM_BLOB_ROOT=/home/<user>/.local/share/ogm/blobs
+OGM_BACKUP_TARGET=ssh:<backup-host>:~/ogm-backups      # or local:<absolute path>; ~/ is the remote home
 ```
 
 Each run writes, under `<target path>/ogm-backups/`:
@@ -144,7 +145,8 @@ Each run writes, under `<target path>/ogm-backups/`:
 - `db-<STAMP>.sqlite`: a `VACUUM INTO` snapshot of `$OGM_DATA_DIR/ogm.db`, safe while the API writes. Skipped (with
   `no database yet`) until the database exists.
 - `blobs-<STAMP>.tar.zst`: every blob and sidecar changed since the last verified run (the first run takes them all).
-  Blobs never change, so this is an exact delta.
+  Blobs never change, so this is an exact delta. The blob store also holds every game's tier-3 assets (agent-made or
+  edited; game repos keep only their sha in `assets.lock.json`), so this backup is their only copy off the host.
 - `manifest-<STAMP>.json`: the previous stamp, each file's size and sha256, the blob count, the host, the repo commit and
   the env file names (never their values).
 
@@ -161,7 +163,7 @@ systemctl --user start ogm-backup && journalctl --user -u ogm-backup -n 5
 ## Restore
 
 ```
-ops/backup/restore.sh <stamp> --to /tmp/ogm-restore --target ssh:orangekid:~/ogm-backups
+ops/backup/restore.sh <stamp> --to /tmp/ogm-restore --target ssh:<backup-host>:~/ogm-backups
 ```
 
 It follows the manifests back to the first full backup, checks every file's sha256 before writing, extracts the blob

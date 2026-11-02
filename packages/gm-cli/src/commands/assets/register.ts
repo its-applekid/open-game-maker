@@ -1,14 +1,17 @@
-import { lstat, readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { lstat, readFile, unlink } from 'node:fs/promises';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { loadIndex } from '@ogm/asset-cards';
 import type { LockEntry } from '@ogm/contracts';
 
+import { putBlob } from '../../blobs.js';
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { requireAssetsRoot, resolveContainedPath } from '../../context.js';
 import { renderCredits } from '../../credits.js';
-import { readLock, sha256File, upsertLock, writeGeneratedText, writeLock } from '../../lock.js';
+import { readLock, upsertLock, writeGeneratedText, writeLock } from '../../lock.js';
 import { intersectLockRights, rightsForCard } from '../../rules.js';
+import { MIME } from '../packs/index.js';
 
 function repeated(value: unknown): string[] {
   if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
@@ -77,7 +80,7 @@ function derivedLicense(sourceLicenses: string[]): string {
 
 export const command: GmCommand = {
   name: 'assets register',
-  summary: 'record an agent-made or derived game asset in assets.lock.json',
+  summary: 'move an agent-made or derived asset into the blob store and record it in assets.lock.json',
   usage: '<path> --made-by-agent [--from <id>...] [--game <id>]',
   example: 'assets register assets/model/boss-door.glb --made-by-agent --from t1:pack/source@1 --game coin-hop',
   flags: {
@@ -115,9 +118,21 @@ export const command: GmCommand = {
     }
     sourceLicenses = [...new Set(sourceLicenses)];
     const id = `t3:${await gameId(ctx.cwd, flags.game)}/${idPath(file.relative)}`;
+    const taken = lock.assets.find((entry) => entry.id === id && entry.path !== file.relative);
+    if (taken) {
+      throw new UsageError(
+        `${id} already names ${taken.path}`,
+        'rename the file so its id differs, e.g. assets/model/door-2.glb',
+      );
+    }
+    // D-ASSETS-REFERENCE: the bytes live in the instance blob store; the repo keeps only the lock entry.
+    const bytes = await readFile(file.absolute);
+    const sha256 = createHash('sha256').update(bytes).digest('hex');
+    await putBlob(ctx, bytes, sha256, MIME[extname(file.relative).toLowerCase()] ?? 'application/octet-stream');
     lock = upsertLock(lock, {
       id,
-      sha256: await sha256File(file.absolute),
+      sha256,
+      source: 'blob',
       path: file.relative,
       license: derivedLicense(sourceLicenses),
       rights,
@@ -126,6 +141,7 @@ export const command: GmCommand = {
     });
     await writeLock(ctx.cwd, lock);
     await writeGeneratedText(join(ctx.cwd, 'CREDITS.md'), renderCredits(lock));
+    await unlink(file.absolute);
     ctx.emit('assets.register', { id, derived_from: sourceIds });
     return EXIT.ok;
   },

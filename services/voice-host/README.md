@@ -7,7 +7,7 @@ The voice host supervises one `voice_converse` instance. It accepts short-lived 
 The Mix project pins `voice_converse` to commit `0f692a45b04bb4ce3e7d8256e134028894bd128b`. On the OGM host, use the local aiur checkout so dependency resolution does not need GitHub access:
 
 ```sh
-OGM_AIUR_GIT=/home/orangekid/github/aiur HEX_OFFLINE=1 mise exec -C services/voice-host -- mix deps.get
+OGM_AIUR_GIT=$HOME/github/aiur HEX_OFFLINE=1 mise exec -C services/voice-host -- mix deps.get
 MIX_ENV=prod mise exec -C services/voice-host -- mix release
 ```
 

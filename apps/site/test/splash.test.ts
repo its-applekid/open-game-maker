@@ -59,8 +59,8 @@ describe('splash page', () => {
   });
 
   it('names no host of this machine, so a self-hoster only edits splash.yaml', () => {
-    expect(html).not.toMatch(/applekid|orangekid/);
-    expect(readFileSync(splashPath, 'utf8')).not.toMatch(/applekid|orangekid/);
+    expect(html).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
+    expect(readFileSync(splashPath, 'utf8')).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
   });
 
   it('escapes content so YAML text cannot inject markup', () => {
@@ -109,6 +109,6 @@ describe('built splash (dist/index.html, written by the pretest build)', () => {
       expect(version).toBe(createHash('sha256').update(bytes).digest('hex').slice(0, 10));
     }
     expect(existsSync(`${distDir}/_headers`)).toBe(true);
-    expect(built).not.toMatch(/applekid|orangekid/);
+    expect(built).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
   });
 });

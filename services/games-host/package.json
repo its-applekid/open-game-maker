@@ -16,6 +16,7 @@
   "scripts": {
     "build": "tsc -b",
     "pretypecheck": "pnpm --filter @ogm/contracts build",
+    "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "pnpm --filter @ogm/contracts build",
     "test": "vitest run",

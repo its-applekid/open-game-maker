@@ -50,6 +50,19 @@ function writeImage(cwd: string): void {
 describe('gm build assets safety boundaries', () => {
   it('keeps prerequisite failures machine-readable in --json mode', async () => {
     const cwd = tempDir('gm-build-json-check-');
+    writeFileSync(join(cwd, 'assets.lock.json'), '{"version":1}\n');
+
+    const result = await gm(['build', 'assets', '--json'], { cwd, env: {} });
+
+    expect(result.code).toBe(1);
+    expect(result.err).toEqual([]);
+    expect(result.out).toHaveLength(1);
+    expect(JSON.parse(result.out[0]!)).toMatchObject({ allowed: false });
+  });
+
+  // A changed or missing file fails only its own asset, by id, with the command that fixes it.
+  it('reports a sha-mismatched file as that asset failure with its fix in --json mode', async () => {
+    const cwd = tempDir('gm-build-json-sha-');
     mkdirSync(join(cwd, 'assets'), { recursive: true });
     writeFileSync(join(cwd, 'assets/image.png'), ONE_PIXEL_PNG);
     writeImageLock(cwd, 'assets/image.png', '0'.repeat(64));
@@ -58,8 +71,14 @@ describe('gm build assets safety boundaries', () => {
 
     expect(result.code).toBe(1);
     expect(result.err).toEqual([]);
-    expect(result.out).toHaveLength(1);
-    expect(JSON.parse(result.out[0]!)).toMatchObject({ allowed: false });
+    expect(JSON.parse(result.out[0]!)).toMatchObject({
+      failures: [
+        {
+          id: 't3:fixture/image',
+          message: expect.stringContaining('sha256 does not match the lock. Try: gm assets register assets/image.png'),
+        },
+      ],
+    });
   });
 
   it('keeps transform failures machine-readable in --json mode', async () => {

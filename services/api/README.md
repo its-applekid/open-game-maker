@@ -65,6 +65,12 @@ from `/internal/jobs/by-ticket/:ticket/attachments/:id` into `.gm/inbox/attachme
 workspace is pinned copies its files there directly; and the aiur message inlines text files that fit within its
 8,000 characters and names every file by that path (images also carry a signed URL).
 
+Tier-3 game assets (agent-made or edited) live in the blob store, not the game repo. A game daemon puts and gets them
+by sha256 at `PUT|GET /blobs/daemon/sha256/:hex` with its hook secret as the bearer (`gm assets register`
+puts through `OGM_INTERNAL_URL` and `OGM_HOOK_SECRET_FILE`). A put whose body does not hash to
+`:hex` returns `400 sha_mismatch`; one over `OGM_BLOB_PUT_MAX_BYTES` (default 64 MiB) returns `413 blob_too_large`; a
+blob already stored answers `200` without reading the body.
+
 Direction checkpoints use the same workspace pin. The API polls each active job's aiur Commands every
 `OGM_CHECKPOINT_POLL_MS`, keeps the supervisor token server-side, and writes answered or moot results under
 `<workspace>/.gm/inbox/checkpoints/` for the sandboxed `gm checkpoint wait` command.

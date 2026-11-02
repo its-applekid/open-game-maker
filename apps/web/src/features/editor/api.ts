@@ -6,12 +6,15 @@ import type {
   ReapplyReport,
   Release,
   SaveData,
+  SaveRevision,
   SaveSlot,
   Transaction,
 } from '@ogm/contracts/browser';
+import { SaveRevisionSchema, savesPath } from '@ogm/contracts/browser';
 import { PatchTooLargeError, validatePatches } from '@ogm/design-log/browser';
 
 import { api, ApiError, apiFetch, sse } from '../../lib/api/client';
+import { createStableId } from './transactions';
 
 export type GameMetadata = {
   id: string;
@@ -135,24 +138,81 @@ export function listJobs(gameId: string): Promise<{ jobs: Job[] }> {
 }
 
 export function getOptionalSaves(gameId: string): Promise<OptionalCapability<{ slots: SaveSlot[] }>> {
-  return optionalApi(`/games/${segment(gameId)}/saves`);
+  return optionalApi(savesPath(gameId));
 }
 
-export function getSave(gameId: string, slotId: SaveSlot['slotId']): Promise<SaveData<unknown>> {
-  return api(`/games/${segment(gameId)}/saves/${segment(slotId)}`);
+/** The branch (`main` or a branch id) and build the player is running; the API records both on each save. */
+export type SaveContext = { branch: string; buildId: string };
+
+/** The browser has already gunzipped the body: the API serves the bytes with `content-encoding: gzip`. */
+export async function getSave(gameId: string, slotId: SaveSlot['slotId']): Promise<SaveData<unknown>> {
+  const response = await apiFetch(savesPath(gameId, slotId));
+  if (!response.ok) throw new ApiError(response.status, undefined);
+  return JSON.parse(await response.text()) as SaveData<unknown>;
 }
 
-export function putSave(
+/** Takes this device's play lease, then writes one gzipped revision; `headRevision` 0 creates the slot. */
+export async function putSave(
   gameId: string,
   slotId: SaveSlot['slotId'],
   payload: SaveData<unknown>,
-  headRevision?: number,
-): Promise<unknown> {
-  return api(`/games/${segment(gameId)}/saves/${segment(slotId)}`, {
+  headRevision: number | undefined,
+  context: SaveContext,
+): Promise<{ revision: number }> {
+  const deviceId = saveDeviceId();
+  await api(`${savesPath(gameId)}/lease`, { method: 'POST', json: { deviceId, tabId } });
+  return api(savesPath(gameId, slotId), {
     method: 'PUT',
-    headers: { 'if-match': headRevision === undefined ? '*' : `"${headRevision}"` },
-    json: payload,
+    headers: {
+      'content-type': 'application/octet-stream',
+      'content-encoding': 'gzip',
+      'if-match': String(headRevision ?? 0),
+      'idempotency-key': `${deviceId}:${randomSequence()}`,
+      'x-save-schema': String(payload.saveSchemaVersion),
+      'x-save-branch': context.branch,
+      'x-save-build': context.buildId,
+      'x-save-reason': saveReason(payload),
+    },
+    body: await gzipJson({ saveSchemaVersion: payload.saveSchemaVersion, data: payload.data }),
   });
+}
+
+/** The SDK adds why it saved (`pause`, `interval`...) to each save.write; the bridge passes it through untyped. */
+function saveReason(payload: SaveData<unknown>): SaveRevision['reason'] {
+  const parsed = SaveRevisionSchema.shape.reason.safeParse((payload as { reason?: unknown }).reason);
+  return parsed.success ? parsed.data : 'checkpoint';
+}
+
+function gzipJson(value: unknown): Promise<ArrayBuffer> {
+  const stream = new Response(JSON.stringify(value)).body!.pipeThrough(new CompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
+}
+
+const DEVICE_KEY = 'ogm:saves:device';
+const tabId = createStableId('tab_');
+let memoryDeviceId: string | undefined;
+
+/** One id per browser, shared by its tabs; without storage it lasts for this page. */
+function saveDeviceId(): string {
+  try {
+    const stored = localStorage.getItem(DEVICE_KEY);
+    if (stored !== null) return stored;
+    const deviceId = createStableId('device_');
+    localStorage.setItem(DEVICE_KEY, deviceId);
+    return deviceId;
+  } catch {
+    memoryDeviceId ??= createStableId('device_');
+    return memoryDeviceId;
+  }
+}
+
+/**
+ * The API replays a write whose device and sequence it has seen, so tabs sharing a device must never pick the same
+ * sequence: a random 53-bit one keeps them apart without a shared counter.
+ */
+function randomSequence(): number {
+  const [high, low] = globalThis.crypto.getRandomValues(new Uint32Array(2));
+  return (high! & 0x1fffff) * 2 ** 32 + low!;
 }
 
 export async function getOptionalPublished(gameId: string, etag?: string): Promise<PublishedCapability> {
