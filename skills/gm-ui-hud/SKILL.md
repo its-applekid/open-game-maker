@@ -50,9 +50,9 @@ List the game's screens before building them: title, play, paused, won, and lost
 frozen game; the others are the game's, and each needs a clear way forward (start, retry, next) reachable by every
 declared input.
 
-- Title and play: `gm run --viewport both --frames 0,2,5`. Its stills come from a fresh run; inputs do not reach them.
-- Won and lost: write one input script that reaches each, then `gm test --inputs won.json --ticks 900` replays it and
-  saves `hud.png` on the phone viewport at that tick. Choose ticks past the script's last step.
+- Title: `gm run --viewport both --frames 0,2,5`. Its stills come from a fresh run; inputs do not reach them.
+- Play, won, and lost: write one input script that reaches each, then `gm test --inputs won.json --ticks 900`
+  replays it and saves `hud.png` on the phone viewport at that tick. Choose ticks past the script's last step.
 
 Look at every still: no clipped text, nothing under a notch, the centre clear, and the top-right corner and lower
 corners empty. The stills show the game alone, without the host's HUD, so an empty corner is the check.
