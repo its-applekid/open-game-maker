@@ -40,7 +40,7 @@ server:
   port: 4101
   tailscale_funnel: false
 workspace:
-  root: /home/x/.local/share/ogm/daemons/castle-run/workspaces
+  root: /srv/ogm-test/.local/share/ogm/daemons/castle-run/workspaces
 hooks_file: hooks
 prompt_file: prompt.md
 agent:
@@ -64,7 +64,7 @@ agent:
     turn_sandbox_policy:
       type: workspaceWrite
       writableRoots:
-        - /home/x/.local/share/ogm/daemons/castle-run/workspaces
+        - /srv/ogm-test/.local/share/ogm/daemons/castle-run/workspaces
       networkAccess: false
       excludeSlashTmp: true
 events:

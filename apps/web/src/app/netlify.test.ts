@@ -9,9 +9,9 @@ const publicFile = (name: string) => readFileSync(resolve(process.cwd(), 'public
 
 describe('Netlify static configuration', () => {
   it('places both backend proxies, built from the deploy-time origin, before the SPA fallback', () => {
-    expect(renderRedirects('https://box.tail0000.ts.net:8443').split('\n').filter(Boolean)).toEqual([
-      '/api/*  https://box.tail0000.ts.net:8443/api/:splat  200',
-      '/auth/*  https://box.tail0000.ts.net:8443/auth/:splat  200',
+    expect(renderRedirects('https://api.example:8443').split('\n').filter(Boolean)).toEqual([
+      '/api/*  https://api.example:8443/api/:splat  200',
+      '/auth/*  https://api.example:8443/auth/:splat  200',
       '/*  /index.html  200',
     ]);
   });

@@ -1,5 +1,5 @@
 {
   "token": "vct1.eyJzY29wZSI6ImNvbnZlcnNlIn0.c2lnbmF0dXJl",
   "expires_at": "2026-11-01T05:30:00Z",
-  "url": "wss://ogm-host.example.ts.net:8443/ws/voice"
+  "url": "wss://api.example:8443/ws/voice"
 }
