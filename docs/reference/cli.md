@@ -132,3 +132,19 @@ gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>]
 
 `--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
 the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.
+
+## Export and import asset libraries
+
+```text
+gm assets export --used [--game <id>|--all-games] [--games-dir <dir>] [--include-restricted] [--out <zip>]
+gm assets export --all [--games-dir <dir>] [--include-restricted] [--out <zip>]
+gm assets import <zip>
+```
+
+`--used` exports the library and blob-store files pinned by the current game's lock. Use `--game` or `--all-games`
+with a directory of game repositories to choose a wider scope; `--all` exports every asset available to the instance.
+The deterministic zip includes the relevant locks, credits, and a rights report. Assets whose rights forbid raw-file
+redistribution are named but omitted unless `--include-restricted` is explicit.
+
+`assets import` verifies every reported hash and adds files to `OGM_ASSETS_ROOT` and `OGM_BLOB_ROOT`. It never replaces
+a different existing file, so the same export can be imported repeatedly.
