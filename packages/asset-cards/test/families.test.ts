@@ -151,6 +151,7 @@ describe('style-families.json', () => {
     expect(set?.traits).toMatchObject({ perspective: 'isometric 2:1' });
     expect(set?.previews).toEqual({
       specimen: 'sets/smallscaleint/specimen.png',
+      trailer: 'sets/smallscaleint/trailer.mp4',
       diorama: {
         fantasy: 'sets/smallscaleint/diorama.fantasy.256.png',
         'modern-zombie': 'sets/smallscaleint/diorama.modern-zombie.256.png',
@@ -226,6 +227,15 @@ describe('StyleFamilySchema', () => {
     families
       .find((entry) => entry.id === 'isometric-2d')!
       .sets.find((set) => set.id === 'smallscaleint')!.previews!.specimen = 'sets/../private.png';
+
+    expect(StyleFamiliesSchema.safeParse(families).success).toBe(false);
+  });
+
+  it('refuses traversal segments in a set trailer path', () => {
+    const families = structuredClone(loadFamilies());
+    families
+      .find((entry) => entry.id === 'isometric-2d')!
+      .sets.find((set) => set.id === 'smallscaleint')!.previews!.trailer = 'sets/../private.mp4';
 
     expect(StyleFamiliesSchema.safeParse(families).success).toBe(false);
   });

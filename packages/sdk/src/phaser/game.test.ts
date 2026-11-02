@@ -110,6 +110,17 @@ describe('createPhaserGame', () => {
     expect(wrapper.info()).toMatchObject({ calls: 1, backend: 'webgl' });
   });
 
+  it('allows a 2D game to opt into the canvas renderer', async () => {
+    await createPhaserGame(runtime() as unknown as Runtime<unknown, unknown>, {
+      parent: document.body,
+      presentation: presentation('fixed'),
+      scenes: [],
+      renderer: 'canvas',
+    });
+
+    expect(mock.configs[0]).toMatchObject({ type: 2 });
+  });
+
   it('resizes a responsive game from host viewport messages', async () => {
     const rt = runtime('draft');
     await createPhaserGame(rt as unknown as Runtime<unknown, unknown>, {
