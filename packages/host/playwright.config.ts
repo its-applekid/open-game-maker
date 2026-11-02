@@ -13,8 +13,10 @@ export default defineConfig({
     launchOptions: { args: process.env.GM_VERIFY_SOFTWARE_GL ? softwareArgs : gpuArgs },
   },
   webServer: {
-    command: 'pnpm exec tsx test/serve.ts',
+    command:
+      'pnpm --filter @gm/template-game-2d build && pnpm --filter @gm/template-game-3d build && pnpm exec tsx test/serve.ts',
     url: 'http://127.0.0.1:4173/health',
     reuseExistingServer: false,
+    timeout: 300_000,
   },
 });
