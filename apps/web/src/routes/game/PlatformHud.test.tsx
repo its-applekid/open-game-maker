@@ -151,6 +151,35 @@ describe('PlatformHud', () => {
     await waitFor(() => expect(write).toHaveBeenNthCalledWith(2, 'game', 'auto', expect.anything(), 5, saveContext));
   });
 
+  it('rereads slot heads after a failed write so a save that landed does not wedge later saves', async () => {
+    const test = frameHarness();
+    const toast = vi.fn();
+    const write = vi.fn().mockRejectedValueOnce(new TypeError('connection reset')).mockResolvedValue(undefined);
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 4 }] } })
+      .mockResolvedValue({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 5 }] } });
+    render(
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saveContext={saveContext}
+        saves
+        saveApi={{ list, read: vi.fn(), write }}
+        toast={toast}
+      />,
+    );
+    await waitFor(() => expect(list).toHaveBeenCalledOnce());
+    await waitFor(() => expect(test.frame.onSaveWrite).toHaveBeenCalledTimes(2));
+
+    test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 1 } });
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Save failed'));
+    test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 2 } });
+
+    await waitFor(() => expect(write).toHaveBeenNthCalledWith(2, 'game', 'auto', expect.anything(), 5, saveContext));
+  });
+
   it('forwards safe settings and emits draft-only achievement copy', () => {
     const test = frameHarness();
     const toast = vi.fn();

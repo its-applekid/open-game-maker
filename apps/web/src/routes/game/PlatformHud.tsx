@@ -99,20 +99,25 @@ export function PlatformHud({
       if (!savesAvailable) return;
       saveQueueRef.current = saveQueueRef.current
         .then(async () => {
-          await storeSaveWrite(
-            gameId,
-            selectedSlotRef.current,
-            payload,
-            slotsRef.current ?? [],
-            saveApi.write,
-            saveContextRef.current,
-          );
-          const result = await saveApi.list(gameId);
-          if (!active) return;
-          setSavesAvailable(result.available);
-          const nextSlots = result.available ? result.value.slots : undefined;
-          slotsRef.current = nextSlots;
-          setSlots(nextSlots);
+          try {
+            await storeSaveWrite(
+              gameId,
+              selectedSlotRef.current,
+              payload,
+              slotsRef.current ?? [],
+              saveApi.write,
+              saveContextRef.current,
+            );
+          } finally {
+            // A write whose response was lost may still have landed: reread the heads either way.
+            const result = await saveApi.list(gameId);
+            if (active) {
+              setSavesAvailable(result.available);
+              const nextSlots = result.available ? result.value.slots : undefined;
+              slotsRef.current = nextSlots;
+              setSlots(nextSlots);
+            }
+          }
         })
         .catch(() => toast('Save failed'));
     });
