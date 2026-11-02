@@ -47,6 +47,7 @@ describe('migrate', () => {
         '20261102054226_merge_plans.sql',
         '20261102092046_scope_session_revisions.sql',
         '20261102100555_report_triage.sql',
+        '20261102110848_releases.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -80,6 +81,7 @@ describe('migrate', () => {
       'migration:20261102054226_merge_plans.sql',
       'migration:20261102092046_scope_session_revisions.sql',
       'migration:20261102100555_report_triage.sql',
+      'migration:20261102110848_releases.sql',
     ]);
     sqlite.close();
   });
