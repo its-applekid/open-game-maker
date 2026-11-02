@@ -1,8 +1,9 @@
 import type { ScreenRoute } from '../../app/screen';
+import { NewGameScreen } from './NewGameScreen';
 
 export const route: ScreenRoute = {
   path: '/new',
-  element: <h1>New game</h1>,
+  element: <NewGameScreen />,
   chrome: 'app',
   auth: 'required',
 };

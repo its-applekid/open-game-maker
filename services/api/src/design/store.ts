@@ -324,6 +324,13 @@ export function readTransactions(sqlite: Sqlite, branchId: string, afterRev: num
     .map(transactionFromRow);
 }
 
+export function findTransaction(sqlite: Sqlite, transactionId: string): Transaction | undefined {
+  const row = sqlite
+    .prepare<[string], TransactionRow>('SELECT * FROM design_transactions WHERE id = ?')
+    .get(transactionId);
+  return row ? transactionFromRow(row) : undefined;
+}
+
 export function readChain(sqlite: Sqlite, branchId: string): Array<{ branch: Branch; txs: Transaction[] }> {
   const chain: Array<{ branch: Branch; txs: Transaction[] }> = [];
   const visited = new Set<string>();

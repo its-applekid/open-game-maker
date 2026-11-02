@@ -22,13 +22,23 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
-from smallscaleint_unity import extract_unitypackage
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
 
-DIRECTIONS = ("E", "N", "NE", "NW", "S", "SE", "SW", "W")
+from smallscaleint_layouts import (  # noqa: E402
+    DEFAULT_FPS,
+    DIRECTIONS,
+    NUMBER,
+    SHEET_DIRECTIONS,
+    discover_frame_groups,
+    discover_sheets,
+    natural,
+    slug,
+)
+from smallscaleint_unity import extract_unitypackage  # noqa: E402
+
 TOOL = "smallscaleint-layout@0.1"
 NOW = datetime.now().astimezone().isoformat(timespec="seconds")
-SAFE_ID = re.compile(r"[^a-z0-9]+")
-NUMBER = re.compile(r"(\d+)")
 FACING = re.compile(r"^(.*)_(NE|NW|SE|SW|E|N|S|W)$", re.IGNORECASE)
 
 PACKS = (
@@ -53,20 +63,14 @@ MODERN = {
     "smallscaleint-free-character-16-bit-thug-outlined", "smallscaleint-free-character-hd-survivor-w-bike",
 }
 CREATURES = {"smallscaleint-2d-animals-mega-pack-1"}
-def slug(value: str) -> str:
-    return SAFE_ID.sub("-", value.lower()).strip("-") or "asset"
-
-
-def natural(path: Path) -> tuple:
-    return tuple(int(part) if part.isdigit() else part.lower() for part in NUMBER.split(path.name))
 def world_for(pack_id: str) -> str:
     if pack_id in CREATURES:
         return "creatures"
     return "modern-zombie" if pack_id in MODERN else "fantasy"
 
 
-def decorate_collection(card: dict, pack_id: str) -> dict:
-    """Add the canonical family, set, and curated world to one collection card."""
+def decorate_collection(card: dict, pack_id: str, pack_dir: Path | None = None) -> dict:
+    """Add the canonical set, world, and local illustration references to one collection card."""
     if pack_id not in PACKS:
         return card
     card["describe"].update(style_family="isometric-2d", set="smallscaleint", world=world_for(pack_id))
@@ -74,6 +78,43 @@ def decorate_collection(card: dict, pack_id: str) -> dict:
         card["provenance"][f"describe.{field}"] = {
             "by": "code", "tool": TOOL, "at": NOW, "input": value,
         }
+    world = world_for(pack_id)
+    card["previews"] = {
+        **card.get("previews", {}),
+        "specimen": f"packs/{pack_id}/specimen.png",
+        "diorama": f"sets/smallscaleint/diorama.{world}.256.png",
+        "loop": f"sets/smallscaleint/diorama.{world}.256.gif",
+    }
+    for field in ("specimen", "diorama", "loop"):
+        card["provenance"][f"previews.{field}"] = {
+            "by": "code", "tool": "thumbnail-scene@0.1", "at": NOW, "input": "deterministic local render",
+        }
+    manifest = None
+    if pack_dir is not None:
+        manifest_path = pack_dir / "store" / "media.json"
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except FileNotFoundError:
+            pass
+    if manifest is not None:
+        fallback = manifest.get("selected_fallback")
+        media_paths = {item.get("path") for item in manifest.get("media", []) if isinstance(item, dict)}
+        valid_fallback = (
+            isinstance(fallback, str)
+            and fallback not in (".", "..")
+            and Path(fallback).name == fallback
+            and fallback in media_paths
+            and (manifest_path.parent / fallback).is_file()
+        )
+        if manifest.get("pack_id") != pack_id or not valid_fallback:
+            raise ValueError(f"invalid store media manifest for {pack_id}")
+        card["previews"]["store"] = f"packs/{pack_id}/store/{fallback}"
+        card["provenance"]["previews.store"] = {
+            "by": "vendor-metadata", "tool": "thumbnail-scene@0.1", "at": NOW,
+            "input": f"packs/{pack_id}/store/media.json",
+        }
+    if card.get("flags") == ["missing-preview"]:
+        card.pop("flags")
     return card
 
 
@@ -137,49 +178,17 @@ def animation_rates(ext: Path) -> dict[str, float]:
     return {name: next(iter(values)) for name, values in rates.items() if len(values) == 1}
 
 
-def sheet_entries(ext: Path) -> dict[tuple[str, str], list[tuple[str, Path]]]:
-    found: dict[tuple[str, str], list[tuple[str, Path]]] = defaultdict(list)
-    for path in ext.rglob("*.png"):
-        parts = path.relative_to(ext).parts
-        indices = [index for index, part in enumerate(parts) if slug(part) == "spritesheets"]
-        if not indices:
-            continue
-        tail = list(parts[indices[-1] + 1 :])
-        if len(tail) < 2:
-            continue
-        variant = "shadowless"
-        if slug(tail[0]) in ("with-shadow", "withshadow", "shadow"):
-            variant, tail = "shadow", tail[1:]
-        elif slug(tail[0]) in ("shadowless", "without-shadow", "withoutshadow"):
-            tail = tail[1:]
-        if len(tail) >= 2:
-            found[(slug(tail[-2]), slug(Path(tail[-1]).stem))].append((variant, path))
-    return found
-
-
-def frame_groups(ext: Path) -> dict[tuple[str, str], dict[str, list[Path]]]:
-    groups: dict[tuple[str, str], dict[str, list[Path]]] = defaultdict(dict)
-    for directory in ext.rglob("*"):
-        direction = directory.name.upper()
-        relative_parts = directory.relative_to(ext).parts
-        if not directory.is_dir() or direction not in DIRECTIONS or "spritesheets" in {slug(part) for part in relative_parts}:
-            continue
-        frames = sorted((path for path in directory.glob("*.png") if NUMBER.search(path.stem)), key=natural)
-        if not frames or len(relative_parts) < 3:
-            continue
-        groups[(slug(directory.parent.parent.name), slug(directory.parent.name))][direction] = frames
-    return groups
-
-
 def character_cards(collection: dict, ext: Path, rates: dict[str, float]) -> tuple[list[dict], set[Path]]:
-    sheets = sheet_entries(ext)
-    frames, consumed = frame_groups(ext), set()
+    pack_id = collection["id"].split(":", 1)[1].split("@", 1)[0]
+    sheets = discover_sheets(ext, pack_id)
+    frames, frame_titles = discover_frame_groups(ext, pack_id)
+    consumed = set()
     character_names: dict[str, str] = {}
     for (character, _), entries in sheets.items():
-        character_names[character] = entries[0][1].parent.name
-    for (character, _), directions in frames.items():
-        if len(directions) >= 4 or any(key[0] == character for key in sheets):
-            character_names.setdefault(character, next(iter(directions.values()))[0].parents[2].name)
+        character_names[character] = entries[0].title
+    for (character, _), direction_files in frames.items():
+        if len(direction_files) >= 4 or any(key[0] == character for key in sheets):
+            character_names.setdefault(character, frame_titles[character])
     cards = []
     for character in sorted(character_names):
         actions = sorted({action for char, action in set(sheets) | set(frames) if char == character})
@@ -194,27 +203,32 @@ def character_cards(collection: dict, ext: Path, rates: dict[str, float]) -> tup
             frame_w = png_info(sample)[0] if sample else None
             frame_h = png_info(sample)[1] if sample else None
             mapped_sheets = []
-            for variant, path in sorted(action_sheets):
+            for entry in sorted(action_sheets, key=lambda item: (item.variant != "shadow", item.path.as_posix().lower())):
+                path = entry.path
                 width, height, _ = png_info(path)
-                fh = frame_h or (height // 8 if height % 8 == 0 else height)
+                fh = frame_h or (height // entry.rows if height % entry.rows == 0 else height)
                 fw = frame_w or fh
                 if width % fw or height % fh:
                     raise ValueError(f"odd sheet geometry: {path} is {width}x{height}, frame {fw}x{fh}")
-                mapped_sheets.append({"path": path.relative_to(ext).as_posix(), "variant": variant,
-                                      "frame_w": fw, "frame_h": fh, "cols": width // fw, "rows": height // fh})
+                mapped = {"path": path.relative_to(ext).as_posix(), "frame_w": fw, "frame_h": fh,
+                          "cols": width // fw, "rows": height // fh}
+                if entry.variant:
+                    mapped["variant"] = entry.variant
+                mapped_sheets.append(mapped)
                 paths.append(path)
+                consumed.add(path)
             cols = mapped_sheets[0]["cols"] if mapped_sheets else max(len(value) for value in direction_files.values())
             if mapped_sheets and any(sheet["cols"] != cols or sheet["rows"] != mapped_sheets[0]["rows"] for sheet in mapped_sheets):
                 raise ValueError(f"shadow variants disagree for {character}/{action}")
-            directions = list(DIRECTIONS) if mapped_sheets and mapped_sheets[0]["rows"] == 8 else [d for d in DIRECTIONS if d in direction_files]
-            animation = {"name": action, "frames": list(range(cols)), "directions": directions}
+            directions = list(SHEET_DIRECTIONS) if mapped_sheets and mapped_sheets[0]["rows"] == 8 else [d for d in DIRECTIONS if d in direction_files]
+            animation = {"name": action, "frames": list(range(cols)), "fps": rates.get(action, DEFAULT_FPS)}
+            if directions:
+                animation["directions"] = directions
             if mapped_sheets:
                 animation["sheets"] = mapped_sheets
             else:
                 animation["direction_files"] = {d: [p.relative_to(ext).as_posix() for p in direction_files[d]] for d in directions}
                 paths.extend(path for direction in directions for path in direction_files[direction])
-            if action in rates:
-                animation["fps"] = rates[action]
             animations.append(animation)
         if animations:
             title = character_names[character]
@@ -244,29 +258,6 @@ def facing_cards(collection: dict, ext: Path, consumed: set[Path]) -> tuple[list
     return cards, used
 
 
-def flat_character_card(collection: dict, ext: Path, consumed: set[Path]) -> dict | None:
-    """Conservative fallback for the small free/demo packs that ship loose PNGs."""
-    pack_id = collection["id"].split(":", 1)[1].split("@", 1)[0]
-    signals = ("character", "knight-demo", "survivor", "thug")
-    if not any(signal in pack_id for signal in signals):
-        return None
-    paths = sorted((path for path in ext.rglob("*.png") if path not in consumed), key=lambda path: path.as_posix().lower())
-    if not paths:
-        return None
-    groups: dict[Path, list[Path]] = defaultdict(list)
-    for path in paths:
-        groups[path.parent].append(path)
-    animations = []
-    for parent, files in sorted(groups.items(), key=lambda item: item[0].as_posix().lower()):
-        name = "default" if parent == ext else slug(parent.name)
-        animations.append({"name": name, "frames": list(range(len(files))),
-                           "files": [path.relative_to(ext).as_posix() for path in files]})
-    raw_title = collection.get("title", pack_id).split(" (", 1)[0]
-    title = raw_title if raw_title != pack_id else " ".join(word.capitalize() for word in pack_id.removeprefix("smallscaleint-").split("-"))
-    return measured_card(collection, ext, f"characters/{slug(title)}", title, "character", paths,
-                         {"animations": animations})
-
-
 def sequence_cards(collection: dict, ext: Path, consumed: set[Path], rates: dict[str, float]) -> list[dict]:
     cards = []
     for directory in sorted((path for path in ext.rglob("*") if path.is_dir()), key=lambda path: path.as_posix().lower()):
@@ -277,9 +268,8 @@ def sequence_cards(collection: dict, ext: Path, consumed: set[Path], rates: dict
         low = f"{collection['id']} {rel}".lower()
         subkind = "item" if "projectile" in low or "equipment" in low else "fx" if "effect" in low else "tile" if "tile" in low else "prop"
         animation = {"name": slug(directory.name), "frames": list(range(len(paths))),
+                     "fps": rates.get(slug(directory.name), DEFAULT_FPS),
                      "files": [path.relative_to(ext).as_posix() for path in paths]}
-        if slug(directory.name) in rates:
-            animation["fps"] = rates[slug(directory.name)]
         cards.append(measured_card(collection, ext, f"sequences/{slug(rel)}", directory.name, subkind, paths,
                                    {"animations": [animation]}))
     return cards
@@ -289,9 +279,6 @@ def build_cards(pack_dir: Path, collection: dict) -> list[dict]:
     ext, _ = extracted_dir(pack_dir)
     rates = animation_rates(ext)
     characters, frame_files = character_cards(collection, ext, rates)
-    if not characters and (fallback := flat_character_card(collection, ext, frame_files)):
-        characters.append(fallback)
-        frame_files.update(ext / file["path"] for file in fallback["source"]["files"])
     facings, facing_files = facing_cards(collection, ext, frame_files)
     sequences = sequence_cards(collection, ext, frame_files | facing_files, rates)
     cards = sorted([*characters, *facings, *sequences], key=lambda card: card["id"])

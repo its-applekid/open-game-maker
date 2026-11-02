@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { CanonicalError, canonical, sha256Canonical } from '../src/canonical.js';
+import { CanonicalError, canonical } from '../src/canonical.js';
+import { sha256Canonical } from '../src/hash.js';
 
 describe('canonical JSON', () => {
   it('sorts object keys recursively without whitespace', () => {

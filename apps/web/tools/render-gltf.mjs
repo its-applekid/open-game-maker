@@ -2,16 +2,18 @@
 import { Buffer } from 'node:buffer';
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
-import { lstat, mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, realpath, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { createRequire } from 'node:module';
-import { basename, dirname, extname, isAbsolute, relative, resolve, sep } from 'node:path';
+import { dirname, extname, isAbsolute, relative, resolve, sep } from 'node:path';
 import process from 'node:process';
 import { clearTimeout, setTimeout } from 'node:timers';
 import { fileURLToPath, pathToFileURL, URL } from 'node:url';
 
 import { chromium } from 'playwright';
 import sharp from 'sharp';
+
+import { safeInput, safeOutput } from './thumbnail-paths.mjs';
 
 const require = createRequire(import.meta.url);
 const TOOL_DIR = dirname(fileURLToPath(import.meta.url));
@@ -34,29 +36,6 @@ const MIME = {
 function inside(root, candidate) {
   const rel = relative(root, candidate);
   return rel === '' || (!rel.startsWith(`..${sep}`) && rel !== '..' && !isAbsolute(rel));
-}
-
-async function safeOutput(root, requested) {
-  const lexical = resolve(root, requested);
-  if (!inside(root, lexical)) throw new Error('output escapes the selected root');
-  await mkdir(dirname(lexical), { recursive: true });
-  const parent = await realpath(dirname(lexical));
-  if (!inside(root, parent)) throw new Error('output parent escapes the selected root');
-  const output = resolve(parent, basename(lexical));
-  try {
-    if ((await lstat(output)).isSymbolicLink()) throw new Error('output is a symbolic link');
-  } catch (error) {
-    if (error?.code !== 'ENOENT') throw error;
-  }
-  return output;
-}
-
-async function safeInput(root, requested) {
-  const lexical = resolve(root, requested);
-  if (!inside(root, lexical)) throw new Error('input escapes the selected root');
-  const input = await realpath(lexical);
-  if (!inside(root, input)) throw new Error('input escapes the selected root');
-  return input;
 }
 
 async function sendFile(response, root, requested) {

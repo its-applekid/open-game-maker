@@ -3,22 +3,24 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:deps": "pnpm --filter @ogm/contracts --filter @ogm/voice-client --filter @ogm/design-log --filter @ogm/iframe-bridge --filter @ogm/rooms build",
+    "build:deps": "pnpm --filter @ogm/contracts --filter @ogm/voice-client --filter @ogm/design-log --filter @ogm/iframe-bridge --filter @ogm/rooms --filter @gm/host build",
     "prebuild": "pnpm run build:deps",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
     "pretest": "pnpm run build:deps",
-    "test": "vitest run --exclude e2e/render-gltf.test.ts",
+    "test": "vitest run --exclude e2e/render-gltf.test.ts --exclude e2e/thumbnail-scene.test.ts",
     "pretypecheck": "pnpm run build:deps",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
-    "test:browser": "vitest run e2e/render-gltf.test.ts && playwright test"
+    "pretest:browser": "pnpm run build:deps",
+    "test:browser": "vitest run e2e/render-gltf.test.ts e2e/thumbnail-scene.test.ts && playwright test"
   },
   "dependencies": {
     "@colyseus/sdk": "0.18.9",
     "@better-auth/passkey": "1.7.15",
+    "@gm/host": "workspace:*",
     "@noriginmedia/norigin-spatial-navigation": "2.3.0",
     "@ogm/contracts": "workspace:*",
     "@ogm/voice-client": "workspace:*",

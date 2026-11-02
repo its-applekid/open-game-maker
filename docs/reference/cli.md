@@ -41,6 +41,17 @@ gm skills sync [--check] [--force]
 gm skills list
 ```
 
+## Read a mechanic pattern card
+
+```text
+gm docs pattern <topic> [--engine phaser|three] [--max 1..3]
+gm docs pattern --list [--engine phaser|three]
+```
+
+The command reads the installed skills' `references/cards/` directories and prints matching cards verbatim. Topic,
+alias, and substring matches are ranked in that order. `--list` shows each topic, engine, aliases, and optional set;
+an unknown topic exits 2 with a list hint. Pattern retrieval is offline and never summarizes or rewrites a card.
+
 ## Build chat and checkpoints
 
 ```text
@@ -54,7 +65,8 @@ gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
 the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
 the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
 
-`sync` installs every platform `gm-*` skill and the vendored engine references under `.claude/skills/`. Relative
+`sync` installs every platform `gm-*` runtime skill and the vendored engine references under `.claude/skills/`.
+Workspace-only package metadata, TypeScript config, and card tests stay in the platform repository. Relative
 links in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without
 symlink support receive copies and record `"linkMode": "copy"` in `skills.lock`.
 
@@ -90,3 +102,12 @@ Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild 
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
 reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.
+
+## Search the asset library
+
+```text
+gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>] [--pov <id>] [--use <use>]
+```
+
+`--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
+the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.

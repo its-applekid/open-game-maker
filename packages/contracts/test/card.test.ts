@@ -33,6 +33,47 @@ describe('card schemas', () => {
     expect(validateCard(card)).toMatchObject({ ok: true });
   });
 
+  it('accepts local specimen, diorama, loop, and vendor-store preview keys', () => {
+    const card = structuredClone(
+      cardFixtureDocs().find(({ file }) => file === 'collection-kenney-mini-dungeon.json')?.doc,
+    ) as {
+      previews: Record<string, string>;
+      provenance: Record<string, Record<string, unknown>>;
+    };
+    card.previews = {
+      specimen: 'packs/smallscaleint-knight/specimen.png',
+      diorama: 'sets/smallscaleint/diorama.fantasy.256.png',
+      loop: 'sets/smallscaleint/diorama.fantasy.256.gif',
+      store: 'packs/smallscaleint-knight/store/fallback.gif',
+    };
+    card.provenance['previews.store'] = {
+      by: 'vendor-metadata',
+      at: '2026-11-01T12:00:00Z',
+      input: 'packs/smallscaleint-knight/store/media.json',
+    };
+    expect(validateCard(card)).toMatchObject({ ok: true });
+
+    card.previews.store = 'https://example.com/private?token=secret';
+    expect(validateCard(card)).toMatchObject({ ok: false });
+  });
+
+  it('rejects preview traversal and untrusted vendor-store provenance', () => {
+    const base = structuredClone(
+      cardFixtureDocs().find(({ file }) => file === 'collection-kenney-mini-dungeon.json')?.doc,
+    ) as {
+      previews: Record<string, string>;
+      provenance: Record<string, { by: string; at?: string }>;
+    };
+    base.previews = { store: 'packs/smallscaleint-knight/store/fallback.gif' };
+
+    expect(validateCard(base)).toMatchObject({ ok: false });
+    base.provenance['previews.store'] = { by: 'model', at: '2026-11-01T12:00:00Z' };
+    expect(validateCard(base)).toMatchObject({ ok: false });
+    base.provenance['previews.store'] = { by: 'vendor-metadata', at: '2026-11-01T12:00:00Z' };
+    base.previews.store = 'packs/../../outside.png';
+    expect(validateCard(base)).toMatchObject({ ok: false });
+  });
+
   it('accepts deterministic sprite sources and rejects unsafe source paths', () => {
     const card = structuredClone(
       cardFixtureDocs().find(({ file }) => file === 'sprite-kenney-tiny-dungeon-knight.json')?.doc,
