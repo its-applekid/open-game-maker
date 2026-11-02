@@ -112,7 +112,7 @@ describe('gm packs sync', () => {
   });
 
   it('prints a dry-run plan without creating the destination', async () => {
-    const dest = `/home/orangekid/Downloads/ogm-mirrors-test-${process.pid}/not-created`;
+    const dest = `/srv/ogm-test/Downloads/ogm-mirrors-test-${process.pid}/not-created`;
     const events = join(fresh('gm-sync-events-'), 'events.jsonl');
     const result = await gm(['packs', 'sync', 'kaykit', '--dry-run', '--dest', dest], {
       env: { GM_EVENTS_FILE: events },

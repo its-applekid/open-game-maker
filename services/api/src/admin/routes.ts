@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -33,7 +35,13 @@ import {
 } from './family.js';
 import { familyBuilds } from './builds.js';
 import { readIntake } from './intake-status.js';
-import { PatchMemberBody, PatchSettingsBody, PutAllowanceBody } from './shapes.js';
+import {
+  FlagGameAbuseBody,
+  type GameAbuseFlag,
+  PatchMemberBody,
+  PatchSettingsBody,
+  PutAllowanceBody,
+} from './shapes.js';
 
 export const prefix = '/api/v1/admin';
 
@@ -217,6 +225,28 @@ const routes = new Hono<ApiBindings>()
     const game = findGameForFamily(db, c.req.param('id'), actor.familyId);
     db.update(schema.games).set({ delistedAt: null }).where(eq(schema.games.id, game.id)).run();
     return c.json(gameResponse(findGame(db, game.id)));
+  })
+  .post('/games/:id/flag-abuse', async (c) => {
+    const { db } = c.get('deps');
+    const actor = admin(c, 'game.flag_abuse');
+    const game = findGameForFamily(db, c.req.param('id'), actor.familyId);
+    const { reason } = await parseBody(c, FlagGameAbuseBody);
+    const flag = {
+      id: `af_${randomUUID()}`,
+      gameId: game.id,
+      familyId: actor.familyId,
+      flaggedBy: actor.userId,
+      reason,
+      createdAt: new Date().toISOString(),
+    };
+    db.insert(schema.gameAbuseFlags).values(flag).run();
+    const response = {
+      id: flag.id,
+      gameId: flag.gameId,
+      reason: flag.reason,
+      createdAt: flag.createdAt,
+    } satisfies GameAbuseFlag;
+    return c.json({ flag: response }, 201);
   })
   .get('/builds', async (c) => {
     const actor = admin(c, 'admin.analytics.read');

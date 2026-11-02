@@ -24,7 +24,7 @@ Writes: `/var/lib/systemd/linger/<user>`
 
 Check: systemctl --user status
 
-### 1.2 Clone OGM at the path expected by the commit unit and Drive worker.
+### 1.2 Clone OGM at the path expected by the Drive worker.
 
 Command:
 
@@ -52,16 +52,13 @@ Check: tailscale status && tailscale cert <tailnet-host>
 
 Hand back to the human: Install Tailscale, grant <user> operator access, enable HTTPS certificates, and choose Funnel or tailnet-only in the admin console.
 
-### 1.4 Preview and install the host directories and user units, including the separate commit unit.
+### 1.4 Preview and install the host directories and user units, including the commit unit.
 
 Command:
 
 ```sh
 ops/bin/ogm-host-setup.sh --dry-run
 ops/bin/ogm-host-setup.sh
-cp services/commit/ops/ogm-commit.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now ogm-commit
 ```
 
 Writes: `~/.config/systemd/user`, `~/.config/ogm`, `~/.local/share/ogm`, `~/.local/state/ogm`
@@ -82,7 +79,7 @@ Time: ~30 min, mostly waiting
 
 Preconditions: Step 1 is complete and the checkout is at ~/games/open-game-maker-2000.
 
-### 2.1 Install Node 24 and pnpm 10.33.0, then install and build the workspace.
+### 2.1 Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
 
 Command:
 
@@ -90,6 +87,7 @@ Command:
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build
+systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
 ```
 
 Writes: `node_modules`, `apps/*/dist`, `packages/*/dist`, `services/*/dist`
@@ -348,21 +346,22 @@ Check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/en
 
 Hand back to the human: Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env.
 
-### 4.3 Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. (HAND)
+### 4.3 Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation. (HAND)
 
 Command:
 
 ```sh
-# Open https://github.com/settings/apps/new and install the App on <github-owner>.
+# Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
 chmod 600 ~/.config/ogm/ogm-github-app.pem
 systemctl --user restart ogm-commit
+# Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
 ```
 
 Writes: `~/.config/ogm/ogm-github-app.pem`, `~/.config/ogm/env/ogm-commit.env`
 
 Check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
 
-Hand back to the human: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo.
+Hand back to the human: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
 
 ### 4.4 Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
 
@@ -380,7 +379,7 @@ Check: grep -l '^OGM_INTERNAL_TOKEN=' ~/.config/ogm/env/*.env lists both files
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 4, Set up the games private repo**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>`; `Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env`; `Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo`.
+> Hand steps in this step: `Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>`; `Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env`; `Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation`.
 
 ## 5. Find assets
 
@@ -558,23 +557,26 @@ Writes: `~/.config/ogm/tls`
 
 Check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
 
-### 7.3 Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment. (HAND)
+### 7.3 Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment. (HAND)
 
 Command:
 
 ```sh
 # Write the Netlify site id to apps/web/.netlify-site-id.
-# Replace the host in apps/web/public/_redirects and apps/web/public/_headers.
+pnpm --filter @ogm/config exec ogm-env-init web
+# Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
+# Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
+# Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
 apps/web/tools/town.sh --public
 apps/web/tools/deploy.sh --dry-run
 apps/web/tools/deploy.sh
 ```
 
-Writes: `apps/web/.netlify-site-id`, `apps/web/public/_redirects`, `apps/web/public/_headers`
+Writes: `apps/web/.netlify-site-id`, `~/.config/ogm/env/web.env`, `~/.config/ogm/env/games.env`
 
-Check: <app-origin> loads the title town and <app-origin>/api/healthz answers
+Check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
 
-Hand back to the human: Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment.
+Hand back to the human: Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
 
 ### 7.4 Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
 
@@ -649,7 +651,7 @@ Check: test -r the path named by OGM_VAPID_KEY_FILE
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 7, Configure**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment`; `Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
+> Hand steps in this step: `Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment`; `Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
 
 ## 8. Verify
 

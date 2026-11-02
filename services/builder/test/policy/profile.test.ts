@@ -19,8 +19,8 @@ describe('renderCodexProfile', () => {
       `${homedir()}/.config/netlify`,
       `${homedir()}/.ssh`,
       `${homedir()}/.aiur/.env`,
-      '/home/orangekid/games/open-game-maker-2000/assets-local',
-      '/home/orangekid/.local/share/ogm/daemons/other-game/workspaces',
+      '/srv/ogm-test/games/open-game-maker-2000/assets-local',
+      '/srv/ogm-test/.local/share/ogm/daemons/other-game/workspaces',
     ]) {
       expect(profile.match(new RegExp(`${escapeRegex(JSON.stringify(path))} = "deny"`, 'g'))).toHaveLength(1);
     }
@@ -52,7 +52,7 @@ describe('renderCodexProfile', () => {
     expect(() =>
       renderCodexProfile({
         ...workedInput,
-        denyReadRoots: ['/home/orangekid/.local/share/ogm/daemons/*/workspaces'],
+        denyReadRoots: ['/srv/ogm-test/.local/share/ogm/daemons/*/workspaces'],
       }),
     ).toThrow('denyReadRoots globs must not match workspaceRoot; enumerate other workspaces');
   });

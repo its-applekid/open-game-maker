@@ -21,8 +21,20 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pnpm --dir "$ROOT" --filter @ogm/web build
+# Without it the build falls back to 127.0.0.1, which a phone cannot load; the reader refuses when it is unset.
+GAMES_ORIGIN="$(node "$ROOT/apps/web/tools/games-origin.mjs")"
+if [[ -z "$GAMES_ORIGIN" ]]; then
+  printf '%s\n' 'deploy: the games origin reader printed nothing' >&2
+  exit 1
+fi
+printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
+
+# The /api and /auth proxy target is a host value, so _redirects is written here and never kept in the repo.
+REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"
+
+VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
+printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
 if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete
 fi

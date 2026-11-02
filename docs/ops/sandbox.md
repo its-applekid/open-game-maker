@@ -5,7 +5,7 @@ network. Policy and profile: OGM-037 (`services/builder/src/policy`, `services/b
 
 ## The boundary as built
 
-Two layers, one uid (`orangekid`). There is no VM and no second user.
+Two layers, one uid (`<user>`). There is no VM and no second user.
 
 - **Layer A, commands.** Every agent command runs in Codex's Linux sandbox (bubblewrap, landlock, seccomp) under
   the `gamebuilder` permission profile: it extends `:workspace` (the job's workspace is the only writable root),
@@ -73,7 +73,7 @@ not from inside an agent turn, and again after any Codex CLI, aiur or profile ch
 
 <!-- proof-results -->
 
-Run: 2026-11-01T11:41Z applekid · codex-cli 0.162.1 · bubblewrap 0.12.0 · scripts @ b5436c6
+Run: 2026-11-01T11:41Z · codex-cli 0.162.1 · bubblewrap 0.12.0 · scripts @ b5436c6
 
 | id | test | result | observed |
 |---|---|---|---|

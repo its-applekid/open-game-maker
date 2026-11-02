@@ -16,11 +16,11 @@ steps:
         check: systemctl --user status
         cites: [ops/bin/ogm-host-setup.sh]
       - kind: run
-        text: Clone OGM at the path expected by the commit unit and Drive worker.
+        text: Clone OGM at the path expected by the Drive worker.
         command: git clone https://github.com/its-everdred/open-game-maker-2000 ~/games/open-game-maker-2000
         writes: [~/games/open-game-maker-2000]
         check: git -C ~/games/open-game-maker-2000 log -1
-        cites: [services/commit/ops/ogm-commit.service, scripts/py/drive-sync/README.md]
+        cites: [scripts/py/drive-sync/README.md]
       - kind: hand
         text: Install Tailscale, grant <user> operator access, enable HTTPS certificates, and choose Funnel or tailnet-only in the admin console.
         command: |-
@@ -31,16 +31,13 @@ steps:
         check: tailscale status && tailscale cert <tailnet-host>
         cites: [docs/ops/ingress.md, ops/bin/ogm-ingress.sh]
       - kind: run
-        text: Preview and install the host directories and user units, including the separate commit unit.
+        text: Preview and install the host directories and user units, including the commit unit.
         command: |-
           ops/bin/ogm-host-setup.sh --dry-run
           ops/bin/ogm-host-setup.sh
-          cp services/commit/ops/ogm-commit.service ~/.config/systemd/user/
-          systemctl --user daemon-reload
-          systemctl --user enable --now ogm-commit
         writes: [~/.config/systemd/user, ~/.config/ogm, ~/.local/share/ogm, ~/.local/state/ogm]
         check: systemctl --user list-units 'ogm-*'
-        cites: [ops/bin/ogm-host-setup.sh, services/commit/ops/ogm-commit.service]
+        cites: [ops/bin/ogm-host-setup.sh, ops/systemd/ogm-commit.service, docs/ops/self-host.md]
 
   - id: 2
     title: Install dependencies
@@ -50,11 +47,12 @@ steps:
     agent_prompt: *agent_prompt
     substeps:
       - kind: run
-        text: Install Node 24 and pnpm 10.33.0, then install and build the workspace.
+        text: Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
         command: |-
           corepack enable
           pnpm install --frozen-lockfile
           pnpm build
+          systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
         writes: [node_modules, apps/*/dist, packages/*/dist, services/*/dist]
         check: pnpm build
         cites: [.github/workflows/ci.yml, package.json]
@@ -206,14 +204,21 @@ steps:
         check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/env/api.env
         cites: [.env.example, docs/ops/runbook.md]
       - kind: hand
-        text: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo.
+        text: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
         command: |-
-          # Open https://github.com/settings/apps/new and install the App on <github-owner>.
+          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
           chmod 600 ~/.config/ogm/ogm-github-app.pem
           systemctl --user restart ogm-commit
+          # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
         writes: [~/.config/ogm/ogm-github-app.pem, ~/.config/ogm/env/ogm-commit.env]
         check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
-        cites: [services/commit/src/auth/app.ts, services/commit/ops/ogm-commit.env.example]
+        cites:
+          [
+            services/commit/README.md,
+            services/commit/src/auth/app.ts,
+            services/commit/ops/ogm-commit.env.example,
+            apps/web/src/lib/api/auth.ts,
+          ]
       - kind: run
         text: Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
         command: '# Set matching shared tokens in ~/.config/ogm/env/api.env and ogm-commit.env.'
@@ -350,16 +355,26 @@ steps:
         check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
         cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
       - kind: hand
-        text: Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment.
+        text: Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
         command: |-
           # Write the Netlify site id to apps/web/.netlify-site-id.
-          # Replace the host in apps/web/public/_redirects and apps/web/public/_headers.
+          pnpm --filter @ogm/config exec ogm-env-init web
+          # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
+          # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
+          # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
           apps/web/tools/town.sh --public
           apps/web/tools/deploy.sh --dry-run
           apps/web/tools/deploy.sh
-        writes: [apps/web/.netlify-site-id, apps/web/public/_redirects, apps/web/public/_headers]
-        check: <app-origin> loads the title town and <app-origin>/api/healthz answers
-        cites: [apps/web/tools/town.sh, apps/web/tools/deploy.sh, apps/web/public/_redirects, apps/web/public/_headers]
+        writes: [apps/web/.netlify-site-id, ~/.config/ogm/env/web.env, ~/.config/ogm/env/games.env]
+        check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
+        cites:
+          [
+            docs/ops/self-host.md,
+            apps/web/tools/town.sh,
+            apps/web/tools/deploy.sh,
+            apps/web/tools/games-origin.mjs,
+            apps/web/tools/redirects.mjs,
+          ]
       - kind: hand
         text: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
         command: |-

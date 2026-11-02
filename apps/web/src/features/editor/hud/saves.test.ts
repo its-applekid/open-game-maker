@@ -25,9 +25,10 @@ describe('platform saves', () => {
     const write = vi.fn().mockResolvedValue(undefined);
     const payload = { saveSchemaVersion: 2, data: { room: 'crypt' } };
 
-    await storeSaveWrite(gameId, '3', payload, [{ slotId: '3', headRevision: 8 } as SaveSlot], write);
+    const context = { branch: 'main', buildId: 'build_01BX5ZZKBKACTAV9WEVGEMMVRZ' };
+    await storeSaveWrite(gameId, '3', payload, [{ slotId: '3', headRevision: 8 } as SaveSlot], write, context);
 
-    expect(write).toHaveBeenCalledWith(gameId, '3', payload, 8);
+    expect(write).toHaveBeenCalledWith(gameId, '3', payload, 8, context);
     expect(write.mock.calls[0]?.[2]).not.toHaveProperty('userId');
   });
 });

@@ -3,8 +3,8 @@ import { request as octokitRequest } from '@octokit/request';
 import { Octokit } from 'octokit';
 
 import { fetchWithTimeout } from '../fetch-timeout.js';
-import { withSafeGitHubRequests } from '../github-request.js';
-import type { AuthenticatedGitHub, GitHubApp, GitHubIdentity, GitHubRequest } from '../types.js';
+import { GitHubRequestError, withSafeGitHubRequests } from '../github-request.js';
+import type { AuthenticatedGitHub, GitHubApp, GitHubIdentity, GitHubInstallations, GitHubRequest } from '../types.js';
 import { readPrivateKey } from './private-key.js';
 
 type Clock = () => number;
@@ -31,7 +31,7 @@ export type GitHubAppConfig = {
   timeoutMs?: number;
 };
 
-export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubApp> {
+export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubApp & GitHubInstallations> {
   const privateKey = await readPrivateKey(config.privateKeyPath);
   const now = config.now ?? Date.now;
   const boundedFetch = fetchWithTimeout(config.fetch ?? fetch, config.timeoutMs);
@@ -113,6 +113,17 @@ export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubAp
         email: `${slug}[bot]@users.noreply.github.com`,
       };
       return identityValue;
+    },
+    async installationLogin(installationId: number): Promise<string | null> {
+      try {
+        const response = await appRequest<Installation>('GET /app/installations/{installation_id}', {
+          installation_id: installationId,
+        });
+        return response.data?.account?.login ?? null;
+      } catch (error) {
+        if (error instanceof GitHubRequestError && error.status === 404) return null;
+        throw error;
+      }
     },
   };
 }

@@ -102,7 +102,7 @@ export function ScopeChat({
           <Composer
             jobId={scopeSession.jobId}
             voiceTarget={voiceTarget}
-            postText={(_jobId, text) => scopeSession.send(text)}
+            postText={(_jobId, text, attachments) => scopeSession.send(text, attachments)}
             onOptimistic={scopeSession.addMessage}
           />
         ) : null}
@@ -138,21 +138,23 @@ export function ScopeChat({
   );
 }
 
-function AllowanceStatus({
+export function AllowanceStatus({
   budget,
   fallback,
   disabled,
+  slot = 'new_game',
   onTry,
 }: {
   budget?: BudgetStatus;
   fallback?: Extract<AdmissionResult, { kind: 'refused' }>;
   disabled: boolean;
+  slot?: keyof BudgetStatus['freeSlots'];
   onTry(): void;
 }) {
   const reset = budget?.resetsAt ?? fallback?.resetsAt;
   const canTry =
     budget !== undefined &&
-    (budget.freeSlots.new_game > 0 ||
+    (budget.freeSlots[slot] > 0 ||
       budget.remainingMicroUsd > (fallback?.remainingMicroUsd ?? budget.remainingMicroUsd));
   return (
     <section className="scope-allowance" aria-label="Allowance status">

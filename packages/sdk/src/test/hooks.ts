@@ -34,6 +34,7 @@ export interface RuntimeHooks extends GmTestHooks {
   renderGameToText(): GameTextSnapshot;
   renderInfo(): RuntimeRenderInfo;
   bundle(): BugBundle;
+  restore(save: SaveData<unknown>): void;
 }
 
 export class SdkHooks<D, S> implements RuntimeHooks {
@@ -153,6 +154,13 @@ export class SdkHooks<D, S> implements RuntimeHooks {
       players: [],
       truncated: true,
     };
+  }
+
+  restore(save: SaveData<unknown>): void {
+    this.runtime.instance.restore(structuredClone(save) as SaveData<S>);
+    // History before the restore no longer leads to this state; rewinding past it must fail rather than replay it.
+    for (const history of [this.frames, this.inputHistory, this.keyframes, this.textKeyframes]) history.length = 0;
+    this.captureKeyframe();
   }
 
   renderInfo(): RuntimeRenderInfo {

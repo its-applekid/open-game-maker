@@ -39,7 +39,9 @@ logical-input script, checks a save-state round trip, writes a HUD still, runs `
 
 `gm run` captures deterministic stills, timelines, clips, and browser budgets. It writes `report.json` plus
 `state.json` containing the final `renderGameToText()` value when that hook is available; sameness evals use the state
-keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags.
+keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags. `--record-native`
+records the game canvas at its pixel size, scaled up only by a whole-number factor, rendering every frame through the
+game's deterministic hook so a clip holds exactly duration x fps frames.
 
 ## Refresh the skill pack
 
@@ -94,6 +96,17 @@ gm scope done --file .gm/scope/<session-id>.json
 
 The file must match the agreed-scope schema and its name must match the session id. The command queues
 `scope.agreed` in `.gm/outbox/scope.jsonl` for the build-chat relay.
+
+## Build the game
+
+```text
+gm build [--json]
+```
+
+Runs `pnpm build` in the game repository, then checks that `dist/` holds `manifest.json` and `design/design.json` and
+that both match the `@ogm/contracts` schemas the publisher and API read. The templates' Vite config writes both files
+(`@gm/sdk/vite`): the manifest from `src/manifest.ts`, and the design folded from every `design/*.json` (a key defined
+in two files fails the build). Exits 1 naming each missing or invalid file.
 
 ## Build game assets
 

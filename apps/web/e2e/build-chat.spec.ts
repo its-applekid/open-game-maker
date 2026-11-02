@@ -1,6 +1,7 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
+import { installGameApi } from './support/mock-game-api';
 
 const jobId = 'j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f';
 const imageUrl = 'https://media.example.test/image.svg';
@@ -124,6 +125,72 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await expect(page.locator('.build-chat-panel')).toHaveCSS('height', '390px');
 });
 
+// #222: files reach the builder as attachment ids on the message; the composer only shows their names.
+test('attaches files with the button and by pasting an image, then sends them with the message', async ({ page }) => {
+  // Two uploads and a post on top of the dock flow, which alone takes most of the default budget on software GL.
+  test.setTimeout(60_000);
+  await installAuthRoutes(page, { signedIn: true });
+  const uploads: { type: string; name: string }[] = [];
+  const posts: unknown[] = [];
+  await installBuildRoutes(page, { posts });
+  await page.route('**/api/v1/jobs/*/chat/attachments', async (route) => {
+    const headers = route.request().headers();
+    const name = decodeURIComponent(headers['x-file-name'] ?? '');
+    uploads.push({ type: headers['content-type'] ?? '', name });
+    const image = (headers['content-type'] ?? '').startsWith('image/');
+    await json(
+      route,
+      {
+        id: `a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e${uploads.length.toString().padStart(2, '0')}`,
+        kind: image ? 'image' : 'text',
+        name,
+        mime: image ? 'image/webp' : 'text/markdown',
+        bytes: 9,
+      },
+      201,
+    );
+  });
+  await page.goto('/games?test');
+  await page.getByRole('button', { name: '1 build running, 50% done. Show progress' }).click();
+  await page.getByRole('button', { name: /Show each build/ }).click();
+  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Attach files' }).click();
+  await (
+    await chooser
+  ).setFiles([
+    { name: 'door-notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Door\nMake it creak.\n') },
+    { name: 'blocked.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7') },
+  ]);
+  const composer = page.locator('.build-chat-composer');
+  await expect(composer.getByRole('listitem')).toHaveText(['door-notes.md']);
+
+  const textbox = page.getByRole('textbox', { name: 'Message the builder' });
+  await textbox.evaluate((element) => {
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'pasted-door.png', { type: 'image/png' }));
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(composer.getByRole('listitem')).toHaveText(['door-notes.md', 'pasted-door.png']);
+
+  await textbox.fill('Use these for the door');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(composer.getByRole('listitem')).toHaveCount(0);
+  await expect
+    .poll(() => posts)
+    .toEqual([
+      {
+        text: 'Use these for the door',
+        attachments: ['a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01', 'a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e02'],
+      },
+    ]);
+  expect(uploads).toEqual([
+    { type: 'text/markdown', name: 'door-notes.md' },
+    { type: 'image/png', name: 'pasted-door.png' },
+  ]);
+});
+
 test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page, { brokenPicker: true });
@@ -135,7 +202,61 @@ test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   ).toBeVisible();
 });
 
-async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean } = {}) {
+test('asking for a change with no build running starts an edit job and streams it', async ({ page }) => {
+  await installAuthRoutes(page, { signedIn: true });
+  await installGameApi(page);
+  const created: Array<Record<string, unknown>> = [];
+  const editJob = {
+    ...job,
+    id: 'j_0b1c2d3e-4f50-4a6b-8c7d-9e0f1a2b3c4d',
+    gameId: 'game',
+    creatorId: 'u1',
+    state: 'admitted',
+    stage: 'queued_ogm',
+    stageText: undefined,
+    progressPercent: 0,
+    plan: { ...job.plan, title: 'Make the door glow' },
+  };
+  const streamed: string[] = [];
+  // Registered after installGameApi, so these win over its catch-all.
+  await page.route('**/api/v1/games', (route) => json(route, { games: [{ id: 'game' }] }));
+  await page.route('**/api/v1/jobs?gameId=*', (route) => json(route, { jobs: created.length > 0 ? [editJob] : [] }));
+  await page.route('**/api/v1/jobs', async (route) => {
+    if (route.request().method() !== 'POST') return route.fallback();
+    created.push(route.request().postDataJSON() as Record<string, unknown>);
+    return json(
+      route,
+      {
+        jobId: editJob.id,
+        state: 'admitted',
+        reservation: editJob.reservation,
+        slot: 'edit',
+      },
+      201,
+    );
+  });
+  await page.route('**/api/v1/jobs/*/chat*', async (route) => {
+    streamed.push(new URL(route.request().url()).pathname);
+    await route.fulfill({ status: 200, contentType: 'text/event-stream', body: 'retry: 60000\n\n' });
+  });
+  await page.route('**/api/v1/budget/status', (route) => json(route, { unitLabel: 'coins' }));
+  await page.route('**/api/v1/voice/token', (route) => json(route, { error: 'unavailable' }, 503));
+
+  await page.goto('/g/game?test');
+  await page.getByRole('button', { name: 'Ask for a change' }).click();
+  await expect(page.getByRole('heading', { name: 'Goblin Cellar' })).toBeVisible();
+
+  await page.getByRole('textbox', { name: 'Message the builder' }).fill('Make the door glow');
+  await page.getByRole('button', { name: 'Send' }).click();
+
+  await expect.poll(() => created.length).toBe(1);
+  expect(created[0]).toMatchObject({ gameId: 'game', branchId: 'main', kind: 'feature', start: 'now' });
+  await expect.poll(() => streamed).toContain(`/api/v1/jobs/${editJob.id}/chat`);
+  await expect(page.getByRole('heading', { name: 'Make the door glow' })).toBeVisible();
+  await expect(page.locator('.play-bar .build-state')).toHaveText('Waiting for a free slot');
+});
+
+async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean; posts?: unknown[] } = {}) {
   await page.route('**/api/v1/games', (route) =>
     json(route, {
       games: options.brokenPicker
@@ -163,6 +284,7 @@ async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean 
   await page.route('**/api/v1/jobs/*/chat*', async (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as { text: string };
+      options.posts?.push(body);
       return json(route, message('m_7', 'text', { actor: 'creator', text: body.text, at: new Date().toISOString() }));
     }
     const body = messages

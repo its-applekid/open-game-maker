@@ -6,6 +6,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { Entity, ReapplyReport } from '@ogm/contracts/browser';
 
 import type { OgmHost } from '../../app/testHook';
+import { useDock } from '../../features/build-chat/dock';
 import {
   acquireLease,
   getDesignSnapshot,
@@ -37,6 +38,7 @@ import {
 import { pushToast } from '../../lib/notify/slice';
 import { RoomLayer } from '../../features/room/RoomLayer';
 import { useRoomRuntime } from '../../features/room/useRoomRuntime';
+import { useBranches } from '../games/useBranches';
 import { clearRoomGrant, storeRoomGrant } from '../join/grant-store';
 import { PlayEditBar } from './PlayEditBar';
 import { PlatformHud } from './PlatformHud';
@@ -79,6 +81,9 @@ export function GameScreen() {
     enabled: gameId !== '',
     refetchInterval: 5_000,
   });
+  const branches = useBranches(gameId === '' ? null : gameId);
+  // Games open with the branch id in `v`; job admission only takes the canonical name of the main branch.
+  const jobBranch = branches.data?.find(({ id }) => id === branch)?.name === 'main' ? 'main' : branch;
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<GameFrameController | undefined>(undefined);
   const [frameController, setFrameController] = useState<GameFrameController>();
@@ -313,7 +318,11 @@ export function GameScreen() {
         playLabel={frameState.manifest?.playLabel}
         onBack={() => void leaveRoom()}
         onMode={requestMode}
-        onAsk={() => requestMode('edit')}
+        onAsk={() => {
+          if (room.snapshot?.role === 'peer') return;
+          requestMode('edit');
+          useDock.getState().startEdit({ gameId, branchId: jobBranch, title: game.data?.title ?? '' });
+        }}
       >
         <GameExtras placement="topbar" {...extraProps} />
       </PlayEditBar>
@@ -332,12 +341,16 @@ export function GameScreen() {
             snap={canvasOptions.snap}
           />
         ) : null}
-        {mode === 'play' && frameRef.current !== undefined && frameState.manifest !== undefined ? (
+        {mode === 'play' &&
+        frameRef.current !== undefined &&
+        frameState.manifest !== undefined &&
+        activeSnapshot !== undefined ? (
           <>
             <PlatformHud
               build={build}
               frame={frameRef.current}
               gameId={gameId}
+              saveContext={{ branch, buildId: activeSnapshot.buildId }}
               saves={frameState.manifest.saves}
               onLeave={() => void leaveRoom()}
             />

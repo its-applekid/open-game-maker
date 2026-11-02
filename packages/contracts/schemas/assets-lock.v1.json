@@ -54,6 +54,35 @@
             "type": "string",
             "minLength": 1
           },
+          "source": {
+            "type": "string",
+            "enum": [
+              "library",
+              "blob",
+              "vendored"
+            ]
+          },
+          "files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "sha256": {
+                  "type": "string",
+                  "pattern": "^[0-9a-f]{64}$"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ],
+              "additionalProperties": false
+            }
+          },
           "license": {
             "type": "string",
             "minLength": 1

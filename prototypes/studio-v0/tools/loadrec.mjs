@@ -2,7 +2,7 @@
 // (town-ready) with times. Review the video every other frame:  node loadrec.mjs <out-dir> [url] [seconds per visit]
 // ffmpeg -ss <t> -t 3 -i <out>/*.webm -vf "fps=12.5,scale=156:-2,tile=10x4" -frames:v 1 sheet.png
 // Test locally WITHOUT isMobile if the page lacks a viewport meta (deploy.sh adds it): Chromium lays it out 980 px wide.
-import { createRequire } from 'module'; const require = createRequire('/home/orangekid/games/open-game-maker-2000/prototypes/ui-v0/tools/'); const { chromium } = require('playwright');
+import { createRequire } from 'module'; const require = createRequire(new URL('../../ui-v0/tools/', import.meta.url)); const { chromium } = require('playwright');
 const [O, URL = 'http://localhost:8793/index.html', SECS = '22'] = process.argv.slice(2);
 const b = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
 const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, recordVideo: { dir: O, size: { width: 390, height: 844 } } });

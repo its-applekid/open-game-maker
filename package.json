@@ -10,7 +10,7 @@
     "build": "pnpm -r --if-present run build",
     "test": "pnpm -r --if-present run test",
     "typecheck": "pnpm -r --if-present run typecheck",
-    "lint": "pnpm -r --if-present run lint && prettier --check . && node .github/scripts/check-ignore.mjs",
+    "lint": "pnpm -r --if-present run lint && prettier --check . && node .github/scripts/check-ignore.mjs && node .github/scripts/check-host-names.mjs",
     "format": "prettier --write .",
     "conformance": "pnpm --filter \"@gm/sdk-conformance...\" --filter \"@gm/template-game-2d^...\" --filter \"@gm/template-game-3d^...\" build && node packages/sdk-conformance/dist/cli.js check templates/game-3d && node packages/sdk-conformance/dist/cli.js check templates/game-2d"
   },

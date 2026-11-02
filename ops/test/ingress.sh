@@ -64,6 +64,14 @@ assert_grep 'tailscale funnel --bg --yes --https=8443 --set-path=/ws/voice http:
 assert_grep 'tailscale funnel --bg --yes --https=10000 http://127.0.0.1:3400' "$scratch/dry.out"
 assert_not_grep 'do-not-print' "$scratch/dry.out"
 
+# Dry run names the app/games origin pair; a missing web.env shows as unset instead of failing.
+assert_grep 'web.env VITE_GAMES_ORIGIN=<unset>' "$scratch/dry.out"
+printf 'VITE_GAMES_ORIGIN=https://games.example:10000\n' > "$env_dir/web.env"
+printf 'OGM_APP_ORIGIN="https://app.example https://ogm.example"\n' >> "$env_dir/games.env"
+run_ingress --dry-run > "$scratch/pair.out"
+assert_grep 'web.env VITE_GAMES_ORIGIN=https://games.example:10000' "$scratch/pair.out"
+assert_grep 'games.env OGM_APP_ORIGIN=https://app.example https://ogm.example (' "$scratch/pair.out"
+
 # Tailnet-only uses serve, which also clears Funnel on those ports.
 : > "$log"
 run_ingress --tailnet-only > /dev/null
@@ -119,13 +127,13 @@ if FAKE_TS_FAIL='Access denied: serve config denied' run_ingress > /dev/null 2> 
 fi
 assert_eq "funnel --bg --yes --https=8443 http://127.0.0.1:3100" "$(cat "$log")" "the run should stop at the first failure"
 assert_grep 'Access denied' "$scratch/denied.err"
-assert_grep 'sudo tailscale set --operator=orangekid' "$scratch/denied.err"
+assert_grep "sudo tailscale set --operator=$(id -un)" "$scratch/denied.err"
 
-# The doc OGM-070 copies from carries the same host and ports as the script.
+# The doc carries the same ports as the script, with the host left as a placeholder (#317).
 doc=$repo/docs/ops/ingress.md
-assert_grep '/api/*   https://applekid.tailee0e71.ts.net:8443/api/:splat   200' "$doc"
-assert_grep '/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200' "$doc"
-assert_grep 'frame-src https://applekid.tailee0e71.ts.net:10000' "$doc"
-assert_grep 'wss://applekid.tailee0e71.ts.net:8443' "$doc"
+assert_grep '/api/*  https://<tailnet-host>:8443/api/:splat  200' "$doc"
+assert_grep '/auth/*  https://<tailnet-host>:8443/auth/:splat  200' "$doc"
+assert_grep 'frame-src https://<tailnet-host>:10000' "$doc"
+assert_grep 'wss://<tailnet-host>:8443' "$doc"
 
 printf 'ingress: ok\n'

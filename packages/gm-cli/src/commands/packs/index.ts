@@ -19,7 +19,7 @@ import { PREVIEW_KINDS, sha256File, walk, type PreviewKind } from '../../packs/h
 /** Library prefixes copied into the blob store; originals are never read here, let alone moved. */
 const IMPORT_PREFIXES = ['previews', join('private', 'previews'), join('private', 'hash-manifests')];
 
-const MIME: Record<string, string> = {
+export const MIME: Record<string, string> = {
   '.webp': 'image/webp',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',

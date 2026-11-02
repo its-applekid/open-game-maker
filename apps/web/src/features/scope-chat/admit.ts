@@ -1,4 +1,4 @@
-import type { AgreedScope, AllowanceExceeded, CreateJobAccepted, JobPlan } from '@ogm/contracts';
+import type { AgreedScope, AllowanceExceeded, CreateJobAccepted, CreateJobRequest, JobPlan } from '@ogm/contracts';
 
 import { api, ApiError } from '../../lib/api/client';
 
@@ -36,20 +36,28 @@ export async function admitNewGame(
       acceptanceCriteria,
     })),
   };
+  const result = await admitJob(
+    {
+      gameId: input.gameId,
+      branchId: 'main',
+      kind: 'new_game',
+      complexity: input.scope.complexity,
+      plan,
+      start: input.start,
+      idempotencyKey: `scope:${input.sessionId}:${input.attempt}`,
+    },
+    deps.request,
+  );
+  if (result.kind === 'accepted') deps.navigate(`/games?spotlight=${encodeURIComponent(input.gameId)}`);
+  return result;
+}
+
+export async function admitJob(
+  request: CreateJobRequest,
+  send: AdmissionDeps['request'] = api,
+): Promise<AdmissionResult> {
   try {
-    const accepted = await deps.request<CreateJobAccepted>('/jobs', {
-      method: 'POST',
-      json: {
-        gameId: input.gameId,
-        branchId: 'main',
-        kind: 'new_game',
-        complexity: input.scope.complexity,
-        plan,
-        start: input.start,
-        idempotencyKey: `scope:${input.sessionId}:${input.attempt}`,
-      },
-    });
-    deps.navigate(`/games?spotlight=${encodeURIComponent(input.gameId)}`);
+    const accepted = await send<CreateJobAccepted>('/jobs', { method: 'POST', json: request });
     return { kind: 'accepted', jobId: accepted.jobId };
   } catch (error) {
     const response = error as Partial<ApiError>;

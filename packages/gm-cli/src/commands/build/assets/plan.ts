@@ -1,7 +1,8 @@
-import { extname, dirname, resolve } from 'node:path';
+import { extname, dirname } from 'node:path';
 
 import type { AssetsLock, Tier } from '@ogm/contracts';
 
+import { collectionParts, entrySource, resolveEntry, type Locations } from '../../../resolve.js';
 import { inspectGltf } from './gltf.js';
 import { slugFromId } from './files.js';
 import type { BuildFailure, BuildItem, BuildJob } from './types.js';
@@ -26,18 +27,34 @@ function recipe(kind: BuildJob['kind'], tiers: Tier[], items: BuildItem[]): Reco
   };
 }
 
+/**
+ * Kits group by the folder a model sat in when `gm assets use` copied it to `assets/<kind>/<pack>/`; a library
+ * reference keeps that grouping (and the kit file names) by using its pack instead of its folder inside the pack.
+ */
+function kitFolder(item: BuildItem): string {
+  return entrySource(item.entry) === 'library'
+    ? `library/${collectionParts(item.entry.id).slug}`
+    : dirname(item.entry.path);
+}
+
 export async function planBuild(
   lock: AssetsLock,
   cwd: string,
   tiers: Tier[],
   useCache: boolean,
+  locations: Locations,
 ): Promise<{ jobs: BuildJob[]; failures: BuildFailure[] }> {
   const jobs: BuildJob[] = [];
   const failures: BuildFailure[] = [];
   const modelItems: BuildItem[] = [];
 
   for (const entry of lock.assets) {
-    const source = resolve(cwd, entry.path);
+    const resolution = await resolveEntry(entry, locations);
+    if (!resolution.ok) {
+      failures.push({ id: entry.id, message: `${resolution.detail}. Try: ${resolution.fix}` });
+      continue;
+    }
+    const source = resolution.primary;
     const extension = extname(entry.path).toLowerCase();
     const meta = entry.meta;
     const item: BuildItem = { entry, source, ...(meta === undefined ? {} : { meta }) };
@@ -86,7 +103,7 @@ export async function planBuild(
       continue;
     }
     const textureKey = declaredKit ? 'declared-kit' : facts.textureKeys.join(',');
-    const groupKey = `${dirname(item.entry.path)}\0${textureKey}`;
+    const groupKey = `${kitFolder(item)}\0${textureKey}`;
     const group = kitGroups.get(groupKey) ?? [];
     group.push(item);
     kitGroups.set(groupKey, group);
@@ -95,7 +112,7 @@ export async function planBuild(
     const sortedItems = [...items].sort((left, right) => left.entry.id.localeCompare(right.entry.id));
     jobs.push({
       kind: 'kit',
-      slug: dirname(items[0]!.entry.path).split('/').at(-1) ?? 'kit',
+      slug: kitFolder(items[0]!).split('/').at(-1) ?? 'kit',
       items: sortedItems,
       tiers,
       recipe: recipe('kit', tiers, sortedItems),

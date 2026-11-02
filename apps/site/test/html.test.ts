@@ -76,6 +76,6 @@ describe('/setup HTML renderer', () => {
       const prompt = panel.querySelector('.agent pre')?.textContent ?? '';
       for (const text of handTexts) expect(prompt).toContain(text?.replace(/\.$/, ''));
     }
-    expect(doc.documentElement.outerHTML).not.toMatch(/applekid|orangekid/);
+    expect(doc.documentElement.outerHTML).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
   });
 });

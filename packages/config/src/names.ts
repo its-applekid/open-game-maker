@@ -12,6 +12,7 @@ export const OGM_ENV_UNITS = [
   'aiur',
   'backup',
   'gm',
+  'web',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -56,6 +57,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'largest bug-report diagnostic bundle in bytes (default 2097152)',
   },
   {
+    name: 'OGM_BLOB_PUT_MAX_BYTES',
+    unit: 'api',
+    kind: 'int',
+    doc: 'largest blob a game daemon may put in bytes (default 67108864)',
+  },
+  {
     name: 'OGM_NARRATION_CONCURRENCY',
     unit: 'api',
     kind: 'int',
@@ -65,9 +72,21 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_GAMES_PORT', unit: 'games', kind: 'port', doc: 'loopback port of the games origin host' },
   { name: 'OGM_COMMIT_PORT', unit: 'commit', kind: 'port', doc: 'loopback port of the commit service' },
   { name: 'OGM_VOICE_PORT', unit: 'voice-host', kind: 'port', doc: 'loopback port of the voice host' },
-  { name: 'OGM_PUBLIC_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://applekid.tailee0e71.ts.net:8443' },
-  { name: 'OGM_GAMES_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://applekid.tailee0e71.ts.net:10000' },
+  { name: 'OGM_PUBLIC_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:8443' },
+  { name: 'OGM_GAMES_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:10000' },
   { name: 'OGM_APP_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://ogm2000.netlify.app (frame-ancestors, CORS)' },
+  {
+    name: 'VITE_GAMES_ORIGIN',
+    unit: 'web',
+    kind: 'url',
+    doc: 'games origin deploy.sh bakes into the app build (same as OGM_GAMES_ORIGIN)',
+  },
+  {
+    name: 'VITE_API_ORIGIN',
+    unit: 'web',
+    kind: 'url',
+    doc: 'API origin deploy.sh writes into Netlify _redirects for /api and /auth (same as OGM_PUBLIC_ORIGIN)',
+  },
   { name: 'OGM_DATA_DIR', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/data (SQLite, state)' },
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
   { name: 'OGM_GAMES_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
@@ -163,6 +182,8 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_EVAL_CORPUS', unit: 'gm', kind: 'path', doc: 'optional local reference-game corpus for skill evals' },
   { name: 'AIUR_HOOK_TICKET_IDENTIFIER', unit: 'gm', kind: 'int', doc: 'Aiur issue number stamped on gm activity' },
   { name: 'AIUR_TICKET_BRANCH', unit: 'gm', kind: 'string', doc: 'Aiur run branch stamped on gm activity' },
+  { name: 'OGM_INTERNAL_URL', unit: 'gm', kind: 'url', doc: 'loopback API URL a game daemon puts blobs to' },
+  { name: 'OGM_HOOK_SECRET_FILE', unit: 'gm', kind: 'path', doc: "file holding the game daemon's hook secret" },
   {
     name: 'OGM_API_INTERNAL_URL',
     unit: 'shared',
@@ -219,7 +240,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'bool',
     doc: 'allow batch narration renders (default false; a provider key alone never renders)',
   },
-  { name: 'OGM_VOICE_WS_URL', unit: 'api', kind: 'string', doc: 'wss://applekid.tailee0e71.ts.net:8443/ws/voice' },
+  { name: 'OGM_VOICE_WS_URL', unit: 'api', kind: 'string', doc: 'wss://<tailnet-host>:8443/ws/voice' },
   { name: 'GM_VERIFY_SOFTWARE_GL', unit: 'gm', kind: 'bool', doc: 'gm run uses SwiftShader instead of the GPU (CI)' },
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
   { name: 'OGM_SANDBOX', unit: 'gm', kind: 'bool', doc: 'refuses operator-only gm commands inside a sandbox' },

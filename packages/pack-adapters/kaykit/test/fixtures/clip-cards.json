@@ -1,0 +1,2163 @@
+{
+  "source": "anim cards of the KayKit packs in the asset catalog (index/cards.index.json, kind anim), trimmed to id, rig and clips",
+  "cards": [
+    {
+      "id": "t1:kaykit-adventurers/animations/rig_large/rig_large_general@2.0",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-adventurers/animations/rig_large/rig_large_movementbasic@2.0",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-adventurers/animations/rig_medium/rig_medium_general@2.0",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-adventurers/animations/rig_medium/rig_medium_movementbasic@2.0",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_large/rig_large_combatmelee@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Melee_1H_Slash",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_1H_Stab",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Attack",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Idle",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Slam",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Block",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Block_Attack",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Block_Hit",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Blocking",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Dualwield_Slash",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Dualwield_SlashCombo",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Idle",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Kick",
+            "canonical": "attack-kick",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Punch",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Smash",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_large/rig_large_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_large/rig_large_movementadvanced@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Dodge_Backwards",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dodge_Forward",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dodge_Left",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dodge_Right",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_large/rig_large_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_large/rig_large_simulation@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Flexing",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_large/rig_large_special@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "EXPERIMENTAL_Large_Transform",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_combatmelee@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Melee_1H_Attack_Chop",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_1H_Attack_Jump_Chop",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_1H_Attack_Slice_Diagonal",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_1H_Attack_Slice_Horizontal",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_1H_Attack_Stab",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Attack_Chop",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Attack_Slice",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Attack_Spin",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Attack_Spinning",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Attack_Stab",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_2H_Idle",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Block",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Block_Attack",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Block_Hit",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Blocking",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Dualwield_Attack_Chop",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Dualwield_Attack_Slice",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Dualwield_Attack_Stab",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Attack_Kick",
+            "canonical": "attack-kick",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Attack_Punch_A",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "Melee_Unarmed_Idle",
+            "canonical": "attack-melee",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_combatranged@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Ranged_1H_Aiming",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_1H_Reload",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_1H_Shoot",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_1H_Shooting",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_2H_Aiming",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_2H_Reload",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_2H_Shoot",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_2H_Shooting",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Bow_Aiming_Idle",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Bow_Draw",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Bow_Draw_Up",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Bow_Idle",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Bow_Release",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Bow_Release_Up",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Magic_Raise",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Magic_Shoot",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Magic_Spellcasting",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Magic_Spellcasting_Long",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Ranged_Magic_Summon",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_movementadvanced@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Crawling",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Crouching",
+            "canonical": "crouch",
+            "loop": true
+          },
+          {
+            "name": "Dodge_Backward",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dodge_Forward",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dodge_Left",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dodge_Right",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Running_HoldingBow",
+            "canonical": "attack-ranged",
+            "loop": false
+          },
+          {
+            "name": "Running_HoldingRifle",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_Strafe_Left",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_Strafe_Right",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Sneaking",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_Backwards",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_simulation@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Cheering",
+            "canonical": "emote",
+            "loop": false
+          },
+          {
+            "name": "Lie_Down",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Lie_Idle",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Lie_StandUp",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Push_Ups",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Sit_Chair_Down",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "Sit_Chair_Idle",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "Sit_Chair_StandUp",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "Sit_Floor_Down",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "Sit_Floor_Idle",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "Sit_Floor_StandUp",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "Sit_Ups",
+            "canonical": "sit",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Waving",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_special@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "EXPERIMENTAL_Medium_Transform",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Awaken_Floor",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Awaken_Floor_Long",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Awaken_Standing",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Death",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Death_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Death_Resurrect",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Idle",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Skeletons_Inactive_Floor_Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Inactive_Standing_Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Taunt",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Taunt_Longer",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Skeletons_Walking",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-character-animations/animations/rig_medium/rig_medium_tools@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Chop",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Chopping",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Dig",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Digging",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Fishing_Bite",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Fishing_Cast",
+            "canonical": "cast",
+            "loop": false
+          },
+          {
+            "name": "Fishing_Catch",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Fishing_Idle",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Fishing_Reeling",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Fishing_Struggling",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Fishing_Tug",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Hammer",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Hammering",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Holding_A",
+            "canonical": "hold",
+            "loop": true
+          },
+          {
+            "name": "Holding_B",
+            "canonical": "hold",
+            "loop": true
+          },
+          {
+            "name": "Holding_C",
+            "canonical": "hold",
+            "loop": true
+          },
+          {
+            "name": "Lockpick",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Lockpicking",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Pickaxe",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Pickaxing",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Saw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Sawing",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Work_A",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Work_B",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Work_C",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Working_A",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Working_B",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Working_C",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-4/animations/rig_large/rig_large_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-4/animations/rig_large/rig_large_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-4/animations/rig_medium/rig_medium_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-4/animations/rig_medium/rig_medium_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-5/animations/rig_large/rig_large_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-5/animations/rig_large/rig_large_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-5/animations/rig_medium/rig_medium_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-5/animations/rig_medium/rig_medium_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-6/animations/rig_large/rig_large_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-6/animations/rig_large/rig_large_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-6/animations/rig_medium/rig_medium_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-mystery-monthly-series-6/animations/rig_medium/rig_medium_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-prototype-bits/animations/rig_medium/rig_medium_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-prototype-bits/animations/rig_medium/rig_medium_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-skeletons/animations/rig_large/rig_large_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-skeletons/animations/rig_large/rig_large_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-skeletons/animations/rig_medium/rig_medium_general@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Death_A",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_A_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Death_B_Pose",
+            "canonical": "die",
+            "loop": false
+          },
+          {
+            "name": "Hit_A",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Hit_B",
+            "canonical": "hit",
+            "loop": false
+          },
+          {
+            "name": "Idle_A",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Idle_B",
+            "canonical": "idle",
+            "loop": true
+          },
+          {
+            "name": "Interact",
+            "canonical": "interact",
+            "loop": false
+          },
+          {
+            "name": "PickUp",
+            "canonical": "pick-up",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Air",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Spawn_Ground",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Throw",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Use_Item",
+            "canonical": "interact",
+            "loop": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:kaykit-skeletons/animations/rig_medium/rig_medium_movementbasic@1.1",
+      "anim": {
+        "target_rig_id": "rig:89200673d97d",
+        "clips": [
+          {
+            "name": "Jump_Full_Long",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Full_Short",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Idle",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Land",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Jump_Start",
+            "canonical": "jump",
+            "loop": false
+          },
+          {
+            "name": "Running_A",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "Running_B",
+            "canonical": "run",
+            "loop": true
+          },
+          {
+            "name": "T-Pose",
+            "canonical": "other",
+            "loop": false
+          },
+          {
+            "name": "Walking_A",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_B",
+            "canonical": "walk",
+            "loop": true
+          },
+          {
+            "name": "Walking_C",
+            "canonical": "walk",
+            "loop": true
+          }
+        ]
+      }
+    }
+  ]
+}

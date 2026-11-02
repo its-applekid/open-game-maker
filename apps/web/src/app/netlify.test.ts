@@ -1,22 +1,28 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { renderRedirects } from '../../tools/redirects.mjs';
+
 const publicFile = (name: string) => readFileSync(resolve(process.cwd(), 'public', name), 'utf8');
 
 describe('Netlify static configuration', () => {
-  it('places both backend proxies before the SPA fallback', () => {
-    const lines = publicFile('_redirects')
-      .split('\n')
-      .map((line) => line.trim())
-      .filter(Boolean);
-
-    expect(lines).toEqual([
-      '/api/*  https://applekid.tailee0e71.ts.net:8443/api/:splat  200',
-      '/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200',
+  it('places both backend proxies, built from the deploy-time origin, before the SPA fallback', () => {
+    expect(renderRedirects('https://api.example:8443').split('\n').filter(Boolean)).toEqual([
+      '/api/*  https://api.example:8443/api/:splat  200',
+      '/auth/*  https://api.example:8443/auth/:splat  200',
       '/*  /index.html  200',
     ]);
+  });
+
+  // The host is a deploy-time value (#317): the repo keeps no _redirects of its own.
+  it('writes _redirects only into the deploy payload', () => {
+    const deploy = readFileSync(resolve(process.cwd(), 'tools/deploy.sh'), 'utf8');
+
+    expect(existsSync(resolve(process.cwd(), 'public/_redirects'))).toBe(false);
+    expect(deploy).toContain('REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"');
+    expect(deploy).toContain('>"$DEPLOY_DIR/_redirects"');
   });
 
   it('pins cache policy for the worker, town, and built assets', () => {

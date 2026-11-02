@@ -54,7 +54,7 @@ async function connect(app: Awaited<ReturnType<typeof makeApp>>['app'], user = c
   return app.request('/api/v1/github/connect', {
     method: 'POST',
     headers: { ...asUser(user.userId), 'content-type': 'application/json' },
-    body: JSON.stringify({ login: 'creator-gh', installationId: '12345' }),
+    body: JSON.stringify({ installationId: '12345' }),
   });
 }
 
@@ -72,9 +72,10 @@ describe('games routes', () => {
     seedFamily(deps);
     const provisioner = new NullRepoProvisioner();
     deps.registry.repoProvisioner = provisioner;
+    deps.registry.githubInstallations = { loginFor: async () => 'creator-gh' };
     const { app } = await makeApp(deps);
 
-    expect((await connect(app)).status).toBe(204);
+    expect((await connect(app)).status).toBe(200);
     const response = await createGame(app);
     expect(response.status).toBe(201);
     const body = (await response.json()) as { id: string; repo: { owner: string; name: string; url: string } };
@@ -161,6 +162,7 @@ describe('games routes', () => {
         throw new Error('commit service unavailable');
       },
     };
+    deps.registry.githubInstallations = { loginFor: async () => 'creator-gh' };
     const { app } = await makeApp(deps);
     await connect(app);
     const failed = await createGame(app);
