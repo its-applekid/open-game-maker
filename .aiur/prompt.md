@@ -16,6 +16,12 @@ Rules that hold on every ticket:
 ## Design is fixed
 The web screens (title town, games selection, creation, editor, chat panel) keep the design landed in the studio-v0 / title-town prototype (`apps/web/title-town`, archived `prototypes/`): same layout, flow, motion and copy. Implement the logic behind it; never redesign, restyle or add chrome (no new nav, panels, labels or helper text). Where a ticket and the prototype differ in look or flow, the prototype wins; say so in the PR.
 
+## Host names
+
+The repo is public. Docs, fixtures, config examples and `_redirects` never contain a real host, tailnet node, service-account
+or user name or a home path: use placeholders (`<tailnet-host>`, `<user>`); hosts come from env files at deploy time (#313,
+#317). The apps/site tests enforce it for the site; a repo-wide check is #317.
+
 ## Browser tests
 
 A package that adds `test:browser` picks a preview/dev port no other package uses (`grep -rn 'port' --include=playwright.config.*`
