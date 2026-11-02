@@ -61,6 +61,7 @@ WORD_SUBKINDS = [
 ELEMENTAL = {"RAIN", "WIND", "STORM", "THUN", "HAIL", "WATR", "FIRE", "CRWD", "AMB"}
 FILLER = {"vol", "the", "and", "of", "audio", "sound", "sounds", "sfx", "library", "pack", "designed", "wav"}
 AMBIENCE_S, SUSTAINED = 20.0, 0.7  # an ambience bed: at least 20 s and loud for most of its length
+ONE_SHOT_S = 10.0  # longer non-sustained files are sequences (a minute of clock ticks), not one-shots
 
 
 def words(text):
@@ -161,10 +162,10 @@ def classify(info: dict, audio: dict, env: dict | None) -> dict:
     named_loop = "loop" in fx_words or "loop" in lib_words
     if subkind == "ambience":
         kind_word = "ambience"
-    elif named_loop or (shape == "sustained" and audio.get("loopable")):
+    elif named_loop or (shape == "sustained" or dur >= ONE_SHOT_S) and audio.get("loopable"):
         kind_word = "loop"
     else:
-        kind_word = "one-shot" if shape != "unknown" else None
+        kind_word = "one-shot" if shape == "one-shot" and dur < ONE_SHOT_S else None
     kw = [kind_word] if kind_word else []
     if subkind == "ambience" and audio.get("loopable"):
         kw.append("seamless")

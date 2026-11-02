@@ -171,3 +171,12 @@ def test_keywords_fit_the_card_schema():
             "ucs_category": "TOONMisc", "ucs_cat_id": "TOONMisc", "fx_name": "Squeak"}
     kw = s.classify(info, {"duration_s": 0.5, "loopable": True}, {"active_share": 0.1})["keywords"]
     assert len(kw) <= 12 and all(re.fullmatch(r"[a-z][a-z0-9-]*", k) for k in kw) and "mikes" in kw
+
+
+def test_a_minute_of_ticks_is_not_a_one_shot():
+    """One-shot tells an agent "fire once on an event"; a 60 s clock recording is a sequence (a loop only if it wraps)."""
+    info = s.parse(UCS_FILE)
+    env = {"active_share": 0.2}
+    assert s.classify(info, {"duration_s": 60.0, "loopable": False}, env)["shape"] is None
+    assert s.classify(info, {"duration_s": 60.0, "loopable": True}, env)["shape"] == "loop"
+    assert s.classify(info, {"duration_s": 2.0, "loopable": True}, env)["shape"] == "one-shot"
