@@ -8,6 +8,8 @@ await build({
   absWorkingDir: packageRoot,
   entryPoints: {
     index: 'src/index.ts',
+    achievements: 'src/achievements.ts',
+    analytics: 'src/analytics.ts',
     'assets/index': 'src/assets/index.ts',
     'audio/index': 'src/audio/index.ts',
     'core/index': 'src/core/index.ts',

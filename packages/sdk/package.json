@@ -39,6 +39,14 @@
     "./three": {
       "types": "./dist/three/index.d.ts",
       "import": "./dist/three/index.js"
+    },
+    "./achievements": {
+      "types": "./dist/achievements.d.ts",
+      "import": "./dist/achievements.js"
+    },
+    "./analytics": {
+      "types": "./dist/analytics.d.ts",
+      "import": "./dist/analytics.js"
     }
   },
   "scripts": {
