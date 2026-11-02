@@ -90,14 +90,14 @@ describe('RealBoundaryGate', () => {
     });
   });
 
-  it('allows releasing a clean private tree', async () => {
+  it('allows releasing a clean tree from a public repository', async () => {
     const gate = new RealBoundaryGate(dependencies(treeRequest(lock(), false)));
 
     await expect(
       gate.evaluate({
         kind: 'release',
         gameId: 'game-1',
-        repository,
+        repository: { ...repository, visibility: 'public' },
         sha: 'release-sha',
       }),
     ).resolves.toEqual({ allowed: true, reasons: [] });
