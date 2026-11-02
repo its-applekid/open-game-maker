@@ -9,7 +9,7 @@ lift = p(label | track) / mean p(label) over the library (music and sound effect
 lift is high. game_fit keeps at most two situations, each needing high lift AND agreement from the measured tempo, energy and
 key (fits); a track may suit none. Music settings are not tagged: CLAP cannot hear steampunk or pirate (it spread all 11
 evenly over the library). Genre comes from the pack name when the vendor named one (Orchestral Music 02)."""
-import argparse, json, re, subprocess, sys
+import argparse, copy, fnmatch, hashlib, json, re, subprocess, sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -19,6 +19,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import labels as L
+import previews as P
 from import_sidetrax import stem_key
 
 REPO = HERE.parents[2]
@@ -72,6 +73,40 @@ def stage_json(out: Path, payload: dict, indent=1) -> Path:
 
 def promote(staged: Path, out: Path):
     staged.replace(out)
+
+
+def hint_genres(hints: list[str]) -> list[str]:
+    words = {word for hint in hints for word in re.findall(r"[a-z0-9]+", hint.lower())}
+    return list(dict.fromkeys(genre for word, genres in PACK_GENRES.items() if word in words for genre in genres))[:3]
+
+
+def _path_value(document: dict, dotted: str):
+    value = document
+    for part in dotted.split("."):
+        if not isinstance(value, dict) or part not in value:
+            return None, False
+        value = value[part]
+    return value, True
+
+
+def _set_path(document: dict, dotted: str, value):
+    target = document
+    parts = dotted.split(".")
+    for part in parts[:-1]:
+        target = target.setdefault(part, {})
+    target[parts[-1]] = copy.deepcopy(value)
+
+
+def preserve_locked(previous: dict, generated: dict) -> dict:
+    merged = copy.deepcopy(generated)
+    for dotted, provenance in previous.get("provenance", {}).items():
+        if not isinstance(provenance, dict) or not provenance.get("locked") or dotted == "*":
+            continue
+        value, present = _path_value(previous, dotted)
+        if present:
+            _set_path(merged, dotted, value)
+            merged.setdefault("provenance", {})[dotted] = copy.deepcopy(provenance)
+    return merged
 
 
 def prompts():
@@ -145,9 +180,11 @@ def settle_tempo(a, vendor):
     return best
 
 
-def load(packs: Path):
+def load(packs: Path, only="*"):
     rows = []
     for sc in sorted(packs.glob("*/*/analysis/**/*.analysis.json")):
+        if not fnmatch.fnmatch(sc.relative_to(packs).parts[0], only):
+            continue
         d = json.loads(sc.read_text())
         d["_sidecar"] = sc
         rel = sc.relative_to(packs)
@@ -219,7 +256,7 @@ def music_describe(d, lift, sets, a, subkind):
         moods = [n if n in L.MOODS else L.EXTRA_MOODS[n]]
     moods = moods[:3]
     genre = [n for n, _, _ in pick(lift["genre"], d["_p"]["genre"], names("genre"), 1.3, 3)] or [names("genre")[int(np.argmax(lift["genre"]))]]
-    vendor_genre = pack_genre(d["_pack"])
+    vendor_genre = hint_genres(d.get("hints", [])) or pack_genre(d["_pack"])
     if vendor_genre:
         genre = list(dict.fromkeys(vendor_genre + genre))[:3]
     instruments = [n for n, _, _ in pick(lift["instruments"], d["_p"]["instruments"], names("instruments"), 1.8, 4)]
@@ -305,6 +342,48 @@ def sfx_describe(d, lift, sets, a, stem, pid):
     return desc, subkind, conf, events[top], float(p[top])
 
 
+def build_pack_derivatives(pid: str, items: list[dict], collection: dict, packs: Path) -> bool:
+    music = sorted((item for item in items if item.get("music")), key=lambda item: item["file"])
+    if not music:
+        return False
+    prefix = P.preview_prefix(collection.get("rights"))
+    combined_hash = hashlib.sha256("\0".join(item["sha256"] for item in music).encode()).hexdigest()
+    tiles = [packs / pid / item["_ver"] / item["preview_tile"] for item in music]
+    missing = [path for path in tiles if not path.is_file()]
+    if missing:
+        raise FileNotFoundError(f"missing audio preview tile: {missing[0]}")
+    sheet_key = P.derivative_key(prefix, combined_hash, "audio-sheet", "webp", tracks=len(music), version=1)
+    sheet_out = ROOT / sheet_key
+    if not sheet_out.is_file():
+        P.compose_sheet(tiles, sheet_out)
+
+    tracks = [
+        {
+            "id": f"{pid}/{item['file']}",
+            "duration_s": item["measure"]["audio"]["duration_s"],
+            "sidecar": item["measure"]["sidecar"],
+        }
+        for item in music
+    ]
+    plan = P.medley_plan(tracks)
+    by_id = {track["id"]: item for track, item in zip(tracks, music)}
+    entries = []
+    for slot in plan:
+        item = by_id[slot["id"]]
+        entries.append(
+            {
+                **slot,
+                "source": packs / pid / item["_ver"] / "extracted" / item["file"],
+            }
+        )
+    medley_key = P.derivative_key(prefix, combined_hash, "medley", "ogg", tracks=len(music), duration_s=30, version=1)
+    medley_out = ROOT / medley_key
+    if not medley_out.is_file():
+        P.make_medley(entries, medley_out)
+    collection.setdefault("previews", {}).update({"sheet": sheet_key, "clip": medley_key})
+    return True
+
+
 def build(rows, sets, means, packs: Path, update_counts=True):
     by_pack = defaultdict(list)
     for d in rows:
@@ -318,6 +397,8 @@ def build(rows, sets, means, packs: Path, update_counts=True):
         cc = json.loads((packs / pid / "collection.card.json").read_text())
         coll = cc["id"]
         ver = coll.rsplit("@", 1)[1]
+        pack_records = []
+        compatibility_rows = []
         groups = defaultdict(list)
         for d in items:
             groups[(str(Path(d["file"]).parent), stem_key(Path(d["file"]).stem))].append(d)
@@ -349,9 +430,14 @@ def build(rows, sets, means, packs: Path, update_counts=True):
             if d["music"]:
                 subkind = ("music/loop" if "loop" in pid else "music/stinger" if a["duration_s"] < 15 or "jingle" in pid else "music/track")
                 describe, proposed = music_describe(d, lift, sets, a, subkind)
+                hints = P.normalize_hints(d.get("hints", []))
+                if hints:
+                    describe["hints"] = hints
                 prov["describe"] = {"by": "model", "model": CLAP_ID, "tool": TOOL, "at": NOW, "confidence": MUSIC_CONF,
                                     "input": "CLAP embeddings of two 30 s excerpts vs label prompts, lift vs library; key/tempo not shown"}
                 prov["describe.description"] = {"by": "code", "tool": TOOL, "at": NOW, "input": "template from CLAP tags + measured audio"}
+                if hints:
+                    prov["describe.hints"] = {"by": "collection", "tool": TOOL, "at": NOW, "input": "pack.json hints"}
                 flags += ["low-confidence", "mood-unverified"]
             else:
                 describe, subkind, conf, ev, pev = sfx_describe(d, lift, sets, a, stem, pid)
@@ -373,7 +459,8 @@ def build(rows, sets, means, packs: Path, update_counts=True):
             card = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}/{path_id}@{ver}", "card_type": "asset", "status": "tagged",
                     "title": (v.get("title") or title_of(stem))[:120], "kind": "audio", "subkind": subkind, "collection": coll,
                     "source": {"files": files, "content_hash": "sha256:" + d["sha256"]},
-                    "previews": {"waveform": d["preview"]["waveform"]}, "describe": describe, "audio": a, "provenance": prov}
+                    "previews": {key: value for key, value in d["preview"].items() if key in ("waveform", "clip")},
+                    "describe": describe, "audio": a, "provenance": prov}
             if len(g) > 1:
                 card["audio"]["cuts"] = [{"path": x["file"], "role": "loop" if "loop" in x["file"].lower() else "alt-mix",
                                           "duration_s": x["measure"]["audio"]["duration_s"], "loudness_lufs": x["measure"]["audio"].get("loudness_lufs"),
@@ -388,17 +475,48 @@ def build(rows, sets, means, packs: Path, update_counts=True):
             for f in flags:
                 flags_count[f] += 1
             out = packs / pid / "cards" / (path_id + ".card.json")
-            staged = stage_json(out, card)
-            records.append((out, staged, card))
+            pack_records.append((out, card))
+            if d["music"]:
+                embedding = np.mean([excerpt["embedding"] for excerpt in d["clap"]["excerpts"]], axis=0)
+                norm = float(np.linalg.norm(embedding))
+                compatibility_rows.append(
+                    {
+                        "id": card["id"],
+                        "hash": d["sha256"],
+                        "tempo_bpm": a.get("tempo_bpm"),
+                        "key": a.get("key"),
+                        "mode": a.get("mode"),
+                        "key_strength": a.get("key_strength", 0),
+                        "embedding": (embedding / norm).tolist() if norm else [],
+                    }
+                )
             counts[pid]["audio/" + subkind] += 1
             counts[pid]["audio"] += 1
             written += 1
+        set_ids = P.compatibility_sets(compatibility_rows, pid)
+        for out, card in pack_records:
+            if card["id"] in set_ids:
+                card["describe"]["set"] = set_ids[card["id"]]
+                card["provenance"]["describe.set"] = {
+                    "by": "model",
+                    "model": CLAP_ID,
+                    "tool": TOOL,
+                    "at": NOW,
+                    "confidence": 0.8,
+                    "input": "measured tempo/key + normalized CLAP timbre; pack-local complete-link grouping",
+                }
+            if out.is_file():
+                card = preserve_locked(json.loads(out.read_text()), card)
+            staged = stage_json(out, card)
+            records.append((out, staged, card))
+        collection_changed = build_pack_derivatives(pid, items, cc, packs)
         if update_counts:
             info = cc.setdefault("collection_info", {})
             info["counts"] = {**{k: v for k, v in info.get("counts", {}).items() if not k.startswith("audio")}, **dict(sorted(counts[pid].items()))}
+        if update_counts or collection_changed:
             out = packs / pid / "collection.card.json"
             staged = stage_json(out, cc, indent=1 if pid.startswith(("kenney-", "synty-")) else 2)
-            collection_updates.append((out, staged))
+            collection_updates.append((out, staged, cc))
     return written, dict(flags_count), records, collection_updates
 
 
@@ -413,17 +531,18 @@ def validate(packs: Path, staged=()):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
+    ap.add_argument("--only", default="*")
     ap.add_argument("--no-validate", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
-    rows = load(a.packs)
+    rows = load(a.packs, a.only)
     sets = prompts()
     emb, scale = text_embeddings(sets)
     score_all(rows, emb, scale, sets)
     means = library_means(rows)
     energy_ranks(rows)
     n, flags, records, collection_updates = build(rows, sets, means, a.packs, update_counts=not a.json)
-    staged = [part for _, part, _ in records] + [part for _, part in collection_updates]
+    staged = [part for _, part, _ in records] + [part for _, part, _ in collection_updates]
     emit({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}, a.json, summary=True)
     if not a.no_validate:
         rc, nc, fails, out = validate(a.packs, staged)
@@ -442,10 +561,12 @@ def main():
             raise SystemExit(1)
     for path, part, _ in records:
         promote(part, path)
-    for path, part in collection_updates:
+    for path, part, _ in collection_updates:
         promote(part, path)
     if a.json:
         for path, _, card in records:
+            emit(card_record(path.relative_to(ROOT).as_posix(), card), json_mode=True)
+        for path, _, card in collection_updates:
             emit(card_record(path.relative_to(ROOT).as_posix(), card), json_mode=True)
 
 
