@@ -82,15 +82,47 @@ function bodyCallsPlayersGet(node: ts.Node): boolean {
   return found;
 }
 
-/** True when the node is a member of an object literal held by a `net` property or variable (the GameModule hooks). */
-function inNetHooks(node: ts.Node): boolean {
-  const literal = node.parent;
-  if (!literal || !ts.isObjectLiteralExpression(literal)) return false;
-  const holder = literal.parent;
-  if (!holder) return false;
-  if ((ts.isPropertyAssignment(holder) || ts.isVariableDeclaration(holder)) && ts.isIdentifier(holder.name))
-    return holder.name.text === 'net';
-  return false;
+/**
+ * The name an object literal is held under: `net: {...}`, `const net = {...}`, `net = {...}` as a class field,
+ * `x.net = {...}`, looking through `as`, `satisfies` and parentheses.
+ */
+function holderName(literal: ts.ObjectLiteralExpression): string | undefined {
+  let holder: ts.Node = literal.parent;
+  while (ts.isAsExpression(holder) || ts.isSatisfiesExpression(holder) || ts.isParenthesizedExpression(holder))
+    holder = holder.parent;
+  if (
+    (ts.isPropertyAssignment(holder) || ts.isVariableDeclaration(holder) || ts.isPropertyDeclaration(holder)) &&
+    ts.isIdentifier(holder.name)
+  )
+    return holder.name.text;
+  if (ts.isBinaryExpression(holder) && holder.operatorToken.kind === ts.SyntaxKind.EqualsToken) {
+    const left = holder.left;
+    if (ts.isIdentifier(left)) return left.text;
+    if (ts.isPropertyAccessExpression(left)) return left.name.text;
+  }
+  return undefined;
+}
+
+/** `net: hooks` points the net hooks at another variable; returns `hooks`. */
+function netReference(node: ts.Node): string | undefined {
+  if (!ts.isPropertyAssignment(node) || !ts.isIdentifier(node.name) || node.name.text !== 'net') return undefined;
+  let value: ts.Expression = node.initializer;
+  while (ts.isAsExpression(value) || ts.isSatisfiesExpression(value) || ts.isParenthesizedExpression(value))
+    value = value.expression;
+  return ts.isIdentifier(value) ? value.text : undefined;
+}
+
+/** `applyInput(...)`, `sim.applyInput(...)`, `this.applyInput(...)`, or `applyInput` handed to another call. */
+function usesApplyInput(node: ts.Node): boolean {
+  if (!ts.isCallExpression(node)) return false;
+  const callee = node.expression;
+  if (ts.isIdentifier(callee) && callee.text === 'applyInput') return true;
+  if (ts.isPropertyAccessExpression(callee) && callee.name.text === 'applyInput') return true;
+  return node.arguments.some(
+    (argument) =>
+      (ts.isIdentifier(argument) && argument.text === 'applyInput') ||
+      (ts.isPropertyAccessExpression(argument) && argument.name.text === 'applyInput'),
+  );
 }
 
 function isEntitiesTarget(node: ts.Expression): boolean {
@@ -131,8 +163,9 @@ export function checkGame(dir: string): CheckResult {
   }
 
   let applyInputCalled = false;
-  let snapshotFound = false;
-  let applySnapshotFound = false;
+  /* Hook names per holder name; rule 6 passes when `net` (or the variable `net:` points at) has both. */
+  const hooksByHolder = new Map<string, Set<string>>();
+  const netHolders = new Set(['net']);
   const huds: { file: string; line: number; readsPlayer: boolean }[] = [];
 
   for (const path of sourceFiles(join(dir, 'src'))) {
@@ -160,10 +193,13 @@ export function checkGame(dir: string): CheckResult {
 
     const visit = (node: ts.Node): void => {
       const name = declaredFunctionName(node);
-      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'applyInput')
-        applyInputCalled = true;
-      if (name === 'snapshot' && inNetHooks(node)) snapshotFound = true;
-      if (name === 'applySnapshot' && inNetHooks(node)) applySnapshotFound = true;
+      if (usesApplyInput(node)) applyInputCalled = true;
+      const reference = netReference(node);
+      if (reference) netHolders.add(reference);
+      if ((name === 'snapshot' || name === 'applySnapshot') && ts.isObjectLiteralExpression(node.parent)) {
+        const holder = holderName(node.parent);
+        if (holder) hooksByHolder.set(holder, (hooksByHolder.get(holder) ?? new Set()).add(name));
+      }
       if (name === 'hud') {
         huds.push({ file, line: lineOf(node), readsPlayer: bodyCallsPlayersGet(node) });
       }
@@ -218,7 +254,11 @@ export function checkGame(dir: string): CheckResult {
         'no applyInput(state, playerIndex, frame) call; input must reach the world only through it in the fixed step',
     });
   }
-  if (!snapshotFound || !applySnapshotFound) {
+  const netHooksComplete = [...netHolders].some((holder) => {
+    const hooks = hooksByHolder.get(holder);
+    return hooks?.has('snapshot') === true && hooks.has('applySnapshot');
+  });
+  if (!netHooksComplete) {
     findings.push({
       rule: 6,
       file: 'src',

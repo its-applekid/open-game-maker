@@ -129,6 +129,31 @@ describe('gm-multiplayer-ready checker', () => {
     expect(rulesOf(dir)).toEqual([1]);
   });
 
+  it.each([
+    ['satisfies', 'export const mod = { net: { snapshot() {}, applySnapshot() {} } satisfies object };'],
+    ['variable', 'const hooks = { snapshot() {}, applySnapshot() {} };\nexport const mod = { net: hooks };'],
+    ['class field', 'export class Mod {\n  net = { snapshot() {}, applySnapshot() {} };\n}'],
+    ['assignment', 'export const mod: { net?: object } = {};\nmod.net = { snapshot() {}, applySnapshot() {} };'],
+  ])('passes net hooks written as a %s', (name, hooks) => {
+    /* The template's own hooks are renamed away, so only the shape under test can satisfy rule 6. */
+    const dir = fixture(`good-net-${name.replace(' ', '-')}`, (root) => {
+      replaceIn(root, 'src/game.ts', 'snapshot() {', 'takeState() {');
+      replaceIn(root, 'src/game.ts', 'applySnapshot(snapshot) {', 'loadState(snapshot) {');
+      writeFileSync(join(root, 'src/net-shape.ts'), `${hooks}\n`);
+    });
+
+    expect(rulesOf(dir)).toEqual([]);
+  });
+
+  it('passes applyInput called through a namespace import', () => {
+    const dir = fixture('good-namespace-applyinput', (root) => {
+      replaceIn(root, 'src/game.ts', 'applyInput(context.state,', 'sim.applyInput(context.state,');
+      replaceIn(root, 'src/game.ts', /^/, "import * as sim from './state.js';\n");
+    });
+
+    expect(rulesOf(dir)).toEqual([]);
+  });
+
   it('fails entities pushed onto an array with rule 3 (bad-entities-push)', () => {
     const dir = fixture('bad-entities-push', (root) =>
       replaceIn(
