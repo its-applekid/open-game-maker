@@ -6,6 +6,7 @@ export interface LayeredSpriteLayer {
   image: CanvasImageSource & { width: number; height: number };
   /** Draw order: lower first, so higher orders cover lower ones. */
   order: number;
+  /** Offset in pixels, zero or positive. */
   dx?: number;
   dy?: number;
 }
@@ -33,6 +34,9 @@ export function composeLayers<C extends Canvas2D>(
   createCanvas: (width: number, height: number) => C = defaultCanvas as (w: number, h: number) => C,
 ): C {
   if (layers.length === 0) throw new Error('composeLayers needs at least one layer');
+  if (layers.some((l) => (l.dx ?? 0) < 0 || (l.dy ?? 0) < 0)) {
+    throw new RangeError('layer offsets must be zero or positive: the sheet grows right and down only');
+  }
   const width = Math.max(...layers.map((l) => l.image.width + (l.dx ?? 0)));
   const height = Math.max(...layers.map((l) => l.image.height + (l.dy ?? 0)));
   const canvas = createCanvas(width, height);

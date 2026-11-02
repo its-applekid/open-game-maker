@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { AUTOTILE_LAYOUTS, NEIGHBOUR_BITS, conventions, paintAutotile, type AutotileLayout } from '../src/index.js';
+import { DRAWN } from './fixtures/autotile-oracle.js';
 
 const { N, NE, E, SE, S, SW, W, NW } = NEIGHBOUR_BITS;
 const OFFSETS: [number, number, number][] = [
@@ -35,16 +36,14 @@ function reduce(bits: number): number {
 const RAW = Array.from({ length: 256 }, (_, bits) => bits);
 const CASES = [...new Set(RAW.map(reduce))];
 
-/**
- * Generated sheet: every cell drawn as a 3x3 coverage picture of the mask the layout puts there (centre, four
- * edges, four corners). Painting a map and reading the pictures back must reproduce each cell's neighbourhood.
- */
-function pictureSheet(layout: AutotileLayout): Map<number, number> {
-  const sheet = new Map<number, number>();
-  for (const [mask, cell] of Object.entries(conventions.autotile.value.layouts[layout].index)) {
-    sheet.set(cell, Number(mask));
-  }
-  return sheet;
+/** The oracle's neighbour names for a cell, as bits. */
+function drawnBits(layout: AutotileLayout, cell: number): number | null {
+  const names = DRAWN[layout][cell];
+  if (names === null || names === undefined) return null;
+  return names
+    .split(' ')
+    .filter(Boolean)
+    .reduce((bits, name) => bits | NEIGHBOUR_BITS[name as keyof typeof NEIGHBOUR_BITS], 0);
 }
 
 describe('autotile painting', () => {
@@ -66,12 +65,15 @@ describe('autotile painting', () => {
         }
       });
 
-      it('picks the cell whose picture matches the neighbourhood for all 256 raw masks', () => {
-        const sheet = pictureSheet(layout);
+      it('picks the cell the pack draws for that neighbourhood, for all 256 raw masks', () => {
         for (const bits of RAW) {
           const cell = paintAutotile(around(bits), layout)[1]![1]!;
-          expect(sheet.get(cell), `raw mask ${bits}`).toBe(reduce(bits));
+          expect(drawnBits(layout, cell), `raw mask ${bits}`).toBe(reduce(bits));
         }
+      });
+
+      it('names the blank cell the pack leaves empty', () => {
+        expect(DRAWN[layout][blank]).toBeNull();
       });
 
       it('offsets by terrain block and leaves empty cells empty', () => {
@@ -102,6 +104,12 @@ describe('autotile painting', () => {
     expect(at(255)).toBe(33);
     expect(at(0)).toBe(36);
     expect(conventions.autotile.value.layouts.godot.blank).toBe(12 + 10);
+  });
+
+  it('rejects a terrain block outside the 14 a sheet holds', () => {
+    expect(paintAutotile([[true]], 'godot', 13)[0]![0]).toBe(13 * 48 + 36);
+    expect(() => paintAutotile([[true]], 'godot', 14)).toThrow(/14 blocks/);
+    expect(() => paintAutotile([[true]], 'godot', -1)).toThrow(RangeError);
   });
 
   it('treats cells outside the mask as empty', () => {

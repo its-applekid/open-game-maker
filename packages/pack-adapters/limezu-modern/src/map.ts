@@ -30,7 +30,9 @@ export function blobMask(mask: Mask, x: number, y: number): number {
  * block, row-major 12 wide), or -1 where the mask is empty.
  */
 export function paintAutotile(mask: Mask, layout: AutotileLayout, block = 0): number[][] {
-  if (!Number.isInteger(block) || block < 0) throw new RangeError(`autotile block ${block} is not a block index`);
+  if (!Number.isInteger(block) || block < 0 || block >= autotile.blocksPerSheet) {
+    throw new RangeError(`autotile block ${block} is not one of the sheet's ${autotile.blocksPerSheet} blocks`);
+  }
   const table = autotile.layouts[layout].index;
   return mask.map((row, y) =>
     row.map((set, x) => (set ? block * autotile.blockCells + table[blobMask(mask, x, y)]! : -1)),
@@ -153,6 +155,7 @@ export class TopdownMap {
       if (!(TILE_LAYERS as readonly string[]).includes(layer.name)) {
         throw new Error(`tile layer "${layer.name}" is not one of ${TILE_LAYERS.join(', ')}`);
       }
+      if (this.#layers.has(layer.name as TileLayerName)) throw new Error(`tile layer "${layer.name}" appears twice`);
       if (layer.width !== map.width || layer.height !== map.height || layer.data.length !== map.width * map.height) {
         throw new Error(`tile layer "${layer.name}" does not cover the ${map.width}x${map.height} map`);
       }

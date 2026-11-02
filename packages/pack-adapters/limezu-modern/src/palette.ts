@@ -4,10 +4,13 @@ import { conventions, isScale, type Scale } from './conventions.js';
 
 const SET_PACKS: readonly string[] = conventions.packs.value;
 
-/** The scale folder an asset came from (`16x16/…`, `…_32x32.png`); icons and battlers have none. */
+/**
+ * The scale an asset came from, read from a pack path (`16x16/…`, `…_32x32.png`) or a lock id slug
+ * (`…/16x16-single-files-16x16-barrel-16x16@1.3`); icons and battlers have none.
+ */
 export function scaleOf(path: string): Scale | undefined {
-  if (/(?:^|\/)Icons(?:_|\/)/.test(path)) return undefined;
-  const match = /(?:^|[/_])(16|32|48)x(16|32|48)(?=[/_.]|$)/.exec(path);
+  if (/(?:^|[/-])icons(?:[_/-])/i.test(path)) return undefined;
+  const match = /(?:^|[/_-])(16|32|48)x(16|32|48)(?=[/_.@-]|$)/.exec(path);
   if (!match || match[1] !== match[2]) return undefined;
   return Number(match[1]) as Scale;
 }

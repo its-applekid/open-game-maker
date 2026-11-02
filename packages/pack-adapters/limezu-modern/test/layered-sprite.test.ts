@@ -76,6 +76,14 @@ describe('composeLayers', () => {
   });
 });
 
+describe('composeLayers offsets', () => {
+  it('rejects a negative offset instead of cropping the layer', () => {
+    const layer = { image: as(image(2, 2, 1, () => true)), order: 0 };
+    expect(() => composeLayers([layer, { ...layer, dx: -1 }], pixelCanvas)).toThrow(/zero or positive/);
+    expect(() => composeLayers([{ ...layer, dy: -1 }], pixelCanvas)).toThrow(RangeError);
+  });
+});
+
 describe('farmerLayers', () => {
   it('stacks farmer pieces body < eyes < outfit < hair < accessory < tool', () => {
     const solid = (id: number) => as(image(1, 1, id, () => true));

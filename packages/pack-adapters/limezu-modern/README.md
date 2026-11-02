@@ -25,5 +25,6 @@ top-down 2D on Phaser. It reads layout from the asset manifest through `@gm/sdk/
 
 ## Verified
 
-`pnpm --filter @gm/pack-limezu-modern test` checks all 256 neighbourhoods against both layouts with generated
-sheets; `test:browser` renders a 6x6 autotiled fixture map in Phaser WebGL (`test/browser/autotile-6x6.png`).
+`pnpm --filter @gm/pack-limezu-modern test` checks all 256 neighbourhoods of both layouts against what the pack draws
+in each cell (`test/fixtures/autotile-oracle.ts`, measured separately from the tables); `test:browser` renders a 6x6
+autotiled fixture map in Phaser WebGL and compares its pixels with the terrain mask (`test/browser/autotile-6x6.png`).

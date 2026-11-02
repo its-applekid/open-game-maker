@@ -63,6 +63,12 @@ describe('TopdownMap', () => {
     expect(() => new TopdownMap(tall, 16)).toThrow(/16x32/);
   });
 
+  it('rejects a tile layer that appears twice instead of keeping only the last', () => {
+    const twice = fixtureMap(16);
+    twice.layers.push({ ...(twice.layers[2] as object), name: 'walls' } as (typeof twice.layers)[number]);
+    expect(() => new TopdownMap(twice, 16)).toThrow(/"walls" appears twice/);
+  });
+
   it('rejects an unknown tile layer and an autotile layer naming no tileset', () => {
     const odd = fixtureMap(16);
     (odd.layers[0] as { name: string }).name = 'floor';

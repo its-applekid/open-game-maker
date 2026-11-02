@@ -46,6 +46,21 @@ describe('one scale per game', () => {
     ).toBe(16);
   });
 
+  it('rejects a mixed lock in the shape gm assets use writes (slug ids, basename paths)', () => {
+    const real = (slug: string, file: string) => ({
+      id: `t1:limezu-modern-farm/${slug}@1.3`,
+      path: `assets/sprite/limezu-modern-farm/${file}`,
+    });
+    const assets = [
+      real('16x16-animals-16x16-cats-cat-hugo', 'Cat_Hugo.png'),
+      real('48x48-animals-48x48-cats-48x48-cat-hugo-48x48', 'Cat_Hugo_48x48.png'),
+      real('icons-icons-32x32-apple', 'Apple.png'),
+    ];
+    expect(() => lockedScale({ scale: 16 }, { assets })).toThrow(/cat-hugo-48x48@1\.3$/);
+    expect(lockedScale({ scale: 16 }, { assets: [assets[0]!, assets[2]!] })).toBe(16);
+    expect(() => lockedScale({ scale: 48 }, { assets: [assets[0]!] })).toThrow(/cats-cat-hugo@1\.3/);
+  });
+
   it('reads the scale from a folder or a file-name suffix', () => {
     expect(scaleOf('48x48/Animals_48x48/Cats_48x48/Cat.png')).toBe(48);
     expect(scaleOf('Barrel_16x16.png')).toBe(16);

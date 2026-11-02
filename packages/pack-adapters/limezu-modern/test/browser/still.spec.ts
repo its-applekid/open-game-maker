@@ -19,8 +19,12 @@ test('a 6x6 autotiled fixture map renders on the GPU', async ({ page }) => {
     `<!doctype html><body style="margin:0;background:#000"><script>${bundle.outputFiles[0]!.text}</script></body>`,
   );
   await page.waitForFunction(() => 'fixture' in window);
-  const fixture = await page.evaluate(() => (window as unknown as { fixture: { renderer: number } }).fixture);
+  const fixture = await page.evaluate(
+    () => (window as unknown as { fixture: { renderer: number; size: number[]; mismatches: string[] } }).fixture,
+  );
   expect(fixture.renderer).toBe(2 /* Phaser.WEBGL */);
+  expect(fixture.size).toEqual([96, 96]);
+  expect(fixture.mismatches).toEqual([]);
   const gpu = await page.evaluate(() => {
     const gl = document.createElement('canvas').getContext('webgl2');
     const info = gl?.getExtension('WEBGL_debug_renderer_info');
