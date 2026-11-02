@@ -36,13 +36,15 @@ ${body}
 `;
 }
 
-export function renderSplashHtml(content: SplashContent): string {
+/* `asset` maps a public path to its URL; the build appends a content hash so the immutable cache in _headers still
+   picks up a re-recorded clip */
+export function renderSplashHtml(content: SplashContent, asset: (path: string) => string = (path) => path): string {
   const e = escapeHtml;
   const features = content.captures
     .map(
       (capture) => `      <section class="s-feature">
         <h2>${e(capture.heading)}</h2>
-        <video src="${e(capture.path)}" poster="${e(capture.poster)}" muted loop playsinline autoplay preload="none"></video>
+        <video src="${e(asset(capture.path))}" poster="${e(asset(capture.poster))}" muted loop playsinline autoplay preload="none"></video>
       </section>`,
     )
     .join('\n');
@@ -50,10 +52,10 @@ export function renderSplashHtml(content: SplashContent): string {
   const body = `    <main>
       <section class="s-hero">
         <picture class="s-poster">
-          <source media="(orientation: portrait)" srcset="/hero/poster-portrait.webp" />
-          <img alt="" src="/hero/poster-landscape.webp" fetchpriority="high" />
+          <source media="(orientation: portrait)" srcset="${e(asset('/hero/poster-portrait.webp'))}" />
+          <img alt="" src="${e(asset('/hero/poster-landscape.webp'))}" fetchpriority="high" />
         </picture>
-        <h1 class="s-logo"><img src="/hero/logo.webp" alt="Open Game Maker 2000" width="1400" height="788" /></h1>
+        <h1 class="s-logo"><img src="${e(asset('/hero/logo.webp'))}" alt="Open Game Maker 2000" width="1400" height="788" /></h1>
         <div class="s-menu">
           <p class="s-line">${e(content.line)}</p>
           <a class="s-cta" href="/setup">${e(content.cta.setup)}</a>

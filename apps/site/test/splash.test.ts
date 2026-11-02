@@ -77,3 +77,19 @@ describe('splash page', () => {
     expect(() => parseSplashContent(`${valid}\ntagline: more words\n`)).toThrow();
   });
 });
+
+describe('splash media URLs', () => {
+  it('routes every media URL through the asset mapper so the build can cache-bust immutable files', () => {
+    const rendered = renderSplashHtml(content, (path) => `${path}?v=test`);
+    const media = [
+      '/hero/logo.webp',
+      '/hero/poster-landscape.webp',
+      '/hero/poster-portrait.webp',
+      ...content.captures.flatMap((capture) => [capture.path, capture.poster]),
+    ];
+    for (const path of media) {
+      expect(rendered).toContain(`"${path}?v=test"`);
+      expect(rendered).not.toContain(`"${path}"`);
+    }
+  });
+});

@@ -10,6 +10,9 @@ case "${1:-}" in
   *) printf 'usage: %s [--dry-run]\n' "$0" >&2; exit 2 ;;
 esac
 
+# build from a clean dist/ so files removed from public/ or src/ are not published
+pnpm --dir "$SITE" exec tsc -b --clean
+rm -rf "$SITE/dist"
 pnpm --dir "$SITE" build
 
 # dist/ also holds tsc's output (one .js, .d.ts and maps per src/**/*.ts); publish only the site files

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { cp, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { renderSplashHtml } from '../dist/render/html.js';
@@ -32,5 +34,11 @@ if (process.argv.includes('--check')) {
   await cp(fileURLToPath(new URL('public/', packageRoot)), site, { recursive: true });
   await cp(fileURLToPath(new URL('apps/web/src/tokens.css', repositoryRoot)), `${site}tokens.css`);
   await cp(fileURLToPath(new URL('src/page/site.css', packageRoot)), `${site}site.css`);
-  await writeFile(`${site}index.html`, renderSplashHtml(splash));
+  const publicDir = fileURLToPath(new URL('public', packageRoot));
+  const hashed = (path: string) =>
+    `${path}?v=${createHash('sha256')
+      .update(readFileSync(`${publicDir}${path}`))
+      .digest('hex')
+      .slice(0, 10)}`;
+  await writeFile(`${site}index.html`, renderSplashHtml(splash, hashed));
 }
