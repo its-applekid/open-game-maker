@@ -116,12 +116,12 @@ describe('outbox relay', () => {
   it('skips a type nobody handles and logs it once', async () => {
     const { deps, relay, append } = await setup();
     await append(
-      line({ type: 'narration.render', payload: {} }) + line({ id: ULIDS[1], type: 'narration.render', payload: {} }),
+      line({ type: 'unhandled.test', payload: {} }) + line({ id: ULIDS[1], type: 'unhandled.test', payload: {} }),
     );
     await relay().scan();
     expect(listSince(deps.sqlite, JOB_ID, 0)).toEqual([]);
     expect(deps.lines.filter((entry) => entry.event === 'outbox-type-unhandled')).toEqual([
-      expect.objectContaining({ type: 'narration.render' }),
+      expect.objectContaining({ type: 'unhandled.test' }),
     ]);
   });
 

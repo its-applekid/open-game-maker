@@ -16,8 +16,8 @@ window.__playNarration = async () => {
   const sentences: string[] = [];
   const spoken = await SpokenText.load({
     key: 'fixture',
-    audioUrl: '/hello.opus',
-    alignmentUrl: '/hello.alignment.json',
+    audioUrl: '/audio/hello.opus',
+    alignmentUrl: '/audio/hello.alignment.json',
   });
   return new Promise((resolve) => {
     spoken.play({

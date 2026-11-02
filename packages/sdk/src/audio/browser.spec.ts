@@ -30,7 +30,7 @@ test('loads the optional Tone chunk only when song is called', async ({ page }) 
 });
 
 test('plays SpokenText through the unlocked voice bus', async ({ page }) => {
-  await page.goto('/');
+  await page.goto('/audio/');
   await page.getByRole('button', { name: 'Unlock audio' }).click();
   await expect.poll(() => page.evaluate(() => window.__audio.status())).toBe('on');
   const started = Date.now();
