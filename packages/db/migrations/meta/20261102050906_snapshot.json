@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "d951dd13-e7ea-4338-ad7c-9f5404e322ad",
-  "prevId": "bec43698-aa50-49c9-b29f-8edc582f209e",
+  "id": "7199fe7d-6202-4b07-b43f-36747b77f8d4",
+  "prevId": "8a07f54b-3f0c-4a07-a7b3-2004aa7917ef",
   "tables": {
     "app_meta": {
       "name": "app_meta",
@@ -1982,7 +1982,7 @@
         },
         "branches_fork_point_check": {
           "name": "branches_fork_point_check",
-          "value": "(\"branches\".\"fork_parent_branch_id\" IS NULL AND \"branches\".\"fork_parent_rev\" IS NULL AND \"branches\".\"fork_git_sha\" IS NULL) OR (\"branches\".\"fork_parent_branch_id\" IS NOT NULL AND \"branches\".\"fork_parent_rev\" >= 0 AND \"branches\".\"fork_git_sha\" IS NOT NULL)"
+          "value": "(\"branches\".\"fork_parent_branch_id\" IS NULL AND \"branches\".\"fork_parent_rev\" IS NULL AND \"branches\".\"fork_git_sha\" IS NULL) OR (\"branches\".\"fork_parent_branch_id\" IS NOT NULL AND \"branches\".\"fork_parent_rev\" >= 0)"
         }
       }
     },
@@ -3689,6 +3689,1179 @@
         "usage_samples_amounts": {
           "name": "usage_samples_amounts",
           "value": "\"usage_samples\".\"provider_reported_micro\" >= 0 AND \"usage_samples\".\"api_equivalent_micro\" >= 0"
+        }
+      }
+    },
+    "reapply_reports": {
+      "name": "reapply_reports",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_build_id": {
+          "name": "from_build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "to_build_id": {
+          "name": "to_build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "report_json": {
+          "name": "report_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "reapply_reports_game_id_games_id_fk": {
+          "name": "reapply_reports_game_id_games_id_fk",
+          "tableFrom": "reapply_reports",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reapply_reports_branch_id_branches_id_fk": {
+          "name": "reapply_reports_branch_id_branches_id_fk",
+          "tableFrom": "reapply_reports",
+          "tableTo": "branches",
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "reapply_reports_branch_id_to_build_id_pk": {
+          "columns": ["branch_id", "to_build_id"],
+          "name": "reapply_reports_branch_id_to_build_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "achievement_audit": {
+      "name": "achievement_audit",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "by_user_id": {
+          "name": "by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_audit_game_id_games_id_fk": {
+          "name": "achievement_audit_game_id_games_id_fk",
+          "tableFrom": "achievement_audit",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_audit_action_check": {
+          "name": "achievement_audit_action_check",
+          "value": "\"achievement_audit\".\"action\" = 'revoke'"
+        }
+      }
+    },
+    "achievement_awards": {
+      "name": "achievement_awards",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "awarded_at": {
+          "name": "awarded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_awards_game_id_games_id_fk": {
+          "name": "achievement_awards_game_id_games_id_fk",
+          "tableFrom": "achievement_awards",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_awards_user_id_game_id_key_pk": {
+          "columns": ["user_id", "game_id", "key"],
+          "name": "achievement_awards_user_id_game_id_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_awards_source_check": {
+          "name": "achievement_awards_source_check",
+          "value": "\"achievement_awards\".\"source\" IN ('client', 'room', 'admin')"
+        }
+      }
+    },
+    "achievement_catalogs": {
+      "name": "achievement_catalogs",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "defs_json": {
+          "name": "defs_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "registered_at": {
+          "name": "registered_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_catalogs_game_id_games_id_fk": {
+          "name": "achievement_catalogs_game_id_games_id_fk",
+          "tableFrom": "achievement_catalogs",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_catalogs_game_id_release_id_pk": {
+          "columns": ["game_id", "release_id"],
+          "name": "achievement_catalogs_game_id_release_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "achievement_defs": {
+      "name": "achievement_defs",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_path": {
+          "name": "icon_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hidden": {
+          "name": "hidden",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target": {
+          "name": "target",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "first_release_id": {
+          "name": "first_release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "retired_release_id": {
+          "name": "retired_release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_defs_game_id_games_id_fk": {
+          "name": "achievement_defs_game_id_games_id_fk",
+          "tableFrom": "achievement_defs",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_defs_game_id_key_pk": {
+          "columns": ["game_id", "key"],
+          "name": "achievement_defs_game_id_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_defs_hidden_check": {
+          "name": "achievement_defs_hidden_check",
+          "value": "\"achievement_defs\".\"hidden\" IN (0, 1)"
+        },
+        "achievement_defs_target_check": {
+          "name": "achievement_defs_target_check",
+          "value": "\"achievement_defs\".\"target\" IS NULL OR \"achievement_defs\".\"target\" > 0"
+        }
+      }
+    },
+    "achievement_progress": {
+      "name": "achievement_progress",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_progress_game_id_games_id_fk": {
+          "name": "achievement_progress_game_id_games_id_fk",
+          "tableFrom": "achievement_progress",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_progress_user_id_game_id_key_pk": {
+          "columns": ["user_id", "game_id", "key"],
+          "name": "achievement_progress_user_id_game_id_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_progress_value_check": {
+          "name": "achievement_progress_value_check",
+          "value": "\"achievement_progress\".\"value\" >= 0"
+        }
+      }
+    },
+    "analytics_salts": {
+      "name": "analytics_salts",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "salt": {
+          "name": "salt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rotated_at": {
+          "name": "rotated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "analytics_salts_game_salt_unique": {
+          "name": "analytics_salts_game_salt_unique",
+          "columns": ["game_id", "salt"],
+          "isUnique": true
+        },
+        "analytics_salts_game_rotated_idx": {
+          "name": "analytics_salts_game_rotated_idx",
+          "columns": ["game_id", "rotated_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "analytics_salts_game_id_games_id_fk": {
+          "name": "analytics_salts_game_id_games_id_fk",
+          "tableFrom": "analytics_salts",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "analytics_salts_game_id_rotated_at_pk": {
+          "columns": ["game_id", "rotated_at"],
+          "name": "analytics_salts_game_id_rotated_at_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "analytics_salts_hex_check": {
+          "name": "analytics_salts_hex_check",
+          "value": "length(\"analytics_salts\".\"salt\") = 64 AND \"analytics_salts\".\"salt\" NOT GLOB '*[^0-9a-f]*'"
+        }
+      }
+    },
+    "creator_analytics_daily": {
+      "name": "creator_analytics_daily",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "day": {
+          "name": "day",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "metric": {
+          "name": "metric",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "value": {
+          "name": "value",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "creator_analytics_daily_game_day_idx": {
+          "name": "creator_analytics_daily_game_day_idx",
+          "columns": ["game_id", "day"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "creator_analytics_daily_game_id_games_id_fk": {
+          "name": "creator_analytics_daily_game_id_games_id_fk",
+          "tableFrom": "creator_analytics_daily",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "creator_analytics_daily_game_id_day_release_id_metric_scope_pk": {
+          "columns": ["game_id", "day", "release_id", "metric", "scope"],
+          "name": "creator_analytics_daily_game_id_day_release_id_metric_scope_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "creator_analytics_daily_metric_check": {
+          "name": "creator_analytics_daily_metric_check",
+          "value": "\"creator_analytics_daily\".\"metric\" IN ('plays', 'players', 'attempts', 'clears', 'clear_rate', 'median_active_sec', 'completion_rate', 'marker_reached', 'marker_first_seen', 'drop_off', 'stuck', 'version_adoption', 'test_runs')"
+        },
+        "creator_analytics_daily_value_check": {
+          "name": "creator_analytics_daily_value_check",
+          "value": "\"creator_analytics_daily\".\"value\" >= 0"
+        }
+      }
+    },
+    "creator_analytics_events": {
+      "name": "creator_analytics_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ts": {
+          "name": "ts",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "env": {
+          "name": "env",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pseudo_user_id": {
+          "name": "pseudo_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "marker": {
+          "name": "marker",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "props_json": {
+          "name": "props_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        }
+      },
+      "indexes": {
+        "creator_analytics_events_game_ts_idx": {
+          "name": "creator_analytics_events_game_ts_idx",
+          "columns": ["game_id", "ts"],
+          "isUnique": false
+        },
+        "creator_analytics_events_game_env_release_idx": {
+          "name": "creator_analytics_events_game_env_release_idx",
+          "columns": ["game_id", "env", "release_id"],
+          "isUnique": false
+        },
+        "creator_analytics_events_game_pseudo_idx": {
+          "name": "creator_analytics_events_game_pseudo_idx",
+          "columns": ["game_id", "pseudo_user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "creator_analytics_events_game_id_games_id_fk": {
+          "name": "creator_analytics_events_game_id_games_id_fk",
+          "tableFrom": "creator_analytics_events",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "creator_analytics_events_env_check": {
+          "name": "creator_analytics_events_env_check",
+          "value": "\"creator_analytics_events\".\"env\" IN ('draft', 'published')"
+        },
+        "creator_analytics_events_name_check": {
+          "name": "creator_analytics_events_name_check",
+          "value": "\"creator_analytics_events\".\"name\" IN ('session_start', 'session_end', 'active_heartbeat', 'game_load_failed', 'error', 'bug_report', 'update_offered', 'update_accepted', 'save', 'load', 'attempt_start', 'attempt_end', 'marker', 'complete')"
+        },
+        "creator_analytics_events_outcome_check": {
+          "name": "creator_analytics_events_outcome_check",
+          "value": "\"creator_analytics_events\".\"outcome\" IS NULL OR \"creator_analytics_events\".\"outcome\" IN ('complete', 'fail', 'quit')"
+        },
+        "creator_analytics_events_props_check": {
+          "name": "creator_analytics_events_props_check",
+          "value": "json_valid(\"creator_analytics_events\".\"props_json\") AND length(CAST(\"creator_analytics_events\".\"props_json\" AS BLOB)) <= 1024"
+        }
+      }
+    },
+    "play_leases": {
+      "name": "play_leases",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "tab_id": {
+          "name": "tab_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "play_leases_expiry_index": {
+          "name": "play_leases_expiry_index",
+          "columns": ["expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "play_leases_game_id_games_id_fk": {
+          "name": "play_leases_game_id_games_id_fk",
+          "tableFrom": "play_leases",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "play_leases_user_id_game_id_pk": {
+          "columns": ["user_id", "game_id"],
+          "name": "play_leases_user_id_game_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "save_revisions": {
+      "name": "save_revisions",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot_id": {
+          "name": "slot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "build_id": {
+          "name": "build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "save_schema_version": {
+          "name": "save_schema_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "blob",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "device_id": {
+          "name": "device_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "client_seq": {
+          "name": "client_seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reason": {
+          "name": "reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "migrated_from_revision": {
+          "name": "migrated_from_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "save_revisions_idempotency_unique": {
+          "name": "save_revisions_idempotency_unique",
+          "columns": ["user_id", "game_id", "slot_id", "device_id", "client_seq"],
+          "isUnique": true
+        },
+        "save_revisions_slot_created_index": {
+          "name": "save_revisions_slot_created_index",
+          "columns": ["user_id", "game_id", "slot_id", "revision"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "save_revisions_game_id_games_id_fk": {
+          "name": "save_revisions_game_id_games_id_fk",
+          "tableFrom": "save_revisions",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "save_revisions_user_id_game_id_slot_id_save_slots_user_id_game_id_slot_id_fk": {
+          "name": "save_revisions_user_id_game_id_slot_id_save_slots_user_id_game_id_slot_id_fk",
+          "tableFrom": "save_revisions",
+          "tableTo": "save_slots",
+          "columnsFrom": ["user_id", "game_id", "slot_id"],
+          "columnsTo": ["user_id", "game_id", "slot_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "save_revisions_user_id_game_id_slot_id_revision_pk": {
+          "columns": ["user_id", "game_id", "slot_id", "revision"],
+          "name": "save_revisions_user_id_game_id_slot_id_revision_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "save_revisions_revision_check": {
+          "name": "save_revisions_revision_check",
+          "value": "\"save_revisions\".\"revision\" > 0"
+        },
+        "save_revisions_schema_check": {
+          "name": "save_revisions_schema_check",
+          "value": "\"save_revisions\".\"save_schema_version\" >= 0"
+        },
+        "save_revisions_client_seq_check": {
+          "name": "save_revisions_client_seq_check",
+          "value": "\"save_revisions\".\"client_seq\" >= 0"
+        },
+        "save_revisions_reason_check": {
+          "name": "save_revisions_reason_check",
+          "value": "\"save_revisions\".\"reason\" IN ('pause', 'checkpoint', 'interval', 'hidden', 'manual', 'migration', 'update')"
+        }
+      }
+    },
+    "save_slots": {
+      "name": "save_slots",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "slot_id": {
+          "name": "slot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "head_revision": {
+          "name": "head_revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "save_slots_game_user_index": {
+          "name": "save_slots_game_user_index",
+          "columns": ["game_id", "user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "save_slots_game_id_games_id_fk": {
+          "name": "save_slots_game_id_games_id_fk",
+          "tableFrom": "save_slots",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "save_slots_user_id_game_id_slot_id_pk": {
+          "columns": ["user_id", "game_id", "slot_id"],
+          "name": "save_slots_user_id_game_id_slot_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "save_slots_slot_check": {
+          "name": "save_slots_slot_check",
+          "value": "\"save_slots\".\"slot_id\" IN ('auto', '1', '2', '3')"
+        },
+        "save_slots_kind_check": {
+          "name": "save_slots_kind_check",
+          "value": "\"save_slots\".\"kind\" IN ('auto', 'manual')"
+        },
+        "save_slots_head_revision_check": {
+          "name": "save_slots_head_revision_check",
+          "value": "\"save_slots\".\"head_revision\" >= 0"
+        }
+      }
+    },
+    "scope_sessions": {
+      "name": "scope_sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "creator_id": {
+          "name": "creator_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ticket": {
+          "name": "ticket",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "choices": {
+          "name": "choices",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "scope_hash": {
+          "name": "scope_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "scope_sessions_job_unique": {
+          "name": "scope_sessions_job_unique",
+          "columns": ["job_id"],
+          "isUnique": true
+        },
+        "scope_sessions_game_open_unique": {
+          "name": "scope_sessions_game_open_unique",
+          "columns": ["game_id"],
+          "isUnique": true,
+          "where": "\"scope_sessions\".\"status\" = 'open'"
+        },
+        "scope_sessions_game_created": {
+          "name": "scope_sessions_game_created",
+          "columns": ["game_id", "created_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "scope_sessions_game_id_games_id_fk": {
+          "name": "scope_sessions_game_id_games_id_fk",
+          "tableFrom": "scope_sessions",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "scope_sessions_job_id_jobs_id_fk": {
+          "name": "scope_sessions_job_id_jobs_id_fk",
+          "tableFrom": "scope_sessions",
+          "tableTo": "jobs",
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scope_sessions_status": {
+          "name": "scope_sessions_status",
+          "value": "\"scope_sessions\".\"status\" IN ('open', 'agreed', 'abandoned')"
+        },
+        "scope_sessions_agreed_payload": {
+          "name": "scope_sessions_agreed_payload",
+          "value": "(\"scope_sessions\".\"status\" = 'agreed' AND \"scope_sessions\".\"scope\" IS NOT NULL AND \"scope_sessions\".\"scope_hash\" IS NOT NULL) OR (\"scope_sessions\".\"status\" != 'agreed')"
         }
       }
     }

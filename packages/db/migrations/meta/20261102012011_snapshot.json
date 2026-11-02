@@ -2,7 +2,7 @@
   "version": "6",
   "dialect": "sqlite",
   "id": "063b2ffd-27f5-454c-a5ce-281cfc39afed",
-  "prevId": "d951dd13-e7ea-4338-ad7c-9f5404e322ad",
+  "prevId": "bec43698-aa50-49c9-b29f-8edc582f209e",
   "tables": {
     "app_meta": {
       "name": "app_meta",
@@ -2338,20 +2338,6 @@
           "autoincrement": false,
           "default": 0
         },
-        "usage_coverage": {
-          "name": "usage_coverage",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "aiur_run_id": {
-          "name": "aiur_run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "aiur_repo": {
           "name": "aiur_repo",
           "type": "text",
@@ -2396,13 +2382,6 @@
         },
         "terminal_at": {
           "name": "terminal_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "released_at": {
-          "name": "released_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -3605,92 +3584,6 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
-    },
-    "usage_samples": {
-      "name": "usage_samples",
-      "columns": {
-        "job_id": {
-          "name": "job_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "run_id": {
-          "name": "run_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "repo": {
-          "name": "repo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "issue": {
-          "name": "issue",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "provider_reported_micro": {
-          "name": "provider_reported_micro",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "api_equivalent_micro": {
-          "name": "api_equivalent_micro",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "coverage_status": {
-          "name": "coverage_status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "observed_at": {
-          "name": "observed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "usage_samples_job_id_jobs_id_fk": {
-          "name": "usage_samples_job_id_jobs_id_fk",
-          "tableFrom": "usage_samples",
-          "tableTo": "jobs",
-          "columnsFrom": ["job_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "usage_samples_job_id_run_id_pk": {
-          "columns": ["job_id", "run_id"],
-          "name": "usage_samples_job_id_run_id_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "usage_samples_amounts": {
-          "name": "usage_samples_amounts",
-          "value": "\"usage_samples\".\"provider_reported_micro\" >= 0 AND \"usage_samples\".\"api_equivalent_micro\" >= 0"
-        }
-      }
     },
     "reapply_reports": {
       "name": "reapply_reports",

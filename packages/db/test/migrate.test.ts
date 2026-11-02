@@ -37,13 +37,13 @@ describe('migrate', () => {
         '20261101194843_reports.sql',
         '20261101204433_rooms.sql',
         '20261101233648_job_tickets.sql',
-        '20261102004305_usage_samples.sql',
         '20261102012011_reapply_reports.sql',
         '20261102021630_achievements.sql',
         '20261102021647_creator_analytics.sql',
         '20261102023444_nullable_branch_fork_sha.sql',
         '20261102023822_saves.sql',
         '20261102033839_scope_sessions.sql',
+        '20261102050906_usage_samples.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -67,13 +67,13 @@ describe('migrate', () => {
       'migration:20261101194843_reports.sql',
       'migration:20261101204433_rooms.sql',
       'migration:20261101233648_job_tickets.sql',
-      'migration:20261102004305_usage_samples.sql',
       'migration:20261102012011_reapply_reports.sql',
       'migration:20261102021630_achievements.sql',
       'migration:20261102021647_creator_analytics.sql',
       'migration:20261102023444_nullable_branch_fork_sha.sql',
       'migration:20261102023822_saves.sql',
       'migration:20261102033839_scope_sessions.sql',
+      'migration:20261102050906_usage_samples.sql',
     ]);
     sqlite.close();
   });
