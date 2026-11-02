@@ -166,16 +166,7 @@ describe('pushBriefing', () => {
     expect(host.received).toHaveLength(1);
     expect(host.received[0].auth).toBe(`Bearer ${SECRET}`);
     expect(Object.keys(host.received[0].body).sort()).toEqual(
-      [
-        'current_task',
-        'extra',
-        'next_steps',
-        'observed_at',
-        'questions',
-        'sections',
-        'summary',
-        'target_key',
-      ].sort(),
+      ['current_task', 'extra', 'next_steps', 'observed_at', 'questions', 'sections', 'summary', 'target_key'].sort(),
     );
   });
 
