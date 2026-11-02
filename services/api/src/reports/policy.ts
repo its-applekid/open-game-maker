@@ -1,7 +1,8 @@
-// Repair policy (B8 §6, D5: constants until measured).
-// The one-third reservation is applied through OGM-013's `repair` size-class rows, not here.
-export const REPAIR_RESERVATION_FRACTION = 1 / 3;
-export const REPAIR_ATTEMPTS = 2;
+import { DEFAULT_REPAIR_CONFIG } from '@ogm/contracts';
+
+// Repair policy (B8 §6, D5: configured placeholders until measured).
+export const REPAIR_RESERVATION_FRACTION = DEFAULT_REPAIR_CONFIG.reservationFraction;
+export const REPAIR_ATTEMPTS = DEFAULT_REPAIR_CONFIG.attempts;
 export const WRONG_BEHAVIOUR_REPAIR_AT = 3;
 export const REPAIR_COMPLEXITY = 2;
 

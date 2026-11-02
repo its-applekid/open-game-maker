@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 
-import type { JobPlan } from '@ogm/contracts';
+import type { JobPlan, RepairTicket } from '@ogm/contracts';
 
 type PlanTicket = JobPlan['tickets'][number];
 
@@ -30,6 +30,25 @@ export function renderIssue(input: RenderIssueInput): {
     body: `${unsigned}\n\n<!-- gm-job:${input.jobId} gm-ticket:${input.ticket.key} gm-sig:${sig} -->`,
     sig,
     labels: [`complexity:${input.complexity}`, `feature:gm-${input.jobId}`],
+  };
+}
+
+export function renderRepairIssue(input: { jobId: string; complexity: number; ticket: RepairTicket }): {
+  title: string;
+  body: string;
+  sig: string;
+  labels: string[];
+} {
+  const unsigned = input.ticket.body.replace(/\n?<!-- gm-job:[^\n]* -->/g, '').trim();
+  const sig = createHash('sha256').update(unsigned).digest('hex');
+  const extra = input.ticket.labels.filter(
+    (label) => !label.startsWith('agent:') && !label.startsWith('complexity:') && !label.startsWith('feature:gm-'),
+  );
+  return {
+    title: input.ticket.title.trim().slice(0, 120),
+    body: `${unsigned}\n\n<!-- gm-job:${input.jobId} gm-ticket:repair gm-sig:${sig} -->`,
+    sig,
+    labels: [...new Set([`complexity:${input.complexity}`, `feature:gm-${input.jobId}`, ...extra])],
   };
 }
 

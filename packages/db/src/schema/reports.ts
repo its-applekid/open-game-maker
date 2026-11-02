@@ -22,6 +22,11 @@ export const reports = sqliteTable(
     }).notNull(),
     jobId: text('job_id'),
     bundleKey: text('bundle_key'),
+    triageState: text('triage_state', { enum: ['processing', 'ready', 'stored', 'deduped'] }),
+    triageClaimedAt: text('triage_claimed_at'),
+    triageSignature: text('triage_signature'),
+    triageJson: text('triage_json'),
+    diagnosticsKey: text('diagnostics_key'),
     reporterId: text('reporter_id').notNull(),
     createdAt: text('created_at').notNull(),
   },
@@ -29,12 +34,18 @@ export const reports = sqliteTable(
     index('reports_game_created').on(table.gameId, table.createdAt),
     index('reports_signature').on(table.signature),
     index('reports_platform_signature').on(table.platformSignature),
+    index('reports_triage_claim').on(table.triageState, table.route, table.createdAt),
+    index('reports_triage_signature').on(table.triageSignature),
     check('reports_route', sql`${table.route} IN ('game_repair', 'platform', 'editor_hint', 'stored')`),
     check(
       'reports_reproduction',
       sql`${table.reproduction} IN ('crash_with_error', 'wrong_behaviour', 'not_reproducible')`,
     ),
     check('reports_text_length', sql`${table.text} IS NULL OR length(${table.text}) <= 2000`),
+    check(
+      'reports_triage_state',
+      sql`${table.triageState} IS NULL OR ${table.triageState} IN ('processing', 'ready', 'stored', 'deduped')`,
+    ),
   ],
 );
 
