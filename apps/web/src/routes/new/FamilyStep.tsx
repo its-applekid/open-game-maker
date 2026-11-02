@@ -1,31 +1,25 @@
-import type { StyleChoice } from './catalog';
+import { Icon } from '../../components/Icon';
+import type { PickerFamily } from './catalog';
 
-export function FamilyStep({
-  choices,
-  selected,
-  onToggle,
-}: {
-  choices: StyleChoice[];
-  selected: string[];
-  onToggle(id: string): void;
-}) {
-  return choices.map((choice) => (
+const FAMILY_ICONS: Record<string, string> = {
+  'chunky-low-poly': 'lowpoly',
+  'pixel-art': 'bit16',
+  'flat-cartoon': 'cartoon',
+  'isometric-2d': 'iso',
+  sketch: 'sketch',
+};
+
+export function FamilyStep({ families, onOpen }: { families: PickerFamily[]; onOpen(id: string): void }) {
+  return families.map((family) => (
     <button
-      className="new-option new-family-option tap-primary"
+      className="new-option tap-primary"
       type="button"
-      aria-pressed={selected.includes(choice.id)}
-      onClick={() => onToggle(choice.id)}
-      key={choice.id}
+      data-style-family={family.id}
+      onClick={() => onOpen(family.id)}
+      key={family.id}
     >
-      <span className="new-family-previews" aria-hidden={choice.packs.every((pack) => !pack.thumbnailUrl)}>
-        {choice.packs
-          .filter((pack) => pack.thumbnailUrl)
-          .slice(0, 3)
-          .map((pack) => (
-            <img key={pack.id} src={pack.thumbnailUrl!} alt={`${pack.name} preview`} />
-          ))}
-      </span>
-      <span>{choice.label}</span>
+      <Icon name={FAMILY_ICONS[family.id] ?? 'other'} className="new-option-icon" />
+      <span>{family.label}</span>
     </button>
   ));
 }

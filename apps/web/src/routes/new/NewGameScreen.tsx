@@ -4,9 +4,9 @@ import { useNavigate, useSearchParams } from 'react-router';
 import { registerTestApi } from '../../app/testHook';
 import { ScopeChat } from '../../features/scope-chat';
 import { styleChoices, useCatalog } from './catalog';
-import { FamilyStep } from './FamilyStep';
 import { OptionTile } from './OptionTile';
 import { OtherTile } from './OtherTile';
+import { StyleStep } from './StyleStep';
 import {
   STEP_ORDER,
   STATIC_STEPS,
@@ -175,24 +175,28 @@ export function NewGameScreen() {
                   Retry
                 </button>
               </p>
+            ) : step === 'family' ? (
+              <StyleStep
+                families={catalog.data ?? []}
+                selected={selected?.picks ?? []}
+                other={selected?.other}
+                full={count >= (current?.max ?? 1)}
+                onFull={() => setNotice('Unpick one first.')}
+                onOtherChange={(other) =>
+                  setChoice('family', { picks: selected?.picks ?? [], ...(other ? { other } : {}) })
+                }
+                onSelect={(id) => toggle('family', id, 1)}
+              />
             ) : (
               <div className="new-option-grid" role="group" aria-label={current?.ask}>
-                {step === 'family' ? (
-                  <FamilyStep
-                    choices={families}
-                    selected={selected?.picks ?? []}
-                    onToggle={(id) => toggle('family', id, 1)}
+                {current?.options.map((item) => (
+                  <OptionTile
+                    key={item.id}
+                    {...item}
+                    pressed={selected?.picks.includes(item.id) ?? false}
+                    onToggle={() => toggle(current.key, item.id, current.max)}
                   />
-                ) : (
-                  current?.options.map((item) => (
-                    <OptionTile
-                      key={item.id}
-                      {...item}
-                      pressed={selected?.picks.includes(item.id) ?? false}
-                      onToggle={() => toggle(current.key, item.id, current.max)}
-                    />
-                  ))
-                )}
+                ))}
                 {current ? (
                   <OtherTile
                     title={current.title}

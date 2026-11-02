@@ -19,6 +19,7 @@ const catalog = [
       {
         id: 'smallscaleint',
         label: 'SmallScaleInt',
+        pickerFamilies: ['pixel-art'],
         vendors: ['smallscaleint'],
         traits: { perspective: 'isometric 2:1', judgment: 'one set' },
         packs: [
@@ -85,16 +86,18 @@ describe('NewGameScreen', () => {
     expect(screen.getByText('“Delivery”')).toBeVisible();
   }, 20_000);
 
-  it('uses catalog sets as style choices and filters point of view', async () => {
+  it('selects from a catalog family detail and filters point of view', async () => {
     renderScreen();
 
     fireEvent.click(button('Platformer'));
     fireEvent.click(button('Next'));
     fireEvent.click(button('Skip'));
 
-    const style = await screen.findByRole('button', { name: /SmallScaleInt/ });
-    expect(screen.getByRole('img', { name: 'Knight preview' })).toHaveAttribute('src', '/knight.webp');
-    fireEvent.click(style);
+    const family = await screen.findByRole('button', { name: 'Isometric' });
+    expect(screen.queryByText('SmallScaleInt')).not.toBeInTheDocument();
+    fireEvent.click(family);
+    expect(screen.getByRole('img', { name: 'SmallScaleInt preview' })).toHaveAttribute('src', '/knight.webp');
+    fireEvent.click(screen.getByRole('button', { name: 'Select SmallScaleInt' }));
     fireEvent.click(button('Next'));
     fireEvent.click(button('Skip'));
     fireEvent.click(button('Solo'));
