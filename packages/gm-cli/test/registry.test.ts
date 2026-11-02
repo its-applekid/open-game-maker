@@ -45,7 +45,10 @@ describe('command registry', () => {
       'assets why',
       'build assets',
       'chat post',
+      'check',
       'check assets',
+      'check hooks',
+      'check static',
       'checkpoint open',
       'checkpoint wait',
       'maps search',
@@ -60,6 +63,7 @@ describe('command registry', () => {
       'shot',
       'skills list',
       'skills sync',
+      'test',
       'verify serve',
     ]);
     for (const command of registry.values()) expect(commandHelp(command).length).toBeLessThanOrEqual(15);
