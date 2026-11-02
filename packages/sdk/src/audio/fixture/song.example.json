@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "bpm": 120,
+  "loopBars": 2,
+  "tracks": [
+    {
+      "id": "lead",
+      "instrument": "synth",
+      "volumeDb": -12,
+      "pattern": [
+        { "t": "0:0:0", "n": "C4", "d": "8n" },
+        { "t": "1:0:0", "n": "G4", "d": "8n", "v": 0.8 }
+      ]
+    }
+  ]
+}

@@ -96,6 +96,8 @@ describe('useNotificationFeed', () => {
   afterEach(() => vi.useRealTimers());
 
   it('shows a notification title and body for a finished build', () => {
+    const listener = vi.fn();
+    const unsubscribe = notify.subscribeNotification(listener);
     const { unmount } = renderHook(() => notify.useNotificationFeed());
     const source = FakeEventSource.instances.at(-1)!;
 
@@ -107,6 +109,9 @@ describe('useNotificationFeed', () => {
     );
 
     expect(notify.notifyState().toasts.map((t) => t.text)).toEqual(['Build complete — Mossy Leap is built']);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener).toHaveBeenCalledWith('build.done', expect.any(MessageEvent));
+    unsubscribe();
     unmount();
     expect(source.close).toHaveBeenCalled();
   });

@@ -34,9 +34,18 @@ type DecisionReasoning = {
   expected_version: number;
   idempotency_key: string;
   rationale: string;
-  confidence: number;
-  alternatives_considered: string[];
-  reversibility_belief: 'reversible' | 'partially_reversible' | 'irreversible';
+  confidence?: number;
+  alternatives_considered?: string[];
+  reversibility_belief?: 'reversible' | 'partially_reversible' | 'irreversible';
+};
+
+export type DecisionQuery = {
+  ticket?: string;
+  kind?: string;
+  blocking?: boolean;
+  authority?: string;
+  limit?: number;
+  cursor?: string;
 };
 
 export type DecisionAnswer = DecisionReasoning &
@@ -61,7 +70,7 @@ export interface AiurClient {
   accounts(): Promise<UsageAccounts>;
   events(after: number, limit: number, patterns: string[]): Promise<EventPage>;
   eventsToken(): Promise<{ token: string; expires_in_seconds: number }>;
-  decisions(): Promise<Decision[]>;
+  decisions(query?: DecisionQuery): Promise<Decision[]>;
   decision(id: string): Promise<Decision>;
   decide(id: string, answer: DecisionAnswer): Promise<Decision>;
   healthz(): Promise<boolean>;
@@ -212,12 +221,23 @@ export function createAiurClient(
       const { body } = await fetchResponse('POST', '/api/v1/events/token', { write: true });
       return EventsTokenSchema.parse(body);
     },
-    async decisions() {
-      const { body } = await fetchResponse('GET', '/api/v1/decisions', { supervisor: true });
+    async decisions(query = {}) {
+      const params = new URLSearchParams();
+      if (query.ticket !== undefined) params.set('ticket', query.ticket);
+      if (query.kind !== undefined) params.set('kind', query.kind);
+      if (query.blocking !== undefined) params.set('blocking', String(query.blocking));
+      if (query.authority !== undefined) params.set('authority', query.authority);
+      if (query.limit !== undefined) params.set('limit', String(query.limit));
+      if (query.cursor !== undefined) params.set('cursor', query.cursor);
+      const suffix = params.size === 0 ? '' : `?${params.toString()}`;
+      const { body } = await fetchResponse('GET', `/api/v1/decisions${suffix}`, { supervisor: true, write: true });
       return DecisionPageSchema.parse(body).decisions;
     },
     async decision(id) {
-      const { body } = await fetchResponse('GET', `/api/v1/decisions/${encodeURIComponent(id)}`, { supervisor: true });
+      const { body } = await fetchResponse('GET', `/api/v1/decisions/${encodeURIComponent(id)}`, {
+        supervisor: true,
+        write: true,
+      });
       return DecisionSchema.parse(body);
     },
     async decide(id, answer) {

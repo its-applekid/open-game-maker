@@ -6,12 +6,14 @@ import type { GmCommand } from './command.js';
 
 export type Registry = Map<string, GmCommand & { file: string }>;
 
+const registries = new Map<string, Promise<Registry>>();
+
 function isCommandFile(name: string): boolean {
   return /\.(js|ts)$/.test(name) && !name.endsWith('.d.ts') && !/\.test\.(js|ts)$/.test(name);
 }
 
 /** Scan `<dir>/<namespace>/<cmd>.{js,ts}` and import each file's `command`; duplicate names throw naming both files. */
-export async function loadCommands(dir: string): Promise<Registry> {
+async function scanCommands(dir: string): Promise<Registry> {
   const registry: Registry = new Map();
   for (const namespace of readdirSync(dir).sort()) {
     const nsDir = join(dir, namespace);
@@ -26,6 +28,17 @@ export async function loadCommands(dir: string): Promise<Registry> {
     }
   }
   return registry;
+}
+
+export function loadCommands(dir: string): Promise<Registry> {
+  const cached = registries.get(dir);
+  if (cached) return cached;
+  const loading = scanCommands(dir).catch((error: unknown) => {
+    registries.delete(dir);
+    throw error;
+  });
+  registries.set(dir, loading);
+  return loading;
 }
 
 /** The longest registered name that prefixes argv, e.g. `assets search orc` → `assets search`. */

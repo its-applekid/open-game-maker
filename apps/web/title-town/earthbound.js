@@ -221,7 +221,7 @@ export async function earthbound(ctx) {
     if ((ctx.eyes || []).some(eye => SPOTS.some(q => segD([d.x, d.z], q, [eye[0], eye[2]]) < d.r + 1.5 && PLAIN + d.h > sightTop(q, eye, d)))) { d.versions[0].mesh.visible = false; D.splice(D.indexOf(d), 1); } }
   const targets = [...D.filter(d => d !== Rh && d !== wallD && blocks(d)), ...D.filter(d => d !== Rh && d !== wallD && !blocks(d)).sort((a, b) => b.h - a.h)].slice(0, 6).sort((a, b) => ((a.x - cx) * sd[0] + (a.z - cz) * sd[1]) - ((b.x - cx) * sd[0] + (b.z - cz) * sd[1]));
   const keys = [[0, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [.6, ridgeAt[0], ridgeY - 14, ridgeAt[1]], [3, ridgeAt[0], ridgeY + 20, ridgeAt[1]]];   // rises from behind the ridge
-  targets.forEach((d, i) => keys.push([STRIKE0 - .45 + i * GAP, d.x, PLAIN + HOVER, d.z], [STRIKE0 + 1.2 + i * GAP, d.x, PLAIN + HOVER, d.z]));   // holds over each target while the bolt falls
+  targets.forEach((d, i) => keys.push([STRIKE0 - .25 + i * GAP, d.x, PLAIN + HOVER, d.z], [STRIKE0 + .75 + i * GAP, d.x, PLAIN + HOVER, d.z]));   // holds over each target while the bolt falls (1 s), then .3 s to glide to the next: the holds must never overlap or the path runs backwards and the saucer jumps
   keys.splice(3, 0, [4.6, lerp(ridgeAt[0], targets[0].x, .5), PLAIN + 85, lerp(ridgeAt[1], targets[0].z, .5)],   // high over the castle hill
     [STRIKE0 - 1.3, lerp(ridgeAt[0], targets[0].x, .92), PLAIN + HOVER + 8, lerp(ridgeAt[1], targets[0].z, .92)]);   // the glide in
   const ufoAt = t => { let i = 0; while (i < keys.length - 2 && keys[i + 1][0] <= t) i++; const a = keys[i], b = keys[i + 1], k = smooth((t - a[0]) / (b[0] - a[0]));
