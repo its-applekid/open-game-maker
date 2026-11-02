@@ -55,10 +55,14 @@ export function setup(deps: AppDeps): void {
   runtimes.set(deps, defaultReleaseRuntime(deps));
 }
 
-function runtime(c: { get(name: 'deps'): AppDeps }): ReleaseRuntime {
-  const found = runtimes.get(c.get('deps'));
+export function releaseRuntimeFor(deps: AppDeps): ReleaseRuntime {
+  const found = runtimes.get(deps);
   if (!found) throw new Error('release runtime was not configured');
   return found;
+}
+
+function runtime(c: { get(name: 'deps'): AppDeps }): ReleaseRuntime {
+  return releaseRuntimeFor(c.get('deps'));
 }
 
 function requireBuilder(c: Parameters<typeof requirePrincipal>[0]): void {
