@@ -4,12 +4,15 @@ import { conventions, isScale, type Scale } from './conventions.js';
 
 const SET_PACKS: readonly string[] = conventions.packs.value;
 
+/** Icons come in 16, 24 and 32 px whatever the map scale (`Icons_32x32/Singles_Icons_32x32_Crops_Lettuce.png`). */
+const ICONS = /(?:^|[/_-])icons(?:[_/-])/i;
+
 /**
  * The scale an asset came from, read from a pack path (`16x16/…`, `…_32x32.png`) or a lock id slug
  * (`…/16x16-single-files-16x16-barrel-16x16@1.3`); icons and battlers have none.
  */
 export function scaleOf(path: string): Scale | undefined {
-  if (/(?:^|[/-])icons(?:[_/-])/i.test(path)) return undefined;
+  if (ICONS.test(path)) return undefined;
   const match = /(?:^|[/_-])(16|32|48)x(16|32|48)(?=[/_.@-]|$)/.exec(path);
   if (!match || match[1] !== match[2]) return undefined;
   return Number(match[1]) as Scale;
@@ -34,6 +37,7 @@ export function lockedScale(
   const mixed = (assetsLock?.assets ?? []).filter((asset) => {
     const pack = packOf(asset.id);
     if (!pack || !SET_PACKS.includes(pack)) return false;
+    if (ICONS.test(asset.path) || ICONS.test(asset.id)) return false;
     const at = scaleOf(asset.path) ?? scaleOf(asset.id);
     return at !== undefined && at !== scale;
   });

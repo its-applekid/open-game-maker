@@ -54,7 +54,7 @@ describe('one scale per game', () => {
     const assets = [
       real('16x16-animals-16x16-cats-cat-hugo', 'Cat_Hugo.png'),
       real('48x48-animals-48x48-cats-48x48-cat-hugo-48x48', 'Cat_Hugo_48x48.png'),
-      real('icons-icons-32x32-apple', 'Apple.png'),
+      real('icons-icons-32x32-singles-icons-32x32-crops-lettuce', 'Singles_Icons_32x32_Crops_Lettuce.png'),
     ];
     expect(() => lockedScale({ scale: 16 }, { assets })).toThrow(/cat-hugo-48x48@1\.3$/);
     expect(lockedScale({ scale: 16 }, { assets: [assets[0]!, assets[2]!] })).toBe(16);
