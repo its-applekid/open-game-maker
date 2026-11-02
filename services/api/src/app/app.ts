@@ -30,7 +30,7 @@ export { WS_TOKEN_TTL_SEC, signWsToken, verifyWsToken, type WsTokenClaims } from
 export { hasAdultAgeAttestation } from '../auth/routes.js';
 
 const requestIdPattern = /^[A-Za-z0-9-]{1,64}$/;
-const invitePathSegment = /(\/api\/v1\/invites\/)[^/]+/gi;
+const invitePathSegment = /(\/api\/v1\/(?:invites|join)\/)[^/]+/gi;
 
 function requestLogPath(path: string): string {
   return path.replace(invitePathSegment, '$1:token');
