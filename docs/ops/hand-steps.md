@@ -27,7 +27,7 @@ Fill the placeholders first: `<user>` is the account that runs OGM, `<tailnet-ho
   - ctx: docs/ops/hand-steps.md · docs/ops/sandbox.md
 - [ ] `ls -l ~/.config/ogm/codex-gamebuilder/auth.json` — after the login above, link or place that login's `auth.json` here (mode 0600); each daemon's Codex home symlinks it, never copies it elsewhere
   - ctx: docs/ops/hand-steps.md · docs/ops/sandbox.md
-- [ ] `sudo sed -i 's/^Components: main$/Components: main non-free/' /etc/apt/sources.list.d/debian.sources && sudo apt update && sudo apt install -y unrar` — `unrar` is in Debian's non-free section; some RAR packs use a method `7z` cannot read
+- [ ] `sudo apt update && sudo apt install -y unrar` — first add `non-free` to the `Components:` line of your Debian apt sources (`/etc/apt/sources.list.d/debian.sources`); `unrar` lives there, and some RAR packs use a method `7z` cannot read
   - ctx: docs/ops/hand-steps.md · docs/reference/local-asset-library.md
 - [ ] `pnpm --dir apps/web exec playwright install --with-deps chromium` — the `--with-deps` part installs Chromium's system libraries with sudo, once, for `gm verify` and the browser tests
   - ctx: docs/ops/hand-steps.md · apps/web/package.json

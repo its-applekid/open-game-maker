@@ -31,6 +31,11 @@ EOF
 api_output=$(HOME=$home OGM_REPO=$built_repo "$repo/ops/bin/ogm-run" api)
 assert_eq "api-up" "$api_output" "a built API should be executed"
 
+mkdir -p "$built_repo/services/commit/dist"
+printf "process.stdout.write('commit-up');\n" > "$built_repo/services/commit/dist/index.js"
+commit_output=$(HOME=$home OGM_REPO=$built_repo "$repo/ops/bin/ogm-run" commit)
+assert_eq "commit-up" "$commit_output" "a built commit service should be executed"
+
 set +e
 HOME=$home OGM_REPO=$empty_repo timeout 2 "$repo/ops/bin/ogm-run" drive-sync > "$scratch/drive.out" 2> "$scratch/drive.err"
 status=$?
