@@ -177,7 +177,9 @@ describe('design reapply routes', () => {
         .prepare<[string], { latest_build_id: string }>('SELECT latest_build_id FROM branches WHERE id = ?')
         .get(context.branch.id),
     ).toEqual({ latest_build_id: ids.to });
-    const designResponse = await context.app.request(`${context.branchUrl}/design`, { headers: asUser(ids.creator) });
+    const designResponse = await context.app.request(`${context.branchUrl}/design?rev=head`, {
+      headers: asUser(ids.creator),
+    });
     expect(await designResponse.json()).toEqual({
       rev: 3,
       buildId: ids.to,

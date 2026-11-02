@@ -44,7 +44,9 @@ const transactionsQuery = z.object({
   after: z.coerce.number().int().nonnegative().default(0),
   format: z.literal('json').optional(),
 });
-const designQuery = z.object({ rev: z.coerce.number().int().nonnegative().optional() });
+const designQuery = z.object({
+  rev: z.union([z.literal('head'), z.coerce.number().int().nonnegative()]).optional(),
+});
 const transactionBody = TransactionSchema.omit({ id: true, rev: true, createdAt: true })
   .partial({ gameId: true, branchId: true, actor: true })
   .extend({ sessionId: z.string().trim().min(1).max(200).optional() });
@@ -333,7 +335,14 @@ const routes = new Hono<ApiBindings>()
     const game = readableGame(c);
     const branch = branchFor(c, game.id);
     const query = parseQuery(c, designQuery);
-    return c.json(await snapshotAt(c.get('deps').sqlite, getDesignRuntime(c.get('deps')).source, branch.id, query.rev));
+    return c.json(
+      await snapshotAt(
+        c.get('deps').sqlite,
+        getDesignRuntime(c.get('deps')).source,
+        branch.id,
+        query.rev === 'head' ? undefined : query.rev,
+      ),
+    );
   })
   .get('/games/:gameId/branches/:branch/reapply/:buildId', async (c) => {
     const game = readableGame(c);
