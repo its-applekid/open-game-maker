@@ -38,6 +38,8 @@ describe('migrate', () => {
         '20261101204433_rooms.sql',
         '20261101233648_job_tickets.sql',
         '20261102012011_reapply_reports.sql',
+        '20261102021630_achievements.sql',
+        '20261102021647_creator_analytics.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -62,6 +64,8 @@ describe('migrate', () => {
       'migration:20261101204433_rooms.sql',
       'migration:20261101233648_job_tickets.sql',
       'migration:20261102012011_reapply_reports.sql',
+      'migration:20261102021630_achievements.sql',
+      'migration:20261102021647_creator_analytics.sql',
     ]);
     sqlite.close();
   });
