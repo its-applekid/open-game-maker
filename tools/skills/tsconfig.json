@@ -4,6 +4,6 @@
     "rootDir": ".",
     "outDir": "dist"
   },
-  "include": ["*.ts"],
-  "references": []
+  "include": ["*.ts", "eval/**/*.ts"],
+  "references": [{ "path": "../../packages/config" }]
 }

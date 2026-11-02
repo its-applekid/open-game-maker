@@ -159,9 +159,15 @@ describe('gm run against the stub game', () => {
   });
 
   it('replays --inputs through inject and reports the resulting probes', async () => {
-    const { report } = await run({ frames: [], inputs: [{ t: 0.5, action: 'jump', phase: 'down', playerIndex: 0 }] });
+    const { report, reportPath } = await run({
+      frames: [],
+      inputs: [{ t: 0.5, action: 'jump', phase: 'down', playerIndex: 0 }],
+    });
     expect(report.probes.lastAction).toBe('jump');
     expect(report.probes.alive).toBe(true);
+    expect(JSON.parse(readFileSync(join(reportPath, '..', 'state.json'), 'utf8'))).toMatchObject({
+      state: { lastAction: 'jump' },
+    });
   });
 });
 

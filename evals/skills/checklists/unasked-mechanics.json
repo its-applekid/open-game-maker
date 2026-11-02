@@ -1,0 +1,10 @@
+[
+  { "id": "double jump", "keys": ["doubleJump", "jumpsLeft"], "grep": ["doubleJump", "double jump"] },
+  { "id": "coins or score", "keys": ["coins", "coinCount", "score"], "grep": ["coinCount", "coins", "score"] },
+  { "id": "lives counter", "keys": ["lives", "lifeCount"], "grep": ["lifeCount", "lives counter"] },
+  { "id": "dash", "keys": ["dash", "dashReady", "dashCooldown"], "grep": ["dashCooldown", "dashReady", "dash"] },
+  { "id": "wall jump", "keys": ["wallJump", "wallSliding"], "grep": ["wallJump", "wall jump"] },
+  { "id": "health bar", "keys": ["health", "maxHealth"], "grep": ["maxHealth", "health bar"] },
+  { "id": "score HUD", "keys": ["scoreHud", "scoreHUD"], "grep": ["scoreHud", "score HUD", "top-left score"] },
+  { "id": "Game Over title", "keys": ["gameOver", "gameOverTitle"], "grep": ["gameOverTitle", "Game Over"] }
+]
