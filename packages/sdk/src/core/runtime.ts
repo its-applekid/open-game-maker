@@ -49,7 +49,7 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
 
   constructor(
     readonly instance: GameInstance<D, S>,
-    readonly host: SdkHostApi<S>,
+    readonly host: SdkHostApi,
     readonly build: BuildKind,
     mode: GameMode,
     readonly events: EventRing,
