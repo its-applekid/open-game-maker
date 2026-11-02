@@ -194,11 +194,20 @@ def measure(path: Path, loop_search=False, music=True):
     def lap(k):
         nonlocal t
         timing[k] = round(time.time() - t, 2); t = time.time()
-    stereo, sr, channels, _, _, _ = es.AudioLoader(filename=str(path))()
+    downmix = None
+    try:
+        stereo, sr, channels, _, _, _ = es.AudioLoader(filename=str(path))()
+    except RuntimeError as e:  # Essentia reads at most 2 channels; ambisonic and surround SFX are folded to their mean
+        if "more than 2 channels" not in str(e):
+            raise
+        import soundfile as sf
+        data, sr = sf.read(str(path), dtype="float32", always_2d=True)
+        channels, downmix = data.shape[1], f"mean of {data.shape[1]} channels"
+        stereo = np.repeat(data.mean(axis=1, keepdims=True), 2, axis=1)
     if sr != SR:  # e.g. 48 kHz files: resample each channel so loudness runs at one rate
         rs = es.Resample(inputSampleRate=float(sr), outputSampleRate=float(SR))
         stereo = np.stack([rs(np.ascontiguousarray(stereo[:, c])) for c in range(stereo.shape[1])], axis=1).astype(np.float32)
-    mono = es.MonoLoader(filename=str(path), sampleRate=SR)()
+    mono = es.MonoLoader(filename=str(path), sampleRate=SR)() if downmix is None else np.ascontiguousarray(stereo[:, 0])
     duration = len(mono) / SR
     peak = float(np.max(np.abs(stereo))) if stereo.size else 0.0
     audio = {"duration_s": round(duration, 3), "sample_rate": int(sr), "channels": int(channels),
@@ -206,6 +215,8 @@ def measure(path: Path, loop_search=False, music=True):
     lap("load")
     loud, curve = loudness_of(stereo); audio.update(loud); lap("loudness")
     sidecar = {"loudness_short_term_1hz": curve}
+    if downmix:
+        sidecar["downmix"] = downmix
     if music and duration >= 2:
         k = key_of(mono); audio.update({x: k[x] for x in ("key", "mode", "key_strength")}); sidecar["key_votes"] = k["votes"]; lap("key")
         tp = tempo_of(mono); audio.update({x: tp[x] for x in ("tempo_bpm", "tempo_alternatives")}); sidecar["tempo_confidence"] = tp["tempo_confidence"]; lap("tempo")

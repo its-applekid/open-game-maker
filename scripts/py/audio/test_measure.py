@@ -123,3 +123,12 @@ def test_envelope_tells_a_hit_from_a_sustained_bed():
     h, b = m.envelope_of(hit.astype(np.float32)), m.envelope_of(bed.astype(np.float32))
     assert h["active_share"] < 0.3 and h["tail_db"] < -40 and h["peak_at_s"] < 0.05
     assert b["active_share"] > 0.9 and b["tail_db"] > -6
+
+
+def test_more_than_two_channels_is_measured_from_a_downmix(tmp_path):
+    """Sonniss ships ambisonic and surround ambiences; Essentia refuses them, so they must still get measured cards."""
+    y = click_track(120, 4, 4)[:, :1]
+    p = write(tmp_path, "quad.wav", np.repeat(y, 4, axis=1))
+    r = m.measure(p, music=False)
+    assert r["audio"]["channels"] == 4 and r["audio"]["loudness_lufs"] is not None
+    assert r["sidecar"]["downmix"] == "mean of 4 channels"
