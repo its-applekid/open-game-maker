@@ -90,6 +90,26 @@ describe('GitHub connect routes', () => {
     expect(response.status).toBe(400);
   });
 
+  it('refuses ids that are not a safe positive integer before asking GitHub', async () => {
+    const asked: string[] = [];
+    const { app } = await appWith(async (id) => {
+      asked.push(id);
+      return 'octocat';
+    });
+    for (const id of ['0', 'abc', '-1', '1234567890123456']) expect((await connect(app, id)).status).toBe(400);
+    expect(asked).toEqual([]);
+  });
+
+  it('refuses a player, who cannot create games', async () => {
+    const { app, deps } = await appWith(async () => 'octocat');
+    installUsers(deps, [{ ...user('u-player'), capability: 'player' }]);
+    deps.db
+      .insert(schema.familyMembers)
+      .values({ familyId, userId: 'u-player', role: 'member', capability: 'player', joinedAt: now })
+      .run();
+    expect((await connect(app, '4242', { ...user('u-player'), capability: 'player' })).status).toBe(403);
+  });
+
   it('answers 404 for an installation GitHub does not know and stores nothing', async () => {
     const { app, deps } = await appWith(async () => null);
     const response = await connect(app, '99');

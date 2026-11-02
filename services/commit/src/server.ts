@@ -108,7 +108,7 @@ export function createCommitApp(dependencies: ServerDependencies): Hono {
     const id = context.req.param('id');
     const installations = dependencies.installations;
     if (installations === undefined) return context.json({ error: 'installations unavailable' }, 503);
-    if (!/^[1-9][0-9]{0,15}$/u.test(id)) return context.json({ error: 'installation_not_found' }, 404);
+    if (!/^[1-9][0-9]{0,14}$/u.test(id)) return context.json({ error: 'installation_not_found' }, 404);
     let login: string | null;
     try {
       login = await installations.installationLogin(Number(id));

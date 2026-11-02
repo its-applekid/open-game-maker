@@ -22,7 +22,7 @@ export function setup(deps: AppDeps): void {
 }
 
 // The installation id GitHub appends to the App's setup URL; the login is never taken from the browser.
-const connectBody = z.object({ installationId: z.string().regex(/^[1-9][0-9]{0,15}$/u) }).strict();
+const connectBody = z.object({ installationId: z.string().regex(/^[1-9][0-9]{0,14}$/u) }).strict();
 
 const routes = new Hono<ApiBindings>()
   .get('/github/connection', (c) => {

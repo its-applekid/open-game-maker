@@ -69,12 +69,26 @@ export function connectGitHubInstallation(installationId: string): Promise<GitHu
   return api<GitHubStatus>('/github/connect', { method: 'POST', json: { installationId } });
 }
 
-// GitHub returns `state` unchanged to the App's setup URL (/connect/github), which carries `next` back.
+const installStateKey = 'ogm.githubInstallState';
+
+// GitHub returns `state` unchanged to the App's setup URL (/connect/github). It carries `next` plus a nonce
+// only this tab knows, so a crafted callback link cannot connect someone else's installation.
 export function gitHubInstallUrl(next: string, slug = import.meta.env.VITE_GITHUB_APP_SLUG): string | null {
   if (!slug) return null;
+  const nonce = crypto.randomUUID();
+  sessionStorage.setItem(installStateKey, nonce);
   const url = new URL(`https://github.com/apps/${encodeURIComponent(slug)}/installations/new`);
-  url.searchParams.set('state', next);
+  url.searchParams.set('state', `${nonce}:${next}`);
   return url.href;
+}
+
+// The `next` of an install this tab started, or null for a callback it did not start. Single use.
+export function readGitHubInstallState(state: string | null): string | null {
+  const nonce = sessionStorage.getItem(installStateKey);
+  const separator = state?.indexOf(':') ?? -1;
+  if (!state || !nonce || separator < 0 || state.slice(0, separator) !== nonce) return null;
+  sessionStorage.removeItem(installStateKey);
+  return state.slice(separator + 1);
 }
 
 export function getRepoVisibilityDefault(): RepoVisibility {

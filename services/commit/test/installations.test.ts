@@ -49,6 +49,7 @@ describe('installation lookup route', () => {
     const app = serve(lookup);
     expect((await app.request('/internal/installations/7', { headers: bearer })).status).toBe(404);
     expect((await app.request('/internal/installations/7x', { headers: bearer })).status).toBe(404);
+    expect((await app.request('/internal/installations/1234567890123456', { headers: bearer })).status).toBe(404);
     expect(lookup).toHaveBeenCalledTimes(1);
   });
 

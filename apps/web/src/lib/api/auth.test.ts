@@ -8,6 +8,7 @@ import {
   gitHubInstallUrl,
   getRepoVisibilityDefault,
   isAgeRequiredError,
+  readGitHubInstallState,
   requireAge,
   safeNext,
   setRepoVisibilityDefault,
@@ -15,6 +16,7 @@ import {
 
 beforeEach(() => {
   localStorage.clear();
+  sessionStorage.clear();
   window.history.replaceState(null, '', '/signin');
 });
 
@@ -86,11 +88,23 @@ describe('auth client helpers', () => {
     });
   });
 
-  it('builds the App installation URL with next as state, or null without a slug', () => {
-    expect(gitHubInstallUrl('/games', 'ogm-app')).toBe(
-      'https://github.com/apps/ogm-app/installations/new?state=%2Fgames',
-    );
+  it('builds the App installation URL with a tab nonce and next as state, or null without a slug', () => {
+    const url = new URL(gitHubInstallUrl('/games', 'ogm-app') ?? '');
+    const nonce = sessionStorage.getItem('ogm.githubInstallState');
+
+    expect(`${url.origin}${url.pathname}`).toBe('https://github.com/apps/ogm-app/installations/new');
+    expect(nonce).toMatch(/^[0-9a-f-]{36}$/);
+    expect(url.searchParams.get('state')).toBe(`${nonce}:/games`);
     expect(gitHubInstallUrl('/games', '')).toBeNull();
+  });
+
+  it('accepts only the install state this tab started, once', () => {
+    const state = new URL(gitHubInstallUrl('/g/1?x=a:b', 'ogm-app') ?? '').searchParams.get('state');
+
+    expect(readGitHubInstallState('someone-else:/games')).toBeNull();
+    expect(readGitHubInstallState(null)).toBeNull();
+    expect(readGitHubInstallState(state)).toBe('/g/1?x=a:b');
+    expect(readGitHubInstallState(state)).toBeNull();
   });
 
   it('uses private visibility by default and persists an explicit choice', () => {

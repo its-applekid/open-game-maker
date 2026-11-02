@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ const auth = vi.hoisted(() => ({
   getGitHubStatus: vi.fn(),
   getRepoVisibilityDefault: vi.fn(),
   gitHubInstallUrl: vi.fn(),
+  readGitHubInstallState: vi.fn(),
   safeNext: (value: string | null, fallback: string) => value ?? fallback,
   setRepoVisibilityDefault: vi.fn(),
 }));
@@ -47,6 +48,7 @@ beforeEach(() => {
     (next: string) => `https://github.com/apps/ogm/installations/new?state=${encodeURIComponent(next)}`,
   );
   auth.connectGitHubInstallation.mockResolvedValue({ connected: true, login: 'octocat' });
+  auth.readGitHubInstallState.mockReturnValue('/games');
   auth.getGitHubStatus.mockResolvedValue({ connected: false });
   auth.getRepoVisibilityDefault.mockReturnValue('private');
 });
@@ -68,9 +70,10 @@ describe('ConnectGitHubScreen', () => {
   });
 
   it('connects the installation GitHub returns with and shows the login', async () => {
-    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=%2Fgames');
+    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=nonce%3A%2Fgames');
 
     expect(await screen.findByText('@octocat')).toBeVisible();
+    expect(auth.readGitHubInstallState).toHaveBeenCalledWith('nonce:/games');
     expect(auth.connectGitHubInstallation).toHaveBeenCalledTimes(1);
     expect(auth.connectGitHubInstallation).toHaveBeenCalledWith('4242');
     expect(auth.getGitHubStatus).not.toHaveBeenCalled();
@@ -80,13 +83,36 @@ describe('ConnectGitHubScreen', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Games destination' })).toBeVisible());
   });
 
-  it('shows a refused installation and lets the creator start again', async () => {
-    auth.connectGitHubInstallation.mockRejectedValueOnce(new Error('That GitHub account is already connected.'));
-    renderConnect('/connect/github?installation_id=4242&state=%2Fgames');
+  it('ignores a callback link this tab did not start', async () => {
+    auth.readGitHubInstallState.mockReturnValue(null);
+    renderConnect('/connect/github?installation_id=666&state=forged%3A%2Fgames');
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('That GitHub account is already connected.');
+    expect(await screen.findByRole('button', { name: 'Connect GitHub' })).toBeVisible();
+    expect(auth.connectGitHubInstallation).not.toHaveBeenCalled();
+    expect(auth.getGitHubStatus).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fgames');
+  });
+
+  it('shows a refused installation and lets the creator start again', async () => {
+    auth.connectGitHubInstallation.mockRejectedValueOnce(new Error('api 409'));
+    renderConnect('/connect/github?installation_id=4242&state=nonce%3A%2Fgames');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not connect GitHub.');
     fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
     expect(assign).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-enables Connect GitHub when Back restores the page from the cache', async () => {
+    renderConnect();
+    fireEvent.click(await screen.findByRole('button', { name: 'Connect GitHub' }));
+    expect(screen.getByRole('button', { name: 'Opening GitHub…' })).toBeDisabled();
+
+    const pageshow = Object.assign(new Event('pageshow'), { persisted: true });
+    act(() => {
+      window.dispatchEvent(pageshow);
+    });
+
+    expect(screen.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled();
   });
 
   it('renders the connected login and persists the visibility choice', async () => {

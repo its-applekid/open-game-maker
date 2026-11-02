@@ -206,9 +206,9 @@ steps:
         check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/env/api.env
         cites: [.env.example, docs/ops/runbook.md]
       - kind: hand
-        text: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
+        text: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
         command: |-
-          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github; install the App on <github-owner>.
+          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
           chmod 600 ~/.config/ogm/ogm-github-app.pem
           systemctl --user restart ogm-commit
           # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
