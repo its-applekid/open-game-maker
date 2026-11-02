@@ -1,6 +1,6 @@
 import type { BoundaryVerdict, Build, ChangeNote, Release } from '@ogm/contracts';
 import { schema } from '@ogm/db';
-import { fold, reduce } from '@ogm/design-log';
+import { fold, reduce, type VersionCounts } from '@ogm/design-log';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
@@ -17,8 +17,6 @@ type BuildRow = typeof schema.builds.$inferSelect;
 type ReleaseRow = typeof schema.releases.$inferSelect;
 type SnapshotRow = typeof schema.overrideSnapshots.$inferSelect;
 type GameRow = typeof schema.games.$inferSelect;
-
-export type VersionCounts = { publishCount: number; buildsSinceFork: number; txSinceLatestBuild: number };
 
 export type ReleaseRuntime = {
   source: BaseDocSource;

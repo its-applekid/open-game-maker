@@ -1,0 +1,67 @@
+{
+  "games": [
+    {
+      "id": "g_1",
+      "title": "Midnight Crumbs",
+      "ownerId": "u_1",
+      "familyId": "f_1",
+      "repo": null,
+      "coverUrl": null,
+      "publishedReleaseId": null,
+      "tagline": "A cozy midnight adventure",
+      "choices": { "genre": ["adventure"], "vibe": ["cozy", "creepy"] },
+      "createdAt": "2026-11-01T05:00:00Z",
+      "updatedAt": "2026-11-01T05:10:00Z"
+    },
+    {
+      "id": "g_2",
+      "title": "Goblin Cellar",
+      "ownerId": "u_1",
+      "familyId": "f_1",
+      "repo": { "owner": "its-everdred", "name": "goblin-cellar", "url": "https://example.test/goblin-cellar" },
+      "coverUrl": "https://example.test/cover.png",
+      "publishedReleaseId": "r_7",
+      "choices": { "genre": ["rpg", "roguelike"] },
+      "createdAt": "2026-10-20T00:00:00Z",
+      "updatedAt": "2026-10-30T00:00:00Z"
+    },
+    {
+      "id": "g_3",
+      "title": "Sky Delivery",
+      "ownerId": "u_1",
+      "familyId": "f_1",
+      "repo": null,
+      "coverUrl": null,
+      "publishedReleaseId": null,
+      "choices": {},
+      "createdAt": "2026-10-25T00:00:00Z",
+      "updatedAt": "2026-10-25T00:00:00Z"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "j_1",
+      "gameId": "g_1",
+      "kind": "new_game",
+      "state": "running",
+      "friendlyState": "Building",
+      "progressPercent": 40
+    }
+  ],
+  "branches": {
+    "g_2": [
+      {
+        "id": "main",
+        "gameId": "g_2",
+        "name": "main",
+        "gitRef": "main",
+        "forkPoint": null,
+        "headRev": 40,
+        "latestBuildId": "b_13",
+        "status": "active",
+        "createdBy": "u_1",
+        "createdAt": "2026-10-20T00:00:00Z"
+      }
+    ]
+  }
+}

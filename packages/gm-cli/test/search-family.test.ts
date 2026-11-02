@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -26,6 +26,46 @@ const eventsIn = (file: string) =>
     .map((line) => JSON.parse(line) as { event: string; payload: Record<string, unknown> });
 
 const rows = (out: string[]) => out.map((line) => line.split('  ')[0]);
+
+function addSmallScaleCard(root: string, pack: string, title: string, action?: string): string {
+  type FixtureCard = {
+    describe: Record<string, unknown>;
+    source: { files: Array<Record<string, unknown>>; [key: string]: unknown };
+    sprite: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  const fixture = JSON.parse(
+    readFileSync(join(root, 'packs', 'kenney-tiny-dungeon', 'cards', 'tiles', 'tile-0097.card.json'), 'utf8'),
+  ) as FixtureCard;
+  const id = `t1:${pack}/characters/${title.toLowerCase().replaceAll(' ', '-')}@1.0`;
+  const card = {
+    ...fixture,
+    id,
+    title,
+    collection: `t1:${pack}@1.0`,
+    describe: {
+      ...fixture.describe,
+      description: 'Vendor sprite character action sheet.',
+      objects: ['sprite'],
+      style_family: 'isometric-2d',
+      set: 'smallscaleint',
+    },
+    source: { ...fixture.source, files: [{ ...fixture.source.files[0], path: `Sprites/${title}.png` }] },
+    sprite: { ...fixture.sprite, ...(action ? { animations: [{ name: action, frames: [0, 1] }] } : {}) },
+  };
+  const path = join(
+    root,
+    'packs',
+    pack,
+    'cards',
+    'characters',
+    `${title.toLowerCase().replaceAll(' ', '-')}.card.json`,
+  );
+  mkdirSync(join(root, 'packs', pack, 'cards', 'characters'), { recursive: true });
+  writeFileSync(path, JSON.stringify(card));
+  rmSync(join(root, 'index', 'cards.index.json'), { force: true });
+  return id;
+}
 
 describe('gm assets search in a game repo (R55 family default)', () => {
   it("hides another family's cards, keeps style-neutral ones, and logs nothing", async () => {
@@ -55,6 +95,33 @@ describe('gm assets search in a game repo (R55 family default)', () => {
     const tinyTown = game('pixel-art', [{ id: 't1:kenney-tiny-town/tiles@1.0' }]);
     const sibling = await gm(['assets', 'search', 'knight'], tinyTown);
     expect(rows(sibling.out)).toContain('t1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
+  });
+
+  it('finds SmallScaleInt actions without a lock and sibling packs with the set lock', async () => {
+    const root = library();
+    const knight = addSmallScaleCard(root, 'smallscaleint-2d-character-knight', '1Knight', 'attack');
+    const zombie = addSmallScaleCard(root, 'smallscaleint-2d-hd-zombie-pack-1', 'Zombie');
+    const cwd = tempDir('gm-smallscaleint-');
+    const events = join(cwd, 'events.jsonl');
+    const env = { OGM_ASSETS_ROOT: root, GM_EVENTS_FILE: events };
+
+    expect(rows((await gm(['assets', 'search', 'knight', 'attack'], { cwd, env })).out)).toContain(knight);
+    expect(rows((await gm(['assets', 'search', 'knight', '--set', 'smallscaleint'], { cwd, env })).out)).toContain(
+      knight,
+    );
+    expect(rows((await gm(['assets', 'search', 'knight', '--set', 'kenney-tiny'], { cwd, env })).out)).not.toContain(
+      knight,
+    );
+    expect(rows((await gm(['assets', 'search', 'zombie'], { cwd, env })).out)).toContain(zombie);
+
+    writeFileSync(
+      join(cwd, 'assets.lock.json'),
+      JSON.stringify({ version: 1, family: 'isometric-2d', assets: [{ id: knight }] }),
+    );
+    expect(rows((await gm(['assets', 'search', 'zombie'], { cwd, env })).out)).toContain(zombie);
+    expect(rows((await gm(['assets', 'search', 'knight', '--set', 'smallscaleint'], { cwd, env })).out)).toContain(
+      knight,
+    );
   });
 
   it("does not let an asset from another family's set narrow the game's default search", async () => {

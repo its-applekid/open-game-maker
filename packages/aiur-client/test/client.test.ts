@@ -142,11 +142,50 @@ describe('createAiurClient', () => {
 
   it('uses the supervisor token for decision calls and requires it', async () => {
     const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ decisions: [] }));
-    await createAiurClient(daemon, fetchImpl).decisions();
-    expect(new Headers(fetchImpl.mock.calls[0]![1]?.headers).get('authorization')).toBe('Bearer supervisor-secret');
+    await createAiurClient(daemon, fetchImpl).decisions({ ticket: '142', limit: 50 });
+    const headers = new Headers(fetchImpl.mock.calls[0]![1]?.headers);
+    expect(headers.get('authorization')).toBe('Bearer supervisor-secret');
+    expect(headers.get('origin')).toBe(daemon.baseUrl);
+    expect(headers.get('x-aiur-request')).toBe('1');
+    expect(fetchImpl.mock.calls[0]![0]).toBe('http://127.0.0.1:4000/api/v1/decisions?ticket=142&limit=50');
 
     const withoutSupervisor = createAiurClient({ baseUrl: daemon.baseUrl, token: daemon.token }, fetchImpl);
     await expect(withoutSupervisor.decision('decision-1')).rejects.toBeInstanceOf(AiurConfigError);
+  });
+
+  it('parses the canonical public decision answer shape and nullable metadata', async () => {
+    const canonical = {
+      ...decision,
+      kind: null,
+      options: [{ id: 'approve', label: 'Approve', description: null }],
+      recommendation: { option_id: null, reason: null },
+      context: { short_summary: 'Ship?', long_context_markdown: null },
+      questions: [{ question: 'Ship?', options: [{ id: 'approve', label: 'Approve' }] }],
+      answer: { selected_option_id: 'approve', custom_response: null },
+      active_answer: { selected_option_id: 'approve', custom_response: null },
+      decision_status: 'answered',
+    };
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse(canonical));
+
+    await expect(createAiurClient(daemon, fetchImpl).decision('decision-1')).resolves.toMatchObject(canonical);
+  });
+
+  it('sends the minimal reversible decision answer required by a checkpoint', async () => {
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(jsonResponse({ status: 'accepted', decision }, 202));
+
+    await createAiurClient(daemon, fetchImpl).decide('decision-1', {
+      option: 'approve',
+      expected_version: 2,
+      idempotency_key: 'ogm:cp_1:2',
+      rationale: "Creator chose 'Approve' in the build chat",
+    });
+
+    expect(JSON.parse(String(fetchImpl.mock.calls[0]![1]?.body))).toEqual({
+      option_id: 'approve',
+      expected_version: 2,
+      idempotency_key: 'ogm:cp_1:2',
+      rationale: "Creator chose 'Approve' in the build chat",
+    });
   });
 
   it('uses a comma-separated topics query for event pages', async () => {

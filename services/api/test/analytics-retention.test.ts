@@ -2,22 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { loadApiEnv } from '../src/app/env.js';
 import { startAnalyticsRetention, sweepAnalytics } from '../src/analytics/retention.js';
+import { makeApiEnv } from './env-fixture.js';
 import { makeDeps } from './helpers.js';
 
-const baseEnv = {
-  OGM_API_PORT: '4000',
-  OGM_DATA_DIR: '/tmp/ogm-test',
-  OGM_INTERNAL_TOKEN: 'internal-token-for-tests-0123456789',
-  OGM_JOB_TOKEN_SECRET: 'job-token-secret-for-tests-0123456789',
-  OGM_BLOB_ROOT: '/tmp/ogm-blobs-test',
-  OGM_BLOB_SIGNING_KEY: 'blob-signing-key-for-tests-with-32-bytes',
-  OGM_PUBLIC_ORIGIN: 'https://api.example.test',
-  OGM_APP_ORIGIN: 'https://app.example.test',
-  OGM_GAMES_ORIGIN: 'https://games.example.test',
-  OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
-  OGM_COMMIT_SERVICE_TOKEN: 'commit-service-token-for-tests',
-  OGM_VAPID_SUBJECT: 'operator@example.test',
-};
+const baseEnv = makeApiEnv();
 
 describe('analytics retention', () => {
   afterEach(() => {
@@ -28,11 +16,14 @@ describe('analytics retention', () => {
     expect(loadApiEnv(baseEnv)).toMatchObject({
       OGM_ANALYTICS_RETENTION_DAYS: 90,
       OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: 5_000_000,
+      OGM_INTAKE_SWEEP_SECONDS: 60,
     });
     expect(() => loadApiEnv({ ...baseEnv, OGM_ANALYTICS_RETENTION_DAYS: '0' })).toThrow(/OGM_ANALYTICS_RETENTION_DAYS/);
     expect(() => loadApiEnv({ ...baseEnv, OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD: '0' })).toThrow(
       /OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD/,
     );
+    expect(() => loadApiEnv({ ...baseEnv, OGM_CHECKPOINT_POLL_MS: '0' })).toThrow(/OGM_CHECKPOINT_POLL_MS/);
+    expect(() => loadApiEnv({ ...baseEnv, OGM_INTAKE_SWEEP_SECONDS: '0' })).toThrow(/OGM_INTAKE_SWEEP_SECONDS/);
   });
 
   it('deletes only expired activity events and keeps phase history', () => {

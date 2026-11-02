@@ -15,6 +15,7 @@ const plan = {
   title: 'Goblin camp',
   summary: 'Add the camp',
   scope: { included: ['camp'], excluded: [] },
+  targetControls: ['enemy.color'],
   tickets: [{ key: 'T1', skills: [], dependsOn: [], acceptanceCriteria: ['loads'] }],
 };
 
@@ -106,7 +107,12 @@ describe('jobs routes', () => {
     expect(listed.status).toBe(200);
     expect(await listed.json()).toMatchObject({ jobs: [{ id: jobId, stage: 'building', phase: 'work' }] });
     const read = await app.request(`/api/v1/jobs/${jobId}`, { headers: asUser(ids.user) });
-    expect(await read.json()).toMatchObject({ id: jobId, stageText: 'Building', progressPercent: 40 });
+    expect(await read.json()).toMatchObject({
+      id: jobId,
+      plan: { targetControls: ['enemy.color'] },
+      stageText: 'Building',
+      progressPercent: 40,
+    });
   });
 
   it('returns the allowance refusal body at the top level', async () => {

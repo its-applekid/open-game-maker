@@ -53,6 +53,7 @@ export type AssetCard = SubkindByKind & {
     | "low-confidence"
     | "conflicts-with-measured"
     | "needs-review"
+    | "needs-conversion"
     | "license-unknown"
     | "image-only"
     | "near-duplicate"
@@ -150,7 +151,7 @@ export type RightsBasis = {
 };
 export type Sha256 = string;
 /**
- * Content-addressed key in the instance bucket. Never a URL with credentials.
+ * Relative key in the private asset library or instance bucket. Traversal segments, absolute paths, and URLs with credentials are forbidden.
  */
 export type BucketKey = string;
 export type Tag = string;
@@ -160,6 +161,14 @@ export type Hex = string;
  * @maxItems 3
  */
 export type Vec3 = [number, number, number];
+/**
+ * Relative path inside the collection; traversal and backslashes are forbidden.
+ */
+export type AssetPath = string;
+/**
+ * @minItems 1
+ */
+export type AssetPathList = [AssetPath, ...AssetPath[]];
 export type LayoutSpecId = string;
 export type CollectionId = string;
 export type Provenance = {
@@ -255,13 +264,17 @@ export interface Relation {
   id: string;
 }
 /**
- * Content-addressed bucket keys. Previews inherit the asset's rights: a redistribution:none asset's previews are private too and are hash-blocked from game repos.
+ * Relative private asset-library or instance-bucket keys. Previews inherit the asset's rights: a redistribution:none asset's previews are private too and are hash-blocked from game repos.
  */
 export interface Previews {
   thumb?: BucketKey;
   sheet?: BucketKey;
   waveform?: BucketKey;
   clip?: BucketKey;
+  specimen?: BucketKey;
+  diorama?: BucketKey;
+  loop?: BucketKey;
+  store?: BucketKey;
 }
 /**
  * Judgment fields. Written by the model (or parsed from filenames at draft), validated by code, editable by humans.
@@ -529,6 +542,10 @@ export interface Describe {
    * Measured visual-compatibility group nested under style_family.
    */
   set?: string;
+  /**
+   * Curated world grouping within a compatibility set.
+   */
+  world?: string;
   /**
    * Items: SDK camera rig ids (C2 §4).
    */
@@ -2910,7 +2927,59 @@ export interface Sprite {
     name: string;
     frames: number[];
     fps?: number;
+    /**
+     * @minItems 1
+     */
+    directions?: [
+      "E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W",
+      ...("E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W")[]
+    ];
+    /**
+     * @minItems 1
+     */
+    sheets?: [
+      {
+        path: AssetPath;
+        variant?: "shadowless" | "shadow";
+        frame_w: number;
+        frame_h: number;
+        cols: number;
+        rows: number;
+      },
+      ...{
+        path: AssetPath;
+        variant?: "shadowless" | "shadow";
+        frame_w: number;
+        frame_h: number;
+        cols: number;
+        rows: number;
+      }[]
+    ];
+    /**
+     * @minItems 1
+     */
+    files?: [AssetPath, ...AssetPath[]];
+    direction_files?: {
+      E?: AssetPathList;
+      N?: AssetPathList;
+      NE?: AssetPathList;
+      NW?: AssetPathList;
+      S?: AssetPathList;
+      SE?: AssetPathList;
+      SW?: AssetPathList;
+      W?: AssetPathList;
+    };
   }[];
+  facings?: {
+    E?: AssetPath;
+    N?: AssetPath;
+    NE?: AssetPath;
+    NW?: AssetPath;
+    S?: AssetPath;
+    SE?: AssetPath;
+    SW?: AssetPath;
+    W?: AssetPath;
+  };
   tile?: {
     layer?: "ground" | "wall" | "decor" | "overlay" | "entity";
     autotile?: "none" | "blob-47" | "wang-16" | "edge-9";
@@ -3145,7 +3214,7 @@ export interface CollectionInfo {
    */
   pack_manifest?: string;
   /**
-   * Content-addressed key in the instance bucket. Never a URL with credentials.
+   * Relative key in the private asset library or instance bucket. Traversal segments, absolute paths, and URLs with credentials are forbidden.
    */
   hash_manifest?: string;
   /**
@@ -3163,6 +3232,7 @@ export interface ProposedTag {
     | "condition"
     | "style_family"
     | "set"
+    | "world"
     | "pov_fit"
     | "subkind"
     | "kitPiece"

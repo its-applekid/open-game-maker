@@ -6,6 +6,7 @@ export const HealthResponse = z
     service: z.string().min(1),
     version: z.string().min(1),
     uptimeSec: z.number().int().nonnegative(),
+    details: z.record(z.string(), z.unknown()).optional(),
   })
   .strict();
 

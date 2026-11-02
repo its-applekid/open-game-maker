@@ -1,6 +1,6 @@
 import type { Action, Actor, Authorization, Resource } from './types.js';
 
-const ownerActions = new Set<Action>(['game.edit', 'game.publish']);
+const ownerActions = new Set<Action>(['game.edit', 'game.publish', 'job.edit']);
 const adminActions = new Set<Action>([
   'admin.budget.set',
   'admin.members.manage',

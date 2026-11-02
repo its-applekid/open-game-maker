@@ -31,6 +31,8 @@ export type SearchQuery = {
   kind?: string;
   subkind?: string;
   family?: string;
+  /** Exact curated compatibility-set id. */
+  set?: string;
   /** The game's family (from `assets.lock.json`): only cards of this family or `any` (R55). */
   gameFamily?: string;
   /** Compatibility-set ids inferred from packs already in the lockfile. */

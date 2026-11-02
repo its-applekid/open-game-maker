@@ -1,1 +1,0 @@
-ALTER TABLE `games` ADD `published_release_id` text;

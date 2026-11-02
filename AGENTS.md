@@ -13,6 +13,7 @@
 Product code lives in `apps/*`, `packages/*`, `services/*`, `skills/*`, `templates/*`, `scripts/py/*`, and `ops/`
 (see `docs/plans/ogm-v1-build/architecture.md` §2 on the `research` branch). Package names are `@ogm/<dir>`;
 the engine-side exceptions are `@gm/sdk` and `@gm/host`.
+Setting up a host: `SETUP.md` (generated from `apps/site/content/setup.yaml`; edit the YAML).
 
 ## New package
 
@@ -39,6 +40,8 @@ Pin exact versions. A new dependency with fewer than 1,000 GitHub stars needs th
 ## Tests
 
 Use Vitest for unit tests. Every new test must fail without the production change. Run browser tests with the flags above.
+Builder fleet test helpers may read `OGM_TEST_HOME` and `TMPDIR` directly to keep scratch homes under a chosen writable
+directory.
 A package `test` script must find at least one test file (or pass `--passWithNoTests`): `vitest run` with none exits 1 and
 turns `ci / required` red.
 

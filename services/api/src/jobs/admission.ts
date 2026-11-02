@@ -10,7 +10,7 @@ import type {
 } from '@ogm/contracts';
 import { schema, type Db, type Sqlite } from '@ogm/db';
 import { authorize, type Actor } from '@ogm/policy';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import { requireAuthorization } from '../accounts/families.js';
 import { allowanceRemaining, familyDayTotal, platformRemaining } from '../budget/allowance.js';
@@ -38,7 +38,7 @@ export type AdmissionDeps = {
 };
 
 const SIZE_BY_COMPLEXITY: Record<number, SizeClass> = { 1: 'small', 2: 'medium', 3: 'large', 4: 'huge', 5: 'huge' };
-function sizeFor(kind: JobKind, complexity: number): SizeClass {
+export function sizeFor(kind: JobKind, complexity: number): SizeClass {
   if (kind === 'scope') return 'small';
   const size = SIZE_BY_COMPLEXITY[complexity] ?? 'huge';
   if (kind === 'new_game' && (size === 'small' || size === 'medium')) return 'large';
@@ -132,6 +132,7 @@ export async function admit(deps: AdmissionDeps, request: CreateJobRequest, acto
             eq(schema.jobs.familyId, game.familyId),
             eq(schema.jobs.slot, slot),
             inArray(schema.jobs.state, SLOT_STATES),
+            isNull(schema.jobs.releasedAt),
           ),
         )
         .all().length;

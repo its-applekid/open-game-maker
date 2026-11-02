@@ -58,6 +58,13 @@
           ],
           "additionalProperties": false
         },
+        "targetControls": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
         "tickets": {
           "minItems": 1,
           "maxItems": 12,

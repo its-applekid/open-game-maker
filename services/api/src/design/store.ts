@@ -72,7 +72,14 @@ export class BranchNotFound extends Error {
   }
 }
 
-function stableId(prefix: string, now: Date): string {
+export class BranchArchived extends Error {
+  constructor() {
+    super('design branch is archived');
+    this.name = 'BranchArchived';
+  }
+}
+
+export function stableId(prefix: string, now: Date): string {
   let value = (BigInt(now.getTime()) << 80n) | BigInt(`0x${randomBytes(10).toString('hex')}`);
   let encoded = '';
   for (let index = 0; index < 26; index += 1) {
@@ -84,7 +91,7 @@ function stableId(prefix: string, now: Date): string {
 
 function branchFromRow(row: BranchRow): Branch {
   const forkPoint =
-    row.fork_parent_branch_id === null || row.fork_parent_rev === null || row.fork_git_sha === null
+    row.fork_parent_branch_id === null || row.fork_parent_rev === null
       ? null
       : {
           parentBranchId: row.fork_parent_branch_id,
@@ -124,11 +131,22 @@ function transactionFromRow(row: TransactionRow): Transaction {
   };
 }
 
-function findBranch(sqlite: Sqlite, gameId: string, branchId: string): Branch | undefined {
+export function findBranch(sqlite: Sqlite, gameId: string, branchId: string): Branch | undefined {
   const row = sqlite
     .prepare<[string, string], BranchRow>('SELECT * FROM branches WHERE game_id = ? AND id = ?')
     .get(gameId, branchId);
   return row ? branchFromRow(row) : undefined;
+}
+
+export function listBranches(sqlite: Sqlite, gameId: string): Branch[] {
+  return sqlite
+    .prepare<[string], BranchRow>(
+      `SELECT * FROM branches
+       WHERE game_id = ?
+       ORDER BY CASE WHEN name = 'main' THEN 0 ELSE 1 END, created_at ASC, id ASC`,
+    )
+    .all(gameId)
+    .map(branchFromRow);
 }
 
 export function ensureMainBranch(sqlite: Sqlite, gameId: string, options: { id?: string; now?: Date } = {}): Branch {
@@ -192,77 +210,103 @@ export function insertBranch(sqlite: Sqlite, branch: InsertBranchInput): Branch 
   return branch;
 }
 
+function appendTransactionRow(
+  sqlite: Sqlite,
+  input: AppendTransactionInput,
+  options: { id?: string; now: Date },
+): Transaction {
+  const now = options.now;
+  const branch = findBranch(sqlite, input.gameId, input.branchId);
+  if (!branch) throw new BranchNotFound();
+  if (branch.status !== 'active') throw new BranchArchived();
+  if (input.baseRev !== branch.headRev) throw new StaleBaseRev(branch.headRev);
+
+  if (input.kind === 'manual' || input.sessionId !== undefined) {
+    if (!input.sessionId) throw new LeaseMismatch();
+    assertLeaseForWrite(
+      sqlite,
+      {
+        gameId: input.gameId,
+        branchId: input.branchId,
+        userId: input.actor,
+        sessionId: input.sessionId,
+        token: input.leaseToken,
+      },
+      now,
+    );
+  } else if (input.leaseToken !== 0) {
+    throw new LeaseMismatch();
+  }
+
+  const transaction: Transaction = {
+    id: options.id ?? stableId('tx', now),
+    gameId: input.gameId,
+    branchId: input.branchId,
+    rev: branch.headRev + 1,
+    baseRev: input.baseRev,
+    leaseToken: input.leaseToken,
+    actor: input.actor,
+    kind: input.kind,
+    label: input.label,
+    baseBuildId: input.baseBuildId,
+    commands: input.commands,
+    patches: input.patches,
+    inverse: input.inverse,
+    createdAt: now.toISOString(),
+  };
+  sqlite
+    .prepare(
+      `INSERT INTO design_transactions
+         (id, game_id, branch_id, rev, base_rev, lease_token, actor, kind, label,
+          base_build_id, commands_json, patches_json, inverse_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .run(
+      transaction.id,
+      transaction.gameId,
+      transaction.branchId,
+      transaction.rev,
+      transaction.baseRev,
+      transaction.leaseToken,
+      transaction.actor,
+      transaction.kind,
+      transaction.label,
+      transaction.baseBuildId,
+      JSON.stringify(transaction.commands),
+      JSON.stringify(transaction.patches),
+      JSON.stringify(transaction.inverse),
+      transaction.createdAt,
+    );
+  sqlite
+    .prepare('UPDATE branches SET head_rev = ? WHERE id = ? AND head_rev = ?')
+    .run(transaction.rev, branch.id, branch.headRev);
+  sqlite.prepare('DELETE FROM reapply_reports WHERE branch_id = ?').run(branch.id);
+  return transaction;
+}
+
 export function appendTransaction(
   sqlite: Sqlite,
   input: AppendTransactionInput,
   options: { id?: string; now?: Date } = {},
 ): Transaction {
-  const now = options.now ?? new Date();
+  const transactionOptions = { ...options, now: options.now ?? new Date() };
+  return sqlite.transaction(() => appendTransactionRow(sqlite, input, transactionOptions)).immediate();
+}
+
+export function appendBuildSwitch(
+  sqlite: Sqlite,
+  input: AppendTransactionInput,
+  buildId: string,
+  options: { id?: string; now?: Date } = {},
+): Transaction {
+  const transactionOptions = { ...options, now: options.now ?? new Date() };
   return sqlite
     .transaction(() => {
-      const branch = findBranch(sqlite, input.gameId, input.branchId);
-      if (!branch) throw new BranchNotFound();
-      if (input.baseRev !== branch.headRev) throw new StaleBaseRev(branch.headRev);
-
-      if (input.kind === 'manual') {
-        if (!input.sessionId) throw new LeaseMismatch();
-        assertLeaseForWrite(
-          sqlite,
-          {
-            gameId: input.gameId,
-            branchId: input.branchId,
-            userId: input.actor,
-            sessionId: input.sessionId,
-            token: input.leaseToken,
-          },
-          now,
-        );
-      } else if (input.leaseToken !== 0) {
-        throw new LeaseMismatch();
-      }
-
-      const transaction: Transaction = {
-        id: options.id ?? stableId('tx', now),
-        gameId: input.gameId,
-        branchId: input.branchId,
-        rev: branch.headRev + 1,
-        baseRev: input.baseRev,
-        leaseToken: input.leaseToken,
-        actor: input.actor,
-        kind: input.kind,
-        label: input.label,
-        baseBuildId: input.baseBuildId,
-        commands: input.commands,
-        patches: input.patches,
-        inverse: input.inverse,
-        createdAt: now.toISOString(),
-      };
-      sqlite
-        .prepare(
-          `INSERT INTO design_transactions
-             (id, game_id, branch_id, rev, base_rev, lease_token, actor, kind, label,
-              base_build_id, commands_json, patches_json, inverse_json, created_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        )
-        .run(
-          transaction.id,
-          transaction.gameId,
-          transaction.branchId,
-          transaction.rev,
-          transaction.baseRev,
-          transaction.leaseToken,
-          transaction.actor,
-          transaction.kind,
-          transaction.label,
-          transaction.baseBuildId,
-          JSON.stringify(transaction.commands),
-          JSON.stringify(transaction.patches),
-          JSON.stringify(transaction.inverse),
-          transaction.createdAt,
-        );
-      sqlite
-        .prepare('UPDATE branches SET head_rev = ? WHERE id = ? AND head_rev = ?')
-        .run(transaction.rev, branch.id, branch.headRev);
+      const transaction = appendTransactionRow(sqlite, input, transactionOptions);
+      const updated = sqlite
+        .prepare('UPDATE branches SET latest_build_id = ? WHERE id = ? AND head_rev = ?')
+        .run(buildId, input.branchId, transaction.rev);
+      if (updated.changes !== 1) throw new StaleBaseRev(transaction.rev);
       return transaction;
     })
     .immediate();
@@ -278,6 +322,13 @@ export function readTransactions(sqlite: Sqlite, branchId: string, afterRev: num
     )
     .all(branchId, afterRev, limit)
     .map(transactionFromRow);
+}
+
+export function findTransaction(sqlite: Sqlite, transactionId: string): Transaction | undefined {
+  const row = sqlite
+    .prepare<[string], TransactionRow>('SELECT * FROM design_transactions WHERE id = ?')
+    .get(transactionId);
+  return row ? transactionFromRow(row) : undefined;
 }
 
 export function readChain(sqlite: Sqlite, branchId: string): Array<{ branch: Branch; txs: Transaction[] }> {

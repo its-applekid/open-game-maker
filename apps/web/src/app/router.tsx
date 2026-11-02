@@ -2,8 +2,10 @@ import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate, useLocation, type RouteObject } from 'react-router';
 
 import { BugButton } from '../features/bug-report';
+import { BuildChatDock } from '../features/build-chat/BuildChatDock';
 import { useSession } from '../lib/api/session';
 import { Toasts, useNotificationFeed } from '../lib/notify';
+import { ScreenErrorBoundary } from './ScreenErrorBoundary';
 import type { ScreenRoute } from './screen';
 
 type ScreenModule = { route?: ScreenRoute };
@@ -33,7 +35,11 @@ export function collectScreenRoutes(routeModules: Record<string, ScreenModule>):
       let element = screen.element;
 
       if (screen.chrome === 'app') {
-        element = <AppChrome>{element}</AppChrome>;
+        element = (
+          <AppChrome>
+            <ScreenErrorBoundary>{element}</ScreenErrorBoundary>
+          </AppChrome>
+        );
       }
       if (screen.auth === 'required') {
         element = <RequireSession>{element}</RequireSession>;
@@ -80,7 +86,9 @@ function AppChrome({ children }: { children: ReactNode }) {
       <div id="bug-fab-slot">
         <BugButton />
       </div>
-      <div id="chat-dock-slot" aria-hidden="true" />
+      <div id="chat-dock-slot">
+        <BuildChatDock />
+      </div>
     </div>
   );
 }

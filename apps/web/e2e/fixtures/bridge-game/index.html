@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OGM bridge fixture</title>
+    <style>
+      html,
+      body,
+      #canvas {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+      }
+      #canvas {
+        display: grid;
+        place-items: center;
+        background: #182c37;
+        color: #fff4ce;
+        font: 700 24px system-ui;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas">Bridge fixture</div>
+    <script type="module">
+      const HOST_ORIGIN = 'http://127.0.0.1:43170';
+      const manifest = {
+        id: 'bridge-fixture',
+        sdk: '^1.0.0',
+        title: 'Goblin Cellar',
+        inputs: { actions: {} },
+        presentation: { orientation: 'any', minLogical: { w: 100, h: 60 }, fit: 'responsive' },
+        view: 'iso',
+        dimension: '2d',
+        capabilities: [],
+        palette: {
+          categories: [{ id: 'actors', label: 'Actors', kind: 'items' }],
+          items: [{ prefab: 'skeleton', label: 'Skeleton', hint: 'Place a skeleton', category: 'actors' }],
+        },
+        controls: [
+          {
+            id: 'enemy.speed',
+            label: 'Speed',
+            scope: 'instance',
+            path: '/speed',
+            widget: { kind: 'slider', min: 1, max: 5, step: 1 },
+            default: 2,
+          },
+          {
+            id: 'world.dark',
+            label: 'Dark',
+            scope: 'global',
+            path: '/dark',
+            widget: { kind: 'toggle' },
+            default: false,
+          },
+        ],
+        tools: ['select', 'place'],
+        gizmos: { skeleton: ['translate'] },
+        grid: { size: 1, units: 'tile' },
+        saves: false,
+        overrides: { aliases: {}, retired: [] },
+      };
+
+      let port;
+      let nextId = 0;
+      let ready = false;
+      const fixture = (window.__fixture = { messages: [], mode: 'edit', selected: [], applies: [] });
+      const envelope = (t, payload, replyTo) => ({
+        v: 1,
+        id: `fixture-${++nextId}`,
+        t,
+        payload,
+        ...(replyTo ? { replyTo } : {}),
+      });
+      const send = (t, payload, replyTo) => port?.postMessage(JSON.stringify(envelope(t, payload, replyTo)));
+      const receive = (message) => {
+        fixture.messages.push(message);
+        if (message.t === 'hello' && !ready) {
+          ready = true;
+          fixture.mode = message.payload.mode;
+          send('ready', { protocol: 1, manifest, marks: [['fixture-ready', performance.now()]] }, message.id);
+        } else if (message.t === 'design.apply') {
+          fixture.applies.push(message.payload);
+          send('design.applied', { rev: message.payload.rev, result: 'live' }, message.id);
+        } else if (message.t === 'mode.set') {
+          fixture.mode = message.payload.mode;
+        } else if (message.t === 'editor.pick') {
+          send(
+            'editor.picked',
+            {
+              targets: [
+                {
+                  id: 'e_01BX5ZZKBKACTAV9WEVGEMMVRZ',
+                  kind: 'entity',
+                  bounds: { x: 40, y: 20, w: 20, h: 20 },
+                },
+              ],
+            },
+            message.id,
+          );
+        } else if (message.t === 'editor.select') {
+          fixture.selected = message.payload.ids;
+          for (const id of fixture.selected) send('editor.screen', { id, x: 50, y: 30 });
+        } else if (message.t === 'editor.validatePlacement') {
+          const x = message.payload.pose.position[0];
+          send('editor.placement', x < 0 ? { ok: false, reason: 'outside the level' } : { ok: true }, message.id);
+        }
+      };
+
+      addEventListener('message', (event) => {
+        if (event.origin !== HOST_ORIGIN || !event.ports[0] || typeof event.data !== 'string') return;
+        const message = JSON.parse(event.data);
+        if (message.t !== 'hello') return;
+        port = event.ports[0];
+        port.onmessage = ({ data }) => {
+          if (typeof data === 'string') receive(JSON.parse(data));
+        };
+        port.start();
+        receive(message);
+      });
+
+      const hello = JSON.stringify(envelope('hello', { protocol: 1 }));
+      const timer = setInterval(() => {
+        if (port) clearInterval(timer);
+        else parent.postMessage(hello, HOST_ORIGIN);
+      }, 100);
+      parent.postMessage(hello, HOST_ORIGIN);
+    </script>
+  </body>
+</html>

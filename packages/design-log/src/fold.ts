@@ -1,6 +1,7 @@
 import type { DesignDoc, EntityOverride, OverrideEntry, WorkingSet } from '@ogm/contracts';
 
-import { canonical, sha256Canonical } from './canonical.js';
+import { canonical } from './canonical.js';
+import { sha256Canonical } from './hash.js';
 
 export type FoldResult = {
   files: { path: string; content: string }[];

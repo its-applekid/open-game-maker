@@ -80,7 +80,7 @@ export function createGameFrame(options: GameFrameOptions): GameFrame {
   iframe.title = 'Game';
   iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-pointer-lock');
   iframe.setAttribute('allow', 'autoplay; fullscreen; gamepad');
-  iframe.setAttribute('referrerpolicy', 'no-referrer');
+  iframe.setAttribute('referrerpolicy', 'origin');
   Object.assign(iframe.style, { border: '0', width: '100%', height: '100%', display: 'block' });
   const path = `/g/${encodeURIComponent(options.gameId)}/${encodeURIComponent(options.buildId)}/index.html`;
   const source = new URL(path, gamesOrigin.origin);

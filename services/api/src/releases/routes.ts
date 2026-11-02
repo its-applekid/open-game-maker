@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 
 import type { ChangeNote } from '@ogm/contracts';
-import * as designLog from '@ogm/design-log';
+import { deriveVersion } from '@ogm/design-log';
 import { authorize } from '@ogm/policy';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
@@ -12,6 +12,7 @@ import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
 import { FsBaseDocSource } from '../design/base-doc.js';
 import { findGameForFamily, hasGameGrant } from '../games/games.js';
+import { countSavesAboveSchema } from '../saves/store.js';
 import { CommitUnavailable, HttpCommitClient } from './commit-client.js';
 import { checkPublishRights, RightsCheckUnavailable } from './rights.js';
 import {
@@ -25,7 +26,6 @@ import {
   rollback,
   updateBuild,
   type ReleaseRuntime,
-  type VersionCounts,
 } from './service.js';
 
 export const prefix = '/';
@@ -37,24 +37,22 @@ export function setReleaseRuntime(deps: AppDeps, runtime: ReleaseRuntime): void 
   runtimes.set(deps, runtime);
 }
 
-function defaultDeriveVersion(counts: VersionCounts): string {
-  const derive = (designLog as unknown as { deriveVersion?: (input: VersionCounts) => string }).deriveVersion;
-  if (!derive) throw new ReleaseError('version_service_unavailable', 502);
-  return derive(counts);
+export function defaultReleaseRuntime(deps: AppDeps): ReleaseRuntime {
+  return {
+    source: new FsBaseDocSource(deps.config.gamesRoot),
+    commit: new HttpCommitClient(deps.config.commitInternalUrl, deps.config.commitServiceToken),
+    checkRights: checkPublishRights,
+    countSavesAboveSchema: async (gameId, schema) => countSavesAboveSchema(deps.sqlite, gameId, schema),
+    deriveVersion,
+    onBuildTested: async () => undefined,
+    gamesOrigin: deps.config.gamesOrigin,
+    now: () => new Date(),
+  };
 }
 
 export function setup(deps: AppDeps): void {
   if (runtimes.has(deps)) return;
-  runtimes.set(deps, {
-    source: new FsBaseDocSource(deps.config.gamesRoot),
-    commit: new HttpCommitClient(deps.config.commitInternalUrl, deps.config.commitServiceToken),
-    checkRights: checkPublishRights,
-    countSavesAboveSchema: async () => null,
-    deriveVersion: defaultDeriveVersion,
-    onBuildTested: async () => undefined,
-    gamesOrigin: deps.config.gamesOrigin,
-    now: () => new Date(),
-  });
+  runtimes.set(deps, defaultReleaseRuntime(deps));
 }
 
 function runtime(c: { get(name: 'deps'): AppDeps }): ReleaseRuntime {

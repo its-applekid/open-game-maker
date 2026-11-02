@@ -41,7 +41,6 @@
     "updated": { "type": "string", "format": "date-time" }
   },
   "additionalProperties": false,
-
   "allOf": [
     {
       "if": { "properties": { "card_type": { "const": "asset" } } },
@@ -90,39 +89,46 @@
           }
         }
       }
+    },
+    {
+      "description": "Vendor-store previews require explicit vendor-metadata provenance.",
+      "if": {
+        "required": ["previews"],
+        "properties": { "previews": { "required": ["store"] } }
+      },
+      "then": {
+        "properties": {
+          "provenance": {
+            "required": ["previews.store"],
+            "properties": {
+              "previews.store": {
+                "required": ["by"],
+                "properties": { "by": { "const": "vendor-metadata" } }
+              }
+            }
+          }
+        }
+      }
     }
   ],
-
   "$defs": {
-    "assetId": {
-      "type": "string",
-      "pattern": "^t[123]:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$",
-      "description": "B11 id: <tier>:<collection>/<path>@<version>. Path is lowercase kebab, no file extension, no vendor format folder (\"GLB format\")."
-    },
-    "collectionId": {
-      "type": "string",
-      "pattern": "^t[123]:[a-z0-9][a-z0-9-]*@[A-Za-z0-9._-]+$"
-    },
-    "layoutSpecId": {
-      "type": "string",
-      "pattern": "^layout:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+#[0-9]+$"
-    },
+    "assetId": { "type": "string", "pattern": "^t[123]:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$", "description": "B11 id: <tier>:<collection>/<path>@<version>. Path is lowercase kebab, no file extension, no vendor format folder (\"GLB format\")." },
+    "collectionId": { "type": "string", "pattern": "^t[123]:[a-z0-9][a-z0-9-]*@[A-Za-z0-9._-]+$" },
+    "layoutSpecId": { "type": "string", "pattern": "^layout:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+#[0-9]+$" },
     "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
-    "spdxExpression": {
-      "type": "string",
-      "pattern": "^(?:[A-Za-z0-9.+-]+|LicenseRef-[A-Za-z0-9.-]+|NOASSERTION)(?: (?:AND|OR|WITH) (?:[A-Za-z0-9.+-]+|LicenseRef-[A-Za-z0-9.-]+))*$",
-      "description": "SPDX license expression. Vendor licenses use LicenseRef-<vendor>-<name>, e.g. LicenseRef-synty-personal. NOASSERTION = not known yet (card must then be quarantined)."
-    },
-    "bucketKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/._-]*$", "description": "Content-addressed key in the instance bucket. Never a URL with credentials." },
+    "spdxExpression": { "type": "string", "pattern": "^(?:[A-Za-z0-9.+-]+|LicenseRef-[A-Za-z0-9.-]+|NOASSERTION)(?: (?:AND|OR|WITH) (?:[A-Za-z0-9.+-]+|LicenseRef-[A-Za-z0-9.-]+))*$", "description": "SPDX license expression. Vendor licenses use LicenseRef-<vendor>-<name>, e.g. LicenseRef-synty-personal. NOASSERTION = not known yet (card must then be quarantined)." },
+    "bucketKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/._-]*$", "not": { "pattern": "(^|/)\\.\\.?(?:/|$)" }, "description": "Relative key in the private asset library or instance bucket. Traversal segments, absolute paths, and URLs with credentials are forbidden." },
+    "assetPath": { "type": "string", "pattern": "^(?!/)(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$", "description": "Relative path inside the collection; traversal and backslashes are forbidden." },
+    "assetPathList": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/assetPath" } },
     "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
     "hex": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
     "tag": { "type": "string", "pattern": "^[a-z][a-z0-9-]*$", "maxLength": 40 },
-
     "vocab": {
       "status": {
         "enum": ["quarantined", "draft", "measured", "tagged", "reviewed", "rejected"],
         "description": "quarantined: license unknown, strict rights, invisible to game search. draft: identified, filename tags only. measured: code facts filled. tagged: model fields filled and validated. reviewed: a human checked it. rejected: kept for hash matching only."
       },
+      "direction": { "enum": ["E", "N", "NE", "NW", "S", "SE", "SW", "W"] },
       "kind": {
         "enum": ["model", "anim", "sprite", "texture", "vfx", "audio", "ui", "inspiration"],
         "description": "B11 §4.7 taxonomy plus `inspiration` (C2 §9)."
@@ -166,7 +172,7 @@
       "material": { "enum": ["wood", "stone", "metal", "cloth", "leather", "glass", "bone", "crystal", "plant", "earth", "water", "ice", "fire", "flesh", "plastic", "paper", "fur"] },
       "condition": { "enum": ["new", "worn", "damaged", "broken", "ruined", "overgrown"] },
       "flag": {
-        "enum": ["low-confidence", "conflicts-with-measured", "needs-review", "license-unknown", "image-only", "near-duplicate", "oversized-for-mobile", "missing-preview", "mood-unverified", "describe-failed"]
+        "enum": ["low-confidence", "conflicts-with-measured", "needs-review", "needs-conversion", "license-unknown", "image-only", "near-duplicate", "oversized-for-mobile", "missing-preview", "mood-unverified", "describe-failed"]
       },
       "genre": { "enum": ["orchestral", "cinematic", "classical", "piano", "rock", "metal", "pop", "electronic", "ambient", "acoustic", "folk", "country", "blues", "jazz", "funk", "hip-hop", "world", "latin", "chiptune", "experimental"] },
       "instrument": { "enum": ["piano", "keys", "organ", "strings", "solo-violin", "cello", "brass", "trumpet", "horns", "woodwinds", "flute", "sax", "choir", "lead-vocals", "acoustic-guitar", "electric-guitar", "bass", "synth-bass", "drums", "drum-machine", "percussion", "taiko", "orchestral-percussion", "synth-lead", "synth-pad", "arpeggiator", "harp", "bells", "mallets", "accordion", "fiddle", "banjo", "ukulele", "sound-design"] },
@@ -193,7 +199,6 @@
       "glyphRange": { "enum": ["basic-latin", "latin-1", "latin-ext-a", "latin-ext-b", "greek", "cyrillic", "symbols", "cjk"] },
       "mapType": { "enum": ["dungeon", "cave", "castle", "keep", "temple", "crypt", "building", "tavern", "town", "city", "ship", "sewer", "mine", "wilderness", "battlemap", "region"] }
     },
-
     "subkindByKind": {
       "allOf": [
         { "if": { "properties": { "kind": { "const": "model" } }, "required": ["kind"] }, "then": { "properties": { "subkind": { "$ref": "#/$defs/vocab/subkind/model" } } } },
@@ -206,10 +211,9 @@
         { "if": { "properties": { "kind": { "const": "inspiration" } }, "required": ["kind"] }, "then": { "properties": { "subkind": { "$ref": "#/$defs/vocab/subkind/inspiration" } } } }
       ]
     },
-
     "blocksByKind": {
       "allOf": [
-        { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" } }, "required": ["card_type", "kind"] }, "then": { "required": ["geometry"] } },
+        { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "flags": { "not": { "contains": { "const": "needs-conversion" } } } }, "required": ["card_type", "kind"] }, "then": { "required": ["geometry"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "subkind": { "enum": ["character", "creature"] } }, "required": ["card_type", "kind", "subkind"] }, "then": { "required": ["rig"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "subkind": { "const": "kit" } }, "required": ["card_type", "kind", "subkind"] }, "then": { "required": ["kit"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "anim" } }, "required": ["card_type", "kind"] }, "then": { "required": ["anim"] } },
@@ -222,7 +226,6 @@
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "inspiration" } }, "required": ["card_type", "kind"] }, "then": { "required": ["image", "map"] } }
       ]
     },
-
     "rights": {
       "type": "object",
       "description": "Effective usage rights. Written only by intake code (from license text, after the admin confirms) and by the admin. Never by a model. Code recomputes the effective values from `basis` and refuses a card where they disagree. On an asset card, `rights` may be omitted to inherit the collection's.",
@@ -270,7 +273,6 @@
       ],
       "additionalProperties": false
     },
-
     "source": {
       "type": "object",
       "required": ["files"],
@@ -320,16 +322,19 @@
     },
     "previews": {
       "type": "object",
-      "description": "Content-addressed bucket keys. Previews inherit the asset's rights: a redistribution:none asset's previews are private too and are hash-blocked from game repos.",
+      "description": "Relative private asset-library or instance-bucket keys. Previews inherit the asset's rights: a redistribution:none asset's previews are private too and are hash-blocked from game repos.",
       "properties": {
         "thumb": { "$ref": "#/$defs/bucketKey" },
         "sheet": { "$ref": "#/$defs/bucketKey" },
         "waveform": { "$ref": "#/$defs/bucketKey" },
-        "clip": { "$ref": "#/$defs/bucketKey" }
+        "clip": { "$ref": "#/$defs/bucketKey" },
+        "specimen": { "$ref": "#/$defs/bucketKey" },
+        "diorama": { "$ref": "#/$defs/bucketKey" },
+        "loop": { "$ref": "#/$defs/bucketKey" },
+        "store": { "$ref": "#/$defs/bucketKey" }
       },
       "additionalProperties": false
     },
-
     "describe": {
       "type": "object",
       "description": "Judgment fields. Written by the model (or parsed from filenames at draft), validated by code, editable by humans.",
@@ -344,6 +349,7 @@
         "condition": { "$ref": "#/$defs/vocab/condition" },
         "style_family": { "$ref": "#/$defs/vocab/styleFamily" },
         "set": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "Measured visual-compatibility group nested under style_family." },
+        "world": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$", "description": "Curated world grouping within a compatibility set." },
         "pov_fit": { "type": "array", "items": { "$ref": "#/$defs/vocab/pov" }, "uniqueItems": true },
         "keywords": { "type": "array", "items": { "$ref": "#/$defs/tag" }, "maxItems": 12, "uniqueItems": true, "description": "Free search words that fit no other field (e.g. colour names, vendor naming). Not faceted." },
         "genre": { "type": "array", "items": { "$ref": "#/$defs/vocab/genre" }, "uniqueItems": true, "maxItems": 3 },
@@ -368,7 +374,6 @@
       },
       "additionalProperties": false
     },
-
     "geometry": {
       "type": "object",
       "description": "3D facts, measured by code after B11 normalization (1 unit = 1 m, Y-up, origin at base).",
@@ -479,10 +484,27 @@
           "items": {
             "type": "object",
             "required": ["name", "frames"],
-            "properties": { "name": { "type": "string" }, "frames": { "type": "array", "items": { "type": "integer" } }, "fps": { "type": "number" } },
+            "properties": {
+              "name": { "type": "string" },
+              "frames": { "type": "array", "items": { "type": "integer" } },
+              "fps": { "type": "number" },
+              "directions": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "$ref": "#/$defs/vocab/direction" } },
+              "sheets": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object", "required": ["path", "frame_w", "frame_h", "cols", "rows"],
+                  "properties": {
+                    "path": { "$ref": "#/$defs/assetPath" }, "variant": { "enum": ["shadowless", "shadow"] },
+                    "frame_w": { "type": "integer", "minimum": 1 }, "frame_h": { "type": "integer", "minimum": 1 }, "cols": { "type": "integer", "minimum": 1 }, "rows": { "type": "integer", "minimum": 1 }
+                  }, "additionalProperties": false }
+                }
+              , "files": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/assetPath" } },
+              "direction_files": { "type": "object", "minProperties": 1, "properties": { "E": { "$ref": "#/$defs/assetPathList" }, "N": { "$ref": "#/$defs/assetPathList" }, "NE": { "$ref": "#/$defs/assetPathList" }, "NW": { "$ref": "#/$defs/assetPathList" }, "S": { "$ref": "#/$defs/assetPathList" }, "SE": { "$ref": "#/$defs/assetPathList" }, "SW": { "$ref": "#/$defs/assetPathList" }, "W": { "$ref": "#/$defs/assetPathList" } }, "additionalProperties": false }
+            },
             "additionalProperties": false
           }
         },
+        "facings": { "type": "object", "minProperties": 1, "properties": { "E": { "$ref": "#/$defs/assetPath" }, "N": { "$ref": "#/$defs/assetPath" }, "NE": { "$ref": "#/$defs/assetPath" }, "NW": { "$ref": "#/$defs/assetPath" }, "S": { "$ref": "#/$defs/assetPath" }, "SE": { "$ref": "#/$defs/assetPath" }, "SW": { "$ref": "#/$defs/assetPath" }, "W": { "$ref": "#/$defs/assetPath" } }, "additionalProperties": false },
         "tile": {
           "type": "object",
           "properties": {
@@ -634,7 +656,6 @@
       },
       "additionalProperties": false
     },
-
     "collectionInfo": {
       "type": "object",
       "required": ["vendor", "version", "origin", "counts"],
@@ -661,19 +682,17 @@
       },
       "additionalProperties": false
     },
-
     "proposedTag": {
       "type": "object",
       "required": ["field", "tag"],
       "properties": {
-        "field": { "enum": ["environments", "settings", "roles", "moods", "materials", "condition", "style_family", "set", "pov_fit", "subkind", "kitPiece", "mapType", "genre", "instruments", "era", "game_fit"] },
+        "field": { "enum": ["environments", "settings", "roles", "moods", "materials", "condition", "style_family", "set", "world", "pov_fit", "subkind", "kitPiece", "mapType", "genre", "instruments", "era", "game_fit"] },
         "tag": { "$ref": "#/$defs/tag" },
         "nearest": { "type": "string", "description": "Closest existing tag the tagger used instead, if any." },
         "reason": { "type": "string", "maxLength": 200 }
       },
       "additionalProperties": false
     },
-
     "provenanceMap": {
       "type": "object",
       "description": "Keyed by field path ('describe.moods', 'rig', 'rights', '*' for a default). A block-level key covers every field inside it. Fields with no entry fall back to '*'.",
