@@ -36,6 +36,11 @@ before_remove: |
   ticket="${AIUR_HOOK_TICKET_IDENTIFIER:-}"
   secret="$(cat "${OGM_HOOK_SECRET_FILE:-/nonexistent}" 2>/dev/null || true)"
   root="$(pwd -P)"
+  # Build what the workspace holds now; a stale dist/ from an earlier run never leaves it.
+  if [ -n "$ticket" ] && [ -n "$secret" ]; then
+    rm -rf dist
+    pnpm run build >&2 || echo "build failed: nothing uploaded" >&2
+  fi
   # Only paths that resolve inside the workspace leave it; links inside dist/ are kept as links and refused upstream.
   if [ -n "$ticket" ] && [ -n "$secret" ] && [ -d dist ] && [ "$(realpath dist)" = "$root/dist" ]; then
     stage="$(mktemp -d)"

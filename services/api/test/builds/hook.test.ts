@@ -1,7 +1,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import type { AddressInfo } from 'node:net';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { env } from 'node:process';
 
@@ -24,15 +24,22 @@ function beforeRemove(): string {
   return block.replace(/^ {2}/gmu, '');
 }
 
-// A workspace as the agent leaves it: a committed game repo whose sandboxed `gm build` wrote dist/.
-function workspace() {
+const COPY_WEB = "import { cpSync } from 'node:fs';\ncpSync('web', 'dist', { recursive: true });\n";
+
+// A workspace as the agent leaves it: a committed game repo whose `pnpm run build` (here `node build.mjs`) writes dist/.
+function workspace(build = COPY_WEB) {
   const dir = mkdtempSync(join(tmpdir(), 'ogm-hook-build-ws-'));
   const built = builtFiles();
-  mkdirSync(join(dir, 'dist'));
-  cpSync(join(built, 'index.html'), join(dir, 'dist', 'index.html'));
-  cpSync(join(built, 'assets'), join(dir, 'dist', 'assets'), { recursive: true });
+  mkdirSync(join(dir, 'web'));
+  cpSync(join(built, 'index.html'), join(dir, 'web', 'index.html'));
+  cpSync(join(built, 'assets'), join(dir, 'web', 'assets'), { recursive: true });
   cpSync(join(built, 'manifest.json'), join(dir, 'manifest.json'));
   cpSync(join(built, 'design'), join(dir, 'design'), { recursive: true });
+  writeFileSync(join(dir, 'build.mjs'), build);
+  writeFileSync(
+    join(dir, 'package.json'),
+    JSON.stringify({ name: 'fixture', private: true, scripts: { build: 'node build.mjs' } }),
+  );
   writeFileSync(join(dir, '.gitignore'), 'dist/\n');
   const git = (...args: string[]) => execFileSync('git', args, { cwd: dir, encoding: 'utf8' }).trim();
   git('init', '-q', '-b', 'aiur/12');
@@ -49,6 +56,8 @@ async function runHook(cwd: string, api: string, extra: Record<string, string> =
     env: {
       PATH: HOOK_PATH,
       HOME: cwd,
+      // The hook runs `pnpm run build`; reuse corepack's cache rather than downloading pnpm into the fake HOME.
+      COREPACK_HOME: env.COREPACK_HOME ?? join(homedir(), '.cache', 'node', 'corepack'),
       AIUR_HOOK_TICKET_IDENTIFIER: TICKET,
       OGM_HOOK_SECRET_FILE: secretFile,
       OGM_INTERNAL_URL: api,
@@ -108,12 +117,31 @@ describe('before_remove hook to a playable build', () => {
   it('never uploads a dist that is a link out of the workspace', async () => {
     const { deps, app } = world();
     const api = await serveApi(app);
-    const { dir } = workspace();
     const outside = builtFiles();
-    rmSync(join(dir, 'dist'), { recursive: true });
-    execFileSync('ln', ['-s', outside, join(dir, 'dist')]);
+    const { dir } = workspace(
+      `import { symlinkSync } from 'node:fs';\nsymlinkSync(${JSON.stringify(outside)}, 'dist');\n`,
+    );
     try {
       expect((await runHook(dir, api.base)).status).toBe(0);
+      completeRun(deps);
+      expect(await publishStaged(deps, ids.job)).toBeNull();
+      expect(jobState(deps)).toBe('running');
+    } finally {
+      await api.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('uploads nothing when the build fails, even with an earlier dist/ in the workspace', async () => {
+    const { deps, app } = world();
+    const api = await serveApi(app);
+    const { dir } = workspace('process.exit(1);\n');
+    mkdirSync(join(dir, 'dist'));
+    writeFileSync(join(dir, 'dist', 'index.html'), '<!doctype html><title>Stale</title>\n');
+    try {
+      const hook = await runHook(dir, api.base);
+      expect(hook.status).toBe(0);
+      expect(hook.stderr).toContain('build failed: nothing uploaded');
       completeRun(deps);
       expect(await publishStaged(deps, ids.job)).toBeNull();
       expect(jobState(deps)).toBe('running');
