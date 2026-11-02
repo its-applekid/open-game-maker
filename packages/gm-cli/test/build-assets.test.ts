@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 
 import { Document, NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
-import { assetManifestSchema, type AssetManifest } from '@ogm/contracts';
+import { assetManifestSchema, type AssetManifest, type AssetMetadata } from '@ogm/contracts';
 import { MeshoptDecoder } from 'meshoptimizer';
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +17,7 @@ type LockAsset = {
   path: string;
   license?: string;
   private?: boolean;
-  meta?: Record<string, unknown>;
+  meta?: AssetMetadata;
 };
 
 const ffmpegAvailable = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
@@ -35,7 +35,7 @@ function writeAsset(cwd: string, path: string, bytes: Uint8Array | Buffer): stri
   return sha256(bytes);
 }
 
-function writeLock(cwd: string, assets: LockAsset[]): void {
+function writeLock(cwd: string, assets: LockAsset[], family = 'chunky-low-poly'): void {
   const entries = assets
     .map((asset) => {
       const bytes = readFileSync(join(cwd, asset.path));
@@ -57,7 +57,7 @@ function writeLock(cwd: string, assets: LockAsset[]): void {
     .sort((left, right) => left.id.localeCompare(right.id));
   writeFileSync(
     join(cwd, 'assets.lock.json'),
-    `${JSON.stringify({ version: 1, family: 'chunky-low-poly', pov: 'iso', assets: entries }, null, 2)}\n`,
+    `${JSON.stringify({ version: 1, family, pov: 'iso', assets: entries }, null, 2)}\n`,
   );
 }
 
@@ -183,7 +183,7 @@ async function glb(width: number, height: number, texture?: Buffer, rigged = fal
   return Buffer.from(await new NodeIO().writeBinary(document));
 }
 
-async function fixtureGame(): Promise<{ cwd: string; meta: Record<string, unknown> }> {
+async function fixtureGame(): Promise<{ cwd: string; meta: AssetMetadata }> {
   const cwd = tempDir('gm-build-assets-');
   const colormap = await png(16, 16);
   if (ffmpegAvailable) writeAsset(cwd, 'assets/audio/tone.wav', wav());
@@ -197,18 +197,29 @@ async function fixtureGame(): Promise<{ cwd: string; meta: Record<string, unknow
   writeAsset(cwd, 'assets/model/rigged.glb', await glb(20, 10, undefined, true));
   writeAsset(cwd, 'assets/ui/test.ttf', Buffer.from('font fixture'));
   const meta = {
-    pixel_art: true,
-    sprite: { animations: [{ frame_w: 8, frame_h: 8, cols: 2, rows: 1 }] },
-    geometry: { bounds_m: { min: [0, 0, 0], max: [16, 8, 0] } },
-  };
+    sprite: {
+      drawn_view: 'iso',
+      animations: [
+        {
+          name: 'walk',
+          frames: [0, 1],
+          sheets: [{ path: 'sheet.png', frame_w: 8, frame_h: 8, cols: 2, rows: 1 }],
+        },
+      ],
+    },
+  } satisfies AssetMetadata;
   writeLock(cwd, [
     ...(ffmpegAvailable ? [{ id: 't3:fixture/audio-tone', path: 'assets/audio/tone.wav' }] : []),
     { id: 't3:fixture/image-sheet', path: 'assets/image/sheet.png', meta },
     { id: 't3:fixture/kit-tower', path: 'assets/model/kit/tower.glb' },
     { id: 't3:fixture/kit-wall', path: 'assets/model/kit/wall.glb' },
-    { id: 't3:fixture/kit-rig-meta', path: 'assets/model/kit/rig-meta.glb', meta: { rig: { clips: [] } } },
-    { id: 't3:fixture/declared-a', path: 'assets/model/declared/a.glb', meta: { kit: {} } },
-    { id: 't3:fixture/declared-b', path: 'assets/model/declared/b.glb', meta: { kit: {} } },
+    {
+      id: 't3:fixture/kit-rig-meta',
+      path: 'assets/model/kit/rig-meta.glb',
+      meta: { rig: { rig_type: 'humanoid', rig_id: 'rig:0123456789ab', joint_count: 1, clips: [] } },
+    },
+    { id: 't3:fixture/declared-a', path: 'assets/model/declared/a.glb', meta: { kit: { piece: 'wall', grid_m: 1 } } },
+    { id: 't3:fixture/declared-b', path: 'assets/model/declared/b.glb', meta: { kit: { piece: 'wall', grid_m: 1 } } },
     {
       id: 't3:fixture/model-grid',
       path: 'assets/model/grid.glb',
@@ -308,11 +319,6 @@ describe('gm build assets', () => {
     const imageName = manifest.assets['t3:fixture/image-sheet']!.file['*']!;
     expect(imageName.endsWith('.webp')).toBe(true);
     expect(await sharp(join(out, imageName)).metadata()).toMatchObject({ width: 16, height: 8, format: 'webp' });
-    expect(
-      (await sharp(join(out, imageName)).raw().toBuffer()).equals(
-        await sharp(join(cwd, 'assets/image/sheet.png')).raw().toBuffer(),
-      ),
-    ).toBe(true);
     if (ffmpegAvailable) {
       const audioName = manifest.assets['t3:fixture/audio-tone']!.file['*']!;
       expect(audioName.endsWith('.mp3')).toBe(true);
@@ -321,7 +327,19 @@ describe('gm build assets', () => {
     const fontName = manifest.assets['t3:fixture/ui-font']!.file['*']!;
     expect(readFileSync(join(out, fontName), 'utf8')).toBe('font fixture');
 
-    const updatedMeta = { ...meta, sprite: { animations: [{ frame_w: 4, frame_h: 8, cols: 4, rows: 1 }] } };
+    const updatedMeta = {
+      ...meta,
+      sprite: {
+        ...meta.sprite,
+        animations: [
+          {
+            name: 'walk',
+            frames: [0, 1, 2, 3],
+            sheets: [{ path: 'sheet.png', frame_w: 4, frame_h: 8, cols: 4, rows: 1 }],
+          },
+        ],
+      },
+    };
     updateLockEntry(cwd, 't3:fixture/image-sheet', { meta: updatedMeta });
     updateLockEntry(cwd, 't3:fixture/model-grid', {
       license: 'LicenseRef-updated',
@@ -379,6 +397,23 @@ describe('gm build assets', () => {
     const result = await gm(['build', 'assets', '--ktx2'], { env: {} });
     expect(result.code).toBe(2);
     expect(result.err.join('\n')).toContain('toktx');
+  });
+
+  // Lossy WebP bleeds colours across sprite-frame edges; a pixel-art game needs every source pixel back.
+  it('encodes images losslessly for a pixel-art family game', async () => {
+    const cwd = tempDir('gm-build-pixel-');
+    const source = await png(16, 8, true);
+    writeAsset(cwd, 'assets/image/sheet.png', source);
+    writeLock(cwd, [{ id: 't3:fixture/pixel-sheet', path: 'assets/image/sheet.png' }], 'pixel-art');
+    const result = await gm(['build', 'assets'], { cwd, env: {} });
+    expect(result).toMatchObject({ code: 0, err: [] });
+    const manifest = JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')) as AssetManifest;
+    const name = manifest.assets['t3:fixture/pixel-sheet']!.file['*']!;
+    const written = await sharp(join(cwd, 'public/assets', name))
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+    expect(written.equals(await sharp(source).raw().toBuffer())).toBe(true);
   });
 
   it('finishes independent jobs for a corrupt GLB but does not replace the manifest', async () => {

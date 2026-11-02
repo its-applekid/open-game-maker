@@ -1,0 +1,1 @@
+Build a warm, nimble side-view platformer about relighting a sleeping mountain path. The player can run and jump across short ruins, and touching each lantern should light beacons in sequence. Keep the movement forgiving but do not add combat, collectibles, extra movement powers, or a score. The player wins when all beacons are lit and they reach the gate.

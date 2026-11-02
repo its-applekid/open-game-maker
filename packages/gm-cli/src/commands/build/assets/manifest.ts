@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { assetManifestSchema, type AssetManifest, type Tier } from '@ogm/contracts';
+import { ASSETS_SCHEMA_MINOR, assetManifestSchema, type AssetManifest, type Tier } from '@ogm/contracts';
 
 import { stableJson, writeIfChanged } from './files.js';
 import type { BuiltFileInfo, JobResult, ManifestAssetEntry } from './types.js';
@@ -48,6 +48,7 @@ export function assembleManifest(
   );
   const manifest = assetManifestSchema.parse({
     version: 1,
+    minor: ASSETS_SCHEMA_MINOR,
     tiers,
     files,
     assets: Object.fromEntries(Object.entries(assets).sort(([left], [right]) => left.localeCompare(right))),

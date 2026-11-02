@@ -31,6 +31,7 @@ import {
   requireMayManage,
   settingsResponse,
 } from './family.js';
+import { familyBuilds } from './builds.js';
 import { readIntake } from './intake-status.js';
 import { PatchMemberBody, PatchSettingsBody, PutAllowanceBody } from './shapes.js';
 
@@ -216,6 +217,10 @@ const routes = new Hono<ApiBindings>()
     const game = findGameForFamily(db, c.req.param('id'), actor.familyId);
     db.update(schema.games).set({ delistedAt: null }).where(eq(schema.games.id, game.id)).run();
     return c.json(gameResponse(findGame(db, game.id)));
+  })
+  .get('/builds', async (c) => {
+    const actor = admin(c, 'admin.analytics.read');
+    return c.json({ builds: await familyBuilds(c.get('deps'), actor.familyId) });
   })
   .get('/intake', (c) => {
     admin(c, 'admin.settings.set');

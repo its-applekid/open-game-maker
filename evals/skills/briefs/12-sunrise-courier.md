@@ -1,0 +1,1 @@
+Build a bright, flowing side-view platformer about a courier racing the sunrise. The player can run and jump, then deliver letters at three observatory huts in any order. Do not add enemies, coins, health, a score, or extra movement abilities. The player wins when every letter is delivered and they reach the observatory.

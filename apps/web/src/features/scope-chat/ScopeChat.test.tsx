@@ -27,6 +27,7 @@ import { ScopeChat } from './ScopeChat';
 
 const scope: AgreedScope = {
   session_id: 's_1',
+  revision: 1,
   title: 'Moonlit Bakery',
   summary: 'Deliver bread at night.',
   scope: { included: ['one village'], excluded: [] },
