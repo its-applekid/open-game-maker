@@ -14,15 +14,7 @@ export function Captions({ turns, status }: { turns: ScopeTurn[]; status: ScopeS
   );
 }
 
-function CaptionSide({
-  label,
-  state,
-  turns,
-}: {
-  label: 'You' | 'Builder';
-  state: string;
-  turns: ScopeTurn[];
-}) {
+function CaptionSide({ label, state, turns }: { label: 'You' | 'Builder'; state: string; turns: ScopeTurn[] }) {
   return (
     <section className={`vs-side ${label === 'You' ? 'you' : 'agent'}`} aria-label={label}>
       <header>

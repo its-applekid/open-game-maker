@@ -98,7 +98,13 @@ export function useScopeSession(gameId: string, choices: ScopeChoices, transport
 
   const turns: ScopeTurn[] = messages.flatMap((message) =>
     message.text && message.actor !== 'system'
-      ? [{ id: message.id, who: message.actor === 'creator' ? ('you' as const) : ('builder' as const), text: message.text }]
+      ? [
+          {
+            id: message.id,
+            who: message.actor === 'creator' ? ('you' as const) : ('builder' as const),
+            text: message.text,
+          },
+        ]
       : [],
   );
 

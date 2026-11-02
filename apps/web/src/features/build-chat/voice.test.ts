@@ -16,12 +16,18 @@ describe('probeVoice', () => {
   it('maps the wire expiry field to the client shape', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({ token: 'voice-token', url: 'wss://voice.example.test', expires_at: '2026-11-01T10:00:00Z' }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({
+              token: 'voice-token',
+              url: 'wss://voice.example.test',
+              expires_at: '2026-11-01T10:00:00Z',
+            }),
+            { status: 200, headers: { 'content-type': 'application/json' } },
+          ),
         ),
-      ),
     );
 
     await expect(probeVoice(target)).resolves.toEqual({

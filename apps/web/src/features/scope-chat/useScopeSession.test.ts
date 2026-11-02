@@ -106,7 +106,11 @@ describe('useScopeSession', () => {
     expect(result.current.sessionId).toBe('s_1');
     expect(result.current.jobId).toBe('j_1');
     expect(result.current.scope).toEqual(scope);
-    expect(result.current.turns).toContainEqual({ id: 'm_1', who: 'builder', text: 'Three islands is a good first version.' });
+    expect(result.current.turns).toContainEqual({
+      id: 'm_1',
+      who: 'builder',
+      text: 'Three islands is a good first version.',
+    });
   });
 
   it('posts creator text through the scope job chat', async () => {

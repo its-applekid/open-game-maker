@@ -25,9 +25,7 @@ export async function installNewRoutes(page: Page): Promise<NewRouteState> {
     if (route.request().method() === 'POST') return json(route, { id: gameId }, 201);
     return json(route, { games: [] });
   });
-  await page.route('**/api/v1/games/*/scope/sessions', (route) =>
-    json(route, { sessionId, jobId: scopeJobId }, 201),
-  );
+  await page.route('**/api/v1/games/*/scope/sessions', (route) => json(route, { sessionId, jobId: scopeJobId }, 201));
   await page.route(/\/api\/v1\/games\/[^/]+\/scope\/sessions\/[^/?]+$/, (route) =>
     json(route, {
       sessionId,
@@ -39,7 +37,7 @@ export async function installNewRoutes(page: Page): Promise<NewRouteState> {
         family: 'smallscaleint',
         world: 'Sky islands',
         players: 'single',
-        pov: 'iso'
+        pov: 'iso',
       },
       ...(scopeAgreed ? { scope: agreedScope() } : {}),
     }),
@@ -71,13 +69,17 @@ export async function installNewRoutes(page: Page): Promise<NewRouteState> {
         402,
       );
     }
-    return json(route, {
-      jobId: 'j_new',
-      state: 'queued',
-      reservation: { amountMicroUsd: 3_000_000, sizeClass: 'medium', confidence: 'low' },
-      slot: 'new_game',
-      position: 1,
-    }, 202);
+    return json(
+      route,
+      {
+        jobId: 'j_new',
+        state: 'queued',
+        reservation: { amountMicroUsd: 3_000_000, sizeClass: 'medium', confidence: 'low' },
+        slot: 'new_game',
+        position: 1,
+      },
+      202,
+    );
   });
   await page.route('**/api/v1/jobs?gameId=*', (route) => json(route, { jobs: [] }));
   await page.route('**/api/v1/budget/status', (route) =>

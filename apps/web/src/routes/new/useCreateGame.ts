@@ -10,10 +10,9 @@ export function useCreateGame() {
   const game = useRef<Promise<string> | undefined>(undefined);
   return useCallback((choices: NewGameChoices) => {
     if (game.current) return game.current;
-    const titleParts = [
-      choiceLabels('vibe', choices.vibe).at(0),
-      choiceLabels('genre', choices.genre).at(0),
-    ].filter((part): part is string => Boolean(part));
+    const titleParts = [choiceLabels('vibe', choices.vibe).at(0), choiceLabels('genre', choices.genre).at(0)].filter(
+      (part): part is string => Boolean(part),
+    );
     game.current = api<GameResponse>('/games', {
       method: 'POST',
       json: {

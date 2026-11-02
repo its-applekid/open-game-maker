@@ -80,10 +80,14 @@ export function ScopeChat({
     return (
       <div className="talk-host">
         <section className="vs two" aria-label="Scope conversation">
-          <p className="scope-error" role="alert">{scopeSession.error}</p>
+          <p className="scope-error" role="alert">
+            {scopeSession.error}
+          </p>
           <footer className="scope-controls">
             <span className="grow" />
-            <button className="scope-finish tap-primary" type="button" disabled>Finish</button>
+            <button className="scope-finish tap-primary" type="button" disabled>
+              Finish
+            </button>
           </footer>
         </section>
       </div>
@@ -106,9 +110,18 @@ export function ScopeChat({
           <Offers offers={refusal.offers} disabled={submitting} onChoose={(offer) => void choose(offer)} />
         ) : null}
         {waitingForAdmin ? (
-          <AllowanceStatus budget={budget.data} fallback={refusal} disabled={submitting} onTry={() => void admit('now')} />
+          <AllowanceStatus
+            budget={budget.data}
+            fallback={refusal}
+            disabled={submitting}
+            onTry={() => void admit('now')}
+          />
         ) : null}
-        {admissionError ? <p className="scope-admission-error" role="alert">{admissionError}</p> : null}
+        {admissionError ? (
+          <p className="scope-admission-error" role="alert">
+            {admissionError}
+          </p>
+        ) : null}
         <footer className="scope-controls">
           <span className="grow" />
           <button
@@ -139,12 +152,15 @@ function AllowanceStatus({
   const reset = budget?.resetsAt ?? fallback?.resetsAt;
   const canTry =
     budget !== undefined &&
-    (budget.freeSlots.new_game > 0 || budget.remainingMicroUsd > (fallback?.remainingMicroUsd ?? budget.remainingMicroUsd));
+    (budget.freeSlots.new_game > 0 ||
+      budget.remainingMicroUsd > (fallback?.remainingMicroUsd ?? budget.remainingMicroUsd));
   return (
     <section className="scope-allowance" aria-label="Allowance status">
       <b>{budget ? `${formatUnits(budget.remainingMicroUsd, budget.unitLabel)} remain` : 'Checking your allowance…'}</b>
       {reset ? <span>Resets {new Date(reset).toLocaleString()}</span> : null}
-      <button className="tap-secondary" disabled={disabled || !canTry} type="button" onClick={onTry}>Try again</button>
+      <button className="tap-secondary" disabled={disabled || !canTry} type="button" onClick={onTry}>
+        Try again
+      </button>
     </section>
   );
 }

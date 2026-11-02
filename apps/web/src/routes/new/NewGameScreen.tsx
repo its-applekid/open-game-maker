@@ -104,8 +104,7 @@ export function NewGameScreen() {
     setNotice('');
   };
 
-  const setChoice = (key: ChoiceKey, next: StepChoice) =>
-    setChoices((current) => ({ ...current, [key]: next }));
+  const setChoice = (key: ChoiceKey, next: StepChoice) => setChoices((current) => ({ ...current, [key]: next }));
 
   const toggle = (key: ChoiceKey, id: string, max: number) => {
     const current = choices[key] ?? { picks: [] };
@@ -126,8 +125,9 @@ export function NewGameScreen() {
     else go(STEP_ORDER[stepIndex - 1]!);
   };
 
-  const current = step === 'talk' ? undefined : stepDefinition(step, families, selectedFamily?.views, choices.genre?.picks);
-  const selected = current ? choices[current.key] ?? { picks: [] } : undefined;
+  const current =
+    step === 'talk' ? undefined : stepDefinition(step, families, selectedFamily?.views, choices.genre?.picks);
+  const selected = current ? (choices[current.key] ?? { picks: [] }) : undefined;
   const count = selected ? selected.picks.length + (selected.other ? 1 : 0) : 0;
 
   return (
@@ -165,7 +165,9 @@ export function NewGameScreen() {
           <>
             <p className="new-ask">{current?.ask}</p>
             <p className="new-hint">{current?.hint}</p>
-            {notice ? <p role="status" className="new-notice">{`${current?.hint.split('·')[0].trim()}. ${notice}`}</p> : null}
+            {notice ? (
+              <p role="status" className="new-notice">{`${current?.hint.split('·')[0].trim()}. ${notice}`}</p>
+            ) : null}
             {step === 'family' && catalog.isError ? (
               <p className="new-retry" role="alert">
                 Style choices are unavailable.{' '}
@@ -197,7 +199,9 @@ export function NewGameScreen() {
                     value={selected?.other}
                     full={count >= current.max}
                     onFull={() => setNotice('Unpick one first.')}
-                    onChange={(other) => setChoice(current.key, { picks: selected?.picks ?? [], ...(other ? { other } : {}) })}
+                    onChange={(other) =>
+                      setChoice(current.key, { picks: selected?.picks ?? [], ...(other ? { other } : {}) })
+                    }
                   />
                 ) : null}
               </div>
@@ -208,7 +212,11 @@ export function NewGameScreen() {
 
       {step !== 'talk' ? (
         <footer className="new-game-foot">
-          <button className="new-next tap-primary" type="button" onClick={() => go(STEP_ORDER[stepIndex + 1] ?? 'talk')}>
+          <button
+            className="new-next tap-primary"
+            type="button"
+            onClick={() => go(STEP_ORDER[stepIndex + 1] ?? 'talk')}
+          >
             {count ? 'Next' : 'Skip'}
           </button>
         </footer>
@@ -228,7 +236,14 @@ function stepDefinition(
   genres: string[] | undefined,
 ): StepDefinition {
   if (step === 'family') {
-    return { key: 'family', title: 'Style', ask: 'What should it look like?', hint: 'Pick one', max: 1, options: families };
+    return {
+      key: 'family',
+      title: 'Style',
+      ask: 'What should it look like?',
+      hint: 'Pick one',
+      max: 1,
+      options: families,
+    };
   }
   if (step === 'view') {
     const options: Option[] = viewsFor(familyViews ?? ['fixed'], genres ?? []).map((id) => ({
@@ -269,17 +284,24 @@ function TalkStep({
             <span className="new-summary-row" key={row.key}>
               <b>{row.key === 'family' ? 'Style' : row.key}</b>
               {row.labels.map((label) => (
-                <span className="new-chip" key={label}>{label}</span>
+                <span className="new-chip" key={label}>
+                  {label}
+                </span>
               ))}
             </span>
           ))
         ) : (
-          <span className="new-summary-row muted">No picks yet. That is fine: just tell the builder about your game.</span>
+          <span className="new-summary-row muted">
+            No picks yet. That is fine: just tell the builder about your game.
+          </span>
         )}
       </div>
       {createError ? (
         <p role="alert">
-          The game could not be created. <button type="button" onClick={onRetry}>Try again</button>
+          The game could not be created.{' '}
+          <button type="button" onClick={onRetry}>
+            Try again
+          </button>
         </p>
       ) : null}
       {gameId ? (
