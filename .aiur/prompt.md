@@ -15,3 +15,10 @@ Rules that hold on every ticket:
 
 ## Design is fixed
 The web screens (title town, games selection, creation, editor, chat panel) keep the design landed in the studio-v0 / title-town prototype (`apps/web/title-town`, archived `prototypes/`): same layout, flow, motion and copy. Implement the logic behind it; never redesign, restyle or add chrome (no new nav, panels, labels or helper text). Where a ticket and the prototype differ in look or flow, the prototype wins; say so in the PR.
+
+## Database migrations
+
+Before opening or un-drafting a PR that adds a migration under `packages/db`: merge main first, then re-timestamp your
+migration so it sorts after main's latest, give it the next `_journal.json` idx, and regenerate its snapshot with
+`prevId` = the previous snapshot's id (prettier the JSON). Three PRs in one night (#176, #188, #189) failed review on
+exactly this; the reviewer bounces it every time.
