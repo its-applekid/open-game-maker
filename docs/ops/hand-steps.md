@@ -4,8 +4,7 @@ Steps only the host's owner can do: they need sudo, a browser sign-in or an appr
 `remind` format, so the Executor copies it into `~/remind.md` as is. An item already in `~/remind.md` is skipped.
 
 Fill the placeholders first: `<user>` is the account that runs OGM, `<tailnet-host>` the machine's Tailscale name,
-`<backup-host>` the machine that keeps backups. On Kevin's host they are `orangekid`, `applekid.tailee0e71.ts.net` and
-`orangekid`. Other files a new host edits by hand: [self-host.md](self-host.md).
+`<backup-host>` the machine that keeps backups. Other files a new host edits by hand: [self-host.md](self-host.md).
 
 - [ ] `sudo tailscale set --operator=<user>` — GATE-TS-OPERATOR: lets this account mount the 8443 and 10000 serves with `ops/bin/ogm-ingress.sh` and read `tailscale serve status` without sudo
   - ctx: OGM-008 docs/ops/hand-steps.md · docs/ops/ingress.md

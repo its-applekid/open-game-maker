@@ -1,21 +1,22 @@
 # Self-hosting: the lines to change
 
-The repo is set up for Kevin's host. On another host, fill these placeholders once and edit these lines by hand;
+The repo is set up for one existing host. On another host, fill these placeholders once and edit these lines by hand;
 everything else comes from env files ([runbook.md](runbook.md) "Per-unit values").
 
 - `<user>`: the Linux account that runs OGM.
 - `<tailnet-host>`: the machine's Tailscale name, for example `box.tailXXXX.ts.net`.
+- `<current-host>`: the tailnet host already in the file; replace it wherever it appears.
 - `<app-origin>`: the Netlify site URL, for example `https://<site>.netlify.app`.
 
 ## Files
 
 | File | Line today | Change to |
 | --- | --- | --- |
-| `apps/web/public/_redirects` | `/api/*  https://applekid.tailee0e71.ts.net:8443/api/:splat  200` | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
-| `apps/web/public/_redirects` | `/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200` | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
+| `apps/web/public/_redirects` | `/api/*  https://<current-host>:8443/api/:splat  200` | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
+| `apps/web/public/_redirects` | `/auth/*  https://<current-host>:8443/auth/:splat  200` | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
 | `apps/web/public/_headers` | no host today | nothing; sockets take their hosts from `OGM_PUBLIC_ORIGIN` and `OGM_VOICE_WS_URL` |
-| `apps/web/.netlify-site-id` | Kevin's site id | your Netlify site's id; `apps/web/tools/deploy.sh` reads it |
-| `services/voice-host/README.md` (build command) | `OGM_AIUR_GIT=/home/orangekid/github/aiur` | `OGM_AIUR_GIT=/home/<user>/github/aiur`, the aiur checkout from setup step 3 |
+| `apps/web/.netlify-site-id` | the current site's id | your Netlify site's id; `apps/web/tools/deploy.sh` reads it |
+| `services/voice-host/README.md` (build command) | `OGM_AIUR_GIT=` followed by the current owner's checkout path | `OGM_AIUR_GIT=$HOME/github/aiur`, the aiur checkout from setup step 3 |
 
 The games frame's origin is baked into the web build: `apps/web/src/routes/game/GameScreen.tsx` reads
 `VITE_GAMES_ORIGIN` and falls back to `http://127.0.0.1:10000`. Set it when you build or deploy the app:
@@ -27,7 +28,7 @@ VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 apps/web/tools/deploy.sh
 The commit unit needs no edit: `ops/systemd/ogm-commit.service` uses `@REPO@` like every other unit, and
 `ops/bin/ogm-host-setup.sh` fills in the checkout path.
 
-`.env.example` and `packages/config/src/names.ts` show Kevin's host in the comments for `OGM_PUBLIC_ORIGIN`,
+`.env.example` and `packages/config/src/names.ts` show the current host in the comments for `OGM_PUBLIC_ORIGIN`,
 `OGM_GAMES_ORIGIN` and `OGM_VOICE_WS_URL`. They are examples; set the real values in the env files:
 
 ```
