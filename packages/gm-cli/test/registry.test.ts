@@ -42,6 +42,7 @@ describe('command registry', () => {
       'assets search',
       'assets sheet',
       'assets use',
+      'assets vendor',
       'assets why',
       'build',
       'build assets',
