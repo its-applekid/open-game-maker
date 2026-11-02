@@ -79,7 +79,7 @@ Time: ~30 min, mostly waiting
 
 Preconditions: Step 1 is complete and the checkout is at ~/games/open-game-maker-2000.
 
-### 2.1 Install Node 24 and pnpm 10.33.0, then install and build the workspace.
+### 2.1 Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
 
 Command:
 
@@ -87,6 +87,7 @@ Command:
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build
+systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
 ```
 
 Writes: `node_modules`, `apps/*/dist`, `packages/*/dist`, `services/*/dist`

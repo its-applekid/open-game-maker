@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "start": "node dist/main.js",
     "pretypecheck": "pnpm --filter @ogm/asset-cards --filter @ogm/config build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "pnpm --filter @ogm/asset-cards --filter @ogm/config build",
