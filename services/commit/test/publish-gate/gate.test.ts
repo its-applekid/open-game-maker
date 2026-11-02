@@ -23,10 +23,18 @@ function dependencies(request: GitHubRequest): { app: GitHubApp; api: BoundaryAp
   return {
     app: contextWith(request).app,
     api: {
-      async activeRepositories() { return []; },
-      async piiTerms() { return []; },
+      async activeRepositories() {
+        return [];
+      },
+      async piiTerms() {
+        return [];
+      },
     },
-    blocklist: { async load() { return new Set<string>(); } },
+    blocklist: {
+      async load() {
+        return new Set<string>();
+      },
+    },
   };
 }
 
@@ -74,19 +82,23 @@ describe('RealBoundaryGate', () => {
 
     expect(verdict).toMatchObject({
       allowed: false,
-      reasons: [expect.objectContaining({ code: 'rights', path: asset.path, detail: expect.stringContaining(asset.id) })],
+      reasons: [
+        expect.objectContaining({ code: 'rights', path: asset.path, detail: expect.stringContaining(asset.id) }),
+      ],
     });
   });
 
   it('allows releasing a clean private tree', async () => {
     const gate = new RealBoundaryGate(dependencies(treeRequest(lock(), false)));
 
-    await expect(gate.evaluate({
-      kind: 'release',
-      gameId: 'game-1',
-      repository,
-      sha: 'release-sha',
-    })).resolves.toEqual({ allowed: true, reasons: [] });
+    await expect(
+      gate.evaluate({
+        kind: 'release',
+        gameId: 'game-1',
+        repository,
+        sha: 'release-sha',
+      }),
+    ).resolves.toEqual({ allowed: true, reasons: [] });
   });
 
   it('checks inline fold content against the diff rules', async () => {
@@ -101,7 +113,9 @@ describe('RealBoundaryGate', () => {
       gameId: 'game-1',
       repository,
       sha: 'base-sha',
-      files: [{ path: 'design/secrets.ts', bytes: 40, content: 'const token = "ghp_abcdefghijklmnopqrstuvwxyz123456";' }],
+      files: [
+        { path: 'design/secrets.ts', bytes: 40, content: 'const token = "ghp_abcdefghijklmnopqrstuvwxyz123456";' },
+      ],
     });
 
     expect(verdict).toMatchObject({ allowed: false, reasons: [expect.objectContaining({ code: 'secret' })] });
@@ -110,33 +124,51 @@ describe('RealBoundaryGate', () => {
   it('fails closed without leaking an I/O error message', async () => {
     const gate = new RealBoundaryGate({
       ...dependencies(fakeRequest(() => ({})).request),
-      app: { forOwner: vi.fn(async () => { throw new TypeError('credential leaked here'); }), async identity() { throw new Error('unused'); } },
+      app: {
+        forOwner: vi.fn(async () => {
+          throw new TypeError('credential leaked here');
+        }),
+        async identity() {
+          throw new Error('unused');
+        },
+      },
     });
 
-    await expect(gate.evaluate({
-      kind: 'release',
-      gameId: 'game-1',
-      repository,
-      sha: 'release-sha',
-    })).resolves.toEqual({
+    await expect(
+      gate.evaluate({
+        kind: 'release',
+        gameId: 'game-1',
+        repository,
+        sha: 'release-sha',
+      }),
+    ).resolves.toEqual({
       allowed: false,
       reasons: [{ code: 'denylist', detail: 'gate error: TypeError' }],
     });
   });
 
   it('allows a private visibility change without reading the repository', async () => {
-    const forOwner = vi.fn(async () => { throw new Error('must not run'); });
+    const forOwner = vi.fn(async () => {
+      throw new Error('must not run');
+    });
     const gate = new RealBoundaryGate({
       ...dependencies(fakeRequest(() => ({})).request),
-      app: { forOwner, async identity() { throw new Error('unused'); } },
+      app: {
+        forOwner,
+        async identity() {
+          throw new Error('unused');
+        },
+      },
     });
 
-    await expect(gate.evaluate({
-      kind: 'set_visibility',
-      gameId: 'game-1',
-      repository: { ...repository, visibility: 'public' },
-      targetVisibility: 'private',
-    })).resolves.toEqual({ allowed: true, reasons: [] });
+    await expect(
+      gate.evaluate({
+        kind: 'set_visibility',
+        gameId: 'game-1',
+        repository: { ...repository, visibility: 'public' },
+        targetVisibility: 'private',
+      }),
+    ).resolves.toEqual({ allowed: true, reasons: [] });
     expect(forOwner).not.toHaveBeenCalled();
   });
 });

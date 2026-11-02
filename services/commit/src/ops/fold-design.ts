@@ -1,7 +1,8 @@
 import { GitHubRequestError } from '../github-request.js';
+import { mainHead } from '../boundary/inputs.js';
 import { normalizeCommitPath } from '../paths.js';
 import { refused } from '../result.js';
-import type { CommitResult, GitHubRequest, Repository } from '../types.js';
+import type { CommitResult } from '../types.js';
 import type { OperationContext } from './context.js';
 import { createCommit, createTreeFromFiles } from './git-data.js';
 import type { ExtractCommitOp } from './operation-types.js';
@@ -14,14 +15,6 @@ function isNonFastForward(error: unknown): boolean {
     error.status === 422 &&
     /fast.?forward|reference update failed/iu.test(error.message)
   );
-}
-
-async function latestHead(request: GitHubRequest, repo: Repository): Promise<string> {
-  const response = await request<{ object: { sha: string } }>('GET /repos/{owner}/{repo}/git/ref/{ref}', {
-    ...repo,
-    ref: 'heads/main',
-  });
-  return response.data.object.sha;
 }
 
 export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: OperationContext): Promise<CommitResult> {
@@ -38,11 +31,7 @@ export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: Op
     kind: op.kind,
     gameId: op.gameId,
     repository,
-    files: op.files.map((file) => ({
-      path: file.path,
-      bytes: Buffer.byteLength(file.content),
-      content: file.content,
-    })),
+    files: op.files.map((file) => ({ path: file.path, content: file.content })),
     sha: op.base,
   });
   if (!verdict.allowed) return { ok: false, verdict };
@@ -68,7 +57,7 @@ export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: Op
     } catch (error) {
       if (!isNonFastForward(error)) throw error;
       if (attempt === 2) return refused('denylist', 'main moved during design fold');
-      base = await latestHead(github.request, repository);
+      base = await mainHead(github.request, repository);
     }
   }
   return refused('denylist', 'main moved during design fold');

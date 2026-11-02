@@ -52,15 +52,17 @@ describe('path rule', () => {
   );
 
   it('denies traversal, escaping symlinks, emails, and profile names in file names', () => {
-    const verdict = evaluateDiff(input({
-      profileNames: ['Alice Example'],
-      files: [
-        file('assets/../../etc/passwd'),
-        file('links/out', { mode: '120000', content: '../../outside' }),
-        file('notes/alice@example.com.txt'),
-        file('notes/Alice Example.txt'),
-      ],
-    }));
+    const verdict = evaluateDiff(
+      input({
+        profileNames: ['Alice Example'],
+        files: [
+          file('assets/../../etc/passwd'),
+          file('links/out', { mode: '120000', content: '../../outside' }),
+          file('notes/alice@example.com.txt'),
+          file('notes/Alice Example.txt'),
+        ],
+      }),
+    );
 
     expect(verdict.reasons.filter(({ code }) => code === 'path')).toHaveLength(4);
   });
@@ -110,17 +112,25 @@ describe('secret rule', () => {
 
   it('detects high entropy strings but ignores declared sha256 values', () => {
     const entropy = 'aB3dE5gH7jK9mN2pQ4rS6tV8xY0z+/=_';
-    expect(codes(evaluateDiff(input({ files: [file('src/config.ts', { content: `const value = '${entropy}';\n` })] })))).toContain('secret');
-    expect(evaluateDiff(input({ files: [file('assets.lock.json', { content: `{"sha256":"${'a'.repeat(64)}"}\n` })] }))).toEqual({ allowed: true, reasons: [] });
+    expect(
+      codes(evaluateDiff(input({ files: [file('src/config.ts', { content: `const value = '${entropy}';\n` })] }))),
+    ).toContain('secret');
+    expect(
+      evaluateDiff(input({ files: [file('assets.lock.json', { content: `{"sha256":"${'a'.repeat(64)}"}\n` })] })),
+    ).toEqual({ allowed: true, reasons: [] });
   });
 });
 
 describe('pii rule', () => {
   it('detects profile terms, email, phone, and street addresses without quoting matches', () => {
-    const verdict = evaluateDiff(input({
-      profileNames: ['Alice Example'],
-      files: [file('credits.md', { content: 'Alice Example\nalice@example.com\n+1 (415) 555-1212\n123 Main Street\n' })],
-    }));
+    const verdict = evaluateDiff(
+      input({
+        profileNames: ['Alice Example'],
+        files: [
+          file('credits.md', { content: 'Alice Example\nalice@example.com\n+1 (415) 555-1212\n123 Main Street\n' }),
+        ],
+      }),
+    );
     const reasons = verdict.reasons.filter(({ code }) => code === 'pii');
 
     expect(reasons).toHaveLength(4);
@@ -131,16 +141,20 @@ describe('pii rule', () => {
 describe('denylist rule', () => {
   it('denies blocklisted bytes and public agent artifacts', () => {
     const blockedSha = 'f'.repeat(64);
-    const verdict = evaluateDiff(input({
-      visibility: 'public',
-      blocklist: new Set([blockedSha]),
-      files: [file('assets/blocked.glb', { sha256: blockedSha }), file('run.workpad.md')],
-    }));
+    const verdict = evaluateDiff(
+      input({
+        visibility: 'public',
+        blocklist: new Set([blockedSha]),
+        files: [file('assets/blocked.glb', { sha256: blockedSha }), file('run.workpad.md')],
+      }),
+    );
 
-    expect(verdict.reasons).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'denylist', path: 'assets/blocked.glb' }),
-      expect.objectContaining({ code: 'denylist', path: 'run.workpad.md', detail: 'agent artifact' }),
-    ]));
+    expect(verdict.reasons).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: 'denylist', path: 'assets/blocked.glb' }),
+        expect.objectContaining({ code: 'denylist', path: 'run.workpad.md', detail: 'agent artifact' }),
+      ]),
+    );
   });
 
   it('fails closed for a missing public blocklist and permits a missing private blocklist', () => {
@@ -188,10 +202,12 @@ describe('rights rule', () => {
       reasons: [],
     });
     const publicVerdict = evaluateTree(input({ draft: false, visibility: 'public', files, lockfile: lock([asset]) }));
-    expect(publicVerdict.reasons).toContainEqual(expect.objectContaining({
-      code: 'rights',
-      path: asset.path,
-      detail: expect.stringContaining(asset.id),
-    }));
+    expect(publicVerdict.reasons).toContainEqual(
+      expect.objectContaining({
+        code: 'rights',
+        path: asset.path,
+        detail: expect.stringContaining(asset.id),
+      }),
+    );
   });
 });

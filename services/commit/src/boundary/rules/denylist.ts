@@ -6,9 +6,7 @@ function agentArtifact(path: string): boolean {
   const normalized = path.replaceAll('\\', '/');
   const basename = posix.basename(normalized);
   return (
-    /\.workpad\.md$/iu.test(basename) ||
-    /^transcript.*\.(?:md|txt|json)$/iu.test(basename) ||
-    normalized === 'plan.md'
+    /\.workpad\.md$/iu.test(basename) || /^transcript.*\.(?:md|txt|json)$/iu.test(basename) || normalized === 'plan.md'
   );
 }
 

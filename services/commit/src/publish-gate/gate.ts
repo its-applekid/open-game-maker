@@ -44,20 +44,19 @@ export class RealBoundaryGate implements BoundaryGate {
 
     try {
       const github = await this.#app.forOwner(input.repository.owner);
-      const [blocklist, profileNames] = await Promise.all([
-        this.#blocklist.load(),
-        this.#api.piiTerms(input.gameId),
-      ]);
+      const [blocklist, profileNames] = await Promise.all([this.#blocklist.load(), this.#api.piiTerms(input.gameId)]);
 
       if (input.kind === 'fold_design') {
-        return evaluateBoundary(await buildInlineDiffInput({
-          request: github.request,
-          repository: input.repository,
-          baseSha: required(input.sha, 'sha'),
-          files: required(input.files, 'files'),
-          blocklist,
-          profileNames,
-        }));
+        return evaluateBoundary(
+          await buildInlineDiffInput({
+            request: github.request,
+            repository: input.repository,
+            baseSha: required(input.sha, 'sha'),
+            files: required(input.files, 'files'),
+            blocklist,
+            profileNames,
+          }),
+        );
       }
 
       if (input.kind === 'merge') {
@@ -71,17 +70,18 @@ export class RealBoundaryGate implements BoundaryGate {
         return evaluateBoundary(built.input);
       }
 
-      const sha = input.kind === 'release'
-        ? required(input.sha, 'sha')
-        : await mainHead(github.request, input.repository);
-      return evaluateBoundary(await buildTreeInput({
-        request: github.request,
-        repository: input.repository,
-        sha,
-        visibility: input.kind === 'set_visibility' ? 'public' : input.repository.visibility,
-        blocklist,
-        profileNames,
-      }));
+      const sha =
+        input.kind === 'release' ? required(input.sha, 'sha') : await mainHead(github.request, input.repository);
+      return evaluateBoundary(
+        await buildTreeInput({
+          request: github.request,
+          repository: input.repository,
+          sha,
+          visibility: input.kind === 'set_visibility' ? 'public' : input.repository.visibility,
+          blocklist,
+          profileNames,
+        }),
+      );
     } catch (error) {
       return gateError(error);
     }

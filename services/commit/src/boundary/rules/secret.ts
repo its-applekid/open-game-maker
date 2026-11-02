@@ -31,7 +31,9 @@ function knownHash(line: string, token: string): boolean {
 }
 
 function textFile(path: string): boolean {
-  return TEXT_EXTENSIONS.has(posix.extname(path).slice(1).toLocaleLowerCase()) || posix.basename(path).startsWith('.env');
+  return (
+    TEXT_EXTENSIONS.has(posix.extname(path).slice(1).toLocaleLowerCase()) || posix.basename(path).startsWith('.env')
+  );
 }
 
 export const secretRule: BoundaryRule = (input) => {
@@ -47,8 +49,11 @@ export const secretRule: BoundaryRule = (input) => {
       }
       if (line.includes('data:')) return;
       ENTROPY_TOKEN.lastIndex = 0;
-      const tokenLike = [...line.matchAll(ENTROPY_TOKEN)].some(({ 0: token }) => !knownHash(line, token) && entropy(token) > 4.5);
-      if (tokenLike) reasons.push({ code: 'secret', path: file.path, detail: `high-entropy string at line ${index + 1}` });
+      const tokenLike = [...line.matchAll(ENTROPY_TOKEN)].some(
+        ({ 0: token }) => !knownHash(line, token) && entropy(token) > 4.5,
+      );
+      if (tokenLike)
+        reasons.push({ code: 'secret', path: file.path, detail: `high-entropy string at line ${index + 1}` });
     });
   }
   return reasons;

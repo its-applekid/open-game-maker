@@ -5,7 +5,7 @@ export type GateInput = {
   gameId: string;
   repository: Repository;
   targetVisibility?: Visibility;
-  files?: { path: string; bytes: number; content: string }[];
+  files?: { path: string; content: string }[];
   prNumber?: number;
   sha?: string;
 };

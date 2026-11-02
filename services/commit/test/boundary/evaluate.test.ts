@@ -68,16 +68,17 @@ describe('boundary evaluator', () => {
       }),
     );
 
-    expect(new Set(verdict.reasons.map(({ code }) => code))).toEqual(
-      new Set(['path', 'denylist', 'secret']),
-    );
+    expect(new Set(verdict.reasons.map(({ code }) => code))).toEqual(new Set(['path', 'denylist', 'secret']));
   });
 
   it('keeps fifty reasons and appends an overflow summary', () => {
-    const rules: BoundaryRule[] = [() => Array.from({ length: 60 }, (_, index) => ({
-      code: 'path' as const,
-      detail: `reason ${index + 1}`,
-    }))];
+    const rules: BoundaryRule[] = [
+      () =>
+        Array.from({ length: 60 }, (_, index) => ({
+          code: 'path' as const,
+          detail: `reason ${index + 1}`,
+        })),
+    ];
 
     const verdict = evaluateBoundary({ ...input(), mode: 'diff' }, rules);
 

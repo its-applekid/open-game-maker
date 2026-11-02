@@ -20,11 +20,7 @@ function validSignature(body: Uint8Array, secret: string, signature: string | un
 
 function requestOf(payload: Payload, active: ActiveRepository): BoundaryCheckRequest | undefined {
   const pull = payload.pull_request;
-  if (
-    pull?.number === undefined ||
-    pull.draft === undefined ||
-    pull.head?.sha === undefined
-  ) return undefined;
+  if (pull?.number === undefined || pull.draft === undefined || pull.head?.sha === undefined) return undefined;
   return {
     gameId: active.gameId,
     repository: { owner: active.owner, name: active.name, visibility: active.visibility },

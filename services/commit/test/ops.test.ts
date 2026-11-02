@@ -82,7 +82,7 @@ describe('commit operations', () => {
       gameId: 'game-1',
       repository: { owner: 'alice', name: 'gm-game-1', visibility: 'private' },
       sha: 'old-base',
-      files: [{ path: 'design/entities.json', bytes: 2, content: '{}' }],
+      files: [{ path: 'design/entities.json', content: '{}' }],
     });
   });
 

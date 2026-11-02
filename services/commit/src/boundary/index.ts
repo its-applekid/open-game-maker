@@ -11,12 +11,7 @@ export {
   mainHead,
   type PullSnapshot,
 } from './inputs.js';
-export {
-  runBoundaryPoll,
-  startBoundaryPoller,
-  type BoundaryCheck,
-  type BoundaryCheckRequest,
-} from './poller.js';
+export { runBoundaryPoll, startBoundaryPoller, type BoundaryCheck, type BoundaryCheckRequest } from './poller.js';
 export { registerBoundaryWebhook } from './webhook.js';
 export type {
   BoundaryActor,

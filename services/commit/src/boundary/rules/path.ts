@@ -33,7 +33,10 @@ function escapingSymlink(file: BoundaryFile): boolean {
 function personalFilename(path: string, profileNames: string[]): boolean {
   const basename = posix.basename(path.replaceAll('\\', '/'));
   const folded = basename.toLocaleLowerCase();
-  return email.test(basename) || profileNames.some((term) => term.trim().length > 1 && folded.includes(term.trim().toLocaleLowerCase()));
+  return (
+    email.test(basename) ||
+    profileNames.some((term) => term.trim().length > 1 && folded.includes(term.trim().toLocaleLowerCase()))
+  );
 }
 
 function reason(path: string, detail: string): BoundaryReason {

@@ -1,4 +1,5 @@
 import { GitHubRequestError } from '../github-request.js';
+import { mapConcurrent } from '../concurrency.js';
 import { repositoryName } from '../paths.js';
 import { refused } from '../result.js';
 import type { CommitResult, GitHubRequest, Repository } from '../types.js';
@@ -20,21 +21,6 @@ export const MAX_FORK_BYTES = 100 * 1024 * 1024;
 
 function excluded(path: string): boolean {
   return path === '.gm' || path.startsWith('.gm/') || path === 'saves' || path.startsWith('saves/');
-}
-
-async function mapConcurrent<T, U>(items: T[], limit: number, transform: (item: T) => Promise<U>): Promise<U[]> {
-  const output = new Array<U>(items.length);
-  let next = 0;
-  async function work(): Promise<void> {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      const item = items[index];
-      if (item !== undefined) output[index] = await transform(item);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, work));
-  return output;
 }
 
 async function completedForkSha(

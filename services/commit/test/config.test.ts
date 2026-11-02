@@ -38,11 +38,13 @@ describe('loadCommitConfig', () => {
   });
 
   it('accepts explicit blocklist and webhook settings', () => {
-    expect(loadCommitConfig({
-      ...base,
-      OGM_BLOCKLIST_FILE: '/srv/ogm/blocked.txt',
-      OGM_GITHUB_WEBHOOK_SECRET: 'w'.repeat(32),
-    })).toMatchObject({
+    expect(
+      loadCommitConfig({
+        ...base,
+        OGM_BLOCKLIST_FILE: '/srv/ogm/blocked.txt',
+        OGM_GITHUB_WEBHOOK_SECRET: 'w'.repeat(32),
+      }),
+    ).toMatchObject({
       blocklistFile: '/srv/ogm/blocked.txt',
       githubWebhookSecret: 'w'.repeat(32),
     });

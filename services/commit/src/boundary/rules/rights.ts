@@ -15,7 +15,12 @@ function entryReasons(entry: LockEntry, input: Parameters<BoundaryRule>[0]): Bou
   const hasInGame = entry.rights.uses.includes('in-game');
   const draftPlaceholder = input.mode === 'diff' && input.draft && entry.rights.uses.includes('placeholder');
   if (!hasInGame && !draftPlaceholder) {
-    reasons.push(detail(entry, input.mode === 'tree' ? 'placeholder-only assets cannot be published' : 'rights do not allow in-game use'));
+    reasons.push(
+      detail(
+        entry,
+        input.mode === 'tree' ? 'placeholder-only assets cannot be published' : 'rights do not allow in-game use',
+      ),
+    );
   }
   if (entry.rights.redistribution === 'none') {
     reasons.push(detail(entry, 'rights prohibit redistribution'));
@@ -30,17 +35,22 @@ export const rightsRule: BoundaryRule = (input) => {
   if (input.lockfile === null) {
     const asset = input.files.find(isAsset);
     if (input.mode === 'tree' || asset !== undefined) {
-      return [{
-        code: 'rights',
-        path: asset?.path ?? 'assets.lock.json',
-        detail: input.mode === 'tree' ? 'assets.lock.json is missing' : 'asset cannot be checked without assets.lock.json',
-      }];
+      return [
+        {
+          code: 'rights',
+          path: asset?.path ?? 'assets.lock.json',
+          detail:
+            input.mode === 'tree' ? 'assets.lock.json is missing' : 'asset cannot be checked without assets.lock.json',
+        },
+      ];
     }
     return [];
   }
 
   const entries = new Map(input.lockfile.assets.map((entry) => [entry.path.replaceAll('\\', '/'), entry]));
-  const files = new Map(input.files.filter((file) => file.status !== 'removed').map((file) => [file.path.replaceAll('\\', '/'), file]));
+  const files = new Map(
+    input.files.filter((file) => file.status !== 'removed').map((file) => [file.path.replaceAll('\\', '/'), file]),
+  );
   const reasons: BoundaryReason[] = [];
   const checked = new Set<string>();
 

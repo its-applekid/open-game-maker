@@ -3,6 +3,7 @@ import { posix } from 'node:path';
 
 import { AssetsLockSchema, type AssetsLock } from '@ogm/contracts';
 
+import { mapConcurrent } from '../concurrency.js';
 import { GitHubRequestError } from '../github-request.js';
 import type { GitHubRequest, Repository, Visibility } from '../types.js';
 import type { BoundaryActor, BoundaryFile, BoundaryFileStatus, BoundaryInput } from './types.js';
@@ -43,7 +44,12 @@ function binaryFile(path: string, content: Buffer): boolean {
   return BINARY_EXTENSIONS.has(extension) || content.includes(0);
 }
 
-async function fetchBlob(request: GitHubRequest, repository: Repository, sha: string, path: string): Promise<BoundaryFile> {
+async function fetchBlob(
+  request: GitHubRequest,
+  repository: Repository,
+  sha: string,
+  path: string,
+): Promise<BoundaryFile> {
   const response = await request<Blob>('GET /repos/{owner}/{repo}/git/blobs/{file_sha}', {
     ...repository,
     file_sha: sha,
@@ -127,24 +133,22 @@ export async function buildDiffInput(options: {
     };
   }
   const changed = await pullFiles(options.request, options.repository, options.prNumber);
-  const files: BoundaryFile[] = [];
-  for (const changedFile of changed) {
+  const files = await mapConcurrent(changed, 8, async (changedFile): Promise<BoundaryFile> => {
     const status = fileStatus(changedFile.status);
     if (status === 'removed') {
-      files.push({
+      return {
         path: changedFile.filename,
         status,
         bytes: 0,
         sha256: '',
         binary: false,
-      });
-      continue;
+      };
     }
-    files.push({
+    return {
       ...(await fetchBlob(options.request, options.repository, changedFile.sha, changedFile.filename)),
       status,
-    });
-  }
+    };
+  });
   const lockfile = await readLockfile(options.request, options.repository, pull.headSha);
   return {
     headSha: pull.headSha,
@@ -181,15 +185,15 @@ export async function buildTreeInput(options: {
   });
   if (response.data.truncated) throw new BoundaryInputError('github tree response is truncated');
 
-  const files: BoundaryFile[] = [];
-  for (const entry of response.data.tree) {
-    if (entry.type !== 'blob' || entry.path === undefined || entry.sha === undefined) continue;
-    files.push({
-      ...(await fetchBlob(options.request, options.repository, entry.sha, entry.path)),
-      status: 'added',
-      mode: entry.mode,
-    });
-  }
+  const blobs = response.data.tree.filter(
+    (entry): entry is TreeEntry & Required<Pick<TreeEntry, 'path' | 'sha'>> =>
+      entry.type === 'blob' && entry.path !== undefined && entry.sha !== undefined,
+  );
+  const files = await mapConcurrent(blobs, 8, async (entry): Promise<BoundaryFile> => ({
+    ...(await fetchBlob(options.request, options.repository, entry.sha, entry.path)),
+    status: 'added',
+    mode: entry.mode,
+  }));
   const lockFile = files.find(({ path }) => path === 'assets.lock.json');
   let lockfile: AssetsLock | null = null;
   if (lockFile?.content !== undefined) {

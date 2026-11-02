@@ -8,6 +8,7 @@ type CheckRuns = { total_count: number; check_runs: { name: string }[] };
 const defaultDelay: Delay = async (milliseconds) => {
   await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 };
+const MAX_REMEMBERED_HEADS = 10_000;
 
 function line(reason: BoundaryVerdict['reasons'][number]): string {
   const location = reason.path === undefined ? '' : ` \`${reason.path}\``;
@@ -38,14 +39,23 @@ export class BoundaryCheckPoster {
     this.#delay = options.delay ?? defaultDelay;
   }
 
-  async #exists(request: GitHubRequest, repository: Repository, headSha: string): Promise<boolean> {
+  #remember(key: string): void {
+    if (this.#posted.size >= MAX_REMEMBERED_HEADS) this.#posted.clear();
+    this.#posted.add(key);
+  }
+
+  async exists(request: GitHubRequest, repository: Repository, headSha: string): Promise<boolean> {
+    const key = `${repository.owner}/${repository.name}@${headSha}`;
+    if (this.#posted.has(key)) return true;
     const response = await request<CheckRuns>('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
       ...repository,
       ref: headSha,
       check_name: 'ogm/boundary',
       per_page: 1,
     });
-    return response.data.check_runs.some(({ name }) => name === 'ogm/boundary');
+    const exists = response.data.check_runs.some(({ name }) => name === 'ogm/boundary');
+    if (exists) this.#remember(key);
+    return exists;
   }
 
   async post(request: GitHubRequest, repository: Repository, headSha: string, verdict: BoundaryVerdict): Promise<void> {
@@ -54,10 +64,7 @@ export class BoundaryCheckPoster {
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        if (await this.#exists(request, repository, headSha)) {
-          this.#posted.add(key);
-          return;
-        }
+        if (await this.exists(request, repository, headSha)) return;
         await request('POST /repos/{owner}/{repo}/check-runs', {
           ...repository,
           name: 'ogm/boundary',
@@ -66,7 +73,7 @@ export class BoundaryCheckPoster {
           conclusion: verdict.allowed ? 'success' : 'failure',
           output: checkRunOutput(verdict),
         });
-        this.#posted.add(key);
+        this.#remember(key);
         return;
       } catch (error) {
         if (attempt === 2) throw error;

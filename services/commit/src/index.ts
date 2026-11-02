@@ -21,7 +21,9 @@ async function main(): Promise<void> {
   });
   const log = (entry: Record<string, unknown>) => console.log(JSON.stringify(entry));
   const api = new BoundaryApiClient({ baseUrl: config.apiInternalUrl, token: config.internalToken });
-  const blocklist = createBlocklistLoader(config.blocklistFile, (message) => log({ event: 'boundary-warning', message }));
+  const blocklist = createBlocklistLoader(config.blocklistFile, (message) =>
+    log({ event: 'boundary-warning', message }),
+  );
   const checker = new BoundaryChecker({ app: github, api, blocklist });
   const runBoundaryCheck = async (request: Parameters<BoundaryChecker['check']>[0]) => {
     await checker.check(request);
@@ -41,9 +43,10 @@ async function main(): Promise<void> {
       secret: config.githubWebhookSecret,
       async resolveRepository(owner, name) {
         const repositories = await api.activeRepositories();
-        return repositories.find((repository) =>
-          repository.owner.toLocaleLowerCase() === owner.toLocaleLowerCase() &&
-          repository.name.toLocaleLowerCase() === name.toLocaleLowerCase()
+        return repositories.find(
+          (repository) =>
+            repository.owner.toLocaleLowerCase() === owner.toLocaleLowerCase() &&
+            repository.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
         );
       },
       run: runBoundaryCheck,

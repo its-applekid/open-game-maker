@@ -61,7 +61,12 @@ describe('GitHub boundary input', () => {
     });
 
     expect(built.headSha).toBe('head-1');
-    expect(built.input).toMatchObject({ draft: true, mode: 'diff', visibility: 'private', profileNames: ['Alice Example'] });
+    expect(built.input).toMatchObject({
+      draft: true,
+      mode: 'diff',
+      visibility: 'private',
+      profileNames: ['Alice Example'],
+    });
     expect(built.input.files.find(({ path }) => path === 'README.md')).toMatchObject({
       path: 'README.md',
       status: 'modified',
@@ -95,7 +100,9 @@ describe('boundary check run', () => {
     await poster.post(request, repository, 'head-1', verdict);
 
     const posts = calls.filter(({ route }) => route.startsWith('POST'));
+    const reads = calls.filter(({ route }) => route.startsWith('GET'));
     expect(posts).toHaveLength(1);
+    expect(reads).toHaveLength(1);
     expect(posts[0]?.parameters).toMatchObject({
       name: 'ogm/boundary',
       head_sha: 'head-1',
@@ -126,9 +133,7 @@ describe('boundary poller', () => {
   it('checks every open pull request from active game repositories', async () => {
     const { request } = fakeRequest((call) => {
       if (call.route.endsWith('/pulls')) {
-        return call.parameters.page === 1
-          ? [{ number: 7, draft: false, head: { sha: 'head-7' } }]
-          : [];
+        return call.parameters.page === 1 ? [{ number: 7, draft: false, head: { sha: 'head-7' } }] : [];
       }
       throw new Error(`unexpected route ${call.route}`);
     });

@@ -24,8 +24,9 @@ function personalName(name: string, email: string): string | undefined {
 const routes = new Hono<ApiBindings>()
   .get('/games/active-repos', (c) => {
     requireCommitService(c);
-    const repositories = c.get('deps').db
-      .select({
+    const repositories = c
+      .get('deps')
+      .db.select({
         gameId: schema.games.id,
         owner: schema.games.githubOwner,
         name: schema.games.githubRepo,

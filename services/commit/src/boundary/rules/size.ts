@@ -5,7 +5,20 @@ import type { BoundaryReason, BoundaryRule } from '../types.js';
 const MIB = 1024 * 1024;
 const MAX_FILE_BYTES = 25 * MIB;
 const MAX_DIFF_BYTES = 200 * MIB;
-const BINARY_EXTENSIONS = new Set(['glb', 'gltf', 'bin', 'png', 'webp', 'ktx2', 'mp3', 'ogg', 'wav', 'json', 'ico', 'woff2']);
+const BINARY_EXTENSIONS = new Set([
+  'glb',
+  'gltf',
+  'bin',
+  'png',
+  'webp',
+  'ktx2',
+  'mp3',
+  'ogg',
+  'wav',
+  'json',
+  'ico',
+  'woff2',
+]);
 
 function reason(path: string | undefined, detail: string): BoundaryReason {
   return { code: 'size', ...(path === undefined ? {} : { path }), detail };
