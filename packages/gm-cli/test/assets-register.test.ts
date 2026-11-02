@@ -4,6 +4,7 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { join } from 'node:path';
 
+import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
 import type { AssetsLock } from '@ogm/contracts';
@@ -53,6 +54,36 @@ describe('gm assets register keeps tier-3 bytes in the blob store (D-ASSETS-REFE
       source: 'blob',
       path: 'assets/model/boss-door.glb',
     });
+  });
+
+  // Ticket done-when: no binary is left in the repo and the asset still checks and builds, from the blob store.
+  it('leaves a registered image checkable and buildable from the blob store alone', async () => {
+    const { cwd, root } = await gameRepo();
+    const env = { OGM_ASSETS_ROOT: root, OGM_BLOB_ROOT: tempDir('gm-blobs-') };
+    /* Only the registered asset in the lock: the fixture orc is not a real glTF the build could encode. */
+    const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    writeFileSync(join(cwd, 'assets.lock.json'), JSON.stringify({ ...lock, assets: [] }));
+    const door = await sharp({ create: { width: 4, height: 4, channels: 4, background: '#a33' } })
+      .png()
+      .toBuffer();
+    mkdirSync(join(cwd, 'assets/image'), { recursive: true });
+    writeFileSync(join(cwd, 'assets/image/door.png'), door);
+    const registered = await gm(['assets', 'register', 'assets/image/door.png', '--made-by-agent', '--game', 'g1'], {
+      cwd,
+      env,
+    });
+    expect(registered.code).toBe(0);
+    expect(existsSync(join(cwd, 'assets/image/door.png'))).toBe(false);
+
+    const checked = await gm(['check', 'assets', '--json'], { cwd, env });
+    expect(checked.out.join('\n')).not.toContain('t3:g1/image/door');
+    const built = await gm(['build', 'assets', '--no-cache'], { cwd, env });
+    expect(built.err).toEqual([]);
+    expect(built.code).toBe(0);
+    const manifest = JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')) as {
+      assets: Record<string, unknown>;
+    };
+    expect(manifest.assets).toHaveProperty(['t3:g1/image/door']);
   });
 
   it('stores identical bytes once when they are registered twice', async () => {
