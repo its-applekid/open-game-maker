@@ -1,0 +1,36 @@
+steps:
+  - id: 1
+    title: First step
+    time: ~5 min
+    outcome: The first thing exists.
+    preconditions: None.
+    agent_prompt: &prompt |-
+      Do step {{N}}, {{title}} for <user>.
+
+      {{hand_list}}
+    substeps:
+      - kind: run
+        text: Run the thing on <tailnet-host>.
+        command: echo <user>@<tailnet-host>
+        writes: []
+        check: test -f <app-origin>
+        cites: [package.json]
+      - kind: hand
+        text: Sign in to the console as <github-owner>.
+        command: open https://example.test
+        writes: []
+        check: whoami
+        cites: [package.json]
+  - id: 2
+    title: Second step
+    time: ~1 min
+    outcome: The second thing exists.
+    preconditions: Step 1.
+    agent_prompt: *prompt
+    substeps:
+      - kind: optional
+        text: Maybe do this.
+        command: 'true'
+        writes: []
+        check: 'true'
+        cites: [package.json]
