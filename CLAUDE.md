@@ -10,6 +10,8 @@ use. Work here the way those agents will work: dogfood the skills.
 - **Scripted edits to JS** (python/sed splices): never put a `//` comment inside a replacement unless the line ends
   there; use `/* */` mid-line. A swallowed tail is still valid syntax, so `node --check` won't catch it (it dropped a
   scene's arguments and an iframe's attributes here); render or run the change before moving on.
+- **Scripted waits** (a chain that polls a log for an earlier step): match a terminal marker the step itself writes (`exit=0 <step>`),
+  never line adjacency (`grep -A1`); a stray log line between marker and status stalled the tiers render chain for 90 minutes.
 - **Sprite Forge skills** (`agent-sprite-forge` plugin, project scope in `.claude/settings.json`: generate2dsprite,
   generate2dmap, video2dsprite, generate2dmedia, codeart2d): run their scripts with
   `~/.local/share/ogm/forge-venv/bin/python` (no `python` on PATH). No API key is configured, so `route_media.py` falls
@@ -25,6 +27,11 @@ use. Work here the way those agents will work: dogfood the skills.
   the aiur checkout's own daemon) and never the npm `aiur` (a different fork). Kevin's NUC daemon for aiur-team/aiur runs on
   this host too (instance 5c1b32aea9): never stop or restart it. The OGM daemon is instance e110d74831 on 127.0.0.1:4010.
   Executor state: `~/.aiur/repo/its-everdred/open-game-maker-2000/executor/handoff.md`.
+  Repo is `its-everdred/open-game-maker` since 2026-11-02 (public; the old `-2000` name redirects). A rename breaks the daemon's
+  tracker writes (agents exit, tickets go `agent:error` "tracker retry exhausted"): fix `.aiur/config` `repo:` at once, then `resume`
+  each errored ticket (if "not resumable", drop `agent:error`/`agent:ci-red` with gh and `--todo`). A `dispatch_decline=dependency` is
+  GitHub's native blocked-by list (`gh api repos/<r>/issues/<n>/dependencies/blocked_by`), not the body's "Depends on" line; queue the
+  open blockers instead of re-`--todo`. When Actions is down, `executor/local-ci.sh <pr|main>` replays the workspace job locally.
   Config changes hot-reload: the daemon watches `.aiur/config` and applies it within a second without dropping agent turns
   (back the file up first; use only keys the running build knows; `aiur-main status` shows `CONFIG RELOAD REJECTED` on a
   bad file). Never stop/relaunch the daemon for a config change.
