@@ -22,16 +22,15 @@ const family: CatalogFamily = {
       vendors: ['vendor'],
       traits: {},
       packs: [],
-      requiresPrivate: true,
     },
   ],
 };
 
 describe('styleChoices', () => {
-  it('uses each catalog set as one choice and carries its privacy requirement', () => {
+  it('uses each catalog set as one creation choice', () => {
     expect(styleChoices([family])).toEqual([
-      expect.objectContaining({ id: 'public-set', familyId: 'isometric-2d', requiresPrivate: false }),
-      expect.objectContaining({ id: 'licensed-set', familyId: 'isometric-2d', requiresPrivate: true }),
+      expect.objectContaining({ id: 'public-set', familyId: 'isometric-2d' }),
+      expect.objectContaining({ id: 'licensed-set', familyId: 'isometric-2d' }),
     ]);
   });
 });

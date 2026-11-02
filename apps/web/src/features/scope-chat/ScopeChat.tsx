@@ -1,13 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router';
 
-import type { AllowanceExceeded, BudgetStatus, ScopeChoices } from '@ogm/contracts';
+import type { BudgetStatus, ScopeChoices } from '@ogm/contracts';
 
 import { api } from '../../lib/api/client';
 import { useSession } from '../../lib/api/session';
 import { formatUnits } from '../build-chat/units';
-import { admitNewGame, type AdmissionResult } from './admit';
+import { admitNewGame, type AdmissionResult, type SupportedOffer } from './admit';
 import { Captions } from './Captions';
 import { Composer } from './Composer';
 import { Offers } from './Offers';
@@ -36,6 +36,18 @@ export function ScopeChat({
     enabled: waitingForAdmin,
     refetchInterval: waitingForAdmin ? 30_000 : false,
   });
+  const voiceTarget = useMemo(
+    () =>
+      scopeSession.sessionId && session?.user.id
+        ? {
+            kind: 'scope' as const,
+            game_id: gameId,
+            session_id: scopeSession.sessionId,
+            creator_id: session.user.id,
+          }
+        : undefined,
+    [gameId, scopeSession.sessionId, session?.user.id],
+  );
 
   useEffect(() => {
     if (scopeSession.sessionId) onSession?.(scopeSession.sessionId);
@@ -59,27 +71,9 @@ export function ScopeChat({
     }
   };
 
-  const choose = async (offer: AllowanceExceeded['offers'][number]) => {
+  const choose = (offer: SupportedOffer) => {
     if (offer === 'queue') return admit('at_reset');
-    if (offer === 'ask_admin') {
-      setWaitingForAdmin(true);
-      return;
-    }
-    setSubmitting(true);
-    setAdmissionError('');
-    try {
-      await scopeSession.requestRevision(
-        offer === 'trim'
-          ? '[trim] Make this first build smaller, then agree a revised scope.'
-          : '[split] Split this into a smaller first build, then agree a revised scope.',
-      );
-      setRefusal(undefined);
-      setWaitingForAdmin(false);
-    } catch {
-      setAdmissionError('The scope could not be revised. Try again.');
-    } finally {
-      setSubmitting(false);
-    }
+    setWaitingForAdmin(true);
   };
 
   if (scopeSession.status === 'unavailable' || scopeSession.status === 'error') {
@@ -103,11 +97,7 @@ export function ScopeChat({
         {scopeSession.jobId ? (
           <Composer
             jobId={scopeSession.jobId}
-            voiceTarget={
-              scopeSession.sessionId && session?.user.id
-                ? { kind: 'scope', game_id: gameId, session_id: scopeSession.sessionId, creator_id: session.user.id }
-                : undefined
-            }
+            voiceTarget={voiceTarget}
             postText={(_jobId, text) => scopeSession.send(text)}
             onOptimistic={scopeSession.addMessage}
           />

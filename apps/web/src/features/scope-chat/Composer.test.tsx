@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DictationError, DictationTranscript } from '@ogm/voice-client';
@@ -40,9 +40,9 @@ describe('scope Composer', () => {
     );
 
     fireEvent.pointerDown(screen.getByRole('button', { name: 'Hold to talk' }));
-    dictation.finish('three small islands');
+    act(() => dictation.finish('three small islands'));
 
-    await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('three small islands'));
+    expect(screen.getByRole('textbox')).toHaveValue('three small islands');
     expect(postText).not.toHaveBeenCalled();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'three tiny islands' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));

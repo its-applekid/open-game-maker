@@ -26,7 +26,6 @@ export function FamilyStep({
           ))}
       </span>
       <span>{choice.label}</span>
-      {choice.requiresPrivate ? <small>Private</small> : null}
     </button>
   ));
 }

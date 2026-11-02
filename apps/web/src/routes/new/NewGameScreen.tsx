@@ -85,7 +85,7 @@ export function NewGameScreen() {
     if (step !== 'talk' || gameId) return;
     let current = true;
     setCreateError('');
-    void ensureGame(choices, selectedFamily?.requiresPrivate)
+    void ensureGame(choices)
       .then((id) => {
         if (current) setGameId(id);
       })
@@ -95,7 +95,7 @@ export function NewGameScreen() {
     return () => {
       current = false;
     };
-  }, [choices, createAttempt, ensureGame, gameId, selectedFamily?.requiresPrivate, step]);
+  }, [choices, createAttempt, ensureGame, gameId, step]);
 
   const go = (next: StepKey) => {
     const params = new URLSearchParams(search);

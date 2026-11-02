@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe('useCreateGame', () => {
-  it('forces a private repository for a licensed style choice', async () => {
+  it('uses the stored repository visibility', async () => {
     const fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ id: 'g_1' }), {
         status: 201,
@@ -24,11 +24,11 @@ describe('useCreateGame', () => {
     const { result } = renderHook(() => useCreateGame());
 
     await act(async () => {
-      await result.current({ genre: { picks: ['adventure'] }, vibe: { picks: ['cozy'] } }, true);
+      await result.current({ genre: { picks: ['adventure'] }, vibe: { picks: ['cozy'] } });
     });
 
     expect(fetch).toHaveBeenCalledOnce();
-    expect(JSON.parse(fetch.mock.calls[0]![1]!.body as string)).toMatchObject({ repoVisibility: 'private' });
+    expect(JSON.parse(fetch.mock.calls[0]![1]!.body as string)).toMatchObject({ repoVisibility: 'public' });
   });
 
   it('creates only once when the talk step renders again', async () => {
@@ -42,7 +42,7 @@ describe('useCreateGame', () => {
     const { result } = renderHook(() => useCreateGame());
 
     await act(async () => {
-      await Promise.all([result.current({}, false), result.current({}, false)]);
+      await Promise.all([result.current({}), result.current({})]);
     });
 
     expect(fetch).toHaveBeenCalledOnce();
@@ -62,10 +62,10 @@ describe('useCreateGame', () => {
     const { result } = renderHook(() => useCreateGame());
 
     await act(async () => {
-      await expect(result.current({}, false)).rejects.toThrow('api 503');
+      await expect(result.current({})).rejects.toThrow('api 503');
     });
     await act(async () => {
-      await expect(result.current({}, false)).resolves.toBe('g_2');
+      await expect(result.current({})).resolves.toBe('g_2');
     });
 
     expect(fetch).toHaveBeenCalledTimes(2);

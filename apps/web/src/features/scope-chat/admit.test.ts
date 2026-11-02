@@ -75,7 +75,7 @@ describe('admitNewGame', () => {
         { gameId: 'g_1', sessionId: 's_1', scope, attempt: 1, start: 'now' },
         { request, navigate: vi.fn() },
       ),
-    ).resolves.toMatchObject({ kind: 'refused', offers: ['trim', 'queue'] });
+    ).resolves.toMatchObject({ kind: 'refused', offers: ['queue'] });
   });
 
   it('queues the same plan at reset with the next idempotency suffix', async () => {

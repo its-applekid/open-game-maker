@@ -13,7 +13,6 @@ export type CatalogSet = {
   vendors: string[];
   traits: Record<string, string | undefined>;
   packs: CatalogPack[];
-  requiresPrivate?: boolean;
 };
 
 export type CatalogFamily = {
@@ -23,7 +22,6 @@ export type CatalogFamily = {
   creationChoice: boolean;
   packs: CatalogPack[];
   sets: CatalogSet[];
-  requiresPrivate?: boolean;
 };
 
 export type StyleChoice = {
@@ -32,7 +30,6 @@ export type StyleChoice = {
   familyId: string;
   views: string[];
   packs: CatalogPack[];
-  requiresPrivate: boolean;
 };
 
 export function useCatalog() {
@@ -55,7 +52,6 @@ export function styleChoices(families: CatalogFamily[]): StyleChoice[] {
           familyId: family.id,
           views: family.views,
           packs: family.packs,
-          requiresPrivate: family.requiresPrivate ?? false,
         },
       ];
     }
@@ -65,7 +61,6 @@ export function styleChoices(families: CatalogFamily[]): StyleChoice[] {
       familyId: family.id,
       views: family.views,
       packs: set.packs,
-      requiresPrivate: set.requiresPrivate ?? family.requiresPrivate ?? false,
     }));
   });
 }

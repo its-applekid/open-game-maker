@@ -7,7 +7,7 @@ import { reduceMessages, type StreamedChatMessage } from '../build-chat/stream';
 import { scopeTransport, type ScopeTransport } from './transport';
 
 export type ScopeTurn = { id: string; who: 'you' | 'builder'; text: string };
-export type ScopeStatus = 'connecting' | 'open' | 'agreed' | 'revising' | 'unavailable' | 'error';
+export type ScopeStatus = 'connecting' | 'open' | 'agreed' | 'unavailable' | 'error';
 
 export function useScopeSession(gameId: string, choices: ScopeChoices, transport: ScopeTransport = scopeTransport) {
   const [sessionId, setSessionId] = useState<string>();
@@ -16,33 +16,37 @@ export function useScopeSession(gameId: string, choices: ScopeChoices, transport
   const [messages, setMessages] = useState<StreamedChatMessage[]>([]);
   const [status, setStatus] = useState<ScopeStatus>('connecting');
   const [error, setError] = useState('');
-  const revisionBase = useRef<string | undefined>(undefined);
   const latestScope = useRef<string | undefined>(undefined);
   const choicesKey = JSON.stringify(choices);
 
   useEffect(() => {
     let current = true;
+    let refreshing = false;
     let stopStream: (() => void) | undefined;
     let poll: ReturnType<typeof setInterval> | undefined;
 
     const refresh = async (id: string) => {
-      const session = await transport.getSession(gameId, id);
-      if (!current) return;
-      if (session.status === 'agreed' && session.scope) {
-        const next = JSON.stringify(session.scope);
-        if (revisionBase.current !== undefined && revisionBase.current === next) return;
-        if (revisionBase.current === undefined && latestScope.current === next) return;
-        revisionBase.current = undefined;
-        latestScope.current = next;
-        setScope(session.scope);
-        setStatus('agreed');
-        setError('');
-      } else if (session.status === 'abandoned') {
-        setStatus('error');
-        setError('This scope conversation was closed.');
-      } else {
-        setStatus(revisionBase.current === undefined ? 'open' : 'revising');
-        setError('');
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const session = await transport.getSession(gameId, id);
+        if (!current) return;
+        if (session.status === 'agreed' && session.scope) {
+          const next = JSON.stringify(session.scope);
+          if (latestScope.current === next) return;
+          latestScope.current = next;
+          setScope(session.scope);
+          setStatus('agreed');
+          setError('');
+        } else if (session.status === 'abandoned') {
+          setStatus('error');
+          setError('This scope conversation was closed.');
+        } else {
+          setStatus('open');
+          setError('');
+        }
+      } finally {
+        refreshing = false;
       }
     };
 
@@ -92,30 +96,11 @@ export function useScopeSession(gameId: string, choices: ScopeChoices, transport
     [addMessage, jobId, transport],
   );
 
-  const requestRevision = useCallback(
-    async (instruction: string) => {
-      if (!jobId || !scope) return;
-      const previous = scope;
-      revisionBase.current = JSON.stringify(previous);
-      setScope(undefined);
-      setStatus('revising');
-      try {
-        addMessage(await transport.postText(jobId, instruction));
-      } catch (cause) {
-        revisionBase.current = undefined;
-        setScope(previous);
-        setStatus('agreed');
-        throw cause;
-      }
-    },
-    [addMessage, jobId, scope, transport],
-  );
-
   const turns: ScopeTurn[] = messages.flatMap((message) =>
     message.text && message.actor !== 'system'
       ? [{ id: message.id, who: message.actor === 'creator' ? ('you' as const) : ('builder' as const), text: message.text }]
       : [],
   );
 
-  return { sessionId, jobId, scope, turns, status, error, send, requestRevision, addMessage };
+  return { sessionId, jobId, scope, turns, status, error, send, addMessage };
 }

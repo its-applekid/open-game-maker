@@ -1,13 +1,13 @@
 import type { ScopeStatus, ScopeTurn } from './useScopeSession';
 
 export function Captions({ turns, status }: { turns: ScopeTurn[]; status: ScopeStatus }) {
-  const state = status === 'connecting' ? 'Connecting' : status === 'revising' ? 'Revising scope' : 'Ready';
+  const state = status === 'connecting' ? 'Connecting' : 'Ready';
   return (
     <>
       <CaptionSide label="You" state={state} turns={turns.filter(({ who }) => who === 'you')} />
       <CaptionSide
         label="Builder"
-        state={status === 'agreed' ? 'Ready to build' : status === 'revising' ? 'Thinking' : 'Listening'}
+        state={status === 'agreed' ? 'Ready to build' : 'Listening'}
         turns={turns.filter(({ who }) => who === 'builder')}
       />
     </>

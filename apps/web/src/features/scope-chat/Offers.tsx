@@ -1,8 +1,6 @@
-import type { AllowanceExceeded } from '@ogm/contracts';
+import type { SupportedOffer } from './admit';
 
-const LABELS: Record<AllowanceExceeded['offers'][number], string> = {
-  trim: 'Trim it',
-  split: 'Split it',
+const LABELS: Record<SupportedOffer, string> = {
   queue: 'Queue for the reset',
   ask_admin: 'Ask an admin',
 };
@@ -12,9 +10,9 @@ export function Offers({
   disabled = false,
   onChoose,
 }: {
-  offers: AllowanceExceeded['offers'];
+  offers: SupportedOffer[];
   disabled?: boolean;
-  onChoose(offer: AllowanceExceeded['offers'][number]): void;
+  onChoose(offer: SupportedOffer): void;
 }) {
   return (
     <section className="scope-offers" aria-label="Build options">

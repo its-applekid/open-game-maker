@@ -10,16 +10,16 @@ export type AdmissionInput = {
   start: 'now' | 'at_reset';
 };
 
+export type SupportedOffer = Extract<AllowanceExceeded['offers'][number], 'queue' | 'ask_admin'>;
+
 export type AdmissionResult =
   | { kind: 'accepted'; jobId: string }
-  | ({ kind: 'refused' } & AllowanceExceeded);
+  | ({ kind: 'refused' } & Omit<AllowanceExceeded, 'offers'> & { offers: SupportedOffer[] });
 
 type AdmissionDeps = {
   request<T>(path: string, init: RequestInit & { json?: unknown }): Promise<T>;
   navigate(path: string): void;
 };
-
-const KNOWN_OFFERS = new Set<AllowanceExceeded['offers'][number]>(['trim', 'split', 'queue', 'ask_admin']);
 
 export async function admitNewGame(
   input: AdmissionInput,
@@ -55,7 +55,11 @@ export async function admitNewGame(
     const response = error as Partial<ApiError>;
     if (response.status !== 402 || !response.body || typeof response.body !== 'object') throw error;
     const body = response.body as AllowanceExceeded;
-    const offers = body.offers.filter((offer) => KNOWN_OFFERS.has(offer));
+    const offers = body.offers.filter(isSupportedOffer);
     return { kind: 'refused', ...body, offers: offers.length > 0 ? offers : ['ask_admin'] };
   }
+}
+
+function isSupportedOffer(offer: AllowanceExceeded['offers'][number]): offer is SupportedOffer {
+  return offer === 'queue' || offer === 'ask_admin';
 }

@@ -8,7 +8,7 @@ type GameResponse = { id: string };
 
 export function useCreateGame() {
   const game = useRef<Promise<string> | undefined>(undefined);
-  return useCallback((choices: NewGameChoices, requiresPrivate = false) => {
+  return useCallback((choices: NewGameChoices) => {
     if (game.current) return game.current;
     const titleParts = [
       choiceLabels('vibe', choices.vibe).at(0),
@@ -18,7 +18,7 @@ export function useCreateGame() {
       method: 'POST',
       json: {
         title: titleParts.join(' ') || 'New game',
-        repoVisibility: requiresPrivate ? 'private' : getRepoVisibilityDefault(),
+        repoVisibility: getRepoVisibilityDefault(),
       },
     })
       .then(({ id }) => id)
