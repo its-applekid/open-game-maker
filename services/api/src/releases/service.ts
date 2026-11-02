@@ -185,7 +185,8 @@ export function registerBuild(
   requireGameBranch(deps, gameId, input.branchId);
   const createdAt = runtime.now().toISOString();
   const build: typeof schema.builds.$inferInsert = {
-    id: stableId('build', runtime.now()),
+    // Lowercase: games-host serves only `^[a-z0-9][a-z0-9_-]{0,63}$` directory names.
+    id: stableId('build', runtime.now()).toLowerCase(),
     gameId,
     branchId: input.branchId,
     gitSha: input.gitSha,

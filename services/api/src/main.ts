@@ -19,6 +19,7 @@ import { startAnalyticsRetention } from './analytics/retention.js';
 import { startEstimateRefinement } from './budget/estimate.js';
 import { createApplyUsage, startUsageReconciler } from './budget/aiur-usage.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
+import { finishRun, startBuildSweep } from './builds/publish.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, activeJobsForRepo, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
@@ -110,8 +111,7 @@ const projectionDeps = {
     markRunning: (jobId: string) => void markRunning(lifecycleDeps, jobId),
     markPaused: (jobId: string, reason: 'over_reservation' | 'budget_exhausted' | 'admin') =>
       void markPaused(lifecycleDeps, jobId, reason),
-    markTerminal: (jobId: string, state: 'done' | 'failed' | 'cancelled') =>
-      void markTerminal(lifecycleDeps, jobId, state, { deferRelease: true }),
+    markTerminal: (jobId: string, state: 'done' | 'failed' | 'cancelled') => finishRun(deps, jobId, state),
   },
 };
 
@@ -144,6 +144,7 @@ const stopAnalyticsRetention = startAnalyticsRetention({
 intake.start();
 const stopScheduler = startScheduler({ ...lifecycleDeps, log });
 const stopEstimateRefinement = startEstimateRefinement({ db, events: deps.events, log });
+const stopBuildSweep = startBuildSweep(deps, { graceMs: 30 * 60_000, intervalMs: 60_000 });
 const stopBriefingPush =
   env.OGM_VOICE_HOST_INTERNAL_URL && env.OGM_VOICE_INTERNAL_SECRET
     ? startBriefingPush({
@@ -183,6 +184,7 @@ process.once('SIGTERM', () => {
   stopAnalyticsRetention();
   stopScheduler();
   stopEstimateRefinement();
+  stopBuildSweep();
   stopBriefingPush();
   usageReconciler.stop();
   void Promise.all([feed.stop(), usageReconciler.idle()]).finally(() => server.close(() => sqlite.close()));

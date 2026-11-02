@@ -55,7 +55,8 @@ export type ReapplyAnswer = {
   key: OverrideKey;
   choice: 'use_allowed' | 'keep_mine' | 'discard' | 'use_builder';
 };
-export type ReapplyLease = { actor: string; sessionId: string; token: number };
+// A system switch (the build publisher) has no session: it writes as `system` with lease token 0.
+export type ReapplyLease = { actor: string; sessionId?: string; token: number };
 
 function parseManifest(buildId: string, value: unknown): GameManifest {
   try {

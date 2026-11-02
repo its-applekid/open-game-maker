@@ -507,6 +507,9 @@ importers:
       '@ogm/game-repo-template':
         specifier: workspace:*
         version: link:../../packages/game-repo-template
+      '@ogm/games-host':
+        specifier: workspace:*
+        version: link:../games-host
       '@ogm/health':
         specifier: workspace:*
         version: link:../../packages/health
