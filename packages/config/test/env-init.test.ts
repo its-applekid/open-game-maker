@@ -98,6 +98,17 @@ describe('ogm-env-init', () => {
     if (unit === 'intake') expect(contents).toContain('OGM_STATE_DIR=');
   });
 
+  it('creates a repair file with its existing shared API and games settings', () => {
+    const home = temporaryDirectory();
+    const result = runInitializer(home, 'repair');
+    const contents = readFileSync(join(home, '.config', 'ogm', 'env', 'repair.env'), 'utf8');
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(contents).toContain('OGM_API_INTERNAL_URL=');
+    expect(contents).toContain('OGM_GAMES_ROOT=');
+    expect(contents).toMatch(/^OGM_INTERNAL_TOKEN=[a-f0-9]{64}$/m);
+  });
+
   it('refuses a repository target when Git is unavailable', () => {
     const home = temporaryDirectory();
     const result = runInitializerWithEnvironment(

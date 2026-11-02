@@ -31,6 +31,13 @@ pnpm --filter @ogm/config exec ogm-env-init intake
 # set OGM_ASSETS_ROOT and OGM_STATE_DIR in ~/.config/ogm/env/intake.env
 ```
 
+The repair poller uses only existing shared settings:
+
+```sh
+pnpm --filter @ogm/config exec ogm-env-init repair
+# set OGM_API_INTERNAL_URL and OGM_GAMES_ROOT in ~/.config/ogm/env/repair.env
+```
+
 ## Adding a name
 
 Append one row to `src/names.ts`, add the matching commented empty line to the root `.env.example`, and run this package's tests. Do not commit real values or another `.env` file.

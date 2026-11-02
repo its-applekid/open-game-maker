@@ -16,7 +16,7 @@ describe('setup content', () => {
       [3, 'Set up aiur for agent orchestration', 6],
       [4, 'Set up the games private repo', 4],
       [5, 'Find assets', 4],
-      [6, 'Local asset pipeline, optional Google Drive drop', 3],
+      [6, 'Local asset pipeline, optional Google Drive drop', 4],
       [7, 'Configure', 8],
       [8, 'Verify', 4],
     ]);

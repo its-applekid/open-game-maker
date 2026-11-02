@@ -20,12 +20,12 @@ export async function installAuthRoutes(page: Page, fixture: AuthFixture = {}) {
       );
     }
     if (path === '/auth/sign-in/magic-link' && request.method() === 'POST') return json(route, { status: true });
-    if (path === '/auth/list-accounts') {
-      return json(route, fixture.github ? [{ providerId: 'github', accountId: fixture.github }] : []);
-    }
     if (path === '/auth/passkey/list-user-passkeys') return json(route, []);
     return json(route, { code: 'NOT_MOCKED', path }, 404);
   });
+  await page.route('**/api/v1/github/connection', (route) =>
+    json(route, fixture.github ? { connected: true, login: fixture.github } : { connected: false }),
+  );
 }
 
 async function json(route: Route, body: unknown, status = 200) {

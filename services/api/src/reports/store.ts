@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 
-import type { CreateReport, ReportRoute } from '@ogm/contracts';
+import type { CompleteTriage, CreateReport, ReportRoute, TriageResult } from '@ogm/contracts';
 import { schema, type Db, type Sqlite } from '@ogm/db';
-import { and, desc, eq, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, lte, ne, or, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 import { classify, type Classification } from './classify.js';
@@ -69,6 +69,11 @@ export function recordReport(
         reproduction: classification.reproduction,
         jobId: null,
         bundleKey: null,
+        triageState: null,
+        triageClaimedAt: null,
+        triageSignature: null,
+        triageJson: null,
+        diagnosticsKey: null,
         reporterId: input.reporterId,
         createdAt: at,
       };
@@ -115,6 +120,95 @@ export function setBundleKey(db: Db, reportId: string, bundleKey: string): boole
       .where(and(eq(schema.reports.id, reportId), isNull(schema.reports.bundleKey)))
       .run().changes === 1
   );
+}
+
+export function claimTriage(
+  deps: { db: Db; sqlite: Sqlite },
+  input: { now: string; staleBefore: string },
+): ReportRow | undefined {
+  return deps.sqlite
+    .transaction(() => {
+      const row = deps.db
+        .select()
+        .from(schema.reports)
+        .where(
+          and(
+            inArray(schema.reports.route, ['game_repair', 'editor_hint']),
+            sql`${schema.reports.bundleKey} IS NOT NULL`,
+            or(
+              isNull(schema.reports.triageState),
+              and(eq(schema.reports.triageState, 'processing'), lte(schema.reports.triageClaimedAt, input.staleBefore)),
+            ),
+          ),
+        )
+        .orderBy(asc(schema.reports.createdAt))
+        .get();
+      if (!row) return undefined;
+      deps.db
+        .update(schema.reports)
+        .set({ triageState: 'processing', triageClaimedAt: input.now })
+        .where(eq(schema.reports.id, row.id))
+        .run();
+      return { ...row, triageState: 'processing' as const, triageClaimedAt: input.now };
+    })
+    .immediate();
+}
+
+export function setDiagnosticsKey(db: Db, reportId: string, diagnosticsKey: string): boolean {
+  return (
+    db
+      .update(schema.reports)
+      .set({ diagnosticsKey })
+      .where(and(eq(schema.reports.id, reportId), eq(schema.reports.triageState, 'processing')))
+      .run().changes === 1
+  );
+}
+
+const OPEN_REPAIR_STATES = ['queued', 'admitted', 'filed', 'running', 'paused_budget'] as const;
+
+export function findOpenTriage(
+  db: Db,
+  signature: string,
+  gameId: string,
+  excludeReportId?: string,
+): ReportRow | undefined {
+  return db
+    .select({ report: schema.reports })
+    .from(schema.reports)
+    .innerJoin(schema.jobs, eq(schema.jobs.id, schema.reports.jobId))
+    .where(
+      and(
+        eq(schema.reports.triageSignature, signature),
+        eq(schema.reports.gameId, gameId),
+        inArray(schema.reports.triageState, ['ready', 'deduped']),
+        inArray(schema.jobs.state, OPEN_REPAIR_STATES),
+        ...(excludeReportId ? [ne(schema.reports.id, excludeReportId)] : []),
+      ),
+    )
+    .orderBy(asc(schema.reports.createdAt))
+    .get()?.report;
+}
+
+export function storeTriage(
+  db: Db,
+  reportId: string,
+  completion: CompleteTriage,
+  state: 'ready' | 'stored' | 'deduped',
+  result?: TriageResult,
+): ReportRow {
+  const current = findReport(db, reportId);
+  if (current.triageState !== 'processing') return current;
+  db.update(schema.reports)
+    .set({
+      triageState: state,
+      triageClaimedAt: null,
+      triageSignature: result?.signature ?? null,
+      triageJson: JSON.stringify(completion),
+      diagnosticsKey: result?.diagnosticsKey ?? current.diagnosticsKey,
+    })
+    .where(and(eq(schema.reports.id, reportId), eq(schema.reports.triageState, 'processing')))
+    .run();
+  return findReport(db, reportId);
 }
 
 const FILING = 'filing';

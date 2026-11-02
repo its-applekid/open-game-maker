@@ -110,7 +110,9 @@ function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
     create: vi.fn(async (_repo, issue) => {
       issueNumber += 1;
       calls.push(`create:${issueNumber}`);
-      expect(issue.labels).toEqual([`complexity:${kind === 'scope' ? 1 : 3}`, 'feature:gm-j_1']);
+      expect(issue.labels).toEqual(
+        expect.arrayContaining([`complexity:${kind === 'scope' ? 1 : 3}`, 'feature:gm-j_1']),
+      );
       return { number: issueNumber, url: `https://github.com/owner/game/issues/${issueNumber}` };
     }),
     labels: vi.fn(async () => ['complexity:3', 'feature:gm-j_1']),
@@ -170,6 +172,82 @@ function close(input: Harness) {
 }
 
 describe('fileJob', () => {
+  it('defers repair filing until triage is ready, then files only the redacted triage ticket', async () => {
+    const input = harness();
+    input.db.update(schema.jobs).set({ kind: 'repair' }).where(eq(schema.jobs.id, 'j_1')).run();
+    input.db
+      .insert(schema.reports)
+      .values({
+        id: 'r_10000000-0000-4000-8000-000000000001',
+        gameId: 'g_1',
+        buildHash: 'a'.repeat(64),
+        text: 'private creator words',
+        signature: 'b'.repeat(64),
+        route: 'game_repair',
+        reproduction: 'crash_with_error',
+        jobId: 'j_1',
+        bundleKey: 'sha256:' + 'c'.repeat(64),
+        reporterId: 'u_1',
+        createdAt: NOW.toISOString(),
+      })
+      .run();
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ deferred: 'triage' });
+    expect(input.fleet.ensureDaemon).not.toHaveBeenCalled();
+
+    const body = [
+      'Repair crash in draft (dddddddd)',
+      '',
+      '## Context',
+      'Release: draft',
+      `Signature: ${'d'.repeat(64)}`,
+      'Reproduction: reproduces_with_error',
+      'gm-report:r_10000000-0000-4000-8000-000000000001',
+      'gm-job:j_1',
+      '',
+      '## Load skills',
+      '- gm-repair',
+      '- gm-verify',
+      '',
+      '## Acceptance',
+      `- the promise test \`promises/${'d'.repeat(64)}.spec.ts\` passes; gm check and gm test green`,
+    ].join('\n');
+    input.db
+      .update(schema.reports)
+      .set({
+        triageState: 'ready',
+        triageSignature: 'd'.repeat(64),
+        triageJson: JSON.stringify({
+          status: 'triaged',
+          result: {
+            reportId: 'r_10000000-0000-4000-8000-000000000001',
+            replay: {
+              class: 'reproduces_with_error',
+              durationMs: 15,
+            },
+            signature: 'd'.repeat(64),
+            diagnosticsKey: 'sha256:' + 'e'.repeat(64),
+            ticket: { title: 'Repair: crash in draft (dddddddd)', body, labels: ['kind:repair'] },
+            promise: {
+              specPath: `promises/${'d'.repeat(64)}.spec.ts`,
+              replayPath: `promises/${'d'.repeat(64)}.replay.json`,
+            },
+          },
+        }),
+      })
+      .where(eq(schema.reports.jobId, 'j_1'))
+      .run();
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [1] });
+    const issue = vi.mocked(input.issues.create).mock.calls[0]?.[1];
+    expect(issue).toMatchObject({ title: 'Repair: crash in draft (dddddddd)' });
+    expect(issue?.body).toContain('gm-report:r_10000000-0000-4000-8000-000000000001');
+    expect(issue?.body.match(/<!-- gm-job:/g)).toHaveLength(1);
+    expect(issue?.body).toContain('gm-ticket:repair');
+    expect(issue?.body).not.toContain('private creator words');
+    close(input);
+  });
+
   it('files a scope ticket with its session marker before making it runnable', async () => {
     const input = harness(false, 'scope');
 

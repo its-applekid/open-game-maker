@@ -1,9 +1,18 @@
 import type { ComponentType } from 'react';
 
+import { InviteRoomControl, RoomMembersControl } from '../../features/room/RoomControls';
+import type { CreatedRoom } from '../../features/room/InviteButton';
+import type { RoomSession, RoomSessionSnapshot } from '../../features/room/session';
+
 export type GameExtraProps = {
   gameId: string;
   branchId: string;
+  buildId?: string;
   mode: 'play' | 'edit';
+  onRoomCreated?: (room: CreatedRoom) => void;
+  onRoomLeave?: () => void | Promise<void>;
+  roomSession?: RoomSession;
+  roomSnapshot?: RoomSessionSnapshot;
 };
 
 export type GameExtra = {
@@ -13,4 +22,7 @@ export type GameExtra = {
 };
 
 /** Additive seam owned by OGM-077 and OGM-078. */
-export const gameExtras: GameExtra[] = [];
+export const gameExtras: GameExtra[] = [
+  { id: 'room-invite', placement: 'topbar', Component: InviteRoomControl },
+  { id: 'room-members', placement: 'topbar', Component: RoomMembersControl },
+];
