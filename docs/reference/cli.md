@@ -95,6 +95,17 @@ gm scope done --file .gm/scope/<session-id>.json
 The file must match the agreed-scope schema and its name must match the session id. The command queues
 `scope.agreed` in `.gm/outbox/scope.jsonl` for the build-chat relay.
 
+## Build the game
+
+```text
+gm build [--json]
+```
+
+Runs `pnpm build` in the game repository, then checks that `dist/` holds `manifest.json` and `design/design.json` and
+that both match the `@ogm/contracts` schemas the publisher and API read. The templates' Vite config writes both files
+(`@gm/sdk/vite`): the manifest from `src/manifest.ts`, and the design folded from every `design/*.json` (a key defined
+in two files fails the build). Exits 1 naming each missing or invalid file.
+
 ## Build game assets
 
 ```text
