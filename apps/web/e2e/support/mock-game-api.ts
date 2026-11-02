@@ -9,6 +9,7 @@ export type ScriptedTransactionResult = 'conflict' | 'lease-lost' | 'success';
 export type GameApiFixture = {
   readonly attempts: TransactionBody[];
   readonly transactions: TransactionBody[];
+  readonly transactionStreamReady: Promise<void>;
   readonly headRev: number;
   script(...results: ScriptedTransactionResult[]): void;
 };
@@ -21,6 +22,10 @@ export async function installGameApi(page: Page): Promise<GameApiFixture> {
   const attempts: TransactionBody[] = [];
   const transactions: TransactionBody[] = [];
   const scripted: ScriptedTransactionResult[] = [];
+  let markTransactionStreamReady = () => undefined;
+  const transactionStreamReady = new Promise<void>((resolve) => {
+    markTransactionStreamReady = resolve;
+  });
 
   await page.route('**/api/v1/**', async (route) => {
     const request = route.request();
@@ -52,7 +57,9 @@ export async function installGameApi(page: Page): Promise<GameApiFixture> {
       return json(route, { token: 7, expiresAt: '2026-11-02T03:01:00.000Z' });
     }
     if (path === '/games/game/branches/main/transactions' && request.method() === 'GET') {
-      return eventStream(route);
+      await eventStream(route);
+      markTransactionStreamReady();
+      return;
     }
     if (path === '/games/game/branches/main/transactions' && request.method() === 'POST') {
       const body = request.postDataJSON() as TransactionBody;
@@ -74,6 +81,7 @@ export async function installGameApi(page: Page): Promise<GameApiFixture> {
   return {
     attempts,
     transactions,
+    transactionStreamReady,
     get headRev() {
       return rev;
     },
