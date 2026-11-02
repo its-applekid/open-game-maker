@@ -176,13 +176,18 @@ const routes = new Hono<ApiBindings>()
     if (scopeSessions.get(deps.db, session.id)?.status !== 'open') {
       throw new HttpError(409, 'scope_session_not_open');
     }
+    const runtime = getChatRuntime(deps);
     const { row } = insertChatRow(deps.sqlite, {
       jobId: session.job_id,
       actor: 'creator',
       kind: 'image',
       media,
+      mirrorState: 'pending',
     });
-    getChatRuntime(deps).hub.publish(session.job_id);
+    runtime.hub.publish(session.job_id);
+    void runtime.mirror.mirror(row!.id).catch((error: unknown) => {
+      deps.log({ event: 'chat-mirror-error', jobId: session.job_id, error: (error as Error).name });
+    });
     return c.json({ imageId: row!.id }, 201);
   })
   .post('/:gameId/scope/sessions/:id/abandon', async (c) => {

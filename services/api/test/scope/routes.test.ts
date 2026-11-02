@@ -5,6 +5,7 @@ import sharp from 'sharp';
 import { describe, expect, it, vi } from 'vitest';
 
 import { listSince } from '../../src/build-chat/store.js';
+import { getChatRuntime } from '../../src/build-chat/routes.js';
 import { CREATOR_IMAGES_PER_MINUTE, MAX_CREATOR_IMAGE_BYTES } from '../../src/scope/routes.js';
 import { asUser, installUsers, makeApp, makeDeps } from '../helpers.js';
 
@@ -181,6 +182,7 @@ describe('scope session routes', () => {
     const { app } = await makeApp(deps);
     const created = (await (await create(app)).json()) as { sessionId: string; jobId: string };
     const source = await jpegWithExif();
+    const mirror = vi.spyOn(getChatRuntime(deps).mirror, 'mirror');
     expect(await sharp(source).metadata()).toMatchObject({ format: 'jpeg', width: 3, height: 2, orientation: 6 });
 
     const uploaded = await app.request(`/api/v1/games/${ids.game}/scope/sessions/${created.sessionId}/images`, {
@@ -200,7 +202,9 @@ describe('scope session routes', () => {
       kind: 'image',
       width: 2,
       height: 3,
+      mirrorState: 'pending',
     });
+    expect(mirror).toHaveBeenCalledWith(result.imageId);
     const opened = await deps.blobStore.open(rows[0]!.mediaHash!);
     expect(opened?.ref).toMatchObject({ mime: 'image/webp' });
     const stored = await bytesOf(opened!.stream);

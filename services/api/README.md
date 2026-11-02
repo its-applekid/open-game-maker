@@ -34,7 +34,7 @@ workspaces and lines naming another job are rejected.
 of an open scope session. Set `Content-Type` to an `image/*` media type; do not send multipart data. The compressed
 request body is limited to 10 MiB and uploads are limited to 10 per session and creator per minute. The API applies
 the source orientation, re-encodes the pixels as WebP without source metadata, appends a creator image message to the
-session's existing build-chat stream, and returns:
+session's existing build-chat stream, mirrors a time-limited signed image reference to the scope worker, and returns:
 
 ```json
 { "imageId": "m_…" }

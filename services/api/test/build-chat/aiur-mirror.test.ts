@@ -4,6 +4,8 @@ import { createMirror, MIRROR_FAILED_TEXT } from '../../src/build-chat/aiur-mirr
 import { getChatRow, insertChatRow, listSince } from '../../src/build-chat/store.js';
 import { chatJob, jobTable, JOB_ID, makeChatDeps, type FakeAiur } from './setup.js';
 
+const IMAGE_URL = 'https://api.example.test:8443/blobs/image?expires=1760000000&signature=test';
+
 function fakeAiur(message: FakeAiur['message'] = vi.fn().mockResolvedValue({ request_id: 'r1' })) {
   return { message: vi.fn(message), progress: vi.fn() } as unknown as FakeAiur & {
     message: ReturnType<typeof vi.fn>;
@@ -21,6 +23,7 @@ function setup(
     sqlite: deps.sqlite,
     jobs: () => deps.registry.chatJobs,
     clientFor: () => deps.registry.aiurClientFor,
+    sign: async () => IMAGE_URL,
     publish,
     log: deps.log,
     sleep: async () => {},
@@ -37,6 +40,31 @@ describe('creator to aiur mirror', () => {
     const row = post('make the door red');
     await mirror.mirror(row.id);
     expect(client.message).toHaveBeenCalledWith('142', 'make the door red', row.id, expect.any(AbortSignal));
+    expect(getChatRow(deps.sqlite, row.id)?.mirrorState).toBe('sent');
+  });
+
+  it('sends a creator image to the job ticket as a signed reference', async () => {
+    const { mirror, client, deps } = setup();
+    const row = insertChatRow(deps.sqlite, {
+      jobId: JOB_ID,
+      actor: 'creator',
+      kind: 'image',
+      media: {
+        hash: `sha256:${'a'.repeat(64)}`,
+        width: 640,
+        height: 480,
+      },
+      mirrorState: 'pending',
+    }).row!;
+
+    await mirror.mirror(row.id);
+
+    expect(client.message).toHaveBeenCalledWith(
+      '142',
+      `Creator attached an image: ${IMAGE_URL}`,
+      row.id,
+      expect.any(AbortSignal),
+    );
     expect(getChatRow(deps.sqlite, row.id)?.mirrorState).toBe('sent');
   });
 
