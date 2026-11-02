@@ -129,6 +129,11 @@ async function start() {
       const key = `${command.mode}:${command.target ?? ''}`;
       if (key !== appliedCamera) {
         const target = command.target;
+        if (command.mode === 'follow') {
+          const camera = editorCamera.camera as OrthographicCamera;
+          camera.zoom = 1;
+          camera.updateProjectionMatrix();
+        }
         editorCamera.follow(
           command.mode === 'follow' ? { position: () => controller.position(target) ?? [0, 0, 0] } : undefined,
         );
