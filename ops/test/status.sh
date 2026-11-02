@@ -27,7 +27,8 @@ fake() {
   printf '#!/usr/bin/env bash\n%s\n' "$2" > "$bin/$1"
   chmod +x "$bin/$1"
 }
-fake systemctl "printf 'ogm-api.service loaded active running OGM API\n'"
+fake systemctl "[[ \$2 == show ]] && { cat '$scratch/mainpid-'\"\${@: -1}\" 2> /dev/null || echo 0; exit 0; }
+printf 'ogm-api.service loaded active running OGM API\n'"
 fake journalctl '[[ " $* " == *" --disk-usage "* ]] && { echo "Archived and active journals take up 2G in the file system."; exit 0; }
 printf "PLACEHOLDER rooms\nlistening\nPLACEHOLDER rooms\n"'
 ss_lines="LISTEN 0 511 127.0.0.1:3100 0.0.0.0:* users:((\"node\",pid=100,fd=20))
@@ -89,6 +90,19 @@ set -e
 assert_eq 1 "$code" '--check should fail on a missing service entry'
 assert_grep 'missing entry: services/intake/dist/main.js' "$scratch/entry.txt"
 touch "$OGM_REPO/services/intake/dist/main.js"
+
+# A unit that started before the build still idles on its placeholder; the entry existing is not enough.
+mkdir -p "$OGM_PROC/400"
+printf 'sleep\0infinity\0' > "$OGM_PROC/400/cmdline"
+printf '400\n' > "$scratch/mainpid-ogm-rooms.service"
+set +e
+"$status" --check > "$scratch/idle.txt"
+code=$?
+set -e
+assert_eq 1 "$code" '--check should fail while a built unit still runs its placeholder'
+assert_grep 'placeholder running after build: ogm-rooms' "$scratch/idle.txt"
+printf 'node\0dist/main.js\0' > "$OGM_PROC/400/cmdline"
+"$status" --check > /dev/null || fail '--check should pass once the unit runs its build'
 
 printf '{"scripts":{}}\n' > "$OGM_REPO/services/commit/package.json"
 set +e
