@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { CHECKS } from '../src/checks/index.js';
 import { bootFailedResults, runChecks } from '../src/runner-checks.js';
+import { BootError } from '../src/session.js';
 import type { Check } from '../src/types.js';
 import { fakeContext } from './fake-session.js';
 
@@ -29,6 +30,15 @@ describe('runChecks', () => {
     expect(await runChecks(fakeContext(), [crash])).toEqual([
       { id: 'C1', name: 'crash', status: 'fail', detail: 'check crashed: boom' },
     ]);
+  });
+
+  it('stops the run when a browser session reports a page error', async () => {
+    const pageError: Check = {
+      id: 'C2',
+      name: 'page-error',
+      run: () => Promise.reject(new BootError('page error during run: boom')),
+    };
+    await expect(runChecks(fakeContext(), [pageError])).rejects.toThrow('page error during run: boom');
   });
 
   it('fails a check that never settles instead of holding the run', async () => {

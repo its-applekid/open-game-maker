@@ -1,5 +1,6 @@
 import { CHECKS } from './checks/index.js';
 import { message } from './checks/util.js';
+import { BootError } from './session.js';
 import type { Check, CheckContext, CheckResult } from './types.js';
 
 /** A page that never answers would otherwise hold the host-wide capture slot forever. */
@@ -21,6 +22,7 @@ export async function runChecks(
     try {
       outcome = await Promise.race([check.run(ctx), deadline]);
     } catch (error) {
+      if (error instanceof BootError) throw error;
       outcome = { status: 'fail', detail: `check crashed: ${message(error)}` };
     } finally {
       clearTimeout(timer);

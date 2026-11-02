@@ -24,6 +24,8 @@ export class BrowserSession implements Session {
     private readonly context: BrowserContext,
     private readonly page: Page,
     private readonly game: Frame,
+    private readonly pageErrors: string[],
+    private readonly consoleTail: string[],
     readonly manifest: GameManifest,
   ) {}
 
@@ -64,7 +66,7 @@ export class BrowserSession implements Session {
         ...options.viewport,
         safe: options.safe,
       });
-      return new BrowserSession(context, page, game, manifest);
+      return new BrowserSession(context, page, game, pageErrors, consoleTail, manifest);
     } catch (error) {
       await context.close();
       const reason = error instanceof Error ? error.message.split('\n')[0] : String(error);
@@ -153,6 +155,9 @@ export class BrowserSession implements Session {
 
   async close(): Promise<void> {
     await this.context.close();
+    if (this.pageErrors.length > 0) {
+      throw new BootError([`page error during run: ${this.pageErrors[0]}`, ...this.consoleTail.slice(-5)].join(' | '));
+    }
   }
 
   private request(type: string, payload: unknown): Promise<unknown> {
