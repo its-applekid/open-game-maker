@@ -13,6 +13,12 @@ interface ClipCard {
 /**
  * The KayKit clip-library cards (asset-qa/kaykit.md GLB card pass: 36 libraries, 374 clips), trimmed to their clips,
  * so the tables are checked against every clip the packs ship rather than a hand-typed list.
+ *
+ * Regenerate (byte-identical) from the repo root after a catalog rebuild:
+ *   jq '{source: "anim cards of the KayKit packs in the asset catalog (index/cards.index.json, kind anim), trimmed to id, rig and clips",
+ *     cards: [.cards[] | select(.kind == "anim" and (.id | startswith("t1:kaykit-")))
+ *       | {id, anim: {target_rig_id: .anim.target_rig_id, clips: [.anim.clips[] | {name, canonical, loop}]}}]}' \
+ *     assets-local/index/cards.index.json > packages/pack-adapters/kaykit/test/fixtures/clip-cards.json
  */
 const { cards } = JSON.parse(readFileSync(new URL('./fixtures/clip-cards.json', import.meta.url), 'utf8')) as {
   cards: ClipCard[];
