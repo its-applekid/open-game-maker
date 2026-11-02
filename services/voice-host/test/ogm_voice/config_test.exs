@@ -6,16 +6,38 @@ defmodule OgmVoice.ConfigTest do
   @env %{
     "OGM_VOICE_TOKEN_SECRET" => String.duplicate("t", 32),
     "OGM_VOICE_INTERNAL_SECRET" => String.duplicate("i", 32),
-    "OGM_API_INTERNAL_URL" => "http://127.0.0.1:4300"
+    "OGM_API_INTERNAL_URL" => "http://127.0.0.1:4300",
+    "OGM_VOICE_RENDER_DIR" => "/tmp/ogm-voice-test-renders"
   }
 
   test "defaults to the fake provider on the fixed loopback ports" do
     config = Config.from_env!(@env)
-    assert %Config{provider: "fake", port: 40400, internal_port: 40401, max_sessions: 2, llm: "fake"} = config
+
+    assert %Config{
+             provider: "fake",
+             port: 40400,
+             internal_port: 40401,
+             max_sessions: 2,
+             llm: "fake",
+             render_dir: "/tmp/ogm-voice-test-renders"
+           } = config
+
+    assert [
+             render_dir: "/tmp/ogm-voice-test-renders",
+             provider: VoiceConverse.Testing.FakeProvider,
+             provider_id: :fake,
+             credentials: OgmVoice.Ports.Credentials,
+             privacy: %{
+               provider_allowlist: [:elevenlabs_agents, :openai_realtime, :fake],
+               required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
+             }
+           ] = Config.narration(config)
   end
 
   test "boots from the env file ogm-env-init writes, where every non-secret name is blank" do
-    names = ~w(OGM_VOICE_PROVIDER OGM_VOICE_LLM OGM_VOICE_PORT OGM_VOICE_INTERNAL_PORT OGM_VOICE_MAX_SESSIONS)
+    names =
+      ~w(OGM_VOICE_PROVIDER OGM_VOICE_LLM OGM_VOICE_PORT OGM_VOICE_INTERNAL_PORT OGM_VOICE_MAX_SESSIONS)
+
     blank = Map.new(names, &{&1, ""})
     config = Config.from_env!(Map.merge(@env, blank))
     assert %Config{provider: "fake", port: 40400, internal_port: 40401, max_sessions: 2, llm: "fake"} = config
@@ -61,6 +83,7 @@ defmodule OgmVoice.ConfigTest do
           {"OGM_VOICE_PROVIDER", "gemini_live"},
           {"OGM_VOICE_PORT", "70000"},
           {"OGM_VOICE_MAX_SESSIONS", "0"},
+          {"OGM_VOICE_RENDER_DIR", "relative/path"},
           {"OGM_API_INTERNAL_URL", "not a url"}
         ] do
       assert_raise Config.Error, ~r/#{name}/, fn -> Config.from_env!(Map.put(@env, name, value)) end

@@ -14,6 +14,11 @@ defmodule OgmVoice.Config do
     "elevenlabs_agents" => {VoiceConverse.Providers.ElevenLabsAgents, []},
     "openai_realtime" => {VoiceConverse.Providers.OpenAIRealtime, []}
   }
+  @provider_ids %{
+    "fake" => :fake,
+    "elevenlabs_agents" => :elevenlabs_agents,
+    "openai_realtime" => :openai_realtime
+  }
   @allowed_tools ~w(get_status get_details list_open_commands propose_instruction record_summary end_conversation)
 
   @enforce_keys [
@@ -23,6 +28,7 @@ defmodule OgmVoice.Config do
     :llm,
     :max_sessions,
     :api_internal_url,
+    :render_dir,
     :token_secret,
     :internal_secret
   ]
@@ -36,6 +42,7 @@ defmodule OgmVoice.Config do
           llm: String.t(),
           max_sessions: pos_integer(),
           api_internal_url: String.t(),
+          render_dir: Path.t(),
           token_secret: secret(),
           internal_secret: secret()
         }
@@ -66,6 +73,7 @@ defmodule OgmVoice.Config do
       llm: llm!(env, provider),
       max_sessions: positive!(env, "OGM_VOICE_MAX_SESSIONS", "2"),
       api_internal_url: url!(env, "OGM_API_INTERNAL_URL"),
+      render_dir: path!(env, "OGM_VOICE_RENDER_DIR", Path.join(System.tmp_dir!(), "ogm-voice-renders")),
       token_secret: fn -> System.get_env("OGM_VOICE_TOKEN_SECRET") end,
       internal_secret: fn -> System.get_env("OGM_VOICE_INTERNAL_SECRET") end
     }
@@ -91,6 +99,20 @@ defmodule OgmVoice.Config do
         provider_allowlist: [:elevenlabs_agents, :openai_realtime, :fake],
         required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
       }
+    ]
+  end
+
+  @doc "The options shared by every batch narration render."
+  @spec narration(t()) :: keyword()
+  def narration(%__MODULE__{} = config) do
+    {provider, _provider_opts} = Map.fetch!(@providers, config.provider)
+
+    [
+      render_dir: config.render_dir,
+      provider: provider,
+      provider_id: Map.fetch!(@provider_ids, config.provider),
+      credentials: OgmVoice.Ports.Credentials,
+      privacy: voice_converse(config)[:privacy]
     ]
   end
 
@@ -134,6 +156,11 @@ defmodule OgmVoice.Config do
       _ ->
         fail!(name, "is missing or not an http(s) URL")
     end
+  end
+
+  defp path!(env, name, default) do
+    path = get(env, name, default)
+    if Path.type(path) == :absolute, do: path, else: fail!(name, "is not an absolute path")
   end
 
   # `ogm-env-init` writes every name as `NAME=`, so a blank value selects the default, as in `@ogm/config`.

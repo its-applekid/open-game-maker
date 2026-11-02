@@ -12,6 +12,8 @@ defmodule OgmVoice.Application do
   @spec children(OgmVoice.Config.t()) :: [Supervisor.child_spec() | {module(), term()}]
   def children(%OgmVoice.Config{} = config) do
     :ok = OgmVoice.TokenIssuer.install(config.token_secret)
+    :ok = File.mkdir_p(config.render_dir)
+    :ok = File.chmod(config.render_dir, 0o700)
 
     [
       OgmVoice.Cache,
@@ -29,7 +31,11 @@ defmodule OgmVoice.Application do
       ),
       Supervisor.child_spec(
         {Bandit,
-         plug: {OgmVoice.HTTP.Router, secret: config.internal_secret, provider: config.provider},
+         plug:
+           {OgmVoice.HTTP.Router,
+            secret: config.internal_secret,
+            provider: config.provider,
+            narration: fn -> OgmVoice.Config.narration(config) end},
          scheme: :http,
          ip: {127, 0, 0, 1},
          port: config.internal_port,
