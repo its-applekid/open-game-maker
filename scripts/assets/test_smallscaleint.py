@@ -6,6 +6,7 @@ Run: python3 -I scripts/assets/test_smallscaleint.py -v
 import binascii
 import io
 import json
+import subprocess
 import struct
 import sys
 import tarfile
@@ -76,25 +77,86 @@ class Reader(unittest.TestCase):
         self.assertEqual({ssi.world_for(pack) for pack in ssi.PACKS}, {"fantasy", "modern-zombie", "creatures"})
         self.assertEqual(sum(ssi.world_for(pack) == "creatures" for pack in ssi.PACKS), 1)
 
-    def test_character_actions_use_sheets_with_pack_direction_order(self):
+    def test_character_actions_use_measured_sheet_order_and_merge_shadow_variants(self):
         for action, frames in (("Attack", 2), ("Idle", 1)):
             for direction in ssi.DIRECTIONS:
                 for frame in range(frames):
                     write(self.ext / "Knight" / action / direction / f"{frame}.png", png(64, 64))
-            for variant in ("Shadowless", "With shadow"):
-                write(self.ext / "Spritesheets" / variant / "Knight" / f"{action}.png", png(64 * frames, 64 * 8))
+            write(self.ext / "Spritesheets" / "Shadowless" / "Knight" / f"{action}_Shadowless.png", png(64 * frames, 64 * 8))
+            write(self.ext / "Spritesheets" / "With shadows" / "Knight" / f"{action}.png", png(64 * frames, 64 * 8))
         (self.ext / "Knight" / "Attack.anim").write_text("m_SampleRate: 12\n")
 
         cards = ssi.build_cards(self.pack, collection(self.pack.name))
         self.assertEqual([(card["subkind"], card["title"]) for card in cards], [("character", "Knight")])
         actions = {action["name"]: action for action in cards[0]["sprite"]["animations"]}
-        self.assertEqual(actions["attack"]["directions"], list(ssi.DIRECTIONS))
+        self.assertEqual(actions["attack"]["directions"], ["E", "SE", "S", "SW", "W", "NW", "N", "NE"])
         self.assertEqual((actions["attack"]["frames"], actions["attack"]["fps"]), ([0, 1], 12))
+        self.assertEqual(actions["idle"]["fps"], 12)
         self.assertEqual(
             [(sheet["variant"], sheet["cols"], sheet["rows"], sheet["frame_w"], sheet["frame_h"]) for sheet in actions["attack"]["sheets"]],
             [("shadow", 2, 8, 64, 64), ("shadowless", 2, 8, 64, 64)],
         )
+        self.assertEqual(set(actions), {"attack", "idle"})
         self.assertTrue(all("/Knight/Attack/" not in file["path"] for file in cards[0]["source"]["files"]))
+        self.assertFalse(any("/sequences/spritesheets-" in card["id"] for card in cards))
+
+    def test_measured_sheet_layouts_become_characters(self):
+        fixtures = {
+            "smallscaleint-fantasy-tileset-2d-isometric": {
+                "Characters/Player/Walk.png": png(128 * 2, 128 * 8),
+            },
+            "smallscaleint-2d-demons-topdown-assetpack": {
+                "Combined/Demon/Attack 1.png": png(64 * 3, 64),
+            },
+            "smallscaleint-2d-zombie-pack-2-top-down": {
+                "Zombies with shadow/Zombie Cop 01/Walk.png": png(64 * 3, 64),
+                "Zombies shadowless/Zombie Cop 01/Walk_Shadowless.png": png(64 * 3, 64),
+            },
+            "smallscaleint-2d-character-knight": {
+                "Spritesheets/With Shadow/Attack.png": png(64 * 2, 64 * 8),
+                "Spritesheets/Shadowless/Attack_Shadowless.png": png(64 * 2, 64 * 8),
+            },
+            "smallscaleint-free-character-16-bit-thug-outlined": {
+                "Walk.png": png(64 * 2, 64 * 8),
+            },
+            "smallscaleint-knight-demo-character": {
+                "Knight Character HD Version/Walk.png": png(128 * 2, 128 * 8),
+            },
+        }
+        for pid, files in fixtures.items():
+            with self.subTest(pid=pid):
+                pack = self.root / "packs" / pid
+                for rel, data in files.items():
+                    write(pack / "1.0" / "extracted" / rel, data)
+                cards = ssi.build_cards(pack, collection(pid))
+                characters = [card for card in cards if card["subkind"] == "character"]
+                self.assertEqual(len(characters), 1)
+                animation = characters[0]["sprite"]["animations"][0]
+                self.assertEqual(animation["fps"], 12)
+                is_topdown = "topdown" in pid or "top-down" in pid
+                self.assertEqual(animation["sheets"][0]["rows"], 1 if is_topdown else 8)
+
+    def test_root_action_archer_is_a_character_but_projectile_packs_are_not(self):
+        archer = self.root / "packs" / "smallscaleint-2d-topdown-archer-character"
+        for direction in ssi.DIRECTIONS:
+            for frame in range(2):
+                write(archer / "1.0" / "extracted" / "Attack" / direction / f"{frame}.png", png(64, 64))
+        cards = ssi.build_cards(archer, collection(archer.name))
+        character = self.assert_single_character(cards)
+        self.assertEqual(character["title"], "Archer")
+        self.assertEqual(character["sprite"]["animations"][0]["fps"], 12)
+
+        projectiles = self.root / "packs" / "smallscaleint-2d-projectiles-character-pack-1"
+        for frame in range(3):
+            write(projectiles / "1.0" / "extracted" / "Arrows" / f"Arrow{frame}.png", png(32, 32))
+        cards = ssi.build_cards(projectiles, collection(projectiles.name))
+        self.assertFalse(any(card["subkind"] == "character" for card in cards))
+        self.assertTrue(all(animation["fps"] == 12 for card in cards for animation in card["sprite"].get("animations", [])))
+
+    def assert_single_character(self, cards: list[dict]) -> dict:
+        characters = [card for card in cards if card["subkind"] == "character"]
+        self.assertEqual(len(characters), 1)
+        return characters[0]
 
     def test_tiles_effects_and_projectiles_are_grouped_not_emitted_per_frame(self):
         self.pack = self.root / "packs" / "smallscaleint-2d-desert-fantasy-tileset"
@@ -126,14 +188,6 @@ class Reader(unittest.TestCase):
         self.assertEqual(source_paths, {
             f"Knight/Wave/{direction}/{frame}.png" for direction in ("E", "N") for frame in range(2)
         })
-
-    def test_flat_free_character_pack_still_emits_one_character_not_one_card_per_png(self):
-        for frame in range(4):
-            write(self.ext / f"Thug_{frame}.png", png(64, 64))
-        cards = ssi.build_cards(self.pack, collection(self.pack.name))
-        self.assertEqual(len(cards), 1)
-        self.assertEqual(cards[0]["subkind"], "character")
-        self.assertEqual(len(cards[0]["sprite"]["animations"][0]["files"]), 4)
 
     def test_contact_sheets_use_south_first_frames_and_world_lineups(self):
         for action in ("Attack", "Idle"):
@@ -194,6 +248,44 @@ class UnityPackage(unittest.TestCase):
             self.assertEqual((dest / "1.0" / "extracted" / "Assets" / "Creator" / "Body.png").read_bytes(), b"sprite")
             self.assertEqual(manifest["layers"][0]["order"], 7)
             self.assertEqual(json.loads((dest / "layer-order.json").read_text()), manifest)
+
+    def test_modern_creator_manifest_records_the_hand_written_part_order(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            package = tmp / "modern.unitypackage"
+            self.package(package, "Assets/Spritesheets/NakedBody/Idle.png")
+            manifest = ssi.extract_unitypackage(package, tmp / "modern-pack", "modern-zombie")
+            self.assertEqual(
+                manifest["part_order"],
+                [
+                    "Shadow", "NakedBody", "Legs", "Shoes", "Chest", "Head", "Bag", "Mount",
+                    "Shield", "Melee", "Pistol", "Shotgun", "Sniper", "MachineGun", "Special", "GunFire",
+                ],
+            )
+
+    def test_member_limit_covers_the_measured_fantasy_archive_and_remains_enforced(self):
+        self.assertGreaterEqual(ssiu.MAX_UNITY_MEMBERS, 157_266)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            package = tmp / "members.unitypackage"
+            self.package(package, "Assets/Creator/Body.png")
+            old_limit = ssiu.MAX_UNITY_MEMBERS
+            try:
+                ssiu.MAX_UNITY_MEMBERS = 2
+                with self.assertRaisesRegex(ValueError, "safe extraction limits"):
+                    ssi.extract_unitypackage(package, tmp / "limited-pack")
+            finally:
+                ssiu.MAX_UNITY_MEMBERS = old_limit
+            self.assertFalse((tmp / "limited-pack").exists())
+
+    def test_cli_help_runs_in_isolated_mode(self):
+        result = subprocess.run(
+            [sys.executable, "-I", str(HERE / "smallscaleint.py"), "--help"],
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("extract-unity", result.stdout)
 
     def test_rejects_traversal_without_installing_a_partial_destination(self):
         with tempfile.TemporaryDirectory() as tmp:

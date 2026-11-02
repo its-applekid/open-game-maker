@@ -16,6 +16,7 @@ const USES: Use[] = [
 export const FILTER_FLAGS: FlagSpec = {
   kind: { type: 'string', help: 'kind or kind/subkind (model/kit, audio/music/loop)' },
   family: { type: 'string', help: 'style family (chunky-low-poly)' },
+  set: { type: 'string', help: 'exact curated compatibility set (smallscaleint)' },
   pov: { type: 'string', help: 'camera fit (iso, topdown, side, follow, fps, orbit)' },
   use: { type: 'string', default: 'in-game', help: `allowed use (${USES.join(', ')})` },
   'rig-id': { type: 'string', help: 'only cards on this rig' },
@@ -41,6 +42,7 @@ export function toQuery(name: string, words: string[], flags: Record<string, unk
     q.tier = flags.tier as number;
   }
   if (typeof flags.family === 'string') q.family = flags.family;
+  if (typeof flags.set === 'string') q.set = flags.set;
   if (typeof flags.pov === 'string') q.pov = flags.pov;
   if (typeof flags['rig-id'] === 'string') q.rigId = flags['rig-id'];
   if (typeof flags['same-rig-as'] === 'string') q.sameRigAs = flags['same-rig-as'];

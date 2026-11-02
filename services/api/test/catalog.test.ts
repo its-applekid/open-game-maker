@@ -3,21 +3,34 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { buildIndex, writeIndex } from '@ogm/asset-cards';
+import { buildIndex, loadFamilies, writeIndex } from '@ogm/asset-cards';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app/app.js';
-import { catalogRoutes, prefix, type StyleFamilyApi } from '../src/catalog/routes.js';
+import { catalogRoutes, prefix, setRequiresPrivateRepository, type StyleFamilyApi } from '../src/catalog/routes.js';
 import { makeApp, makeDeps } from './helpers.js';
 
 const FIXTURE = fileURLToPath(new URL('../../../packages/asset-cards/test/fixtures/library', import.meta.url));
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
 
 /** A writable fixture library; `thumbs` records imported thumb blobs on index entries the way OGM-067 does. */
-async function library(thumbs: Record<string, { hash: string; visibility?: string }> = {}): Promise<string> {
+async function library(
+  thumbs: Record<string, { hash: string; visibility?: string }> = {},
+  publicPacks: string[] = [],
+): Promise<string> {
   const root = mkdtempSync(join(tmpdir(), 'ogm-api-catalog-'));
   cpSync(FIXTURE, root, { recursive: true });
   const index = await buildIndex(root);
+  const publicTemplate = Object.values(index.collections).find((card) => card.resolved.license === 'CC0-1.0');
+  if (!publicTemplate) throw new Error('fixture needs a public collection');
+  for (const pack of publicPacks) {
+    if (Object.values(index.collections).some((card) => card.id.startsWith(`t1:${pack}@`))) continue;
+    const card = structuredClone(publicTemplate);
+    card.id = `t1:${pack}@fixture`;
+    card.title = `${pack} fixture`;
+    index.collections[card.id] = card;
+    index.cards.push(card);
+  }
   for (const [pack, { hash, visibility }] of Object.entries(thumbs)) {
     const card = Object.values(index.collections).find((c) => c.id.startsWith(`t1:${pack}@`));
     if (!card) throw new Error(`no fixture collection ${pack}`);
@@ -43,6 +56,32 @@ const get = async (app: ReturnType<typeof appWith>['app'], headers: Record<strin
 const packOf = (families: StyleFamilyApi[], id: string) =>
   families.flatMap((f) => f.packs).find((pack) => pack.id === id);
 
+const packsOfSet = (id: string) => {
+  const set = loadFamilies()
+    .flatMap((family) => family.sets)
+    .find((candidate) => candidate.id === id);
+  if (!set) throw new Error(`no style set ${id}`);
+  return set.packs.map((pack) => pack.id);
+};
+
+describe('setRequiresPrivateRepository', () => {
+  it('allows a set only when every pack resolves to a public SPDX license', () => {
+    const licenses = new Map([
+      ['terrain', 'CC0-1.0'],
+      ['characters', 'kenney'],
+    ]);
+
+    expect(setRequiresPrivateRepository([...licenses.keys()], (pack) => licenses.get(pack))).toBe(false);
+  });
+
+  it('requires privacy for LicenseRef, unknown, and unresolved pack licenses', () => {
+    expect(setRequiresPrivateRepository(['vendor'], () => 'LicenseRef-synty-personal')).toBe(true);
+    expect(setRequiresPrivateRepository(['public-vendor'], () => 'ansimuz-free-commercial')).toBe(true);
+    expect(setRequiresPrivateRepository(['unknown'], () => 'not-in-the-license-catalog')).toBe(true);
+    expect(setRequiresPrivateRepository(['missing'], () => undefined)).toBe(true);
+  });
+});
+
 describe('GET /api/catalog/style-families', () => {
   it('is mounted by the route scan and needs no principal', async () => {
     const { app } = await makeApp();
@@ -52,7 +91,7 @@ describe('GET /api/catalog/style-families', () => {
   });
 
   it('returns the seven families with Synty ones not offered, pack names from collection cards, and an ETag', async () => {
-    const { app } = appWith(await library());
+    const { app } = appWith(await library({}, packsOfSet('kenney-tiny')));
     const response = await get(app);
     expect(response.status).toBe(200);
     const families = (await response.json()) as StyleFamilyApi[];
@@ -75,6 +114,8 @@ describe('GET /api/catalog/style-families', () => {
       thumbnailUrl: null,
     });
     expect(packOf(families, 'kenney-castle-kit')?.name).toBe('kenney-castle-kit');
+    const tiny = families.find((family) => family.id === 'pixel-art')?.sets.find((set) => set.id === 'kenney-tiny');
+    expect(tiny?.requiresPrivateRepository).toBe(false);
     const polygon = families
       .find((family) => family.id === 'detailed-low-poly')
       ?.sets.find((set) => set.id === 'synty-polygon');
@@ -82,6 +123,7 @@ describe('GET /api/catalog/style-families', () => {
       label: 'Synty POLYGON',
       vendors: ['synty'],
       traits: expect.objectContaining({ perspective: '3d' }),
+      requiresPrivateRepository: true,
     });
     expect(polygon?.packs.map((pack) => pack.id)).toContain('synty-polygon-goblin-war-camp');
     expect(polygon?.packs.find((pack) => pack.id === 'synty-polygon-goblin-war-camp')?.thumbnailUrl).toBeNull();
@@ -133,5 +175,6 @@ describe('GET /api/catalog/style-families', () => {
     expect(families.flatMap((f) => f.packs).every((pack) => pack.thumbnailUrl === null && pack.name === pack.id)).toBe(
       true,
     );
+    expect(families.flatMap((family) => family.sets).every((set) => set.requiresPrivateRepository)).toBe(true);
   });
 });

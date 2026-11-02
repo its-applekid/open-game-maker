@@ -6,8 +6,8 @@
 
 Copies every downloaded file to <id>/<version>/originals (untouched), unzips the files matching --extract into
 extracted/, writes License.txt (the summary plus the store page) and pack.json, keyed by today's date as version.
---license-id names a row of packages/asset-cards/data/licenses.json; usage_rights follow that row (an unconfirmed row,
-like the LicenseRef-itch-custom default, gives the strict default until Kevin confirms one).
+--license-id names a row of packages/asset-cards/data/licenses.json; usage_rights follow that row. SmallScaleInt ids
+default to LicenseRef-smallscaleint-itch; other ids default to the unconfirmed LicenseRef-itch-custom strict ceiling.
 Never runs anything from the download. Rebuild the catalog afterwards (build_catalog.py).
 """
 import argparse, json, re, shutil, sys, time, zipfile
@@ -29,10 +29,11 @@ def main(argv=None):
     ap = argparse.ArgumentParser()
     for x in ('src', 'id', 'title', 'summary'): ap.add_argument(x)
     ap.add_argument('--extract', required=True); ap.add_argument('--category', default='2d')
-    ap.add_argument('--license-id', default='LicenseRef-itch-custom')
+    ap.add_argument('--license-id')
     ap.add_argument('--root', type=Path, default=Path(__file__).resolve().parents[2] / 'assets-local')
     a = ap.parse_args(argv)
-    lic = license_row(a.license_id, load_table())['id']
+    license_id = a.license_id or ('LicenseRef-smallscaleint-itch' if a.id.startswith('smallscaleint-') else 'LicenseRef-itch-custom')
+    lic = license_row(license_id, load_table())['id']
     src = Path(a.src).expanduser(); meta = json.loads((src / 'sources.json').read_text())
     ver = time.strftime('%Y-%m-%d'); root = a.root / 'packs' / a.id
     orig, ext = root / ver / 'originals', root / ver / 'extracted'; orig.mkdir(parents=True, exist_ok=True); ext.mkdir(parents=True, exist_ok=True)
