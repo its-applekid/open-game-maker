@@ -13,15 +13,14 @@ export async function spriteSheet(
   out: string,
   options: SpriteSheetOptions = {},
 ): Promise<{ out: string }> {
-  const width = options.width ?? 512;
-  const height = options.height ?? 512;
-  await atomicWebp(
-    sharp(png).resize(width, height, {
+  const image = sharp(png);
+  if (options.width !== undefined || options.height !== undefined) {
+    image.resize(options.width, options.height, {
       fit: 'contain',
       kernel: options.pixelArt ? sharp.kernel.nearest : sharp.kernel.lanczos3,
       background: { r: 0, g: 0, b: 0, alpha: 0 },
-    }),
-    out,
-  );
+    });
+  }
+  await atomicWebp(image, out);
   return { out };
 }

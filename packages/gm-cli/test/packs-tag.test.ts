@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { discoverTagTargets, reconcileCounts } from '../src/packs/tag.js';
 import type { RunJsonWorkerOptions, WorkerRecord } from '../src/packs/workers.js';
 import { gm, library, tempDir } from './helpers.js';
 
@@ -106,6 +107,63 @@ describe('gm packs tag', () => {
     expect(worker.run).not.toHaveBeenCalled();
   });
 
+  it('excludes cards whose explicit rights narrow inherited vision access', async () => {
+    const assetsRoot = library();
+    const path = join(assetsRoot, MUSIC, 'infinite-descent.card.json');
+    const card = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+    card.rights = {
+      uses: [],
+      audience: 'private',
+      redistribution: 'none',
+      attribution: null,
+      processing: 'local-only',
+      basis: [
+        {
+          type: 'default',
+          uses: [],
+          audience: 'private',
+          redistribution: 'none',
+          set_by: { role: 'intake-code' },
+          date: '2026-11-01',
+        },
+      ],
+    };
+    await writeFile(path, `${JSON.stringify(card, null, 2)}\n`);
+
+    const discovery = await discoverTagTargets(assetsRoot, 'audio', 'kenney-music-loops');
+
+    expect(discovery.targets).toHaveLength(1);
+    expect(discovery.targets[0]?.cards.map((entry) => entry.card.id)).toEqual([
+      't1:kenney-music-loops/loops/night-patrol@1.1',
+    ]);
+  });
+
+  it('keeps FBX-only model cards in collection counts while excluding them from tagging', async () => {
+    const assetsRoot = library();
+    const cards = join(assetsRoot, 'packs/kenney-mini-dungeon/cards');
+    const fbx = JSON.parse(await readFile(join(cards, 'wall.card.json'), 'utf8')) as Record<string, unknown>;
+    fbx.id = 't1:kenney-mini-dungeon/fbx-only@2.0';
+    fbx.title = 'FBX only';
+    fbx.status = 'measured';
+    fbx.flags = ['needs-conversion'];
+    const source = fbx.source as { files: Array<Record<string, unknown>> };
+    source.files[0] = { ...source.files[0], path: 'Models/FBX/fbx-only.fbx', format: 'fbx' };
+    await writeFile(join(cards, 'fbx-only.card.json'), `${JSON.stringify(fbx, null, 2)}\n`);
+    const discovery = await discoverTagTargets(assetsRoot, 'model', 'kenney-mini-dungeon');
+    expect(discovery.targets[0]?.cards.some((entry) => entry.card.id === fbx.id)).toBe(false);
+
+    await reconcileCounts(discovery.targets, 'model');
+
+    const collection = JSON.parse(
+      await readFile(join(assetsRoot, 'packs/kenney-mini-dungeon/collection.card.json'), 'utf8'),
+    ) as { collection_info: { counts: Record<string, number> } };
+    expect(collection.collection_info.counts).toMatchObject({
+      model: 3,
+      'model/character': 1,
+      'model/kit': 2,
+    });
+  });
+
   it.each([
     ['traversing', '../escape.card.json'],
     ['absolute', '/tmp/escape.card.json'],
@@ -132,9 +190,11 @@ describe('gm packs tag', () => {
     const assetsRoot = library();
     const cardPath = join(assetsRoot, MUSIC, 'night-patrol.card.json');
     const before = await readFile(cardPath);
+    const collectionPart = join(assetsRoot, 'packs/kenney-music-loops/collection.card.json.part');
     worker.run.mockImplementation(async (options: RunJsonWorkerOptions) => {
       if (options.label === 'audio cards') {
         await writeFile(cardPath, '{broken');
+        await writeFile(collectionPart, '{staged');
         options.onRecord({
           card: `${MUSIC}/night-patrol.card.json`,
           status: 'tagged',
@@ -151,5 +211,6 @@ describe('gm packs tag', () => {
     expect(result.code).toBe(1);
     expect(result.err.join('\n')).toContain('prior cards restored');
     expect(await readFile(cardPath)).toEqual(before);
+    await expect(readFile(collectionPart)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 });

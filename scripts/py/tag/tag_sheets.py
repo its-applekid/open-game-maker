@@ -203,7 +203,9 @@ def merge_card(card: dict, selections: dict[str, dict], baseline_count: int, now
 
 def load_clip(model_class=None, processor_class=None):
     if model_class is None or processor_class is None:
+        import torch
         from transformers import CLIPModel, CLIPProcessor
+        torch.set_num_threads(int(os.environ.get("OGM_TORCH_THREADS", "2")))
         model_class, processor_class = CLIPModel, CLIPProcessor
     try:
         model = model_class.from_pretrained(CLIP_ID, local_files_only=True)
@@ -269,9 +271,17 @@ def eligible_cards(pack: Path, kind: str | None = None) -> list[dict]:
         card = json.loads(path.read_text())
         if card.get("kind") not in VISUAL_KINDS or (kind and card.get("kind") != kind):
             continue
+        effective_rights = card.get("rights") or rights
+        if "vision-input" not in effective_rights.get("uses", []) or effective_rights.get("processing") not in ("any", "local-only"):
+            continue
         preview = card.get("previews", {}).get("sheet") or card.get("previews", {}).get("thumb")
         if isinstance(preview, str):
-            rows.append({"card": card, "path": path, "preview": assets_root / preview})
+            preview_path = (assets_root / preview).resolve()
+            try:
+                preview_path.relative_to(assets_root.resolve())
+            except ValueError:
+                continue
+            rows.append({"card": card, "path": path, "preview": preview_path})
     return rows
 
 

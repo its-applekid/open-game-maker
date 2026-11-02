@@ -98,6 +98,18 @@ describe('card schemas', () => {
     if (!result.ok) expect(result.errors.join('\n')).toContain('path');
   });
 
+  it('rejects traversing source and preview paths', () => {
+    const card = structuredClone(
+      cardFixtureDocs().find(({ file }) => file === 'sprite-kenney-tiny-dungeon-knight.json')?.doc,
+    ) as { source: { files: Array<{ path: string }> }; previews: { sheet: string } };
+    card.source.files[0]!.path = '../../outside.glb';
+    expect(validateCard(card)).toMatchObject({ ok: false });
+
+    card.source.files[0]!.path = 'Models/wall.glb';
+    card.previews.sheet = 'previews/../../outside.webp';
+    expect(validateCard(card)).toMatchObject({ ok: false });
+  });
+
   it('reports the invalid interpretation author', () => {
     const result = validateCard(negativeFixture('interpretation-not-admin.json').doc);
     expect(result.ok).toBe(false);

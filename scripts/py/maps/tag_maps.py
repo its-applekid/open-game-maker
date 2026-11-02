@@ -139,7 +139,7 @@ def clip():
     if _M is None:
         import torch
         from transformers import CLIPModel, CLIPProcessor
-        torch.set_num_threads(3)
+        torch.set_num_threads(int(os.environ.get("OGM_TORCH_THREADS", "3")))
         _M = (
             CLIPModel.from_pretrained(CLIP_ID, local_files_only=True).eval(),
             CLIPProcessor.from_pretrained(CLIP_ID, local_files_only=True),
@@ -312,6 +312,7 @@ def text_type(rel: str):
 def cards(json_mode=False, limit=0):
     import torch
     from transformers import CLIPModel, CLIPProcessor
+    torch.set_num_threads(int(os.environ.get("OGM_TORCH_THREADS", "3")))
     rows = [json.loads(p.read_text()) for p in sorted(ANALYSIS.rglob("*.analysis.json"))]
     m = CLIPModel.from_pretrained(CLIP_ID, local_files_only=True).eval()
     p = CLIPProcessor.from_pretrained(CLIP_ID, local_files_only=True)

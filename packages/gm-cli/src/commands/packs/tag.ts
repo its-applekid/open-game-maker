@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { CommandError, EXIT, UsageError, type GmCommand, type GmContext } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
 import {
+  assertWorkerRecord,
   discoverTagTargets,
   prepareVisualPreviews,
   reconcileCounts,
@@ -89,6 +90,7 @@ async function executeStages(options: {
   });
   for (const stage of stages(options.kind, options.assetsRoot, options.only, options.workers, options.limit)) {
     const onRecord: RunJsonWorkerOptions['onRecord'] = (record) => {
+      assertWorkerRecord(record);
       options.records.push(record);
       visibleRecord(options.ctx, stage.label, record);
     };

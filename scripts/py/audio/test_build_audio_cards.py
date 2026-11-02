@@ -167,7 +167,7 @@ def test_pack_derivatives_write_private_sheet_and_medley_to_collection(tmp_path,
             "sha256": name * 32,
             "_ver": "v1",
             "preview_tile": f"analysis/{name}.preview.png",
-            "measure": {"audio": {"duration_s": 10.0}, "sidecar": {"downbeats_s": [0.0]}},
+            "measure": {"audio": {"duration_s": 60.0}, "sidecar": {"downbeats_s": [0.0]}},
         }
         for name in ("01", "02")
     ]
@@ -185,6 +185,50 @@ def test_pack_derivatives_write_private_sheet_and_medley_to_collection(tmp_path,
     assert collection["previews"]["sheet"].startswith("private/previews/")
     assert collection["previews"]["clip"].startswith("private/previews/")
     assert len(medley_entries) == 2
+    first_clip = collection["previews"]["clip"]
+    for item in items:
+        item["measure"]["sidecar"]["downbeats_s"] = [5.0]
+    second_collection = {"rights": {"redistribution": "none"}}
+    assert b.build_pack_derivatives(pid, items, second_collection, tmp_path / "packs")
+    assert second_collection["previews"]["clip"] != first_clip
+
+
+def test_limit_still_builds_pack_derivatives_from_every_analysed_track(tmp_path, monkeypatch):
+    packs = tmp_path / "packs"
+    pack = packs / "music-pack"
+    pack.mkdir(parents=True)
+    (pack / "collection.card.json").write_text('{"id":"t1:music-pack@v1","collection_info":{"counts":{}}}')
+    probabilities = np.full(len(b.L.SFX_EVENTS), 1 / len(b.L.SFX_EVENTS))
+    materials = np.full(len(b.L.MATERIALS), 1 / len(b.L.MATERIALS))
+    rows = [
+        {
+            "_pack": "music-pack",
+            "_ver": "v1",
+            "_sidecar": pack / "v1" / "analysis" / f"sound-{index}.analysis.json",
+            "file": f"sound-{index}.wav",
+            "sha256": str(index + 1) * 64,
+            "bytes": 10,
+            "music": False,
+            "measure": {"audio": {"duration_s": 1.0, "peak_dbfs": -1.0}},
+            "preview": {"waveform": f"private/previews/{index}.png"},
+            "vendor": {},
+            "_p": {"sfx_event": probabilities, "sfx_material": materials},
+        }
+        for index in range(2)
+    ]
+    derivative_sizes = []
+    monkeypatch.setattr(
+        b,
+        "build_pack_derivatives",
+        lambda _pid, items, _collection, _packs: derivative_sizes.append(len(items)) or False,
+    )
+    means = {(False, "sfx_event"): probabilities, (False, "sfx_material"): materials}
+
+    written, _, records, _ = b.build(rows, b.prompts(), means, packs, update_counts=False, limit=1)
+
+    assert written == 1
+    assert len(records) == 1
+    assert derivative_sizes == [2]
 
 
 def test_voice_lines_have_no_material():

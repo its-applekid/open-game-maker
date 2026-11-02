@@ -214,7 +214,13 @@ def compose_sheet(tiles: list[Path], out: Path):
         with Image.open(tile) as image:
             sheet.paste(image.convert("RGB").resize((TILE_WIDTH, TILE_HEIGHT)), (0, index * TILE_HEIGHT))
     out.parent.mkdir(parents=True, exist_ok=True)
-    sheet.save(out, "WEBP", quality=82, method=6)
+    staged = out.with_name(out.name + ".part")
+    try:
+        sheet.save(staged, "WEBP", quality=82, method=6)
+        staged.replace(out)
+    except Exception:
+        staged.unlink(missing_ok=True)
+        raise
 
 
 def _write_ogg(arguments: list[str], out: Path, timeout: int):
