@@ -84,40 +84,71 @@ describe('gm assets register keeps tier-3 bytes in the blob store (D-ASSETS-REFE
     expect(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')).toBe(lockBefore);
   });
 
-  it("puts the bytes through the API's daemon blob route with the hook secret inside a sandboxed daemon", async () => {
+  it('refuses a second file whose id would replace another registered asset', async () => {
     const { cwd, root } = await gameRepo();
-    const secretFile = join(tempDir('gm-secret-'), 'hook-secret');
-    writeFileSync(secretFile, 'daemon-secret\n');
-    writeAsset(cwd, 'assets/model/door.glb', 'door-bytes');
-    const seen: { method?: string; url?: string; auth?: string; body: string }[] = [];
-    const server = createServer((req, res) => {
-      const chunks: Buffer[] = [];
-      req.on('data', (chunk: Buffer) => chunks.push(chunk));
-      req.on('end', () => {
-        seen.push({
-          method: req.method,
-          url: req.url,
-          auth: req.headers.authorization,
-          body: Buffer.concat(chunks).toString(),
-        });
-        res.writeHead(201, { 'content-type': 'application/json' }).end('{}');
-      });
+    const env = { OGM_ASSETS_ROOT: root, OGM_BLOB_ROOT: tempDir('gm-blobs-') };
+    writeAsset(cwd, 'assets/model/door.glb', 'model');
+    writeAsset(cwd, 'assets/model/door.png', 'texture');
+    expect(
+      (await gm(['assets', 'register', 'assets/model/door.glb', '--made-by-agent', '--game', 'g1'], { cwd, env })).code,
+    ).toBe(0);
+
+    const second = await gm(['assets', 'register', 'assets/model/door.png', '--made-by-agent', '--game', 'g1'], {
+      cwd,
+      env,
     });
-    await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
-    try {
-      const { port } = server.address() as AddressInfo;
-      const result = await gm(['assets', 'register', 'assets/model/door.glb', '--made-by-agent', '--game', 'g1'], {
-        cwd,
-        env: {
-          OGM_ASSETS_ROOT: root,
-          OGM_INTERNAL_URL: `http://127.0.0.1:${port}`,
-          OGM_HOOK_SECRET_FILE: secretFile,
-        },
-      });
-      expect(result.code).toBe(0);
-    } finally {
-      server.close();
-    }
+
+    expect(second.code).toBe(2);
+    expect(second.err.join('\n')).toContain('t3:g1/model/door already names assets/model/door.glb');
+    expect(lockEntry(cwd, 't3:g1/model/door')?.sha256).toBe(sha('model'));
+    expect(readFileSync(join(cwd, 'assets/model/door.png'), 'utf8')).toBe('texture');
+  });
+});
+
+type Seen = { method?: string; url?: string; auth?: string; body: string };
+
+// A stand-in for the API's daemon blob route that answers every request with `reply(body)`.
+async function withDaemonApi(
+  reply: (body: string) => { status: number; json: unknown },
+  run: (env: Record<string, string>) => Promise<void>,
+): Promise<Seen[]> {
+  const secretFile = join(tempDir('gm-secret-'), 'hook-secret');
+  writeFileSync(secretFile, 'daemon-secret\n');
+  const seen: Seen[] = [];
+  const server = createServer((req, res) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', () => {
+      const body = Buffer.concat(chunks).toString();
+      seen.push({ method: req.method, url: req.url, auth: req.headers.authorization, body });
+      const { status, json } = reply(body);
+      res.writeHead(status, { 'content-type': 'application/json' }).end(JSON.stringify(json));
+    });
+  });
+  await new Promise<void>((done) => server.listen(0, '127.0.0.1', done));
+  try {
+    const { port } = server.address() as AddressInfo;
+    await run({ OGM_INTERNAL_URL: `http://127.0.0.1:${port}`, OGM_HOOK_SECRET_FILE: secretFile });
+  } finally {
+    server.close();
+  }
+  return seen;
+}
+
+describe('gm assets register inside a sandboxed game daemon', () => {
+  const register = (cwd: string, root: string, env: Record<string, string>) =>
+    gm(['assets', 'register', 'assets/model/door.glb', '--made-by-agent', '--game', 'g1'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: root, ...env },
+    });
+
+  it("puts the bytes through the API's daemon blob route with the hook secret", async () => {
+    const { cwd, root } = await gameRepo();
+    writeAsset(cwd, 'assets/model/door.glb', 'door-bytes');
+    const seen = await withDaemonApi(
+      (body) => ({ status: 201, json: { hash: `sha256:${sha(body)}`, bytes: body.length, mime: 'x' } }),
+      async (env) => expect((await register(cwd, root, env)).code).toBe(0),
+    );
 
     expect(seen).toEqual([
       {
@@ -128,5 +159,21 @@ describe('gm assets register keeps tier-3 bytes in the blob store (D-ASSETS-REFE
       },
     ]);
     expect(existsSync(join(cwd, 'assets/model/door.glb'))).toBe(false);
+  });
+
+  it.each([
+    ['a refusal', { status: 413, json: { error: 'blob_too_large' } }],
+    ['a success that does not name the stored bytes', { status: 200, json: {} }],
+  ])('keeps the file and the lock when the route answers with %s', async (_label, answer) => {
+    const { cwd, root } = await gameRepo();
+    writeAsset(cwd, 'assets/model/door.glb', 'door-bytes');
+    const lockBefore = readFileSync(join(cwd, 'assets.lock.json'), 'utf8');
+    await withDaemonApi(
+      () => answer,
+      async (env) => expect((await register(cwd, root, env)).code).toBe(1),
+    );
+
+    expect(readFileSync(join(cwd, 'assets/model/door.glb'), 'utf8')).toBe('door-bytes');
+    expect(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')).toBe(lockBefore);
   });
 });

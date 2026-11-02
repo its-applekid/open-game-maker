@@ -118,6 +118,13 @@ export const command: GmCommand = {
     }
     sourceLicenses = [...new Set(sourceLicenses)];
     const id = `t3:${await gameId(ctx.cwd, flags.game)}/${idPath(file.relative)}`;
+    const taken = lock.assets.find((entry) => entry.id === id && entry.path !== file.relative);
+    if (taken) {
+      throw new UsageError(
+        `${id} already names ${taken.path}`,
+        'rename the file so its id differs, e.g. assets/model/door-2.glb',
+      );
+    }
     // D-ASSETS-REFERENCE: the bytes live in the instance blob store; the repo keeps only the lock entry.
     const bytes = await readFile(file.absolute);
     const sha256 = createHash('sha256').update(bytes).digest('hex');

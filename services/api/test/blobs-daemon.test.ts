@@ -15,7 +15,7 @@ function setup() {
   const app = createApp(deps);
   app.route(
     '/blobs/daemon',
-    daemonBlobRoutes({ daemonForSecret: async (secret) => (secret === SECRET ? 'everdred-games/gm-g1' : null) }),
+    daemonBlobRoutes({ daemonForSecret: async (secret) => (secret === SECRET ? 'example-games/gm-g1' : null) }),
   );
   const call = (method: string, hex: string, opts: { secret?: string; body?: string; mime?: string } = {}) =>
     app.request(`http://127.0.0.1:4000/blobs/daemon/sha256/${hex}`, {
