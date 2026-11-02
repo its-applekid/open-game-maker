@@ -25,11 +25,16 @@ pnpm --filter @ogm/config exec ogm-env-init voice-host
 
 Set `OGM_API_INTERNAL_URL` to the loopback API base URL and `OGM_VOICE_WS_URL` to the public `/ws/voice` URL. The voice host defaults to `OGM_VOICE_PROVIDER=fake`, which needs no provider key. Live adapters read `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` from `voice-host.env` only when used; set `OGM_VOICE_LLM` with either live provider. Keep every env file mode `0600`.
 
+Batch narration writes temporary WAV files to `OGM_VOICE_RENDER_DIR` (the system temporary directory's
+`ogm-voice-renders` child by default). The host creates it with mode `0700`; the API deletes each WAV after
+transcoding it. `OGM_NARRATION_CONCURRENCY` limits API-side renders to 2 by default.
+
 The service binds the conversation socket to `127.0.0.1:40400` and internal HTTP to `127.0.0.1:40401` by default. The internal surface is:
 
 - `GET /healthz`
 - `POST /internal/briefing` with `Authorization: Bearer <OGM_VOICE_INTERNAL_SECRET>`; the legacy
   `X-OGM-Internal` form is also accepted
+- `POST /internal/narration` with the same credential and `{ text, voice_id, format: "pcm_24000" }`
 
 Ingress setup remains owned by `ops/bin/ogm-ingress.sh`, which maps `/ws/voice` to `OGM_VOICE_PORT`.
 
