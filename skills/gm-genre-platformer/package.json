@@ -1,0 +1,19 @@
+{
+  "name": "@ogm/gm-genre-platformer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @gm/sdk build",
+    "test": "vitest run references/cards/*.test.ts",
+    "lint": "eslint references/cards"
+  },
+  "devDependencies": {
+    "@gm/sdk": "workspace:*",
+    "@ogm/contracts": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}
