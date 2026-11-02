@@ -6,6 +6,7 @@ import { piiRule } from './rules/pii.js';
 import { rightsRule } from './rules/rights.js';
 import { secretRule } from './rules/secret.js';
 import { sizeRule } from './rules/size.js';
+import { vendoredRule } from './rules/vendored.js';
 import type { BoundaryInput, BoundaryRule } from './types.js';
 
 export const boundaryRules: readonly BoundaryRule[] = [
@@ -14,6 +15,7 @@ export const boundaryRules: readonly BoundaryRule[] = [
   denylistRule,
   secretRule,
   piiRule,
+  vendoredRule,
   rightsRule,
 ];
 
