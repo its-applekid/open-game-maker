@@ -23,6 +23,8 @@ Derive button edges from adjacent frames. Held state drives continuous behavior;
 replays see the same edges.
 
 ```ts
+import type { ActionFrame } from '@ogm/contracts';
+
 type Edges = { held: boolean; justPressed: boolean; justReleased: boolean };
 export const tunableRanges = { deadzone: [0.15, 0.3], repeatDelayMs: [150, 300] } as const;
 export const tunables = {

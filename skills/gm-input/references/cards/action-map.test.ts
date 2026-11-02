@@ -12,6 +12,7 @@ describe('action-map card', () => {
 
     expect(text).toMatch(/deadzone, range: \[0\.15, 0\.30\]/);
     expect(text).toMatch(/repeatDelayMs, range: \[150, 300\]/);
+    expect(text).toContain("import type { ActionFrame } from '@ogm/contracts';");
     expect(text).toContain('justPressed');
     expect(text).toContain('## No obvious extras');
     expect(text).toContain('deadzone: /* pick from the brief range */ 0');
