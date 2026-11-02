@@ -1,0 +1,31 @@
+{
+  "name": "@gm/pack-smallscaleint",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "tsc -b",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@gm/sdk": "workspace:*",
+    "zod": "4.6.7"
+  },
+  "peerDependencies": {
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "phaser": "4.2.1",
+    "vitest": "5.0.5"
+  }
+}

@@ -103,6 +103,56 @@ describe('game frame adapter', () => {
     expect(frame.dispose).toHaveBeenCalledOnce();
   });
 
+  it('adapts validated room envelopes in both directions', () => {
+    const listeners = new Map<string, (payload: never) => void>();
+    let frameOptions: GameFrameOptions | undefined;
+    const frame = {
+      bridge: { dropped: 0 },
+      on: vi.fn((type: string, callback: (payload: never) => void) => {
+        listeners.set(type, callback);
+        return vi.fn();
+      }),
+      setMode: vi.fn(),
+      setSettings: vi.fn(),
+      send: vi.fn(),
+      dispose: vi.fn(),
+    };
+    const roomMessages = vi.fn();
+    const controller = mountGameFrame({
+      container: document.createElement('div'),
+      gamesOrigin: 'http://127.0.0.1:10001',
+      gameId: 'game',
+      buildId: 'build',
+      mode: 'play',
+      design: { rev: 0, doc: {} as DesignDoc },
+      create: (options) => {
+        frameOptions = options;
+        return frame;
+      },
+      onRoomMessage: roomMessages,
+    });
+
+    controller.sendRoomMessage({
+      v: 1,
+      id: 'room-1',
+      t: 'net.role',
+      payload: { role: 'peer' },
+    });
+    frameOptions?.onReady?.(manifest, [['boot', 1]]);
+    listeners.get('net.input')?.({ f: { seq: 2, tick: 3, axes: [], buttons: 0 } } as never);
+
+    expect(frame.send).toHaveBeenCalledWith('net.role', { role: 'peer' });
+    expect(roomMessages).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'ready', payload: expect.objectContaining({ manifest }) }),
+    );
+    expect(roomMessages).toHaveBeenCalledWith({
+      v: 1,
+      id: expect.any(String),
+      t: 'net.input',
+      payload: { f: { seq: 2, tick: 3, axes: [], buttons: 0 } },
+    });
+  });
+
   it('surfaces the host readiness timeout as a retryable error state', () => {
     const container = document.createElement('div');
     let frameOptions: GameFrameOptions | undefined;

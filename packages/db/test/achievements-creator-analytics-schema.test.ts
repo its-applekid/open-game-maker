@@ -28,7 +28,9 @@ describe('achievement and creator analytics storage', () => {
     expect(db.select().from(analyticsSalts).all()).toEqual([]);
 
     sqlite.exec("INSERT INTO families VALUES ('f', 'Family', 'u', 0, 'now')");
-    sqlite.exec("INSERT INTO games VALUES ('g', 'f', 'u', 'Game', 'listed', NULL, NULL, 'private', NULL, 'now', NULL)");
+    sqlite.exec(
+      "INSERT INTO games VALUES ('g', 'f', 'u', 'Game', 'listed', NULL, NULL, 'private', NULL, 'now', NULL, NULL)",
+    );
     sqlite.exec(
       "INSERT INTO achievement_defs VALUES ('g', 'first', 'First', 'First award', 'icon.png', 0, NULL, 'r1', NULL)",
     );
@@ -45,7 +47,9 @@ describe('achievement and creator analytics storage', () => {
     const { sqlite } = openDb(':memory:');
     migrate({ sqlite });
     sqlite.exec("INSERT INTO families VALUES ('f', 'Family', 'u', 0, 'now')");
-    sqlite.exec("INSERT INTO games VALUES ('g', 'f', 'u', 'Game', 'listed', NULL, NULL, 'private', NULL, 'now', NULL)");
+    sqlite.exec(
+      "INSERT INTO games VALUES ('g', 'f', 'u', 'Game', 'listed', NULL, NULL, 'private', NULL, 'now', NULL, NULL)",
+    );
 
     const insert = sqlite.prepare(
       `INSERT INTO creator_analytics_events

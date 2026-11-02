@@ -12,13 +12,14 @@ import { registerBoundaryWebhook } from './boundary/webhook.js';
 import type { OperationContext, RepositoryResolver } from './ops/context.js';
 import { executeOperation } from './ops/registry.js';
 import { repositoryName } from './paths.js';
-import type { CommitOp, CommitResult, Repository } from './types.js';
+import type { CommitOp, CommitResult, GitHubInstallations, Repository } from './types.js';
 
 type ServerDependencies = {
   serviceToken: string;
   operations: Omit<OperationContext, 'repos'>;
   repos: RepositoryResolver;
   audit: AuditWriter;
+  installations?: GitHubInstallations;
   remoteAddress?: (context: Context) => string | undefined;
   execute?: (op: CommitOp, context: OperationContext) => Promise<CommitResult>;
   now?: () => Date;
@@ -92,11 +93,35 @@ export function createCommitApp(dependencies: ServerDependencies): Hono {
     registerBoundaryWebhook(app, dependencies.boundaryWebhook);
   }
 
-  app.post('/internal/commit', async (context) => {
+  const refuseCaller = (context: Context): Response | undefined => {
     if (!isLoopback(remoteAddress(context))) return context.json({ error: 'loopback required' }, 403);
     if (!tokenMatches(dependencies.serviceToken, context.req.header('authorization'))) {
       return context.json({ error: 'unauthorized' }, 401);
     }
+    return undefined;
+  };
+
+  // The API resolves the account behind an installation id the browser brought back from GitHub (#280).
+  app.get('/internal/installations/:id', async (context) => {
+    const refused = refuseCaller(context);
+    if (refused !== undefined) return refused;
+    const id = context.req.param('id');
+    const installations = dependencies.installations;
+    if (installations === undefined) return context.json({ error: 'installations unavailable' }, 503);
+    if (!/^[1-9][0-9]{0,14}$/u.test(id)) return context.json({ error: 'installation_not_found' }, 404);
+    let login: string | null;
+    try {
+      login = await installations.installationLogin(Number(id));
+    } catch {
+      return context.json({ error: 'installation lookup failed' }, 502);
+    }
+    if (login === null) return context.json({ error: 'installation_not_found' }, 404);
+    return context.json({ login }, 200);
+  });
+
+  app.post('/internal/commit', async (context) => {
+    const refused = refuseCaller(context);
+    if (refused !== undefined) return refused;
     const parsed = CommitOpSchema.safeParse(await context.req.json().catch(() => undefined));
     if (!parsed.success) {
       return context.json({ error: { code: 'invalid_op', issues: parsed.error.issues } }, 422);

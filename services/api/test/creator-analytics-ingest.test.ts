@@ -6,6 +6,7 @@ import { pseudonymForUser, rotateDueSalts } from '../src/creator-analytics/pseud
 import { makeDeps } from './helpers.js';
 
 const now = '2026-11-01T12:00:00.000Z';
+const later = new Date(Date.now() + 31 * 24 * 60 * 60 * 1_000).toISOString(); // salts are stamped with the real clock by ingestPlayEvents
 const branchId = 'branch_01ARZ3NDEKTSV4RRFFQ69G5FAV';
 const releaseId = 'release_01ARZ3NDEKTSV4RRFFQ69G5FAV';
 
@@ -87,14 +88,15 @@ describe('creator analytics ingestion', () => {
   it('deletes one user across salt rotations without storing account ids in events', () => {
     const deps = makeDeps();
     seedGames(deps);
-    ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ sessionId: 'before' })]);
+    // Mint the first salt at the fixed `now`: ingest stamps it with the wall clock, which would make the rotation below date-dependent.
     const before = pseudonymForUser(deps.db, 'g-one', 'u-player', now);
+    ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ sessionId: 'before' })]);
 
-    expect(rotateDueSalts(deps.db, '2026-12-02T12:00:00.000Z')).toBe(1);
-    const after = pseudonymForUser(deps.db, 'g-one', 'u-player', '2026-12-02T12:00:00.000Z');
+    expect(rotateDueSalts(deps.db, later)).toBe(1);
+    const after = pseudonymForUser(deps.db, 'g-one', 'u-player', later);
     expect(after).not.toBe(before);
-    ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ ts: '2026-12-02T12:00:00.000Z', sessionId: 'after' })]);
-    ingestPlayEvents(deps.db, 'u-other', 'g-one', [event({ ts: '2026-12-02T12:00:00.000Z', sessionId: 'other' })]);
+    ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ ts: later, sessionId: 'after' })]);
+    ingestPlayEvents(deps.db, 'u-other', 'g-one', [event({ ts: later, sessionId: 'other' })]);
 
     expect(deleteUserEvents(deps.db, 'u-player')).toBe(2);
     expect(deps.db.select().from(schema.creatorAnalyticsEvents).all()).toEqual([

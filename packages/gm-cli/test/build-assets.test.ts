@@ -416,6 +416,26 @@ describe('gm build assets', () => {
     expect(written.equals(await sharp(source).raw().toBuffer())).toBe(true);
   });
 
+  // Large tilesets and contact sheets are not sprite sheets, but scaling them still breaks the pixel grid.
+  it('keeps a pixel-art image over 2048 px at full size while other families still shrink it', async () => {
+    const source = await png(2_100, 4, true);
+    const build = async (family: string) => {
+      const cwd = tempDir('gm-build-pixel-large-');
+      writeAsset(cwd, 'assets/image/tileset.png', source);
+      writeLock(cwd, [{ id: 't3:fixture/tileset', path: 'assets/image/tileset.png' }], family);
+      /* Both sizes exceed the mobile texture budget; that exit code is not what this test guards. */
+      await gm(['build', 'assets'], { cwd, env: {} });
+      const manifest = JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')) as AssetManifest;
+      return sharp(join(cwd, 'public/assets', manifest.assets['t3:fixture/tileset']!.file['*']!));
+    };
+
+    const pixel = await build('pixel-art');
+    expect(await pixel.metadata()).toMatchObject({ width: 2_100, height: 4 });
+    expect((await pixel.removeAlpha().raw().toBuffer()).equals(await sharp(source).raw().toBuffer())).toBe(true);
+
+    expect((await (await build('chunky-low-poly')).metadata()).width).toBe(2_048);
+  }, 40_000);
+
   it('finishes independent jobs for a corrupt GLB but does not replace the manifest', async () => {
     const cwd = tempDir('gm-build-corrupt-');
     writeAsset(cwd, 'assets/image/ok.png', await png(8, 8));

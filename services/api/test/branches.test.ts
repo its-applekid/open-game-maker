@@ -65,6 +65,28 @@ async function setup() {
   return { ...(await makeApp(deps)), main };
 }
 
+function insertBuild(
+  deps: ReturnType<typeof makeDeps>,
+  input: { branchId: string; gitSha: string; createdAt: string },
+): void {
+  deps.db
+    .insert(schema.builds)
+    .values({
+      id: ids.build,
+      gameId: ids.game,
+      branchId: input.branchId,
+      gitSha: input.gitSha,
+      sdkVersion: '1.0.0',
+      saveSchemaVersion: 1,
+      achievementCatalogHash: 'b'.repeat(64),
+      status: 'tested',
+      artifact: 'present',
+      artifactPath: `/artifacts/${ids.build}`,
+      createdAt: input.createdAt,
+    })
+    .run();
+}
+
 const collectionUrl = `/api/v1/games/${ids.game}/branches`;
 const jsonHeaders = (userId = ids.creator) => ({ ...asUser(userId), 'content-type': 'application/json' });
 
@@ -323,11 +345,10 @@ describe('branch routes', () => {
     });
   });
 
-  it('copies the Git SHA from the parent build when the builds table exists', async () => {
+  it('copies the Git SHA from the parent build', async () => {
     const { app, deps, main } = await setup();
     const gitSha = 'a'.repeat(40);
-    deps.sqlite.exec('CREATE TABLE builds (id TEXT PRIMARY KEY, game_id TEXT NOT NULL, git_sha TEXT)');
-    deps.sqlite.prepare('INSERT INTO builds (id, game_id, git_sha) VALUES (?, ?, ?)').run(ids.build, ids.game, gitSha);
+    insertBuild(deps, { branchId: main.id, gitSha, createdAt: now });
     deps.sqlite.prepare('UPDATE branches SET latest_build_id = ? WHERE id = ?').run(ids.build, main.id);
 
     const created = await app.request(collectionUrl, {
@@ -362,19 +383,11 @@ describe('version counts', () => {
     const { deps, main } = await setup();
     systemTransaction(deps.sqlite, main, 1, 'before one');
     systemTransaction(deps.sqlite, main, 2, 'before two');
-    deps.sqlite.exec(`
-      CREATE TABLE builds (
-        id TEXT PRIMARY KEY NOT NULL,
-        game_id TEXT NOT NULL,
-        branch_id TEXT NOT NULL,
-        git_sha TEXT NOT NULL,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      )
-    `);
-    deps.sqlite
-      .prepare('INSERT INTO builds (id, game_id, branch_id, git_sha, status, created_at) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(ids.build, ids.game, main.id, 'a'.repeat(40), 'tested', new Date(new Date(now).getTime() + 3).toISOString());
+    insertBuild(deps, {
+      branchId: main.id,
+      gitSha: 'a'.repeat(40),
+      createdAt: new Date(new Date(now).getTime() + 3).toISOString(),
+    });
     deps.sqlite.prepare('UPDATE branches SET latest_build_id = ? WHERE id = ?').run(ids.build, main.id);
     systemTransaction(deps.sqlite, main, 3, 'switch', [{ op: 'invoke', command: 'build.switch', args: {} }]);
     systemTransaction(deps.sqlite, main, 4, 'after one');
@@ -383,9 +396,9 @@ describe('version counts', () => {
 
     const counts = createVersionCounts(deps.sqlite);
     await expect(counts.publishCount(ids.game)).resolves.toBe(0);
-    await expect(counts.buildsSinceFork(main)).resolves.toBe(0);
+    await expect(counts.buildsSinceFork(main)).resolves.toBe(1);
     await expect(counts.txSinceLatestBuild(main)).resolves.toBe(3);
-    await expect(counts.versionFor(main)).resolves.toBe('0.0.3');
+    await expect(counts.versionFor(main)).resolves.toBe('0.1.3');
   });
 
   it('counts every transaction when no qualifying build switch exists', async () => {

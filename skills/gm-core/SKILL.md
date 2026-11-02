@@ -15,6 +15,14 @@ Before coding, write a five-line plan and a short list titled "defaults I'd reac
 it against the scope. Templates are engine scaffolds, not game designs: do not inherit a theme, entity, HUD, name,
 or mechanic from them.
 
+## Keep the layers honest
+
+Pack facts go on asset cards or in the set adapter, never in the game. Call the adapter for rendering, collision,
+and maps; keep gameplay in `src/features/`. If the second game on the same set would copy a rule unchanged, note it
+under `## Promote` for L2. If the second set or dimension would reuse adapter code unchanged, propose it for L1.
+Until that evidence exists, write the rule once in L3 before promoting it. Pattern cards stay copyable guidance,
+and an ejected adapter becomes game-owned L3 code until the package can serve the game again.
+
 ## Choose assets before making them
 
 Use this order and say when you move down a tier:
@@ -74,6 +82,8 @@ Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animat
 | gm-scope-options | Turning a vague brief into distinct creator-facing options. |
 | gm-editor-tuning | Exposing safe creator-tunable values. |
 | gm-repair | Repairing a failed build or verification gate. |
+| gm-set-<set> | Using a set's adapter named by `gm.lock.json`. |
+| gm-pack-adapter | Changing shared pack code or proposing a promotion. |
 | vendor/phaser | Working in Phaser; load only the capability needed. |
 | vendor/threejs | Working in Three.js; load only the capability needed. |
 | vendor/gamedev | Needing a focused game-development reference not covered above. |
