@@ -23,6 +23,13 @@ Never choose from filenames. Render the candidates side by side, labelled with p
 `models/candidates/<pack>/`, each pack in its own folder because Kenney packs share `Textures/colormap.png`).
 Variants: `tools/lineup.html?set=...`. Look at the render, then show the creator when the choice is visible.
 
+## Showcase a complete set
+
+After a set's assets have catalog cards, use `gm-set-showcase` to build its style-picker detail showcase. That skill
+inventories every pack, plans connected living regions and paired sprite sheets, checks story/coverage/overlap rules,
+and emits baked H.264 MP4, GIF, and poster media. Do not turn a lineup page or live canvas compositor into the shipped
+set preview; the client displays only the pre-rendered files.
+
 ## Fetch a pack (tier 2)
 
 Finding and previewing new packs before any download: `gm-pack-scout`.

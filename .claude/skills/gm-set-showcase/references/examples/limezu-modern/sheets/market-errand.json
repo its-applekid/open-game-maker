@@ -1,0 +1,14 @@
+{
+  "background": "#d8d1bd",
+  "grid": [1, 1],
+  "direction_seconds": 1.25,
+  "sprites": [
+    {
+      "id": "farmer-two",
+      "ref": "card:limezu-modern-farm/farmer-two",
+      "actions": ["walk"],
+      "directions": ["down", "left", "right", "up"],
+      "scale": 3
+    }
+  ]
+}

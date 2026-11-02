@@ -1,0 +1,22 @@
+{
+  "background": "#60964f",
+  "ground": {
+    "ref": "card:limezu-modern-exteriors/pavement",
+    "fill": "cover",
+    "scale": 2
+  },
+  "sprites": [
+    {
+      "id": "mall",
+      "ref": "card:limezu-modern-exteriors/mall",
+      "at": [300, 340]
+    },
+    {
+      "id": "fruit-cart",
+      "ref": "card:limezu-modern-exteriors/fruit-cart",
+      "at": [390, 420],
+      "scale": 2,
+      "z": 1
+    }
+  ]
+}
