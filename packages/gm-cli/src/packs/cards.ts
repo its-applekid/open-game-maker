@@ -21,8 +21,9 @@ type CreateCardsOptions = {
   id: string;
   title: string;
   version: string;
+  tier: 1 | 2;
   vendor: Vendor;
-  origin: 'vendor-pack' | 'drive-drop';
+  origin: 'vendor-pack' | 'drive-drop' | 'mirror';
   extracted: string;
   items: Item[];
   filesTotal: number;
@@ -141,7 +142,7 @@ function withValidation(card: AssetCard, errors: CardSet['validationErrors']): A
 
 export async function createCards(options: CreateCardsOptions): Promise<CardSet> {
   const at = `${options.date}T00:00:00.000Z`;
-  const collectionId = `t1:${options.id}@${options.version}`;
+  const collectionId = `t${options.tier}:${options.id}@${options.version}`;
   const counts: Record<string, number> = {};
   for (const item of options.items) {
     counts[item.kind] = (counts[item.kind] ?? 0) + 1;
@@ -210,7 +211,7 @@ export async function createCards(options: CreateCardsOptions): Promise<CardSet>
       {
         schema: 'ogm.asset-card/1.1',
         vocab: VOCAB,
-        id: `t1:${options.id}/${localId}@${options.version}`,
+        id: `t${options.tier}:${options.id}/${localId}@${options.version}`,
         card_type: 'asset',
         status: measured.geometry || measured.image || measured.font ? 'measured' : 'draft',
         title: titleFor(item.path),

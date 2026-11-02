@@ -202,6 +202,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_VOICE_WS_URL', unit: 'api', kind: 'string', doc: 'wss://applekid.tailee0e71.ts.net:8443/ws/voice' },
   { name: 'GM_VERIFY_SOFTWARE_GL', unit: 'gm', kind: 'bool', doc: 'gm run uses SwiftShader instead of the GPU (CI)' },
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
+  { name: 'OGM_SANDBOX', unit: 'gm', kind: 'bool', doc: 'refuses operator-only gm commands inside a sandbox' },
   { name: 'PLAYWRIGHT_BROWSERS_PATH', unit: 'gm', kind: 'path', doc: 'cached Chromium browsers used by gm verify' },
   { name: 'XDG_RUNTIME_DIR', unit: 'gm', kind: 'path', doc: 'holds the ogm-verify capture slots (2 per host)' },
   {

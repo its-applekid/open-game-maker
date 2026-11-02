@@ -7,35 +7,11 @@ import { licenseFor } from '@ogm/asset-cards';
 import { createCards } from './cards.js';
 import { confirmCollection } from './confirm.js';
 import { identify } from './identify.js';
+import type { DriveManifest, ImportOptions, QueueEntry } from './import-options.js';
+import { applyTier2Rights, filterLicensedItems, validateLicenseMap, type LicenseMap } from './license-map.js';
 import { archiveStem, unpack, type UnpackCaps } from './unpack.js';
 
 export class PackRefusal extends Error {}
-
-export type ImportOptions = {
-  assetsRoot: string;
-  cwd: string;
-  input?: string;
-  id: string;
-  version?: string;
-  license?: string;
-  inspiration: boolean;
-  fromQueue?: string;
-};
-
-type QueueEntry = { drop_id: string; name: string; manifest: string };
-type ManifestFile = { path: string; downloaded?: boolean; previous_quarantine?: string };
-type DriveManifest = {
-  drop_id: string;
-  name: string;
-  revision?: number;
-  downloaded_at?: string;
-  integrity_ok: boolean;
-  problems?: string[];
-  files_root?: string;
-  files: ManifestFile[];
-  source?: { drive_id?: string };
-  quarantine?: string;
-};
 
 const CAPS: UnpackCaps = { maxMembers: 200_000, maxUnpackedMb: 32_768, maxRatio: 200 };
 const ARCHIVE = /\.(?:zip|7z|rar|tar|tgz|tar\.gz|unitypackage)$/i;
@@ -251,6 +227,17 @@ async function writeIntakeIfMissing(path: string, value: unknown): Promise<void>
 }
 
 export async function importPack(options: ImportOptions) {
+  const tier = options.tier ?? 1;
+  if (tier === 2 && !options.license) throw new PackRefusal('tier-2 import requires --license');
+  if (tier === 2 && !options.confirmedBy?.trim()) {
+    throw new PackRefusal('tier-2 import requires --confirmed-by naming the human who checked the mirror licence');
+  }
+  let licenseMap: LicenseMap | undefined;
+  try {
+    licenseMap = options.licenseMap ? validateLicenseMap(options.licenseMap) : undefined;
+  } catch (error) {
+    throw new PackRefusal(error instanceof Error ? error.message : String(error));
+  }
   const id = safeSegment(options.id, 'pack id', /^[a-z0-9][a-z0-9-]*$/);
   const topDir = join(options.assetsRoot, options.inspiration ? 'inspiration' : 'packs');
   await mkdir(topDir, { recursive: true });
@@ -285,14 +272,25 @@ export async function importPack(options: ImportOptions) {
     const extracted = join(stagedVersion, 'extracted');
     await copyExclusive(source, originals);
     const unpacked = await copyExtracted(source, extracted);
-    const identified = await identify(extracted);
+    let identified = await identify(extracted);
+    const securityDropped = [...identified.dropped];
+    let licenseDropped: string[] = [];
+    if (licenseMap) {
+      try {
+        licenseDropped = await filterLicensedItems(extracted, identified.items, licenseMap);
+      } catch (error) {
+        throw new PackRefusal(error instanceof Error ? error.message : String(error));
+      }
+      identified = await identify(extracted);
+      identified.dropped = [...new Set([...securityDropped, ...identified.dropped])].sort();
+    }
     const extractedFiles = await filesUnder(extracted);
     const hashName = 'hash-manifest.txt';
     await writeText(join(stagedVersion, hashName), identified.hashManifest);
     const packRoot = join(topDir, id);
-    const collectionId = `t1:${id}@${version}`;
+    const collectionId = `t${tier}:${id}@${version}`;
     const requestedLicense = options.license;
-    const requestedRow = requestedLicense ? licenseFor(requestedLicense) : undefined;
+    const requestedRow = tier === 1 && requestedLicense ? licenseFor(requestedLicense) : undefined;
     if (await hasSameVersion(packRoot, version, hashName, identified.hashManifest)) {
       let collection = JSON.parse(await readFile(join(packRoot, 'collection.card.json'), 'utf8')) as {
         id: string;
@@ -316,7 +314,13 @@ export async function importPack(options: ImportOptions) {
       }
       if (collection.id === collectionId) {
         const status =
-          collection.status === 'quarantined' ? (manifest ? 'awaiting-license' : 'quarantined') : 'imported';
+          tier === 2
+            ? 'imported'
+            : collection.status === 'quarantined'
+              ? manifest
+                ? 'awaiting-license'
+                : 'quarantined'
+              : 'imported';
         if (intakePath) {
           await writeIntakeIfMissing(resolveInside(options.assetsRoot, intakePath), {
             status,
@@ -338,11 +342,12 @@ export async function importPack(options: ImportOptions) {
           status,
           license: collection.license === 'NOASSERTION' ? null : collection.license,
           rights: collection.rights ?? null,
-          confirmed_by: status === 'imported' ? (requestedRow?.confirmed?.by ?? null) : null,
+          confirmed_by:
+            status === 'imported' ? (tier === 2 ? options.confirmedBy! : (requestedRow?.confirmed?.by ?? null)) : null,
           cards: cardCount,
           counts: collection.collection_info?.counts ?? {},
           flags: [],
-          dropped: identified.dropped,
+          dropped: [...new Set([...identified.dropped, ...licenseDropped])].sort(),
         };
       }
     }
@@ -351,16 +356,31 @@ export async function importPack(options: ImportOptions) {
       assetsRoot: options.assetsRoot,
       top,
       id,
-      title: manifest?.name ?? titleFromId(id),
+      title: options.title ?? manifest?.name ?? titleFromId(id),
       version,
+      tier,
       vendor: identified.vendor,
-      origin: manifest ? 'drive-drop' : 'vendor-pack',
+      origin: tier === 2 ? 'mirror' : manifest ? 'drive-drop' : 'vendor-pack',
       extracted,
       items: identified.items,
       filesTotal: extractedFiles.length,
       hashManifest: hashName,
       date: dateOnly(manifest?.downloaded_at),
     });
+    if (tier === 2) {
+      try {
+        applyTier2Rights(cards, {
+          license: options.license!,
+          licenseRef: options.licenseRef ?? 'operator-confirmed mirror metadata',
+          ...(licenseMap ? { licenseMap } : {}),
+          ...(options.attribution !== undefined ? { attribution: options.attribution } : {}),
+          confirmedBy: options.confirmedBy!,
+          date: dateOnly(manifest?.downloaded_at),
+        });
+      } catch (error) {
+        throw new PackRefusal(error instanceof Error ? error.message : String(error));
+      }
+    }
     const types: Record<string, number> = {};
     for (const file of extractedFiles) {
       const extension = extname(file).slice(1).toLowerCase() || 'none';
@@ -369,8 +389,9 @@ export async function importPack(options: ImportOptions) {
     const pack = {
       id,
       vendor: identified.vendor,
-      title: manifest?.name ?? titleFromId(id),
-      license: 'NOASSERTION',
+      title: options.title ?? manifest?.name ?? titleFromId(id),
+      license: tier === 2 ? options.license! : 'NOASSERTION',
+      ...(tier === 2 ? { license_source: options.licenseRef ?? 'operator-confirmed mirror metadata' } : {}),
       current: version,
       versions: {
         [version]: {
@@ -380,7 +401,7 @@ export async function importPack(options: ImportOptions) {
           file_types: types,
           added: dateOnly(manifest?.downloaded_at),
           nested_archives: unpacked.nested,
-          dropped: [...new Set([...unpacked.dropped, ...identified.dropped])].sort(),
+          dropped: [...new Set([...unpacked.dropped, ...identified.dropped, ...licenseDropped])].sort(),
         },
       },
       ...(manifest
@@ -392,7 +413,9 @@ export async function importPack(options: ImportOptions) {
               intake_path: intakePath,
             },
           }
-        : {}),
+        : options.source
+          ? { source: options.source }
+          : {}),
     };
     await writeJson(join(stagedPack, 'pack.json'), pack);
     await publishCards(stagedPack, cards);
@@ -420,12 +443,13 @@ export async function importPack(options: ImportOptions) {
       await rename(stagedPack, packRoot);
     }
 
-    let status: 'quarantined' | 'awaiting-license' | 'imported' = manifest ? 'awaiting-license' : 'quarantined';
+    let status: 'quarantined' | 'awaiting-license' | 'imported' =
+      tier === 2 ? 'imported' : manifest ? 'awaiting-license' : 'quarantined';
     let license = options.license;
     let rights: unknown = cards.collection.rights;
-    let confirmedBy: string | null = null;
-    const row = license ? licenseFor(license) : undefined;
-    if (row?.confirmed) {
+    let confirmedBy: string | null = tier === 2 ? options.confirmedBy! : null;
+    const row = tier === 1 && license ? licenseFor(license) : undefined;
+    if (tier === 1 && row?.confirmed) {
       await confirmCollection({
         assetsRoot: options.assetsRoot,
         collectionId: cards.collection.id,
@@ -439,7 +463,7 @@ export async function importPack(options: ImportOptions) {
         rights?: unknown;
       };
       rights = confirmed.rights ?? null;
-    } else if (intakePath) {
+    } else if (tier === 1 && intakePath) {
       await writeIntakeIfMissing(resolveInside(options.assetsRoot, intakePath), {
         status: 'awaiting-license',
         collection: cards.collection.id,
@@ -458,7 +482,7 @@ export async function importPack(options: ImportOptions) {
       cards: cards.assets.length,
       counts: cards.collection.collection_info?.counts ?? {},
       flags: cards.validationErrors,
-      dropped: [...new Set([...unpacked.dropped, ...identified.dropped])].sort(),
+      dropped: [...new Set([...unpacked.dropped, ...identified.dropped, ...licenseDropped])].sort(),
     };
   } finally {
     await rm(staging, { recursive: true, force: true });
