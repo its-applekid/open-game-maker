@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @gm/sdk --filter @ogm/gm-cli build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "pnpm --filter @gm/sdk --filter @ogm/gm-cli build",
     "test": "vitest run skill.test.ts",
