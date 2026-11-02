@@ -15,7 +15,14 @@ import { findGameForFamily, hasGameGrant, type GameRow } from '../games/games.js
 import { FsBaseDocSource, type BaseDocSource } from './base-doc.js';
 import { acquireLease, heartbeatLease, LeaseMismatch, releaseLease } from './lease.js';
 import { snapshotAt } from './snapshot.js';
-import { appendTransaction, BranchNotFound, readTransactions, resolveBranch, StaleBaseRev } from './store.js';
+import {
+  appendTransaction,
+  BranchArchived,
+  BranchNotFound,
+  readTransactions,
+  resolveBranch,
+  StaleBaseRev,
+} from './store.js';
 import { createDesignStreamHub, formatTransactionFrame, type DesignStreamHub } from './stream.js';
 
 export const prefix = '/api/v1';
@@ -276,6 +283,7 @@ const routes = new Hono<ApiBindings>()
     } catch (error) {
       if (error instanceof StaleBaseRev) return c.json({ headRev: error.headRev }, 409);
       if (error instanceof LeaseMismatch) return c.json({ holder: 'other-session' }, 423);
+      if (error instanceof BranchArchived) return c.json({ error: 'branch_archived' }, 409);
       throw error;
     }
   })

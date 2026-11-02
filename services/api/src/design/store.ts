@@ -72,7 +72,14 @@ export class BranchNotFound extends Error {
   }
 }
 
-function stableId(prefix: string, now: Date): string {
+export class BranchArchived extends Error {
+  constructor() {
+    super('design branch is archived');
+    this.name = 'BranchArchived';
+  }
+}
+
+export function stableId(prefix: string, now: Date): string {
   let value = (BigInt(now.getTime()) << 80n) | BigInt(`0x${randomBytes(10).toString('hex')}`);
   let encoded = '';
   for (let index = 0; index < 26; index += 1) {
@@ -84,7 +91,7 @@ function stableId(prefix: string, now: Date): string {
 
 function branchFromRow(row: BranchRow): Branch {
   const forkPoint =
-    row.fork_parent_branch_id === null || row.fork_parent_rev === null || row.fork_git_sha === null
+    row.fork_parent_branch_id === null || row.fork_parent_rev === null
       ? null
       : {
           parentBranchId: row.fork_parent_branch_id,
@@ -124,11 +131,22 @@ function transactionFromRow(row: TransactionRow): Transaction {
   };
 }
 
-function findBranch(sqlite: Sqlite, gameId: string, branchId: string): Branch | undefined {
+export function findBranch(sqlite: Sqlite, gameId: string, branchId: string): Branch | undefined {
   const row = sqlite
     .prepare<[string, string], BranchRow>('SELECT * FROM branches WHERE game_id = ? AND id = ?')
     .get(gameId, branchId);
   return row ? branchFromRow(row) : undefined;
+}
+
+export function listBranches(sqlite: Sqlite, gameId: string): Branch[] {
+  return sqlite
+    .prepare<[string], BranchRow>(
+      `SELECT * FROM branches
+       WHERE game_id = ?
+       ORDER BY CASE WHEN name = 'main' THEN 0 ELSE 1 END, created_at ASC, id ASC`,
+    )
+    .all(gameId)
+    .map(branchFromRow);
 }
 
 export function ensureMainBranch(sqlite: Sqlite, gameId: string, options: { id?: string; now?: Date } = {}): Branch {
@@ -202,6 +220,7 @@ export function appendTransaction(
     .transaction(() => {
       const branch = findBranch(sqlite, input.gameId, input.branchId);
       if (!branch) throw new BranchNotFound();
+      if (branch.status !== 'active') throw new BranchArchived();
       if (input.baseRev !== branch.headRev) throw new StaleBaseRev(branch.headRev);
 
       if (input.kind === 'manual') {
