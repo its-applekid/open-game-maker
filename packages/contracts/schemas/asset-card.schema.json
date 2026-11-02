@@ -152,7 +152,7 @@
       "material": { "enum": ["wood", "stone", "metal", "cloth", "leather", "glass", "bone", "crystal", "plant", "earth", "water", "ice", "fire", "flesh", "plastic", "paper", "fur"] },
       "condition": { "enum": ["new", "worn", "damaged", "broken", "ruined", "overgrown"] },
       "flag": {
-        "enum": ["low-confidence", "conflicts-with-measured", "needs-review", "license-unknown", "image-only", "near-duplicate", "oversized-for-mobile", "missing-preview", "mood-unverified", "describe-failed"]
+        "enum": ["low-confidence", "conflicts-with-measured", "needs-review", "needs-conversion", "license-unknown", "image-only", "near-duplicate", "oversized-for-mobile", "missing-preview", "mood-unverified", "describe-failed"]
       },
       "genre": { "enum": ["orchestral", "cinematic", "classical", "piano", "rock", "metal", "pop", "electronic", "ambient", "acoustic", "folk", "country", "blues", "jazz", "funk", "hip-hop", "world", "latin", "chiptune", "experimental"] },
       "instrument": { "enum": ["piano", "keys", "organ", "strings", "solo-violin", "cello", "brass", "trumpet", "horns", "woodwinds", "flute", "sax", "choir", "lead-vocals", "acoustic-guitar", "electric-guitar", "bass", "synth-bass", "drums", "drum-machine", "percussion", "taiko", "orchestral-percussion", "synth-lead", "synth-pad", "arpeggiator", "harp", "bells", "mallets", "accordion", "fiddle", "banjo", "ukulele", "sound-design"] },
@@ -193,7 +193,7 @@
     },
     "blocksByKind": {
       "allOf": [
-        { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" } }, "required": ["card_type", "kind"] }, "then": { "required": ["geometry"] } },
+        { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "flags": { "not": { "contains": { "const": "needs-conversion" } } } }, "required": ["card_type", "kind"] }, "then": { "required": ["geometry"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "subkind": { "enum": ["character", "creature"] } }, "required": ["card_type", "kind", "subkind"] }, "then": { "required": ["rig"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "model" }, "subkind": { "const": "kit" } }, "required": ["card_type", "kind", "subkind"] }, "then": { "required": ["kit"] } },
         { "if": { "properties": { "card_type": { "const": "asset" }, "kind": { "const": "anim" } }, "required": ["card_type", "kind"] }, "then": { "required": ["anim"] } },

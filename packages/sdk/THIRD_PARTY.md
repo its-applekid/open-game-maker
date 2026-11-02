@@ -18,6 +18,14 @@ Only pixelfx's reviewed `src/` tree is consumed. The excluded gallery font is no
 
 `fastnoise-lite` 1.1.1 is used under the MIT License. Copyright (c) 2023 Jordan Peck and contributors; JavaScript port by Patrick U.
 
+## idb
+
+`idb` 8.0.3 is used under the ISC License for the browser save outbox.
+
+## fake-indexeddb
+
+`fake-indexeddb` 6.2.5 is used only by save outbox tests under the MIT License.
+
 ## recast-navigation
 
 `recast-navigation` 0.43.1 is an optional peer dependency used under the MIT License. Its project star-rule exception remains pending; games without the approved `nav.navmesh` capability do not load it.

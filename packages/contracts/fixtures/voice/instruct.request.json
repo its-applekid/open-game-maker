@@ -1,0 +1,11 @@
+{
+  "target": {
+    "kind": "scope",
+    "game_id": "g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01",
+    "session_id": "s-1",
+    "creator_id": "u_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e03"
+  },
+  "text": "[later] make the door red",
+  "idempotency_key": "vd_AAAAAAAAAAAAAAAAAAAAAA",
+  "kind": "instruct"
+}

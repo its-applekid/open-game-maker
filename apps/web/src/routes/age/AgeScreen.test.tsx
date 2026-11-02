@@ -133,4 +133,17 @@ describe('AgeScreen', { timeout: 10_000 }, () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Games destination' })).toBeVisible());
     expect(screen.queryByLabelText('Birth month')).not.toBeInTheDocument();
   });
+
+  it('refreshes an expired age attestation for an existing session when required', async () => {
+    auth.useSession.mockReturnValue({ data: { user: { id: 'u1' } }, isPending: false });
+    const fetch = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal('fetch', fetch);
+    renderAge('/age?next=%2Fgames&attest=1');
+
+    expect(screen.getByLabelText('Birth month')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(await screen.findByRole('heading', { name: 'Games destination' })).toBeVisible();
+    expect(fetch).toHaveBeenCalledOnce();
+  });
 });

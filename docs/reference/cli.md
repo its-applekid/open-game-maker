@@ -23,6 +23,19 @@ gm skills sync [--check] [--force]
 gm skills list
 ```
 
+## Build chat and checkpoints
+
+```text
+gm chat post --job <id> --text "<one line>" [--image <png>]
+gm chat post --job <id> --text "<one line>" --clip <mp4> --poster <png>
+gm checkpoint open --job <id> --question "<question>" --option <id>=<label> --option <id>=<label> [--media <id>=<chat-message-id>] [--recommend <id>] [--blocking]
+gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
+```
+
+`gm chat post` copies media into `.gm/outbox/media/` and prints the chat message id. `gm checkpoint open` prints
+the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
+the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
+
 `sync` installs every platform `gm-*` skill and the vendored engine references under `.claude/skills/`. Relative
 links in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without
 symlink support receive copies and record `"linkMode": "copy"` in `skills.lock`.
@@ -34,3 +47,28 @@ recorded in the lock.
 
 The optional `GM_SKILLS_DIR` path selects a platform skill-pack root. Normal installed use locates the pack beside
 `gm-cli`; tests and source checkouts can use the override without network access.
+
+## Agree a scope session
+
+```text
+gm scope done --file .gm/scope/<session-id>.json
+```
+
+The file must match the agreed-scope schema and its name must match the session id. The command queues
+`scope.agreed` in `.gm/outbox/scope.jsonl` for the build-chat relay.
+
+## Build game assets
+
+```text
+gm build assets [--tier desktop,mobile,low] [--budget mobile] [--out public/assets] [--ktx2] [--no-cache] [--strict]
+```
+
+The command validates `assets.lock.json`, builds content-hashed GLB, WebP, MP3, and font files, then writes
+`public/assets/manifest.json` and `public/assets/budget.json`. Models receive tiered geometry and texture limits;
+small prop collections that share an embedded texture are combined into a single kit GLB. Sprite and pixel-art
+images keep their source dimensions and use lossless WebP encoding.
+
+Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild without reading or updating that
+cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
+`--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
+reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.

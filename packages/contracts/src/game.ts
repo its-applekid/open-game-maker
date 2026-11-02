@@ -129,7 +129,11 @@ export const gameManifestSchema = z.looseObject({
   grid: z.looseObject({ size: z.number().positive(), units: z.string().max(16) }).optional(),
   playLabel: z.string().min(1).max(80).optional(),
   saves: z.boolean(),
-  overrides: z.looseObject({ aliases: z.record(z.string(), z.string()), retired: z.array(z.string()) }),
+  overrides: z.looseObject({
+    aliases: z.record(z.string(), z.string()),
+    retired: z.array(z.string()),
+    migrate: z.array(z.string()).optional(),
+  }),
 });
 export type GameManifest = z.infer<typeof gameManifestSchema>;
 

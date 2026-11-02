@@ -5,6 +5,7 @@ import { EventRing } from './events.js';
 import type { SdkHostApi } from './host-api.js';
 import { SeededRng, type Rng } from './rng.js';
 import type { RuntimeHooks } from '../test/hooks.js';
+import { InputMerger, type InputMergerOptions } from '../input/merger.js';
 
 export type BuildKind = 'draft' | 'test' | 'published';
 export type GameMode = 'play' | 'edit';
@@ -18,12 +19,18 @@ export interface Runtime<D, S> {
   readonly host: HostApi;
   readonly build: BuildKind;
   readonly mode: GameMode;
+  readonly localPlayerIndex: number;
   onFrame(callback: (dt: number) => void): () => void;
   onStep(callback: StepListener): () => void;
   onNet(callback: (type: string, payload: unknown) => void): () => void;
+  attachInput(options: RuntimeInputOptions): InputMerger;
   setRenderInfoProvider(provider: () => RenderInfo): void;
   dispose(): void;
 }
+
+export type RuntimeInputOptions = Omit<InputMergerOptions, 'bridge' | 'localPlayerIndex'> & {
+  localPlayerIndex?: number;
+};
 
 const zeroRenderInfo = (): RenderInfo => ({
   calls: 0,
@@ -45,11 +52,15 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   private renderInfoProvider: () => RenderInfo = zeroRenderInfo;
   private liveFrame: number | undefined;
   private lastFrameMs: number | undefined;
+  private inputMerger: InputMerger | undefined;
+  private replayingInput = false;
+  private currentLocalPlayerIndex = 0;
+  private readonly pendingHostFrames: ActionFrame[] = [];
   private disposed = false;
 
   constructor(
     readonly instance: GameInstance<D, S>,
-    readonly host: SdkHostApi<S>,
+    readonly host: SdkHostApi,
     readonly build: BuildKind,
     mode: GameMode,
     readonly events: EventRing,
@@ -60,11 +71,24 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
     this.clock = clock;
     this.rng = rng;
     this.currentMode = mode;
-    this.clock.onStep((_dt, frames) => this.host.dispatchInput(frames));
+    this.clock.onStep((_dt, frames) => {
+      if (this.inputMerger && !this.replayingInput) {
+        for (const frame of this.pendingHostFrames.splice(0)) this.inputMerger.acceptHostFrame(frame);
+        for (const frame of frames.splice(0)) this.inputMerger.inject(frame);
+        frames.push(...this.inputMerger.sample(this.clock.tick));
+      } else if (!this.replayingInput) {
+        frames.push(...this.pendingHostFrames.splice(0));
+      }
+      this.host.dispatchInput(frames);
+    });
   }
 
   get mode(): GameMode {
     return this.currentMode;
+  }
+
+  get localPlayerIndex(): number {
+    return this.currentLocalPlayerIndex;
   }
 
   attachHooks(hooks: RuntimeHooks): void {
@@ -87,6 +111,32 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   onNet(callback: (type: string, payload: unknown) => void): () => void {
     this.netListeners.add(callback);
     return () => this.netListeners.delete(callback);
+  }
+
+  attachInput(options: RuntimeInputOptions): InputMerger {
+    this.inputMerger?.dispose();
+    const merger = new InputMerger({
+      ...options,
+      localPlayerIndex: options.localPlayerIndex ?? this.currentLocalPlayerIndex,
+      bridge: {
+        send: (_type, payload) => this.host.sendRawKey(payload),
+      },
+    });
+    this.inputMerger = merger;
+    return merger;
+  }
+
+  acceptHostFrame(frame: ActionFrame): void {
+    this.pendingHostFrames.push(frame);
+  }
+
+  setLocalPlayerIndex(playerIndex: number): void {
+    this.currentLocalPlayerIndex = playerIndex;
+    this.inputMerger?.setLocalPlayerIndex(playerIndex);
+  }
+
+  setInputReplay(replaying: boolean): void {
+    this.replayingInput = replaying;
   }
 
   emitNet(type: string, payload: unknown): void {
@@ -154,6 +204,9 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
     };
 
     attempt(() => this.instance.dispose());
+    attempt(() => this.inputMerger?.dispose());
+    this.inputMerger = undefined;
+    this.pendingHostFrames.length = 0;
     for (const cleanup of this.cleanupCallbacks) attempt(cleanup);
     this.cleanupCallbacks.clear();
     attempt(this.closeBridge);

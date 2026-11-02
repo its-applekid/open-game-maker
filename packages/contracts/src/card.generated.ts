@@ -53,6 +53,7 @@ export type AssetCard = SubkindByKind & {
     | "low-confidence"
     | "conflicts-with-measured"
     | "needs-review"
+    | "needs-conversion"
     | "license-unknown"
     | "image-only"
     | "near-duplicate"

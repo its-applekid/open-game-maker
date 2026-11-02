@@ -1,0 +1,21 @@
+{
+  "remaining_units": 2.0,
+  "daily_units": 5.0,
+  "remaining_percent": 40,
+  "resets_at": "2026-11-01T07:00:00.000Z",
+  "reset_zone": "America/Los_Angeles",
+  "free_slots": { "new_game": 1, "edit": 2 },
+  "queued": [],
+  "unit_label": "stars",
+  "micro_usd_per_unit": 1000000,
+  "size_classes": {
+    "small": [500000, 500000],
+    "medium": [1000000, 2000000],
+    "large": [3000000, 5000000],
+    "huge": [6000000, 9000000]
+  },
+  "expected": [
+    "Remaining today: 2.0 stars (40%). Resets at 12:00 am. Free slots: 1 new game, 2 edits. Queued: none.",
+    "Rough sizes: small ≈ 0.5 star, medium ≈ 1–2, large ≈ 3–5, huge ≈ 6+ (low confidence)."
+  ]
+}

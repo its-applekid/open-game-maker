@@ -1,0 +1,21 @@
+{
+  "session_id": "s_88000000-0000-4000-8000-000000000001",
+  "title": "Fox Workshop",
+  "summary": "Build a cozy isometric workshop on one floating island.",
+  "scope": {
+    "included": ["one workshop", "one helper fox"],
+    "excluded": ["combat", "multiplayer"]
+  },
+  "tickets": [
+    {
+      "key": "T1",
+      "title": "Build the workshop loop",
+      "skills": ["gm-core"],
+      "dependsOn": [],
+      "acceptanceCriteria": ["The player can finish one workshop order."]
+    }
+  ],
+  "complexity": 2,
+  "open_questions": [],
+  "ideas": ["Add a second island later."]
+}

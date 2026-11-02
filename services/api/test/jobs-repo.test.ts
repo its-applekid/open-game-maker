@@ -1,7 +1,7 @@
 import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
-import { activeJobs, byTicket } from '../src/jobs/repo.js';
+import { activeJobs, activeJobsForRepo, byTicket } from '../src/jobs/repo.js';
 import { makeDeps } from './helpers.js';
 
 function setup() {
@@ -18,6 +18,8 @@ function setup() {
       ownerId: 'u_1',
       title: 'Game',
       visibility: 'private',
+      githubOwner: 'Owner',
+      githubRepo: 'Game',
       repoVisibility: 'private',
       createdAt: '2026-11-01T00:00:00.000Z',
     })
@@ -43,7 +45,7 @@ function insertJob(
   deps: ReturnType<typeof makeDeps>,
   id: string,
   issueNumber: number,
-  state: 'queued' | 'running' | 'done',
+  state: 'queued' | 'admitted' | 'running' | 'done',
 ) {
   deps.db
     .insert(schema.jobs)
@@ -66,8 +68,8 @@ function insertJob(
       }),
       reservation: '{"amountMicroUsd":500000,"sizeClass":"small","confidence":"low"}',
       hardCapMicroUsd: 500_000,
-      aiurRepo: 'owner/game',
-      aiurIssueNumber: issueNumber,
+      aiurRepo: state === 'admitted' ? null : 'owner/game',
+      aiurIssueNumber: state === 'admitted' ? null : issueNumber,
       createdAt: '2026-11-01T00:00:00.000Z',
       updatedAt: '2026-11-01T00:00:00.000Z',
       terminalAt: state === 'done' ? '2026-11-01T01:00:00.000Z' : null,
@@ -79,6 +81,7 @@ describe('job projection directory', () => {
   it('resolves daemon tickets and lists only non-terminal jobs', () => {
     const deps = setup();
     insertJob(deps, 'j_queued', 141, 'queued');
+    insertJob(deps, 'j_admitted', 0, 'admitted');
     insertJob(deps, 'j_running', 142, 'running');
     insertJob(deps, 'j_done', 143, 'done');
 
@@ -89,5 +92,6 @@ describe('job projection directory', () => {
       { jobId: 'j_queued', ticket: '141' },
       { jobId: 'j_running', ticket: '142' },
     ]);
+    expect(activeJobsForRepo(deps.db, 'OWNER/GAME')).toEqual([{ kind: 'feature' }, { kind: 'feature' }]);
   });
 });
