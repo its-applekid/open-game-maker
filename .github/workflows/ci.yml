@@ -62,10 +62,12 @@ jobs:
       - name: Enable pnpm
         run: corepack enable || npm i -g pnpm@10.33.0
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run lint
+      - run: pnpm exec prettier --check .
+      - run: node .github/scripts/check-ignore.mjs
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run typecheck
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run test
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run build
       - name: Browser tests (packages that declare test:browser)
         run: |
           browser_package=$(grep -rls '"test:browser"' --include=package.json apps packages services skills templates 2>/dev/null | head -n 1)
