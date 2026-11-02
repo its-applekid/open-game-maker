@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import { loadApiEnv } from '../src/app/env.js';
 import { createGameRow } from '../src/games/games.js';
+import { activeTargetFor } from '../src/voice/briefing-push.js';
 import { mintVoiceToken, VOICE_TOKEN_TTL_SEC } from '../src/voice/token.js';
 import { asUser, installUsers, makeApp, makeDeps, type TestUser } from './helpers.js';
 
@@ -125,6 +126,7 @@ describe('POST /api/v1/voice/token', () => {
     expect(mac).toBe(createHmac('sha256', secret).update(signed).digest('base64url'));
     expect(claims).toMatchObject({ scope: 'converse', sub: creator.userId });
     expect(claims.target).toEqual(buildTarget(gameId));
+    expect(activeTargetFor(creator.userId)).toEqual(buildTarget(gameId));
     expect(claims.exp as number).toBeLessThanOrEqual(Math.floor(Date.now() / 1000) + VOICE_TOKEN_TTL_SEC);
     expect(claims.exp as number).toBeGreaterThanOrEqual(before + VOICE_TOKEN_TTL_SEC);
     expect(Date.parse(body.expires_at)).toBe((claims.exp as number) * 1000);
@@ -180,8 +182,15 @@ describe('voice token configuration', () => {
     OGM_BLOB_SIGNING_KEY: 'blob-signing-key-0123456789',
     OGM_PUBLIC_ORIGIN: 'https://api.example.test',
     OGM_APP_ORIGIN: 'https://app.example.test',
+    OGM_ROOMS_INTERNAL_URL: 'http://127.0.0.1:4302',
+    OGM_ROOMS_INTERNAL_SECRET: 'rooms-internal-secret-for-tests',
+    OGM_WS_TOKEN_SECRET: 'room-grant-secret-for-tests-with-32-bytes',
     OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
     OGM_COMMIT_SERVICE_TOKEN: 'commit-token-0123456789',
+    OGM_BUILDER_BOT_TOKEN: 'builder-bot-token-for-tests-0123456789',
+    OGM_BUILDER_BOT_LOGIN: 'ogm-builder-bot',
+    OGM_INTAKE_GITHUB_TOKEN: 'intake-github-token-for-tests-0123456789',
+    OGM_INTAKE_BOT_LOGIN: 'ogm-intake-bot',
     OGM_VAPID_SUBJECT: 'operator@example.test',
   };
 

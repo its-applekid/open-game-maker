@@ -1,6 +1,7 @@
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { access, mkdir, mkdtemp, rm, stat, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { createFleet, type FleetDeps } from '../../src/fleet/fleet.js';
 import type { RunResult, Runner } from '../../src/fleet/systemctl.js';
@@ -8,9 +9,38 @@ import type { DaemonRow, DaemonStore, FleetEnv, JobKind } from '../../src/fleet/
 
 const homes: string[] = [];
 
-// The policy render refuses workspaces under /tmp, so test homes live under the real home directory.
+async function writableDirectory(path: string): Promise<boolean> {
+  try {
+    if (!(await stat(path)).isDirectory()) return false;
+    await access(path, constants.W_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function tempHomeRoot(): Promise<string> {
+  // Test-only roots are the documented exception to service environment access through @ogm/config.
+  // eslint-disable-next-line no-restricted-properties
+  const { OGM_TEST_HOME, TMPDIR } = process.env;
+  if (OGM_TEST_HOME) {
+    const root = resolve(OGM_TEST_HOME);
+    await mkdir(root, { recursive: true, mode: 0o700 });
+    return root;
+  }
+
+  if (TMPDIR) {
+    const root = resolve(TMPDIR);
+    if (await writableDirectory(root)) return root;
+  }
+
+  const root = resolve(homedir(), '.cache');
+  await mkdir(root, { recursive: true, mode: 0o700 });
+  return root;
+}
+
 export async function tempHome(): Promise<string> {
-  const home = await mkdtemp(join(homedir(), '.ogm-fleet-test-'));
+  const home = await mkdtemp(join(await tempHomeRoot(), '.ogm-fleet-test-'));
   homes.push(home);
   await mkdir(join(home, '.config/ogm/codex-gamebuilder'), { recursive: true });
   await writeFile(join(home, '.config/ogm/codex-gamebuilder/auth.json'), '{"tokens":{}}\n', { mode: 0o600 });

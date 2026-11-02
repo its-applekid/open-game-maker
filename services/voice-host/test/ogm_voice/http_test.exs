@@ -27,6 +27,16 @@ defmodule OgmVoice.HTTPTest do
     assert {:ok, _entry} = OgmVoice.Cache.get("scope:s1")
   end
 
+  test "accepts the API briefing pusher's bearer credential" do
+    conn =
+      conn(:post, "/internal/briefing", Jason.encode!(@push))
+      |> put_req_header("content-type", "application/json")
+      |> put_req_header("authorization", "Bearer " <> @secret)
+
+    assert %{status: 204} = Router.call(conn, opts())
+    assert {:ok, _entry} = OgmVoice.Cache.get("scope:s1")
+  end
+
   test "refuses a missing or wrong secret and stores nothing" do
     assert %{status: 401} = post(Jason.encode!(@push), nil)
     assert %{status: 401} = post(Jason.encode!(@push), @secret <> "x")

@@ -19,3 +19,4 @@ packages/contracts/src/card.generated.ts
 *.md
 services/voice-host/deps/
 services/voice-host/_build/
+packages/gm-verify/schemas/*.json

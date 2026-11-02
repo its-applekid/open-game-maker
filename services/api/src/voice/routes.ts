@@ -10,6 +10,7 @@ import type { ApiBindings } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
 import { findGameForFamily } from '../games/games.js';
 import { findJobRow } from '../jobs/repo.js';
+import { registerVoiceTarget } from './briefing-push.js';
 import { mintVoiceToken } from './token.js';
 
 // POST /api/v1/voice/token: a short-lived token for the voice host, only for a target the caller may edit.
@@ -29,6 +30,7 @@ const routes = new Hono<ApiBindings>().post('/token', async (c) => {
   if (!config.voiceTokenSecret || !config.voiceWsUrl) throw new HttpError(503, 'voice_unavailable');
 
   const { token, exp } = mintVoiceToken({ secret: config.voiceTokenSecret, sub: principal.userId, target });
+  registerVoiceTarget(target);
   const body: VoiceTokenResponse = {
     token,
     expires_at: new Date(exp * 1000).toISOString(),

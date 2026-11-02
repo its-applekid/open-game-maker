@@ -7,6 +7,7 @@
   "include": ["src/**/*.ts"],
   "references": [
     { "path": "../../packages/aiur-client" },
+    { "path": "../../packages/asset-cards" },
     { "path": "../../packages/blob-store" },
     { "path": "../builder" },
     { "path": "../../packages/config" },
@@ -15,6 +16,7 @@
     { "path": "../../packages/design-log" },
     { "path": "../../packages/game-repo-template" },
     { "path": "../../packages/health" },
-    { "path": "../../packages/policy" }
+    { "path": "../../packages/policy" },
+    { "path": "../../packages/room-protocol" }
   ]
 }

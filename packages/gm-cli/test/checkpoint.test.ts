@@ -1,0 +1,193 @@
+import { execFileSync } from 'node:child_process';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { AgentOutboxLine } from '@ogm/contracts';
+import { describe, expect, it } from 'vitest';
+
+import { gm, tempDir } from './helpers.js';
+
+const JOB_ID = 'j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f';
+
+function workspace(): string {
+  const root = tempDir('gm-checkpoint-');
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  return root;
+}
+
+function checkpointLine(root: string) {
+  const raw = readFileSync(join(root, '.gm', 'outbox', 'checkpoint.jsonl'), 'utf8').trim();
+  return AgentOutboxLine.parse(JSON.parse(raw));
+}
+
+describe('gm checkpoint open', () => {
+  it('writes two candidates with media and prints the correlated decision.requested call', async () => {
+    const root = workspace();
+    const events = join(root, 'events.jsonl');
+    const post = await gm(['chat', 'post', '--job', JOB_ID, '--text', 'chunky preview'], { cwd: root });
+    const mediaId = post.out[0];
+
+    const result = await gm(
+      [
+        'checkpoint',
+        'open',
+        '--job',
+        JOB_ID,
+        '--question',
+        'Which look?',
+        '--option',
+        'a=Chunky',
+        '--option',
+        'b=Flat',
+        '--media',
+        `a=${mediaId}`,
+        '--recommend',
+        'a',
+        '--json',
+      ],
+      { cwd: root, env: { GM_EVENTS_FILE: events } },
+    );
+
+    expect(result).toMatchObject({ code: 0, err: [] });
+    const printed = JSON.parse(result.out[0]) as {
+      checkpoint_id: string;
+      emit_event: { name: string; payload: Record<string, unknown> };
+    };
+    const line = checkpointLine(root);
+    expect(printed.checkpoint_id).toMatch(/^cp_[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(line.payload).toMatchObject({
+      checkpoint_id: printed.checkpoint_id,
+      question: 'Which look?',
+      options: [
+        { id: 'a', label: 'Chunky', media_id: mediaId },
+        { id: 'b', label: 'Flat' },
+      ],
+      recommend: 'a',
+      blocking: false,
+    });
+    expect(printed.emit_event).toMatchObject({
+      name: 'decision.requested',
+      payload: {
+        question: 'Which look?',
+        blocking: false,
+        kind: 'direction_checkpoint',
+        authority: 'supervisor_allowed',
+        reversibility: 'reversible',
+        recommendation: { option_id: 'a' },
+      },
+    });
+    expect((printed.emit_event.payload.context as { long_context_markdown: string }).long_context_markdown).toContain(
+      `gm-checkpoint:${printed.checkpoint_id}`,
+    );
+    expect(JSON.parse(readFileSync(events, 'utf8'))).toMatchObject({
+      event: 'checkpoint.open',
+      job_id: JOB_ID,
+      payload: { kind: 'direction_checkpoint' },
+    });
+  });
+
+  it('prints the checkpoint id followed by copyable emit_event JSON by default', async () => {
+    const result = await gm(
+      [
+        'checkpoint',
+        'open',
+        '--job',
+        JOB_ID,
+        '--question',
+        'Which look?',
+        '--option',
+        'a=Chunky',
+        '--option',
+        'b=Flat',
+      ],
+      { cwd: workspace() },
+    );
+    expect(result.out[0]).toMatch(/^cp_/);
+    expect(result.out[1]).toBe('Now call emit_event with this payload:');
+    expect(JSON.parse(result.out[2])).toMatchObject({ name: 'decision.requested', message: 'Which look?' });
+  });
+
+  it('exits 2 for an unknown media id', async () => {
+    const result = await gm(
+      [
+        'checkpoint',
+        'open',
+        '--job',
+        JOB_ID,
+        '--question',
+        'Which look?',
+        '--option',
+        'a=Chunky',
+        '--option',
+        'b=Flat',
+        '--media',
+        'a=01JBX2R1A2B3C4D5E6F7G8H9JK',
+      ],
+      { cwd: workspace() },
+    );
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toContain('unknown chat message id');
+  });
+
+  it('exits 2 when fewer than two options are provided', async () => {
+    const result = await gm(
+      ['checkpoint', 'open', '--job', JOB_ID, '--question', 'Which look?', '--option', 'a=Chunky'],
+      { cwd: workspace() },
+    );
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toContain('2-5 options');
+  });
+});
+
+describe('gm checkpoint wait', () => {
+  it('prints the selected option from an answered inbox file', async () => {
+    const root = workspace();
+    const inbox = join(root, '.gm', 'inbox', 'checkpoints');
+    mkdirSync(inbox, { recursive: true });
+    writeFileSync(
+      join(inbox, 'cp_demo.json'),
+      JSON.stringify({
+        checkpoint_id: 'cp_demo',
+        decision_id: 'decision_demo',
+        option_id: 'b',
+        status: 'answered',
+        at: new Date().toISOString(),
+      }),
+    );
+
+    expect(await gm(['checkpoint', 'wait', 'cp_demo', '--timeout', '1'], { cwd: root })).toEqual({
+      code: 0,
+      out: ['b'],
+      err: [],
+    });
+  });
+
+  it('exits 3 after the timeout', async () => {
+    const result = await gm(['checkpoint', 'wait', 'cp_missing', '--timeout', '1'], { cwd: workspace() });
+    expect(result.code).toBe(3);
+    expect(result.err).toEqual(['no answer after 1 s; make sure the emit_event call was made']);
+  });
+
+  it('exits 4 when the checkpoint is moot', async () => {
+    const root = workspace();
+    const inbox = join(root, '.gm', 'inbox', 'checkpoints');
+    mkdirSync(inbox, { recursive: true });
+    writeFileSync(join(inbox, 'decision_demo.json'), JSON.stringify({ status: 'moot' }));
+    expect(await gm(['checkpoint', 'wait', 'decision_demo', '--timeout', '1'], { cwd: root })).toEqual({
+      code: 4,
+      out: [],
+      err: ['checkpoint is moot'],
+    });
+  });
+
+  it('exits 1 instead of waiting when the inbox path cannot be read', async () => {
+    const root = workspace();
+    const unreadable = join(root, '.gm', 'inbox', 'checkpoints', 'cp_unreadable.json');
+    mkdirSync(unreadable, { recursive: true });
+
+    const result = await gm(['checkpoint', 'wait', 'cp_unreadable', '--timeout', '1'], { cwd: root });
+
+    expect(result.code).toBe(1);
+    expect(result.err[0]).toContain(`cannot read ${unreadable}`);
+  });
+});

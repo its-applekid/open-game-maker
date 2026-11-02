@@ -34,13 +34,25 @@ defmodule OgmVoice.HTTP.Router do
 
   defp authorize(conn, secret) do
     expected = secret.()
+    given = internal_secret(conn)
 
+    if is_binary(expected) and expected != "" and is_binary(given) and Plug.Crypto.secure_compare(given, expected),
+      do: :ok,
+      else: :unauthorized
+  end
+
+  defp internal_secret(conn) do
     case get_req_header(conn, "x-ogm-internal") do
-      [given] when is_binary(expected) and expected != "" ->
-        if Plug.Crypto.secure_compare(given, expected), do: :ok, else: :unauthorized
+      [given] -> given
+      [] -> bearer_secret(conn)
+      _ -> nil
+    end
+  end
 
-      _ ->
-        :unauthorized
+  defp bearer_secret(conn) do
+    case get_req_header(conn, "authorization") do
+      ["Bearer " <> given] when given != "" -> given
+      _ -> nil
     end
   end
 

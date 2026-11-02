@@ -65,11 +65,68 @@ describe('search', () => {
       't1:kenney-mini-dungeon@2.0',
       't1:synty-polygon-goblin-war-camp@v3',
     ]);
-    expect(ids({ words: [], kind: 'sprite' })).toEqual([]);
+    expect(ids({ words: [], kind: 'sprite' })).toEqual(['t1:kenney-tiny-dungeon/tiles/tile-0097@1.0']);
     expect(ids({ words: [], family: 'detailed-low-poly' })).toEqual([TORCH, 't1:synty-polygon-goblin-war-camp@v3']);
     expect(ids({ words: [], sameRigAs: ORC })).toEqual([ORC]);
     expect(ids({ words: [], rigId: 'rig:none' })).toEqual([]);
     expect(ids({ words: [], collection: 't1:kenney-mini-dungeon@2.0' })).toContain('t1:kenney-mini-dungeon/wall@2.0');
+  });
+
+  it("keeps a game's search to its family and style-neutral cards; --family stays an exact match", () => {
+    const all = ids({ words: [], use: 'vision-input', includeDraft: true });
+    const pixel = ids({ words: [], use: 'vision-input', includeDraft: true, gameFamily: 'pixel-art' });
+    expect(all).toContain(ORC);
+    expect(pixel).not.toContain(ORC);
+    expect(pixel).not.toContain(TORCH);
+    expect(pixel).toContain('t1:sidetrax-pack-60-battle/war-drums@v1');
+    expect(ids({ words: ['orc'], gameFamily: 'chunky-low-poly' })).toEqual([ORC, 't1:kenney-mini-dungeon@2.0']);
+    expect(ids({ words: [], use: 'vision-input', family: 'any' })).not.toContain(ORC);
+  });
+
+  it('treats a locked compatibility set as one pack without widening through loose matches', () => {
+    const tile = 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0';
+    expect(ids({ words: ['knight'], gameFamily: 'pixel-art', gameSets: ['kenney-tiny'] })).toContain(tile);
+    expect(ids({ words: ['knight'], gameFamily: 'pixel-art', gameSets: ['kenney-pixel-platformer'] })).not.toContain(
+      tile,
+    );
+    expect(
+      ids({
+        words: ['knight'],
+        gameFamily: 'pixel-art',
+        gameSets: ['kenney-pixel-platformer'],
+        gamePacks: ['kenney-tiny-dungeon'],
+      }),
+    ).toContain(tile);
+    expect(
+      ids({ words: ['drums'], use: 'vision-input', gameFamily: 'pixel-art', gameSets: ['kenney-tiny'] }),
+    ).toContain('t1:sidetrax-pack-60-battle/war-drums@v1');
+  });
+
+  it('uses the curated set mapping when a stored resolved set is stale', () => {
+    const tileId = 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0';
+    const tile = index.cards.find((card) => card.id === tileId);
+    if (!tile) throw new Error('fixture tile missing');
+    const stale = { ...tile, resolved: { ...tile.resolved, set: 'kenney-pixel-platformer' } };
+    const hits = search(
+      { ...index, cards: [stale] },
+      { words: [], gameFamily: 'pixel-art', gameSets: ['kenney-tiny'] },
+    );
+    expect(hits.map((card) => card.id)).toContain(tileId);
+  });
+
+  it('indexes sprite action names instead of requiring action words in file paths', () => {
+    const base = index.cards.find((card) => card.id === 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
+    if (!base) throw new Error('fixture sprite missing');
+    const knight = {
+      ...base,
+      id: 't1:kenney-tiny-dungeon/characters/knight@1.0',
+      title: 'Knight',
+      source: { ...base.source!, files: [{ ...base.source!.files[0]!, path: 'Sprites/knight.png' }] },
+      sprite: { ...base.sprite!, animations: [{ name: 'attack', frames: [0, 1] }] },
+    };
+    expect(search({ ...index, cards: [knight] }, { words: ['knight', 'attack'] }).map((card) => card.id)).toEqual([
+      knight.id,
+    ]);
   });
 
   it('applies --limit after ranking', () => {

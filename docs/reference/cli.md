@@ -13,8 +13,8 @@ The destination must be empty. The command copies the scaffold-only engine templ
 `gm.lock.json`, writes `AGENTS.md`, and installs the committed skill layout and `skills.lock`. It does not install
 packages or add game entities. Install afterward with `pnpm install --offline --frozen-lockfile`.
 
-When `packages/asset-cards/data/style-families.json` is available, `--family` must name one of its ids. Before that
-registry ships, the choice is recorded with a warning.
+`--family` must name a family id from `packages/asset-cards/data/style-families.json`, the registry `gm assets search`
+reads. A set id (for example `limezu-modern`) is refused with its family named; sets stay nested under their family.
 
 ## Refresh the skill pack
 
@@ -22,6 +22,19 @@ registry ships, the choice is recorded with a warning.
 gm skills sync [--check] [--force]
 gm skills list
 ```
+
+## Build chat and checkpoints
+
+```text
+gm chat post --job <id> --text "<one line>" [--image <png>]
+gm chat post --job <id> --text "<one line>" --clip <mp4> --poster <png>
+gm checkpoint open --job <id> --question "<question>" --option <id>=<label> --option <id>=<label> [--media <id>=<chat-message-id>] [--recommend <id>] [--blocking]
+gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
+```
+
+`gm chat post` copies media into `.gm/outbox/media/` and prints the chat message id. `gm checkpoint open` prints
+the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
+the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
 
 `sync` installs every platform `gm-*` skill and the vendored engine references under `.claude/skills/`. Relative
 links in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without

@@ -53,6 +53,7 @@ export type AssetCard = SubkindByKind & {
     | "low-confidence"
     | "conflicts-with-measured"
     | "needs-review"
+    | "needs-conversion"
     | "license-unknown"
     | "image-only"
     | "near-duplicate"
@@ -160,6 +161,14 @@ export type Hex = string;
  * @maxItems 3
  */
 export type Vec3 = [number, number, number];
+/**
+ * Relative path inside the collection; traversal and backslashes are forbidden.
+ */
+export type AssetPath = string;
+/**
+ * @minItems 1
+ */
+export type AssetPathList = [AssetPath, ...AssetPath[]];
 export type LayoutSpecId = string;
 export type CollectionId = string;
 export type Provenance = {
@@ -525,6 +534,14 @@ export interface Describe {
     | "sketch"
     | "photoreal"
     | "any";
+  /**
+   * Measured visual-compatibility group nested under style_family.
+   */
+  set?: string;
+  /**
+   * Curated world grouping within a compatibility set.
+   */
+  world?: string;
   /**
    * Items: SDK camera rig ids (C2 §4).
    */
@@ -2906,7 +2923,59 @@ export interface Sprite {
     name: string;
     frames: number[];
     fps?: number;
+    /**
+     * @minItems 1
+     */
+    directions?: [
+      "E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W",
+      ...("E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W")[]
+    ];
+    /**
+     * @minItems 1
+     */
+    sheets?: [
+      {
+        path: AssetPath;
+        variant?: "shadowless" | "shadow";
+        frame_w: number;
+        frame_h: number;
+        cols: number;
+        rows: number;
+      },
+      ...{
+        path: AssetPath;
+        variant?: "shadowless" | "shadow";
+        frame_w: number;
+        frame_h: number;
+        cols: number;
+        rows: number;
+      }[]
+    ];
+    /**
+     * @minItems 1
+     */
+    files?: [AssetPath, ...AssetPath[]];
+    direction_files?: {
+      E?: AssetPathList;
+      N?: AssetPathList;
+      NE?: AssetPathList;
+      NW?: AssetPathList;
+      S?: AssetPathList;
+      SE?: AssetPathList;
+      SW?: AssetPathList;
+      W?: AssetPathList;
+    };
   }[];
+  facings?: {
+    E?: AssetPath;
+    N?: AssetPath;
+    NE?: AssetPath;
+    NW?: AssetPath;
+    S?: AssetPath;
+    SE?: AssetPath;
+    SW?: AssetPath;
+    W?: AssetPath;
+  };
   tile?: {
     layer?: "ground" | "wall" | "decor" | "overlay" | "entity";
     autotile?: "none" | "blob-47" | "wang-16" | "edge-9";
@@ -3158,6 +3227,8 @@ export interface ProposedTag {
     | "materials"
     | "condition"
     | "style_family"
+    | "set"
+    | "world"
     | "pov_fit"
     | "subkind"
     | "kitPiece"

@@ -39,6 +39,8 @@ Pin exact versions. A new dependency with fewer than 1,000 GitHub stars needs th
 ## Tests
 
 Use Vitest for unit tests. Every new test must fail without the production change. Run browser tests with the flags above.
+Builder fleet test helpers may read `OGM_TEST_HOME` and `TMPDIR` directly to keep scratch homes under a chosen writable
+directory.
 A package `test` script must find at least one test file (or pass `--passWithNoTests`): `vitest run` with none exits 1 and
 turns `ci / required` red.
 

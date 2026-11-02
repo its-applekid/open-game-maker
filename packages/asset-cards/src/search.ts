@@ -1,5 +1,6 @@
 import type { AssetCard } from '@ogm/contracts';
 
+import { inFamily, packOf, setFor } from './families.js';
 import type { CardIndex, ResolvedCard, SearchQuery } from './types.js';
 
 type Status = AssetCard['status'];
@@ -57,12 +58,14 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
     ...(describe.keywords ?? []),
     ...(describe.roles ?? []),
     ...(describe.moods ?? []),
+    describe.world,
     ...(card.resolved.environments ?? []),
     ...(card.resolved.settings ?? []),
     card.kind,
     card.subkind,
     card.id,
     ...(card.source?.files ?? []).map((file) => file.path),
+    ...(card.sprite?.animations ?? []).map((animation) => animation.name),
   ];
   return [
     [3, tokens(card.title)],
@@ -105,6 +108,12 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
   if (q.subkind && card.card_type === 'asset' && card.subkind !== q.subkind) return false;
 
   if (q.family && card.resolved.style_family !== q.family) return false;
+  if (q.gameFamily && !inFamily(card, q.gameFamily)) return false;
+  if (q.gameSets?.length && card.resolved.style_family !== 'any') {
+    const pack = packOf(card.id);
+    const set = pack ? setFor(pack)?.id : undefined;
+    if ((!set || !q.gameSets.includes(set)) && (!pack || !q.gamePacks?.includes(pack))) return false;
+  }
   if (q.pov && !(card.resolved.pov_fit ?? []).includes(q.pov)) return false;
   if (q.tier !== undefined && tierOf(card.id) !== q.tier) return false;
   if (q.collection && card.id !== q.collection && card.collection !== q.collection) return false;

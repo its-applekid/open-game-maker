@@ -38,7 +38,7 @@ export type AdmissionDeps = {
 };
 
 const SIZE_BY_COMPLEXITY: Record<number, SizeClass> = { 1: 'small', 2: 'medium', 3: 'large', 4: 'huge', 5: 'huge' };
-function sizeFor(kind: JobKind, complexity: number): SizeClass {
+export function sizeFor(kind: JobKind, complexity: number): SizeClass {
   if (kind === 'scope') return 'small';
   const size = SIZE_BY_COMPLEXITY[complexity] ?? 'huge';
   if (kind === 'new_game' && (size === 'small' || size === 'medium')) return 'large';
