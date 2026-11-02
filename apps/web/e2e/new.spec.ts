@@ -30,7 +30,22 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
   await expect(page.getByText('“Moonlit”')).toBeVisible();
   await activate(page, 'Next');
 
-  await selectOption(page, page.getByRole('button', { name: /SmallScaleInt/ }), 'family', 'smallscaleint');
+  await expect(page.getByRole('button', { name: 'Pixel art' })).toBeVisible();
+  await expect(page.getByText('SmallScaleInt')).toHaveCount(0);
+  await activate(page, 'Pixel art');
+  await activate(page, 'SmallScaleInt');
+  await expect(page.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
+  await expect(page.locator('.new-style-detail video')).toHaveCount(2);
+  await expect(page.locator('.new-style-detail canvas')).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page
+        .locator('.new-style-detail img')
+        .evaluateAll((images) => images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0)),
+    )
+    .toBe(true);
+  await activate(page, 'Select SmallScaleInt');
+  await expect.poll(() => newGameState(page).then((state) => state?.picks.family?.picks)).toContain('smallscaleint');
   await activate(page, 'Next');
   await selectOption(page, page.getByRole('button', { name: 'Sky islands' }), 'world', 'sky');
   await activate(page, 'Next');
