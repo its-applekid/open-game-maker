@@ -78,6 +78,22 @@ async function seeded() {
     })
     .run();
   rework(deps, 'j-y', '2026-11-01T04:10:00.000Z');
+  deps.db
+    .insert(schema.jobProjections)
+    .values({
+      jobId: 'j-private',
+      daemonSlug: 'd-x',
+      ticket: '7',
+      stage: 'fixing',
+      stageText: 'Fixing a problem',
+      updatedAt: '2026-11-01T03:20:00.000Z',
+    })
+    .run();
+  // Same creation time: the later insert is the newer build.
+  job(deps, 'j-tie-first', X.game, X.family, X.creator.userId, '2026-11-01T00:30:00.000Z');
+  job(deps, 'j-tie-second', X.game, X.family, X.creator.userId, '2026-11-01T00:30:00.000Z');
+  // A job row claiming family X on family Y's game must not surface to either family.
+  job(deps, 'j-mismatch', Y.game, X.family, X.creator.userId, '2026-11-01T05:00:00.000Z');
   return seed;
 }
 
@@ -93,8 +109,8 @@ describe('GET /api/v1/admin/builds', () => {
         kind: 'feature',
         state: 'running',
         pausedReason: null,
-        stage: null,
-        stageText: null,
+        stage: 'fixing',
+        stageText: 'Fixing a problem',
         usageMicroUsd: 12_000,
         hardCapMicroUsd: 500_000,
         createdAt: '2026-11-01T03:00:00.000Z',
@@ -113,15 +129,18 @@ describe('GET /api/v1/admin/builds', () => {
     });
   });
 
-  it('returns the whole family newest first, delisted games included, with per-build retries', async () => {
+  it('returns the whole family newest first, delisted games included, with per-build retries and no stage before a projection', async () => {
     const { call } = await seeded();
     const { builds } = (await (await call(X.owner, 'GET', '/builds')).json()) as {
-      builds: { job: { id: string }; retries: number }[];
+      builds: { job: { id: string; stage: string | null }; retries: number }[];
     };
+    expect(builds.find((build) => build.job.id === 'j-old')?.job.stage).toBeNull();
     expect(builds.map((build) => [build.job.id, build.retries])).toEqual([
       ['j-private', 2],
       ['j-delisted', 0],
       ['j-old', 0],
+      ['j-tie-second', 0],
+      ['j-tie-first', 0],
     ]);
   });
 

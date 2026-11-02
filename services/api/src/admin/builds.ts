@@ -1,5 +1,5 @@
 import { schema } from '@ogm/db';
-import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, count, desc, eq, sql } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
 import { emailsFor } from './family.js';
@@ -46,15 +46,8 @@ export async function familyBuilds(deps: AppDeps, familyId: string): Promise<Adm
     deps.db
       .select({ jobId: aiurPhaseEvents.jobId, count: count() })
       .from(aiurPhaseEvents)
-      .where(
-        and(
-          eq(aiurPhaseEvents.transition, 'rework'),
-          inArray(
-            aiurPhaseEvents.jobId,
-            rows.map((row) => row.job.id),
-          ),
-        ),
-      )
+      .innerJoin(jobs, eq(aiurPhaseEvents.jobId, jobs.id))
+      .where(and(eq(jobs.familyId, familyId), eq(aiurPhaseEvents.transition, 'rework')))
       .groupBy(aiurPhaseEvents.jobId)
       .all()
       .map((row) => [row.jobId, row.count]),
