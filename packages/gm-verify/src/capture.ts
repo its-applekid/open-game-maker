@@ -1,5 +1,5 @@
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 
 import type { HookDriver } from './hooks.js';
@@ -30,9 +30,84 @@ function ffmpeg(binary: string, args: string[]): void {
   execFileSync(binary, ['-loglevel', 'error', '-y', ...args], { timeout: FFMPEG_TIMEOUT_MS, killSignal: 'SIGKILL' });
 }
 
+function h264Args(out: string, preset: 'fast' | 'slow' = 'fast'): string[] {
+  return [
+    '-c:v',
+    'libx264',
+    '-pix_fmt',
+    'yuv420p',
+    '-color_range',
+    'tv',
+    '-preset',
+    preset,
+    '-crf',
+    '27',
+    '-movflags',
+    '+faststart',
+    out,
+  ];
+}
+
 async function shot(h: HookDriver, ms: number, path: string, type: 'png' | 'jpeg' = 'png'): Promise<void> {
   await h.renderAt(ms);
   await h.page.screenshot({ path, type, ...(type === 'jpeg' ? { quality: 92 } : {}) });
+}
+
+/** Frames read back per page round trip; bounds the data URLs held in memory at once. */
+export const CANVAS_FRAME_CHUNK = 60;
+
+/**
+ * Renders each frame through the page's deterministic hook and reads the game canvas back as PNG, so a native clip
+ * holds exactly one image per requested frame (a MediaRecorder stream drops frames under load).
+ */
+async function canvasFrames(
+  h: HookDriver,
+  options: { seconds: number; fps: number; start: number },
+  dir: string,
+): Promise<{ width: number; height: number }> {
+  const total = Math.round(options.seconds * options.fps);
+  let size = { width: 0, height: 0 };
+  for (let first = 0; first < total; first += CANVAS_FRAME_CHUNK) {
+    const count = Math.min(CANVAS_FRAME_CHUNK, total - first);
+    const chunk = await h.page.locator('canvas').evaluate(
+      (element, capture) => {
+        const source = element as HTMLCanvasElement;
+        type BrowserHooks = { renderAt?: (ms: number) => void; advanceTime?: (ms: number) => void };
+        const browser = window as unknown as { __gm?: BrowserHooks; __frame?: (seconds: number) => void };
+        const hooks = browser.__gm;
+        let clockMs = capture.clockMs;
+        const frames: string[] = [];
+        for (let frame = capture.first; frame < capture.first + capture.count; frame += 1) {
+          const ms = (capture.start + frame / capture.fps) * 1_000;
+          for (let pass = 0; pass < capture.passes; pass += 1) {
+            if (hooks?.renderAt) hooks.renderAt(ms);
+            else if (hooks?.advanceTime) hooks.advanceTime(Math.max(0, ms - clockMs));
+            else if (browser.__frame) browser.__frame(ms / 1_000);
+            else throw new Error('page exposes no deterministic frame hook');
+            clockMs = ms;
+          }
+          frames.push(source.toDataURL('image/png'));
+        }
+        return { frames, width: source.width, height: source.height };
+      },
+      {
+        ...options,
+        first,
+        count,
+        passes: h.passes,
+        clockMs: (options.start + Math.max(0, first - 1) / options.fps) * 1_000,
+      },
+    );
+    if (chunk.frames.length !== count) throw new Error(`canvas returned ${chunk.frames.length} of ${count} frames`);
+    for (const [index, url] of chunk.frames.entries()) {
+      writeFileSync(
+        join(dir, `f${String(first + index).padStart(5, '0')}.png`),
+        Buffer.from(url.split(',')[1] ?? '', 'base64'),
+      );
+    }
+    size = { width: chunk.width, height: chunk.height };
+  }
+  return size;
 }
 
 /** One still per time (seconds) at `<dir>/t<t>.png`. */
@@ -95,23 +170,43 @@ export function clipArgs(framesDir: string, fps: number, out: string): string[] 
     join(framesDir, 'f%05d.jpg'),
     '-vf',
     'scale=960:-2:in_range=full:out_range=tv,format=yuv420p',
-    '-c:v',
-    'libx264',
-    '-pix_fmt',
-    'yuv420p',
-    '-color_range',
-    'tv',
-    '-preset',
-    'slow',
-    '-crf',
-    '27',
-    '-movflags',
-    '+faststart',
-    out,
+    ...h264Args(out, 'slow'),
   ];
 }
 
-export type RecordOptions = { seconds: number; fps?: number; start?: number };
+/** Native encode of canvas frames: whole-number nearest-neighbour upscale, or the canvas size rounded to even. */
+export function nativeClipArgs(
+  framesDir: string,
+  fps: number,
+  out: string,
+  nativeSize?: { width: number; height: number },
+): string[] {
+  const size = nativeSize ? `${nativeSize.width}:${nativeSize.height}` : 'trunc(iw/2)*2:trunc(ih/2)*2';
+  return [
+    '-framerate',
+    String(fps),
+    '-i',
+    join(framesDir, 'f%05d.png'),
+    '-vf',
+    `scale=${size}:flags=neighbor:in_range=full:out_range=tv,format=yuv420p`,
+    ...h264Args(out),
+  ];
+}
+
+export type RecordOptions = { seconds: number; fps?: number; start?: number; native?: boolean };
+
+/** Native output keeps the canvas backing size unless the viewport is an exact whole-number upscale of it. */
+export function nativeUpscale(
+  source: { width: number; height: number },
+  viewport: { width: number; height: number } | null,
+): { width: number; height: number } | undefined {
+  if (!viewport || source.width <= 0 || source.height <= 0) return undefined;
+  const factor = viewport.width / source.width;
+  const even = viewport.width % 2 === 0 && viewport.height % 2 === 0;
+  return Number.isInteger(factor) && factor >= 1 && source.height * factor === viewport.height && even
+    ? viewport
+    : undefined;
+}
 
 export async function record(h: HookDriver, options: RecordOptions, out: string, binary = 'ffmpeg'): Promise<void> {
   if (!hasFfmpeg(binary)) throw new FfmpegMissingError(binary);
@@ -120,10 +215,16 @@ export async function record(h: HookDriver, options: RecordOptions, out: string,
   mkdirSync(dirname(out), { recursive: true });
   const tmp = mkdtempSync(`${out}.frames-`);
   try {
-    for (let i = 0; i < Math.round(options.seconds * fps); i += 1) {
-      await shot(h, (start + i / fps) * 1000, join(tmp, `f${String(i).padStart(5, '0')}.jpg`), 'jpeg');
+    if (!options.native) {
+      for (let i = 0; i < Math.round(options.seconds * fps); i += 1) {
+        await shot(h, (start + i / fps) * 1000, join(tmp, `f${String(i).padStart(5, '0')}.jpg`), 'jpeg');
+      }
+      ffmpeg(binary, clipArgs(tmp, fps, out));
+      return;
     }
-    ffmpeg(binary, clipArgs(tmp, fps, out));
+
+    const sourceSize = await canvasFrames(h, { seconds: options.seconds, fps, start }, tmp);
+    ffmpeg(binary, nativeClipArgs(tmp, fps, out, nativeUpscale(sourceSize, h.page.viewportSize())));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

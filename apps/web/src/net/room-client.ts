@@ -10,7 +10,7 @@ import {
   type JoinOptions,
   type RoomPin,
   type ServerMessage,
-} from '@ogm/contracts';
+} from '@ogm/contracts/browser';
 
 import { api } from '../lib/api/client';
 import { useRoom, type RoomStoreApi } from './room-store';

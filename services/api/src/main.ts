@@ -60,6 +60,7 @@ const deps: AppDeps = {
     roomsInternalUrl: env.OGM_ROOMS_INTERNAL_URL,
     roomsInternalSecret: env.OGM_ROOMS_INTERNAL_SECRET,
     roomGrantSecret: env.OGM_WS_TOKEN_SECRET,
+    gamesOrigin: env.OGM_GAMES_ORIGIN,
     commitInternalUrl: env.OGM_COMMIT_INTERNAL_URL,
     commitServiceToken: env.OGM_COMMIT_SERVICE_TOKEN,
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,

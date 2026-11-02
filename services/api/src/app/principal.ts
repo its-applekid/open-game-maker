@@ -9,7 +9,7 @@ import { verifyJobToken } from './job-token.js';
 import type { ApiBindings } from './types.js';
 
 type ServiceName = Extract<Principal, { kind: 'service' }>['service'];
-const SERVICES: readonly ServiceName[] = ['intake', 'voice-host', 'commit', 'builder', 'rooms'];
+const SERVICES: readonly ServiceName[] = ['intake', 'voice-host', 'commit', 'builder', 'rooms', 'repair'];
 
 function sameSecret(given: string, expected: string): boolean {
   const digest = (value: string) => createHash('sha256').update(value).digest();

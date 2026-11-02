@@ -64,7 +64,14 @@ const fakeRunner =
 describe('verify queue', () => {
   it('round-trips a sandbox request file to a report file written by the host', async () => {
     const { root, workspace } = workspaces();
-    const dir = submitRequest(workspace, request({ aiurIssue: 45, aiurRunId: 'aiur/45' }));
+    const dir = submitRequest(
+      workspace,
+      request({
+        aiurIssue: 45,
+        aiurRunId: 'aiur/45',
+        args: { viewport: 'phone', tier: 'mobile', frames: [0], record: { seconds: 4, fps: 60, native: true } },
+      }),
+    );
     const seen: RunVerifyOptions[] = [];
     const waiting = waitForReport(dir, { pollMs: 20, timeoutMs: 5_000 });
     await serveQueue(root, { runner: fakeRunner(seen), software: true, once: true });
@@ -75,6 +82,7 @@ describe('verify queue', () => {
     expect(seen[0].outDir).not.toBe(dir);
     expect(existsSync(join(dir, 'summary.txt'))).toBe(true);
     expect(seen[0].frames).toEqual([0]);
+    expect(seen[0].record).toEqual({ seconds: 4, fps: 60, native: true });
     expect(seen[0].aiurIssue).toBe(45);
     expect(seen[0].aiurRunId).toBe('aiur/45');
   });

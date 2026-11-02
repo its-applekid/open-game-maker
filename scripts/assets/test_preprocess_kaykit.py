@@ -113,6 +113,51 @@ class KayKitPreprocessor(unittest.TestCase):
         ])
         kaykit.validate([character, prop, library])
 
+    def test_skeleton_missing_library_joints_retargets_to_that_library_rig(self):
+        # The medium mannequin ships without the hand-slot joints: its own rig id matches no library,
+        # but every joint it has sits under the same parent in the shared rig, so those clips still play.
+        for name in ("Mannequin_Medium", "Knight", "Odd_Golem", "Rig_Medium_General"):
+            self.add_glb(f"Models/glb/{name}.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        body = [{"name": "root", "parent": None}, {"name": "hips", "parent": "root"},
+                {"name": "hand.r", "parent": "hips"}]
+        shared = {"rig_type": "humanoid", "rig_id": "rig:89200673d97d", "joint_count": 4,
+                  "bones": [*body, {"name": "handslot.r", "parent": "hand.r"}]}
+        subset = {"rig_type": "humanoid", "rig_id": "rig:a83c5e75e523", "joint_count": 3, "bones": body}
+        foreign = {"rig_type": "humanoid", "rig_id": "rig:0123456789ab", "joint_count": 3,
+                   "bones": [*body[:2], {"name": "hand.r", "parent": "root"}]}
+        geometry = {"triangles": 10, "vertices": 20, "bounds": {"min": [0, 0, 0], "max": [1, 2, 1]},
+                    "pivot": "base-center", "materials": [], "textureNames": []}
+        analyses = {"mannequin_medium": {**geometry, "rig": subset, "clips": []},
+                    "knight": {**geometry, "rig": shared, "clips": []},
+                    "odd_golem": {**geometry, "rig": foreign, "clips": []},
+                    "rig_medium_general": {**geometry, "rig": shared, "clips": [{"name": "Idle_A", "duration": 1}]}}
+        results = {models[key].uid: {"ok": True, "analysis": analysis} for key, analysis in analyses.items()}
+
+        retargets = kaykit.retarget_rigs(list(models.values()), results)
+
+        self.assertEqual(retargets, {models["mannequin_medium"].uid: "rig:89200673d97d"})
+        mannequin = kaykit.build_card(models["mannequin_medium"], analyses["mannequin_medium"],
+                                      "2026-11-01T00:00:00+00:00", retarget_rig_id=retargets[models["mannequin_medium"].uid])
+        self.assertEqual(mannequin["rig"]["rig_id"], "rig:a83c5e75e523")
+        self.assertEqual(mannequin["rig"]["retarget_rig_id"], "rig:89200673d97d")
+        kaykit.validate([mannequin])
+
+        # A later run that does not measure the library (its render failed, or `--only` another pack) must not
+        # strip the retarget, or the mannequin drops out of --rig-id searches until a full run repairs it.
+        card_path = self.root / "packs" / models["mannequin_medium"].pack_id / "cards" / "mannequin_medium.card.json"
+        kaykit.write_cards(self.root, list(models.values()), results, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(json.loads(card_path.read_text())["rig"]["retarget_rig_id"], "rig:89200673d97d")
+        failed = {**results, models["rig_medium_general"].uid: {"ok": False, "error": "render failed"}}
+        kaykit.write_cards(self.root, list(models.values()), failed, "2026-11-02T00:00:00+00:00")
+        self.assertEqual(json.loads(card_path.read_text())["rig"]["retarget_rig_id"], "rig:89200673d97d")
+        # A run that measures the libraries again and finds none the mannequin fits drops it.
+        moved = {**foreign, "rig_id": "rig:89200673d97e"}
+        refit = {**results, models["rig_medium_general"].uid:
+                 {"ok": True, "analysis": {**analyses["rig_medium_general"], "rig": moved}}}
+        kaykit.write_cards(self.root, list(models.values()), refit, "2026-11-03T00:00:00+00:00")
+        self.assertNotIn("retarget_rig_id", json.loads(card_path.read_text())["rig"])
+
     def test_rejects_two_gltfs_that_collapse_to_the_same_canonical_key(self):
         extracted = self.pack / "1.0" / "extracted"
         duplicate = extracted / "Models" / "glTF format" / "Barrel.gltf"
