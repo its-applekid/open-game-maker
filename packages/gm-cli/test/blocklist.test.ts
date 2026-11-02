@@ -175,6 +175,8 @@ describe('gm packs blocklist', () => {
 
     const { code, err, stats } = await blocklist(root);
     expect(code).toBe(1);
+    // Shared card validation rejects traversal before blocklist path walking. `unsafe_paths` is reserved for
+    // lexically valid keys whose canonical path escapes through a symlink (covered by the next test).
     expect(err).toContain(`unreadable collection card, its files are not listed: ${ANNUAL}/collection.card.json`);
     expect(stats.collection_errors).toEqual([`${ANNUAL}/collection.card.json`]);
     expect(stats.unsafe_paths).toEqual([]);
