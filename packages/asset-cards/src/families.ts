@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
@@ -187,6 +187,13 @@ let cached: StyleFamily[] | undefined;
 export function loadFamilies(): StyleFamily[] {
   cached ??= StyleFamiliesSchema.parse(JSON.parse(readFileSync(FAMILIES_PATH, 'utf8')));
   return cached;
+}
+
+/** Validate and replace the curated family file; an invalid update leaves the existing file untouched. */
+export function writeFamilies(families: StyleFamily[], path = FAMILIES_PATH): void {
+  const validated = StyleFamiliesSchema.parse(families);
+  writeFileSync(path, `${JSON.stringify(validated, null, 2)}\n`);
+  if (path === FAMILIES_PATH) cached = validated;
 }
 
 export function familyFor(packId: string): StyleFamilyId | undefined {

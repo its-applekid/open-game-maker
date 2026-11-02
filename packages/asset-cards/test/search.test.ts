@@ -114,6 +114,21 @@ describe('search', () => {
     expect(hits.map((card) => card.id)).toContain(tileId);
   });
 
+  it('indexes sprite action names instead of requiring action words in file paths', () => {
+    const base = index.cards.find((card) => card.id === 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
+    if (!base) throw new Error('fixture sprite missing');
+    const knight = {
+      ...base,
+      id: 't1:kenney-tiny-dungeon/characters/knight@1.0',
+      title: 'Knight',
+      source: { ...base.source!, files: [{ ...base.source!.files[0]!, path: 'Sprites/knight.png' }] },
+      sprite: { ...base.sprite!, animations: [{ name: 'attack', frames: [0, 1] }] },
+    };
+    expect(search({ ...index, cards: [knight] }, { words: ['knight', 'attack'] }).map((card) => card.id)).toEqual([
+      knight.id,
+    ]);
+  });
+
   it('applies --limit after ranking', () => {
     expect(search(index, { words: [], limit: 2 })).toHaveLength(2);
     expect(search(index, { words: [] }).length).toBeGreaterThan(2);

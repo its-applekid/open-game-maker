@@ -1,0 +1,84 @@
+import { createHash } from 'node:crypto';
+
+import type { JobPlan } from '@ogm/contracts';
+
+type PlanTicket = JobPlan['tickets'][number];
+
+export type RenderIssueInput = {
+  jobId: string;
+  complexity: number;
+  plan: JobPlan;
+  ticket: PlanTicket;
+  blockedBy: readonly number[];
+  shippedSkills: readonly string[];
+};
+
+export function renderIssue(input: RenderIssueInput): {
+  title: string;
+  body: string;
+  sig: string;
+  labels: string[];
+} {
+  validateStructuredFields(input.plan, input.ticket);
+  const sections = [input.plan.summary.trim(), scopeSection(input.plan), acceptanceSection(input.ticket)];
+  if (input.blockedBy.length > 0) sections.push(input.blockedBy.map((number) => `Blocked by #${number}`).join('\n'));
+  sections.push(skillsSection(input.ticket, input.shippedSkills));
+  const unsigned = sections.join('\n\n');
+  const sig = createHash('sha256').update(unsigned).digest('hex');
+  return {
+    title: input.plan.title.trim().slice(0, 120),
+    body: `${unsigned}\n\n<!-- gm-job:${input.jobId} gm-ticket:${input.ticket.key} gm-sig:${sig} -->`,
+    sig,
+    labels: [`complexity:${input.complexity}`, `feature:gm-${input.jobId}`],
+  };
+}
+
+export function usdFromMicro(microUsd: number): string {
+  if (!Number.isSafeInteger(microUsd) || microUsd < 0) throw new TypeError('microUsd must be a non-negative integer');
+  const amount = Math.max(1, microUsd);
+  const whole = Math.floor(amount / 1_000_000);
+  const fraction = String(amount % 1_000_000)
+    .padStart(6, '0')
+    .replace(/0+$/, '');
+  return fraction === '' ? String(whole) : `${whole}.${fraction}`;
+}
+
+function scopeSection(plan: JobPlan): string {
+  const included =
+    plan.scope.included.length > 0 ? plan.scope.included.map((value) => `- included: ${value}`) : ['- included: none'];
+  const excluded =
+    plan.scope.excluded.length > 0 ? plan.scope.excluded.map((value) => `- excluded: ${value}`) : ['- excluded: none'];
+  return ['## Scope', ...included, ...excluded].join('\n');
+}
+
+function acceptanceSection(ticket: PlanTicket): string {
+  const criteria = ticket.acceptanceCriteria.length > 0 ? ticket.acceptanceCriteria : ['none specified'];
+  return ['## Acceptance', ...criteria.map((value) => `- ${value}`)].join('\n');
+}
+
+function skillsSection(ticket: PlanTicket, shippedSkills: readonly string[]): string {
+  const shipped = new Set(shippedSkills);
+  const requested = [...new Set(ticket.skills)].filter((name) => shipped.has(name));
+  const ordered = [
+    ...['gm-core', 'gm-verify'].filter((name) => shipped.has(name)),
+    ...requested.filter((name) => name !== 'gm-core' && name !== 'gm-verify'),
+  ];
+  return ['## Load skills', ...ordered.map((name) => `- ${name}`)].join('\n');
+}
+
+function validateStructuredFields(plan: JobPlan, ticket: PlanTicket): void {
+  const fields = [
+    plan.title,
+    plan.summary,
+    ...plan.scope.included,
+    ...plan.scope.excluded,
+    ...ticket.acceptanceCriteria,
+    ...ticket.skills,
+  ];
+  for (const value of fields) {
+    if (value.length > 4000) throw new Error('Issue field exceeds 4,000 characters');
+    if (/\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i.test(value)) {
+      throw new Error('Issue fields must not contain an email address');
+    }
+  }
+}

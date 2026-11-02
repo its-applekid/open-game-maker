@@ -17,3 +17,4 @@ packages/contracts/fixtures/cards-negative/
 packages/contracts/schemas/
 packages/contracts/src/card.generated.ts
 *.md
+packages/gm-verify/schemas/*.json

@@ -8,11 +8,29 @@
     },
     "family": {
       "type": "string",
-      "minLength": 1
+      "enum": [
+        "chunky-low-poly",
+        "detailed-low-poly",
+        "simple-low-poly",
+        "pixel-art",
+        "flat-cartoon",
+        "isometric-2d",
+        "sketch",
+        "photoreal",
+        "any"
+      ]
     },
     "pov": {
       "type": "string",
-      "minLength": 1
+      "enum": [
+        "iso",
+        "topdown",
+        "side",
+        "follow",
+        "fps",
+        "orbit",
+        "fixed"
+      ]
     },
     "assets": {
       "type": "array",
@@ -21,7 +39,7 @@
         "properties": {
           "id": {
             "type": "string",
-            "minLength": 1
+            "pattern": "^(?:t[12]:[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+|t3:[A-Za-z0-9][A-Za-z0-9_-]*\\/[a-z0-9][a-z0-9/._-]*)$"
           },
           "sha256": {
             "type": "string",
@@ -42,7 +60,15 @@
                 "type": "array",
                 "items": {
                   "type": "string",
-                  "minLength": 1
+                  "enum": [
+                    "in-game",
+                    "placeholder",
+                    "derive-layout",
+                    "style-reference",
+                    "vision-input",
+                    "edit-audio",
+                    "derive-audio"
+                  ]
                 }
               },
               "audience": {
@@ -78,12 +104,14 @@
           "derived_from": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^(?:t[12]:[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+|t3:[A-Za-z0-9][A-Za-z0-9_-]*\\/[a-z0-9][a-z0-9/._-]*)$"
             }
           },
           "added": {
             "type": "string",
-            "minLength": 1
+            "format": "date",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))$"
           }
         },
         "required": [

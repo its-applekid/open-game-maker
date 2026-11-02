@@ -16,6 +16,10 @@ export interface AppDeps {
     jobTokenSecret: string;
     blobSigningKey: string;
     appOrigin: string;
+    publicOrigin: string;
+    roomsInternalUrl: string;
+    roomsInternalSecret: string;
+    roomGrantSecret: string;
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
@@ -28,6 +32,8 @@ export interface AppDeps {
     analyticsRetentionDays: number;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
+    intakeDir?: string;
+    reportBundleMaxBytes: number;
   };
   blobStore: BlobStore;
   events: AppEvents;
