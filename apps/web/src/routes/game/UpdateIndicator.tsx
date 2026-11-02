@@ -21,17 +21,25 @@ export function UpdateIndicator({
   onUpdate(): void;
 }) {
   const etagRef = useRef<string | undefined>(undefined);
-  const [publishedBuildId, setPublishedBuildId] = useState<string | undefined>(undefined);
+  const baselineBuildRef = useRef<string | undefined>(undefined);
+  const initializedRef = useRef(false);
+  const [updateBuildId, setUpdateBuildId] = useState<string | undefined>(undefined);
   const poll = useCallback(async () => {
     const result = await api(gameId, etagRef.current);
     if (!result.available) {
-      setPublishedBuildId(undefined);
+      initializedRef.current = false;
+      baselineBuildRef.current = undefined;
+      setUpdateBuildId(undefined);
       onPublishedBuild?.(undefined);
       return;
     }
     if (result.etag !== undefined) etagRef.current = result.etag;
     if (result.modified) {
-      setPublishedBuildId(result.value.buildId);
+      if (initializedRef.current && baselineBuildRef.current !== result.value.buildId) {
+        setUpdateBuildId(result.value.buildId);
+      }
+      baselineBuildRef.current = result.value.buildId;
+      initializedRef.current = true;
       onPublishedBuild?.(result.value.buildId);
     }
   }, [api, gameId, onPublishedBuild]);
@@ -50,7 +58,7 @@ export function UpdateIndicator({
     };
   }, [onError, poll]);
 
-  return publishedBuildId !== undefined && publishedBuildId !== currentBuildId ? (
+  return updateBuildId !== undefined && updateBuildId !== currentBuildId ? (
     <button className="update-indicator tap-secondary" type="button" onClick={onUpdate}>
       Update available
     </button>

@@ -27,7 +27,11 @@ export function loadSettings(
 
 export function saveSettings(settings: PlayerSettings, storage: Storage = localStorage): PlayerSettings {
   const normalized = normalizeSettings(settings, defaults(false));
-  storage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(normalized));
+  } catch {
+    // Device storage is optional; safe in-memory settings still reach the game.
+  }
   return normalized;
 }
 

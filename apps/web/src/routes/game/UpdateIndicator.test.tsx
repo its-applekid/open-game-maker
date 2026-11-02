@@ -49,6 +49,20 @@ describe('UpdateIndicator', () => {
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
   });
 
+  it('uses the first published response as a quiet baseline', async () => {
+    const api = vi.fn<PublishedApi>().mockResolvedValue({
+      available: true,
+      modified: true,
+      etag: '"published"',
+      value: release(nextBuild),
+    });
+
+    render(<UpdateIndicator api={api} currentBuildId={currentBuild} gameId="game" onUpdate={vi.fn()} />);
+    await act(async () => Promise.resolve());
+
+    expect(screen.queryByRole('button', { name: 'Update available' })).not.toBeInTheDocument();
+  });
+
   it('reports non-capability polling failures', async () => {
     const api = vi.fn<PublishedApi>().mockRejectedValue(new Error('offline'));
     const onError = vi.fn();

@@ -14,6 +14,13 @@ export function activeBuildStatus(jobs: readonly Job[]): string | undefined {
   return active.state === 'running' ? 'Building' : undefined;
 }
 
+export function readyBuildSignal(jobs: readonly Job[], branch: string): string | undefined {
+  const ready = [...jobs]
+    .filter((job) => job.branchId === branch && (job.stage === 'ready' || job.state === 'done'))
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))[0];
+  return ready === undefined ? undefined : `${ready.id}:${ready.updatedAt}:${ready.stage ?? ready.state}`;
+}
+
 export type BuildChange =
   | { kind: 'same' }
   | { kind: 'switch'; snapshot: DesignSnapshot }

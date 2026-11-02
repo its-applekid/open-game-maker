@@ -18,7 +18,7 @@ import {
   submitReapply,
   type DesignSnapshot,
 } from '../../features/editor/api';
-import { activeBuildStatus, inspectBuildChange } from '../../features/editor/builds';
+import { activeBuildStatus, inspectBuildChange, readyBuildSignal } from '../../features/editor/builds';
 import { EditorChrome } from '../../features/editor/EditorChrome';
 import { GizmoOverlay } from '../../features/editor/GizmoOverlay';
 import { changeInstanceCount } from '../../features/editor/instanceCount';
@@ -86,17 +86,27 @@ export function GameScreen() {
   const [pendingBuild, setPendingBuild] = useState<{ snapshot: DesignSnapshot; report: ReapplyReport }>();
   const [publishedBuildId, setPublishedBuildId] = useState<string>();
   const inspectedBuildRef = useRef<string | undefined>(undefined);
+  const inspectedJobRef = useRef<string | undefined>(undefined);
   const activeSnapshot = adopted?.gameId === gameId && adopted.branch === branch ? adopted.snapshot : design.data;
   const build = publishedBuildId !== undefined && publishedBuildId === activeSnapshot?.buildId ? 'published' : 'draft';
 
   useEffect(() => {
     inspectedBuildRef.current = undefined;
+    inspectedJobRef.current = undefined;
     setPendingBuild(undefined);
   }, [branch, gameId]);
 
   useEffect(() => {
-    const ready = jobs.data?.jobs.some((job) => job.stage === 'ready' || job.state === 'done') ?? false;
-    if (!ready || activeSnapshot === undefined || gameId === '') return;
+    const signal = readyBuildSignal(jobs.data?.jobs ?? [], branch);
+    if (
+      signal === undefined ||
+      signal === inspectedJobRef.current ||
+      activeSnapshot === undefined ||
+      gameId === ''
+    ) {
+      return;
+    }
+    inspectedJobRef.current = signal;
     let active = true;
     void getDesignSnapshot(gameId, branch)
       .then(async (next) => {
@@ -113,6 +123,7 @@ export function GameScreen() {
         }
       })
       .catch(() => {
+        inspectedJobRef.current = undefined;
         inspectedBuildRef.current = undefined;
       });
     return () => {
@@ -288,6 +299,7 @@ export function GameScreen() {
         <GameExtras placement="hud" gameId={gameId} branchId={branch} mode={mode} />
         {activeSnapshot ? (
           <UpdateIndicator
+            key={gameId}
             currentBuildId={activeSnapshot.buildId}
             gameId={gameId}
             onPublishedBuild={setPublishedBuildId}

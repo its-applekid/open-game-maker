@@ -17,7 +17,11 @@ export function loadSnapPrefs(gameId: string, defaultGrid: number, storage: Stor
 
 export function saveSnapPrefs(gameId: string, prefs: SnapPrefs, storage: Storage = localStorage): void {
   if (!validGrid(prefs.grid)) throw new RangeError('snap grid must be a finite positive number');
-  storage.setItem(storageKey(gameId), JSON.stringify({ version: 1, enabled: prefs.enabled, grid: prefs.grid }));
+  try {
+    storage.setItem(storageKey(gameId), JSON.stringify({ version: 1, enabled: prefs.enabled, grid: prefs.grid }));
+  } catch {
+    // Device storage is optional; the mounted editor keeps the preference in memory.
+  }
 }
 
 function storageKey(gameId: string): string {
