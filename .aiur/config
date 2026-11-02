@@ -80,8 +80,8 @@ agent:
   target_load_average: 8
   # Kevin 2026-11-01: ramp as fast as is safe. PSI target/ceiling instead of the 20% default gate; three slots per poll
   # below 80% of target; a saved "safe level" older than 10 minutes is ignored so a restart ramps from the step.
-  target_cpu_pressure: 70
-  max_cpu_pressure: 85
+  target_cpu_pressure: 80
+  max_cpu_pressure: 92
   load_ramp_step: 3
   load_cooldown_seconds: 20
   load_resume_max_age_seconds: 600
