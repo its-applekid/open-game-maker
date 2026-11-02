@@ -31,7 +31,8 @@ function normalizedError(error: string): string {
 export type TriageDraft = Omit<TriageResultValue, 'promise'> & { promise?: PromiseArtifact };
 
 function withoutPromise(value: TriageResultValue): Omit<TriageResultValue, 'promise'> {
-  const { promise: _promise, ...result } = value;
+  const result = { ...value };
+  delete result.promise;
   return result;
 }
 
