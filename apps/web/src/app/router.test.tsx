@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { createMemoryRouter, matchRoutes, RouterProvider } from 'react-router';
+import { createMemoryRouter, matchRoutes, RouterProvider, useLocation } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { collectScreenRoutes, screenRouteObjects } from './router';
@@ -149,8 +150,67 @@ describe('screen route collection', () => {
 
     expect(await screen.findByRole('heading', { name: 'Games' })).toBeVisible();
   });
+
+  it('keeps screen state across search-only navigation', async () => {
+    const routes = collectScreenRoutes({
+      '../routes/new/route.tsx': {
+        route: {
+          path: '/new',
+          element: <StatefulScreen />,
+          chrome: 'app',
+          auth: 'none',
+        },
+      },
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/new?step=genre'] });
+    render(<RouterProvider router={router} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Adventure' }));
+    expect(screen.getByRole('button', { name: 'Adventure' })).toHaveAttribute('aria-pressed', 'true');
+
+    await router.navigate('/new?step=vibe');
+
+    expect(await screen.findByText('?step=vibe')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Adventure' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('resets screen state when the same route selects another game', async () => {
+    const routes = collectScreenRoutes({
+      '../routes/games/route.tsx': {
+        route: {
+          path: '/games',
+          element: <StatefulScreen />,
+          chrome: 'app',
+          auth: 'none',
+        },
+      },
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/games?spotlight=g_1'] });
+    render(<RouterProvider router={router} />);
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Adventure' }));
+    expect(screen.getByRole('button', { name: 'Adventure' })).toHaveAttribute('aria-pressed', 'true');
+
+    await router.navigate('/games?spotlight=g_2');
+
+    expect(await screen.findByText('?spotlight=g_2')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Adventure' })).toHaveAttribute('aria-pressed', 'false');
+  });
 });
 
 function BrokenPicker(): never {
   throw new Error('broken picker');
+}
+
+function StatefulScreen() {
+  const [selected, setSelected] = useState(false);
+  const location = useLocation();
+  return (
+    <>
+      <button type="button" aria-pressed={selected} onClick={() => setSelected(true)}>
+        Adventure
+      </button>
+      <output>{location.search}</output>
+    </>
+  );
 }
