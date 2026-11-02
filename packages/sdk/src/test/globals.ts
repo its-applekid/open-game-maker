@@ -1,8 +1,8 @@
-import type { GmTestHooks } from '@ogm/contracts';
+import type { GmTestHooks, SaveData } from '@ogm/contracts';
 
 import type { BuildKind } from '../core/runtime.js';
 
-export type GlobalHooks = GmTestHooks & { tick(seconds: number): void };
+export type GlobalHooks = GmTestHooks & { tick(seconds: number): void; restore?(save: SaveData<unknown>): void };
 
 declare global {
   interface Window {

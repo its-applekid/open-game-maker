@@ -31,7 +31,7 @@ done <<< "${out[units]}"
 
 # The Node services' units run the file each package's start script names; a missing one would idle as a placeholder,
 # and a unit that started before its build keeps idling until it restarts.
-for pair in api:ogm-api rooms:ogm-rooms games-host:ogm-games intake:ogm-intake commit:; do
+for pair in api:ogm-api rooms:ogm-rooms games-host:ogm-games intake:ogm-intake commit:ogm-commit; do
   service=${pair%%:*}
   unit=${pair#*:}
   if ! entry=$("$bin_dir/ogm-entry" "$repo/services/$service" 2> /dev/null); then

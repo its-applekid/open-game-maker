@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'usage: ogm-run <api|rooms|games|voice-host|intake|drive-sync|aiur|backup> [slug]\n' >&2
+  printf 'usage: ogm-run <api|rooms|games|commit|voice-host|intake|drive-sync|aiur|backup> [slug]\n' >&2
   exit 64
 }
 
@@ -52,6 +52,9 @@ case "$name" in
     ;;
   games)
     run_node_service games games-host
+    ;;
+  commit)
+    run_node_service commit commit
     ;;
   voice-host)
     mise=$HOME/.local/bin/mise

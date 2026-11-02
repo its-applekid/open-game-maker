@@ -13,7 +13,7 @@ empty_repo=$scratch/empty-repo
 home=$scratch/home
 mkdir -p "$empty_repo" "$home"
 
-for service in api rooms games voice-host intake; do
+for service in api rooms games commit voice-host intake; do
   set +e
   HOME=$home OGM_REPO=$empty_repo timeout 2 "$repo/ops/bin/ogm-run" "$service" \
     > "$scratch/$service.out" 2> "$scratch/$service.err"
@@ -57,6 +57,12 @@ status=$?
 set -e
 assert_eq "1" "$status" "a package with no start script should fail its unit, not idle"
 assert_grep 'start script is not "node <file>"' "$scratch/intake-nostart.err"
+
+mkdir -p "$built_repo/services/commit/dist"
+printf '{"scripts":{"start":"node dist/index.js"}}\n' > "$built_repo/services/commit/package.json"
+printf "process.stdout.write('commit-up');\n" > "$built_repo/services/commit/dist/index.js"
+commit_output=$(HOME=$home OGM_REPO=$built_repo timeout 5 "$repo/ops/bin/ogm-run" commit)
+assert_eq "commit-up" "$commit_output" "a built commit service should be executed"
 
 set +e
 HOME=$home OGM_REPO=$empty_repo timeout 2 "$repo/ops/bin/ogm-run" drive-sync > "$scratch/drive.out" 2> "$scratch/drive.err"
