@@ -25,7 +25,15 @@ export function foldDesignFiles(designDir: string): DesignDoc {
 
   let folded: DesignDoc | undefined;
   for (const file of files) {
-    const parsed = StrictDesignDocSchema.safeParse(JSON.parse(readFileSync(join(designDir, file), 'utf8')));
+    let raw: unknown;
+    try {
+      raw = JSON.parse(readFileSync(join(designDir, file), 'utf8'));
+    } catch (error) {
+      throw new Error(`design/${file} is not valid JSON: ${error instanceof Error ? error.message : String(error)}`, {
+        cause: error,
+      });
+    }
+    const parsed = StrictDesignDocSchema.safeParse(raw);
     if (!parsed.success) throw new Error(`design/${file} is not a valid design doc: ${parsed.error.message}`);
     const doc = parsed.data;
     if (!folded) {

@@ -6,7 +6,9 @@ description: Install and build a Game Maker repo inside the network-off sandbox.
 # Build offline
 
 1. From the game repo, run `pnpm install --offline --frozen-lockfile`.
-2. Run `gm build`; when asset targets are needed, run `gm build assets --tier mobile,desktop`.
+2. Run `gm build`; when asset targets are needed, run `gm build assets --tier mobile,desktop`. `gm build` fails naming
+   `dist/manifest.json` or `dist/design/design.json` when either is missing or invalid: fix `src/manifest.ts` or
+   `design/*.json` (a key defined in two design files fails the build).
 3. Read the build output from `dist/` and the resolved asset inventory from `assets/manifest.json`.
 4. Run the `gm-core` done gates before handing off.
 

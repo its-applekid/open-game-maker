@@ -1,4 +1,4 @@
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -66,8 +66,19 @@ describe('gm build', () => {
   }, 60_000);
 
   it('fails with the build output when pnpm build fails', async () => {
-    const result = await gm(['build'], { cwd: game({}, true) });
+    const result = await gm(['build', '--json'], { cwd: game({}, true) });
     expect(result.code).toBe(1);
     expect(result.err.join('\n')).toContain('bundle exploded');
+    expect(JSON.parse(result.out[0] ?? '')).toEqual({ ok: false, problems: ['pnpm build failed with exit 1'] });
+  }, 60_000);
+
+  it('does not pass on files an earlier build left in dist/', async () => {
+    const cwd = game({});
+    mkdirSync(join(cwd, 'dist', 'design'), { recursive: true });
+    writeFileSync(join(cwd, 'dist', 'manifest.json'), JSON.stringify(manifest));
+    writeFileSync(join(cwd, 'dist', 'design', 'design.json'), JSON.stringify(design));
+    const result = await gm(['build'], { cwd });
+    expect(result.code).toBe(1);
+    expect(result.err).toHaveLength(2);
   }, 60_000);
 });

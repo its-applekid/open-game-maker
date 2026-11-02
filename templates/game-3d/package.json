@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && vite build --mode published",
     "dev": "vite --host 127.0.0.1",
     "lint": "eslint src tests",
     "preview": "vite preview --host 127.0.0.1 --port 43173",

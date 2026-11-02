@@ -44,6 +44,19 @@ describe('foldDesignFiles', () => {
     expect(() => foldDesignFiles(dir)).toThrow(/design\/a\.json is not a valid design doc/);
   });
 
+  it('refuses a global defined by two files', () => {
+    const doc = { schemaVersion: 1, globals: { speed: 1 }, entities: {} };
+    expect(() => foldDesignFiles(designDir({ 'a.json': doc, 'b.json': doc }))).toThrow(
+      'design/b.json: global "speed" is already defined by another design file',
+    );
+  });
+
+  it('names the design file that is not JSON', () => {
+    const dir = designDir({});
+    writeFileSync(join(dir, 'level.json'), '{ broken');
+    expect(() => foldDesignFiles(dir)).toThrow(/^design\/level\.json is not valid JSON/);
+  });
+
   it('refuses files with different schema versions', () => {
     const dir = designDir({
       'a.json': { schemaVersion: 1, globals: {}, entities: {} },

@@ -1,5 +1,5 @@
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { DesignDocSchema, gameManifestSchema } from '@ogm/contracts';
@@ -43,6 +43,9 @@ export const command: GmCommand = {
   flags: {},
   async run(ctx, args) {
     if (args.length > 0) throw new UsageError(`unexpected argument ${args[0]}`, 'gm help build');
+    const dist = join(ctx.cwd, 'dist');
+    /* A build that stops writing these files must not pass on copies left by an earlier build. */
+    for (const { file } of ARTIFACTS) rmSync(join(dist, file), { force: true });
     const result = spawnSync('pnpm', ['build'], {
       cwd: ctx.cwd,
       encoding: 'utf8',
@@ -53,11 +56,13 @@ export const command: GmCommand = {
     if (result.status !== 0) {
       const tail = `${result.stdout}${result.stderr}`.trimEnd().split('\n').slice(-20);
       for (const line of tail) ctx.err(line);
-      ctx.err(`pnpm build failed with exit ${result.status ?? result.signal}`);
+      const problem = `pnpm build failed with exit ${result.status ?? result.signal}`;
+      if (ctx.json) ctx.out(JSON.stringify({ ok: false, problems: [problem] }));
+      else ctx.err(problem);
       return EXIT.failed;
     }
 
-    const problems = checkBuildDir(join(ctx.cwd, 'dist'));
+    const problems = checkBuildDir(dist);
     if (ctx.json) ctx.out(JSON.stringify({ ok: problems.length === 0, problems }));
     else if (problems.length === 0) ctx.out('dist/ ok: manifest.json, design/design.json');
     for (const problem of ctx.json ? [] : problems) ctx.err(problem);

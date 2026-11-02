@@ -5,9 +5,9 @@ import { gmBuildArtifacts } from '@gm/sdk/vite';
 
 import { manifest } from './src/manifest.js';
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   define: {
-    __GM_BUILD__: JSON.stringify(process.env.GM_BUILD ?? 'test'),
+    __GM_BUILD__: JSON.stringify(mode === 'published' ? 'published' : (process.env.GM_BUILD ?? 'test')),
   },
   resolve: {
     alias: {
@@ -18,4 +18,4 @@ export default defineConfig({
   server: { host: '127.0.0.1' },
   preview: { host: '127.0.0.1', port: 43173 },
   build: { target: 'es2022' },
-});
+}));

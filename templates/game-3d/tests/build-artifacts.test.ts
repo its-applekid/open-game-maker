@@ -16,7 +16,7 @@ let outDir: string;
 
 beforeAll(async () => {
   outDir = mkdtempSync(join(tmpdir(), 'gm-game-3d-build-'));
-  await build({ root, logLevel: 'silent', build: { outDir, emptyOutDir: true } });
+  await build({ root, mode: 'published', logLevel: 'silent', build: { outDir, emptyOutDir: true } });
 }, 300_000);
 
 afterAll(() => rmSync(outDir, { recursive: true, force: true }));
