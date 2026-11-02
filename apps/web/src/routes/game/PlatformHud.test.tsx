@@ -30,12 +30,14 @@ function frameHarness() {
   };
 }
 
+const saveContext = { branch: 'main', buildId: 'build_01BX5ZZKBKACTAV9WEVGEMMVRZ' };
+
 afterEach(cleanup);
 
 describe('PlatformHud', () => {
   it('pauses and resumes with one lifecycle message per action and restores focus', async () => {
     const test = frameHarness();
-    render(<PlatformHud build="draft" frame={test.frame} gameId="game" saves={false} />);
+    render(<PlatformHud build="draft" frame={test.frame} gameId="game" saveContext={saveContext} saves={false} />);
 
     const pause = screen.getByRole('button', { name: 'Pause' });
     fireEvent.click(pause);
@@ -52,7 +54,16 @@ describe('PlatformHud', () => {
   it('leaves through the screen-owned navigation action', () => {
     const test = frameHarness();
     const onLeave = vi.fn();
-    render(<PlatformHud build="draft" frame={test.frame} gameId="game" saves={false} onLeave={onLeave} />);
+    render(
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saveContext={saveContext}
+        saves={false}
+        onLeave={onLeave}
+      />,
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
     fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
@@ -67,6 +78,7 @@ describe('PlatformHud', () => {
         build="draft"
         frame={test.frame}
         gameId="game"
+        saveContext={saveContext}
         saves
         saveApi={{ list: vi.fn().mockResolvedValue({ available: false }), read: vi.fn(), write: vi.fn() }}
       />,
@@ -85,6 +97,7 @@ describe('PlatformHud', () => {
         build="draft"
         frame={test.frame}
         gameId="game"
+        saveContext={saveContext}
         saves
         saveApi={{ list: vi.fn().mockResolvedValue({ available: true, value: { slots } }), read: vi.fn(), write }}
       />,
@@ -99,7 +112,13 @@ describe('PlatformHud', () => {
     test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 2 } });
 
     await waitFor(() =>
-      expect(write).toHaveBeenCalledWith('game', '3', { saveSchemaVersion: 1, data: { checkpoint: 2 } }, undefined),
+      expect(write).toHaveBeenCalledWith(
+        'game',
+        '3',
+        { saveSchemaVersion: 1, data: { checkpoint: 2 } },
+        undefined,
+        saveContext,
+      ),
     );
   });
 
@@ -112,23 +131,68 @@ describe('PlatformHud', () => {
       .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 5 }] } })
       .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 6 }] } });
     render(
-      <PlatformHud build="draft" frame={test.frame} gameId="game" saves saveApi={{ list, read: vi.fn(), write }} />,
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saveContext={saveContext}
+        saves
+        saveApi={{ list, read: vi.fn(), write }}
+      />,
     );
     await waitFor(() => expect(list).toHaveBeenCalledOnce());
     await waitFor(() => expect(test.frame.onSaveWrite).toHaveBeenCalledTimes(2));
 
     test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 1 } });
-    await waitFor(() => expect(write).toHaveBeenNthCalledWith(1, 'game', 'auto', expect.anything(), 4));
+    await waitFor(() => expect(write).toHaveBeenNthCalledWith(1, 'game', 'auto', expect.anything(), 4, saveContext));
     await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
     test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 2 } });
 
-    await waitFor(() => expect(write).toHaveBeenNthCalledWith(2, 'game', 'auto', expect.anything(), 5));
+    await waitFor(() => expect(write).toHaveBeenNthCalledWith(2, 'game', 'auto', expect.anything(), 5, saveContext));
+  });
+
+  it('rereads slot heads after a failed write so a save that landed does not wedge later saves', async () => {
+    const test = frameHarness();
+    const toast = vi.fn();
+    const write = vi.fn().mockRejectedValueOnce(new TypeError('connection reset')).mockResolvedValue(undefined);
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 4 }] } })
+      .mockResolvedValue({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 5 }] } });
+    render(
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saveContext={saveContext}
+        saves
+        saveApi={{ list, read: vi.fn(), write }}
+        toast={toast}
+      />,
+    );
+    await waitFor(() => expect(list).toHaveBeenCalledOnce());
+    await waitFor(() => expect(test.frame.onSaveWrite).toHaveBeenCalledTimes(2));
+
+    test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 1 } });
+    await waitFor(() => expect(toast).toHaveBeenCalledWith('Save failed'));
+    test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 2 } });
+
+    await waitFor(() => expect(write).toHaveBeenNthCalledWith(2, 'game', 'auto', expect.anything(), 5, saveContext));
   });
 
   it('forwards safe settings and emits draft-only achievement copy', () => {
     const test = frameHarness();
     const toast = vi.fn();
-    render(<PlatformHud build="draft" frame={test.frame} gameId="game" saves={false} toast={toast} />);
+    render(
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saveContext={saveContext}
+        saves={false}
+        toast={toast}
+      />,
+    );
 
     expect(test.frame.setSettings).toHaveBeenCalledWith({
       mute: false,
