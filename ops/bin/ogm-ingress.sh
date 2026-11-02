@@ -55,8 +55,20 @@ else
   )
 fi
 
+# Read one origin by name for display; origins are not secret, and a missing one prints as unset.
+origin() {
+  local value
+  value=$(grep -E "^$2=" "$env_dir/$1.env" 2> /dev/null | tail -n 1 | cut -d= -f2- | tr -d "[:space:]\"'" || true)
+  printf '%s' "${value:-<unset>}"
+}
+
 if ((dry_run)); then
   printf 'tailscale %s\n' "${commands[@]}"
+  if [[ $mode == on ]]; then
+    # The hosted app frames the games origin, so both sides must name each other.
+    printf 'web.env VITE_GAMES_ORIGIN=%s (the :10000 games origin deploy.sh bakes into the app)\n' "$(origin web VITE_GAMES_ORIGIN)"
+    printf 'games.env OGM_APP_ORIGIN=%s (must list the app origin for frame-ancestors)\n' "$(origin games OGM_APP_ORIGIN)"
+  fi
   exit 0
 fi
 

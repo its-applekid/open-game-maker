@@ -541,23 +541,26 @@ Writes: `~/.config/ogm/tls`
 
 Check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
 
-### 7.3 Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment. (HAND)
+### 7.3 Create the free Netlify app site, record its site id, replace the two host literals, set the app and games origin pair, build the town, and approve the manual deployment. (HAND)
 
 Command:
 
 ```sh
 # Write the Netlify site id to apps/web/.netlify-site-id.
 # Replace the host in apps/web/public/_redirects and apps/web/public/_headers.
+pnpm --filter @ogm/config exec ogm-env-init web
+# Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
+# Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
 apps/web/tools/town.sh --public
 apps/web/tools/deploy.sh --dry-run
 apps/web/tools/deploy.sh
 ```
 
-Writes: `apps/web/.netlify-site-id`, `apps/web/public/_redirects`, `apps/web/public/_headers`
+Writes: `apps/web/.netlify-site-id`, `apps/web/public/_redirects`, `apps/web/public/_headers`, `~/.config/ogm/env/web.env`, `~/.config/ogm/env/games.env`
 
-Check: <app-origin> loads the title town and <app-origin>/api/healthz answers
+Check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
 
-Hand back to the human: Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment.
+Hand back to the human: Create the free Netlify app site, record its site id, replace the two host literals, set the app and games origin pair, build the town, and approve the manual deployment.
 
 ### 7.4 Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
 
@@ -632,7 +635,7 @@ Check: test -r the path named by OGM_VAPID_KEY_FILE
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 7, Configure**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment`; `Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
+> Hand steps in this step: `Create the free Netlify app site, record its site id, replace the two host literals, set the app and games origin pair, build the town, and approve the manual deployment`; `Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
 
 ## 8. Verify
 

@@ -21,7 +21,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pnpm --dir "$ROOT" --filter @ogm/web build
+# Without it the build falls back to 127.0.0.1, which a phone cannot load; the reader refuses when it is unset.
+GAMES_ORIGIN="$(node "$ROOT/apps/web/tools/games-origin.mjs")"
+printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
+
+VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
 if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete

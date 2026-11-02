@@ -24,6 +24,7 @@ describe('OGM_ENV_NAMES', () => {
       'aiur',
       'backup',
       'gm',
+      'web',
     ]);
   });
 });

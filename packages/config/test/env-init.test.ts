@@ -98,6 +98,15 @@ describe('ogm-env-init', () => {
     if (unit === 'intake') expect(contents).toContain('OGM_STATE_DIR=');
   });
 
+  it('creates a web file with only the build origin, since the build is public', () => {
+    const home = temporaryDirectory();
+    const result = runInitializer(home, 'web');
+    const contents = readFileSync(join(home, '.config', 'ogm', 'env', 'web.env'), 'utf8');
+
+    expect(result.status, result.stderr).toBe(0);
+    expect(contents).toBe('VITE_GAMES_ORIGIN=\n');
+  });
+
   it('refuses a repository target when Git is unavailable', () => {
     const home = temporaryDirectory();
     const result = runInitializerWithEnvironment(

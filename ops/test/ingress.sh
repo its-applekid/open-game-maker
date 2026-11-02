@@ -64,6 +64,14 @@ assert_grep 'tailscale funnel --bg --yes --https=8443 --set-path=/ws/voice http:
 assert_grep 'tailscale funnel --bg --yes --https=10000 http://127.0.0.1:3400' "$scratch/dry.out"
 assert_not_grep 'do-not-print' "$scratch/dry.out"
 
+# Dry run names the app/games origin pair; a missing web.env shows as unset instead of failing.
+assert_grep 'web.env VITE_GAMES_ORIGIN=<unset>' "$scratch/dry.out"
+printf 'VITE_GAMES_ORIGIN=https://games.example:10000\n' > "$env_dir/web.env"
+printf 'OGM_APP_ORIGIN=https://app.example\n' >> "$env_dir/games.env"
+run_ingress --dry-run > "$scratch/pair.out"
+assert_grep 'web.env VITE_GAMES_ORIGIN=https://games.example:10000' "$scratch/pair.out"
+assert_grep 'games.env OGM_APP_ORIGIN=https://app.example' "$scratch/pair.out"
+
 # Tailnet-only uses serve, which also clears Funnel on those ports.
 : > "$log"
 run_ingress --tailnet-only > /dev/null
