@@ -4,6 +4,93 @@ Run on the asset-library host, 2026-11-01, with `preprocess-kaykit@0.1` from PR 
 
 **Status: in progress.** The per-pack driver (`/tmp/claude-1001/-home-orangekid-games-open-game-maker-2000/40d2abe5-45a7-495a-93b5-3fd7c6705d68/scratchpad/qa2/driver.sh`, started 14:29) is still running; this file is a snapshot taken while it ran and must be regenerated (`python3 -I /tmp/claude-1001/-home-orangekid-games-open-game-maker-2000/40d2abe5-45a7-495a-93b5-3fd7c6705d68/scratchpad/qa2/finish_qa.py`) once `driver.log` ends with `ALL DONE`. Done: 16 packs, 1115 models, 2.3 s/model. In progress: `kaykit-restaurant-bits`. Pending: 3268 models in `kaykit-board-game-bits` (243), `kaykit-dungeon-pack` (283), `kaykit-forest-nature-pack` (1588), `kaykit-medieval-hexagon-pack` (404), `kaykit-platformer-pack` (525); about 2.0 h at the current pace. `forest-nature-pack` (1588 models) is the one PR #166 flagged for lineup size and memory; watch its `rc` in the run log.
 
+## GLB card pass (PR #220), 2026-11-01/02
+
+Post-deploy check of PR #220 (ticket #177, main @ 90afea99: `.glb` discovery, character/rig/clip cards), run on the asset-library host over the whole bundle in one invocation (`--expected-packs 23`). It supersedes the *Status* paragraph and the *Counts* table above: every KayKit pack now has cards.
+
+**Result: pass**, with one transient render timeout that a single-pack retry cleared, and two observations for a follow-up ticket (ranking, mannequin rig).
+
+### Counts
+
+- Packs: 23 (22 with meshes + `kaykit-character-animations`), glTF/GLB assets discovered: 4492, cards: 4492 (first pass wrote 4491 + 1 timeout; retry of `kaykit-mystery-monthly-series-4` wrote 80/80).
+- `.glb` files: 109 = 64 rigged characters + 9 GLB-only props + 36 clip libraries. All 109 carded (the PR #166 run carded 0 of them).
+- Rigged characters (`kind: model`, `subkind: character`, `rig` block): **64** (adventurers 9, character-animations 2 mannequins, mystery-monthly-series-4 18, -5 14, -6 14, prototype-bits 1, skeletons 6). Expected 64.
+- GLB-only props: **9** (mystery-monthly-series-4: `orc_axe`, `orc_backpack`, `orc_club`, `orc_drinkinghorn`, `orc_wardrum`, `orc_wardrumstick`, `car`, `cone`, `roofrack_empty`). Expected 9.
+- Clip libraries (`kind: anim`, `subkind: humanoid`): **36** = every `Rig_Medium_*` (20) and `Rig_Large_*` (16) `.glb` on disk (36 files). Clips: **374**; every clip has `name`, `duration_s` and `loop` (0 missing). Canonical mapping: `other` 105, `die` 43, `jump` 35, `attack-melee` 34, `idle` 29 (loop), `walk` 29 (loop), `run` 23 (loop), `hit` 20, `attack-ranged` 20, `interact` 14, `pick-up` 7, `sit` 7 (loop), rest smaller.
+- Kind split of the 4492 cards: prop 2936, nature 874, building 257, vehicle 128, weapon 108, food 89, character 64, anim 36.
+- Cards per pack: adventurers 71, block-bits 58, board-game-bits 243, character-animations 16, city-builder-bits 73, dungeon-pack 283, fantasy-weapons-bits 48, forest-nature-pack 1588, furniture-bits 74, halloween-bits 102, holiday-bits 138, medieval-hexagon-pack 404, mixed-bag 59, mystery-monthly-series-4 80, -5 64, -6 54, platformer-pack 525, prototype-bits 88, resource-bits 132, restaurant-bits 225, rpg-tools-bits 69, skeletons 29, space-base-bits 69.
+- Generated QA dump (`preprocess-kaykit@0.1`, not committed): load failures 1, suspect pivots 1694, scale outliers 36, missing source variants 111, missing previews 0.
+- Catalog: `471 packs, 1 inspiration collections, 12298 asset cards`; index: `12763 cards, 0 errors` (`assets-local/index/cards.index.json`). Card validation (`validate-cards.mjs --no-fixtures`) passed for all generated cards.
+
+### Rig-id alignment
+
+- All 36 libraries target `rig:89200673d97d` (`Rig_Medium_*` and `Rig_Large_*` alike: the id hashes the joint topology, 23 joints, which the two sizes share).
+- 63 of 64 characters carry `rig.rig_id = rig:89200673d97d`, `joint_count` 23: aligned. `gm assets search --rig-id rig:89200673d97d` returns them (first rows: barbarian_large, barbarian, druid, engineer, knight, mage, ranger, rogue_hooded, rogue, mannequin_large).
+- **1 character on a rig with no library:** `t1:kaykit-character-animations/mannequin-character/characters/mannequin_medium@1.1` has `rig:a83c5e75e523`, `joint_count` 21 (its `.glb` lacks two joints of the 23-joint rig). Libraries without a character: none. Follow-up: decide whether the medium mannequin should map to the shared rig (bone-name subset) or stay unanimated.
+- `rig.clips` is `[]` on all 64 characters: the KayKit character files embed no clips, and PR #220 keeps clips on the library cards (`anim.clips`) joined by `rig_id`/`--same-rig-as` rather than copying them onto each character. Note for the consumer side (#177 step 3).
+
+### Failures
+
+- First pass: 1 of 4492 (`kaykit-mystery-monthly-series-4/9---march-2024---survivalist/assets/ballistic_shield_a`: `render timed out after 30000ms`; the host ran at load ~50 on 12 cores). Retry of that pack alone (`--only kaykit-mystery-monthly-series-4`): 80 assets, 80 cards, 0 failures, 48 s. Final: 0 failures.
+- Validation failures: 0. Index errors: 0.
+
+### Search check
+
+`gm assets search skeleton --json` (10 JSONL rows at the default limit; rows 1-2 are SmallScaleInt sprites, row 3 a KayKit clip library, rows 4-10 KayKit props). Rigged skeleton characters come back, but ranked 31-35 and 42 of 42 hits (`--limit 60`); `--kind model/character` lists them directly. Plain output, first 5 rows:
+
+```
+t1:smallscaleint-2d-desert-fantasy-tileset/sequences/animations-props-skeleton-explosion@2026-11-01  sprite/tile  measured  isometric-2d  Skeleton explosion
+t1:smallscaleint-fantasy-tileset-2d-isometric/sequences/animations-props-skeleton-explosion@2026-11-01  sprite/tile  measured  isometric-2d  Skeleton explosion
+t1:kaykit-character-animations/animations/rig_medium/rig_medium_special@1.1  anim/humanoid  measured  chunky-low-poly  Rig Medium Special
+t1:kaykit-skeletons/assets/skeleton_arrow_broken_half@1.1  model/prop  measured  chunky-low-poly  Skeleton Arrow Broken Half
+t1:kaykit-skeletons/assets/skeleton_arrow_broken@1.1  model/prop  measured  chunky-low-poly  Skeleton Arrow Broken
+```
+
+`gm assets search skeleton --kind model/character` (7 rows): skeleton_golem, skeleton_mage, skeleton_minion, skeleton_rogue, skeleton_warrior, the `kaykit-skeletons` collection card, necromancer; all six characters carry `rig:89200673d97d` / 23 joints in `--json`.
+
+`gm assets search knight` (10 of 35 hits; the rigged `kaykit-adventurers/characters/knight@2.0` ranks 18th, `blackknight@1.1` 23rd; `--kind model/character` returns exactly those two), first 5 rows:
+
+```
+t1:smallscaleint-knight-demo-character/characters/knight-character-16-bit-version@2026-11-01  sprite/character  measured  isometric-2d  Knight Character 16-bit Version
+t1:smallscaleint-knight-demo-character/characters/knight-character-hd-flat-version@2026-11-01  sprite/character  measured  isometric-2d  Knight Character HD Flat Version
+t1:smallscaleint-knight-demo-character/characters/knight-character-hd-version@2026-11-01  sprite/character  measured  isometric-2d  Knight Character HD Version
+t1:kaykit-board-game-bits/assets/playercard_knight_blue@1.0  model/vehicle  measured  chunky-low-poly  Playercard Knight Blue
+t1:kaykit-board-game-bits/assets/playercard_knight_green@1.0  model/vehicle  measured  chunky-low-poly  Playercard Knight Green
+```
+
+`gm assets search "Rig_Medium"`: **no hits** (the tokenizer does not split `Rig_Medium`; titles are `Rig Medium General`). `gm assets search rig medium` returns the 20 `Rig_Medium_*` libraries, first 5 rows:
+
+```
+no hits. Try: fewer words, --include-draft, or gm assets facets
+```
+
+Follow-up ticket candidates: (1) rank `model/character` above same-name props when the query is a creature word, or boost `subkind: character`; (2) tokenize `_` in queries so `Rig_Medium` matches.
+
+### Commands
+
+`<wt>` = `/tmp/claude-1001/-home-orangekid-games-open-game-maker-2000/40d2abe5-45a7-495a-93b5-3fd7c6705d68/scratchpad/wt-kaykit-glb` (worktree of `main` @ 90afea99), `<repo>` = `/home/orangekid/games/open-game-maker-2000`, `<qa>` = `/tmp/claude-1001/-home-orangekid-games-open-game-maker-2000/40d2abe5-45a7-495a-93b5-3fd7c6705d68/scratchpad/qa-glb`. All paths absolute, no `cd`.
+
+```sh
+pnpm -C <wt> install --frozen-lockfile --filter '@ogm/gm-cli...' --filter '@ogm/asset-cards...' --filter '@ogm/contracts...' --filter '@ogm/gm-verify...' --filter '@ogm/web'
+#   (--offline failed twice: @better-auth/passkey@1.7.15 and ndarray-pixels@5.2.0 were not in the pnpm store; registry fetch only, no asset data leaves the host)
+pnpm -C <wt> --filter '@ogm/gm-cli...' run build
+nice -n 15 python3 -I <wt>/scripts/assets/preprocess_kaykit.py --root <repo>/assets-local --expected-packs 23 --qa <wt>/docs/plans/ogm-v1-build/asset-qa/kaykit.md
+#   (runs build_collection_cards.py, render-gltf.mjs, validate-cards.mjs, build_catalog.py and pnpm --filter @ogm/asset-cards index:build itself)
+nice -n 15 python3 -I <wt>/scripts/assets/preprocess_kaykit.py --root <repo>/assets-local --only kaykit-mystery-monthly-series-4 --qa <qa>/retry-mms4.md
+OGM_ASSETS_ROOT=<repo>/assets-local node <wt>/packages/gm-cli/dist/index.js assets search skeleton --json
+OGM_ASSETS_ROOT=<repo>/assets-local node <wt>/packages/gm-cli/dist/index.js assets search skeleton
+OGM_ASSETS_ROOT=<repo>/assets-local node <wt>/packages/gm-cli/dist/index.js assets search knight
+OGM_ASSETS_ROOT=<repo>/assets-local node <wt>/packages/gm-cli/dist/index.js assets search "Rig_Medium"
+#   (`pnpm --filter @ogm/gm-cli exec gm ...` fails with "Command gm not found": pnpm does not link a package's own bin)
+```
+
+### Time
+
+- Full pass: wall 9193 s (2 h 33 min, 22:24:49 to 00:58:03 -08:00), CPU user 866 s + sys 135 s as measured by bash `time` on the driver process tree, `nice -n 15`, host load average ~50 on 12 cores with the agent fleet running.
+- Retry pack: wall 48 s, user 36 s, sys 6 s.
+- Dependency install 2 m 20 s + 2 m 44 s; `gm-cli...` build 10 m 47 s wall (1 m 46 s CPU).
+- The PR #166 per-pack driver from 2026-11-01 (`qa2/driver.sh`, pid 965755) is still SIGSTOPped on this host with its children 1140144 (`preprocess_kaykit.py --only kaykit-medieval-hexagon-pack`) and 1140311 (`render-gltf.mjs`); left as is.
+
 ## Counts
 
 - Packs: 23 (collection cards: 23; lineups: 16; packs with canonical `.gltf`: 22).
