@@ -4,6 +4,7 @@ import { fold, reduce, type VersionCounts } from '@ogm/design-log';
 import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
+import { createVersionCounts } from '../branches/version-counts.js';
 import type { BaseDocSource } from '../design/base-doc.js';
 import { readChain } from '../design/store.js';
 import type { CommitClient } from './commit-client.js';
@@ -104,12 +105,9 @@ function requireMainBuild(deps: AppDeps, gameId: string, buildId: string): { bui
   return { build, game };
 }
 
-function counts(deps: AppDeps, gameId: string): VersionCounts {
-  const publishCount =
-    deps.sqlite
-      .prepare<[string], { count: number }>('SELECT COUNT(*) AS count FROM releases WHERE game_id = ?')
-      .get(gameId)?.count ?? 0;
-  return { publishCount: publishCount + 1, buildsSinceFork: 0, txSinceLatestBuild: 0 };
+async function releaseVersion(deps: AppDeps, runtime: ReleaseRuntime, gameId: string): Promise<string> {
+  const publishCount = await createVersionCounts(deps.sqlite).publishCount(gameId);
+  return runtime.deriveVersion({ publishCount: publishCount + 1, buildsSinceFork: 0, txSinceLatestBuild: 0 });
 }
 
 function lintText(text: string): string {
@@ -394,7 +392,7 @@ export async function publish(
             .map(({ id }) => id),
         }
       : assembleChangelog(deps, input.gameId);
-    const version = runtime.deriveVersion(counts(deps, input.gameId));
+    const version = await releaseVersion(deps, runtime, input.gameId);
     const result = await runtime.commit.execute({
       kind: 'release',
       gameId: input.gameId,
@@ -450,7 +448,7 @@ export async function rollback(
     if (!current || current.publishedReleaseId !== expected) throw new ReleaseError('pointer_moved', 409);
 
     const affectedSaves = await runtime.countSavesAboveSchema(input.gameId, build.saveSchemaVersion);
-    const version = runtime.deriveVersion(counts(deps, input.gameId));
+    const version = await releaseVersion(deps, runtime, input.gameId);
     const changelog = { summary: `Restores ${target.version}`, items: [] };
     const result = await runtime.commit.execute({
       kind: 'release',
