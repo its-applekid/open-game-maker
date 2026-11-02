@@ -11,10 +11,31 @@ const SKILLS = fileURLToPath(new URL('../../../skills/', import.meta.url));
 describe('pattern card format', () => {
   it('keeps every first-party card themeless, ranged, executable, and 300-800 estimated tokens', () => {
     const cards = indexCards([SKILLS]);
+    const setTopics = {
+      smallscaleint: [
+        'iso-depth-sort',
+        'eight-direction-facing',
+        'wall-collision-from-tiles',
+        'one-shot-and-hold',
+        'iso-movement',
+        'wander-flee',
+      ],
+      kaykit: ['clip-retarget', 'kit-snap', 'contact-frame'],
+      'limezu-modern': ['autotile-mask', 'four-direction-sheet', 'crop-stages'],
+    } as const;
 
     expect(cards.map(({ topic }) => topic)).toEqual(
-      expect.arrayContaining(['deadzone-camera', 'hit-feedback-tiers', 'jump-buffer-coyote', 'one-way-platforms']),
+      expect.arrayContaining([
+        'deadzone-camera',
+        'hit-feedback-tiers',
+        'jump-buffer-coyote',
+        'one-way-platforms',
+        ...Object.values(setTopics).flat(),
+      ]),
     );
+    for (const [set, topics] of Object.entries(setTopics)) {
+      for (const topic of topics) expect(cards.find((card) => card.topic === topic)?.set).toBe(set);
+    }
     for (const card of cards) expect(validatePatternCard(card)).toEqual([]);
   });
 
