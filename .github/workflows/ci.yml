@@ -23,13 +23,14 @@ jobs:
     name: detect changes
     runs-on: ubuntu-24.04
     outputs:
-      voice_host: ${{ steps.voice_host.outputs.changed }}
+      browser: ${{ steps.detect.outputs.browser }}
+      voice_host: ${{ steps.detect.outputs.voice_host }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Detect voice-host changes
-        id: voice_host
+      - name: Detect changes
+        id: detect
         env:
           EVENT_NAME: ${{ github.event_name }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -38,6 +39,19 @@ jobs:
           MQ_HEAD_SHA: ${{ github.event.merge_group.head_sha }}
           PUSH_BEFORE_SHA: ${{ github.event.before }}
         run: |
+          browser_paths=(
+            apps/web/
+            packages/sdk/
+            packages/contracts/
+            packages/design-log/
+            services/api/
+            services/games-host/
+            templates/
+            pnpm-lock.yaml
+            pnpm-workspace.yaml
+            .github/workflows/
+          )
+
           if [[ "$EVENT_NAME" == "pull_request" ]]; then
             base="$PR_BASE_SHA"
             head="$PR_HEAD_SHA"
@@ -50,15 +64,30 @@ jobs:
           fi
 
           if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          elif git diff --quiet "$base" "$head" -- services/voice-host/ .github/workflows/ci.yml; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
+            diff_available=false
           else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
+            diff_available=true
+          fi
+
+          if [[ "$EVENT_NAME" != "pull_request" || "$diff_available" != "true" ]]; then
+            echo "browser=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$base" "$head" -- "${browser_paths[@]}"; then
+            echo "browser=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "browser=true" >> "$GITHUB_OUTPUT"
+          fi
+
+          if [[ "$diff_available" != "true" ]]; then
+            echo "voice_host=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$base" "$head" -- services/voice-host/ .github/workflows/ci.yml; then
+            echo "voice_host=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "voice_host=true" >> "$GITHUB_OUTPUT"
           fi
 
   workspace:
     name: workspace
+    needs: changes
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -77,7 +106,14 @@ jobs:
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run test
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run build
       - name: Browser tests (packages that declare test:browser)
+        env:
+          BROWSER_CHANGED: ${{ needs.changes.outputs.browser }}
         run: |
+          if [[ "$BROWSER_CHANGED" != "true" ]]; then
+            echo "browser tests skipped: no browser-relevant paths changed"
+            exit 0
+          fi
+
           browser_package=$(grep -rls '"test:browser"' --include=package.json apps packages services skills templates 2>/dev/null | head -n 1)
           if [[ -n "$browser_package" ]]; then
             pnpm --dir "$(dirname "$browser_package")" exec playwright install --with-deps chromium
