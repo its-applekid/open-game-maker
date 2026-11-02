@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { createServer, type Server } from 'node:http';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -10,7 +11,7 @@ import { NarrationCache } from '../../src/narration/cache.js';
 import { NarrationRenderer } from '../../src/narration/render.js';
 import { narrationKey } from '../../src/narration/key.js';
 import { makeDeps } from '../helpers.js';
-import { silentWav } from './helpers.js';
+import { fakeTranscode, silentWav } from './helpers.js';
 
 const roots: string[] = [];
 const servers: Server[] = [];
@@ -65,7 +66,11 @@ async function fakeHost(options: { badWav?: boolean; unsupported?: boolean } = {
   return { url: `http://127.0.0.1:${address.port}`, renders: () => renders, wavPath };
 }
 
-async function setup(hostUrl: string) {
+// `null` keeps the production ffmpeg encoder.
+async function setup(
+  hostUrl: string,
+  transcode: ((wav: string, opus: string) => Promise<void>) | null = fakeTranscode,
+) {
   const deps = makeDeps();
   const blobRoot = await mkdtemp(join(tmpdir(), 'ogm-narration-blobs-'));
   roots.push(blobRoot);
@@ -80,6 +85,7 @@ async function setup(hostUrl: string) {
     hostUrl,
     secret: 'voice-internal-test-secret',
     concurrency: 2,
+    ...(transcode ? { transcode } : {}),
   });
   return { deps, blobStore, renderer };
 }
@@ -132,7 +138,7 @@ describe('narration renderer', () => {
     expect([first[0]!.cached, second[0]!.cached].sort()).toEqual([false, true]);
   });
 
-  it('reports ffmpeg failure, caches nothing, and deletes the host WAV', async () => {
+  it('reports an encoder failure, caches nothing, and deletes the host WAV', async () => {
     const host = await fakeHost({ badWav: true });
     const { deps, blobStore, renderer } = await setup(host.url);
     const [result] = await renderer.renderLines([{ id: 'broken', text: 'bad audio' }]);
@@ -142,6 +148,21 @@ describe('narration renderer', () => {
     expect(keys).toEqual([]);
     expect(blobStore).toBeDefined();
   });
+
+  it.skipIf(!existsSync('/usr/bin/ffmpeg'))(
+    'encodes real Opus with ffmpeg (skipped where the runner has no ffmpeg)',
+    async () => {
+      const host = await fakeHost();
+      const { deps, blobStore, renderer } = await setup(host.url, null);
+      const [result] = await renderer.renderLines([{ id: 'intro', text: 'hello there little fox.' }]);
+      expect(result).toMatchObject({ id: 'intro', cached: false });
+      const cached = await new NarrationCache(deps.sqlite, blobStore).get(result!.key!);
+      const audio = await blobStore.open(cached!.audioHash);
+      const chunks: Buffer[] = [];
+      for await (const chunk of audio!.stream) chunks.push(Buffer.from(chunk));
+      expect(Buffer.concat(chunks).subarray(0, 4).toString('latin1')).toBe('OggS');
+    },
+  );
 
   it('reports an unsupported provider without caching', async () => {
     const host = await fakeHost({ unsupported: true });
@@ -180,6 +201,7 @@ describe('narration renderer', () => {
       hostUrl: host.url,
       secret: 'voice-internal-test-secret',
       concurrency: 2,
+      transcode: fakeTranscode,
     });
 
     await expect(renderer.renderLines([bad, { id: 'good', text: 'render me' }])).resolves.toMatchObject([

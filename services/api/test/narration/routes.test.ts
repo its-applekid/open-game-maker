@@ -8,6 +8,19 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { asUser, installUsers, INTERNAL_TOKEN, makeApp, makeDeps, type TestUser } from '../helpers.js';
 import { silentWav } from './helpers.js';
 
+// The route builds its own renderer, so swap ffmpeg for the fake encoder at the process boundary.
+vi.mock('node:child_process', async (importOriginal) => {
+  const original = await importOriginal<typeof import('node:child_process')>();
+  const { fakeTranscode } = await import('./helpers.js');
+  return {
+    ...original,
+    execFile: (file: string, args: string[], _options: unknown, callback: (error: Error | null) => void) => {
+      if (file !== '/usr/bin/ffmpeg') throw new Error(`unexpected execFile ${file}`);
+      fakeTranscode(args[args.indexOf('-i') + 1]!, args.at(-1)!).then(() => callback(null), callback);
+    },
+  };
+});
+
 const familyId = 'f_narration';
 const gameId = 'g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01';
 const now = '2026-11-01T00:00:00.000Z';
