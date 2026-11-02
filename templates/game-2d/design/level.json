@@ -5,22 +5,22 @@
     "level.width": 1280
   },
   "entities": {
-    "spawn_a": {
-      "id": "spawn_a",
+    "spawn_01K8ZTEMP00000000000000001": {
+      "id": "spawn_01K8ZTEMP00000000000000001",
       "prefab": "spawn",
       "level": "main",
       "origin": "build",
       "props": { "x": 96, "y": 400 }
     },
-    "spawn_b": {
-      "id": "spawn_b",
+    "spawn_01K8ZTEMP00000000000000002": {
+      "id": "spawn_01K8ZTEMP00000000000000002",
       "prefab": "spawn",
       "level": "main",
       "origin": "build",
       "props": { "x": 192, "y": 400 }
     },
-    "plat_1": {
-      "id": "plat_1",
+    "platform_01K8ZTEMP00000000000000003": {
+      "id": "platform_01K8ZTEMP00000000000000003",
       "prefab": "platform",
       "level": "main",
       "origin": "build",

@@ -39,9 +39,6 @@ export function setup(deps: AppDeps): void {
   };
 }
 
-const connectBody = z
-  .object({ login: z.string().trim().min(1).max(100), installationId: z.string().trim().min(1).max(100) })
-  .strict();
 const createBody = z
   .object({ title: z.string().trim().min(1).max(120), repoVisibility: z.enum(['public', 'private']) })
   .strict();
@@ -51,25 +48,6 @@ const patchBody = z
   .refine((body) => body.title !== undefined || body.visibility !== undefined, { message: 'no changes' });
 
 const routes = new Hono<ApiBindings>()
-  .post('/github/connect', async (c) => {
-    const principal = requirePrincipal(c, ['user']);
-    requireAuthorization(authorize(actorFromPrincipal(principal), 'game.create', { familyId: principal.familyId }));
-    const body = await parseBody(c, connectBody);
-    c.get('deps')
-      .db.insert(schema.githubConnections)
-      .values({
-        userId: principal.userId,
-        login: body.login,
-        installationId: body.installationId,
-        connectedAt: new Date().toISOString(),
-      })
-      .onConflictDoUpdate({
-        target: schema.githubConnections.userId,
-        set: { login: body.login, installationId: body.installationId, connectedAt: new Date().toISOString() },
-      })
-      .run();
-    return c.body(null, 204);
-  })
   .post('/games', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     requireAuthorization(authorize(actorFromPrincipal(principal), 'game.create', { familyId: principal.familyId }));

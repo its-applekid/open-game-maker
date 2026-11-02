@@ -13,9 +13,27 @@ export interface VersionCounts {
 
 export function createVersionCounts(sqlite: Sqlite): VersionCounts {
   const counts: VersionCounts = {
-    // OGM-045 completes these two counters when it adds releases and builds.
-    publishCount: async () => 0,
-    buildsSinceFork: async () => 0,
+    publishCount: async (gameId) =>
+      sqlite
+        .prepare<[string], TransactionCountRow>('SELECT COUNT(*) AS count FROM releases WHERE game_id = ?')
+        .get(gameId)?.count ?? 0,
+    buildsSinceFork: async (branch) => {
+      const since =
+        branch.forkPoint === null
+          ? (sqlite
+              .prepare<[string], { publishedAt: string | null }>(
+                'SELECT MAX(published_at) AS publishedAt FROM releases WHERE game_id = ?',
+              )
+              .get(branch.gameId)?.publishedAt ?? '')
+          : branch.createdAt;
+      return (
+        sqlite
+          .prepare<[string, string], TransactionCountRow>(
+            "SELECT COUNT(*) AS count FROM builds WHERE branch_id = ? AND status = 'tested' AND created_at > ?",
+          )
+          .get(branch.id, since)?.count ?? 0
+      );
+    },
     txSinceLatestBuild: async (branch) => {
       const row = sqlite
         .prepare<[string, string], TransactionCountRow>(

@@ -15,6 +15,7 @@ export const apiEnvSpec = {
   OGM_REPORT_BUNDLE_MAX_BYTES: { kind: 'int', default: '2097152' },
   OGM_DATA_DIR: { kind: 'path' },
   OGM_GAMES_ROOT: { kind: 'path', required: false },
+  OGM_GAMES_ORIGIN: { kind: 'url' },
   OGM_INTERNAL_TOKEN: { kind: 'secret' },
   OGM_JOB_TOKEN_SECRET: { kind: 'secret' },
   OGM_BLOB_ROOT: { kind: 'path' },
