@@ -40,6 +40,13 @@ fake du 'printf "1.5G\t%s\n" "${@: -1}"'
 fake tailscale 'exit 1'
 export PATH=$bin:$PATH
 
+export OGM_REPO=$scratch/repo
+for service in api rooms games-host intake commit; do
+  mkdir -p "$OGM_REPO/services/$service/dist"
+  printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$OGM_REPO/services/$service/package.json"
+  touch "$OGM_REPO/services/$service/dist/main.js"
+done
+
 touch "$OGM_BACKUP_STATE/last-ok"
 printf '20260101T033000Z\n' > "$OGM_BACKUP_STATE/last-stamp"
 
@@ -72,6 +79,16 @@ node -e 'const o = JSON.parse(require("node:fs").readFileSync(process.argv[1], "
 
 grep -v ':8792 ' "$scratch/ss.txt" > "$scratch/ss.clean" && mv "$scratch/ss.clean" "$scratch/ss.txt"
 "$status" --check > /dev/null || fail '--check should pass with no stray and a fresh backup'
+
+# A unit whose built entry is absent would only idle as a placeholder; --check names it.
+rm "$OGM_REPO/services/intake/dist/main.js"
+set +e
+"$status" --check > "$scratch/entry.txt"
+code=$?
+set -e
+assert_eq 1 "$code" '--check should fail on a missing service entry'
+assert_grep 'missing entry: services/intake/dist/main.js' "$scratch/entry.txt"
+touch "$OGM_REPO/services/intake/dist/main.js"
 
 touch -d '3 days ago' "$OGM_BACKUP_STATE/last-ok"
 set +e
