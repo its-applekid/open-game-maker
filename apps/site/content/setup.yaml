@@ -214,7 +214,8 @@ steps:
           # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
         writes: [~/.config/ogm/ogm-github-app.pem, ~/.config/ogm/env/ogm-commit.env]
         check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
-        cites: [services/commit/src/auth/app.ts, services/commit/ops/ogm-commit.env.example, apps/web/src/lib/api/auth.ts]
+        cites:
+          [services/commit/src/auth/app.ts, services/commit/ops/ogm-commit.env.example, apps/web/src/lib/api/auth.ts]
       - kind: run
         text: Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
         command: '# Set matching shared tokens in ~/.config/ogm/env/api.env and ogm-commit.env.'
