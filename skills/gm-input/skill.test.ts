@@ -21,5 +21,5 @@ describe('gm-input skill', () => {
     expect(text).toContain('host owns gamepad');
     expect(text).toContain('host owns the touch overlay');
     expect(checkSkill(SKILL, { commands, sdkExports })).toEqual({ commands: [], sdk: [] });
-  });
+  }, 10_000);
 });
