@@ -51,6 +51,8 @@ export type BuildJob = {
   items: BuildItem[];
   tiers: Tier[];
   recipe: Record<string, unknown>;
+  /** Image jobs in a `pixel-art` family game encode losslessly so sheet frames stay exact. */
+  pixelArt?: boolean;
 };
 
 export type BuildFailure = { id: string; message: string };

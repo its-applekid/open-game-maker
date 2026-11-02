@@ -55,12 +55,14 @@ export async function planBuild(
       failures.push({ id: entry.id, message: `unsupported asset format ${extension || '(none)'}` });
       continue;
     }
+    const pixelArt = kind === 'image' && lock.family === 'pixel-art';
     jobs.push({
       kind,
       slug: slugFromId(entry.id),
       items: [item],
       tiers,
-      recipe: recipe(kind, tiers, [item]),
+      recipe: { ...recipe(kind, tiers, [item]), ...(pixelArt ? { pixel_art: true } : {}) },
+      ...(pixelArt ? { pixelArt } : {}),
     });
   }
 

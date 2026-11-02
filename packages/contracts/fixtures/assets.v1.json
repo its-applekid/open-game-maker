@@ -1,5 +1,6 @@
 {
   "version": 1,
+  "minor": 1,
   "built": "2026-10-31T12:00:00Z",
   "tiers": ["desktop", "mobile", "low"],
   "files": {

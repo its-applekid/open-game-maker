@@ -12,7 +12,7 @@ export async function buildImage(job: BuildJob): Promise<FreshJobResult> {
   if (item.meta?.sprite === undefined && Math.max(input.width, input.height) > 2_048) {
     pipeline = pipeline.resize(2_048, 2_048, { fit: 'inside', withoutEnlargement: true });
   }
-  const bytes = await pipeline.webp({ quality: 85 }).toBuffer();
+  const bytes = await pipeline.webp(job.pixelArt ? { lossless: true } : { quality: 85 }).toBuffer();
   const output = await sharp(bytes).metadata();
   const width = output.width ?? input.width;
   const height = output.height ?? input.height;
