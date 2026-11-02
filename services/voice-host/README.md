@@ -28,7 +28,8 @@ Set `OGM_API_INTERNAL_URL` to the loopback API base URL and `OGM_VOICE_WS_URL` t
 The service binds the conversation socket to `127.0.0.1:40400` and internal HTTP to `127.0.0.1:40401` by default. The internal surface is:
 
 - `GET /healthz`
-- `POST /internal/briefing` with `X-OGM-Internal: <OGM_VOICE_INTERNAL_SECRET>`
+- `POST /internal/briefing` with `Authorization: Bearer <OGM_VOICE_INTERNAL_SECRET>`; the legacy
+  `X-OGM-Internal` form is also accepted
 
 Ingress setup remains owned by `ops/bin/ogm-ingress.sh`, which maps `/ws/voice` to `OGM_VOICE_PORT`.
 

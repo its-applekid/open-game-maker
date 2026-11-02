@@ -1,7 +1,8 @@
 defmodule OgmVoice.HTTP.Router do
   @moduledoc """
   Loopback-only internal HTTP: `GET /healthz` and `POST /internal/briefing` (requires
-  `X-OGM-Internal: <OGM_VOICE_INTERNAL_SECRET>`). Everything else is 404.
+  `Authorization: Bearer <OGM_VOICE_INTERNAL_SECRET>` or the legacy `X-OGM-Internal`
+  form). Everything else is 404.
   """
   @behaviour Plug
 
