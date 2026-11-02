@@ -18,6 +18,7 @@ type FixtureHook = { mode: string; messages: Array<{ t: string; payload: unknown
 test.use({ serviceWorkers: 'block' });
 
 test('runs the cross-origin editor transaction, undo, and mode flow', async ({ page }, testInfo) => {
+  test.slow(); // one test walks load, transaction, undo and play; navigation alone took 13 s on a loaded host
   await installAuthRoutes(page, { signedIn: true });
   const api = await installGameApi(page);
   await openReadyEditor(page, api);
@@ -54,11 +55,13 @@ test('runs the cross-origin editor transaction, undo, and mode flow', async ({ p
   }
 
   await page.getByRole('button', { name: /Play/ }).click({ force: true });
-  await expect.poll(() => playFrameState(page), { timeout: 10_000 }).toEqual({
-    attached: true,
-    bridgeState: 'ready',
-    mode: 'play',
-  });
+  await expect
+    .poll(() => playFrameState(page), { timeout: 10_000 })
+    .toEqual({
+      attached: true,
+      bridgeState: 'ready',
+      mode: 'play',
+    });
 });
 
 test('replays one conflict and becomes read-only on lease loss', async ({ page }, testInfo) => {
@@ -95,9 +98,7 @@ function gameState(page: Page): Promise<GameHook | undefined> {
   return page.evaluate(() => (window as Window & { __ogmHost?: { game?: GameHook } }).__ogmHost?.game);
 }
 
-async function playFrameState(
-  page: Page,
-): Promise<{ attached: boolean; bridgeState?: string; mode?: string }> {
+async function playFrameState(page: Page): Promise<{ attached: boolean; bridgeState?: string; mode?: string }> {
   const frame = page.frames().find((candidate) => candidate.url().startsWith('http://127.0.0.1:10001/g/'));
   if (!frame || frame.isDetached()) return { attached: false };
 
