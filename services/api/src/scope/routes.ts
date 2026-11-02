@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { ScopeChoices, type Principal, type ScopeSession } from '@ogm/contracts';
+import { ScopeChoices, ScopeRevisionRequest, type Principal, type ScopeSession } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { authorize } from '@ogm/policy';
 import { eq } from 'drizzle-orm';
@@ -43,6 +43,7 @@ function response(session: ScopeSession) {
   return {
     sessionId: session.id,
     status: session.status,
+    revision: session.revision,
     chatJobId: session.job_id,
     choices: session.choices,
     ...(session.ticket === undefined ? {} : { ticket: session.ticket }),
@@ -89,10 +90,10 @@ const routes = new Hono<ApiBindings>()
     const gameId = c.req.param('gameId');
 
     const result = await serialized(gameId, async () => {
-      const open = scopeSessions.findOpen(deps.db, gameId);
-      if (open !== null) {
-        requireOwner(deps, open, principal);
-        return { session: open, created: false };
+      const active = scopeSessions.findActive(deps.db, gameId);
+      if (active !== null) {
+        requireOwner(deps, active, principal);
+        return { session: active, created: false };
       }
 
       const sessionId = `s_${randomUUID()}`;
@@ -150,6 +151,23 @@ const routes = new Hono<ApiBindings>()
     requireOwner(deps, session, principal);
     return c.json(response(session));
   })
+  .post('/:gameId/scope/sessions/:id/revisions', async (c) => {
+    const principal = requirePrincipal(c, ['user']);
+    const { expectedRevision } = await parseBody(c, ScopeRevisionRequest);
+    const deps = c.get('deps');
+    const session = scopeSessions.get(deps.db, c.req.param('id'));
+    if (session === null || session.game_id !== c.req.param('gameId'))
+      throw new HttpError(404, 'scope_session_not_found');
+    requireOwner(deps, session, principal);
+    if (expectedRevision < session.revision) throw new HttpError(409, 'scope_revision_stale');
+    if (expectedRevision > session.revision) throw new HttpError(409, 'scope_revision_mismatch');
+    if (session.status !== 'agreed' && session.status !== 'revising')
+      throw new HttpError(409, 'scope_session_not_agreed');
+
+    const revising = scopeSessions.beginRevision(deps.db, session.id, expectedRevision);
+    if (revising === null) throw new HttpError(409, 'scope_revision_conflict');
+    return c.json(response(revising));
+  })
   .post('/:gameId/scope/sessions/:id/images', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     const deps = c.get('deps');
@@ -157,7 +175,9 @@ const routes = new Hono<ApiBindings>()
     if (session === null || session.game_id !== c.req.param('gameId'))
       throw new HttpError(404, 'scope_session_not_found');
     requireOwner(deps, session, principal);
-    if (session.status !== 'open') throw new HttpError(409, 'scope_session_not_open');
+    if (session.status !== 'open' && session.status !== 'revising') {
+      throw new HttpError(409, 'scope_session_not_open');
+    }
     if (!imageLimiter(deps)(`${principal.userId}:${session.id}`)) throw new HttpError(429, 'rate_limited');
 
     const contentType = (c.req.header('content-type') ?? '').split(';', 1)[0]!.trim().toLowerCase();
@@ -173,7 +193,8 @@ const routes = new Hono<ApiBindings>()
       if (error instanceof MediaError) throw new HttpError(422, 'invalid_image');
       throw error;
     });
-    if (scopeSessions.get(deps.db, session.id)?.status !== 'open') {
+    const current = scopeSessions.get(deps.db, session.id);
+    if (current?.status !== 'open' && current?.status !== 'revising') {
       throw new HttpError(409, 'scope_session_not_open');
     }
     const runtime = getChatRuntime(deps);
@@ -197,7 +218,7 @@ const routes = new Hono<ApiBindings>()
     if (session === null || session.game_id !== c.req.param('gameId'))
       throw new HttpError(404, 'scope_session_not_found');
     requireOwner(deps, session, principal);
-    if (session.status !== 'open') throw new HttpError(409, 'scope_session_not_open');
+    if (session.status !== 'open' && session.status !== 'revising') throw new HttpError(409, 'scope_session_not_open');
 
     const abandoned = scopeSessions.abandon(deps.db, session.id);
     if (abandoned === null) throw new HttpError(409, 'scope_session_not_open');

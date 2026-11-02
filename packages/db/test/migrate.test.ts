@@ -45,6 +45,7 @@ describe('migrate', () => {
         '20261102033839_scope_sessions.sql',
         '20261102050906_usage_samples.sql',
         '20261102054226_merge_plans.sql',
+        '20261102092046_scope_session_revisions.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -76,6 +77,7 @@ describe('migrate', () => {
       'migration:20261102033839_scope_sessions.sql',
       'migration:20261102050906_usage_samples.sql',
       'migration:20261102054226_merge_plans.sql',
+      'migration:20261102092046_scope_session_revisions.sql',
     ]);
     sqlite.close();
   });
@@ -142,6 +144,73 @@ describe('migrate', () => {
         )
         .run(),
     ).not.toThrow();
+    sqlite.close();
+  });
+
+  it('backfills the current agreement as revision one', () => {
+    const dir = tempDir();
+    const migration = '20261102092046_scope_session_revisions.sql';
+    for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file < migration)) {
+      copyFileSync(join(MIGRATIONS_DIR, file), join(dir, file));
+    }
+    const { sqlite } = openDb(':memory:');
+    migrate({ sqlite, dir });
+    const scope = JSON.stringify({
+      session_id: 's_1',
+      title: 'Legacy scope',
+      summary: 'Already agreed before revisions shipped.',
+      scope: { included: ['one room'], excluded: [] },
+      tickets: [
+        {
+          key: 'T1',
+          title: 'Build it',
+          skills: [],
+          dependsOn: [],
+          acceptanceCriteria: ['The room exists.'],
+        },
+      ],
+      complexity: 1,
+      open_questions: [],
+      ideas: [],
+    });
+    sqlite.exec(`
+      INSERT INTO families (id, name, owner_user_id, created_at)
+      VALUES ('f_1', 'Family', 'u_1', '2026-11-01T16:00:00.000Z');
+      INSERT INTO games (id, family_id, owner_id, title, visibility, repo_visibility, created_at)
+      VALUES ('g_1', 'f_1', 'u_1', 'Game', 'private', 'private', '2026-11-01T16:00:00.000Z');
+      INSERT INTO jobs
+        (id, game_id, branch_id, family_id, creator_id, kind, complexity, state, start, slot,
+         plan, reservation, hard_cap_micro_usd, created_at, updated_at)
+      VALUES
+        ('j_1', 'g_1', 'main', 'f_1', 'u_1', 'scope', 1, 'running', 'now', 'edit',
+         '{}', '{}', 1, '2026-11-01T16:00:00.000Z', '2026-11-01T16:00:00.000Z');
+    `);
+    sqlite
+      .prepare(
+        `INSERT INTO scope_sessions
+          (id, game_id, creator_id, job_id, status, choices, scope, scope_hash, created_at, updated_at)
+         VALUES (?, 'g_1', 'u_1', 'j_1', 'agreed', '{}', ?, 'legacy-hash', ?, ?)`,
+      )
+      .run('s_1', scope, '2026-11-01T16:00:00.000Z', '2026-11-01T16:01:00.000Z');
+
+    copyFileSync(join(MIGRATIONS_DIR, migration), join(dir, migration));
+    expect(migrate({ sqlite, dir }).applied).toEqual([migration]);
+    expect(sqlite.prepare('SELECT status, revision, scope, scope_hash FROM scope_sessions').get()).toEqual({
+      status: 'agreed',
+      revision: 1,
+      scope,
+      scope_hash: 'legacy-hash',
+    });
+    expect(
+      sqlite.prepare('SELECT session_id, revision, scope, scope_hash, agreed_at FROM scope_session_revisions').get(),
+    ).toEqual({
+      session_id: 's_1',
+      revision: 1,
+      scope,
+      scope_hash: 'legacy-hash',
+      agreed_at: '2026-11-01T16:01:00.000Z',
+    });
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     sqlite.close();
   });
 
