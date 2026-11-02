@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { ChatAttachment } from '@ogm/contracts';
 
+import { ApiError } from '../../lib/api/client';
 import { Composer, type DictationPort } from './Composer';
 
 const dictation: DictationPort = { pressStart: vi.fn(), pressEnd: vi.fn(), on: () => () => undefined };
@@ -105,5 +106,20 @@ describe('Composer attachments', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
     await waitFor(() => expect(postText).toHaveBeenCalledTimes(2));
     expect(uploadAttachment).toHaveBeenCalledTimes(1);
+  });
+
+  // A post whose reply was lost has already used the ids; the retry must not be stuck on them.
+  it('uploads the files again after the server refuses their ids', async () => {
+    const postText = vi
+      .fn<Props['postText']>()
+      .mockRejectedValueOnce(new ApiError(422, { error: 'attachment_not_found' }))
+      .mockResolvedValue({ id: 'm_1' });
+    const { uploadAttachment, pick } = setup({ postText });
+    pick(markdown());
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Message not sent. Try again.'));
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(postText).toHaveBeenCalledTimes(2));
+    expect(uploadAttachment).toHaveBeenCalledTimes(2);
   });
 });

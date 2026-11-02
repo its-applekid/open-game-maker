@@ -12,6 +12,7 @@ import {
 import type { VoiceTarget } from '@ogm/contracts';
 
 import { Icon } from '../../components/Icon';
+import { ApiError } from '../../lib/api/client';
 import {
   addAttachments,
   ATTACH_ACCEPT,
@@ -145,7 +146,9 @@ export function Composer({
             (await uploadAll(jobId, files, uploadAttachment)).map(({ id }) => id),
           ));
       if (posted && typeof posted === 'object' && 'id' in posted) onPosted?.(posted as StreamedChatMessage);
-    } catch {
+    } catch (error) {
+      // 422 means the uploads were refused or already used (a post whose reply was lost); upload them again next time.
+      if (error instanceof ApiError && error.status === 422) for (const item of files) delete item.uploaded;
       onFailed?.(optimistic.id);
       setText(value);
       setAttachments(files);
