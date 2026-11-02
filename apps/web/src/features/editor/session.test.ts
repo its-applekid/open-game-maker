@@ -31,11 +31,7 @@ function snapshot(rev = 4, speed = 1): DesignSnapshot {
 }
 
 function intent(source = doc(), value = 4) {
-  return createIntent(
-    source,
-    [{ op: 'set', control: 'enemy.speed', targets: [entityId], value }],
-    'Change speed',
-  );
+  return createIntent(source, [{ op: 'set', control: 'enemy.speed', targets: [entityId], value }], 'Change speed');
 }
 
 function setup(results: TransactionPostResult[], authoritative = snapshot()) {
@@ -46,8 +42,6 @@ function setup(results: TransactionPostResult[], authoritative = snapshot()) {
   const getSnapshot = vi.fn(async () => authoritative);
   const applyDesign = vi.fn();
   const store = createEditorSession({
-    gameId: 'game',
-    branch: 'main',
     sessionId: 'session-a',
     leaseToken: 8,
     snapshot: snapshot(),

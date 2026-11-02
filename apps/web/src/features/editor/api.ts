@@ -134,7 +134,10 @@ export function getOptionalSaves(gameId: string): Promise<OptionalCapability<{ s
 }
 
 export function getOptionalPublished(gameId: string, etag?: string): Promise<OptionalCapability<Release>> {
-  return optionalApi(`/games/${segment(gameId)}/published`, etag === undefined ? undefined : { headers: { 'if-none-match': etag } });
+  return optionalApi(
+    `/games/${segment(gameId)}/published`,
+    etag === undefined ? undefined : { headers: { 'if-none-match': etag } },
+  );
 }
 
 export function getOptionalReapply(
@@ -174,10 +177,7 @@ async function leaseCall(path: string, init: RequestInit & { json: unknown }): P
   }
 }
 
-async function optionalApi<T>(
-  path: string,
-  init?: RequestInit & { json?: unknown },
-): Promise<OptionalCapability<T>> {
+async function optionalApi<T>(path: string, init?: RequestInit & { json?: unknown }): Promise<OptionalCapability<T>> {
   try {
     return { available: true, value: await api<T>(path, init) };
   } catch (error) {

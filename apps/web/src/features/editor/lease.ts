@@ -18,6 +18,7 @@ export class LeaseController {
   private timer: ReturnType<typeof setInterval> | undefined;
   private stopped = true;
   private heartbeatInFlight = false;
+  private generation = 0;
 
   constructor(private readonly options: LeaseControllerOptions) {}
 
@@ -26,9 +27,14 @@ export class LeaseController {
   }
 
   async start(): Promise<LeaseResult> {
-    await this.stop();
+    if (!this.stopped) await this.stop();
     this.stopped = false;
+    const generation = ++this.generation;
     const result = await this.options.api.acquire();
+    if (this.stopped || generation !== this.generation) {
+      if (result.ok) await this.options.api.release(result.lease.token);
+      return result;
+    }
     if (!result.ok) {
       this.stopped = true;
       this.report(result);
@@ -41,6 +47,7 @@ export class LeaseController {
   }
 
   async stop(): Promise<void> {
+    this.generation += 1;
     if (this.stopped) return;
     this.stopped = true;
     if (this.timer !== undefined) clearInterval(this.timer);

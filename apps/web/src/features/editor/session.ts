@@ -40,29 +40,25 @@ type SessionApi = {
 };
 
 export type EditorSessionOptions = {
-  gameId: string;
-  branch: string;
   sessionId: string;
   leaseToken: number;
   snapshot: DesignSnapshot;
   api: SessionApi;
-  applyDesign?(doc: DesignDoc, patches: readonly Patch[]): void;
+  applyDesign?(doc: DesignDoc, patches: readonly Patch[], rev: number): void;
   retryDelayMs?: number;
   maxTransportRetries?: number;
   sleep?(milliseconds: number): Promise<void>;
 };
 
-type HistoryMode =
-  | { kind: 'normal' }
-  | { kind: 'undo'; entry: EditorIntent }
-  | { kind: 'redo'; entry: EditorIntent };
+type HistoryMode = { kind: 'normal' } | { kind: 'undo'; entry: EditorIntent } | { kind: 'redo'; entry: EditorIntent };
 
 export function createEditorSession(options: EditorSessionOptions): StoreApi<EditorSessionState> {
   let history: EditorIntent[] = [];
   let redoHistory: EditorIntent[] = [];
   let pending: EditorIntent | undefined;
   let writeQueue = Promise.resolve();
-  const sleep = options.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
+  const sleep =
+    options.sleep ?? ((milliseconds: number) => new Promise<void>((resolve) => setTimeout(resolve, milliseconds)));
   const store = createStore<EditorSessionState>((set, get) => ({
     doc: options.snapshot.doc,
     headRev: options.snapshot.rev,
@@ -100,7 +96,7 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
       }
       const doc = apply(state.doc, transaction.patches);
       set({ doc, headRev: transaction.rev });
-      options.applyDesign?.(doc, transaction.patches);
+      options.applyDesign?.(doc, transaction.patches, transaction.rev);
     },
     loseLease: async (holder) => becomeReadOnly(holder),
     setSelection: (ids) => set({ selection: [...ids] }),
@@ -135,6 +131,7 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
         pending = undefined;
         recordSuccess(intent, mode);
         store.setState({ headRev: result.rev, saved: 'saved', error: undefined });
+        options.applyDesign?.(store.getState().doc, [], result.rev);
         return;
       }
       if (result.kind === 'conflict' && !conflictRetried) {
@@ -144,7 +141,7 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
         pending = intent;
         baseRev = snapshot.rev;
         store.setState({ doc: intent.doc, headRev: snapshot.rev, buildId: snapshot.buildId, saved: 'saving' });
-        options.applyDesign?.(intent.doc, intent.patches);
+        options.applyDesign?.(intent.doc, intent.patches, snapshot.rev);
         continue;
       }
       if (result.kind === 'lease-lost') {
@@ -160,7 +157,8 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
         continue;
       }
       pending = undefined;
-      const message = result.kind === 'invalid' ? result.reason : result.kind === 'failure' ? result.message : 'Conflict';
+      const message =
+        result.kind === 'invalid' ? result.reason : result.kind === 'failure' ? result.message : 'Conflict';
       store.setState({ saved: 'not-saved', error: message });
       return;
     }
@@ -168,7 +166,7 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
 
   function applyOptimistic(intent: EditorIntent): void {
     store.setState({ doc: intent.doc, saved: 'saving', error: undefined });
-    options.applyDesign?.(intent.doc, intent.patches);
+    options.applyDesign?.(intent.doc, intent.patches, store.getState().headRev);
   }
 
   function recordSuccess(intent: EditorIntent, mode: HistoryMode): void {
@@ -201,7 +199,7 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
         canRedo: false,
         error: holder ? `Editing moved to ${holder}` : 'The edit lease was lost',
       });
-      options.applyDesign?.(snapshot.doc, []);
+      options.applyDesign?.(snapshot.doc, [], snapshot.rev);
     } catch {
       store.setState({
         saved: 'read-only',

@@ -1,19 +1,11 @@
-import { Outlet } from 'react-router';
-
 import type { ScreenRoute } from '../../app/screen';
+import { GameScreen } from './GameScreen';
+import { gameExtraRoutes } from './extras';
 
 export const route: ScreenRoute = {
   path: '/g/:gameId',
-  element: (
-    <>
-      <h1>Game</h1>
-      <Outlet />
-    </>
-  ),
+  element: <GameScreen />,
   chrome: 'app',
   auth: 'required',
-  children: [
-    { path: 'versions', element: <h2>Versions</h2> },
-    { path: 'releases', element: <h2>Releases</h2> },
-  ],
+  children: gameExtraRoutes,
 };
