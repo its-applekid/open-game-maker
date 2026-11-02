@@ -1,5 +1,3 @@
-import { createHash } from 'node:crypto';
-
 export class CanonicalError extends TypeError {
   constructor(message: string) {
     super(message);
@@ -44,8 +42,4 @@ function serialize(value: unknown, ancestors: WeakSet<object>, path: string): st
 
 export function canonical(value: unknown): string {
   return serialize(value, new WeakSet(), '$');
-}
-
-export function sha256Canonical(value: unknown): string {
-  return createHash('sha256').update(canonical(value)).digest('hex');
 }

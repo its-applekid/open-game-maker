@@ -11,6 +11,7 @@ assets-local/
 .codex/
 .aiur-runtime/
 .aiur/
+evals/skills/.runs/
 scripts/
 packages/contracts/fixtures/cards/
 packages/contracts/fixtures/cards-negative/

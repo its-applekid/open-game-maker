@@ -421,6 +421,19 @@
         "label": "SmallScaleInt",
         "vendors": ["smallscaleint"],
         "traits": { "pixel_size": "64/128/256 px and HD", "tile_grid": "64/128/256 px", "palette": "pack-defined pixel palettes", "outline_style": "outlined and shadowless variants", "perspective": "isometric 2:1", "judgment": "Kevin identified the imported packs as one seamless set; cross-vendor visual review remains a post-deploy check." },
+        "previews": {
+          "specimen": "sets/smallscaleint/specimen.png",
+          "diorama": {
+            "fantasy": "sets/smallscaleint/diorama.fantasy.256.png",
+            "modern-zombie": "sets/smallscaleint/diorama.modern-zombie.256.png",
+            "creatures": "sets/smallscaleint/diorama.creatures.256.png"
+          },
+          "loop": {
+            "fantasy": "sets/smallscaleint/diorama.fantasy.256.gif",
+            "modern-zombie": "sets/smallscaleint/diorama.modern-zombie.256.gif",
+            "creatures": "sets/smallscaleint/diorama.creatures.256.gif"
+          }
+        },
         "packs": [
           { "id": "smallscaleint-2d-animals-mega-pack-1" },
           { "id": "smallscaleint-2d-character-knight" },

@@ -59,6 +59,11 @@ The API file must set `OGM_APP_ORIGIN`, `OGM_COMMIT_INTERNAL_URL`, and `OGM_COMM
 `OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD=5000000` and resets that allowance at midnight in
 `OGM_RESET_ZONE_DEFAULT` (the host's IANA time zone when blank). Family budget settings override both defaults.
 
+The commit file must also set the shared `OGM_INTERNAL_TOKEN` so boundary checks can read active repositories and
+creator PII terms. `OGM_BLOCKLIST_FILE` defaults to `$OGM_DATA_DIR/blocklist.txt`. Set
+`OGM_GITHUB_WEBHOOK_SECRET` when GitHub pull-request webhooks are exposed; the 60-second poller remains active as the
+fallback when it is blank.
+
 `ogm-env-init` only generates a secret no unit file holds yet, and `--force` keeps existing secrets while blanking
 non-secret values. To rotate a secret, replace its value by hand in every file that has it, then restart those units:
 

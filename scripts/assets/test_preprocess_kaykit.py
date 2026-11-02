@@ -47,7 +47,22 @@ class KayKitPreprocessor(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
-    def test_discovers_only_gltf_as_canonical_and_attaches_dependencies_and_companions(self):
+    def add_glb(self, relative: str) -> Path:
+        path = self.pack / "1.0" / "extracted" / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"fixture glb")
+        return path
+
+    def add_empty_pack(self, pack_id: str) -> None:
+        empty_pack = self.root / "packs" / pack_id
+        (empty_pack / "1.0" / "extracted").mkdir(parents=True)
+        (empty_pack / "pack.json").write_text(json.dumps({
+            "id": pack_id, "vendor": "kaykit", "title": "KayKit Empty Pack", "license": "kaykit",
+            "requires": [], "current": "1.0", "versions": {"1.0": {"extracted_files": 0}},
+        }))
+
+    def test_prefers_gltf_as_canonical_and_attaches_glb_dependencies_and_companions(self):
+        self.add_glb("Models/glb/Barrel.glb")
         [model] = kaykit.discover_models(self.root)
         self.assertEqual(model.key, "barrel")
         self.assertEqual(model.primary.as_posix(), "Models/gltf/Barrel.gltf")
@@ -55,6 +70,7 @@ class KayKitPreprocessor(unittest.TestCase):
             [(file.path.as_posix(), file.role) for file in model.files],
             [
                 ("Models/fbx/Barrel.fbx", "companion"),
+                ("Models/glb/Barrel.glb", "companion"),
                 ("Models/gltf/Barrel.bin", "metadata"),
                 ("Models/gltf/Barrel.gltf", "primary"),
                 ("Models/gltf/Textures/Barrel.png", "texture"),
@@ -62,6 +78,40 @@ class KayKitPreprocessor(unittest.TestCase):
                 ("Models/obj/Barrel.obj", "companion"),
             ],
         )
+
+    def test_glb_only_character_prop_and_clip_library_emit_their_contract_cards(self):
+        self.add_glb("Models/glb/Skeleton_Warrior.glb")
+        self.add_glb("Models/glb/Orc_Axe.gltf.glb")
+        self.add_glb("Models/glb/Rig_Medium_General.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        self.assertEqual(models["orc_axe"].primary.as_posix(), "Models/glb/Orc_Axe.gltf.glb")
+
+        rig = {"rig_type": "humanoid", "rig_id": "rig:0123456789ab", "joint_count": 23, "bones": []}
+        geometry = {"triangles": 10, "vertices": 20, "bounds": {"min": [0, 0, 0], "max": [1, 2, 1]},
+                    "pivot": "base-center", "materials": [], "textureNames": []}
+        character = kaykit.build_card(
+            models["skeleton_warrior"], {**geometry, "rig": rig, "clips": []}, "2026-11-01T00:00:00+00:00"
+        )
+        prop = kaykit.build_card(
+            models["orc_axe"], {**geometry, "rig": None, "clips": []}, "2026-11-01T00:00:00+00:00"
+        )
+        library = kaykit.build_card(
+            models["rig_medium_general"],
+            {**geometry, "rig": rig, "clips": [{"name": "Idle_A", "duration": 1.5},
+                                                  {"name": "Melee_1H_Attack", "duration": 0.4}]},
+            "2026-11-01T00:00:00+00:00",
+        )
+
+        self.assertEqual((character["kind"], character["subkind"]), ("model", "character"))
+        self.assertEqual(character["rig"]["rig_id"], rig["rig_id"])
+        self.assertEqual((prop["kind"], prop["subkind"]), ("model", "weapon"))
+        self.assertEqual((library["kind"], library["subkind"]), ("anim", "humanoid"))
+        self.assertEqual(library["anim"]["target_rig_id"], rig["rig_id"])
+        self.assertEqual(library["anim"]["clips"], [
+            {"name": "Idle_A", "duration_s": 1.5, "canonical": "idle", "loop": True},
+            {"name": "Melee_1H_Attack", "duration_s": 0.4, "canonical": "attack-melee", "loop": False},
+        ])
+        kaykit.validate([character, prop, library])
 
     def test_rejects_two_gltfs_that_collapse_to_the_same_canonical_key(self):
         extracted = self.pack / "1.0" / "extracted"
@@ -172,6 +222,7 @@ class KayKitPreprocessor(unittest.TestCase):
 
     def test_main_records_the_generation_timestamp_in_the_qa_report(self):
         [model] = kaykit.discover_models(self.root)
+        self.add_empty_pack("kaykit-character-animations")
         generated = RealDatetime(2026, 11, 1, 12, 34, 56).astimezone()
 
         class FixedDatetime(RealDatetime):
@@ -182,7 +233,7 @@ class KayKitPreprocessor(unittest.TestCase):
         analysis = {"triangles": 1, "vertices": 3, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
                     "pivot": "base-center", "materials": [], "rig": None, "clips": []}
         qa = self.root / "qa.md"
-        argv = ["preprocess_kaykit.py", "--root", str(self.root), "--qa", str(qa)]
+        argv = ["preprocess_kaykit.py", "--root", str(self.root), "--qa", str(qa), "--expected-packs", "2"]
         with mock.patch.object(sys, "argv", argv), \
              mock.patch.object(kaykit, "datetime", FixedDatetime), \
              mock.patch.object(kaykit.subprocess, "run"), \
@@ -190,6 +241,15 @@ class KayKitPreprocessor(unittest.TestCase):
              mock.patch.object(kaykit, "write_cards", return_value=1):
             self.assertEqual(kaykit.main(), 0)
         self.assertIn(f"Generated: {generated.isoformat(timespec='seconds')}", qa.read_text())
+
+    def test_main_rejects_an_unexpected_pack_without_models(self):
+        self.add_empty_pack("kaykit-empty-pack")
+        argv = ["preprocess_kaykit.py", "--root", str(self.root), "--expected-packs", "2"]
+        with mock.patch.object(sys, "argv", argv), \
+             mock.patch.object(kaykit.argparse.ArgumentParser, "error", side_effect=RuntimeError) as error:
+            with self.assertRaises(RuntimeError):
+                kaykit.main()
+        error.assert_called_once_with("KayKit packs contain no glTF or GLB assets: kaykit-empty-pack")
 
     def test_catalog_rebuild_honors_the_selected_asset_root(self):
         completed = subprocess.run(

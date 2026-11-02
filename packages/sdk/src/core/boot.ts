@@ -6,6 +6,8 @@ import { openGameBridge } from '@ogm/iframe-bridge';
 import { EventRing } from './events.js';
 import { SdkHostApi, type SendEnvelope } from './host-api.js';
 import { RuntimeImpl, type BuildKind, type Runtime } from './runtime.js';
+import { createNetController } from '../net/index.js';
+import { createSaveMachine, type SaveMachine } from '../saves/machine.js';
 import { dispatchTest } from '../test/dispatch.js';
 import { SdkHooks } from '../test/hooks.js';
 
@@ -36,6 +38,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
   const queued: HostToGame[] = [];
   const events = new EventRing();
   const runtimeState: { current?: RuntimeImpl<D, S> } = {};
+  const saveMachineState: { current?: SaveMachine<S> } = {};
   let eventCursor = 0;
   let nextId = 0;
   let resolveHello!: (hello: Extract<HostToGame, { t: 'hello' }>) => void;
@@ -100,7 +103,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
     throw new Error('published build cannot enable test mode');
   }
 
-  const host = new SdkHostApi<S>(send, (kind, payload) => events.push(++eventCursor, kind, payload));
+  const host = new SdkHostApi(send, (kind, payload) => events.push(++eventCursor, kind, payload));
   const designState: { current?: D } = {};
   try {
     host.setCapabilities(hello.payload.capabilities);
@@ -115,11 +118,32 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
       events,
       () => bridge.close(),
     );
+    runtime.setLocalPlayerIndex(hello.payload.playerIndex);
     runtimeState.current = runtime;
+    runtime.installNet(
+      createNetController({
+        manifest: module.manifest,
+        hooks: instance.net,
+        localPlayerIndex: hello.payload.playerIndex,
+        send: (type, payload) => send(type, payload),
+        acceptInput: (frame) => runtime.acceptHostFrame(frame),
+        syncPlayers: (players) => runtime.setPlayers(players),
+        setLocalPlayerIndex: (playerIndex) => runtime.setLocalPlayerIndex(playerIndex),
+        recordEvent: (kind, payload) => events.push(++eventCursor, kind, payload),
+        now: markNow,
+      }),
+    );
     const hooks = new SdkHooks(runtime, module.manifest, marks);
     runtime.attachHooks(hooks);
     host.test.register(hooks);
-    host.setSaveProvider(() => instance.serialize());
+    const saveMachine = createSaveMachine({ instance, send });
+    saveMachineState.current = saveMachine;
+    runtime.addCleanup(() => saveMachine.dispose());
+    runtime.onStep(() => saveMachine.markDirty());
+    host.setSaveHandler(() => {
+      saveMachine.markDirty();
+      saveMachine.checkpoint();
+    });
 
     if (build !== 'published') {
       const { installGlobals } = await import('../test/globals.js');
@@ -157,6 +181,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
         case 'hello':
           return;
         case 'lifecycle.pause':
+          saveMachineState.current?.pause();
           active.clock.pause();
           active.instance.pause();
           events.push(++eventCursor, 'pause');
@@ -221,7 +246,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
           );
           return;
         case 'input.frame':
-          active.inject(envelope.payload as ActionFrame);
+          active.acceptHostFrame(envelope.payload as ActionFrame);
           return;
         case 'viewport':
           host.updateViewport(envelope.payload as Viewport);
@@ -233,24 +258,24 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
           let save = envelope.payload as SaveData<unknown>;
           const currentVersion = active.instance.serialize().saveSchemaVersion;
           if (save.saveSchemaVersion !== currentVersion) {
-            if (!active.instance.migrate) {
+            if (save.saveSchemaVersion !== currentVersion - 1 || !active.instance.migrate) {
               send('error', { code: 'save_unsupported', message: 'save version is not supported' }, envelope.id);
               return;
             }
             save = active.instance.migrate(save);
           }
           active.instance.restore(save as SaveData<S>);
+          if (envelope.payload.saveSchemaVersion !== currentVersion) {
+            saveMachineState.current?.migrated(save as SaveData<S>);
+          }
           return;
         }
         case 'net.players':
-          active.players.splice(0, active.players.length, ...structuredClone(envelope.payload.players));
-          active.emitNet(envelope.t, envelope.payload);
-          return;
         case 'net.role':
         case 'net.input':
         case 'net.snapshot':
         case 'net.event':
-          active.emitNet(envelope.t, envelope.payload);
+          active.handleNet(envelope.t, envelope.payload);
           return;
         case 'phase':
           events.push(++eventCursor, 'phase', envelope.payload);

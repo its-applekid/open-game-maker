@@ -1,0 +1,1 @@
+Build a weighty 3D orbital recovery game around a quiet station. The player can steer in three dimensions, match a tumbling target's speed, and attach the tow line when close enough. Avoid weapons, fuel pickups, health, a score, or a failure title; drifting away simply offers a reset. The player wins when they dock the satellite inside the marked service cradle.

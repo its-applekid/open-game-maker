@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 import { Id, IsoTime } from './api.js';
 
-export const NotificationKind = z.enum(['build.done', 'job.started', 'intake.report']);
+export const NotificationKind = z.enum(['build.done', 'job.started', 'scope.agreed', 'intake.report']);
 export const Notification = z.object({
   id: Id,
   userId: Id,
@@ -29,6 +29,13 @@ export const NotificationTrigger = z.discriminatedUnion('kind', [
     ok: z.boolean(),
   }),
   z.object({ kind: z.literal('job.started'), userIds: z.array(Id).min(1), gameId: Id, jobId: Id }),
+  z.object({
+    kind: z.literal('scope.agreed'),
+    userIds: z.array(Id).min(1),
+    gameId: Id,
+    jobId: Id,
+    sessionId: Id,
+  }),
   z.object({
     kind: z.literal('intake.report'),
     userIds: z.array(Id).min(1),

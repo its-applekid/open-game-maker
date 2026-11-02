@@ -12,8 +12,14 @@ defmodule OgmVoice.Cache do
 
   @table :ogm_voice_briefings
   @max_age_s 60
+  @section_ids MapSet.new(~w(budget progress estimate))
 
-  @type entry :: %{briefing: Briefing.t(), sections: %{String.t() => String.t()}, commands: [map()] | nil}
+  @type entry :: %{
+          briefing: Briefing.t(),
+          sections: %{String.t() => String.t()},
+          commands: [map()] | nil,
+          observed_at: DateTime.t()
+        }
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 
@@ -54,7 +60,7 @@ defmodule OgmVoice.Cache do
          {:ok, briefing} <- briefing(push, at),
          {:ok, sections} <- sections(Map.get(push, "sections", [])),
          {:ok, commands} <- commands(Map.get(push, "commands")) do
-      {:ok, key, %{briefing: briefing, sections: sections, commands: commands}}
+      {:ok, key, %{briefing: briefing, sections: sections, commands: commands, observed_at: at}}
     end
   end
 
@@ -126,8 +132,11 @@ defmodule OgmVoice.Cache do
   defp sections(list) when is_list(list) do
     with {:ok, pairs} <-
            collect(list, fn
-             %{"id" => id, "text" => text} when is_binary(id) and is_binary(text) -> {:ok, {id, text}}
-             _ -> :error
+             %{"id" => id, "text" => text} when is_binary(id) and is_binary(text) ->
+               if MapSet.member?(@section_ids, id), do: {:ok, {id, text}}, else: :error
+
+             _ ->
+               :error
            end),
          do: {:ok, Map.new(pairs)}
   end

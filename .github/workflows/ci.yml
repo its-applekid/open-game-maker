@@ -17,8 +17,41 @@ env:
   GM_VERIFY_SOFTWARE_GL: '1'
 
 jobs:
-  required:
-    name: required
+  changes:
+    name: detect changes
+    runs-on: ubuntu-24.04
+    outputs:
+      voice_host: ${{ steps.voice_host.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Detect voice-host changes
+        id: voice_host
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [[ "$EVENT_NAME" == "pull_request" ]]; then
+            base="$PR_BASE_SHA"
+            head="$PR_HEAD_SHA"
+          else
+            base="$PUSH_BEFORE_SHA"
+            head="$GITHUB_SHA"
+          fi
+
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$base" "$head" -- services/voice-host/ .github/workflows/ci.yml; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  workspace:
+    name: workspace
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -29,10 +62,12 @@ jobs:
       - name: Enable pnpm
         run: corepack enable || npm i -g pnpm@10.33.0
       - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run lint
+      - run: pnpm exec prettier --check .
+      - run: node .github/scripts/check-ignore.mjs
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run typecheck
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run test
+      - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run build
       - name: Browser tests (packages that declare test:browser)
         run: |
           browser_package=$(grep -rls '"test:browser"' --include=package.json apps packages services skills templates 2>/dev/null | head -n 1)
@@ -48,3 +83,56 @@ jobs:
           for t in ops/test/*.sh; do echo "== $t"; bash "$t" || rc=1; done
           exit $rc
       - run: node .github/scripts/smoke-workspace.mjs
+
+  voice_host:
+    name: voice host
+    needs: changes
+    if: needs.changes.outputs.voice_host == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
+        with:
+          working_directory: services/voice-host
+          cache: true
+      - name: Cache Mix dependencies and build
+        uses: actions/cache@v4
+        with:
+          path: |
+            services/voice-host/deps
+            services/voice-host/_build
+          key: voice-host-mix-${{ runner.os }}-${{ hashFiles('services/voice-host/mise.toml', 'services/voice-host/mix.lock') }}
+          restore-keys: |
+            voice-host-mix-${{ runner.os }}-
+      - name: Fetch voice-host dependencies
+        working-directory: services/voice-host
+        run: mise exec -- mix deps.get
+      - name: Compile voice host
+        working-directory: services/voice-host
+        run: mise exec -- mix compile --warnings-as-errors
+      - name: Check voice-host formatting
+        working-directory: services/voice-host
+        run: mise exec -- mix format --check-formatted
+      - name: Test voice host
+        working-directory: services/voice-host
+        run: mise exec -- mix test
+
+  required:
+    name: required
+    needs: [changes, workspace, voice_host]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require successful checks
+        env:
+          CHANGES_RESULT: ${{ needs.changes.result }}
+          WORKSPACE_RESULT: ${{ needs.workspace.result }}
+          VOICE_HOST_RESULT: ${{ needs.voice_host.result }}
+        run: |
+          if [[ "$CHANGES_RESULT" == "success" && "$WORKSPACE_RESULT" == "success" && ( "$VOICE_HOST_RESULT" == "success" || "$VOICE_HOST_RESULT" == "skipped" ) ]]; then
+            exit 0
+          fi
+
+          echo "required check failed: changes=$CHANGES_RESULT workspace=$WORKSPACE_RESULT voice-host=$VOICE_HOST_RESULT" >&2
+          exit 1

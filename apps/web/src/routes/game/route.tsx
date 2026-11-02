@@ -1,15 +1,9 @@
-import { Outlet } from 'react-router';
-
 import type { ScreenRoute } from '../../app/screen';
+import { GameScreen } from './GameScreen';
 
 export const route: ScreenRoute = {
   path: '/g/:gameId',
-  element: (
-    <>
-      <h1>Game</h1>
-      <Outlet />
-    </>
-  ),
+  element: <GameScreen />,
   chrome: 'app',
   auth: 'required',
   children: [

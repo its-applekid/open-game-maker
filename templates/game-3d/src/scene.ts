@@ -11,13 +11,15 @@ import {
   Scene,
   Vector2,
   Vector3,
+  type Camera,
 } from 'three';
 
 import type { GameSave, LevelDesign, SceneAdapter } from './game.js';
 
 export interface SceneHandle extends SceneAdapter {
   scene: Scene;
-  camera: PerspectiveCamera;
+  camera: Camera;
+  setCamera(camera: Camera): void;
   sync(state: GameSave): void;
   resize(width: number, height: number): void;
   dispose(): void;
@@ -50,6 +52,7 @@ export function createScene(design: LevelDesign): SceneHandle {
   walls[1]!.position.set(0, wallHeight / 2, size / 2);
   walls[2]!.position.set(-size / 2, wallHeight / 2, 0);
   walls[3]!.position.set(size / 2, wallHeight / 2, 0);
+  for (const wall of walls) wall.userData.occluder = true;
   scene.add(...walls);
   scene.add(new HemisphereLight(0xffffff, 0x4d5560, 2.2));
   const sun = new DirectionalLight(0xffffff, 2.5);
@@ -63,6 +66,9 @@ export function createScene(design: LevelDesign): SceneHandle {
   const adapter: SceneHandle = {
     scene,
     camera,
+    setCamera(nextCamera) {
+      adapter.camera = nextCamera;
+    },
     sync(state) {
       for (const [id, mesh] of players) {
         if (state.players[id]) continue;
@@ -82,7 +88,7 @@ export function createScene(design: LevelDesign): SceneHandle {
       }
     },
     pick(nx, ny) {
-      raycaster.setFromCamera(new Vector2(nx * 2 - 1, 1 - ny * 2), camera);
+      raycaster.setFromCamera(new Vector2(nx * 2 - 1, 1 - ny * 2), adapter.camera);
       return raycaster
         .intersectObjects([...players.values()], false)
         .map(({ object }) => ({ id: String(object.userData.entityId), kind: 'entity' as const }));
@@ -90,14 +96,16 @@ export function createScene(design: LevelDesign): SceneHandle {
     worldToScreen(id) {
       const player = players.get(id);
       if (!player) return null;
-      projectedPosition.copy(player.position).project(camera);
+      projectedPosition.copy(player.position).project(adapter.camera);
       if (projectedPosition.z < -1 || projectedPosition.z > 1) return null;
       return { x: (projectedPosition.x + 1) / 2, y: (1 - projectedPosition.y) / 2 };
     },
     resize(width, height) {
       if (width <= 0 || height <= 0) return;
-      camera.aspect = width / height;
-      camera.updateProjectionMatrix();
+      if (adapter.camera instanceof PerspectiveCamera) {
+        adapter.camera.aspect = width / height;
+        adapter.camera.updateProjectionMatrix();
+      }
     },
     dispose() {
       floor.geometry.dispose();

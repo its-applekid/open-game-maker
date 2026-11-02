@@ -14,6 +14,49 @@ describe('assets contract', () => {
     expect(emittedValidator('assets.v1')(doc)).toBe(true);
   });
 
+  it('rejects unknown card blocks under manifest metadata', () => {
+    const doc = loadJson('fixtures/assets-negative/meta-unknown-key.v1.json');
+    expect(assetManifestSchema.safeParse(doc).success).toBe(false);
+    expect(emittedValidator('assets.v1')(doc)).toBe(false);
+  });
+
+  // `meta` blocks are the card's own sprite/rig/kit/geometry schema, so a malformed block fails even though
+  // its key is allowed; adapters read sheet layout from it and must never get a half-shaped block.
+  it('rejects a card block that breaks the card sub-schema', () => {
+    const doc = loadJson<Manifest & { assets: Record<string, { meta?: unknown }> }>('fixtures/assets.v1.json');
+    const asset = Object.values(doc.assets).find((entry) => entry.meta !== undefined)!;
+    asset.meta = { sprite: { animations: [{ name: 'walk', frames: [0], sheets: [{ path: 'a.png', frame_w: '8' }] }] } };
+    expect(assetManifestSchema.safeParse(doc).success).toBe(false);
+    expect(emittedValidator('assets.v1')(doc)).toBe(false);
+  });
+
+  // A pre-meta manifest (`version: 1`, no `minor`, no `meta`) is still valid: the minor bump is additive.
+  it('accepts a meta-less v1 manifest without a minor', () => {
+    const doc = loadJson<Manifest & { minor?: number; assets: Record<string, { meta?: unknown }> }>(
+      'fixtures/assets.v1.json',
+    );
+    delete doc.minor;
+    for (const asset of Object.values(doc.assets)) delete asset.meta;
+    expect(assetManifestSchema.safeParse(doc).success).toBe(true);
+    expect(emittedValidator('assets.v1')(doc)).toBe(true);
+  });
+
+  // `meta` is copied into the public manifest, so it must not leak or point at files outside the asset.
+  it.each(['/home/kevin/sheet.png', '~/sheet.png', '../sheet.png', 'sprites/../../sheet.png', 'C:\\sheet.png'])(
+    'rejects the meta path %s',
+    (path) => {
+      const doc = loadJson<Manifest & { assets: Record<string, { meta?: unknown }> }>('fixtures/assets.v1.json');
+      const asset = Object.values(doc.assets).find((entry) => entry.meta !== undefined)!;
+      asset.meta = {
+        sprite: {
+          drawn_view: 'iso',
+          animations: [{ name: 'walk', frames: [0], sheets: [{ path, frame_w: 8, frame_h: 8, cols: 1, rows: 1 }] }],
+        },
+      };
+      expect(assetManifestSchema.safeParse(doc).success).toBe(false);
+    },
+  );
+
   // The loader never derives file names, so every tier entry must name a real file.
   it('rejects an asset tier that names a file missing from files, at that asset', () => {
     const doc = loadJson<Manifest>('fixtures/assets.v1.json');

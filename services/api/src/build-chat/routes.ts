@@ -32,11 +32,12 @@ export function getChatRuntime(deps: AppDeps): ChatRuntime {
 export function setup(deps: AppDeps): void {
   if (runtimes.has(deps)) return;
   const hub = createChatHub();
+  const sign = mediaSigner(deps.blobStore);
   const publish = (jobId: string) => hub.publish(jobId);
   const jobs = () => deps.registry.chatJobs;
   const clientFor = () => deps.registry.aiurClientFor;
-  const mirror = createMirror({ sqlite: deps.sqlite, jobs, clientFor, publish, log: deps.log });
-  runtimes.set(deps, { hub, mirror, sign: mediaSigner(deps.blobStore), posts: new Map() });
+  const mirror = createMirror({ sqlite: deps.sqlite, jobs, clientFor, sign, publish, log: deps.log });
+  runtimes.set(deps, { hub, mirror, sign, posts: new Map() });
 
   const flush = (jobId: string) =>
     mirror.flushPending(jobId).catch((error: unknown) => {
@@ -66,9 +67,11 @@ export function setup(deps: AppDeps): void {
         context: (jobId, workspaceRoot) => ({
           jobId,
           workspaceRoot,
+          db: deps.db,
           sqlite: deps.sqlite,
           blobStore: deps.blobStore,
           publish,
+          notify: (trigger) => deps.events.emit('notify', trigger),
           log: deps.log,
         }),
       }).start();

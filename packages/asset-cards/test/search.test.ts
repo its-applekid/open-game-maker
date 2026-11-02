@@ -114,14 +114,15 @@ describe('search', () => {
     expect(hits.map((card) => card.id)).toContain(tileId);
   });
 
-  it('indexes sprite action names instead of requiring action words in file paths', () => {
+  it('splits numbered vendor titles and indexes sprite action names', () => {
     const base = index.cards.find((card) => card.id === 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
     if (!base) throw new Error('fixture sprite missing');
     const knight = {
       ...base,
-      id: 't1:kenney-tiny-dungeon/characters/knight@1.0',
-      title: 'Knight',
-      source: { ...base.source!, files: [{ ...base.source!.files[0]!, path: 'Sprites/knight.png' }] },
+      id: 't1:kenney-tiny-dungeon/characters/1knight@1.0',
+      title: '1Knight',
+      describe: { ...base.describe, objects: [], keywords: [] },
+      source: { ...base.source!, files: [{ ...base.source!.files[0]!, path: 'Sprites/1Knight.png' }] },
       sprite: { ...base.sprite!, animations: [{ name: 'attack', frames: [0, 1] }] },
     };
     expect(search({ ...index, cards: [knight] }, { words: ['knight', 'attack'] }).map((card) => card.id)).toEqual([
@@ -138,6 +139,43 @@ describe('search', () => {
     expect(
       search({ ...index, cards: [hinted] }, { words: ['music', 'dark', 'chiptune'] }).map((card) => card.id),
     ).toEqual([LOOP]);
+  });
+
+  it('filters by the curated compatibility set instead of stale card metadata', () => {
+    const tileId = 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0';
+    const tile = index.cards.find((card) => card.id === tileId);
+    if (!tile) throw new Error('fixture tile missing');
+    const stale = { ...tile, resolved: { ...tile.resolved, set: 'wrong-stored-set' } };
+    expect(search({ ...index, cards: [stale] }, { words: [], set: 'kenney-tiny' }).map((card) => card.id)).toEqual([
+      tileId,
+    ]);
+    expect(search({ ...index, cards: [stale] }, { words: [], set: 'kenney-pixel-platformer' })).toEqual([]);
+    expect(search({ ...index, cards: [stale] }, { words: [], set: '' })).toEqual([]);
+  });
+
+  it('indexes rig and standalone animation clip names and canonical actions', () => {
+    expect(ids({ words: ['drive'] })).toContain(ORC);
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base) throw new Error('fixture model missing');
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig-medium-general@7',
+      title: 'Rig Medium General',
+      kind: 'anim' as const,
+      subkind: 'humanoid',
+      geometry: undefined,
+      rig: undefined,
+      anim: {
+        target_rig_id: 'rig:0123456789ab',
+        clips: [
+          { name: 'Idle_A', duration_s: 1.5, canonical: 'idle' as const, loop: true },
+          { name: 'Melee_1H_Attack', duration_s: 0.4, canonical: 'attack-melee' as const, loop: false },
+        ],
+      },
+    };
+    const animationIndex = { ...index, cards: [library] };
+    expect(search(animationIndex, { words: ['idle'] }).map((card) => card.id)).toEqual([library.id]);
+    expect(search(animationIndex, { words: ['attack'] }).map((card) => card.id)).toEqual([library.id]);
   });
 
   it('applies --limit after ranking', () => {

@@ -1,5 +1,5 @@
 import { api, ApiError } from '../../lib/api/client';
-import { bugContext, type BugContext } from './slice';
+import { bugContext, setBugContext, type BugContext } from './slice';
 
 // POST /api/v1/reports (OGM-015). A report is never lost: when the route can't be reached (offline, not deployed yet,
 // a server error) it waits in localStorage and is sent on the next load. The queue holds only what the player typed,
@@ -12,6 +12,8 @@ const QUEUE_KEY = 'ogm.reports.queue';
 const FRAMES = 5;
 
 let lastError: ReportError | undefined;
+
+type ErrorContext = { route?: string; gameId?: string };
 
 export async function sendReport(input: { text?: string }): Promise<ReportResult> {
   const report: Report = { ...bugContext(), text: input.text, error: lastError };
@@ -40,11 +42,22 @@ export async function flushQueue(): Promise<void> {
 // keep the most recent uncaught error so a report can say what broke
 export function installErrorCapture(): void {
   window.addEventListener('error', (e) => {
-    lastError = summarise(e.error, e.message);
+    captureError(e.error, {}, e.message);
   });
   window.addEventListener('unhandledrejection', (e) => {
-    lastError = summarise(e.reason, String(e.reason));
+    captureError(e.reason);
   });
+}
+
+export function captureError(error: unknown, context: ErrorContext = {}, fallback = String(error)): void {
+  const summary = summarise(error, fallback);
+  const where = [context.route, context.gameId ? `game ${context.gameId}` : undefined].filter(Boolean).join(' · ');
+  lastError = where ? { ...summary, message: `${where} — ${summary.message}` } : summary;
+
+  if (context.route) {
+    const current = bugContext();
+    setBugContext(current.gameId === context.gameId ? current : { gameId: context.gameId });
+  }
 }
 
 function post(report: Report) {

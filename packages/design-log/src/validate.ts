@@ -93,7 +93,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function validatePatches(patches: readonly Patch[]): ValidationResult {
-  const bytes = Buffer.byteLength(canonical(patches));
+  const bytes = new TextEncoder().encode(canonical(patches)).byteLength;
   if (bytes > MAX_PATCH_BYTES) throw new PatchTooLargeError(bytes);
 
   const errors: ValidationError[] = [];

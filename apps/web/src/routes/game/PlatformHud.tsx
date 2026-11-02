@@ -1,0 +1,240 @@
+import { useEffect, useRef, useState } from 'react';
+
+import type { PlayerSettings, SaveData, SaveSlot } from '@ogm/contracts/browser';
+
+import { getOptionalSaves, getSave, putSave, type OptionalCapability } from '../../features/editor/api';
+import type { GameFrameController } from '../../features/editor/frame';
+import { handleGameEvent } from '../../features/editor/hud/achievements';
+import {
+  saveSlotLabel,
+  saveSlotOptions,
+  storeSaveWrite,
+  type SaveSlotId,
+  type SaveWrite,
+} from '../../features/editor/hud/saves';
+import { loadSettings, saveSettings } from '../../features/editor/hud/settings';
+import { pushToast } from '../../lib/notify/slice';
+
+export type PlatformSaveApi = {
+  list(gameId: string): Promise<OptionalCapability<{ slots: SaveSlot[] }>>;
+  read(gameId: string, slotId: SaveSlotId): Promise<SaveData<unknown>>;
+  write: SaveWrite;
+};
+
+type PlatformHudProps = {
+  build: 'draft' | 'published';
+  frame: GameFrameController;
+  gameId: string;
+  saves: boolean;
+  saveApi?: PlatformSaveApi;
+  toast?: (message: string) => void;
+  onLeave?(): void;
+};
+
+const defaultSaveApi: PlatformSaveApi = { list: getOptionalSaves, read: getSave, write: putSave };
+
+export function PlatformHud({
+  build,
+  frame,
+  gameId,
+  saves,
+  saveApi = defaultSaveApi,
+  toast = pushToast,
+  onLeave,
+}: PlatformHudProps) {
+  const [paused, setPaused] = useState(false);
+  const [slots, setSlots] = useState<SaveSlot[]>();
+  const [savesAvailable, setSavesAvailable] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<SaveSlotId>('auto');
+  const [settings, setSettings] = useState<PlayerSettings>(() => loadSettings());
+  const pauseRef = useRef<HTMLButtonElement>(null);
+  const resumeRef = useRef<HTMLButtonElement>(null);
+  const wasPausedRef = useRef(false);
+  const slotsRef = useRef(slots);
+  const selectedSlotRef = useRef(selectedSlot);
+  const saveQueueRef = useRef(Promise.resolve());
+  slotsRef.current = slots;
+  selectedSlotRef.current = selectedSlot;
+
+  useEffect(() => {
+    if (!saves) {
+      setSavesAvailable(false);
+      setSlots(undefined);
+      return;
+    }
+    let active = true;
+    void saveApi
+      .list(gameId)
+      .then((result) => {
+        if (!active) return;
+        setSavesAvailable(result.available);
+        setSlots(result.available ? result.value.slots : undefined);
+      })
+      .catch(() => {
+        if (active) toast('Saves unavailable');
+      });
+    return () => {
+      active = false;
+    };
+  }, [gameId, saveApi, saves, toast]);
+
+  useEffect(() => {
+    const normalized = saveSettings(settings);
+    frame.setSettings(normalized);
+  }, [frame, settings]);
+
+  useEffect(() => {
+    let active = true;
+    const stopSave = frame.onSaveWrite((payload) => {
+      if (!savesAvailable) return;
+      saveQueueRef.current = saveQueueRef.current
+        .then(async () => {
+          await storeSaveWrite(gameId, selectedSlotRef.current, payload, slotsRef.current ?? [], saveApi.write);
+          const result = await saveApi.list(gameId);
+          if (!active) return;
+          setSavesAvailable(result.available);
+          const nextSlots = result.available ? result.value.slots : undefined;
+          slotsRef.current = nextSlots;
+          setSlots(nextSlots);
+        })
+        .catch(() => toast('Save failed'));
+    });
+    const stopEvent = frame.onEvent((kind, payload) => handleGameEvent(kind, payload, build, toast));
+    return () => {
+      active = false;
+      stopSave();
+      stopEvent();
+    };
+  }, [build, frame, gameId, saveApi, savesAvailable, toast]);
+
+  useEffect(() => {
+    if (paused) {
+      wasPausedRef.current = true;
+      resumeRef.current?.focus();
+    } else if (wasPausedRef.current) {
+      pauseRef.current?.focus();
+    }
+  }, [paused]);
+
+  const pause = () => {
+    frame.pause();
+    setPaused(true);
+  };
+  const resume = () => {
+    frame.resume();
+    setPaused(false);
+  };
+  const load = async () => {
+    const slot = slots?.find((candidate) => candidate.slotId === selectedSlot);
+    if (slot === undefined) return;
+    try {
+      frame.restoreSave(await saveApi.read(gameId, selectedSlot));
+      resume();
+    } catch {
+      toast('Load failed');
+    }
+  };
+
+  return (
+    <div className="platform-hud">
+      <button ref={pauseRef} className="platform-pause tap-primary" type="button" onClick={pause}>
+        Pause
+      </button>
+      {paused ? (
+        <div className="platform-pause-shade">
+          <div className="platform-pause-dialog" role="dialog" aria-modal="true" aria-label="Paused">
+            <h2>Paused</h2>
+            <button ref={resumeRef} className="tap-primary" type="button" onClick={resume}>
+              Resume
+            </button>
+            {savesAvailable && slots !== undefined ? (
+              <div className="save-slots" role="group" aria-label="Save slots">
+                {saveSlotOptions(slots).map(({ id }) => (
+                  <button
+                    className="tap-secondary"
+                    type="button"
+                    key={id}
+                    aria-label={saveSlotLabel(id)}
+                    aria-pressed={selectedSlot === id}
+                    onClick={() => setSelectedSlot(id)}
+                  >
+                    {id === 'auto' ? 'Auto' : id}
+                  </button>
+                ))}
+                <button
+                  className="tap-secondary"
+                  type="button"
+                  disabled={!slots.some((slot) => slot.slotId === selectedSlot)}
+                  onClick={() => void load()}
+                >
+                  Load
+                </button>
+              </div>
+            ) : null}
+            <SettingsControls settings={settings} onChange={setSettings} />
+            {onLeave ? (
+              <button className="tap-primary" type="button" onClick={onLeave}>
+                Leave
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function SettingsControls({
+  settings,
+  onChange,
+}: {
+  settings: PlayerSettings;
+  onChange(settings: PlayerSettings): void;
+}) {
+  const update = (patch: Partial<PlayerSettings>) => onChange({ ...settings, ...patch });
+  return (
+    <fieldset className="platform-settings">
+      <legend>Settings</legend>
+      <label>
+        <input
+          type="checkbox"
+          checked={settings.mute}
+          onChange={(event) => update({ mute: event.currentTarget.checked })}
+        />
+        Mute
+      </label>
+      <label>
+        Volume
+        <input
+          aria-label="Volume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={settings.volume}
+          onChange={(event) => update({ volume: event.currentTarget.valueAsNumber })}
+        />
+      </label>
+      <label>
+        Text size
+        <input
+          aria-label="Text size"
+          type="range"
+          min="0.75"
+          max="2"
+          step="0.05"
+          value={settings.textScale}
+          onChange={(event) => update({ textScale: event.currentTarget.valueAsNumber })}
+        />
+      </label>
+      <label>
+        <input
+          type="checkbox"
+          checked={settings.reduceMotion}
+          onChange={(event) => update({ reduceMotion: event.currentTarget.checked })}
+        />
+        Reduce motion
+      </label>
+    </fieldset>
+  );
+}

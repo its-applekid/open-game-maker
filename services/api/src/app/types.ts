@@ -34,6 +34,7 @@ export interface AppDeps {
     // Both unset until the voice host is configured; the token route answers 503 meanwhile.
     voiceTokenSecret?: string;
     voiceWsUrl?: string;
+    voiceInternalSecret?: string;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
     intakeDir?: string;

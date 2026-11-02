@@ -11,6 +11,10 @@
     ".": {
       "types": "./dist/cli.d.ts",
       "default": "./dist/cli.js"
+    },
+    "./card-format": {
+      "types": "./dist/skills/card-format.d.ts",
+      "default": "./dist/skills/card-format.js"
     }
   },
   "scripts": {

@@ -1,29 +1,39 @@
-import type { ActionFrame, GameInstance, HostApi } from '@ogm/contracts';
+import type { ActionFrame, GameInstance, GmTestHooks, HostApi } from '@ogm/contracts';
 
 import { FixedClock, type Clock, type StepListener } from './clock.js';
 import { EventRing } from './events.js';
 import type { SdkHostApi } from './host-api.js';
 import { SeededRng, type Rng } from './rng.js';
 import type { RuntimeHooks } from '../test/hooks.js';
+import { InputMerger, type InputMergerOptions } from '../input/merger.js';
+import type { GmNet, NetController, NetDiagnostics, NetPlayer } from '../net/index.js';
 
 export type BuildKind = 'draft' | 'test' | 'published';
 export type GameMode = 'play' | 'edit';
-export type RenderInfo = ReturnType<RuntimeHooks['renderInfo']>;
+export type RenderInfo = ReturnType<GmTestHooks['renderInfo']>;
+export type RuntimeRenderInfo = RenderInfo & { net: NetDiagnostics };
 
 export interface Runtime<D, S> {
   readonly instance: GameInstance<D, S>;
   readonly clock: Clock;
   readonly rng: Rng;
   readonly hooks: RuntimeHooks;
+  readonly net: GmNet;
   readonly host: HostApi;
   readonly build: BuildKind;
   readonly mode: GameMode;
+  readonly localPlayerIndex: number;
   onFrame(callback: (dt: number) => void): () => void;
   onStep(callback: StepListener): () => void;
   onNet(callback: (type: string, payload: unknown) => void): () => void;
+  attachInput(options: RuntimeInputOptions): InputMerger;
   setRenderInfoProvider(provider: () => RenderInfo): void;
   dispose(): void;
 }
+
+export type RuntimeInputOptions = Omit<InputMergerOptions, 'bridge' | 'localPlayerIndex'> & {
+  localPlayerIndex?: number;
+};
 
 const zeroRenderInfo = (): RenderInfo => ({
   calls: 0,
@@ -37,19 +47,26 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   readonly clock: FixedClock;
   readonly rng: SeededRng;
   hooks!: RuntimeHooks;
-  readonly players: unknown[] = [];
+  net!: GmNet;
+  readonly players: NetPlayer[] = [];
   private currentMode: GameMode;
   private readonly frameListeners = new Set<(dt: number) => void>();
+  private readonly stepListeners = new Set<StepListener>();
   private readonly netListeners = new Set<(type: string, payload: unknown) => void>();
   private readonly cleanupCallbacks = new Set<() => void>();
   private renderInfoProvider: () => RenderInfo = zeroRenderInfo;
   private liveFrame: number | undefined;
   private lastFrameMs: number | undefined;
+  private inputMerger: InputMerger | undefined;
+  private replayingInput = false;
+  private currentLocalPlayerIndex = 0;
+  private readonly pendingHostFrames: ActionFrame[] = [];
+  private netController: NetController | undefined;
   private disposed = false;
 
   constructor(
     readonly instance: GameInstance<D, S>,
-    readonly host: SdkHostApi<S>,
+    readonly host: SdkHostApi,
     readonly build: BuildKind,
     mode: GameMode,
     readonly events: EventRing,
@@ -60,11 +77,30 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
     this.clock = clock;
     this.rng = rng;
     this.currentMode = mode;
-    this.clock.onStep((_dt, frames) => this.host.dispatchInput(frames));
+    this.clock.onStep((_dt, frames) => {
+      if (this.inputMerger && !this.replayingInput) {
+        for (const frame of this.pendingHostFrames.splice(0)) this.inputMerger.acceptHostFrame(frame);
+        for (const frame of frames.splice(0)) this.inputMerger.inject(frame);
+        frames.push(...this.inputMerger.sample(this.clock.tick));
+      } else if (!this.replayingInput) {
+        frames.push(...this.pendingHostFrames.splice(0));
+      }
+      if (this.netController?.role === 'peer') {
+        this.netController.handleLocalFrames(frames);
+        return;
+      }
+      this.host.dispatchInput(frames);
+      for (const listener of this.stepListeners) listener(this.clock.dt, frames);
+      this.netController?.afterStep(this.clock.tick);
+    });
   }
 
   get mode(): GameMode {
     return this.currentMode;
+  }
+
+  get localPlayerIndex(): number {
+    return this.currentLocalPlayerIndex;
   }
 
   attachHooks(hooks: RuntimeHooks): void {
@@ -81,12 +117,54 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   }
 
   onStep(callback: StepListener): () => void {
-    return this.clock.onStep(callback);
+    this.stepListeners.add(callback);
+    return () => this.stepListeners.delete(callback);
   }
 
   onNet(callback: (type: string, payload: unknown) => void): () => void {
     this.netListeners.add(callback);
     return () => this.netListeners.delete(callback);
+  }
+
+  attachInput(options: RuntimeInputOptions): InputMerger {
+    this.inputMerger?.dispose();
+    const merger = new InputMerger({
+      ...options,
+      localPlayerIndex: options.localPlayerIndex ?? this.currentLocalPlayerIndex,
+      bridge: {
+        send: (_type, payload) => this.host.sendRawKey(payload),
+      },
+    });
+    this.inputMerger = merger;
+    return merger;
+  }
+
+  acceptHostFrame(frame: ActionFrame): void {
+    this.pendingHostFrames.push(frame);
+  }
+
+  setLocalPlayerIndex(playerIndex: number): void {
+    this.currentLocalPlayerIndex = playerIndex;
+    this.inputMerger?.setLocalPlayerIndex(playerIndex);
+  }
+
+  setPlayers(players: ReadonlyArray<NetPlayer>): void {
+    this.players.splice(0, this.players.length, ...structuredClone(players));
+  }
+
+  installNet(controller: NetController): void {
+    this.netController?.dispose();
+    this.netController = controller;
+    this.net = controller.net;
+  }
+
+  handleNet(type: string, payload: unknown): void {
+    this.netController?.handleMessage(type, payload);
+    this.emitNet(type, payload);
+  }
+
+  setInputReplay(replaying: boolean): void {
+    this.replayingInput = replaying;
   }
 
   emitNet(type: string, payload: unknown): void {
@@ -104,6 +182,7 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   }
 
   render(): void {
+    this.netController?.render();
     for (const listener of this.frameListeners) listener(this.clock.dt);
   }
 
@@ -111,8 +190,11 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
     this.renderInfoProvider = provider;
   }
 
-  renderInfo(): RenderInfo {
-    return this.renderInfoProvider();
+  renderInfo(): RuntimeRenderInfo {
+    return {
+      ...this.renderInfoProvider(),
+      net: { ...(this.netController?.diagnostics ?? zeroNetDiagnostics()) },
+    };
   }
 
   addCleanup(callback: () => void): void {
@@ -154,9 +236,19 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
     };
 
     attempt(() => this.instance.dispose());
+    attempt(() => this.inputMerger?.dispose());
+    this.inputMerger = undefined;
+    this.pendingHostFrames.length = 0;
+    attempt(() => this.netController?.dispose());
+    this.netController = undefined;
+    this.stepListeners.clear();
     for (const cleanup of this.cleanupCallbacks) attempt(cleanup);
     this.cleanupCallbacks.clear();
     attempt(this.closeBridge);
     if (failed) throw firstFailure;
   }
+}
+
+function zeroNetDiagnostics(): NetDiagnostics {
+  return { dropped: 0, eventGaps: 0, outOfOrderSnapshots: 0, stalls: 0, oversized: 0 };
 }
