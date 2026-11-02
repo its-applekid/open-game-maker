@@ -129,6 +129,17 @@ describe('search', () => {
     ]);
   });
 
+  it('indexes descriptive audio hints without turning them into measured fields', () => {
+    const base = index.cards.find((card) => card.id === LOOP);
+    if (!base) throw new Error('fixture music loop missing');
+    const hinted = structuredClone(base);
+    (hinted.describe as Record<string, unknown>).hints = ['dark retro', 'chiptune'];
+
+    expect(
+      search({ ...index, cards: [hinted] }, { words: ['music', 'dark', 'chiptune'] }).map((card) => card.id),
+    ).toEqual([LOOP]);
+  });
+
   it('applies --limit after ranking', () => {
     expect(search(index, { words: [], limit: 2 })).toHaveLength(2);
     expect(search(index, { words: [] }).length).toBeGreaterThan(2);
