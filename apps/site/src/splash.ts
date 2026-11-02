@@ -2,7 +2,10 @@ import { readFileSync } from 'node:fs';
 import { parse } from 'yaml';
 import { z } from 'zod';
 
-const sitePath = z.string().regex(/^\/[\w./-]+$/, 'must be a site path starting with /');
+const sitePath = z
+  .string()
+  .regex(/^\/[\w./-]+$/, 'must be a site path starting with /')
+  .refine((path) => !path.split('/').some((segment) => segment === '..'), 'must stay inside public/');
 
 export const SplashContentSchema = z
   .object({

@@ -10,6 +10,11 @@ case "${1:-}" in
   *) printf 'usage: %s [--dry-run]\n' "$0" >&2; exit 2 ;;
 esac
 
+if [[ "$DRY_RUN" == false && ! -s "$SITE/.netlify-site-id" ]]; then
+  printf 'missing %s: create the site'"'"'s Netlify project and write its id there\n' "$SITE/.netlify-site-id" >&2
+  exit 1
+fi
+
 # build from a clean dist/ so files removed from public/ or src/ are not published
 pnpm --dir "$SITE" exec tsc -b --clean
 rm -rf "$SITE/dist"

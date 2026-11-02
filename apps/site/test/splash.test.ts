@@ -75,6 +75,7 @@ describe('splash page', () => {
       parseSplashContent(valid.replace(/  - heading: Play on a phone[\s\S]*?poster: [^\n]+\n/, '')),
     ).toThrow();
     expect(() => parseSplashContent(`${valid}\ntagline: more words\n`)).toThrow();
+    expect(() => parseSplashContent(valid.replace('path: /captures/play.mp4', 'path: /../../SETUP.md'))).toThrow();
   });
 });
 

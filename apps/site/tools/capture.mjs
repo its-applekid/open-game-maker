@@ -270,7 +270,9 @@ try {
     const openedAt = Date.now();
     let readyAt = openedAt;
     await run(page, () => (readyAt = Date.now())).catch(async (error) => {
-      await page.screenshot({ path: join(OUT, `${name}-failed.png`) });
+      const shot = join(tmpdir(), `ogm-capture-${name}-failed.png`);
+      await page.screenshot({ path: shot });
+      console.error(`failed scene screenshot: ${shot}`);
       throw error;
     });
     await context.close();
