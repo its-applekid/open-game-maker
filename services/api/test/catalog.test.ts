@@ -7,12 +7,7 @@ import { buildIndex, loadFamilies, writeIndex } from '@ogm/asset-cards';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app/app.js';
-import {
-  catalogRoutes,
-  prefix,
-  setRequiresPrivateRepository,
-  type StyleFamilyApi,
-} from '../src/catalog/routes.js';
+import { catalogRoutes, prefix, setRequiresPrivateRepository, type StyleFamilyApi } from '../src/catalog/routes.js';
 import { makeApp, makeDeps } from './helpers.js';
 
 const FIXTURE = fileURLToPath(new URL('../../../packages/asset-cards/test/fixtures/library', import.meta.url));
