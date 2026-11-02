@@ -1,0 +1,56 @@
+---
+name: gm-verify
+description: Use before showing a creator any visual game change. Run deterministic gates, look at the evidence, and report the binary checklist.
+---
+
+# Verify a game
+
+Never report a visual result you have not looked at. Code, logs, and a passing command are not visual evidence.
+
+## Gates first
+
+1. Run `gm check`; fix every L0 failure.
+2. Run `gm test --ticks 3600`; fix every L1 failure.
+3. Fix the first new console error before investigating anything after it.
+4. Only then run `gm run --viewport both --frames 0,2,5` and make the sheet with `gm shot --sheet shots/`.
+
+A report budget whose status is `over` blocks the PR. Name the tier and the measured value. `unknown` is not green:
+list it under unchecked.
+
+## Look
+
+- Capture desktop and phone stills. Read every tile and name the worst defect first.
+- Use a timeline for motion; a follow camera is drawn twice so its lag can settle.
+- Use `--inputs` and closer `--frames` around small events instead of judging them from a wide shot.
+- Check the title, main play state, first action, HUD, and any changed scene or screen.
+- Treat the sheet as the source of truth. Do not infer appearance from scene objects or source code.
+
+## Binary visual checklist
+
+Copy this into the PR and answer every line from the sheet:
+
+```md
+## Verify
+
+- Blank frame? yes/no
+- Missing texture or magenta surface? yes/no
+- Clipping, z-fighting, or floating object? yes/no
+- Text cut off or unreadable? yes/no
+- HUD overlaps play on phone? yes/no
+- Placeholder primitive or debug gizmo visible? yes/no
+- Entity stuck, teleporting, or ice-skating? yes/no
+- Animation and movement speed disagree? yes/no
+- Worst visible defect: <one sentence>
+- Evidence sheet: <attached path>
+- Unchecked: iPhone Safari, sound, <anything else not run>
+```
+
+Visual findings advise; `gm check`, `gm test`, console errors, and budgets block.
+
+## Rules
+
+- Bind local servers to `127.0.0.1`, never `0.0.0.0`.
+- GPU Chromium is the default. Use SwiftShader only when the environment requires it and record that fact.
+- After every `gm run`, send exactly one current still or clip with `gm chat post`.
+- Never install software or add a paid visual judge to verify a game.
+- Always list `iPhone Safari` and `sound` as unchecked unless an operator actually checked them.
