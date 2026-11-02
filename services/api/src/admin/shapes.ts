@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { Id, IsoTime, MicroUsd } from '@ogm/contracts';
+import { Id, IsoTime, JobKind, JobStage, JobState, MicroUsd } from '@ogm/contracts';
 
 // Response shapes of `/api/v1/admin/*`; only the admin screens (OGM-079) read them.
 export const MemberRow = z.object({
@@ -34,10 +34,36 @@ export const IntakeDrop = z.object({
   date: z.string().nullable(),
   problems: z.number().int(),
 });
+// One row of `GET /admin/builds`: no plan, prompt or source text.
+export const AdminBuild = z.object({
+  job: z.object({
+    id: Id,
+    kind: JobKind,
+    state: JobState,
+    pausedReason: z.enum(['over_reservation', 'budget_exhausted', 'admin']).nullable(),
+    stage: JobStage.nullable(),
+    stageText: z.string().nullable(),
+    usageMicroUsd: MicroUsd,
+    hardCapMicroUsd: MicroUsd,
+    createdAt: IsoTime,
+    updatedAt: IsoTime,
+    terminalAt: IsoTime.nullable(),
+  }),
+  game: z.object({
+    id: Id,
+    title: z.string(),
+    ownerId: Id,
+    visibility: z.enum(['listed', 'private']),
+    delistedAt: IsoTime.nullable(),
+  }),
+  member: z.object({ userId: Id, email: z.string().nullable() }),
+  retries: z.number().int(),
+});
 
 export type MemberRow = z.infer<typeof MemberRow>;
 export type BudgetOverview = z.infer<typeof BudgetOverview>;
 export type IntakeDrop = z.infer<typeof IntakeDrop>;
+export type AdminBuild = z.infer<typeof AdminBuild>;
 
 const SLOTS_MAX = 8;
 const slotCount = z.number().int().min(0).max(SLOTS_MAX);
