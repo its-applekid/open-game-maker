@@ -88,6 +88,7 @@ def test_waveform_spectrogram_tiles_compose_into_a_labeled_pack_sheet(tmp_path):
     assert image.width == 800
     assert image.height == 2 * p.TILE_HEIGHT
     assert np.asarray(image).std() > 0
+    assert not sheet.with_name(sheet.name + ".part").exists()
 
 
 def test_make_clip_writes_a_faded_ogg_without_padding_a_short_track(tmp_path):

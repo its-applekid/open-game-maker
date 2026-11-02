@@ -127,6 +127,7 @@ def prompts():
 def text_embeddings(sets):
     import torch
     from transformers import ClapModel, ClapProcessor
+    torch.set_num_threads(int(os.environ.get("OGM_TORCH_THREADS", "2")))
     m = ClapModel.from_pretrained(CLAP_ID, use_safetensors=False, local_files_only=True).eval()
     p = ClapProcessor.from_pretrained(CLAP_ID, local_files_only=True)
     out = {}
@@ -376,7 +377,10 @@ def build_pack_derivatives(pid: str, items: list[dict], collection: dict, packs:
                 "source": packs / pid / item["_ver"] / "extracted" / item["file"],
             }
         )
-    medley_key = P.derivative_key(prefix, combined_hash, "medley", "ogg", tracks=len(music), duration_s=30, version=1)
+    plan_hash = hashlib.sha256(
+        (combined_hash + "\0" + json.dumps(plan, sort_keys=True, separators=(",", ":"))).encode()
+    ).hexdigest()
+    medley_key = P.derivative_key(prefix, plan_hash, "medley", "ogg", tracks=len(music), duration_s=30, version=1)
     medley_out = ROOT / medley_key
     if not medley_out.is_file():
         P.make_medley(entries, medley_out)
@@ -384,7 +388,8 @@ def build_pack_derivatives(pid: str, items: list[dict], collection: dict, packs:
     return True
 
 
-def build(rows, sets, means, packs: Path, update_counts=True):
+def build(rows, sets, means, packs: Path, update_counts=True, limit=0):
+    selected_sidecars = {d["_sidecar"] for d in rows[:limit]} if limit else None
     by_pack = defaultdict(list)
     for d in rows:
         by_pack[d["_pack"]].append(d)
@@ -472,10 +477,9 @@ def build(rows, sets, means, packs: Path, update_counts=True):
                 card["proposed_tags"] = proposed[:12]
             if flags:
                 card["flags"] = flags
-            for f in flags:
-                flags_count[f] += 1
             out = packs / pid / "cards" / (path_id + ".card.json")
-            pack_records.append((out, card))
+            selected = selected_sidecars is None or any(item["_sidecar"] in selected_sidecars for item in g)
+            pack_records.append((out, card, selected))
             if d["music"]:
                 embedding = np.mean([excerpt["embedding"] for excerpt in d["clap"]["excerpts"]], axis=0)
                 norm = float(np.linalg.norm(embedding))
@@ -492,9 +496,12 @@ def build(rows, sets, means, packs: Path, update_counts=True):
                 )
             counts[pid]["audio/" + subkind] += 1
             counts[pid]["audio"] += 1
-            written += 1
+            if selected:
+                for flag in flags:
+                    flags_count[flag] += 1
+                written += 1
         set_ids = P.compatibility_sets(compatibility_rows, pid)
-        for out, card in pack_records:
+        for out, card, selected in pack_records:
             if card["id"] in set_ids:
                 card["describe"]["set"] = set_ids[card["id"]]
                 card["provenance"]["describe.set"] = {
@@ -505,6 +512,8 @@ def build(rows, sets, means, packs: Path, update_counts=True):
                     "confidence": 0.8,
                     "input": "measured tempo/key + normalized CLAP timbre; pack-local complete-link grouping",
                 }
+            if not selected:
+                continue
             if out.is_file():
                 card = preserve_locked(json.loads(out.read_text()), card)
             staged = stage_json(out, card)
@@ -542,8 +551,7 @@ def main():
     score_all(rows, emb, scale, sets)
     means = library_means(rows)
     energy_ranks(rows)
-    selected = rows[:a.limit] if a.limit else rows
-    n, flags, records, collection_updates = build(selected, sets, means, a.packs, update_counts=not a.json)
+    n, flags, records, collection_updates = build(rows, sets, means, a.packs, update_counts=not a.json, limit=a.limit)
     staged = [part for _, part, _ in records] + [part for _, part, _ in collection_updates]
     emit({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}, a.json, summary=True)
     if not a.no_validate:

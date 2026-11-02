@@ -4,10 +4,17 @@ import { getPriority } from 'node:os';
 
 import { describe, expect, it } from 'vitest';
 
+import { assertWorkerRecord } from '../src/packs/tag.js';
 import { effectiveWorkers, runJsonWorker, workerEnvironment, WorkerError } from '../src/packs/workers.js';
 import { tempDir } from './helpers.js';
 
 describe('pack workers', () => {
+  it('accepts preserved human-reviewed card records', () => {
+    expect(() =>
+      assertWorkerRecord({ card: 'packs/example/cards/asset.card.json', status: 'reviewed', flags: [] }),
+    ).not.toThrow();
+  });
+
   it('clamps requested workers to one third of logical cores', () => {
     expect(effectiveWorkers(32, 12)).toBe(4);
     expect(effectiveWorkers(0, 12)).toBe(4);

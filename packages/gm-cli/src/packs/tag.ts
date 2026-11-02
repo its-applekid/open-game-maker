@@ -54,6 +54,11 @@ function matchesKind(card: AssetCard, kind: TagKind): boolean {
   return primary?.format === 'glb';
 }
 
+function allowsLocalVision(card: AssetCard, collection: AssetCard): boolean {
+  const rights = card.rights ?? collection.rights;
+  return Boolean(rights?.uses.includes('vision-input') && ['any', 'local-only'].includes(rights.processing ?? ''));
+}
+
 export async function discoverTagTargets(assetsRoot: string, kind: TagKind, only = '*'): Promise<TargetDiscovery> {
   const top = join(assetsRoot, kind === 'map' ? 'inspiration' : 'packs');
   const pattern = glob(only);
@@ -66,6 +71,7 @@ export async function discoverTagTargets(assetsRoot: string, kind: TagKind, only
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { targets, refusals };
     throw error;
   }
+  entries.sort((left, right) => left.name.localeCompare(right.name));
   for (const entry of entries) {
     if (!entry.isDirectory() || !pattern.test(entry.name)) continue;
     const root = join(top, entry.name);
@@ -89,7 +95,12 @@ export async function discoverTagTargets(assetsRoot: string, kind: TagKind, only
     for (const path of await filesUnder(join(root, 'cards'), '.card.json')) {
       try {
         const parsed = validateCard(JSON.parse(await readFile(path, 'utf8')) as unknown);
-        if (parsed.ok && parsed.card.card_type === 'asset' && matchesKind(parsed.card, kind)) {
+        if (
+          parsed.ok &&
+          parsed.card.card_type === 'asset' &&
+          matchesKind(parsed.card, kind) &&
+          allowsLocalVision(parsed.card, collection)
+        ) {
           cards.push({ path, card: parsed.card });
         }
       } catch {
@@ -118,6 +129,7 @@ export async function restoreSnapshot(snapshot: Snapshot): Promise<void> {
     for (const path of await filesUnder(root, '.card.json.part')) await rm(path);
   }
   for (const [path, contents] of snapshot.files) {
+    await rm(`${path}.part`, { force: true });
     await mkdir(dirname(path), { recursive: true });
     await writeFile(path, contents);
   }
@@ -130,7 +142,9 @@ export function assertWorkerRecord(record: WorkerRecord): void {
   }
   const parts = record.card.split('/');
   if (parts.includes('..') || !record.card.endsWith('.card.json')) throw new Error('worker card path is unsafe');
-  if (!['measured', 'tagged'].includes(String(record.status))) throw new Error('worker card status is invalid');
+  if (!['measured', 'tagged', 'reviewed', 'invalid'].includes(String(record.status))) {
+    throw new Error('worker card status is invalid');
+  }
   if (!Array.isArray(record.flags) || record.flags.some((flag) => typeof flag !== 'string')) {
     throw new Error('worker card flags must be strings');
   }
@@ -146,7 +160,10 @@ export async function validateWorkerCards(
   targets: readonly TagTarget[],
   records: readonly WorkerRecord[],
 ): Promise<number> {
-  const roots = await Promise.all(targets.map((target) => realpath(join(target.root, 'cards'))));
+  const roots = await Promise.all(
+    targets.map(async (target) => ({ target, root: await realpath(join(target.root, 'cards')) })),
+  );
+  const seen = new Set<string>();
   let count = 0;
   for (const record of records) {
     if (record.card === undefined) continue;
@@ -154,10 +171,15 @@ export async function validateWorkerCards(
     const lexical = resolve(assetsRoot, record.card);
     if (!inside(resolve(assetsRoot), lexical)) throw new Error(`worker card escapes asset root: ${record.card}`);
     const canonical = await realpath(lexical);
-    if (!roots.some((root) => inside(root, canonical)))
-      throw new Error(`worker card is outside selected collections: ${record.card}`);
+    const owner = roots.find(({ root }) => inside(root, canonical))?.target;
+    if (!owner) throw new Error(`worker card is outside selected collections: ${record.card}`);
+    if (seen.has(canonical)) throw new Error(`worker reported a card more than once: ${record.card}`);
+    seen.add(canonical);
     const parsed = validateCard(JSON.parse(await readFile(canonical, 'utf8')) as unknown);
     if (!parsed.ok) throw new Error(`worker card failed validation: ${record.card}: ${parsed.errors.join('; ')}`);
+    if (parsed.card.card_type !== 'asset' || parsed.card.collection !== owner.id) {
+      throw new Error(`worker card does not belong to its selected collection: ${record.card}`);
+    }
     if (parsed.card.status !== record.status) throw new Error(`worker status does not match ${record.card}`);
     count += 1;
   }
@@ -211,10 +233,16 @@ export async function prepareVisualPreviews(options: {
       continue;
     const source = primary(card);
     const version = await currentVersion(target);
-    const sourcePath = join(target.root, version, 'extracted', ...source.path.split('/'));
+    const extractedRoot = await realpath(join(target.root, version, 'extracted'));
+    const sourceCandidate = resolve(extractedRoot, source.path);
+    if (!inside(extractedRoot, sourceCandidate)) throw new Error(`${card.id} source path escapes its collection`);
+    const sourcePath = await realpath(sourceCandidate);
+    if (!inside(extractedRoot, sourcePath)) throw new Error(`${card.id} source path resolves outside its collection`);
     const hash = source.sha256.replace(/^sha256:/, '');
-    const key = previewKey(hash, `${options.kind}-sheet`, target.collection.rights?.redistribution, {
+    const redistribution = card.rights?.redistribution ?? target.collection.rights?.redistribution;
+    const key = previewKey(hash, `${options.kind}-sheet`, redistribution, {
       version: 1,
+      ...(options.kind === 'sprite' ? { pixelArt: card.image?.pixel_art === true } : {}),
     });
     const out = join(options.assetsRoot, key);
     if (options.kind === 'model') {
@@ -266,6 +294,11 @@ function countKey(card: AssetCard): string | null {
   return null;
 }
 
+function countsAsKind(card: AssetCard, kind: TagKind): boolean {
+  if (kind === 'map') return card.kind === 'inspiration' && card.subkind === 'map';
+  return card.kind === kind;
+}
+
 export async function reconcileCounts(targets: readonly TagTarget[], kind: TagKind): Promise<void> {
   const prefix = kind === 'map' ? 'inspiration/map' : kind;
   for (const target of targets) {
@@ -278,7 +311,7 @@ export async function reconcileCounts(targets: readonly TagTarget[], kind: TagKi
     let total = 0;
     for (const path of await filesUnder(join(target.root, 'cards'), '.card.json')) {
       const parsed = validateCard(JSON.parse(await readFile(path, 'utf8')) as unknown);
-      if (!parsed.ok || parsed.card.card_type !== 'asset' || !matchesKind(parsed.card, kind)) continue;
+      if (!parsed.ok || parsed.card.card_type !== 'asset' || !countsAsKind(parsed.card, kind)) continue;
       const key = countKey(parsed.card);
       if (key) counts[key] = (counts[key] ?? 0) + 1;
       total += 1;

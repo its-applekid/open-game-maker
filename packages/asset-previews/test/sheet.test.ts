@@ -143,6 +143,19 @@ describe('renderCollectionSheet', () => {
 });
 
 describe('spriteSheet', () => {
+  it('preserves source sheet geometry by default', async () => {
+    const directory = await workspace();
+    const source = join(directory, 'geometry.png');
+    await sharp({ create: { width: 48, height: 32, channels: 4, background: '#ffffffff' } })
+      .png()
+      .toFile(source);
+    const out = join(directory, 'geometry.webp');
+
+    await spriteSheet(source, out, { pixelArt: true });
+
+    expect(await sharp(out).metadata()).toMatchObject({ width: 48, height: 32 });
+  });
+
   it('uses nearest-neighbour scaling only for pixel art', async () => {
     const directory = await workspace();
     const source = join(directory, 'sprite.png');

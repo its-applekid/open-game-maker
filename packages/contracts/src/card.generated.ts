@@ -151,7 +151,7 @@ export type RightsBasis = {
 };
 export type Sha256 = string;
 /**
- * Content-addressed key in the instance bucket. Never a URL with credentials.
+ * Content-addressed key in the instance bucket. Never a URL with credentials or a traversing path.
  */
 export type BucketKey = string;
 export type Tag = string;
@@ -3229,7 +3229,7 @@ export interface CollectionInfo {
    */
   pack_manifest?: string;
   /**
-   * Content-addressed key in the instance bucket. Never a URL with credentials.
+   * Content-addressed key in the instance bucket. Never a URL with credentials or a traversing path.
    */
   hash_manifest?: string;
   /**
