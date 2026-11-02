@@ -151,7 +151,7 @@ export type RightsBasis = {
 };
 export type Sha256 = string;
 /**
- * Content-addressed key in the instance bucket. Never a URL with credentials.
+ * Relative key in the private asset library or instance bucket. Traversal segments, absolute paths, and URLs with credentials are forbidden.
  */
 export type BucketKey = string;
 export type Tag = string;
@@ -264,13 +264,17 @@ export interface Relation {
   id: string;
 }
 /**
- * Content-addressed bucket keys. Previews inherit the asset's rights: a redistribution:none asset's previews are private too and are hash-blocked from game repos.
+ * Relative private asset-library or instance-bucket keys. Previews inherit the asset's rights: a redistribution:none asset's previews are private too and are hash-blocked from game repos.
  */
 export interface Previews {
   thumb?: BucketKey;
   sheet?: BucketKey;
   waveform?: BucketKey;
   clip?: BucketKey;
+  specimen?: BucketKey;
+  diorama?: BucketKey;
+  loop?: BucketKey;
+  store?: BucketKey;
 }
 /**
  * Judgment fields. Written by the model (or parsed from filenames at draft), validated by code, editable by humans.
@@ -3210,7 +3214,7 @@ export interface CollectionInfo {
    */
   pack_manifest?: string;
   /**
-   * Content-addressed key in the instance bucket. Never a URL with credentials.
+   * Relative key in the private asset library or instance bucket. Traversal segments, absolute paths, and URLs with credentials are forbidden.
    */
   hash_manifest?: string;
   /**
