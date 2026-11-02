@@ -45,7 +45,7 @@ describe('migrate', () => {
         '20261102033839_scope_sessions.sql',
         '20261102050906_usage_samples.sql',
         '20261102054226_merge_plans.sql',
-        '20261102073547_scope_session_revisions.sql',
+        '20261102083823_scope_session_revisions.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -77,7 +77,7 @@ describe('migrate', () => {
       'migration:20261102033839_scope_sessions.sql',
       'migration:20261102050906_usage_samples.sql',
       'migration:20261102054226_merge_plans.sql',
-      'migration:20261102073547_scope_session_revisions.sql',
+      'migration:20261102083823_scope_session_revisions.sql',
     ]);
     sqlite.close();
   });
@@ -149,7 +149,7 @@ describe('migrate', () => {
 
   it('backfills the current agreement as revision one', () => {
     const dir = tempDir();
-    const migration = '20261102073547_scope_session_revisions.sql';
+    const migration = '20261102083823_scope_session_revisions.sql';
     for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file < migration)) {
       copyFileSync(join(MIGRATIONS_DIR, file), join(dir, file));
     }
