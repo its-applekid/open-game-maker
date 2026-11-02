@@ -65,3 +65,4 @@ export { defaultInputMapping, EditorCamera, RigSet };
 export type { EditorCameraOptions, ManifestInputOverrides, RigFactory, ThreeCameraRig, ThreeRigDeps };
 export { OcclusionController, type OcclusionKind } from './occlusion.js';
 export { phaserCameraPresets, type PhaserCameraPreset } from './phaser/presets.js';
+export { PhaserEditorCamera } from './phaser/editor.js';

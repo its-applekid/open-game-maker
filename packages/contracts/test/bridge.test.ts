@@ -105,6 +105,22 @@ describe('bridge contract', () => {
     expect(issuePaths(hostToGameSchema, message)).toEqual(['payload.f.playerIndex']);
   });
 
+  // Watchers switch Follow/Free through this host-only command; a game must never send it back.
+  it('round-trips editor.camera host → game in Zod and the emitted JSON Schema', () => {
+    for (const payload of [{ mode: 'follow' }, { mode: 'follow', target: 'player_0' }, { mode: 'free' }]) {
+      const message = { v: 1, id: 'c1', t: 'editor.camera', payload };
+      expect(hostToGameSchema.parse(JSON.parse(JSON.stringify(message)))).toEqual(message);
+      expect(bridgeJson(message)).toBe(true);
+      expect(gameToHostSchema.safeParse(message).success).toBe(false);
+    }
+    const bad = { v: 1, id: 'c2', t: 'editor.camera', payload: { mode: 'orbit' } };
+    expect(issuePaths(hostToGameSchema, bad)).toEqual(['payload.mode']);
+    expect(bridgeJson(bad)).toBe(false);
+    expect(issuePaths(hostToGameSchema, { ...bad, payload: { mode: 'follow', target: '' } })).toEqual([
+      'payload.target',
+    ]);
+  });
+
   it('builds envelopes with a literal type', () => {
     const ping = envelope('custom.ping', patchSchema.pick({ op: true }));
     expect(ping.safeParse({ v: 1, id: 'p', t: 'custom.ping', payload: { op: 'add' } }).success).toBe(true);

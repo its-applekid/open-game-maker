@@ -25,6 +25,7 @@ const editorApi = vi.hoisted(() => ({
 const host = vi.hoisted(() => {
   const controller = {
     applyDesign: vi.fn(),
+    camera: vi.fn(),
     dispose: vi.fn(),
     onEvent: vi.fn(() => vi.fn()),
     onPicked: vi.fn(() => vi.fn()),
@@ -307,6 +308,7 @@ describe('GameScreen', () => {
       t: 'design.tx',
       tx: { branchId: 'main', rev: 8, baseRev: 7, actor: 'owner', kind: 'manual', patches: [] },
     });
+    await waitFor(() => expect(host.controller.camera).toHaveBeenCalledWith('follow'));
     room.fake.setState({ phase: 'playing', phaseAt: 2_000 });
 
     await waitFor(() =>

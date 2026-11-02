@@ -23,6 +23,7 @@ export class EditorCamera implements CameraRig {
   private lastPointer = { x: 0, y: 0 };
   private readonly touches = new Map<number, { x: number; y: number }>();
   private previousPinch: { x: number; y: number; distance: number } | undefined;
+  private followed: { position(): Vec3 } | undefined;
 
   constructor(private readonly options: EditorCameraOptions) {
     this.id = options.view;
@@ -42,7 +43,14 @@ export class EditorCamera implements CameraRig {
   attach(): void {}
 
   update(): void {
+    if (this.followed) this.center.fromArray(this.followed.position());
     this.applyPose();
+  }
+
+  /** Track `target` each update (bridge `editor.camera` follow); `undefined` leaves the camera where it is, free. */
+  follow(target: { position(): Vec3 } | undefined): void {
+    this.followed = target;
+    this.update();
   }
 
   fit(bounds: { min: Vec3; max: Vec3 }): void {

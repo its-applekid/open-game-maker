@@ -232,6 +232,15 @@
   white-space: nowrap;
 }
 
+.watcher-camera {
+  pointer-events: auto;
+}
+
+.watcher-camera button[aria-pressed='true'] {
+  background: var(--yellow-b);
+  color: var(--dark);
+}
+
 .watcher-status {
   display: flex;
   min-width: 0;

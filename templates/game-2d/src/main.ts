@@ -18,6 +18,7 @@ async function main(): Promise<void> {
   });
   runtime.hooks.ready = false;
   runtime.onStep((dt, frames) => getGameContext().advance(dt, frames));
+  getGameContext().editing = () => runtime.mode === 'edit';
 
   const [{ bindLifecycle, createPhaserGame }, { Boot }, { Level }] = await Promise.all([
     import('@gm/sdk/phaser'),
