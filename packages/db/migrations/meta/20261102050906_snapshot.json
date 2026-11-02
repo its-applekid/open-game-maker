@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ec543e1d-b693-4d52-bd59-20a09c4d1238",
+  "id": "7199fe7d-6202-4b07-b43f-36747b77f8d4",
   "prevId": "8a07f54b-3f0c-4a07-a7b3-2004aa7917ef",
   "tables": {
     "app_meta": {
@@ -2338,6 +2338,20 @@
           "autoincrement": false,
           "default": 0
         },
+        "usage_coverage": {
+          "name": "usage_coverage",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "aiur_run_id": {
+          "name": "aiur_run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "aiur_repo": {
           "name": "aiur_repo",
           "type": "text",
@@ -2382,6 +2396,13 @@
         },
         "terminal_at": {
           "name": "terminal_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "released_at": {
+          "name": "released_at",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -3585,6 +3606,92 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "usage_samples": {
+      "name": "usage_samples",
+      "columns": {
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "run_id": {
+          "name": "run_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "repo": {
+          "name": "repo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "issue": {
+          "name": "issue",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "provider_reported_micro": {
+          "name": "provider_reported_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "api_equivalent_micro": {
+          "name": "api_equivalent_micro",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "coverage_status": {
+          "name": "coverage_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "observed_at": {
+          "name": "observed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "usage_samples_job_id_jobs_id_fk": {
+          "name": "usage_samples_job_id_jobs_id_fk",
+          "tableFrom": "usage_samples",
+          "tableTo": "jobs",
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "usage_samples_job_id_run_id_pk": {
+          "columns": ["job_id", "run_id"],
+          "name": "usage_samples_job_id_run_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "usage_samples_amounts": {
+          "name": "usage_samples_amounts",
+          "value": "\"usage_samples\".\"provider_reported_micro\" >= 0 AND \"usage_samples\".\"api_equivalent_micro\" >= 0"
+        }
+      }
+    },
     "reapply_reports": {
       "name": "reapply_reports",
       "columns": {
@@ -4623,167 +4730,6 @@
         "save_slots_head_revision_check": {
           "name": "save_slots_head_revision_check",
           "value": "\"save_slots\".\"head_revision\" >= 0"
-        }
-      }
-    },
-    "merge_plans": {
-      "name": "merge_plans",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "game_id": {
-          "name": "game_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "source_branch_id": {
-          "name": "source_branch_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "target_branch_id": {
-          "name": "target_branch_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "base_rev": {
-          "name": "base_rev",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "target_head_rev": {
-          "name": "target_head_rev",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "plan_json": {
-          "name": "plan_json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "landed_tx_id": {
-          "name": "landed_tx_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "rolled_back_tx_id": {
-          "name": "rolled_back_tx_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "merge_plans_game_id_index": {
-          "name": "merge_plans_game_id_index",
-          "columns": ["game_id"],
-          "isUnique": false
-        },
-        "merge_plans_target_branch_id_index": {
-          "name": "merge_plans_target_branch_id_index",
-          "columns": ["target_branch_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "merge_plans_game_id_games_id_fk": {
-          "name": "merge_plans_game_id_games_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "merge_plans_source_branch_id_branches_id_fk": {
-          "name": "merge_plans_source_branch_id_branches_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "branches",
-          "columnsFrom": ["source_branch_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "merge_plans_target_branch_id_branches_id_fk": {
-          "name": "merge_plans_target_branch_id_branches_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "branches",
-          "columnsFrom": ["target_branch_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "merge_plans_landed_tx_id_design_transactions_id_fk": {
-          "name": "merge_plans_landed_tx_id_design_transactions_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "design_transactions",
-          "columnsFrom": ["landed_tx_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "merge_plans_rolled_back_tx_id_design_transactions_id_fk": {
-          "name": "merge_plans_rolled_back_tx_id_design_transactions_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "design_transactions",
-          "columnsFrom": ["rolled_back_tx_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "merge_plans_base_rev_check": {
-          "name": "merge_plans_base_rev_check",
-          "value": "\"merge_plans\".\"base_rev\" >= 0"
-        },
-        "merge_plans_target_head_rev_check": {
-          "name": "merge_plans_target_head_rev_check",
-          "value": "\"merge_plans\".\"target_head_rev\" >= 0"
-        },
-        "merge_plans_status_check": {
-          "name": "merge_plans_status_check",
-          "value": "\"merge_plans\".\"status\" IN ('planned', 'resolving', 'previewing', 'landed', 'abandoned')"
-        },
-        "merge_plans_distinct_branches_check": {
-          "name": "merge_plans_distinct_branches_check",
-          "value": "\"merge_plans\".\"source_branch_id\" <> \"merge_plans\".\"target_branch_id\""
         }
       }
     },

@@ -46,6 +46,7 @@ function insertJob(
   id: string,
   issueNumber: number,
   state: 'queued' | 'admitted' | 'running' | 'done',
+  releasedAt: string | null = null,
 ) {
   deps.db
     .insert(schema.jobs)
@@ -73,6 +74,7 @@ function insertJob(
       createdAt: '2026-11-01T00:00:00.000Z',
       updatedAt: '2026-11-01T00:00:00.000Z',
       terminalAt: state === 'done' ? '2026-11-01T01:00:00.000Z' : null,
+      releasedAt,
     })
     .run();
 }
@@ -84,6 +86,7 @@ describe('job projection directory', () => {
     insertJob(deps, 'j_admitted', 0, 'admitted');
     insertJob(deps, 'j_running', 142, 'running');
     insertJob(deps, 'j_done', 143, 'done');
+    insertJob(deps, 'j_released', 144, 'running', '2026-11-01T01:00:00.000Z');
 
     expect(byTicket(deps.db, 'owner-game', '142')).toEqual({ id: 'j_running', state: 'running' });
     expect(byTicket(deps.db, 'other-game', '142')).toBeNull();

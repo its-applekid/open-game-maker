@@ -88,7 +88,7 @@ export type ProjectionDeps = {
   events: AppEvents;
   lifecycle?: {
     markRunning(jobId: string): void;
-    markPaused(jobId: string, reason: 'over_reservation' | 'budget_exhausted' | 'admin'): void;
+    markPaused(jobId: string, reason: 'over_reservation' | 'budget_exhausted'): void;
     markTerminal(jobId: string, state: 'done' | 'failed' | 'cancelled'): void;
   };
   now?: () => Date;
@@ -217,9 +217,8 @@ function applyLifecycle(deps: ProjectionDeps, jobId: string, kind: string, paylo
       break;
     case 'paused': {
       const value = typeof payload.reason === 'string' ? payload.reason : '';
-      const reason =
-        value === 'over_reservation' ? 'over_reservation' : value.includes('budget') ? 'budget_exhausted' : 'admin';
-      deps.lifecycle.markPaused(jobId, reason);
+      if (value === 'over_reservation') deps.lifecycle.markPaused(jobId, 'over_reservation');
+      else if (value.includes('budget')) deps.lifecycle.markPaused(jobId, 'budget_exhausted');
       break;
     }
     case 'completed':
