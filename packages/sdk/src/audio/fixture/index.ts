@@ -3,7 +3,7 @@ import { createAudio, SpokenText, type GmAudio } from '../index.js';
 declare global {
   interface Window {
     __audio: GmAudio;
-    __playNarration(): Promise<string[]>;
+    __playNarration(): Promise<{ sentences: string[]; audioMs: number }>;
   }
 }
 
@@ -19,10 +19,15 @@ window.__playNarration = async () => {
     audioUrl: '/audio/hello.opus',
     alignmentUrl: '/audio/hello.alignment.json',
   });
+  const clock = window.__audio.context;
   return new Promise((resolve) => {
+    let started = clock.currentTime;
     spoken.play({
-      onSentence: (_index, sentence) => sentences.push(sentence),
-      onEnd: () => resolve(sentences),
+      onSentence: (index, sentence) => {
+        if (index === 0) started = clock.currentTime;
+        sentences.push(sentence);
+      },
+      onEnd: () => resolve({ sentences, audioMs: (clock.currentTime - started) * 1000 }),
     });
   });
 };

@@ -123,6 +123,14 @@ defmodule OgmVoice.NarrationHTTPTest do
     assert File.ls!(dir) == []
   end
 
+  test "a disabled host renders nothing, even with a provider configured", %{render_dir: dir} do
+    disabled = opts(dir, provider: "elevenlabs_agents", narration: :disabled)
+    conn = post(%{text: "hello", voice_id: "default", format: "pcm_24000"}, disabled)
+    assert conn.status == 501
+    assert Jason.decode!(conn.resp_body) == %{"error" => "narration_disabled"}
+    assert File.ls!(dir) == []
+  end
+
   test "requires the internal secret", %{render_dir: dir} do
     conn = conn(:post, "/internal/narration", Jason.encode!(%{text: "hello"}))
     conn = Router.call(conn, Router.init(opts(dir)))

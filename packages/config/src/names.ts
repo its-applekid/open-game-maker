@@ -211,6 +211,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'path',
     doc: 'temporary WAV render directory (default system temp/ogm-voice-renders)',
   },
+  {
+    name: 'OGM_VOICE_NARRATION_ENABLED',
+    unit: 'voice-host',
+    kind: 'bool',
+    doc: 'allow batch narration renders (default false; a provider key alone never renders)',
+  },
   { name: 'OGM_VOICE_WS_URL', unit: 'api', kind: 'string', doc: 'wss://applekid.tailee0e71.ts.net:8443/ws/voice' },
   { name: 'GM_VERIFY_SOFTWARE_GL', unit: 'gm', kind: 'bool', doc: 'gm run uses SwiftShader instead of the GPU (CI)' },
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },

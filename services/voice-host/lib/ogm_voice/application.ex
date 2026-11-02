@@ -33,9 +33,7 @@ defmodule OgmVoice.Application do
         {Bandit,
          plug:
            {OgmVoice.HTTP.Router,
-            secret: config.internal_secret,
-            provider: config.provider,
-            narration: fn -> OgmVoice.Config.narration(config) end},
+            secret: config.internal_secret, provider: config.provider, narration: narration(config)},
          scheme: :http,
          ip: {127, 0, 0, 1},
          port: config.internal_port,
@@ -44,4 +42,8 @@ defmodule OgmVoice.Application do
       )
     ]
   end
+
+  # Off unless OGM_VOICE_NARRATION_ENABLED is set: a provider key alone never starts a paid render.
+  defp narration(%OgmVoice.Config{narration_enabled: true} = config), do: fn -> OgmVoice.Config.narration(config) end
+  defp narration(_config), do: :disabled
 end

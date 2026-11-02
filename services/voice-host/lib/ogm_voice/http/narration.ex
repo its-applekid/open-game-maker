@@ -9,7 +9,9 @@ defmodule OgmVoice.HTTP.Narration do
     "pcm_44100" => :pcm_44100
   }
 
-  @spec render(map(), (-> keyword()) | nil) :: {pos_integer(), map()}
+  @spec render(map(), (-> keyword()) | :disabled | nil) :: {pos_integer(), map()}
+  def render(_request, :disabled), do: {501, %{error: "narration_disabled"}}
+
   def render(request, options) when is_map(request) and is_function(options, 0) do
     with {:ok, text, voice_id, format} <- validate(request),
          opts <- options.(),

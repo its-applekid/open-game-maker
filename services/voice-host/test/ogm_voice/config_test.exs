@@ -19,7 +19,8 @@ defmodule OgmVoice.ConfigTest do
              internal_port: 40401,
              max_sessions: 2,
              llm: "fake",
-             render_dir: "/tmp/ogm-voice-test-renders"
+             render_dir: "/tmp/ogm-voice-test-renders",
+             narration_enabled: false
            } = config
 
     assert [
@@ -32,6 +33,22 @@ defmodule OgmVoice.ConfigTest do
                required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
              }
            ] = Config.narration(config)
+  end
+
+  test "narration renders stay off until explicitly enabled, so a provider key alone never spends" do
+    assert %Config{narration_enabled: false} = Config.from_env!(Map.put(@env, "OGM_VOICE_NARRATION_ENABLED", ""))
+    assert %Config{narration_enabled: true} = Config.from_env!(Map.put(@env, "OGM_VOICE_NARRATION_ENABLED", "true"))
+
+    assert_raise Config.Error, ~r/OGM_VOICE_NARRATION_ENABLED/, fn ->
+      Config.from_env!(Map.put(@env, "OGM_VOICE_NARRATION_ENABLED", "yes"))
+    end
+
+    internal_http = fn config ->
+      config |> OgmVoice.Application.children() |> List.last() |> Map.fetch!(:start) |> elem(2) |> hd()
+    end
+
+    assert {_, opts} = Keyword.fetch!(internal_http.(Config.from_env!(@env)), :plug)
+    assert opts[:narration] == :disabled
   end
 
   test "boots from the env file ogm-env-init writes, where every non-secret name is blank" do

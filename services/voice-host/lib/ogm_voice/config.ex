@@ -32,7 +32,7 @@ defmodule OgmVoice.Config do
     :token_secret,
     :internal_secret
   ]
-  defstruct @enforce_keys
+  defstruct @enforce_keys ++ [narration_enabled: false]
 
   @type secret :: (-> String.t() | nil)
   @type t :: %__MODULE__{
@@ -43,6 +43,7 @@ defmodule OgmVoice.Config do
           max_sessions: pos_integer(),
           api_internal_url: String.t(),
           render_dir: Path.t(),
+          narration_enabled: boolean(),
           token_secret: secret(),
           internal_secret: secret()
         }
@@ -74,6 +75,7 @@ defmodule OgmVoice.Config do
       max_sessions: positive!(env, "OGM_VOICE_MAX_SESSIONS", "2"),
       api_internal_url: url!(env, "OGM_API_INTERNAL_URL"),
       render_dir: path!(env, "OGM_VOICE_RENDER_DIR", Path.join(System.tmp_dir!(), "ogm-voice-renders")),
+      narration_enabled: bool!(env, "OGM_VOICE_NARRATION_ENABLED", "false"),
       token_secret: fn -> System.get_env("OGM_VOICE_TOKEN_SECRET") end,
       internal_secret: fn -> System.get_env("OGM_VOICE_INTERNAL_SECRET") end
     }
@@ -159,6 +161,14 @@ defmodule OgmVoice.Config do
 
       _ ->
         fail!(name, "is missing or not an http(s) URL")
+    end
+  end
+
+  defp bool!(env, name, default) do
+    case get(env, name, default) do
+      value when value in ["true", "1"] -> true
+      value when value in ["false", "0"] -> false
+      _ -> fail!(name, "is not true, false, 1 or 0")
     end
   end
 
