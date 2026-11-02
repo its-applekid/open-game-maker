@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { createReadStream } from 'node:fs';
 import { lstat, readFile, realpath, stat } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { extname, isAbsolute, join, relative } from 'node:path';
 import { Readable } from 'node:stream';
 
 import { Hono } from 'hono';
@@ -47,17 +47,17 @@ type Imported = { previews?: { blob?: { thumb?: string } }; visibility?: 'privat
 
 function isInside(parent: string, candidate: string): boolean {
   const path = relative(parent, candidate);
-  return path === '' || (!path.startsWith('..') && !path.startsWith('/'));
+  return path === '' || (!path.startsWith('..') && !isAbsolute(path));
 }
 
 async function safeFile(root: string, path: string): Promise<ShowcaseFile | undefined> {
   try {
-    const [rootPath, info, resolved] = await Promise.all([realpath(root), lstat(path), realpath(path)]);
-    if (!info.isFile() || info.isSymbolicLink() || !isInside(rootPath, resolved)) return undefined;
+    const [info, resolved] = await Promise.all([lstat(path), realpath(path)]);
+    if (!info.isFile() || info.isSymbolicLink() || !isInside(root, resolved)) return undefined;
     const file = await stat(resolved);
-    const extension = [...MEDIA_MIME.keys()].find((suffix) => resolved.endsWith(suffix));
-    if (!extension) return undefined;
-    return { path: resolved, bytes: file.size, mime: MEDIA_MIME.get(extension)! };
+    const mime = MEDIA_MIME.get(extname(resolved));
+    if (!mime) return undefined;
+    return { path: resolved, bytes: file.size, mime };
   } catch {
     return undefined;
   }
@@ -76,8 +76,14 @@ async function discoverShowcase(
   setId: string,
 ): Promise<DiscoveredShowcase | undefined> {
   if (!assetsRoot || !loadFamilies().some((family) => family.sets.some((set) => set.id === setId))) return undefined;
+  let root: string;
+  try {
+    root = await realpath(assetsRoot);
+  } catch {
+    return undefined;
+  }
   const showcaseRoot = join(assetsRoot, 'sets', setId, 'showcase');
-  const sequenceFile = await safeFile(assetsRoot, join(showcaseRoot, 'sequence.json'));
+  const sequenceFile = await safeFile(root, join(showcaseRoot, 'sequence.json'));
   if (!sequenceFile) return undefined;
   let sequence: unknown;
   try {
@@ -93,13 +99,15 @@ async function discoverShowcase(
   const mediaRoot = join(showcaseRoot, 'out', 'media');
   const files = new Map<string, ShowcaseFile>();
   const add = async (name: string): Promise<string | undefined> => {
-    const file = await safeFile(assetsRoot, join(mediaRoot, name));
+    const file = await safeFile(root, join(mediaRoot, name));
     if (!file) return undefined;
     files.set(name, file);
     return mediaUrl(setId, name);
   };
-  const tileVideoUrl = await add('showcase.tiles-row.720.mp4');
-  const sheetVideoUrl = await add('showcase.sheets.720.mp4');
+  const [tileVideoUrl, sheetVideoUrl] = await Promise.all([
+    add('showcase.tiles-row.720.mp4'),
+    add('showcase.sheets.720.mp4'),
+  ]);
   const seen = new Set<string>();
   let startSeconds = 0;
   const apiStops: StyleShowcase['stops'] = [];
@@ -119,8 +127,10 @@ async function discoverShowcase(
       return undefined;
     seen.add(tile);
     const number = index + 1;
-    const tileFallbackUrl = await add(`${number}-${tile}.tile.256.gif`);
-    const sheetFallbackUrl = await add(`${number}-${sheet}.sheet.256.gif`);
+    const [tileFallbackUrl, sheetFallbackUrl] = await Promise.all([
+      add(`${number}-${tile}.tile.256.gif`),
+      add(`${number}-${sheet}.sheet.256.gif`),
+    ]);
     apiStops.push({
       id: tile,
       label: stopLabel(tile),

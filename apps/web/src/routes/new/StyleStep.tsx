@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 
 import { Icon } from '../../components/Icon';
 import { pickerFamilies, setsForFamily, type CatalogFamily, type StyleChoice } from './catalog';
@@ -33,7 +33,8 @@ export function StyleStep({
   const root = useRef<HTMLDivElement>(null);
   const focusTarget = useRef<FocusTarget | undefined>(undefined);
   const familyOptions = useMemo(() => pickerFamilies(families), [families]);
-  const visibleSets = view.kind === 'families' ? [] : setsForFamily(families, view.familyId);
+  const familyId = view.kind === 'families' ? undefined : view.familyId;
+  const visibleSets = useMemo(() => (familyId ? setsForFamily(families, familyId) : []), [families, familyId]);
 
   useEffect(() => {
     const target = focusTarget.current;
@@ -42,12 +43,15 @@ export function StyleStep({
     root.current?.querySelector<HTMLButtonElement>(`[data-style-${target.kind}="${target.id}"]`)?.focus();
   }, [view]);
 
-  const cycle = (offset: number) => {
-    if (view.kind !== 'detail' || visibleSets.length === 0) return;
-    const index = visibleSets.findIndex((choice) => choice.id === view.setId);
-    const next = visibleSets[(index + offset + visibleSets.length) % visibleSets.length]!;
-    setView({ ...view, setId: next.id });
-  };
+  const cycle = useCallback(
+    (offset: number) => {
+      if (view.kind !== 'detail' || visibleSets.length === 0) return;
+      const index = visibleSets.findIndex((choice) => choice.id === view.setId);
+      const next = visibleSets[(index + offset + visibleSets.length) % visibleSets.length]!;
+      setView({ ...view, setId: next.id });
+    },
+    [view, visibleSets],
+  );
 
   useEffect(() => {
     if (view.kind !== 'detail') return;
@@ -64,7 +68,7 @@ export function StyleStep({
     };
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  });
+  }, [cycle, view.kind]);
 
   const openFamily = (familyId: string) => {
     const choices = setsForFamily(families, familyId);

@@ -62,15 +62,7 @@ export function styleChoices(families: CatalogFamily[]): StyleChoice[] {
   return families.flatMap((family) => {
     if (!family.creationChoice) return [];
     if (family.sets.length === 0) {
-      return [
-        {
-          id: family.id,
-          label: family.label,
-          familyId: family.id,
-          views: family.views,
-          packs: family.packs,
-        },
-      ];
+      return [choiceForFamily(family)];
     }
     return family.sets.map((set) => choiceFor(family, set));
   });
@@ -88,14 +80,21 @@ export function pickerFamilies(families: CatalogFamily[]): PickerFamily[] {
 export function setsForFamily(families: CatalogFamily[], familyId: string): StyleChoice[] {
   const family = families.find((candidate) => candidate.id === familyId && candidate.creationChoice);
   if (!family) return [];
-  const direct =
-    family.sets.length > 0
-      ? family.sets.map((set) => choiceFor(family, set))
-      : [{ id: family.id, label: family.label, familyId: family.id, views: family.views, packs: family.packs }];
+  const direct = family.sets.length > 0 ? family.sets.map((set) => choiceFor(family, set)) : [choiceForFamily(family)];
   const aliased = families.flatMap((owner) =>
     owner.sets.filter((set) => set.pickerFamilies.includes(familyId)).map((set) => choiceFor(owner, set)),
   );
   return [...new Map([...direct, ...aliased].map((choice) => [choice.id, choice])).values()];
+}
+
+function choiceForFamily(family: CatalogFamily): StyleChoice {
+  return {
+    id: family.id,
+    label: family.label,
+    familyId: family.id,
+    views: family.views,
+    packs: family.packs,
+  };
 }
 
 function choiceFor(family: CatalogFamily, set: CatalogSet): StyleChoice {
