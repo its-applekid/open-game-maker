@@ -21,7 +21,7 @@ await build({
   logLevel: 'info',
 });
 await Promise.all(
-  ['index.html', 'sine.mp3', 'song.example.json'].map((name) =>
+  ['index.html', 'sine.mp3', 'song.example.json', 'hello.opus', 'hello.alignment.json'].map((name) =>
     copyFile(`${fixtureRoot}/${name}`, `${outdir}/${name}`),
   ),
 );

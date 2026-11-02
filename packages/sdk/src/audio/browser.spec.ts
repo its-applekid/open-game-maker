@@ -28,3 +28,12 @@ test('loads the optional Tone chunk only when song is called', async ({ page }) 
 
   expect(requests.filter((url) => url.includes('/chunks/')).length).toBeGreaterThan(chunksBeforeSong.length);
 });
+
+test('plays SpokenText through the unlocked voice bus', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Unlock audio' }).click();
+  await expect.poll(() => page.evaluate(() => window.__audio.status())).toBe('on');
+  const started = Date.now();
+  await expect(page.evaluate(() => window.__playNarration())).resolves.toEqual(['hello there little fox.']);
+  expect(Date.now() - started).toBeLessThan(1_500);
+});

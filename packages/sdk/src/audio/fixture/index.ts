@@ -1,8 +1,9 @@
-import { createAudio, type GmAudio } from '../index.js';
+import { createAudio, SpokenText, type GmAudio } from '../index.js';
 
 declare global {
   interface Window {
     __audio: GmAudio;
+    __playNarration(): Promise<string[]>;
   }
 }
 
@@ -10,3 +11,18 @@ window.__audio = createAudio({
   rng: () => 0.5,
   resolveUrl: (id) => `/${id}.mp3`,
 });
+
+window.__playNarration = async () => {
+  const sentences: string[] = [];
+  const spoken = await SpokenText.load({
+    key: 'fixture',
+    audioUrl: '/hello.opus',
+    alignmentUrl: '/hello.alignment.json',
+  });
+  return new Promise((resolve) => {
+    spoken.play({
+      onSentence: (_index, sentence) => sentences.push(sentence),
+      onEnd: () => resolve(sentences),
+    });
+  });
+};
