@@ -192,6 +192,11 @@ export const assetCardMetaDefs: Record<string, object> = {
         "type": "integer",
         "minimum": 1
       },
+      "retarget_rig_id": {
+        "type": "string",
+        "pattern": "^rig:[0-9a-f]{12}$",
+        "description": "A different rig whose clips play on this skeleton: every joint here exists there with the same parent; tracks for that rig's extra joints are dropped. Set when no clip library targets rig_id itself."
+      },
       "attach_points": {
         "type": "array",
         "items": {
@@ -3344,6 +3349,10 @@ export interface Rig {
    */
   rig_id: string;
   joint_count: number;
+  /**
+   * A different rig whose clips play on this skeleton: every joint here exists there with the same parent; tracks for that rig's extra joints are dropped. Set when no clip library targets rig_id itself.
+   */
+  retarget_rig_id?: string;
   attach_points?: {
     slot: "hand-right" | "hand-left" | "head" | "back" | "hip" | "root";
     joint: string;
