@@ -1,7 +1,7 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 
-import { apply } from '../src/apply.js';
+import { InvalidPatchError, apply } from '../src/apply.js';
 import { canonical } from '../src/canonical.js';
 import { ForkPointError, GapError, InvalidRevisionError, replay } from '../src/replay.js';
 import { baseDoc, branch, ids, setTx, transaction } from './helpers.js';
@@ -97,16 +97,32 @@ describe('replay', () => {
     );
   });
 
+  function replayMatchesDirectFold(values: readonly unknown[]): void {
+    const txs = values.map((value, index) => setTx(index + 1, value));
+    const run = () => replay({ baseDoc: baseDoc(), chain: [{ branch: branch(ids.branch, txs.length), txs }] }).doc;
+    let expected: string;
+    try {
+      expected = canonical(txs.reduce((doc, tx) => apply(doc, tx.patches), baseDoc()));
+    } catch (error) {
+      expect(error).toBeInstanceOf(InvalidPatchError);
+      expect((error as InvalidPatchError).errors.map(({ code }) => code)).toEqual(['reserved_key']);
+      expect(run).toThrow(InvalidPatchError);
+      return;
+    }
+    expect(canonical(run())).toBe(expected);
+  }
+
   it('matches a direct apply fold for arbitrary contiguous logs', () => {
-    fc.assert(
-      fc.property(fc.array(fc.jsonValue(), { maxLength: 30 }), (values) => {
-        const txs = values.map((value, index) => setTx(index + 1, value));
-        const expected = txs.reduce((doc, tx) => apply(doc, tx.patches), baseDoc());
-        expect(
-          canonical(replay({ baseDoc: baseDoc(), chain: [{ branch: branch(ids.branch, txs.length), txs }] }).doc),
-        ).toBe(canonical(expected));
+    fc.assert(fc.property(fc.array(fc.jsonValue(), { maxLength: 30 }), replayMatchesDirectFold), { numRuns: 200 });
+  });
+
+  it('rejects a reserved prototype key on both paths (fast-check seed 765022470)', () => {
+    replayMatchesDirectFold(JSON.parse('[[{"__proto__":{}}]]') as unknown[]);
+    expect(() =>
+      replay({
+        baseDoc: baseDoc(),
+        chain: [{ branch: branch(ids.branch, 1), txs: [setTx(1, JSON.parse('[{"__proto__":{}}]'))] }],
       }),
-      { numRuns: 200 },
-    );
+    ).toThrow(InvalidPatchError);
   });
 });

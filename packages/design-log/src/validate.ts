@@ -92,6 +92,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+// Path keys immer refuses to patch through.
+const RESERVED_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+// Immer's value clone assigns an own `__proto__` key as the prototype, so the applied value is no longer plain JSON.
+function hasProtoKey(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasProtoKey);
+  if (!isRecord(value)) return false;
+  return Object.keys(value).some((key) => key === '__proto__' || hasProtoKey(value[key]));
+}
+
 export function validatePatches(patches: readonly Patch[]): ValidationResult {
   const bytes = new TextEncoder().encode(canonical(patches)).byteLength;
   if (bytes > MAX_PATCH_BYTES) throw new PatchTooLargeError(bytes);
@@ -106,6 +116,14 @@ export function validatePatches(patches: readonly Patch[]): ValidationResult {
     }
     if (!Array.isArray(path) || (path[0] !== 'globals' && path[0] !== 'entities')) {
       errors.push({ path: errorPath, code: 'path_root' });
+      return;
+    }
+    if (path.some((part) => RESERVED_PATH_KEYS.has(String(part)))) {
+      errors.push({ path: errorPath, code: 'reserved_key' });
+      return;
+    }
+    if (hasProtoKey(patch.value)) {
+      errors.push({ path: `patches.${index}.value`, code: 'reserved_key' });
       return;
     }
     if (path[0] === 'entities') {
