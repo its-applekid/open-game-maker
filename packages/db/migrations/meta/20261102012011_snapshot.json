@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bad7ba05-f299-4821-9bd8-9eea1d46ef68",
+  "id": "063b2ffd-27f5-454c-a5ce-281cfc39afed",
   "prevId": "bec43698-aa50-49c9-b29f-8edc582f209e",
   "tables": {
     "app_meta": {
@@ -1982,7 +1982,7 @@
         },
         "branches_fork_point_check": {
           "name": "branches_fork_point_check",
-          "value": "(\"branches\".\"fork_parent_branch_id\" IS NULL AND \"branches\".\"fork_parent_rev\" IS NULL AND \"branches\".\"fork_git_sha\" IS NULL) OR (\"branches\".\"fork_parent_branch_id\" IS NOT NULL AND \"branches\".\"fork_parent_rev\" >= 0)"
+          "value": "(\"branches\".\"fork_parent_branch_id\" IS NULL AND \"branches\".\"fork_parent_rev\" IS NULL AND \"branches\".\"fork_git_sha\" IS NULL) OR (\"branches\".\"fork_parent_branch_id\" IS NOT NULL AND \"branches\".\"fork_parent_rev\" >= 0 AND \"branches\".\"fork_git_sha\" IS NOT NULL)"
         }
       }
     },
@@ -3582,6 +3582,82 @@
         }
       },
       "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "reapply_reports": {
+      "name": "reapply_reports",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "from_build_id": {
+          "name": "from_build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "to_build_id": {
+          "name": "to_build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "report_json": {
+          "name": "report_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "computed_at": {
+          "name": "computed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "reapply_reports_game_id_games_id_fk": {
+          "name": "reapply_reports_game_id_games_id_fk",
+          "tableFrom": "reapply_reports",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "reapply_reports_branch_id_branches_id_fk": {
+          "name": "reapply_reports_branch_id_branches_id_fk",
+          "tableFrom": "reapply_reports",
+          "tableTo": "branches",
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "reapply_reports_branch_id_to_build_id_pk": {
+          "columns": ["branch_id", "to_build_id"],
+          "name": "reapply_reports_branch_id_to_build_id_pk"
+        }
+      },
       "uniqueConstraints": {},
       "checkConstraints": {}
     }

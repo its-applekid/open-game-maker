@@ -18,6 +18,7 @@ export * from './assets.js';
 export type { InputFrame, Phase } from './room.js';
 export type { Patch } from './bridge.js';
 export * from './job-bundle.js';
+export * from './voice.js';
 export * from './design-log.js';
 export * from './branches.js';
 export * from './releases.js';

@@ -1,4 +1,4 @@
-import { tierSchema, type Tier } from '@ogm/contracts';
+import { tierSchema, type Tier } from '@ogm/contracts/assets';
 
 export const TIER_STORAGE_KEY = 'gm.tier';
 

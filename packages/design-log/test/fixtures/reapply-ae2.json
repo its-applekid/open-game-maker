@@ -1,0 +1,29 @@
+{
+  "controls": [
+    "tuning.value0",
+    "tuning.value1",
+    "tuning.value2",
+    "tuning.value3",
+    "tuning.value4",
+    "tuning.value5",
+    "tuning.value6",
+    "tuning.value7",
+    "tuning.value8",
+    "tuning.value9",
+    "tuning.value10",
+    "tuning.value11",
+    "tuning.value12",
+    "tuning.value13",
+    "tuning.value14",
+    "tuning.value15",
+    "tuning.value16",
+    "tuning.value17",
+    "tuning.value18",
+    "tuning.value19",
+    "enemy.tint",
+    "bat.wingflaps",
+    "door.removed"
+  ],
+  "alias": { "enemy.tint": "enemy.color" },
+  "retired": ["bat.wingflaps"]
+}

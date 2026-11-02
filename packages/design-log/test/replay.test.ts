@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { apply } from '../src/apply.js';
 import { canonical } from '../src/canonical.js';
 import { ForkPointError, GapError, InvalidRevisionError, replay } from '../src/replay.js';
-import { baseDoc, branch, ids, setTx } from './helpers.js';
+import { baseDoc, branch, ids, setTx, transaction } from './helpers.js';
 
 describe('replay', () => {
   it('honours parent fork points before applying the branch suffix', () => {
@@ -56,6 +56,39 @@ describe('replay', () => {
     );
     expect(result.headRev).toBe(2);
     expect(result.doc.entities[ids.entity]?.props['door.locked']).toBe(2);
+  });
+
+  it('keeps append-only history while replaying only the active build segment', () => {
+    const nextBuild = 'build_01BX5ZZKBKACTAV9WEVGEMMVRZ';
+    const previous = transaction(1, [], [{ op: 'remove', path: ['entities', ids.entity] }]);
+    const switched = { ...transaction(2, [], []), baseBuildId: nextBuild };
+    const result = replay({
+      baseDoc: baseDoc(),
+      buildId: nextBuild,
+      chain: [{ branch: branch(ids.branch, 2), txs: [previous, switched] }],
+    });
+    expect(result.doc.entities[ids.entity]).toBeDefined();
+    expect(result.headRev).toBe(2);
+  });
+
+  it('starts at the latest switch marker when returning to a previous build', () => {
+    const nextBuild = 'build_01BX5ZZKBKACTAV9WEVGEMMVRZ';
+    const original = transaction(1, [], [{ op: 'add', path: ['globals', 'old.override'], value: true }]);
+    const away = {
+      ...transaction(2, [{ op: 'invoke', command: 'build.switch', args: { from: ids.build, to: nextBuild } }], []),
+      baseBuildId: nextBuild,
+    };
+    const back = transaction(
+      3,
+      [{ op: 'invoke', command: 'build.switch', args: { from: nextBuild, to: ids.build } }],
+      [],
+    );
+    const result = replay({
+      baseDoc: baseDoc(),
+      buildId: ids.build,
+      chain: [{ branch: branch(ids.branch, 3), txs: [original, away, back] }],
+    });
+    expect(result.doc.globals['old.override']).toBeUndefined();
   });
 
   it.each([-1, 1.5, Number.NaN])('rejects invalid requested revision %s', (revision) => {

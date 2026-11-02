@@ -12,6 +12,10 @@
       "types": "./dist/test/index.d.ts",
       "import": "./dist/test/index.js"
     },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
     "./assets": {
       "types": "./dist/assets/index.d.ts",
       "import": "./dist/assets/index.js"
@@ -31,6 +35,14 @@
     "./proc": {
       "types": "./dist/proc/index.d.ts",
       "import": "./dist/proc/index.js"
+    },
+    "./phaser": {
+      "types": "./dist/phaser/index.d.ts",
+      "import": "./dist/phaser/index.js"
+    },
+    "./three": {
+      "types": "./dist/three/index.d.ts",
+      "import": "./dist/three/index.js"
     }
   },
   "scripts": {
@@ -44,10 +56,12 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "0.21.0",
     "@ogm/contracts": "workspace:*",
     "@ogm/iframe-bridge": "workspace:*",
     "fastnoise-lite": "1.1.1",
     "meshoptimizer": "1.3.0",
+    "phaser": "4.2.1",
     "three": "0.186.1",
     "zzfx": "1.4.0",
     "zod": "4.6.7"

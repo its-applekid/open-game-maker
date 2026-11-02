@@ -37,7 +37,8 @@ describe('migrate', () => {
         '20261101194843_reports.sql',
         '20261101204433_rooms.sql',
         '20261101233648_job_tickets.sql',
-        '20261102014839_nullable_branch_fork_sha.sql',
+        '20261102012011_reapply_reports.sql',
+        '20261102021306_nullable_branch_fork_sha.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -61,7 +62,8 @@ describe('migrate', () => {
       'migration:20261101194843_reports.sql',
       'migration:20261101204433_rooms.sql',
       'migration:20261101233648_job_tickets.sql',
-      'migration:20261102014839_nullable_branch_fork_sha.sql',
+      'migration:20261102012011_reapply_reports.sql',
+      'migration:20261102021306_nullable_branch_fork_sha.sql',
     ]);
     sqlite.close();
   });
@@ -84,7 +86,7 @@ describe('migrate', () => {
 
   it('preserves branch history and leases while loosening the fork SHA constraint', () => {
     const dir = tempDir();
-    const migration = '20261102014839_nullable_branch_fork_sha.sql';
+    const migration = '20261102021306_nullable_branch_fork_sha.sql';
     for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file !== migration)) {
       copyFileSync(join(MIGRATIONS_DIR, file), join(dir, file));
     }
@@ -105,6 +107,8 @@ describe('migrate', () => {
          'build_1', '[]', '[]', '[]', '2026-11-01T16:00:00.000Z');
       INSERT INTO edit_leases (game_id, branch_id, holder_user_id, session_id, token, expires_at)
       VALUES ('g_1', 'b_1', 'u_1', 'session', 1, '2026-11-01T16:02:00.000Z');
+      INSERT INTO reapply_reports (game_id, branch_id, from_build_id, to_build_id, report_json, computed_at)
+      VALUES ('g_1', 'b_1', 'build_1', 'build_2', '{}', '2026-11-01T16:03:00.000Z');
     `);
 
     copyFileSync(join(MIGRATIONS_DIR, migration), join(dir, migration));
@@ -112,6 +116,7 @@ describe('migrate', () => {
     expect(sqlite.prepare('SELECT COUNT(*) FROM branches').pluck().get()).toBe(1);
     expect(sqlite.prepare('SELECT COUNT(*) FROM design_transactions').pluck().get()).toBe(1);
     expect(sqlite.prepare('SELECT COUNT(*) FROM edit_leases').pluck().get()).toBe(1);
+    expect(sqlite.prepare('SELECT COUNT(*) FROM reapply_reports').pluck().get()).toBe(1);
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     expect(() => sqlite.prepare("UPDATE design_transactions SET label = 'changed'").run()).toThrow(/append-only/);
     expect(() =>
