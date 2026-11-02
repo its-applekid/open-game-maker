@@ -1,5 +1,4 @@
-import { assetManifestSchema, type AssetManifest, type Tier } from '@ogm/contracts';
-import { MeshoptDecoder } from 'meshoptimizer/decoder';
+import { assetManifestSchema, type AssetManifest, type Tier } from '@ogm/contracts/assets';
 import {
   ImageBitmapLoader,
   SRGBColorSpace,
@@ -9,10 +8,10 @@ import {
   type Object3D,
   type WebGLRenderer,
 } from 'three';
-import { GLTFLoader, type GLTF } from 'three/addons/loaders/GLTFLoader.js';
-import type { KTX2Loader } from 'three/addons/loaders/KTX2Loader.js';
+import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
 import { AssetNotFound, AssetUnavailable } from './errors.js';
+import { createGltf, type GltfHandle } from '../three/gltf.js';
 
 type AssetEntry = AssetManifest['assets'][string];
 
@@ -79,7 +78,7 @@ export class AssetLoader {
   #manifest: AssetManifest | undefined;
   #manifestPromise: Promise<AssetManifest> | undefined;
   #renderer: WebGLRenderer | undefined;
-  #ktx2: Promise<KTX2Loader> | undefined;
+  #gltfDecoder: GltfHandle | undefined;
 
   constructor(options: AssetLoaderOptions) {
     this.tier = options.tier;
@@ -161,6 +160,7 @@ export class AssetLoader {
 
   attachRenderer(renderer: WebGLRenderer): void {
     this.#renderer = renderer;
+    this.#gltfDecoder = createGltf(renderer, { basisPath: this.#basisPath });
   }
 
   async #loadManifest(): Promise<AssetManifest> {
@@ -209,32 +209,13 @@ export class AssetLoader {
     const metadata = this.#loadedManifest().files[file];
     if (!metadata) throw new Error(`Asset file is missing from the manifest: ${file}`);
 
-    const loader = new GLTFLoader();
-    if (metadata.decoders.includes('meshopt')) loader.setMeshoptDecoder(MeshoptDecoder);
-    if (metadata.decoders.includes('ktx2')) {
-      if (!this.#renderer) {
-        throw new Error(`Asset file ${file} uses KTX2; call attachRenderer() before decoding it`);
-      }
-      loader.setKTX2Loader(await this.#ktx2Loader());
+    if (metadata.decoders.includes('ktx2') && !this.#renderer) {
+      throw new Error(`Asset file ${file} uses KTX2; call attachRenderer() before decoding it`);
     }
 
     const bytes = await this.#fetchFile(file);
-    return loader.parseAsync(bytes, new URL('.', new URL(file, this.#manifestUrl)).toString());
-  }
-
-  #ktx2Loader(): Promise<KTX2Loader> {
-    const renderer = this.#renderer;
-    if (!renderer) throw new Error('KTX2 decoding requires attachRenderer() first');
-    if (this.#ktx2) return this.#ktx2;
-
-    const request = import('three/addons/loaders/KTX2Loader.js').then(({ KTX2Loader }) =>
-      new KTX2Loader().setTranscoderPath(this.#basisPath).detectSupport(renderer),
-    );
-    this.#ktx2 = request.catch((error: unknown) => {
-      this.#ktx2 = undefined;
-      throw error;
-    });
-    return this.#ktx2;
+    this.#gltfDecoder ??= createGltf(this.#renderer, { basisPath: this.#basisPath });
+    return this.#gltfDecoder.decode(bytes, file, new URL('.', new URL(file, this.#manifestUrl)).toString());
   }
 }
 

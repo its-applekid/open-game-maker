@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "globals": {
+    "player.speed": 4,
+    "level.size": 12
+  },
+  "entities": {
+    "spawn_a": {
+      "id": "spawn_a",
+      "prefab": "spawn",
+      "level": "main",
+      "origin": "build",
+      "props": { "x": -3, "z": 0 }
+    },
+    "spawn_b": {
+      "id": "spawn_b",
+      "prefab": "spawn",
+      "level": "main",
+      "origin": "build",
+      "props": { "x": 3, "z": 0 }
+    }
+  }
+}

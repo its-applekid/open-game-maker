@@ -16,4 +16,16 @@ describe('health contract', () => {
   it('rejects negative uptime', () => {
     expect(() => HealthResponse.parse({ ok: true, service: 'api', version: '1', uptimeSec: -1 })).toThrow();
   });
+
+  it('accepts optional service health details', () => {
+    expect(
+      HealthResponse.parse({
+        ok: true,
+        service: 'api',
+        version: '1',
+        uptimeSec: 1,
+        details: { checkpoint_decisions: { ok: false } },
+      }).details,
+    ).toEqual({ checkpoint_decisions: { ok: false } });
+  });
 });

@@ -18,7 +18,7 @@ export type Briefing = {
   summary: string;
   current_task: string;
   next_steps: string[];
-  waiting_on: string | null;
+  waiting_on?: string;
   questions: string[];
   extra: { title: string; text: string }[];
   sections: { id: 'budget' | 'progress'; text: string }[];
@@ -115,7 +115,7 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
         : (game?.title ?? 'a new game'),
     current_task: target.kind === 'scope' ? 'Agreeing the scope' : (stage ?? 'No build running'),
     next_steps: target.kind === 'scope' ? ['Confirm the plan', 'Start the build or queue it for the reset'] : [],
-    waiting_on: job?.state === 'paused_budget' ? 'an admin' : null,
+    waiting_on: job?.state === 'paused_budget' ? 'an admin' : undefined,
     questions,
     extra: [{ title: 'Budget', text: budget }],
     sections: [

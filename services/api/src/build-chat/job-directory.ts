@@ -1,4 +1,4 @@
-import type { JobState } from '@ogm/contracts';
+import type { JobKind, JobState } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
 import { and, asc, eq, inArray, isNotNull } from 'drizzle-orm';
 
@@ -11,6 +11,7 @@ type ChatJobRow = {
   gameId: string;
   familyId: string;
   ownerId: string;
+  kind: JobKind;
   state: JobState;
   daemonSlug: string | null;
   issueNumber: number | null;
@@ -22,6 +23,7 @@ function toChatJob(row: ChatJobRow): ChatJob {
     gameId: row.gameId,
     familyId: row.familyId,
     ownerId: row.ownerId,
+    kind: row.kind,
     state: row.state,
     aiur:
       row.daemonSlug === null || row.issueNumber === null
@@ -36,6 +38,7 @@ export function createChatJobDirectory(db: Db): ChatJobDirectory {
     gameId: schema.jobs.gameId,
     familyId: schema.jobs.familyId,
     ownerId: schema.jobs.creatorId,
+    kind: schema.jobs.kind,
     state: schema.jobs.state,
     daemonSlug: schema.gameDaemons.slug,
     issueNumber: schema.jobs.aiurIssueNumber,

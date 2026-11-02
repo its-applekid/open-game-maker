@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "tiers": ["desktop", "mobile", "low"],
+  "files": {},
+  "assets": {}
+}

@@ -1,3 +1,7 @@
+import { useEffect, useState } from 'react';
+
+import { api } from '../../../lib/api/client';
+import { CheckpointCard, type CheckpointBudget } from '../checkpoint-card';
 import type { StreamedChatMessage } from '../stream';
 
 export function CheckpointRow({
@@ -8,23 +12,42 @@ export function CheckpointRow({
   messages: StreamedChatMessage[];
 }) {
   const checkpoint = message.checkpoint;
+  const [budget, setBudget] = useState<CheckpointBudget>();
+  const [answering, setAnswering] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void api<CheckpointBudget>(`/jobs/${encodeURIComponent(message.job_id)}/checkpoints/budget`)
+      .then((next) => {
+        if (active) setBudget(next);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [message.job_id, messages.length, checkpoint?.status]);
+
   if (!checkpoint) return message.text ? <p className="build-chat-row checkpoint">{message.text}</p> : null;
 
+  const answer = async (optionId: string) => {
+    setAnswering(true);
+    try {
+      await api(`/jobs/${encodeURIComponent(message.job_id)}/checkpoints/${encodeURIComponent(message.id)}/answer`, {
+        method: 'POST',
+        json: { option_id: optionId },
+      });
+    } catch {
+      setAnswering(false);
+    }
+  };
+
   return (
-    <article className="build-chat-row checkpoint" aria-label="Builder question">
-      <strong>{checkpoint.question}</strong>
-      <div className="build-chat-options">
-        {checkpoint.options.map((option) => {
-          const media = messages.find(({ id }) => id === option.media_id)?.media;
-          return (
-            <div className="build-chat-option" key={option.id}>
-              {media ? <img alt="" src={media.poster ?? media.url} /> : null}
-              <span>{option.label}</span>
-            </div>
-          );
-        })}
-      </div>
-      <small>{checkpoint.status === 'open' ? 'Waiting for your answer' : checkpoint.status}</small>
-    </article>
+    <CheckpointCard
+      message={message}
+      mediaById={(id) => messages.find((candidate) => candidate.id === id)}
+      budget={budget}
+      busy={answering}
+      onAnswer={(optionId) => void answer(optionId)}
+    />
   );
 }
