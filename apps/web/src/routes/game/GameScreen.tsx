@@ -13,10 +13,12 @@ import {
   releaseLease,
   type DesignSnapshot,
 } from '../../features/editor/api';
+import { EditorChrome } from '../../features/editor/EditorChrome';
 import { mountGameFrame, type GameFrameController, type GameFrameState } from '../../features/editor/frame';
 import { LeaseController } from '../../features/editor/lease';
 import { createEditorSession, type EditorSessionState } from '../../features/editor/session';
 import { connectTransactionStream } from '../../features/editor/stream';
+import { createIntent } from '../../features/editor/transactions';
 import { PlayEditBar } from './PlayEditBar';
 import './game.css';
 
@@ -172,6 +174,25 @@ export function GameScreen() {
         onAsk={() => setMode('edit')}
       />
       <div className="game-frame" ref={containerRef} />
+      {mode === 'edit' &&
+      frameState.manifest !== undefined &&
+      sessionView !== undefined &&
+      sessionStore !== undefined ? (
+        <EditorChrome
+          gameId={gameId}
+          manifest={frameState.manifest}
+          session={sessionView}
+          onCommand={(command) => {
+            const state = sessionStore.getState();
+            void state.submit(
+              createIntent(state.doc, [command], command.op === 'invoke' ? command.command : command.control),
+            );
+          }}
+          onTool={(tool) => sessionStore.getState().setTool(tool)}
+          onUndo={() => void sessionStore.getState().undo()}
+          onRedo={() => void sessionStore.getState().redo()}
+        />
+      ) : null}
       {frameState.bridgeState === 'error' ? (
         <div className="frame-error" role="alert">
           <button className="tap-primary" type="button" onClick={() => setFrameAttempt((attempt) => attempt + 1)}>

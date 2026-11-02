@@ -23,7 +23,15 @@ const host = vi.hoisted(() => {
     setSettings: vi.fn(),
     state: vi.fn(() => ({ bridgeState: 'connecting' as const, dropped: 0 })),
   };
-  return { controller, mountGameFrame: vi.fn(() => controller) };
+  return {
+    controller,
+    mountGameFrame: vi.fn(
+      (options?: { onState?(state: { bridgeState: 'ready'; dropped: number; manifest: unknown }): void }) => {
+        void options;
+        return controller;
+      },
+    ),
+  };
 });
 
 vi.mock('../../features/editor/api', () => editorApi);
@@ -130,5 +138,39 @@ describe('GameScreen', () => {
     renderGame('/g/game?test');
 
     await waitFor(() => expect((window.__ogmHost as OgmHost & { game?: { mode: string } }).game?.mode).toBe('play'));
+  });
+
+  it('renders manifest palette controls only in edit mode', async () => {
+    host.mountGameFrame.mockImplementationOnce((options) => {
+      queueMicrotask(() =>
+        options?.onState?.({
+          bridgeState: 'ready',
+          dropped: 0,
+          manifest: {
+            id: 'cellar',
+            sdk: '^1',
+            title: 'Goblin Cellar',
+            inputs: { actions: {} },
+            presentation: { orientation: 'any', minLogical: { w: 320, h: 180 }, fit: 'responsive' },
+            view: 'main',
+            dimension: '2d',
+            capabilities: [],
+            palette: {
+              categories: [{ id: 'actors', label: 'Actors', kind: 'items' }],
+              items: [{ prefab: 'skeleton', label: 'Skeleton', category: 'actors' }],
+            },
+            tools: ['select', 'place'],
+            gizmos: {},
+            saves: false,
+            overrides: { aliases: {}, retired: [] },
+          },
+        }),
+      );
+      return host.controller;
+    });
+
+    renderGame('/g/game?mode=edit');
+
+    expect(await screen.findByRole('button', { name: 'Skeleton' })).toBeVisible();
   });
 });
