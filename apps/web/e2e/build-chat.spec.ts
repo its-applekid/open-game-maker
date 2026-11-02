@@ -124,6 +124,70 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await expect(page.locator('.build-chat-panel')).toHaveCSS('height', '390px');
 });
 
+// #222: files reach the builder as attachment ids on the message; the composer only shows their names.
+test('attaches files with the button and by pasting an image, then sends them with the message', async ({ page }) => {
+  await installAuthRoutes(page, { signedIn: true });
+  const uploads: { type: string; name: string }[] = [];
+  const posts: unknown[] = [];
+  await installBuildRoutes(page, { posts });
+  await page.route('**/api/v1/jobs/*/chat/attachments', async (route) => {
+    const headers = route.request().headers();
+    const name = decodeURIComponent(headers['x-file-name'] ?? '');
+    uploads.push({ type: headers['content-type'] ?? '', name });
+    const image = (headers['content-type'] ?? '').startsWith('image/');
+    await json(
+      route,
+      {
+        id: `a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e${uploads.length.toString().padStart(2, '0')}`,
+        kind: image ? 'image' : 'text',
+        name,
+        mime: image ? 'image/webp' : 'text/markdown',
+        bytes: 9,
+      },
+      201,
+    );
+  });
+  await page.goto('/games?test');
+  await page.getByRole('button', { name: '1 build running, 50% done. Show progress' }).click();
+  await page.getByRole('button', { name: /Show each build/ }).click();
+  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByRole('button', { name: 'Attach files' }).click();
+  await (
+    await chooser
+  ).setFiles([
+    { name: 'door-notes.md', mimeType: 'text/markdown', buffer: Buffer.from('# Door\nMake it creak.\n') },
+    { name: 'blocked.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.7') },
+  ]);
+  const composer = page.locator('.build-chat-composer');
+  await expect(composer.getByRole('listitem')).toHaveText(['door-notes.md']);
+
+  const textbox = page.getByRole('textbox', { name: 'Message the builder' });
+  await textbox.evaluate((element) => {
+    const data = new DataTransfer();
+    data.items.add(new File([new Uint8Array([137, 80, 78, 71])], 'pasted-door.png', { type: 'image/png' }));
+    element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  await expect(composer.getByRole('listitem')).toHaveText(['door-notes.md', 'pasted-door.png']);
+
+  await textbox.fill('Use these for the door');
+  await page.getByRole('button', { name: 'Send' }).click();
+  await expect(composer.getByRole('listitem')).toHaveCount(0);
+  await expect
+    .poll(() => posts)
+    .toEqual([
+      {
+        text: 'Use these for the door',
+        attachments: ['a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01', 'a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e02'],
+      },
+    ]);
+  expect(uploads).toEqual([
+    { type: 'text/markdown', name: 'door-notes.md' },
+    { type: 'image/png', name: 'pasted-door.png' },
+  ]);
+});
+
 test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page, { brokenPicker: true });
@@ -135,7 +199,7 @@ test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   ).toBeVisible();
 });
 
-async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean } = {}) {
+async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean; posts?: unknown[] } = {}) {
   await page.route('**/api/v1/games', (route) =>
     json(route, {
       games: options.brokenPicker
@@ -163,6 +227,7 @@ async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean 
   await page.route('**/api/v1/jobs/*/chat*', async (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as { text: string };
+      options.posts?.push(body);
       return json(route, message('m_7', 'text', { actor: 'creator', text: body.text, at: new Date().toISOString() }));
     }
     const body = messages

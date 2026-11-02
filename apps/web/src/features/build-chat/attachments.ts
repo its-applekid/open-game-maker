@@ -3,7 +3,7 @@ import {
   MAX_IMAGE_ATTACHMENT_BYTES,
   MAX_TEXT_ATTACHMENT_BYTES,
   type ChatAttachment,
-} from '@ogm/contracts';
+} from '@ogm/contracts/browser';
 
 import { api } from '../../lib/api/client';
 

@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { ChatAttachment } from '@ogm/contracts';
 
@@ -9,17 +9,17 @@ const dictation: DictationPort = { pressStart: vi.fn(), pressEnd: vi.fn(), on: (
 
 afterEach(() => cleanup());
 
-function setup(overrides: { postText?: ReturnType<typeof vi.fn>; upload?: ReturnType<typeof vi.fn> } = {}) {
-  const postText = overrides.postText ?? vi.fn().mockResolvedValue({ id: 'm_1' });
-  const uploadAttachment =
-    overrides.upload ??
-    vi.fn(async (_jobId: string, file: File, type: string): Promise<ChatAttachment> => ({
-      id: `a_${file.name}`,
-      kind: type.startsWith('image/') ? 'image' : 'text',
-      name: file.name,
-      mime: type.startsWith('image/') ? 'image/webp' : 'text/markdown',
-      bytes: file.size,
-    }));
+type Props = Parameters<typeof Composer>[0];
+
+function setup(overrides: { postText?: Mock<Props['postText']> } = {}) {
+  const postText = overrides.postText ?? vi.fn<Props['postText']>().mockResolvedValue({ id: 'm_1' });
+  const uploadAttachment = vi.fn(async (_jobId: string, file: File, type: string): Promise<ChatAttachment> => ({
+    id: `a_${file.name}`,
+    kind: type.startsWith('image/') ? 'image' : 'text',
+    name: file.name,
+    mime: type.startsWith('image/') ? 'image/webp' : 'text/markdown',
+    bytes: file.size,
+  }));
   const view = render(
     <Composer
       jobId="j_1"
@@ -92,7 +92,10 @@ describe('Composer attachments', () => {
   });
 
   it('keeps the files after a failed post and reuses their uploads on retry', async () => {
-    const postText = vi.fn().mockRejectedValueOnce(new Error('offline')).mockResolvedValue({ id: 'm_1' });
+    const postText = vi
+      .fn<Props['postText']>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValue({ id: 'm_1' });
     const { uploadAttachment, pick } = setup({ postText });
     pick(markdown());
     fireEvent.click(screen.getByRole('button', { name: 'Send' }));
