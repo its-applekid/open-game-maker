@@ -1,4 +1,4 @@
-type ApiInit = RequestInit & { json?: unknown };
+export type ApiInit = RequestInit & { json?: unknown };
 
 export class ApiError extends Error {
   constructor(
@@ -11,30 +11,30 @@ export class ApiError extends Error {
 }
 
 export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
-  requireApiPath(path);
-
-  const { json, ...requestInit } = init;
-  const headers = new Headers(requestInit.headers);
-  let body = requestInit.body;
-
-  if (json !== undefined) {
-    headers.set('content-type', 'application/json');
-    body = JSON.stringify(json);
-  }
-
-  const response = await fetch(`/api/v1${path}`, {
-    ...requestInit,
-    body,
-    credentials: 'include',
-    headers,
-  });
-
+  const response = await apiFetch(path, init);
   const responseBody = await readBody(response);
   if (!response.ok) {
     throw new ApiError(response.status, responseBody);
   }
 
   return responseBody as T;
+}
+
+export function apiFetch(path: string, init: ApiInit = {}): Promise<Response> {
+  requireApiPath(path);
+  const { json, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
+  let body = requestInit.body;
+  if (json !== undefined) {
+    headers.set('content-type', 'application/json');
+    body = JSON.stringify(json);
+  }
+  return fetch(`/api/v1${path}`, {
+    ...requestInit,
+    body,
+    credentials: 'include',
+    headers,
+  });
 }
 
 export function sse(path: string): EventSource {

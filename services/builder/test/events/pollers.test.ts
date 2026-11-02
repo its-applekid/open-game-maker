@@ -1,11 +1,15 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { startFeedConsumers } from '../../src/events/index.js';
 import { daemon, harness, REPO, SLUG } from './helpers.js';
 
 const running: { stop(): Promise<void> }[] = [];
 afterEach(async () => {
-  for (const feed of running.splice(0)) await feed.stop();
+  try {
+    for (const feed of running.splice(0)) await feed.stop();
+  } finally {
+    vi.useRealTimers();
+  }
 });
 
 describe('pollers', () => {
@@ -36,14 +40,15 @@ describe('pollers', () => {
   });
 
   it('runs the progress poll on its 30 s interval', async () => {
+    vi.useFakeTimers();
     const h = harness();
     const feed = startFeedConsumers({
       ...h.deps,
       intervals: { reconcileMs: 1e9, progressMs: 20, issueMs: 1e9, decisionsMs: 1e9 },
     });
     running.push(feed);
-    await new Promise((resolve) => setTimeout(resolve, 70));
-    expect(h.clientFor(REPO).progress.mock.calls.length).toBeGreaterThanOrEqual(2);
+    await vi.advanceTimersByTimeAsync(40);
+    expect(h.clientFor(REPO).progress).toHaveBeenCalledTimes(2);
     expect(h.clientFor(REPO).issue).not.toHaveBeenCalled();
   });
 });

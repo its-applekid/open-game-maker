@@ -1,0 +1,221 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, Route, Routes } from 'react-router';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { OgmHost } from '../../app/testHook';
+
+const editorApi = vi.hoisted(() => ({
+  acquireLease: vi.fn(),
+  getDesignSnapshot: vi.fn(),
+  getGame: vi.fn(),
+  getOptionalPublished: vi.fn(),
+  getOptionalReapply: vi.fn(),
+  getOptionalSaves: vi.fn(),
+  getSave: vi.fn(),
+  heartbeatLease: vi.fn(),
+  listJobs: vi.fn(),
+  openTransactionStream: vi.fn(),
+  postTransaction: vi.fn(),
+  putSave: vi.fn(),
+  releaseLease: vi.fn(),
+  submitReapply: vi.fn(),
+}));
+
+const host = vi.hoisted(() => {
+  const controller = {
+    applyDesign: vi.fn(),
+    dispose: vi.fn(),
+    onPicked: vi.fn(() => vi.fn()),
+    onScreen: vi.fn(() => vi.fn()),
+    pick: vi.fn(),
+    select: vi.fn(),
+    setMode: vi.fn(),
+    setSettings: vi.fn(),
+    validatePlacement: vi.fn().mockResolvedValue({ ok: true }),
+    state: vi.fn(() => ({ bridgeState: 'connecting' as const, dropped: 0 })),
+  };
+  return {
+    controller,
+    mountGameFrame: vi.fn(
+      (options?: { onState?(state: { bridgeState: 'ready'; dropped: number; manifest: unknown }): void }) => {
+        void options;
+        return controller;
+      },
+    ),
+  };
+});
+
+vi.mock('../../features/editor/api', () => editorApi);
+vi.mock('../../features/editor/frame', () => host);
+
+import { GameScreen } from './GameScreen';
+
+function renderGame(entry = '/g/game') {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={[entry]}>
+        <Routes>
+          <Route path="/g/:gameId" element={<GameScreen />} />
+          <Route path="/games" element={<h1>Games destination</h1>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+beforeEach(() => {
+  editorApi.getGame.mockResolvedValue({ id: 'game', title: 'Goblin Cellar' });
+  editorApi.getOptionalPublished.mockResolvedValue({ available: false });
+  editorApi.listJobs.mockResolvedValue({ jobs: [] });
+  editorApi.getDesignSnapshot.mockResolvedValue({
+    rev: 4,
+    buildId: 'build',
+    doc: { schemaVersion: 1, globals: {}, entities: {} },
+  });
+  editorApi.acquireLease.mockResolvedValue({
+    ok: true,
+    lease: { token: 3, expiresAt: '2026-11-02T03:00:00.000Z' },
+  });
+  editorApi.heartbeatLease.mockResolvedValue({
+    ok: true,
+    lease: { token: 3, expiresAt: '2026-11-02T03:01:00.000Z' },
+  });
+  editorApi.releaseLease.mockResolvedValue({
+    ok: true,
+    lease: { token: 3, expiresAt: '2026-11-02T03:01:00.000Z' },
+  });
+  editorApi.postTransaction.mockResolvedValue({ ok: true, rev: 5 });
+  editorApi.openTransactionStream.mockReturnValue({
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    close: vi.fn(),
+  });
+  host.controller.state.mockReturnValue({ bridgeState: 'connecting', dropped: 0 });
+});
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+  delete window.__ogmHost;
+});
+
+describe('GameScreen', () => {
+  it('defaults to main/play and preserves the prototype bar ordering', async () => {
+    renderGame();
+
+    expect(await screen.findByText('Goblin Cellar')).toBeVisible();
+    const buttons = screen.getAllByRole('button').map((button) => button.textContent?.trim());
+    expect(buttons.slice(0, 4)).toEqual(['Games', '▶ Play', '✎ Edit', 'Ask for a change']);
+    await waitFor(() =>
+      expect(host.mountGameFrame).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameId: 'game',
+          buildId: 'build',
+          mode: 'play',
+          gamesOrigin: 'http://127.0.0.1:10000',
+        }),
+      ),
+    );
+  });
+
+  it('shares mode in the query and acquires an edit lease', async () => {
+    renderGame();
+    await screen.findByText('Goblin Cellar');
+
+    fireEvent.click(screen.getByRole('button', { name: /edit/i }));
+
+    await waitFor(() => expect(editorApi.acquireLease).toHaveBeenCalledWith('game', 'main', expect.any(String)));
+    expect(host.controller.setMode).toHaveBeenCalledWith('edit');
+  });
+
+  it('reports a denied edit lease as read only', async () => {
+    editorApi.acquireLease.mockResolvedValue({ ok: false, kind: 'lease-lost', holder: 'other-session' });
+
+    renderGame('/g/game?mode=edit');
+
+    expect(await screen.findByText('Read only')).toBeVisible();
+  });
+
+  it('marks and mounts the current release as published', async () => {
+    editorApi.getOptionalPublished.mockResolvedValue({
+      available: true,
+      modified: true,
+      etag: '"release"',
+      value: { buildId: 'build' },
+    });
+
+    renderGame();
+
+    expect(await screen.findByText('Published')).toBeVisible();
+    await waitFor(() =>
+      expect(host.mountGameFrame).toHaveBeenLastCalledWith(expect.objectContaining({ build: 'published' })),
+    );
+  });
+
+  it('disposes the frame before returning to Games', async () => {
+    renderGame();
+    await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalled());
+    fireEvent.click(await screen.findByRole('button', { name: 'Games' }));
+
+    expect(await screen.findByRole('heading', { name: 'Games destination' })).toBeVisible();
+    expect(host.controller.dispose).toHaveBeenCalled();
+  });
+
+  it('exposes live game state directly under the test hook', async () => {
+    const baseHost: OgmHost = {
+      version: 1,
+      route: () => '/g/game',
+      navigate: vi.fn(),
+      register: vi.fn(),
+      get: vi.fn(),
+      snapshot: () => ({ route: '/g/game', registered: [] }),
+    };
+    window.__ogmHost = baseHost;
+    renderGame('/g/game?test');
+
+    await waitFor(() =>
+      expect((window.__ogmHost as OgmHost & { game?: { headRev: number; mode: string } }).game).toMatchObject({
+        headRev: 4,
+        mode: 'play',
+      }),
+    );
+  });
+
+  it('renders manifest palette controls only in edit mode', async () => {
+    host.mountGameFrame.mockImplementationOnce((options) => {
+      queueMicrotask(() =>
+        options?.onState?.({
+          bridgeState: 'ready',
+          dropped: 0,
+          manifest: {
+            id: 'cellar',
+            sdk: '^1',
+            title: 'Goblin Cellar',
+            inputs: { actions: {} },
+            presentation: { orientation: 'any', minLogical: { w: 320, h: 180 }, fit: 'responsive' },
+            view: 'main',
+            dimension: '2d',
+            capabilities: [],
+            palette: {
+              categories: [{ id: 'actors', label: 'Actors', kind: 'items' }],
+              items: [{ prefab: 'skeleton', label: 'Skeleton', category: 'actors' }],
+            },
+            tools: ['select', 'place'],
+            gizmos: {},
+            playLabel: 'Enter crypt',
+            saves: false,
+            overrides: { aliases: {}, retired: [] },
+          },
+        }),
+      );
+      return host.controller;
+    });
+
+    renderGame('/g/game?mode=edit');
+
+    expect(await screen.findByRole('button', { name: 'Skeleton' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '▶ Enter crypt' })).toBeVisible();
+  });
+});

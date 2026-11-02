@@ -129,6 +129,31 @@ describe('search', () => {
     ]);
   });
 
+  it('indexes rig and standalone animation clip names and canonical actions', () => {
+    expect(ids({ words: ['drive'] })).toContain(ORC);
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base) throw new Error('fixture model missing');
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig-medium-general@7',
+      title: 'Rig Medium General',
+      kind: 'anim' as const,
+      subkind: 'humanoid',
+      geometry: undefined,
+      rig: undefined,
+      anim: {
+        target_rig_id: 'rig:0123456789ab',
+        clips: [
+          { name: 'Idle_A', duration_s: 1.5, canonical: 'idle' as const, loop: true },
+          { name: 'Melee_1H_Attack', duration_s: 0.4, canonical: 'attack-melee' as const, loop: false },
+        ],
+      },
+    };
+    const animationIndex = { ...index, cards: [library] };
+    expect(search(animationIndex, { words: ['idle'] }).map((card) => card.id)).toEqual([library.id]);
+    expect(search(animationIndex, { words: ['attack'] }).map((card) => card.id)).toEqual([library.id]);
+  });
+
   it('applies --limit after ranking', () => {
     expect(search(index, { words: [], limit: 2 })).toHaveLength(2);
     expect(search(index, { words: [] }).length).toBeGreaterThan(2);

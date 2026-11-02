@@ -18,6 +18,7 @@ import {
   type VoiceTarget,
 } from '../../src/voice/briefing-push.js';
 import { ids, NOW, worked } from '../budget/fixture.js';
+import { makeApiEnv } from '../env-fixture.js';
 
 const SECRET = 'voice-internal-secret-for-tests';
 const defaults = { dailyAllowanceMicroUsd: 5_000_000, resetZone: 'America/Los_Angeles' };
@@ -347,26 +348,7 @@ describe('subscriptions', () => {
 });
 
 describe('voice host env', () => {
-  const baseEnv = {
-    OGM_API_PORT: '4000',
-    OGM_DATA_DIR: '/tmp/ogm-test',
-    OGM_INTERNAL_TOKEN: 'internal-token-for-tests-0123456789',
-    OGM_JOB_TOKEN_SECRET: 'job-token-secret-for-tests-0123456789',
-    OGM_BLOB_ROOT: '/tmp/ogm-blobs-test',
-    OGM_BLOB_SIGNING_KEY: 'blob-signing-key-for-tests-with-32-bytes',
-    OGM_PUBLIC_ORIGIN: 'https://api.example.test',
-    OGM_APP_ORIGIN: 'https://app.example.test',
-    OGM_BUILDER_BOT_TOKEN: 'builder-bot-token-for-tests-0123456789',
-    OGM_BUILDER_BOT_LOGIN: 'ogm-builder-bot',
-    OGM_INTAKE_GITHUB_TOKEN: 'intake-github-token-for-tests-0123456789',
-    OGM_INTAKE_BOT_LOGIN: 'ogm-intake-bot',
-    OGM_ROOMS_INTERNAL_URL: 'http://127.0.0.1:4302',
-    OGM_ROOMS_INTERNAL_SECRET: 'rooms-internal-secret-for-tests',
-    OGM_WS_TOKEN_SECRET: 'room-grant-secret-for-tests-with-32-bytes',
-    OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
-    OGM_COMMIT_SERVICE_TOKEN: 'commit-service-token-for-tests',
-    OGM_VAPID_SUBJECT: 'operator@example.test',
-  };
+  const baseEnv = makeApiEnv();
 
   it('sends the secret only to a loopback voice host', () => {
     expect(
