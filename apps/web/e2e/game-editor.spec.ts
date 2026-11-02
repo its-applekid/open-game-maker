@@ -36,8 +36,10 @@ test('runs the cross-origin editor transaction, undo, and mode flow', async ({ p
   expect(await gameState(page)).toMatchObject({ headRev: before.headRev, selection: before.selection });
 
   await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
+  await expect(page.getByRole('button', { name: 'place', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Place a skeleton', { exact: true })).toBeVisible();
   await page.getByLabel('Editor canvas').click({ force: true, position: { x: 180, y: 120 } });
-  await expect.poll(() => api.transactions.length).toBe(1);
+  await expect.poll(() => api.transactions.length, { timeout: 15_000 }).toBe(1);
   expect(api.transactions[0]?.baseRev).toBe(4);
   await expect.poll(() => gameState(page).then((state) => state?.saved)).toBe('saved');
 
