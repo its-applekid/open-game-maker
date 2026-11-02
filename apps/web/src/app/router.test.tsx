@@ -20,6 +20,7 @@ const routeTable = [
   '/admin/invites',
   '/admin/budgets',
   '/admin/builds',
+  '/admin/builds/job-1',
   '/admin/intake',
   '/settings',
 ];

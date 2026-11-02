@@ -1,22 +1,25 @@
-import { Outlet } from 'react-router';
-
 import type { ScreenRoute } from '../../app/screen';
+import { AdminLayout } from './AdminLayout';
+import { Budgets } from './Budgets';
+import { Intake } from './Intake';
+import { Invites } from './Invites';
+import { Members } from './Members';
+import { Oversight } from './Oversight';
+import { BuildDetail } from './builds/BuildDetail';
+import { BuildsList } from './builds/BuildsList';
 
 export const route: ScreenRoute = {
   path: '/admin',
-  element: (
-    <>
-      <h1>Admin</h1>
-      <Outlet />
-    </>
-  ),
+  element: <AdminLayout />,
   chrome: 'app',
   auth: 'required',
   children: [
-    { path: 'members', element: <h2>Members</h2> },
-    { path: 'invites', element: <h2>Invites</h2> },
-    { path: 'budgets', element: <h2>Budgets</h2> },
-    { path: 'builds', element: <h2>Builds</h2> },
-    { path: 'intake', element: <h2>Intake</h2> },
+    { path: '', element: <Oversight /> },
+    { path: 'members', element: <Members /> },
+    { path: 'invites', element: <Invites /> },
+    { path: 'budgets', element: <Budgets /> },
+    { path: 'builds', element: <BuildsList /> },
+    { path: 'builds/:jobId', element: <BuildDetail /> },
+    { path: 'intake', element: <Intake /> },
   ],
 };

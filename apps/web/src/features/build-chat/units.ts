@@ -1,8 +1,8 @@
 const MICRO_USD_PER_UNIT = 1_000_000;
 
-export function formatUnits(microUsd: number, unitLabel: string): string {
+export function formatUnits(microUsd: number, unitLabel: string, microUsdPerUnit = MICRO_USD_PER_UNIT): string {
   const unit = singular(unitLabel);
-  const value = Math.max(0, microUsd) / MICRO_USD_PER_UNIT;
+  const value = Math.max(0, microUsd) / Math.max(1, microUsdPerUnit);
   const label = value === 1 ? unit : plural(unit);
 
   return `${formatValue(value)} ${label}`;

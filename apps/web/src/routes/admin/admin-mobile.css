@@ -1,0 +1,101 @@
+@media (max-width: 600px) {
+  .admin-shell {
+    padding-top: 18px;
+  }
+
+  .admin-table-wrap {
+    overflow: visible;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+
+  .admin-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table tbody {
+    display: grid;
+    gap: 14px;
+  }
+
+  .admin-table tr {
+    overflow: hidden;
+    border: 1px solid var(--rule);
+    border-radius: var(--r);
+    background: var(--paper);
+    box-shadow: var(--pop-sm);
+  }
+
+  .admin-table td,
+  .admin-table tbody tr:last-child td {
+    display: grid;
+    grid-template-columns: minmax(7rem, 0.8fr) minmax(0, 1.2fr);
+    align-items: center;
+    gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid var(--rule);
+    text-align: right;
+  }
+
+  .admin-table td:last-child {
+    border-bottom: 0;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 0.75rem;
+    font-weight: 900;
+    letter-spacing: 0.07em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .admin-row-actions {
+    justify-content: end;
+  }
+
+  .admin-title-row {
+    align-items: start;
+  }
+
+  .admin-title-row:not(:has(> div)) {
+    display: grid;
+  }
+
+  .admin-timeline-section,
+  .admin-rollups {
+    padding: 16px;
+  }
+
+  .admin-activity-row,
+  .admin-rollup-row {
+    grid-template-columns: 1fr 4rem;
+  }
+
+  .admin-activity-track,
+  .admin-rollup-row svg {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .admin-rollup-row strong,
+  .admin-activity-row strong {
+    grid-column: 2;
+    grid-row: 1;
+  }
+}
