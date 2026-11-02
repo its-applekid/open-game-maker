@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 describe('game abuse flag schema', () => {
-  it('chains the generated migration after releases at journal index 24', () => {
+  it('chains the generated migration after releases', () => {
     const journal = JSON.parse(readFileSync(new URL('../migrations/meta/_journal.json', import.meta.url), 'utf8')) as {
       entries: Array<{ idx: number; tag: string }>;
     };
@@ -24,7 +24,10 @@ describe('game abuse flag schema', () => {
       readFileSync(new URL('../migrations/meta/20261102160540_snapshot.json', import.meta.url), 'utf8'),
     ) as { prevId: string };
 
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 24, tag: '20261102160540_game_abuse_flags' });
+    expect(journal.entries.find((entry) => entry.tag === '20261102160540_game_abuse_flags')).toMatchObject({
+      idx: 24,
+      tag: '20261102160540_game_abuse_flags',
+    });
     expect(snapshot.prevId).toBe(previous.id);
   });
 

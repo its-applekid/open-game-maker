@@ -27,6 +27,24 @@ export const ChatCheckpoint = z.object({
   option_id: z.string().optional(),
 });
 
+// Files a creator attaches to a chat message (#222). Images keep #214's 10 MiB cap and are re-encoded to WebP on upload;
+// text files are UTF-8 and capped at 64 KB. Upload each with POST /api/v1/jobs/:jobId/chat/attachments, then name the
+// returned ids in the message's `attachments`.
+export const MAX_CHAT_ATTACHMENTS = 8;
+export const MAX_TEXT_ATTACHMENT_BYTES = 64 * 1024;
+export const MAX_IMAGE_ATTACHMENT_BYTES = 10 * 1024 * 1024;
+export const TEXT_ATTACHMENT_TYPES = ['text/plain', 'text/markdown', 'application/json'] as const;
+export const ChatAttachmentKind = z.enum(['image', 'text']);
+export const ChatAttachment = z
+  .object({
+    id: Id,
+    kind: ChatAttachmentKind,
+    name: z.string().min(1).max(200),
+    mime: z.enum(['image/webp', ...TEXT_ATTACHMENT_TYPES]),
+    bytes: z.number().int().positive().max(MAX_IMAGE_ATTACHMENT_BYTES),
+  })
+  .strict();
+
 export const BuildChatMessage = z.object({
   id: ChatMessageId,
   job_id: Id,
@@ -36,6 +54,7 @@ export const BuildChatMessage = z.object({
   text: z.string().optional(),
   media: ChatMedia.optional(),
   checkpoint: ChatCheckpoint.optional(),
+  attachments: z.array(ChatAttachment).max(MAX_CHAT_ATTACHMENTS).optional(),
   aiur: z
     .object({ ticket: z.string(), event_id: z.number().int().optional(), topic: z.string().optional() })
     .optional(),
@@ -93,7 +112,21 @@ export const ChatPostPayload = z.discriminatedUnion('kind', [
 ]);
 
 // POST /api/v1/jobs/:jobId/chat. aiur caps an operator message at 8,000 characters.
-export const ChatPostBody = z.object({ text: z.string().regex(/\S/).trim().min(1).max(8000) }).strict();
+// `text` may be left out only when the message carries attachments.
+export const ChatPostBody = z
+  .object({
+    text: z.string().regex(/\S/).trim().min(1).max(8000).optional(),
+    attachments: z.array(Id).min(1).max(MAX_CHAT_ATTACHMENTS).optional(),
+  })
+  .strict()
+  .refine((body) => body.text !== undefined || body.attachments !== undefined, {
+    message: 'text or attachments is required',
+    path: ['text'],
+  })
+  .refine((body) => new Set(body.attachments ?? []).size === (body.attachments?.length ?? 0), {
+    message: 'attachment ids must be unique',
+    path: ['attachments'],
+  });
 
 // GET /api/v1/jobs/:jobId/chat/messages?since=<seq> → rows with seq > since, oldest first; pass `last_seq` back as `since`.
 // SSE: GET /api/v1/jobs/:jobId/chat?since=<seq> → "id: <seq>\nevent: message\ndata: <BuildChatMessage JSON>"; Last-Event-ID resumes.
@@ -106,6 +139,7 @@ export const ChatMessagesPage = z.object({
 export type BuildChatMessage = z.infer<typeof BuildChatMessage>;
 export type ChatMedia = z.infer<typeof ChatMedia>;
 export type ChatCheckpoint = z.infer<typeof ChatCheckpoint>;
+export type ChatAttachment = z.infer<typeof ChatAttachment>;
 export type AgentOutboxLine = z.infer<typeof AgentOutboxLine>;
 export type CheckpointOpenPayload = z.infer<typeof CheckpointOpenPayload>;
 export type ChatPostPayload = z.infer<typeof ChatPostPayload>;
@@ -119,4 +153,5 @@ export const chatSchemas = {
   'chat.post-payload.v1': ChatPostPayload,
   'chat.post.v1': ChatPostBody,
   'chat.messages.v1': ChatMessagesPage,
+  'chat.attachment.v1': ChatAttachment,
 } satisfies Record<string, z.ZodType>;

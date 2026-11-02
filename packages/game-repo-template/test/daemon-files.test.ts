@@ -139,6 +139,54 @@ describe('after_create hook', () => {
     expect(execFileSync('git', ['status', '--short', '--', '.gm'], { cwd: dir, encoding: 'utf8' })).toBe('');
   });
 
+  // Acceptance (#222): the creator's files are in the workspace before the worker starts, and a bundle entry that
+  // names a path outside the inbox is never fetched or written.
+  it('downloads the attachments the bundle lists into .gm/inbox/attachments', async () => {
+    const md = 'a_00000000-0000-4000-8000-000000000001';
+    const image = 'a_00000000-0000-4000-8000-000000000002';
+    const hostile = 'a_00000000-0000-4000-8000-000000000003';
+    const seen: string[] = [];
+    const base = await api((req, res) => {
+      seen.push(`${req.url} ${req.headers.authorization}`);
+      if (req.url === '/internal/jobs/by-ticket/12/bundle') {
+        res.end(
+          JSON.stringify({
+            v: 1,
+            skillPackVersion: '0.0.0-placeholder',
+            skillPackUrl: 'http://127.0.0.1:9/x.tgz',
+            attachments: [
+              { kind: 'text', blob: md, path: `.gm/inbox/attachments/${md}-notes.md` },
+              { kind: 'image', blob: image, path: `.gm/inbox/attachments/${image}-castle.webp` },
+              { kind: 'text', blob: hostile, path: 'AGENTS.md' },
+            ],
+          }),
+        );
+      } else if (req.url === `/internal/jobs/by-ticket/12/attachments/${md}`) {
+        res.end('# Castle\n');
+      } else if (req.url === `/internal/jobs/by-ticket/12/attachments/${image}`) {
+        res.end(Buffer.from([0x52, 0x49, 0x46, 0x46]));
+      } else {
+        res.statusCode = 404;
+        res.end();
+      }
+    });
+
+    const { dir, result } = await runHook({ OGM_INTERNAL_URL: base });
+    expect(result.stderr).not.toMatch(/SyntaxError|node:|attachments/);
+    expect(result.status).toBe(0);
+    expect(seen).toEqual([
+      `/internal/jobs/by-ticket/12/bundle Bearer ${SECRET}`,
+      `/internal/jobs/by-ticket/12/attachments/${md} Bearer ${SECRET}`,
+      `/internal/jobs/by-ticket/12/attachments/${image} Bearer ${SECRET}`,
+    ]);
+    expect(readFileSync(join(dir, `.gm/inbox/attachments/${md}-notes.md`), 'utf8')).toBe('# Castle\n');
+    expect(readFileSync(join(dir, `.gm/inbox/attachments/${image}-castle.webp`))).toEqual(
+      Buffer.from([0x52, 0x49, 0x46, 0x46]),
+    );
+    expect(readFileSync(join(dir, 'AGENTS.md'), 'utf8')).not.toContain('Castle');
+    expect(execFileSync('git', ['status', '--short'], { cwd: dir, encoding: 'utf8' })).toBe('');
+  });
+
   it('leaves the shipped skills alone when the pack version matches', async () => {
     const seen: string[] = [];
     const base = await api((req, res) => {

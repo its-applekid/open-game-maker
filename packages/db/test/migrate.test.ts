@@ -49,6 +49,7 @@ describe('migrate', () => {
         '20261102100555_report_triage.sql',
         '20261102110848_releases.sql',
         '20261102160540_game_abuse_flags.sql',
+        '20261102161607_chat_attachments.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -84,6 +85,7 @@ describe('migrate', () => {
       'migration:20261102100555_report_triage.sql',
       'migration:20261102110848_releases.sql',
       'migration:20261102160540_game_abuse_flags.sql',
+      'migration:20261102161607_chat_attachments.sql',
     ]);
     sqlite.close();
   });

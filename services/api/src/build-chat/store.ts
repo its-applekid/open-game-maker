@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import type { BlobHash } from '@ogm/blob-store';
-import { BuildChatMessage, type ChatCheckpoint } from '@ogm/contracts';
+import { BuildChatMessage, type ChatAttachment, type ChatCheckpoint } from '@ogm/contracts';
 import type { Sqlite } from '@ogm/db';
 
 export type ChatActor = BuildChatMessage['actor'];
@@ -160,7 +160,11 @@ export function updateCheckpoint(sqlite: Sqlite, id: string, patch: Partial<Stor
   })();
 }
 
-export async function toMessage(row: ChatRow, sign: MediaSigner): Promise<BuildChatMessage> {
+export async function toMessage(
+  row: ChatRow,
+  sign: MediaSigner,
+  attachments: ChatAttachment[] = [],
+): Promise<BuildChatMessage> {
   const media =
     row.mediaHash === null || row.width === null || row.height === null
       ? undefined
@@ -180,6 +184,7 @@ export async function toMessage(row: ChatRow, sign: MediaSigner): Promise<BuildC
     ...(row.text === null ? {} : { text: row.text }),
     ...(media === undefined ? {} : { media }),
     ...(row.checkpointJson === null ? {} : { checkpoint: JSON.parse(row.checkpointJson) as unknown }),
+    ...(attachments.length === 0 ? {} : { attachments }),
     ...(row.aiurTicket === null
       ? {}
       : {
