@@ -8,8 +8,9 @@ Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_ANALYTICS_RETENTION_DAYS` (def
 `OGM_INTERNAL_TOKEN`, `OGM_JOB_TOKEN_SECRET`, `OGM_BLOB_ROOT`, `OGM_BLOB_SIGNING_KEY`, `OGM_PUBLIC_ORIGIN`; the auth
 context adds `OGM_APP_ORIGIN`, `OGM_SESSION_SECRET`, `OGM_AGE_COOKIE_SECRET`, `OGM_WS_TOKEN_SECRET` and the optional
 `OGM_MAINTAINER_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_URL`, `SMTP_FROM` (see
-`docs/ops/netlify-proxy.md`), plus `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_GAME_TEMPLATE_REF`
-(defaults to `game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
+`docs/ops/netlify-proxy.md`). Room lifecycle calls add `OGM_ROOMS_INTERNAL_URL` and `OGM_ROOMS_INTERNAL_SECRET`.
+The API also reads `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_GAME_TEMPLATE_REF` (defaults to
+`game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
 `OGM_CHAT_POLL_MS` (default `10000`).
 Optional `OGM_ASSETS_ROOT` (the `assets-local/` library) gives `GET /api/catalog/style-families` its pack titles and
 thumbnails; without it packs are named by id.

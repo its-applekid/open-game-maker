@@ -86,14 +86,16 @@ describe('ogm-env-init', () => {
     expect(result.stdout).not.toContain(sharedSecret);
   });
 
-  it.each(['intake', 'drive-sync'])('creates %s files from shared rows before the unit owns a name', (unit) => {
+  it.each(['intake', 'drive-sync'])('creates %s files with their shared rows', (unit) => {
     const home = temporaryDirectory();
     const result = runInitializer(home, unit);
     const contents = readFileSync(join(home, '.config', 'ogm', 'env', `${unit}.env`), 'utf8');
 
     expect(result.status, result.stderr).toBe(0);
     expect(contents).toContain('OGM_PUBLIC_ORIGIN=');
+    expect(contents).toContain('OGM_ASSETS_ROOT=');
     expect(contents).toMatch(/^OGM_WS_TOKEN_SECRET=[a-f0-9]{64}$/m);
+    if (unit === 'intake') expect(contents).toContain('OGM_STATE_DIR=');
   });
 
   it('refuses a repository target when Git is unavailable', () => {

@@ -33,6 +33,7 @@
     "@ogm/game-repo-template": "workspace:*",
     "@ogm/health": "workspace:*",
     "@ogm/policy": "workspace:*",
+    "@ogm/room-protocol": "workspace:*",
     "better-auth": "1.7.15",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.16",

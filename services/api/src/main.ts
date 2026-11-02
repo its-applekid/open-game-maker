@@ -15,12 +15,14 @@ import { scanRoutes } from './app/routes-scan.js';
 import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
+import { startEstimateRefinement } from './budget/estimate.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { markPaused, markRunning, markTerminal } from './jobs/spend-cap.js';
+import { startBriefingPush } from './voice/briefing-push.js';
 
 const log = (line: LogLine) => console.log(JSON.stringify({ service: 'api', ...line }));
 
@@ -37,6 +39,10 @@ const deps: AppDeps = {
     jobTokenSecret: env.OGM_JOB_TOKEN_SECRET,
     blobSigningKey: env.OGM_BLOB_SIGNING_KEY,
     appOrigin: env.OGM_APP_ORIGIN,
+    publicOrigin: env.OGM_PUBLIC_ORIGIN,
+    roomsInternalUrl: env.OGM_ROOMS_INTERNAL_URL,
+    roomsInternalSecret: env.OGM_ROOMS_INTERNAL_SECRET,
+    roomGrantSecret: env.OGM_WS_TOKEN_SECRET,
     commitInternalUrl: env.OGM_COMMIT_INTERNAL_URL,
     commitServiceToken: env.OGM_COMMIT_SERVICE_TOKEN,
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,
@@ -48,6 +54,8 @@ const deps: AppDeps = {
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
+    intakeDir: env.OGM_INTAKE_DIR,
+    reportBundleMaxBytes: env.OGM_REPORT_BUNDLE_MAX_BYTES,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,
@@ -88,6 +96,18 @@ const stopAnalyticsRetention = startAnalyticsRetention({
   log,
 });
 const stopScheduler = startScheduler({ ...lifecycleDeps, log });
+const stopEstimateRefinement = startEstimateRefinement({ db, events: deps.events, log });
+const stopBriefingPush =
+  env.OGM_VOICE_HOST_INTERNAL_URL && env.OGM_VOICE_INTERNAL_SECRET
+    ? startBriefingPush({
+        db,
+        events: deps.events,
+        defaults: budgetDefaults,
+        url: env.OGM_VOICE_HOST_INTERNAL_URL,
+        secret: env.OGM_VOICE_INTERNAL_SECRET,
+        log,
+      })
+    : () => {};
 const feed = startFeedConsumers({
   fleet: daemonDirectory.fleet,
   db,
@@ -108,5 +128,7 @@ server.once('listening', () => log({ event: 'listening', host: API_HOST, port: e
 process.once('SIGTERM', () => {
   stopAnalyticsRetention();
   stopScheduler();
+  stopEstimateRefinement();
+  stopBriefingPush();
   void feed.stop().finally(() => server.close(() => sqlite.close()));
 });

@@ -16,6 +16,10 @@
       "types": "./dist/assets/index.d.ts",
       "import": "./dist/assets/index.js"
     },
+    "./audio": {
+      "types": "./dist/audio/index.d.ts",
+      "import": "./dist/audio/index.js"
+    },
     "./core": {
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
@@ -44,6 +48,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "node scripts/list-pixelfx.mjs --check && tsc -b",
     "test": "vitest run",
+    "test:browser": "tsx src/audio/fixture/build.ts && playwright test --config playwright.config.ts",
     "lint": "eslint src"
   },
   "dependencies": {
@@ -53,21 +58,29 @@
     "fastnoise-lite": "1.1.1",
     "meshoptimizer": "1.3.0",
     "three": "0.186.1",
+    "zzfx": "1.4.0",
     "zod": "4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/jsdom": "27.0.0",
     "@types/three": "0.186.0",
     "esbuild": "0.28.2",
     "jsdom": "27.4.0",
     "recast-navigation": "0.43.1",
+    "tone": "15.1.22",
+    "tsx": "4.23.15",
     "vitest": "5.0.5"
   },
   "peerDependencies": {
-    "recast-navigation": "0.43.1"
+    "recast-navigation": "0.43.1",
+    "tone": "15.1.22"
   },
   "peerDependenciesMeta": {
     "recast-navigation": {
+      "optional": true
+    },
+    "tone": {
       "optional": true
     }
   }
