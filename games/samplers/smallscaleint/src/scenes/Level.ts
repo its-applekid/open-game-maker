@@ -51,7 +51,8 @@ export class Level extends Phaser.Scene {
     if (this.privateMode) {
       for (const sheet of privateSheets) {
         const { width } = this.textures.get(sheet.key).getSourceImage();
-        if (width !== sheet.frameWidth * sheet.columns) throw new Error(`${sheet.key}: ${width}px wide, expected ${sheet.columns} x ${sheet.frameWidth}px frames`);
+        if (width !== sheet.frameWidth * sheet.columns)
+          throw new Error(`${sheet.key}: ${width}px wide, expected ${sheet.columns} x ${sheet.frameWidth}px frames`);
       }
     }
     this.cameras.main.setBackgroundColor(0x121820);
