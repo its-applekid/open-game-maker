@@ -2,7 +2,7 @@ import { chmodSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { getPriority } from 'node:os';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { assertWorkerRecord } from '../src/packs/tag.js';
 import { effectiveWorkers, runJsonWorker, workerEnvironment, WorkerError } from '../src/packs/workers.js';
@@ -98,5 +98,22 @@ describe('pack workers', () => {
         onRecord: () => undefined,
       }),
     ).rejects.toThrow(/128 bytes/);
+  });
+
+  it('names the missing local Python environment instead of spawning without it', async () => {
+    const directory = tempDir('gm-worker-missing-');
+    const program = join(directory, '.venv/bin/python');
+    const onRecord = vi.fn();
+    await expect(
+      runJsonWorker({
+        label: 'audio analysis',
+        program,
+        args: [],
+        cwd: directory,
+        env: workerEnvironment({ assetsRoot: directory, workers: 1, home: directory }),
+        onRecord,
+      }),
+    ).rejects.toThrow(`audio analysis: local Python environment is missing: ${program}`);
+    expect(onRecord).not.toHaveBeenCalled();
   });
 });

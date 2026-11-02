@@ -1,4 +1,3 @@
-import { access } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -80,9 +79,6 @@ async function executeStages(options: {
   limit: number;
   records: WorkerRecord[];
 }): Promise<void> {
-  await access(PYTHON).catch(() => {
-    throw new CommandError(`local Python environment is missing: ${PYTHON}`);
-  });
   const env = workerEnvironment({
     assetsRoot: options.assetsRoot,
     workers: options.workers,

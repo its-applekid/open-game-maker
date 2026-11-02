@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import { access, constants } from 'node:fs/promises';
 import { availableParallelism, homedir } from 'node:os';
 
 export type WorkerRecord = Record<string, unknown> & {
@@ -67,6 +68,9 @@ function asError(error: unknown): Error {
 export async function runJsonWorker(options: RunJsonWorkerOptions): Promise<WorkerResult> {
   const maxLineBytes = options.maxLineBytes ?? 64 * 1024;
   const maxStderrBytes = options.maxStderrBytes ?? 64 * 1024;
+  await access(options.program, constants.X_OK).catch(() => {
+    throw new WorkerError(`${options.label}: local Python environment is missing: ${options.program}`);
+  });
   const child = spawn('nice', ['-n', '10', options.program, ...options.args], {
     cwd: options.cwd,
     env: options.env,
