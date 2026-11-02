@@ -53,7 +53,7 @@ CREATE TABLE `override_snapshots` (
 	CONSTRAINT "override_snapshots_head_rev_check" CHECK("override_snapshots"."head_rev" >= 0)
 );
 --> statement-breakpoint
-CREATE UNIQUE INDEX `override_snapshots_game_build_hash_unique` ON `override_snapshots` (`game_id`,`build_id`,`sha256`);--> statement-breakpoint
+CREATE UNIQUE INDEX `override_snapshots_game_build_hash_rev_unique` ON `override_snapshots` (`game_id`,`build_id`,`sha256`,`head_rev`);--> statement-breakpoint
 CREATE INDEX `override_snapshots_game_index` ON `override_snapshots` (`game_id`);--> statement-breakpoint
 CREATE TABLE `releases` (
 	`id` text PRIMARY KEY NOT NULL,

@@ -1,4 +1,4 @@
-import type { CommitResult } from '../types.js';
+import type { AuthenticatedGitHub, CommitResult, Repository } from '../types.js';
 import { GitHubRequestError } from '../github-request.js';
 import { refused } from '../result.js';
 import type { OperationContext } from './context.js';
@@ -33,9 +33,29 @@ export async function release(op: ExtractCommitOp<'release'>, context: Operation
     });
   } catch (error) {
     if (error instanceof GitHubRequestError && error.status === 422) {
-      return refused('denylist', 'tag exists');
+      const existing = await existingTagSha(github.request, repository, tag, op.sha);
+      return existing ? { ok: true, sha: existing } : refused('denylist', 'tag exists');
     }
     throw error;
   }
   return { ok: true, sha: created.data.sha };
+}
+
+/* A retried release whose earlier response was lost finds its own tag: same name, same commit. */
+async function existingTagSha(
+  request: AuthenticatedGitHub['request'],
+  repository: Repository,
+  tag: string,
+  commitSha: string,
+): Promise<string | null> {
+  const ref = await request<{ object: { sha: string; type: string } }>('GET /repos/{owner}/{repo}/git/ref/{ref}', {
+    ...repository,
+    ref: `tags/${tag}`,
+  });
+  if (ref.data.object.type !== 'tag') return null;
+  const object = await request<{ object: { sha: string } }>('GET /repos/{owner}/{repo}/git/tags/{tag_sha}', {
+    ...repository,
+    tag_sha: ref.data.object.sha,
+  });
+  return object.data.object.sha === commitSha ? ref.data.object.sha : null;
 }

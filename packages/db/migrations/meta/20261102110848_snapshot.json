@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1d86a60c-c1e8-49db-98bb-431d6e39095d",
+  "id": "8ce482e8-cf27-420f-aec6-3bb473c5c28e",
   "prevId": "c18c5463-528a-472c-ae1a-7af05ac89560",
   "tables": {
     "app_meta": {
@@ -5434,9 +5434,9 @@
         }
       },
       "indexes": {
-        "override_snapshots_game_build_hash_unique": {
-          "name": "override_snapshots_game_build_hash_unique",
-          "columns": ["game_id", "build_id", "sha256"],
+        "override_snapshots_game_build_hash_rev_unique": {
+          "name": "override_snapshots_game_build_hash_rev_unique",
+          "columns": ["game_id", "build_id", "sha256", "head_rev"],
           "isUnique": true
         },
         "override_snapshots_game_index": {

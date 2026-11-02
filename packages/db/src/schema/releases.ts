@@ -58,7 +58,12 @@ export const overrideSnapshots = sqliteTable(
     createdAt: text('created_at').notNull(),
   },
   (table) => [
-    uniqueIndex('override_snapshots_game_build_hash_unique').on(table.gameId, table.buildId, table.sha256),
+    uniqueIndex('override_snapshots_game_build_hash_rev_unique').on(
+      table.gameId,
+      table.buildId,
+      table.sha256,
+      table.headRev,
+    ),
     index('override_snapshots_game_index').on(table.gameId),
     check('override_snapshots_head_rev_check', sql`${table.headRev} >= 0`),
   ],

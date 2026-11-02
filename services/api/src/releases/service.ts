@@ -1,14 +1,13 @@
 import type { BoundaryVerdict, Build, ChangeNote, Release } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { fold, reduce, type VersionCounts } from '@ogm/design-log';
-import { and, asc, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
 import { createVersionCounts } from '../branches/version-counts.js';
 import type { BaseDocSource } from '../design/base-doc.js';
-import { readChain } from '../design/store.js';
+import { readChain, stableId } from '../design/store.js';
 import type { CommitClient } from './commit-client.js';
-import { stableId } from './id.js';
 import { withPublishLock } from './publish-lock.js';
 import type { RightsReason } from './rights.js';
 
@@ -251,18 +250,23 @@ async function prepareSnapshot(deps: AppDeps, runtime: ReleaseRuntime, build: Bu
     txs: transactions,
   });
   const folded = fold(baseDoc, workingSet);
+  const sameContent = and(
+    eq(schema.overrideSnapshots.gameId, build.gameId),
+    eq(schema.overrideSnapshots.buildId, build.id),
+    eq(schema.overrideSnapshots.sha256, folded.sha256),
+  );
   let snapshot = deps.db
     .select()
     .from(schema.overrideSnapshots)
-    .where(
-      and(
-        eq(schema.overrideSnapshots.gameId, build.gameId),
-        eq(schema.overrideSnapshots.buildId, build.id),
-        eq(schema.overrideSnapshots.sha256, folded.sha256),
-      ),
-    )
+    .where(and(sameContent, eq(schema.overrideSnapshots.headRev, workingSet.headRev)))
     .get();
   if (!snapshot) {
+    /* Same effective design at a later revision: a new snapshot (so the changelog boundary advances) reusing the fold. */
+    const sibling = deps.db
+      .select({ foldSha: schema.overrideSnapshots.foldSha })
+      .from(schema.overrideSnapshots)
+      .where(and(sameContent, isNotNull(schema.overrideSnapshots.foldSha)))
+      .get();
     snapshot = {
       id: stableId('snap', runtime.now()),
       gameId: build.gameId,
@@ -276,7 +280,7 @@ async function prepareSnapshot(deps: AppDeps, runtime: ReleaseRuntime, build: Bu
       entityOpsJson: JSON.stringify(
         Object.values(workingSet.entityOps).sort((left, right) => left.entityId.localeCompare(right.entityId)),
       ),
-      foldSha: null,
+      foldSha: sibling?.foldSha ?? null,
       createdAt: runtime.now().toISOString(),
     };
     deps.db.insert(schema.overrideSnapshots).values(snapshot).run();
@@ -437,6 +441,9 @@ export async function rollback(
     .get();
   const build = deps.db.select().from(schema.builds).where(eq(schema.builds.id, target.buildId)).get();
   if (!snapshot?.foldSha || !build) throw new ReleaseError('release_incomplete', 409);
+  /* The repo may have gone public since the restored release was checked. */
+  const rights = await runtime.checkRights(build.artifactPath, game.repoVisibility);
+  if (rights.length) throw new ReleaseError('rights', 422, { rights });
   const foldSha = snapshot.foldSha;
   const expected = game.publishedReleaseId;
   return withPublishLock(deps, input.gameId, async () => {
