@@ -24,7 +24,7 @@ export type Principal =
       capability: 'creator' | 'player';
     }
   | { kind: 'job'; jobId: string; gameId: string; familyId: string }
-  | { kind: 'service'; service: 'intake' | 'voice-host' | 'commit' | 'builder' | 'rooms' }
+  | { kind: 'service'; service: 'intake' | 'voice-host' | 'commit' | 'builder' | 'rooms' | 'repair' }
   | { kind: 'anonymous' };
 
 export const apiSchemas = {
