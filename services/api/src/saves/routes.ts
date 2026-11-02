@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { StableIdSchema, type Principal } from '@ogm/contracts';
+import { SAVES_ROUTE, StableIdSchema, type Principal } from '@ogm/contracts';
 import { authorize } from '@ogm/policy';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
@@ -111,9 +111,9 @@ function idempotencyKey(c: Parameters<typeof requirePrincipal>[0]): { deviceId: 
   return { deviceId, clientSeq };
 }
 
-const routes = new Hono<ApiBindings>();
+const saves = new Hono<ApiBindings>();
 
-routes.get('/saves/:gameId', (c) => {
+saves.get('/', (c) => {
   const { principal, gameId } = playableGame(c);
   const query = parseQuery(c, listQuery);
   const slots = listSaveSlots(c.get('deps').sqlite, principal.userId, gameId).map(({ headSchema, ...slot }) => ({
@@ -124,7 +124,7 @@ routes.get('/saves/:gameId', (c) => {
   return c.json({ slots });
 });
 
-routes.get('/saves/:gameId/:slotId', (c) => {
+saves.get('/:slotId', (c) => {
   const { principal, gameId } = playableGame(c);
   const query = parseQuery(c, revisionQuery);
   try {
@@ -150,7 +150,7 @@ routes.get('/saves/:gameId/:slotId', (c) => {
   }
 });
 
-routes.put('/saves/:gameId/:slotId', async (c) => {
+saves.put('/:slotId', async (c) => {
   const { principal, gameId } = playableGame(c);
   const slotId = slotParam(c);
   const length = c.req.header('content-length');
@@ -198,7 +198,7 @@ routes.put('/saves/:gameId/:slotId', async (c) => {
   }
 });
 
-routes.post('/saves/:gameId/lease', async (c) => {
+saves.post('/lease', async (c) => {
   const { principal, gameId } = playableGame(c);
   const body = await parseBody(c, leaseBody);
   try {
@@ -215,7 +215,7 @@ routes.post('/saves/:gameId/lease', async (c) => {
   }
 });
 
-routes.post('/saves/:gameId/lease/heartbeat', async (c) => {
+saves.post('/lease/heartbeat', async (c) => {
   const { principal, gameId } = playableGame(c);
   const body = await parseBody(c, heartbeatBody);
   try {
@@ -225,5 +225,10 @@ routes.post('/saves/:gameId/lease/heartbeat', async (c) => {
     throw error;
   }
 });
+
+const routes = new Hono<ApiBindings>();
+routes.route(SAVES_ROUTE, saves);
+/** Pre-#281 path that released game builds still call; remove after one release. */
+routes.route('/saves/:gameId', saves);
 
 export default routes;

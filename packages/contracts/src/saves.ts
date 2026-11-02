@@ -86,3 +86,11 @@ export const SavesFamilySchema = z.looseObject({
 export const savesSchemas = {
   'saves.v1': SavesFamilySchema,
 } satisfies Record<string, z.ZodType>;
+
+/** Saves live under their game: `/games/:gameId/saves[/:slotId]`, relative to the `/api/v1` prefix. */
+export const SAVES_ROUTE = '/games/:gameId/saves';
+
+export function savesPath(gameId: string, slotId?: SaveSlot['slotId']): string {
+  const base = `/games/${encodeURIComponent(gameId)}/saves`;
+  return slotId === undefined ? base : `${base}/${encodeURIComponent(slotId)}`;
+}

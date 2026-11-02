@@ -9,6 +9,7 @@ import type {
   SaveSlot,
   Transaction,
 } from '@ogm/contracts/browser';
+import { savesPath } from '@ogm/contracts/browser';
 import { PatchTooLargeError, validatePatches } from '@ogm/design-log/browser';
 
 import { api, ApiError, apiFetch, sse } from '../../lib/api/client';
@@ -135,11 +136,11 @@ export function listJobs(gameId: string): Promise<{ jobs: Job[] }> {
 }
 
 export function getOptionalSaves(gameId: string): Promise<OptionalCapability<{ slots: SaveSlot[] }>> {
-  return optionalApi(`/games/${segment(gameId)}/saves`);
+  return optionalApi(savesPath(gameId));
 }
 
 export function getSave(gameId: string, slotId: SaveSlot['slotId']): Promise<SaveData<unknown>> {
-  return api(`/games/${segment(gameId)}/saves/${segment(slotId)}`);
+  return api(savesPath(gameId, slotId));
 }
 
 export function putSave(
@@ -148,7 +149,7 @@ export function putSave(
   payload: SaveData<unknown>,
   headRevision?: number,
 ): Promise<unknown> {
-  return api(`/games/${segment(gameId)}/saves/${segment(slotId)}`, {
+  return api(savesPath(gameId, slotId), {
     method: 'PUT',
     headers: { 'if-match': headRevision === undefined ? '*' : `"${headRevision}"` },
     json: payload,
