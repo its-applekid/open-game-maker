@@ -99,6 +99,13 @@
       "when": 1793582411658,
       "tag": "20261102012011_reapply_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793585805239,
+      "tag": "20261102021645_scope_sessions",
+      "breakpoints": true
     }
   ]
 }
