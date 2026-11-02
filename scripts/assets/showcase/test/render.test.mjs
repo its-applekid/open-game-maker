@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import os from "node:os";
@@ -7,13 +7,18 @@ import path from "node:path";
 import { promisify } from "node:util";
 import test from "node:test";
 
+import { checkShowcase } from "../check.mjs";
 import { renderShowcase } from "../render.mjs";
+import { inspectGif, topLevelMp4Atoms } from "../verify.mjs";
 
 const execFileAsync = promisify(execFile);
 const requireFromAssets = createRequire(
   new URL("../../../../packages/asset-cards/package.json", import.meta.url),
 );
 const sharp = requireFromAssets("sharp");
+const ffmpegAvailable = ["ffmpeg", "ffprobe"].every((command) =>
+  spawnSync(command, ["-version"], { stdio: "ignore" }).status === 0
+);
 
 async function json(file, value) {
   await writeFile(file, `${JSON.stringify(value, null, 2)}\n`);
@@ -88,7 +93,7 @@ async function buildFixture(root) {
       seconds: 1,
       tile_sprites: ["card:test-pack/grass", "card:test-pack/door"],
       sheet_sprites: ["card:test-pack/shopper"],
-      story: [{ actor: "runner", action: "knock", target: "door", reaction: "open", timing: [0, 1] }],
+      story: [{ actor: "runner", action: "walk", target: "door", reaction: "bob", timing: [0, 0.5, 1] }],
     }],
   });
   await json(path.join(project, "regions/store.json"), {
@@ -106,7 +111,9 @@ async function buildFixture(root) {
   return { project, assets: path.join(root, "assets"), catalog: path.join(root, "catalog.json") };
 }
 
-test("renders baked H.264, GIF, and poster media without a client compositor", async () => {
+test("renders baked media without a client compositor (requires ffmpeg and ffprobe)", {
+  skip: ffmpegAvailable ? false : "ffmpeg and ffprobe are unavailable",
+}, async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
   try {
     const fixture = await buildFixture(root);
@@ -128,7 +135,117 @@ test("renders baked H.264, GIF, and poster media without a client compositor", a
       ]);
       const stream = JSON.parse(stdout).streams[0];
       assert.deepEqual(stream, { codec_name: "h264", pix_fmt: "yuv420p" });
+
+      const mp4 = await readFile(path.join(output, media.mp4));
+      const atoms = topLevelMp4Atoms(mp4);
+      assert.ok(atoms.indexOf("moov") < atoms.indexOf("mdat"));
+
+      const gif = inspectGif(await readFile(path.join(output, media.gif)));
+      assert.equal(gif.width, gif.height);
+      assert.equal(gif.loops, 0);
     }
+
+    const manifestFile = path.join(output, "manifest.json");
+    const regionFile = path.join(output, manifest.stops[0].region.mp4);
+    const publishedManifest = await readFile(manifestFile);
+    const publishedRegion = await readFile(regionFile);
+    const sequenceFile = path.join(fixture.project, "sequence.json");
+    const sequence = JSON.parse(await readFile(sequenceFile, "utf8"));
+    sequence.runner.scale = 1.1;
+    await json(sequenceFile, sequence);
+
+    await assert.rejects(
+      renderShowcase({
+        projectRoot: fixture.project,
+        assetsRoot: fixture.assets,
+        catalogFile: fixture.catalog,
+        outputRoot: output,
+      }),
+    );
+    assert.deepEqual(await readFile(manifestFile), publishedManifest);
+    assert.deepEqual(await readFile(regionFile), publishedRegion);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("preserves the published manifest when asset preflight fails", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildFixture(root);
+    const output = path.join(root, "output");
+    const manifestFile = path.join(output, "manifest.json");
+    await mkdir(output, { recursive: true });
+    await writeFile(manifestFile, "stale\n");
+    await json(fixture.catalog, { cards: [] });
+
+    await assert.rejects(
+      renderShowcase({
+        projectRoot: fixture.project,
+        assetsRoot: fixture.assets,
+        catalogFile: fixture.catalog,
+        outputRoot: output,
+      }),
+      /asset\.unresolved/u,
+    );
+    assert.equal(await readFile(manifestFile, "utf8"), "stale\n");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("renders full-bleed isometric diamond ground (requires ffmpeg and ffprobe)", {
+  skip: ffmpegAvailable ? false : "ffmpeg and ffprobe are unavailable",
+}, async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildFixture(root);
+    const sequenceFile = path.join(fixture.project, "sequence.json");
+    const sequence = JSON.parse(await readFile(sequenceFile, "utf8"));
+    sequence.layout.projection = "isometric";
+    sequence.layout.seam = "diamond";
+    await json(sequenceFile, sequence);
+    const output = path.join(root, "output");
+
+    const manifest = await renderShowcase({
+      projectRoot: fixture.project,
+      assetsRoot: fixture.assets,
+      catalogFile: fixture.catalog,
+      outputRoot: output,
+    });
+    const poster = await sharp(path.join(output, manifest.stops[0].region.poster))
+      .raw()
+      .toBuffer();
+    const expectedGround = Buffer.from([0x60, 0x96, 0x4f, 0xff]);
+    for (const offset of [0, (64 - 1) * 4, (64 * 63) * 4, (64 * 64 - 1) * 4]) {
+      assert.deepEqual(poster.subarray(offset, offset + 4), expectedGround);
+    }
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("preflight rejects a story facing the renderer may select", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildFixture(root);
+    const catalog = JSON.parse(await readFile(fixture.catalog, "utf8"));
+    const hero = catalog.cards.find(({ id }) => id.startsWith("t1:hero@"));
+    hero.sprite.animations[0].directions = ["down"];
+    await json(fixture.catalog, catalog);
+
+    const { issues } = await checkShowcase({
+      projectRoot: fixture.project,
+      assetsRoot: fixture.assets,
+      catalogFile: fixture.catalog,
+    });
+
+    assert.ok(issues.some(({ code, path: at }) =>
+      code === "asset.unresolved" && at === "sequence.runner.left"
+    ));
+    assert.ok(issues.some(({ code, path: at }) =>
+      code === "asset.unresolved" && at.endsWith("story[0].action.left")
+    ));
   } finally {
     await rm(root, { recursive: true, force: true });
   }

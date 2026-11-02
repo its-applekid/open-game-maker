@@ -2,12 +2,10 @@
 import { loadAssetLibrary } from "./assets.mjs";
 import { validateShowcase } from "./model.mjs";
 import { loadProject, parseArgs } from "./project.mjs";
+import { builtInReactions } from "./story.mjs";
 
-export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
-  const project = await loadProject(projectRoot);
-  const issues = validateShowcase(project);
-  const library = await loadAssetLibrary({ assetsRoot, catalogFile });
-
+export async function verifyProjectAssets(project, library) {
+  const issues = [];
   async function verify(where, spec) {
     try {
       await library.verify(spec);
@@ -16,7 +14,13 @@ export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
     }
   }
 
-  await verify("sequence.runner", project.sequence.runner);
+  const directions = project.sequence.layout?.directions ?? [];
+  for (const direction of directions) {
+    await verify(`sequence.runner.${direction}`, {
+      ...project.sequence.runner,
+      dir: direction,
+    });
+  }
   for (const stop of project.sequence.stops ?? []) {
     const region = project.regions[stop.region];
     const sheet = project.sheets[stop.sheet];
@@ -36,7 +40,47 @@ export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
         }
       }
     }
+    const runnerIds = new Set([
+      "runner",
+      String(project.sequence.runner?.ref ?? "").split("/").at(-1),
+    ]);
+    const spritesById = new Map((region.sprites ?? []).map((sprite) => [sprite.id, sprite]));
+    for (const [index, beat] of (stop.story ?? []).entries()) {
+      const actor = runnerIds.has(beat.actor)
+        ? project.sequence.runner
+        : spritesById.get(beat.actor);
+      const target = runnerIds.has(beat.target)
+        ? project.sequence.runner
+        : spritesById.get(beat.target);
+      if (actor) {
+        for (const direction of directions) {
+          await verify(`sequence.stops.${stop.id}.story[${index}].action.${direction}`, {
+            ...actor,
+            action: beat.action,
+            dir: direction,
+          });
+        }
+      }
+      if (target && !builtInReactions.has(beat.reaction)) {
+        for (const direction of directions) {
+          await verify(`sequence.stops.${stop.id}.story[${index}].reaction.${direction}`, {
+            ...target,
+            action: beat.reaction,
+            dir: direction,
+          });
+        }
+      }
+    }
   }
+
+  return issues;
+}
+
+export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
+  const project = await loadProject(projectRoot);
+  const issues = validateShowcase(project);
+  const library = await loadAssetLibrary({ assetsRoot, catalogFile });
+  issues.push(...await verifyProjectAssets(project, library));
 
   return { project, issues };
 }

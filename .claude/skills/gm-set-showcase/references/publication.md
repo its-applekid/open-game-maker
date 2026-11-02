@@ -8,6 +8,8 @@ The renderer writes, for each stop id:
 
 MP4 files are H.264, yuv420p, silent, and faststart. GIF files loop forever. The manifest declares
 `client_rendering: false` and the required playback attributes: `autoplay`, `loop`, `muted`, and `playsInline`.
+The renderer stages and probes every generated track before replacing any published file, then publishes the new
+manifest last. A failed render leaves the previously published media and manifest unchanged.
 
 ## QA
 

@@ -42,7 +42,7 @@ function validProject() {
               action: "knock",
               target: "shop-door",
               reaction: "open",
-              timing: [1, 4],
+              timing: [1, 2.5, 4],
             },
           ],
         },
@@ -82,6 +82,16 @@ test("accepts a full-bleed scene with a walking runner and explicit story reacti
   const issues = validateShowcase(validProject());
 
   assert.deepEqual(issues, []);
+});
+
+test("accepts isometric worlds only with diamond seams", () => {
+  const project = validProject();
+  project.sequence.layout.projection = "isometric";
+  project.sequence.layout.seam = "diamond";
+
+  assert.deepEqual(validateShowcase(project), []);
+  project.sequence.layout.seam = "grid";
+  assert.ok(validateShowcase(project).some(({ code }) => code === "layout.seam"));
 });
 
 test("rejects empty edges, air attacks, and scene/sheet sprite overlap", () => {
@@ -126,7 +136,7 @@ test("rejects uncovered packs and repeated props between regions", () => {
         action: "walk",
         target: "shop-door-two",
         reaction: "wave",
-        timing: [0, 3],
+        timing: [0, 1.5, 3],
       },
     ],
   });
@@ -153,6 +163,24 @@ test("rejects uncovered packs and repeated props between regions", () => {
   assert.ok(issues.some(({ code, detail }) =>
     code === "props.repeated" && detail.includes("storefront")
   ));
+});
+
+test("rejects unstable entity ids and story timing without a contact point", () => {
+  const project = validProject();
+  project.regions["regions/corner-store.json"].sprites.push({
+    id: "shop-door",
+    ref: "card:limezu-modern-exteriors/sign",
+    at: [32, 32],
+  });
+  project.sequence.stops[0].tile_sprites.push(
+    "card:limezu-modern-exteriors/sign",
+  );
+  project.sequence.stops[0].story[0].timing = [1, 4];
+
+  const codes = validateShowcase(project).map(({ code }) => code);
+
+  assert.ok(codes.includes("region.entity_ids"));
+  assert.ok(codes.includes("story.timing"));
 });
 
 test("publishes phone-ready H.264 video with GIF fallback", () => {

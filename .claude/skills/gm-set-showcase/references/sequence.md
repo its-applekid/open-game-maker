@@ -37,10 +37,10 @@ relative to the project directory and may not escape it.
       "story": [
         {
           "actor": "runner",
-          "action": "greet",
+          "action": "walk",
           "target": "cart",
-          "reaction": "wave",
-          "timing": [1.25, 3.75]
+          "reaction": "bob",
+          "timing": [1.25, 2.5, 3.75]
         }
       ]
     }
@@ -53,7 +53,9 @@ lowercase letters, digits, and hyphens so it is safe in generated filenames.
 
 `tile_sprites` exactly lists the region ground and sprite refs. `sheet_sprites` exactly lists the paired sheet refs.
 `required_packs` lists the complete inventory scope, not just favorites. Story actors are `runner`, the runner card's
-last path segment, or a region sprite id; targets are region sprite ids.
+last path segment, or a region sprite id; targets are region sprite ids. `action` is an action exposed by the actor's
+card. `timing` is `[start, contact, end]`: the action plays once before contact, then the target reacts until the end.
+`reaction` may be a target card action or the built-in one-shot `bob`/settled `hold` choreography.
 
 ## Region file
 
@@ -86,7 +88,7 @@ last path segment, or a region sprite id; targets are region sprite ids.
 ```
 
 `fill` must be `cover`. Coordinates are world pixels. The camera offsets the world to keep the runner centered. Sprites
-are anchored at bottom-center and depth-sorted by their world y plus optional `z`.
+need unique stable `id` values, are anchored at bottom-center, and are depth-sorted by world y plus optional `z`.
 
 ## Sheet file
 

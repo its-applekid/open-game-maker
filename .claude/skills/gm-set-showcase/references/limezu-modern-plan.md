@@ -10,8 +10,8 @@ the example catalog overlay records the four measured render crops without shipp
 ## Region: market-errand
 
 - Route: the farmer walks left-to-right across a square paved plaza; the camera follows on the orthogonal grid.
-- Story: the farmer greets the fruit cart; the vendor waves back. The cart is a visible target, so the beat is not an
-  action in empty air.
+- Story: the walking farmer reaches the fruit cart; the cart bobs once at contact and settles. The cart is a visible
+  stable-id target, so the beat is not an action in empty air.
 - Region cast: pavement, mall, fruit cart, walking farmer.
 - Sheet cast: a different farmer, rotating `down,left,right,up` on a shared 1.25-second beat.
 - Coverage: `limezu-modern-exteriors` and `limezu-modern-farm`.

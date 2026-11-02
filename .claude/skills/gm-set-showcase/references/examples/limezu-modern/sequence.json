@@ -33,10 +33,10 @@
       "story": [
         {
           "actor": "runner",
-          "action": "greet",
+          "action": "walk",
           "target": "fruit-cart",
-          "reaction": "vendor-wave",
-          "timing": [1.25, 3.75]
+          "reaction": "bob",
+          "timing": [1.25, 2, 3.75]
         }
       ]
     }

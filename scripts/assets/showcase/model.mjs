@@ -119,12 +119,19 @@ function validateStory(story, region, sequence, stop, stopPath, issues) {
     }
     if (
       !Array.isArray(beat.timing) ||
-      beat.timing.length !== 2 ||
+      beat.timing.length !== 3 ||
       beat.timing[0] < 0 ||
       beat.timing[1] <= beat.timing[0] ||
-      beat.timing[1] > stop.seconds
+      beat.timing[2] <= beat.timing[1] ||
+      beat.timing[2] > stop.seconds
     ) {
-      issues.push(issue("story.timing", `${path}.timing`, "timing must be an increasing [start, end] pair"));
+      issues.push(
+        issue(
+          "story.timing",
+          `${path}.timing`,
+          "timing must be an increasing [start, contact, end] triple inside the stop",
+        ),
+      );
     }
   });
 }
@@ -147,6 +154,17 @@ function validateStop(stop, index, project, issues, propUses) {
   }
   if (region.ground?.fill !== "cover") {
     issues.push(issue("region.full_bleed", `${stop.region}.ground.fill`, "ground must cover every viewport edge"));
+  }
+
+  const entityIds = (region.sprites ?? []).map(({ id }) => id);
+  if (entityIds.some((id) => !id) || new Set(entityIds).size !== entityIds.length) {
+    issues.push(
+      issue(
+        "region.entity_ids",
+        `${stop.region}.sprites`,
+        "every placed sprite needs a unique stable id",
+      ),
+    );
   }
 
   const regionRefs = refsFromRegion(region);
