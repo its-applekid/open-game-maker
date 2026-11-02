@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { homedir } from 'node:os';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -7,7 +8,7 @@ import { format } from 'prettier';
 
 const PIN = '0f692a45b04bb4ce3e7d8256e134028894bd128b';
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const checkout = resolve(process.env.AIUR_CHECKOUT ?? '/home/orangekid/github/aiur');
+const checkout = resolve(process.env.AIUR_CHECKOUT ?? resolve(homedir(), 'github/aiur'));
 const check = process.argv.includes('--check');
 const prettierOptions = {
   printWidth: 120,

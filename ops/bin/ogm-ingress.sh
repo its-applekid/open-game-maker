@@ -64,7 +64,7 @@ for command in "${commands[@]}"; do
   read -ra argv <<< "$command"
   if ! "$tailscale" "${argv[@]}"; then
     printf 'ogm-ingress: "tailscale %s" failed.\n' "$command" >&2
-    printf 'If it was a permission error, Kevin runs: sudo tailscale set --operator=orangekid\n' >&2
+    printf 'If it was a permission error, Kevin runs: sudo tailscale set --operator=%s\n' "$(id -un)" >&2
     exit 1
   fi
 done

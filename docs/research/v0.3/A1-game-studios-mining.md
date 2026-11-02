@@ -23,7 +23,7 @@
 | License | MIT, "Copyright (c) 2026 Donchitos" (`LICENSE`) | file read |
 | Popularity / maintenance | 27,065 stars, 3,841 forks, 67 open issues, last push 2026-10-19, created 2026-02-12. **One contributor** (Donchitos, 43 commits on `main`). Releases v1.1.2 (09-29), v1.1.3 (10-08), v1.2.0 (10-19). | `gh api` |
 | Size | 638 files. 50 agents in `.claude/agents/` (README says 49). 75 skill dirs (README says 72, catalog says 74). 28 director-gate files. 71 templates. 18 hooks. 35 helper scripts. 14 path-scoped rules. `studio-tests/` behavioral specs. | `ls`/`find` |
-| aiur (for mapping only) | `/home/everdred/github/everdred/aiur` `SPEC.md` §1–3, `AGENTS.md` (tracker labels, CE skills), `docs/spec/domain-and-workflow.md` (`routing` by `complexity:N`), `.agents/skills/` (aiur-build, aiur-agent, ce-*) | local read |
+| aiur (for mapping only) | `~/github/everdred/aiur` `SPEC.md` §1–3, `AGENTS.md` (tracker labels, CE skills), `docs/spec/domain-and-workflow.md` (`routing` by `complexity:N`), `.agents/skills/` (aiur-build, aiur-agent, ce-*) | local read |
 
 The prior scan `docs/research/2026-10-21-bestgithubrepos-scan.md` and the toolbox catalog do **not** mention CCGS, so there is no earlier assessment to reconcile. **Rules followed:** no CCGS script, hook, or skill was executed. Star count is recorded, but per §15.3 it is not used as evidence of quality.
 

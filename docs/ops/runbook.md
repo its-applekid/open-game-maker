@@ -1,6 +1,6 @@
 # Runbook
 
-Everything runs as `orangekid` under `systemd --user`; nothing here needs sudo. Steps only Kevin can do are in
+Everything runs as `<user>` under `systemd --user`; nothing here needs sudo. Steps only Kevin can do are in
 [hand-steps.md](hand-steps.md).
 
 ## Install
@@ -135,9 +135,9 @@ step.
 boot). It reads `~/.config/ogm/env/backup.env` (systemd does not expand `~` there, so local paths are absolute):
 
 ```
-OGM_DATA_DIR=/home/orangekid/.local/share/ogm/data
-OGM_BLOB_ROOT=/home/orangekid/.local/share/ogm/blobs
-OGM_BACKUP_TARGET=ssh:orangekid:~/ogm-backups      # or local:<absolute path>; ~/ is the remote home
+OGM_DATA_DIR=/home/<user>/.local/share/ogm/data
+OGM_BLOB_ROOT=/home/<user>/.local/share/ogm/blobs
+OGM_BACKUP_TARGET=ssh:<backup-host>:~/ogm-backups      # or local:<absolute path>; ~/ is the remote home
 ```
 
 Each run writes, under `<target path>/ogm-backups/`:
@@ -162,7 +162,7 @@ systemctl --user start ogm-backup && journalctl --user -u ogm-backup -n 5
 ## Restore
 
 ```
-ops/backup/restore.sh <stamp> --to /tmp/ogm-restore --target ssh:orangekid:~/ogm-backups
+ops/backup/restore.sh <stamp> --to /tmp/ogm-restore --target ssh:<backup-host>:~/ogm-backups
 ```
 
 It follows the manifests back to the first full backup, checks every file's sha256 before writing, extracts the blob

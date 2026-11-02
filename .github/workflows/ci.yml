@@ -72,6 +72,7 @@ jobs:
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run lint
       - run: pnpm exec prettier --check .
       - run: node .github/scripts/check-ignore.mjs
+      - run: node .github/scripts/check-host-names.mjs
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run typecheck
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run test
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run build

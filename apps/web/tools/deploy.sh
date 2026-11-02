@@ -10,6 +10,9 @@ case "${1:-}" in
   *) printf 'usage: %s [--dry-run]\n' "$0" >&2; exit 2 ;;
 esac
 
+# The proxy target is the host's public API origin; it never lives in the repo.
+REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs" "${VITE_API_ORIGIN:-}")"
+
 DEPLOY_DIR="$(mktemp -d)"
 PREVIEW_PID=''
 cleanup() {
@@ -23,6 +26,7 @@ trap cleanup EXIT
 
 pnpm --dir "$ROOT" --filter @ogm/web build
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
+printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
 if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete
 fi

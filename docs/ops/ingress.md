@@ -1,6 +1,6 @@
 # Ingress
 
-Tailscale is the whole reverse proxy and TLS story: the node `applekid.tailee0e71.ts.net` already has a certificate and
+Tailscale is the whole reverse proxy and TLS story: the node `<tailnet-host>` already has a certificate and
 Funnel capability on 443, 8443 and 10000. OGM takes 8443 and 10000. Port 443 and :80 serve other apps tailnet-only and
 are never touched. Every OGM service binds `127.0.0.1`; Tailscale is the only public listener.
 
@@ -8,13 +8,13 @@ are never touched. Every OGM service binds `127.0.0.1`; Tailscale is the only pu
 
 ```
 https://ogm2000.netlify.app/                       Netlify static app (OGM-070)
-https://ogm2000.netlify.app/api/*   -> _redirects:  /api/*   https://applekid.tailee0e71.ts.net:8443/api/:splat   200
-https://ogm2000.netlify.app/auth/*  -> _redirects:  /auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200
-wss://applekid.tailee0e71.ts.net:8443/ws/rooms/*   rooms (OGM-051), token auth, no cookies      -> 127.0.0.1:$OGM_ROOMS_PORT
-wss://applekid.tailee0e71.ts.net:8443/ws/voice/*   voice host (OGM-085), token auth              -> 127.0.0.1:$OGM_VOICE_PORT
-https://applekid.tailee0e71.ts.net:8443/*          everything else: API, /blobs/*, /ws/chat SSE  -> 127.0.0.1:$OGM_API_PORT
-https://applekid.tailee0e71.ts.net:10000/g/<gameId>/<buildId>/   games origin (OGM-007)         -> 127.0.0.1:$OGM_GAMES_PORT
-https://applekid.tailee0e71.ts.net/ (443) and :80  untouched (pre-existing tailnet-only serves)
+https://ogm2000.netlify.app/api/*   -> _redirects:  /api/*   https://<tailnet-host>:8443/api/:splat   200
+https://ogm2000.netlify.app/auth/*  -> _redirects:  /auth/*  https://<tailnet-host>:8443/auth/:splat  200
+wss://<tailnet-host>:8443/ws/rooms/*   rooms (OGM-051), token auth, no cookies      -> 127.0.0.1:$OGM_ROOMS_PORT
+wss://<tailnet-host>:8443/ws/voice/*   voice host (OGM-085), token auth              -> 127.0.0.1:$OGM_VOICE_PORT
+https://<tailnet-host>:8443/*          everything else: API, /blobs/*, /ws/chat SSE  -> 127.0.0.1:$OGM_API_PORT
+https://<tailnet-host>:10000/g/<gameId>/<buildId>/   games origin (OGM-007)         -> 127.0.0.1:$OGM_GAMES_PORT
+https://<tailnet-host>/ (443) and :80  untouched (pre-existing tailnet-only serves)
 ```
 
 Cookies stay first-party on `ogm2000.netlify.app`: `/api/*` and `/auth/*` go through Netlify 200 rewrites. Netlify
@@ -22,12 +22,13 @@ proxies carry no WebSocket upgrades, so sockets connect to 8443 directly with sh
 
 ## Netlify lines (OGM-070 copies these)
 
-`apps/web/public/_redirects`, proxies before the SPA fallback:
+`_redirects`, proxies before the SPA fallback. The repo holds no copy: `apps/web/tools/deploy.sh` writes it into the
+deploy payload from `VITE_API_ORIGIN=https://<tailnet-host>:8443` (`apps/web/tools/redirects.mjs`):
 
 ```
-/api/*   https://applekid.tailee0e71.ts.net:8443/api/:splat   200
-/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200
-/*       /index.html                                           200
+/api/*  https://<tailnet-host>:8443/api/:splat  200
+/auth/*  https://<tailnet-host>:8443/auth/:splat  200
+/*  /index.html  200
 ```
 
 `apps/web/public/_headers` adds the CSP to the `/*` block, next to today's `X-Robots-Tag: noindex, nofollow` and the
@@ -35,15 +36,15 @@ cache rules in `prototypes/studio-v0/tools/deploy.sh`:
 
 ```
 /*
-  Content-Security-Policy: default-src 'self'; connect-src 'self' https://applekid.tailee0e71.ts.net:8443 wss://applekid.tailee0e71.ts.net:8443; frame-src https://applekid.tailee0e71.ts.net:10000; img-src 'self' data: blob: https://applekid.tailee0e71.ts.net:8443; media-src 'self' blob: https://applekid.tailee0e71.ts.net:8443; worker-src 'self' blob:
+  Content-Security-Policy: default-src 'self'; connect-src 'self' https://<tailnet-host>:8443 wss://<tailnet-host>:8443; frame-src https://<tailnet-host>:10000; img-src 'self' data: blob: https://<tailnet-host>:8443; media-src 'self' blob: https://<tailnet-host>:8443; worker-src 'self' blob:
 ```
 
 ## Hand step (GATE-TS-OPERATOR)
 
-The node's operator is `applekid`, so `orangekid` cannot change serve or Funnel until Kevin runs once:
+The node's operator is its owner, so the service account `<user>` cannot change serve or Funnel until Kevin runs once:
 
 ```
-sudo tailscale set --operator=orangekid
+sudo tailscale set --operator=<user>
 ```
 
 Kevin also chooses Funnel (public, needed for invites) or tailnet-only.
@@ -83,8 +84,8 @@ ops/bin/ogm-ingress.sh
 Then from a phone with Wi-Fi off (not on the tailnet):
 
 ```
-curl -sS https://applekid.tailee0e71.ts.net:8443/healthz      # {"ok":true,...}
-curl -sSI https://applekid.tailee0e71.ts.net:10000/healthz    # 200 once OGM-007 runs
+curl -sS https://<tailnet-host>:8443/healthz      # {"ok":true,...}
+curl -sSI https://<tailnet-host>:10000/healthz    # 200 once OGM-007 runs
 ```
 
 Until OGM-010 serves `/healthz`, a loopback stand-in proves the path:

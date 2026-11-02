@@ -12,7 +12,7 @@ describe('SETUP.md renderer', () => {
     const markdown = renderSetupMarkdown(content);
 
     expect(markdown.match(/^## \d+\./gm)).toHaveLength(8);
-    expect(markdown).not.toMatch(/applekid|orangekid/);
+    expect(markdown).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
 
     for (const step of content.steps) {
       expect(markdown).toContain(`## ${step.id}. ${step.title}`);

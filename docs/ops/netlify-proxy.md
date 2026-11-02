@@ -8,8 +8,8 @@ the full origin map.
 
 | Where | Value |
 | --- | --- |
-| `apps/web/public/_redirects` (OGM-070), before the SPA fallback | `/api/*   https://applekid.tailee0e71.ts.net:8443/api/:splat   200` |
-| | `/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200` |
+| `_redirects`, written by `apps/web/tools/deploy.sh` from `VITE_API_ORIGIN`, before the SPA fallback | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
+| | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
 | `OGM_APP_ORIGIN` in `~/.config/ogm/env/api.env` | `https://ogm2000.netlify.app` (Better Auth `baseURL`, `trustedOrigins`, passkey `origin`) |
 | Better Auth `basePath` | `/auth` |
 | Passkey `rpID` | `ogm2000.netlify.app` (host of `OGM_APP_ORIGIN`) |
@@ -31,7 +31,7 @@ Neither sets `Domain`, so both stay host-only on `ogm2000.netlify.app`. `_header
 
 ## Sockets
 
-Netlify proxies carry no WebSocket upgrades, so sockets connect to `wss://applekid.tailee0e71.ts.net:8443` directly and
+Netlify proxies carry no WebSocket upgrades, so sockets connect to `wss://<tailnet-host>:8443` directly and
 authenticate with a token, never a cookie: `POST /auth/ws-token` (an `ogw1` session proof, 5 min), room grants
 (OGM-050) or the voice token (OGM-085). Native or CLI callers can send `Authorization: Bearer <session token>` (the
 `set-auth-token` response header) instead of the cookie.

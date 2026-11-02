@@ -23,7 +23,7 @@ The legal and vendor questions are out of scope here and belong to the sibling l
 
 ## 2. Sources
 
-**aiur main checkout:** `/home/everdred/github/everdred/aiur`
+**aiur main checkout:** `~/github/everdred/aiur`
 - Local HEAD is `ad084b1f38e7a1693b8d6ad26da9ed7d2789988b` (2026-10-21, "Make the Executor fix what it notices (#5603)").
 - The local branch is 18 commits behind `origin/main` `d9fbf239b`. The findings come from the local HEAD; `voice_converse` has had no further changes on origin/main since its skeleton commit.
 

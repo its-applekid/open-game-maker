@@ -355,16 +355,16 @@ steps:
         check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
         cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
       - kind: hand
-        text: Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment.
+        text: Create the free Netlify app site, record its site id, build the town, and approve the manual deployment.
         command: |-
           # Write the Netlify site id to apps/web/.netlify-site-id.
-          # Replace the host on both lines of apps/web/public/_redirects (_headers names no host).
           apps/web/tools/town.sh --public
+          export VITE_API_ORIGIN=https://<tailnet-host>:8443 VITE_GAMES_ORIGIN=https://<tailnet-host>:10000
           apps/web/tools/deploy.sh --dry-run
           apps/web/tools/deploy.sh
-        writes: [apps/web/.netlify-site-id, apps/web/public/_redirects]
+        writes: [apps/web/.netlify-site-id]
         check: <app-origin> loads the title town and <app-origin>/api/healthz answers
-        cites: [docs/ops/self-host.md, apps/web/tools/town.sh, apps/web/tools/deploy.sh, apps/web/public/_redirects]
+        cites: [docs/ops/self-host.md, apps/web/tools/town.sh, apps/web/tools/deploy.sh, apps/web/tools/redirects.mjs]
       - kind: hand
         text: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
         command: |-
