@@ -11,7 +11,7 @@ decides only when they say nothing, and its judgments are ranked by lift against
 Kevin's first review (2026-10-29) added map.is_map, map.usable, map.view and map.scale. They come from folder and file names
 plus ink coverage, not CLIP: zero-shot CLIP called a castle plan a "diagram" and a city panorama "top-down". Non-maps (standees,
 tokens, symbol sheets, papercraft) and unusable maps keep their cards so search can filter them out."""
-import argparse, hashlib, json, re, subprocess, sys
+import argparse, hashlib, json, os, re, subprocess, sys
 from collections import Counter, defaultdict
 from datetime import datetime
 from multiprocessing import Pool
@@ -20,10 +20,11 @@ from pathlib import Path
 import numpy as np
 
 REPO = Path(__file__).resolve().parents[3]
-COLL_DIR = REPO / "assets-local/inspiration/profantasy-cc3"
+ASSETS_ROOT = Path(os.environ.get("OGM_ASSETS_ROOT", REPO / "assets-local"))
+COLL_DIR = ASSETS_ROOT / "inspiration/profantasy-cc3"
 MAPS = COLL_DIR / "maps"
 ANALYSIS = COLL_DIR / "analysis"
-PREVIEWS = REPO / "assets-local"
+PREVIEWS = ASSETS_ROOT
 SCHEMAS = REPO / "docs/research/v0.5/schemas"
 CLIP_ID = "openai/clip-vit-large-patch14"
 VERSION = "v1"
@@ -139,7 +140,10 @@ def clip():
         import torch
         from transformers import CLIPModel, CLIPProcessor
         torch.set_num_threads(3)
-        _M = (CLIPModel.from_pretrained(CLIP_ID).eval(), CLIPProcessor.from_pretrained(CLIP_ID))
+        _M = (
+            CLIPModel.from_pretrained(CLIP_ID, local_files_only=True).eval(),
+            CLIPProcessor.from_pretrained(CLIP_ID, local_files_only=True),
+        )
     return _M
 
 
@@ -305,11 +309,12 @@ def text_type(rel: str):
     return None
 
 
-def cards(json_mode=False):
+def cards(json_mode=False, limit=0):
     import torch
     from transformers import CLIPModel, CLIPProcessor
     rows = [json.loads(p.read_text()) for p in sorted(ANALYSIS.rglob("*.analysis.json"))]
-    m, p = CLIPModel.from_pretrained(CLIP_ID).eval(), CLIPProcessor.from_pretrained(CLIP_ID)
+    m = CLIPModel.from_pretrained(CLIP_ID, local_files_only=True).eval()
+    p = CLIPProcessor.from_pretrained(CLIP_ID, local_files_only=True)
     sets = {"map_type": (list(MAP_TYPES), list(MAP_TYPES.values())),
             "environments": (list(ENVIRONMENTS), [f"a map of {v}" for v in ENVIRONMENTS.values()])}
     with torch.no_grad():
@@ -327,7 +332,9 @@ def cards(json_mode=False):
     seen, dups, written, records = {}, [], 0, []
     outdir = COLL_DIR / "cards"
     type_counts = Counter()
-    for r in sorted(rows, key=lambda r: (r["map"].startswith("Source Maps"), r["map"])):  # keep the non-"Source Maps" copy of duplicates
+    selected_rows = sorted(rows, key=lambda r: (r["map"].startswith("Source Maps"), r["map"]))
+    selected_rows = selected_rows[:limit] if limit else selected_rows
+    for r in selected_rows:  # keep the non-"Source Maps" copy of duplicates
         if r["sha256"] in seen:
             dups.append((r["map"], seen[r["sha256"]]))
             continue
@@ -448,7 +455,7 @@ def cards(json_mode=False):
         if json_mode:
             for path, staged, _ in records:
                 if any(staged.name in failure for failure in fails):
-                    emit({"card": path.relative_to(REPO / "assets-local").as_posix(), "status": "invalid", "flags": [], "errors": fails})
+                    emit({"card": path.relative_to(ASSETS_ROOT).as_posix(), "status": "invalid", "flags": [], "errors": fails})
         for _, staged, _ in records:
             staged.unlink(missing_ok=True)
         raise SystemExit(1)
@@ -458,7 +465,7 @@ def cards(json_mode=False):
         write_collection(written, type_counts)
     if json_mode:
         for path, _, card in records:
-            emit(card_record(path.relative_to(REPO / "assets-local").as_posix(), card), json_mode=True)
+            emit(card_record(path.relative_to(ASSETS_ROOT).as_posix(), card), json_mode=True)
 
 
 def write_collection(n, type_counts):
@@ -511,7 +518,7 @@ def main():
         if c.get("fail"):
             raise SystemExit(1)
     else:
-        cards(a.json)
+        cards(a.json, a.limit)
 
 
 if __name__ == "__main__":

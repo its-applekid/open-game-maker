@@ -15,9 +15,9 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/blob-store --filter @ogm/gm-verify build",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/asset-previews --filter @ogm/blob-store --filter @ogm/gm-verify build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/blob-store --filter @ogm/gm-verify build",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/asset-previews --filter @ogm/blob-store --filter @ogm/gm-verify build",
     "test": "vitest run",
     "lint": "eslint src"
   },
@@ -27,6 +27,7 @@
     "@gltf-transform/functions": "4.5.1",
     "@ogm/asset-cards": "workspace:*",
     "@ogm/asset-measure": "workspace:*",
+    "@ogm/asset-previews": "workspace:*",
     "@ogm/blob-store": "workspace:*",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",

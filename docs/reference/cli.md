@@ -63,3 +63,23 @@ Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild 
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
 reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.
+
+## Tag local asset packs
+
+```text
+gm packs tag --kind <audio|map|model|sprite> [--only <collection-glob>] [--workers <n>] [--limit <n>] [--json]
+```
+
+The command runs only local analysis models and validates every reported card before it updates collection counts.
+`--workers 0` selects the safe default; larger requests are capped at one third of the machine's logical cores. Model
+and sprite passes create deterministic contact sheets before tagging. Audio passes measure tracks, build searchable
+cards, and generate clips, a pack sheet, a medley, and compatibility suggestions. Map processing currently supports
+the local `profantasy-cc3` collection.
+
+Collections must allow `vision-input`; `processing: local-only` is honored. A run never downloads model weights, and
+fails when the required CLIP or CLAP cache is absent. `--json` streams one record per changed card followed by a
+summary. Use `--only` when processing a single private pack, for example:
+
+```text
+gm packs tag --kind audio --only drive-barbarian-chiptune --workers 4 --json
+```

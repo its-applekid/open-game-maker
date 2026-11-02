@@ -160,6 +160,8 @@ def test_eligible_cards_require_local_vision_rights_and_a_preview(tmp_path):
     (pack / "collection.card.json").write_text(json.dumps(collection))
     (pack / "cards" / "torch.card.json").write_text(json.dumps(card()))
     assert len(t.eligible_cards(pack)) == 1
+    assert len(t.eligible_cards(pack, "model")) == 1
+    assert t.eligible_cards(pack, "sprite") == []
     collection["rights"]["uses"] = []
     (pack / "collection.card.json").write_text(json.dumps(collection))
     assert t.eligible_cards(pack) == []

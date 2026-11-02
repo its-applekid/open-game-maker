@@ -4,6 +4,7 @@ import argparse
 import copy
 import fnmatch
 import json
+import os
 import re
 import subprocess
 import sys
@@ -14,7 +15,7 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[2]
-ROOT = REPO / "assets-local"
+ROOT = Path(os.environ.get("OGM_ASSETS_ROOT", REPO / "assets-local"))
 SCHEMA = REPO / "packages/contracts/schemas/asset-card.schema.json"
 VALIDATOR = REPO / "packages/contracts/bin/validate-cards.mjs"
 CLIP_ID = "openai/clip-vit-large-patch14"
@@ -254,7 +255,7 @@ def score_rows(rows: list[dict], model, processor) -> list[dict[str, dict]]:
     return result
 
 
-def eligible_cards(pack: Path) -> list[dict]:
+def eligible_cards(pack: Path, kind: str | None = None) -> list[dict]:
     try:
         collection = json.loads((pack / "collection.card.json").read_text())
     except (OSError, json.JSONDecodeError):
@@ -266,7 +267,7 @@ def eligible_cards(pack: Path) -> list[dict]:
     rows = []
     for path in sorted((pack / "cards").rglob("*.card.json")):
         card = json.loads(path.read_text())
-        if card.get("kind") not in VISUAL_KINDS:
+        if card.get("kind") not in VISUAL_KINDS or (kind and card.get("kind") != kind):
             continue
         preview = card.get("previews", {}).get("sheet") or card.get("previews", {}).get("thumb")
         if isinstance(preview, str):
@@ -290,6 +291,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--packs", type=Path, default=ROOT / "packs")
     parser.add_argument("--only", default="*")
+    parser.add_argument("--kind", choices=sorted(VISUAL_KINDS))
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--json", action="store_true")
     args = parser.parse_args()
@@ -297,7 +299,7 @@ def main():
     rows = []
     for pack in sorted(args.packs.iterdir() if args.packs.is_dir() else []):
         if pack.is_dir() and fnmatch.fnmatch(pack.name, args.only):
-            rows.extend(eligible_cards(pack))
+            rows.extend(eligible_cards(pack, args.kind))
     if not rows:
         emit({"eligible": 0, "reason": "no local vision-input cards with previews"}, args.json, summary=True)
         raise SystemExit(2)

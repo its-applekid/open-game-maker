@@ -11,7 +11,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parents[2] / "assets-local"
+ROOT = Path(os.environ.get("OGM_ASSETS_ROOT", HERE.parents[2] / "assets-local"))
 AUDIO_EXT = {".wav", ".ogg", ".mp3", ".flac", ".m4a", ".aif", ".aiff"}
 CLAP_ID = "laion/clap-htsat-unfused"
 CLAP_SR = 48000
@@ -182,7 +182,10 @@ def clap():
         import torch
         from transformers import ClapModel, ClapProcessor
         torch.set_num_threads(int(os.environ.get("OGM_TORCH_THREADS", "2")))
-        _M = (ClapModel.from_pretrained(CLAP_ID, use_safetensors=False).eval(), ClapProcessor.from_pretrained(CLAP_ID))
+        _M = (
+            ClapModel.from_pretrained(CLAP_ID, use_safetensors=False, local_files_only=True).eval(),
+            ClapProcessor.from_pretrained(CLAP_ID, local_files_only=True),
+        )
     return _M
 
 

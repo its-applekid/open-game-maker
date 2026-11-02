@@ -9,7 +9,7 @@ lift = p(label | track) / mean p(label) over the library (music and sound effect
 lift is high. game_fit keeps at most two situations, each needing high lift AND agreement from the measured tempo, energy and
 key (fits); a track may suit none. Music settings are not tagged: CLAP cannot hear steampunk or pirate (it spread all 11
 evenly over the library). Genre comes from the pack name when the vendor named one (Orchestral Music 02)."""
-import argparse, copy, fnmatch, hashlib, json, re, subprocess, sys
+import argparse, copy, fnmatch, hashlib, json, os, re, subprocess, sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +23,7 @@ import previews as P
 from import_sidetrax import stem_key
 
 REPO = HERE.parents[2]
-ROOT = REPO / "assets-local"
+ROOT = Path(os.environ.get("OGM_ASSETS_ROOT", REPO / "assets-local"))
 VALIDATOR = REPO / "packages/contracts/bin/validate-cards.mjs"
 VOCAB = "2026-10-27"
 TOOL = "build_audio_cards@0.1"
@@ -127,8 +127,8 @@ def prompts():
 def text_embeddings(sets):
     import torch
     from transformers import ClapModel, ClapProcessor
-    m = ClapModel.from_pretrained(CLAP_ID, use_safetensors=False).eval()
-    p = ClapProcessor.from_pretrained(CLAP_ID)
+    m = ClapModel.from_pretrained(CLAP_ID, use_safetensors=False, local_files_only=True).eval()
+    p = ClapProcessor.from_pretrained(CLAP_ID, local_files_only=True)
     out = {}
     with torch.no_grad():
         for k, (_, texts) in sets.items():
@@ -532,6 +532,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
     ap.add_argument("--only", default="*")
+    ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--no-validate", action="store_true")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
@@ -541,7 +542,8 @@ def main():
     score_all(rows, emb, scale, sets)
     means = library_means(rows)
     energy_ranks(rows)
-    n, flags, records, collection_updates = build(rows, sets, means, a.packs, update_counts=not a.json)
+    selected = rows[:a.limit] if a.limit else rows
+    n, flags, records, collection_updates = build(selected, sets, means, a.packs, update_counts=not a.json)
     staged = [part for _, part, _ in records] + [part for _, part, _ in collection_updates]
     emit({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}, a.json, summary=True)
     if not a.no_validate:
@@ -565,8 +567,6 @@ def main():
         promote(part, path)
     if a.json:
         for path, _, card in records:
-            emit(card_record(path.relative_to(ROOT).as_posix(), card), json_mode=True)
-        for path, _, card in collection_updates:
             emit(card_record(path.relative_to(ROOT).as_posix(), card), json_mode=True)
 
 
