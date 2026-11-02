@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { ControlDecl, DesignDoc, EditorCommand, Entity, PlacementResult } from '@ogm/contracts';
+import type { ControlDecl, DesignDoc, EditorCommand, Entity, PlacementResult } from '@ogm/contracts/browser';
 
 import { FocusZone } from '../../lib/input';
 import { EDITOR_FOCUS_ZONES } from './focus';

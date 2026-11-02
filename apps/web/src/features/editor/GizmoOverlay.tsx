@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { StoreApi } from 'zustand/vanilla';
 
-import type { Entity, GameManifest, PlacementResult, Pose, TargetRef } from '@ogm/contracts';
+import type { Entity, GameManifest, PlacementResult, Pose, TargetRef } from '@ogm/contracts/browser';
 
 import { FocusZone } from '../../lib/input';
 import { movePose, normalizeFramePoint, placementPose, poseFromProps, stepPose, type GizmoKind } from './canvas';
@@ -48,17 +48,6 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
 
   useEffect(() => {
     const stopPicked = frame.onPicked((targets) => receivePicked(targets, session, frame, setAnchor));
-    const stopPlacement = frame.onPlacement((result) => {
-      const current = ghostRef.current;
-      if (current === undefined) return;
-      const next = { ...current, result };
-      ghostRef.current = next;
-      setGhost(next);
-      if (dropRequestedRef.current) {
-        dropRequestedRef.current = false;
-        if (result.ok) commitPlacement(next, manifest, session, setGhost, ghostRef);
-      }
-    });
     const stopScreen = frame.onScreen((position) => {
       if ('offscreen' in position) {
         setAnchor((current) => (current?.id === position.id ? undefined : current));
@@ -68,7 +57,6 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
     });
     return () => {
       stopPicked();
-      stopPlacement();
       stopScreen();
     };
   }, [frame, manifest, session]);
@@ -76,16 +64,30 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
   useEffect(
     () => () => {
       if (validationTimerRef.current !== undefined) clearTimeout(validationTimerRef.current);
+      pendingValidationRef.current = undefined;
+      ghostRef.current = undefined;
     },
     [],
   );
+
+  const validateGhost = (candidate: Ghost) => {
+    void frame.validatePlacement(candidate.prefab, candidate.pose).then((result) => {
+      if (ghostRef.current !== candidate) return;
+      const validated = { ...candidate, result };
+      ghostRef.current = validated;
+      setGhost(validated);
+      if (!dropRequestedRef.current) return;
+      dropRequestedRef.current = false;
+      if (result.ok) commitPlacement(validated, manifest, session, setGhost, ghostRef);
+    });
+  };
 
   const requestValidation = (next: Ghost) => {
     const now = performance.now();
     const remaining = validationAtRef.current + VALIDATION_INTERVAL_MS - now;
     if (remaining <= 0) {
       validationAtRef.current = now;
-      frame.validatePlacement(next.prefab, next.pose);
+      validateGhost(next);
       return;
     }
     pendingValidationRef.current = next;
@@ -96,7 +98,7 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
       pendingValidationRef.current = undefined;
       if (pending === undefined) return;
       validationAtRef.current = performance.now();
-      frame.validatePlacement(pending.prefab, pending.pose);
+      validateGhost(pending);
     }, remaining);
   };
 
@@ -160,6 +162,21 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
     if (current.result.ok) commitPlacement(current, manifest, session, setGhost, ghostRef);
   };
 
+  const onPointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+    const drag = dragRef.current;
+    if (drag !== undefined && event.pointerId === drag.pointerId) {
+      dragRef.current = undefined;
+      const state = session.getState();
+      frame.applyDesign(state.headRev, state.doc, []);
+    }
+    dropRequestedRef.current = false;
+    pendingValidationRef.current = undefined;
+    if (validationTimerRef.current !== undefined) clearTimeout(validationTimerRef.current);
+    validationTimerRef.current = undefined;
+    ghostRef.current = undefined;
+    setGhost(undefined);
+  };
+
   const beginGizmo = (event: React.PointerEvent<HTMLButtonElement>, entity: Entity, gizmo: GizmoKind) => {
     event.stopPropagation();
     if (session.getState().readOnly) return;
@@ -193,7 +210,7 @@ export function GizmoOverlay({ activePrefab, frame, manifest, session, snap }: G
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
+        onPointerCancel={onPointerCancel}
       >
         {ghost ? <GhostView ghost={ghost} manifest={manifest} /> : null}
         {selected

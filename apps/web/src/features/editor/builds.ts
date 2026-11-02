@@ -1,4 +1,4 @@
-import { JOB_STAGE_WORDS, type Job, type ReapplyReport } from '@ogm/contracts';
+import { JOB_STAGE_WORDS, type Job, type ReapplyReport } from '@ogm/contracts/browser';
 
 import type { DesignSnapshot, OptionalCapability } from './api';
 

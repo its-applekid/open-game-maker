@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 
-import type { Entity, ReapplyReport } from '@ogm/contracts';
+import type { Entity, ReapplyReport } from '@ogm/contracts/browser';
 
 import type { OgmHost } from '../../app/testHook';
 import {
@@ -80,6 +80,7 @@ export function GameScreen() {
   const [frameAttempt, setFrameAttempt] = useState(0);
   const [sessionStore, setSessionStore] = useState<StoreApi<EditorSessionState>>();
   const [sessionView, setSessionView] = useState<EditorSessionState>();
+  const [editStartup, setEditStartup] = useState<EditorSessionState['saved']>();
   const [canvasOptions, setCanvasOptions] = useState<{ prefab?: string; snap: SnapPrefs }>();
   const [adopted, setAdopted] = useState<{ gameId: string; branch: string; snapshot: DesignSnapshot }>();
   const [pendingBuild, setPendingBuild] = useState<{ snapshot: DesignSnapshot; report: ReapplyReport }>();
@@ -148,8 +149,10 @@ export function GameScreen() {
   useEffect(() => {
     if (mode !== 'edit' || activeSnapshot === undefined || gameId === '') {
       setSessionStore(undefined);
+      setEditStartup(undefined);
       return;
     }
+    setEditStartup('saving');
     const snapshot = activeSnapshot;
     const sessionId = globalThis.crypto.randomUUID();
     let active = true;
@@ -161,7 +164,20 @@ export function GameScreen() {
         heartbeat: (token) => heartbeatLease(gameId, branch, sessionId, token),
         release: (token) => releaseLease(gameId, branch, sessionId, token),
       },
-      onLost: (holder) => void editor?.getState().loseLease(holder),
+      onLost: (holder) => {
+        if (editor === undefined) {
+          if (active) setEditStartup('read-only');
+        } else {
+          void editor.getState().loseLease(holder);
+        }
+      },
+      onError: () => {
+        if (!active) return;
+        setEditStartup(editor === undefined ? 'not-saved' : 'retrying');
+      },
+      onRecovered: () => {
+        if (active && editor !== undefined) setEditStartup(undefined);
+      },
     });
 
     void lease.start().then(async (result) => {
@@ -172,6 +188,7 @@ export function GameScreen() {
       if (!result.ok) return;
       editor = createSession(gameId, branch, sessionId, result.lease.token, snapshot, frameRef);
       setSessionStore(editor);
+      setEditStartup(undefined);
       stream = connectTransactionStream({
         gameId,
         branch,
@@ -232,7 +249,7 @@ export function GameScreen() {
       <PlayEditBar
         title={game.data?.title ?? ''}
         mode={mode}
-        saved={mode === 'edit' ? savedLabel(sessionView?.saved) : undefined}
+        saved={mode === 'edit' ? savedLabel(editStartup ?? sessionView?.saved) : undefined}
         build={build}
         buildStatus={activeBuildStatus(jobs.data?.jobs ?? [])}
         playLabel={frameState.manifest?.playLabel}
@@ -274,6 +291,7 @@ export function GameScreen() {
             currentBuildId={activeSnapshot.buildId}
             gameId={gameId}
             onPublishedBuild={setPublishedBuildId}
+            onError={reportUpdateFailure}
             onUpdate={() => window.location.reload()}
           />
         ) : null}
@@ -373,6 +391,10 @@ function savedLabel(saved: EditorSessionState['saved'] | undefined): string {
     default:
       return 'Saved';
   }
+}
+
+function reportUpdateFailure(): void {
+  pushToast('Update check failed');
 }
 
 function GameExtras({ placement, ...props }: GameExtraProps & { placement: 'topbar' | 'hud' | 'overlay' }) {

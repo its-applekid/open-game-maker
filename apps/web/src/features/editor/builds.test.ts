@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Job, ReapplyReport } from '@ogm/contracts';
+import type { Job, ReapplyReport } from '@ogm/contracts/browser';
 
 import { activeBuildStatus, inspectBuildChange } from './builds';
 import type { DesignSnapshot, OptionalCapability } from './api';

@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { SaveSlot } from '@ogm/contracts';
+import type { SaveSlot } from '@ogm/contracts/browser';
 
 import type { GameFrameController } from '../../features/editor/frame';
 import { PlatformHud } from './PlatformHud';
@@ -99,6 +99,34 @@ describe('PlatformHud', () => {
     await waitFor(() =>
       expect(write).toHaveBeenCalledWith('game', '3', { saveSchemaVersion: 1, data: { checkpoint: 2 } }, undefined),
     );
+  });
+
+  it('refreshes the slot revision before a second save write', async () => {
+    const test = frameHarness();
+    const write = vi.fn().mockResolvedValue(undefined);
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 4 }] } })
+      .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 5 }] } })
+      .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 6 }] } });
+    render(
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saves
+        saveApi={{ list, read: vi.fn(), write }}
+      />,
+    );
+    await waitFor(() => expect(list).toHaveBeenCalledOnce());
+    await waitFor(() => expect(test.frame.onSaveWrite).toHaveBeenCalledTimes(2));
+
+    test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 1 } });
+    await waitFor(() => expect(write).toHaveBeenNthCalledWith(1, 'game', 'auto', expect.anything(), 4));
+    await waitFor(() => expect(list).toHaveBeenCalledTimes(2));
+    test.saveWrite({ saveSchemaVersion: 1, data: { checkpoint: 2 } });
+
+    await waitFor(() => expect(write).toHaveBeenNthCalledWith(2, 'game', 'auto', expect.anything(), 5));
   });
 
   it('forwards safe settings and emits draft-only achievement copy', () => {

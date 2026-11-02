@@ -1,6 +1,6 @@
 import type { Page, Route } from '@playwright/test';
 
-import type { DesignDoc, Patch } from '@ogm/contracts';
+import type { DesignDoc, Patch } from '@ogm/contracts/browser';
 
 import type { TransactionBody } from '../../src/features/editor/api';
 

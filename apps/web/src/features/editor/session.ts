@@ -1,5 +1,5 @@
-import type { DesignDoc, Patch, Transaction } from '@ogm/contracts';
-import { apply } from '@ogm/design-log';
+import type { DesignDoc, Patch, Transaction } from '@ogm/contracts/browser';
+import { apply } from '@ogm/design-log/browser';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 
 import type { DesignSnapshot, TransactionBody, TransactionPostResult } from './api';
@@ -136,7 +136,17 @@ export function createEditorSession(options: EditorSessionOptions): StoreApi<Edi
       }
       if (result.kind === 'conflict' && !conflictRetried) {
         conflictRetried = true;
-        const snapshot = await options.api.getSnapshot();
+        let snapshot: DesignSnapshot;
+        try {
+          snapshot = await options.api.getSnapshot();
+        } catch (error) {
+          pending = undefined;
+          store.setState({
+            saved: 'not-saved',
+            error: error instanceof Error ? error.message : 'Could not refresh the design',
+          });
+          return;
+        }
         intent = replayIntent(initialIntent, snapshot.doc);
         pending = intent;
         baseRev = snapshot.rev;

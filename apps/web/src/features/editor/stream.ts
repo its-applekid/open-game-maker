@@ -1,4 +1,4 @@
-import type { Transaction } from '@ogm/contracts';
+import type { Transaction } from '@ogm/contracts/browser';
 
 import { openTransactionStream, parseTransactionEvent } from './api';
 

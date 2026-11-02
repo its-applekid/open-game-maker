@@ -1,4 +1,4 @@
-import type { PlayerSettings } from '@ogm/contracts';
+import type { PlayerSettings } from '@ogm/contracts/browser';
 
 const STORAGE_KEY = 'ogm.settings';
 const defaults = (reduceMotion: boolean): PlayerSettings => ({

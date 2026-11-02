@@ -11,6 +11,7 @@ export type LeaseControllerOptions = {
   heartbeatMs?: number;
   onLost(holder: string): void;
   onError?(message: string): void;
+  onRecovered?(): void;
 };
 
 export class LeaseController {
@@ -67,6 +68,7 @@ export class LeaseController {
       const result = await this.options.api.heartbeat(token);
       if (result.ok) {
         this.lease = result.lease;
+        this.options.onRecovered?.();
         return;
       }
       this.report(result);

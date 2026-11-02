@@ -9,12 +9,14 @@ export function UpdateIndicator({
   api = getOptionalPublished,
   currentBuildId,
   gameId,
+  onError,
   onPublishedBuild,
   onUpdate,
 }: {
   api?: PublishedApi;
   currentBuildId: string;
   gameId: string;
+  onError?(error: unknown): void;
   onPublishedBuild?(buildId: string | undefined): void;
   onUpdate(): void;
 }) {
@@ -35,7 +37,7 @@ export function UpdateIndicator({
   }, [api, gameId, onPublishedBuild]);
 
   useEffect(() => {
-    const run = () => void poll().catch(() => undefined);
+    const run = () => void poll().catch((error: unknown) => onError?.(error));
     run();
     const interval = setInterval(run, 60_000);
     const onVisibility = () => {
@@ -46,7 +48,7 @@ export function UpdateIndicator({
       clearInterval(interval);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [poll]);
+  }, [onError, poll]);
 
   return publishedBuildId !== undefined && publishedBuildId !== currentBuildId ? (
     <button className="update-indicator tap-secondary" type="button" onClick={onUpdate}>

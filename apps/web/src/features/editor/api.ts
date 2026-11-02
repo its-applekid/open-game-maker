@@ -8,8 +8,8 @@ import type {
   SaveData,
   SaveSlot,
   Transaction,
-} from '@ogm/contracts';
-import { PatchTooLargeError, validatePatches } from '@ogm/design-log';
+} from '@ogm/contracts/browser';
+import { PatchTooLargeError, validatePatches } from '@ogm/design-log/browser';
 
 import { api, ApiError, apiFetch, sse } from '../../lib/api/client';
 

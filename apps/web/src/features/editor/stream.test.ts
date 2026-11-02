@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { Transaction } from '@ogm/contracts';
+import type { Transaction } from '@ogm/contracts/browser';
 
 import { connectTransactionStream } from './stream';
 

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DesignDocSchema, type DesignDoc, type Transaction } from '@ogm/contracts';
-import { canonical } from '@ogm/design-log';
+import { DesignDocSchema, type DesignDoc, type Transaction } from '@ogm/contracts/browser';
+import { canonical } from '@ogm/design-log/browser';
 
 import type { DesignSnapshot, TransactionBody, TransactionPostResult } from './api';
 import { createEditorSession } from './session';
@@ -103,6 +103,15 @@ describe('editor session', () => {
     expect(postTransaction).toHaveBeenCalledTimes(2);
     expect(postTransaction.mock.calls[1]?.[0]).toEqual(postTransaction.mock.calls[0]?.[0]);
     expect(store.getState().saved).toBe('saved');
+  });
+
+  it('reports a failed conflict refresh instead of staying on Saving', async () => {
+    const { store, getSnapshot } = setup([{ ok: false, kind: 'conflict', headRev: 7 }]);
+    getSnapshot.mockRejectedValueOnce(new Error('refresh offline'));
+
+    await expect(store.getState().submit(intent())).resolves.toBeUndefined();
+
+    expect(store.getState()).toMatchObject({ saved: 'not-saved', error: 'refresh offline' });
   });
 
   it('appends an inverse transaction for undo and preserves redo', async () => {

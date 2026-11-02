@@ -47,6 +47,27 @@ describe('lease controller', () => {
     expect(onLost).toHaveBeenCalledWith('other-session');
   });
 
+  it('reports a transient heartbeat failure and its recovery', async () => {
+    vi.useFakeTimers();
+    const onError = vi.fn();
+    const onRecovered = vi.fn();
+    const api = {
+      acquire: vi.fn(async () => ok()),
+      heartbeat: vi
+        .fn()
+        .mockResolvedValueOnce({ ok: false as const, kind: 'retryable' as const, message: 'offline' })
+        .mockResolvedValueOnce(ok()),
+      release: vi.fn(async () => ok()),
+    };
+    const controller = new LeaseController({ api, heartbeatMs: 15_000, onLost: vi.fn(), onError, onRecovered });
+
+    await controller.start();
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    expect(onError).toHaveBeenCalledWith('offline');
+    expect(onRecovered).toHaveBeenCalledOnce();
+  });
+
   it('releases a lease that resolves after StrictMode cleanup without starting a timer', async () => {
     vi.useFakeTimers();
     let resolveAcquire!: (result: LeaseResult) => void;

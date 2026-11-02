@@ -1,4 +1,4 @@
-import type { GameManifest, Pose } from '@ogm/contracts';
+import type { GameManifest, Pose } from '@ogm/contracts/browser';
 
 import type { SnapPrefs } from './SnapPrefs';
 

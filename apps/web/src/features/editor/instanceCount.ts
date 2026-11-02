@@ -1,6 +1,6 @@
 import type { StoreApi } from 'zustand/vanilla';
 
-import type { Entity, GameManifest, PlacementResult, Pose } from '@ogm/contracts';
+import type { Entity, GameManifest, PlacementResult, Pose } from '@ogm/contracts/browser';
 
 import { poseFromProps } from './canvas';
 import type { GameFrameController } from './frame';
@@ -32,7 +32,7 @@ export async function changeInstanceCount(
 
   const anchor = lastTarget(state.doc.entities, change.targetIds);
   const pose = adjacentPose(anchor, manifest.grid?.size ?? 1);
-  const result = await validatePlacement(frame, change.prefab, pose, validationTimeoutMs);
+  const result = await frame.validatePlacement(change.prefab, pose, validationTimeoutMs);
   if (!result.ok) return result;
 
   const entity: Entity = {
@@ -44,28 +44,6 @@ export async function changeInstanceCount(
   };
   await session.getState().submit(createEntityIntent(session.getState().doc, entity, `Added ${change.prefab}`));
   return { ok: true };
-}
-
-function validatePlacement(
-  frame: GameFrameController,
-  prefab: string,
-  pose: Pose,
-  timeoutMs: number,
-): Promise<PlacementResult> {
-  return new Promise((resolve) => {
-    let settled = false;
-    let stop: () => void = () => undefined;
-    const finish = (result: PlacementResult) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      stop();
-      resolve(result);
-    };
-    const timer = setTimeout(() => finish({ ok: false, reason: 'Placement validation timed out.' }), timeoutMs);
-    stop = frame.onPlacement(finish);
-    frame.validatePlacement(prefab, pose);
-  });
 }
 
 function adjacentPose(anchor: Entity | undefined, step: number): Pose {

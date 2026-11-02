@@ -27,13 +27,12 @@ const host = vi.hoisted(() => {
     applyDesign: vi.fn(),
     dispose: vi.fn(),
     onPicked: vi.fn(() => vi.fn()),
-    onPlacement: vi.fn(() => vi.fn()),
     onScreen: vi.fn(() => vi.fn()),
     pick: vi.fn(),
     select: vi.fn(),
     setMode: vi.fn(),
     setSettings: vi.fn(),
-    validatePlacement: vi.fn(),
+    validatePlacement: vi.fn().mockResolvedValue({ ok: true }),
     state: vi.fn(() => ({ bridgeState: 'connecting' as const, dropped: 0 })),
   };
   return {
@@ -129,6 +128,14 @@ describe('GameScreen', () => {
 
     await waitFor(() => expect(editorApi.acquireLease).toHaveBeenCalledWith('game', 'main', expect.any(String)));
     expect(host.controller.setMode).toHaveBeenCalledWith('edit');
+  });
+
+  it('reports a denied edit lease as read only', async () => {
+    editorApi.acquireLease.mockResolvedValue({ ok: false, kind: 'lease-lost', holder: 'other-session' });
+
+    renderGame('/g/game?mode=edit');
+
+    expect(await screen.findByText('Read only')).toBeVisible();
   });
 
   it('marks and mounts the current release as published', async () => {

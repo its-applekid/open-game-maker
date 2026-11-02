@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 
-import type { ReapplyReport } from '@ogm/contracts';
+import type { ReapplyReport } from '@ogm/contracts/browser';
 
 type ReapplyCardProps = {
   report: ReapplyReport;

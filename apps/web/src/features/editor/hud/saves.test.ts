@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { SaveSlot } from '@ogm/contracts';
+import type { SaveSlot } from '@ogm/contracts/browser';
 
 import { saveSlotOptions, storeSaveWrite } from './saves';
 

@@ -1,4 +1,4 @@
-import type { GameManifest } from '@ogm/contracts';
+import type { GameManifest } from '@ogm/contracts/browser';
 
 import { FocusZone } from '../../lib/input';
 import { EDITOR_FOCUS_ZONES } from './focus';

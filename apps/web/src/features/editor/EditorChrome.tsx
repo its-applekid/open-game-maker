@@ -6,7 +6,7 @@ import {
   type EditorCommand,
   type GameManifest,
   type PlacementResult,
-} from '@ogm/contracts';
+} from '@ogm/contracts/browser';
 
 import type { EditorSessionState } from './session';
 import { HintStrip } from './HintStrip';

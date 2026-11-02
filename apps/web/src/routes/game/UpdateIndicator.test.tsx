@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { Release } from '@ogm/contracts';
+import type { Release } from '@ogm/contracts/browser';
 
 import { UpdateIndicator, type PublishedApi } from './UpdateIndicator';
 
@@ -47,5 +47,17 @@ describe('UpdateIndicator', () => {
     render(<UpdateIndicator api={api} currentBuildId={currentBuild} gameId="game" onUpdate={vi.fn()} />);
     await act(async () => Promise.resolve());
     expect(screen.queryByRole('button')).not.toBeInTheDocument();
+  });
+
+  it('reports non-capability polling failures', async () => {
+    const api = vi.fn<PublishedApi>().mockRejectedValue(new Error('offline'));
+    const onError = vi.fn();
+    render(
+      <UpdateIndicator api={api} currentBuildId={currentBuild} gameId="game" onError={onError} onUpdate={vi.fn()} />,
+    );
+
+    await act(async () => Promise.resolve());
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({ message: 'offline' }));
   });
 });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { PlayerSettings, SaveData, SaveSlot } from '@ogm/contracts';
+import type { PlayerSettings, SaveData, SaveSlot } from '@ogm/contracts/browser';
 
 import { getOptionalSaves, getSave, putSave, type OptionalCapability } from '../../features/editor/api';
 import type { GameFrameController } from '../../features/editor/frame';
@@ -52,6 +52,7 @@ export function PlatformHud({
   const wasPausedRef = useRef(false);
   const slotsRef = useRef(slots);
   const selectedSlotRef = useRef(selectedSlot);
+  const saveQueueRef = useRef(Promise.resolve());
   slotsRef.current = slots;
   selectedSlotRef.current = selectedSlot;
 
@@ -83,14 +84,24 @@ export function PlatformHud({
   }, [frame, settings]);
 
   useEffect(() => {
+    let active = true;
     const stopSave = frame.onSaveWrite((payload) => {
       if (!savesAvailable) return;
-      void storeSaveWrite(gameId, selectedSlotRef.current, payload, slotsRef.current ?? [], saveApi.write).catch(() =>
-        toast('Save failed'),
-      );
+      saveQueueRef.current = saveQueueRef.current
+        .then(async () => {
+          await storeSaveWrite(gameId, selectedSlotRef.current, payload, slotsRef.current ?? [], saveApi.write);
+          const result = await saveApi.list(gameId);
+          if (!active) return;
+          setSavesAvailable(result.available);
+          const nextSlots = result.available ? result.value.slots : undefined;
+          slotsRef.current = nextSlots;
+          setSlots(nextSlots);
+        })
+        .catch(() => toast('Save failed'));
     });
     const stopEvent = frame.onEvent((kind, payload) => handleGameEvent(kind, payload, build, toast));
     return () => {
+      active = false;
       stopSave();
       stopEvent();
     };

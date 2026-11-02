@@ -1,4 +1,4 @@
-import type { SaveData, SaveSlot } from '@ogm/contracts';
+import type { SaveData, SaveSlot } from '@ogm/contracts/browser';
 
 export const SAVE_SLOT_IDS = ['auto', '1', '2', '3'] as const satisfies readonly SaveSlot['slotId'][];
 export type SaveSlotId = (typeof SAVE_SLOT_IDS)[number];

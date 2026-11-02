@@ -1,8 +1,8 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 
-import type { DesignDoc, GameManifest, PlacementResult, TargetRef } from '@ogm/contracts';
+import type { DesignDoc, GameManifest, PlacementResult, TargetRef } from '@ogm/contracts/browser';
 
 import type { GameFrameController } from './frame';
 import { GizmoOverlay } from './GizmoOverlay';
@@ -31,7 +31,7 @@ const manifest = {
 
 function harness(selection: string[] = []) {
   let picked: ((targets: TargetRef[]) => void) | undefined;
-  let placement: ((result: PlacementResult) => void) | undefined;
+  const placements: Array<(result: PlacementResult) => void> = [];
   const submit = vi.fn().mockResolvedValue(undefined);
   const commitStroke = vi.fn().mockResolvedValue(undefined);
   const setSelection = vi.fn();
@@ -50,13 +50,11 @@ function harness(selection: string[] = []) {
     applyDesign: vi.fn(),
     pick: vi.fn(),
     select: vi.fn(),
-    validatePlacement: vi.fn(),
+    validatePlacement: vi.fn(
+      () => new Promise<PlacementResult>((resolve) => placements.push(resolve)),
+    ),
     onPicked: vi.fn((callback) => {
       picked = callback;
-      return vi.fn();
-    }),
-    onPlacement: vi.fn((callback) => {
-      placement = callback;
       return vi.fn();
     }),
     onScreen: vi.fn(() => vi.fn()),
@@ -64,7 +62,7 @@ function harness(selection: string[] = []) {
   return {
     commitStroke,
     frame,
-    placement: (result: PlacementResult) => placement?.(result),
+    placement: (result: PlacementResult) => placements.shift()?.(result),
     picked: (targets: TargetRef[]) => picked?.(targets),
     session,
     setSelection,
@@ -99,7 +97,7 @@ describe('GizmoOverlay', () => {
     expect(test.frame.select).toHaveBeenCalledWith([entityId]);
   });
 
-  it('does not place an invalid ghost and submits exactly once after valid revalidation', () => {
+  it('does not place an invalid ghost and submits exactly once after valid revalidation', async () => {
     vi.useFakeTimers();
     const test = harness();
     render(
@@ -115,14 +113,21 @@ describe('GizmoOverlay', () => {
     vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 60 } as DOMRect);
 
     fireEvent.pointerDown(canvas, { clientX: 10, clientY: 10, pointerId: 1 });
-    test.placement({ ok: false, reason: 'blocked' });
+    await act(async () => {
+      test.placement({ ok: false, reason: 'blocked' });
+      await Promise.resolve();
+    });
+    expect(screen.getByRole('status')).toHaveAttribute('data-state', 'invalid');
     fireEvent.pointerUp(canvas, { clientX: 10, clientY: 10, pointerId: 1 });
     expect(test.submit).not.toHaveBeenCalled();
 
-    vi.advanceTimersByTime(70);
+    await act(async () => vi.advanceTimersByTimeAsync(70));
     fireEvent.pointerDown(canvas, { clientX: 20, clientY: 20, pointerId: 2 });
     fireEvent.pointerUp(canvas, { clientX: 20, clientY: 20, pointerId: 2 });
-    test.placement({ ok: true });
+    await act(async () => {
+      test.placement({ ok: true });
+      await Promise.resolve();
+    });
 
     expect(test.submit).toHaveBeenCalledOnce();
   });
@@ -151,5 +156,30 @@ describe('GizmoOverlay', () => {
     expect(test.commitStroke.mock.calls[0]?.[0]).toHaveLength(40);
     fireEvent.click(screen.getByRole('button', { name: 'Move skeleton backward' }));
     expect(test.submit).toHaveBeenCalledOnce();
+  });
+
+  it('discards a cancelled drag and restores the authoritative design', () => {
+    const test = harness([entityId]);
+    render(
+      <GizmoOverlay
+        frame={test.frame}
+        manifest={manifest}
+        session={test.session}
+        snap={{ version: 1, enabled: false, grid: 1 }}
+      />,
+    );
+    const canvas = screen.getByLabelText('Editor canvas');
+    vi.spyOn(canvas, 'getBoundingClientRect').mockReturnValue({ left: 0, top: 0, width: 100, height: 60 } as DOMRect);
+
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Move skeleton' }), {
+      clientX: 10,
+      clientY: 10,
+      pointerId: 4,
+    });
+    fireEvent.pointerMove(canvas, { clientX: 20, clientY: 10, pointerId: 4 });
+    fireEvent.pointerCancel(canvas, { pointerId: 4 });
+
+    expect(test.commitStroke).not.toHaveBeenCalled();
+    expect(test.frame.applyDesign).toHaveBeenLastCalledWith(4, doc, []);
   });
 });

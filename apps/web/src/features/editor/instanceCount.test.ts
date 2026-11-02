@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { StoreApi } from 'zustand/vanilla';
 
-import type { GameManifest } from '@ogm/contracts';
+import type { GameManifest } from '@ogm/contracts/browser';
 
 import type { GameFrameController } from './frame';
 import { changeInstanceCount } from './instanceCount';
@@ -33,11 +33,7 @@ function harness(result: { ok: true } | { ok: false; reason: string }) {
     },
   } as unknown as EditorSessionState;
   const frame = {
-    onPlacement: vi.fn((callback: (value: typeof result) => void) => {
-      queueMicrotask(() => callback(result));
-      return vi.fn();
-    }),
-    validatePlacement: vi.fn(),
+    validatePlacement: vi.fn().mockResolvedValue(result),
   } as unknown as GameFrameController;
   const session = { getState: () => state } as StoreApi<EditorSessionState>;
   return { frame, session, submit };
@@ -56,7 +52,7 @@ describe('instance count controls', () => {
       ),
     ).resolves.toEqual({ ok: true });
 
-    expect(test.frame.validatePlacement).toHaveBeenCalledWith('skeleton', { position: [5, 0, 4] });
+    expect(test.frame.validatePlacement).toHaveBeenCalledWith('skeleton', { position: [5, 0, 4] }, 3_000);
     expect(test.submit).toHaveBeenCalledWith(expect.objectContaining({ label: 'Added skeleton' }));
   });
 

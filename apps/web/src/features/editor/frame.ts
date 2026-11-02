@@ -8,7 +8,7 @@ import type {
   Pose,
   SaveData,
   TargetRef,
-} from '@ogm/contracts';
+} from '@ogm/contracts/browser';
 
 type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSettings'> & {
   bridge: Pick<GameFrame['bridge'], 'dropped'>;
@@ -28,9 +28,8 @@ export type GameFrameController = {
   applyDesign(rev: number, doc: DesignDoc, patches: readonly Patch[]): void;
   pick(x: number, y: number): void;
   select(ids: readonly string[]): void;
-  validatePlacement(prefab: string, pose: Pose): void;
+  validatePlacement(prefab: string, pose: Pose, timeoutMs?: number): Promise<PlacementResult>;
   onPicked(callback: (targets: TargetRef[]) => void): () => void;
-  onPlacement(callback: (result: PlacementResult) => void): () => void;
   onScreen(
     callback: (position: { id: string; x: number; y: number } | { id: string; offscreen: true }) => void,
   ): () => void;
@@ -62,6 +61,15 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
   let disposed = false;
   let current: Omit<GameFrameState, 'dropped'> = { bridgeState: 'connecting' };
   let frame!: FrameLike;
+  type PlacementRequest = {
+    prefab: string;
+    pose: Pose;
+    timeoutMs: number;
+    resolve(result: PlacementResult): void;
+  };
+  const placementQueue: PlacementRequest[] = [];
+  let activePlacement: (PlacementRequest & { timer: ReturnType<typeof setTimeout>; settled: boolean }) | undefined;
+  let stopPlacement: () => void = () => undefined;
 
   const snapshot = (): GameFrameState => ({ ...current, dropped: frame.bridge.dropped + wrongOriginDrops });
   const publish = () => options.onState?.(snapshot());
@@ -101,6 +109,28 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     throw error;
   }
 
+  const finishPlacement = (result: PlacementResult) => {
+    const request = activePlacement;
+    if (request === undefined) return;
+    clearTimeout(request.timer);
+    activePlacement = undefined;
+    if (!request.settled) request.resolve(result);
+    sendNextPlacement();
+  };
+  const sendNextPlacement = () => {
+    if (disposed || activePlacement !== undefined) return;
+    const request = placementQueue.shift();
+    if (request === undefined) return;
+    const timer = setTimeout(() => {
+      if (activePlacement === undefined || activePlacement.resolve !== request.resolve) return;
+      activePlacement.settled = true;
+      request.resolve({ ok: false, reason: 'Placement validation timed out.' });
+    }, request.timeoutMs);
+    activePlacement = { ...request, timer, settled: false };
+    frame.send('editor.validatePlacement', { prefab: request.prefab, pose: request.pose });
+  };
+  stopPlacement = frame.on('editor.placement', finishPlacement);
+
   return {
     state: snapshot,
     setMode: (mode) => frame.setMode(mode),
@@ -114,11 +144,12 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     select: (ids) => {
       frame.send('editor.select', { ids: [...ids] });
     },
-    validatePlacement: (prefab, pose) => {
-      frame.send('editor.validatePlacement', { prefab, pose });
-    },
+    validatePlacement: (prefab, pose, timeoutMs = 3_000) =>
+      new Promise((resolve) => {
+        placementQueue.push({ prefab, pose, timeoutMs, resolve });
+        sendNextPlacement();
+      }),
     onPicked: (callback) => frame.on('editor.picked', ({ targets }) => callback(targets)),
-    onPlacement: (callback) => frame.on('editor.placement', callback),
     onScreen: (callback) => frame.on('editor.screen', callback),
     pause: () => {
       frame.send('lifecycle.pause', {});
@@ -135,6 +166,15 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       if (disposed) return;
       disposed = true;
       window.removeEventListener('message', observeOrigin);
+      stopPlacement();
+      if (activePlacement !== undefined) {
+        clearTimeout(activePlacement.timer);
+        if (!activePlacement.settled) activePlacement.resolve({ ok: false, reason: 'Game closed.' });
+        activePlacement = undefined;
+      }
+      for (const request of placementQueue.splice(0)) {
+        request.resolve({ ok: false, reason: 'Game closed.' });
+      }
       frame.dispose();
     },
   };

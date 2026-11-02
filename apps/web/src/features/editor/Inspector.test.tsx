@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { DesignDocSchema, type ControlDecl, type DesignDoc } from '@ogm/contracts';
+import { DesignDocSchema, type ControlDecl, type DesignDoc } from '@ogm/contracts/browser';
 
 import { Inspector } from './Inspector';
 

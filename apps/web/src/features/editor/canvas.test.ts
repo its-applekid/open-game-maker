@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { GameManifest, Pose } from '@ogm/contracts';
+import type { GameManifest, Pose } from '@ogm/contracts/browser';
 
 import { movePose, normalizeFramePoint, placementPose, stepPose } from './canvas';
 

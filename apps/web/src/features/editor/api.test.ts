@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { DesignDoc } from '@ogm/contracts';
+import type { DesignDoc } from '@ogm/contracts/browser';
 
 import { getOptionalPublished, getOptionalSaves, postTransaction, putSave, type TransactionBody } from './api';
 
