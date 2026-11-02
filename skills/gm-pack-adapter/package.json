@@ -1,0 +1,19 @@
+{
+  "name": "@ogm/gm-pack-adapter",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @gm/sdk --filter @ogm/gm-cli build",
+    "test": "vitest run skill.test.ts",
+    "lint": "eslint skill.test.ts"
+  },
+  "devDependencies": {
+    "@gm/sdk": "workspace:*",
+    "@ogm/gm-cli": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

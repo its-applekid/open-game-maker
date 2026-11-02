@@ -50,6 +50,8 @@ Start the body with `Closes #<issue>`. Include `## Local tests` with Policy, a 4
 `<ref> @ <sha>`, Selection, and one bullet per command with its result. Update the evidence after every push.
 
 Before opening a PR, run the `ce-code-review` skill on the branch's full diff against `main`, fix every finding it rates blocking, and add a `## Review` section to the body: the personas that ran, each blocking finding with the commit that fixed it, and the non-blocking findings left with a one-line reason each. The Executor only checks that the PR does what its ticket says; a PR without `## Review` is sent back unread.
+Adapter PRs add `## Promote`, naming any proposed L3→L2 or L2→L1 move with its rule-of-two evidence, or `None`.
+For `packages/pack-adapters/*`, check: themeless exports, required tunables, no gameplay/UI/content, synthetic fixtures, verified conventions, binds/leaves README, and both scaffolds green.
 
 ## Never commit
 
