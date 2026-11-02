@@ -22,6 +22,7 @@ describe('game frame adapter', () => {
     let frameOptions: GameFrameOptions | undefined;
     const frame = {
       bridge: { dropped: 2 },
+      on: vi.fn(() => vi.fn()),
       setMode: vi.fn(),
       setSettings: vi.fn(),
       send: vi.fn(),
@@ -60,6 +61,16 @@ describe('game frame adapter', () => {
     expect(controller.state()).toMatchObject({ bridgeState: 'ready', manifest, dropped: 3 });
     expect(states.at(-1)).toEqual({ bridgeState: 'ready', dropped: 3 });
 
+    controller.pick(0.25, 0.75);
+    controller.select(['e_01BX5ZZKBKACTAV9WEVGEMMVRZ']);
+    controller.validatePlacement('skeleton', { position: [2, 0, 3] });
+    expect(frame.send).toHaveBeenCalledWith('editor.pick', { x: 0.25, y: 0.75 });
+    expect(frame.send).toHaveBeenCalledWith('editor.select', { ids: ['e_01BX5ZZKBKACTAV9WEVGEMMVRZ'] });
+    expect(frame.send).toHaveBeenCalledWith('editor.validatePlacement', {
+      prefab: 'skeleton',
+      pose: { position: [2, 0, 3] },
+    });
+
     controller.dispose();
     controller.dispose();
     expect(frame.dispose).toHaveBeenCalledOnce();
@@ -79,6 +90,7 @@ describe('game frame adapter', () => {
         frameOptions = options;
         return {
           bridge: { dropped: 0 },
+          on: vi.fn(() => vi.fn()),
           setMode: vi.fn(),
           setSettings: vi.fn(),
           send: vi.fn(),

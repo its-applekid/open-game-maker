@@ -14,9 +14,11 @@ import {
   type DesignSnapshot,
 } from '../../features/editor/api';
 import { EditorChrome } from '../../features/editor/EditorChrome';
+import { GizmoOverlay } from '../../features/editor/GizmoOverlay';
 import { mountGameFrame, type GameFrameController, type GameFrameState } from '../../features/editor/frame';
 import { LeaseController } from '../../features/editor/lease';
 import { createEditorSession, type EditorSessionState } from '../../features/editor/session';
+import type { SnapPrefs } from '../../features/editor/SnapPrefs';
 import { connectTransactionStream } from '../../features/editor/stream';
 import { createIntent } from '../../features/editor/transactions';
 import { PlayEditBar } from './PlayEditBar';
@@ -55,6 +57,7 @@ export function GameScreen() {
   const [frameAttempt, setFrameAttempt] = useState(0);
   const [sessionStore, setSessionStore] = useState<StoreApi<EditorSessionState>>();
   const [sessionView, setSessionView] = useState<EditorSessionState>();
+  const [canvasOptions, setCanvasOptions] = useState<{ prefab?: string; snap: SnapPrefs }>();
 
   useEffect(() => {
     const container = containerRef.current;
@@ -173,7 +176,22 @@ export function GameScreen() {
         onMode={setMode}
         onAsk={() => setMode('edit')}
       />
-      <div className="game-frame" ref={containerRef} />
+      <div className="game-stage">
+        <div className="game-frame" ref={containerRef} />
+        {mode === 'edit' &&
+        frameRef.current !== undefined &&
+        frameState.manifest !== undefined &&
+        sessionStore !== undefined &&
+        canvasOptions !== undefined ? (
+          <GizmoOverlay
+            activePrefab={canvasOptions.prefab}
+            frame={frameRef.current}
+            manifest={frameState.manifest}
+            session={sessionStore}
+            snap={canvasOptions.snap}
+          />
+        ) : null}
+      </div>
       {mode === 'edit' &&
       frameState.manifest !== undefined &&
       sessionView !== undefined &&
@@ -191,6 +209,7 @@ export function GameScreen() {
           onTool={(tool) => sessionStore.getState().setTool(tool)}
           onUndo={() => void sessionStore.getState().undo()}
           onRedo={() => void sessionStore.getState().redo()}
+          onCanvasChange={setCanvasOptions}
         />
       ) : null}
       {frameState.bridgeState === 'error' ? (

@@ -9,7 +9,7 @@ type PlayEditBarProps = {
 
 export function PlayEditBar({ title, mode, saved, onBack, onMode, onAsk }: PlayEditBarProps) {
   return (
-    <div className="play-bar">
+    <FocusZone id={EDITOR_FOCUS_ZONES.bar} className="play-bar">
       <button className="back tap-primary" type="button" onClick={onBack}>
         Games
       </button>
@@ -38,6 +38,8 @@ export function PlayEditBar({ title, mode, saved, onBack, onMode, onAsk }: PlayE
       <button className="ask-change tap-primary" type="button" onClick={onAsk}>
         <span className="ask-change-icon" aria-hidden="true" /> Ask for a change
       </button>
-    </div>
+    </FocusZone>
   );
 }
+import { FocusZone } from '../../lib/input';
+import { EDITOR_FOCUS_ZONES } from '../../features/editor/focus';

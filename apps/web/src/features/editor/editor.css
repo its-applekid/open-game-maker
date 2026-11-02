@@ -5,6 +5,81 @@
   pointer-events: none;
 }
 
+.editor-canvas-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+.editor-canvas-surface {
+  position: absolute;
+  inset: 0;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.placement-ghost,
+.gizmo-controls {
+  position: absolute;
+  translate: -50% -50%;
+}
+
+.placement-ghost {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+  border: 3px dashed var(--yellow-b);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--yellow-b) 28%, transparent);
+  color: var(--ink);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+.placement-ghost[data-state='valid'] {
+  border-color: var(--green-b);
+  background: color-mix(in srgb, var(--green-b) 28%, transparent);
+}
+
+.placement-ghost[data-state='invalid'] {
+  border-color: var(--red, #ff5b67);
+  background: color-mix(in srgb, var(--red, #ff5b67) 28%, transparent);
+}
+
+.gizmo-controls {
+  display: flex;
+  gap: 4px;
+  pointer-events: auto;
+}
+
+.gizmo-handle,
+.gizmo-step {
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--yellow-b);
+  color: var(--dark);
+  box-shadow: var(--pop-sm);
+  touch-action: none;
+}
+
+.gizmo-handle {
+  min-width: 64px;
+  min-height: 64px;
+}
+
+.gizmo-step {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .placement-ghost {
+    transition: none;
+  }
+}
+
 .editor-rail,
 .editor-palette,
 .editor-inspector,

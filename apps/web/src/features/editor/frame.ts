@@ -1,12 +1,8 @@
-import { createGameFrame, type GameFrameOptions } from '@gm/host';
-import type { DesignDoc, GameManifest, Patch, PlayerSettings } from '@ogm/contracts';
+import { createGameFrame, type GameFrame, type GameFrameOptions } from '@gm/host';
+import type { DesignDoc, GameManifest, Patch, PlacementResult, PlayerSettings, Pose, TargetRef } from '@ogm/contracts';
 
-type FrameLike = {
-  bridge: { readonly dropped: number };
-  setMode(mode: 'play' | 'edit'): void;
-  setSettings(settings: PlayerSettings): void;
-  send(type: 'design.apply', payload: { rev: number; doc: DesignDoc; patches: Patch[] }): unknown;
-  dispose(): void;
+type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSettings'> & {
+  bridge: Pick<GameFrame['bridge'], 'dropped'>;
 };
 
 export type GameFrameState = {
@@ -21,6 +17,14 @@ export type GameFrameController = {
   setMode(mode: 'play' | 'edit'): void;
   setSettings(settings: PlayerSettings): void;
   applyDesign(rev: number, doc: DesignDoc, patches: readonly Patch[]): void;
+  pick(x: number, y: number): void;
+  select(ids: readonly string[]): void;
+  validatePlacement(prefab: string, pose: Pose): void;
+  onPicked(callback: (targets: TargetRef[]) => void): () => void;
+  onPlacement(callback: (result: PlacementResult) => void): () => void;
+  onScreen(
+    callback: (position: { id: string; x: number; y: number } | { id: string; offscreen: true }) => void,
+  ): () => void;
   dispose(): void;
 };
 
@@ -90,6 +94,18 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     applyDesign: (rev, doc, patches) => {
       frame.send('design.apply', { rev, doc, patches: [...patches] });
     },
+    pick: (x, y) => {
+      frame.send('editor.pick', { x, y });
+    },
+    select: (ids) => {
+      frame.send('editor.select', { ids: [...ids] });
+    },
+    validatePlacement: (prefab, pose) => {
+      frame.send('editor.validatePlacement', { prefab, pose });
+    },
+    onPicked: (callback) => frame.on('editor.picked', ({ targets }) => callback(targets)),
+    onPlacement: (callback) => frame.on('editor.placement', callback),
+    onScreen: (callback) => frame.on('editor.screen', callback),
     dispose: () => {
       if (disposed) return;
       disposed = true;

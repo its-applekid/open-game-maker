@@ -19,8 +19,14 @@ const host = vi.hoisted(() => {
   const controller = {
     applyDesign: vi.fn(),
     dispose: vi.fn(),
+    onPicked: vi.fn(() => vi.fn()),
+    onPlacement: vi.fn(() => vi.fn()),
+    onScreen: vi.fn(() => vi.fn()),
+    pick: vi.fn(),
+    select: vi.fn(),
     setMode: vi.fn(),
     setSettings: vi.fn(),
+    validatePlacement: vi.fn(),
     state: vi.fn(() => ({ bridgeState: 'connecting' as const, dropped: 0 })),
   };
   return {

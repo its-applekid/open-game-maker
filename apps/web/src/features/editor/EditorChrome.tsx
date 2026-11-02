@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { controlDeclSchema, type ControlDecl, type EditorCommand, type GameManifest } from '@ogm/contracts';
 
@@ -19,14 +19,25 @@ type EditorChromeProps = {
   onTool(tool: string): void;
   onUndo(): void;
   onRedo(): void;
+  onCanvasChange?(value: { prefab?: string; snap: SnapPrefs }): void;
 };
 
-export function EditorChrome({ gameId, manifest, session, onCommand, onTool, onUndo, onRedo }: EditorChromeProps) {
+export function EditorChrome({
+  gameId,
+  manifest,
+  session,
+  onCommand,
+  onTool,
+  onUndo,
+  onRedo,
+  onCanvasChange,
+}: EditorChromeProps) {
   const [category, setCategory] = useState(manifest.palette.categories[0]?.id ?? '');
   const [pickedPrefab, setPickedPrefab] = useState<string>();
   const [snap, setSnap] = useState<SnapPrefs>(() => loadSnapPrefs(gameId, manifest.grid?.size ?? 1));
   const controls = useMemo(() => manifestControls(manifest), [manifest]);
   const picked = manifest.palette.items.find((item) => item.prefab === pickedPrefab);
+  useEffect(() => onCanvasChange?.({ prefab: pickedPrefab, snap }), [onCanvasChange, pickedPrefab, snap]);
   const updateSnap = (next: SnapPrefs) => {
     setSnap(next);
     saveSnapPrefs(gameId, next);
@@ -50,7 +61,10 @@ export function EditorChrome({ gameId, manifest, session, onCommand, onTool, onU
         snap={snap}
         canUndo={session.canUndo}
         canRedo={session.canRedo}
-        onTool={onTool}
+        onTool={(tool) => {
+          if (tool !== 'place') setPickedPrefab(undefined);
+          onTool(tool);
+        }}
         onSnap={updateSnap}
         onUndo={onUndo}
         onRedo={onRedo}

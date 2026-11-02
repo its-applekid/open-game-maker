@@ -1,4 +1,4 @@
-import type { DesignDoc, EditorCommand, Entity, Patch } from '@ogm/contracts';
+import { poseSchema, type DesignDoc, type EditorCommand, type Entity, type Patch, type Pose } from '@ogm/contracts';
 import { apply, makeTransaction, toPointer, validatePatches } from '@ogm/design-log';
 
 import type { TransactionBody } from './api';
@@ -73,6 +73,24 @@ export function deleteEntityIntent(doc: DesignDoc, entityId: string, label: stri
   };
   const patches: Patch[] = [{ op: 'remove', path: ['entities', entityId] }];
   const inverse: Patch[] = [{ op: 'add', path: ['entities', entityId], value: entity }];
+  validateIntentPatches(patches, inverse);
+  return { label, commands: [command], patches, inverse, doc: apply(doc, patches) };
+}
+
+export function updateEntityPoseIntent(doc: DesignDoc, entityId: string, pose: Pose, label: string): EditorIntent {
+  const entity = doc.entities[entityId];
+  if (entity === undefined) throw new InvalidEditorIntentError(`entity ${entityId} does not exist`);
+  const previous = entity.props.pose;
+  const command: EditorCommand = {
+    op: 'invoke',
+    command: 'entity.transform',
+    args: { entityId, pose },
+    targets: [entityId],
+  };
+  const path = ['entities', entityId, 'props', 'pose'];
+  const patches: Patch[] = [{ op: previous === undefined ? 'add' : 'replace', path, value: pose }];
+  const inverse: Patch[] =
+    previous === undefined ? [{ op: 'remove', path }] : [{ op: 'replace', path, value: previous }];
   validateIntentPatches(patches, inverse);
   return { label, commands: [command], patches, inverse, doc: apply(doc, patches) };
 }
@@ -171,6 +189,11 @@ function replayCommand(doc: DesignDoc, command: EditorCommand, label: string): E
   }
   if (command.command === 'entity.delete') {
     return deleteEntityIntent(doc, stringArg(args, 'entityId'), label);
+  }
+  if (command.command === 'entity.transform') {
+    const pose = poseSchema.safeParse(args?.pose);
+    if (!pose.success) throw new InvalidEditorIntentError('entity.transform pose is invalid');
+    return updateEntityPoseIntent(doc, stringArg(args, 'entityId'), pose.data, label);
   }
   throw new InvalidEditorIntentError(`unsupported invoke command ${command.command}`);
 }
