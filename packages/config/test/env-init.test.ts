@@ -98,13 +98,13 @@ describe('ogm-env-init', () => {
     if (unit === 'intake') expect(contents).toContain('OGM_STATE_DIR=');
   });
 
-  it('creates a web file with only the build origin, since the build is public', () => {
+  it('creates a web file with only the deploy origins, since the build and _redirects are public', () => {
     const home = temporaryDirectory();
     const result = runInitializer(home, 'web');
     const contents = readFileSync(join(home, '.config', 'ogm', 'env', 'web.env'), 'utf8');
 
     expect(result.status, result.stderr).toBe(0);
-    expect(contents).toBe('VITE_GAMES_ORIGIN=\n');
+    expect(contents).toBe('VITE_GAMES_ORIGIN=\nVITE_API_ORIGIN=\n');
   });
 
   it('creates a repair file with its existing shared API and games settings', () => {

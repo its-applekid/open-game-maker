@@ -355,23 +355,17 @@ steps:
         check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
         cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
       - kind: hand
-        text: Create the free Netlify app site, record its site id, replace the two host literals, set the app and games origin pair, build the town, and approve the manual deployment.
+        text: Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
         command: |-
           # Write the Netlify site id to apps/web/.netlify-site-id.
-          # Replace the host on both lines of apps/web/public/_redirects (_headers names no host).
           pnpm --filter @ogm/config exec ogm-env-init web
           # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
+          # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
           # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
           apps/web/tools/town.sh --public
           apps/web/tools/deploy.sh --dry-run
           apps/web/tools/deploy.sh
-        writes:
-          [
-            apps/web/.netlify-site-id,
-            apps/web/public/_redirects,
-            ~/.config/ogm/env/web.env,
-            ~/.config/ogm/env/games.env,
-          ]
+        writes: [apps/web/.netlify-site-id, ~/.config/ogm/env/web.env, ~/.config/ogm/env/games.env]
         check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
         cites:
           [
@@ -379,7 +373,7 @@ steps:
             apps/web/tools/town.sh,
             apps/web/tools/deploy.sh,
             apps/web/tools/games-origin.mjs,
-            apps/web/public/_redirects,
+            apps/web/tools/redirects.mjs,
           ]
       - kind: hand
         text: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.

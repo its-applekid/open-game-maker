@@ -127,13 +127,13 @@ if FAKE_TS_FAIL='Access denied: serve config denied' run_ingress > /dev/null 2> 
 fi
 assert_eq "funnel --bg --yes --https=8443 http://127.0.0.1:3100" "$(cat "$log")" "the run should stop at the first failure"
 assert_grep 'Access denied' "$scratch/denied.err"
-assert_grep 'sudo tailscale set --operator=orangekid' "$scratch/denied.err"
+assert_grep "sudo tailscale set --operator=$(id -un)" "$scratch/denied.err"
 
-# The doc OGM-070 copies from carries the same host and ports as the script.
+# The doc carries the same ports as the script, with the host left as a placeholder (#317).
 doc=$repo/docs/ops/ingress.md
-assert_grep '/api/*   https://applekid.tailee0e71.ts.net:8443/api/:splat   200' "$doc"
-assert_grep '/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200' "$doc"
-assert_grep 'frame-src https://applekid.tailee0e71.ts.net:10000' "$doc"
-assert_grep 'wss://applekid.tailee0e71.ts.net:8443' "$doc"
+assert_grep '/api/*  https://<tailnet-host>:8443/api/:splat  200' "$doc"
+assert_grep '/auth/*  https://<tailnet-host>:8443/auth/:splat  200' "$doc"
+assert_grep 'frame-src https://<tailnet-host>:10000' "$doc"
+assert_grep 'wss://<tailnet-host>:8443' "$doc"
 
 printf 'ingress: ok\n'

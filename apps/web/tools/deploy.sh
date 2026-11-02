@@ -29,8 +29,12 @@ if [[ -z "$GAMES_ORIGIN" ]]; then
 fi
 printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
 
+# The /api and /auth proxy target is a host value, so _redirects is written here and never kept in the repo.
+REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"
+
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
+printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
 if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete
 fi

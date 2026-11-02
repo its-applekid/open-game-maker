@@ -8,12 +8,13 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { readGamesOrigin } from '../tools/games-origin.mjs';
+import { readApiOrigin, readGamesOrigin } from '../tools/games-origin.mjs';
 
-async function envDir(contents?: string, rooms?: string): Promise<string> {
+async function envDir(contents?: string, rooms?: string, api?: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'ogm-web-env-'));
   if (contents !== undefined) await writeFile(join(dir, 'web.env'), contents);
   if (rooms !== undefined) await writeFile(join(dir, 'rooms.env'), rooms);
+  if (api !== undefined) await writeFile(join(dir, 'api.env'), api);
   return dir;
 }
 
@@ -22,8 +23,8 @@ async function readFrom(contents?: string, rooms?: string): Promise<() => string
   return () => readGamesOrigin(dir);
 }
 
-function runCli(dir: string) {
-  return spawnSync(process.execPath, [fileURLToPath(new URL('../tools/games-origin.mjs', import.meta.url))], {
+function runCli(dir: string, tool = 'games-origin.mjs') {
+  return spawnSync(process.execPath, [fileURLToPath(new URL(`../tools/${tool}`, import.meta.url))], {
     encoding: 'utf8',
     env: { OGM_ENV_DIR: dir },
   });
@@ -92,5 +93,54 @@ describe('deploy games origin', () => {
     expect(readFileSync(script, 'utf8')).toContain(
       'VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build',
     );
+  });
+});
+
+// The /api and /auth proxies are written at deploy time so the repo never names the host (#317).
+describe('deploy API origin', () => {
+  const games = 'VITE_GAMES_ORIGIN=https://games.example:10000\n';
+
+  it('refuses a missing, http or pathed VITE_API_ORIGIN, which would ship an app that cannot sign in', async () => {
+    for (const [contents, error] of [
+      [games, /VITE_API_ORIGIN is not set/],
+      [`${games}VITE_API_ORIGIN=http://api.example:8443\n`, /https origin/],
+      [`${games}VITE_API_ORIGIN=https://api.example:8443/api\n`, /https origin/],
+    ] as const) {
+      const dir = await envDir(contents);
+      expect(() => readApiOrigin(dir)).toThrow(error);
+    }
+  });
+
+  it('refuses a web.env origin the API does not serve auth on', async () => {
+    const web = `${games}VITE_API_ORIGIN=https://api.example:8443\n`;
+
+    expect(() => readApiOrigin('/nonexistent')).toThrow(/web\.env is missing/);
+    const stale = await envDir(web, undefined, 'OGM_PUBLIC_ORIGIN=https://old.example:8443\n');
+    expect(() => readApiOrigin(stale)).toThrow(/differs from OGM_PUBLIC_ORIGIN/);
+    const same = await envDir(web, undefined, 'OGM_PUBLIC_ORIGIN=https://api.example:8443/\n');
+    expect(readApiOrigin(same)).toBe('https://api.example:8443');
+  });
+
+  it('prints the whole _redirects file from the command line, and fails loudly without an origin', async () => {
+    const ok = runCli(await envDir(`${games}VITE_API_ORIGIN=https://api.example:8443\n`), 'redirects.mjs');
+    expect([ok.status, ok.stderr]).toEqual([0, '']);
+    expect(ok.stdout).toBe(
+      '/api/*  https://api.example:8443/api/:splat  200\n/auth/*  https://api.example:8443/auth/:splat  200\n/*  /index.html  200\n',
+    );
+
+    const missing = runCli(await envDir(games), 'redirects.mjs');
+    expect([missing.status, missing.stdout]).toEqual([1, '']);
+    expect(missing.stderr).toMatch(/^deploy: VITE_API_ORIGIN is not set/);
+  });
+
+  it('stops deploy.sh before the build when the API origin is missing', async () => {
+    const script = fileURLToPath(new URL('../tools/deploy.sh', import.meta.url));
+    const run = spawnSync('bash', [script, '--dry-run'], {
+      encoding: 'utf8',
+      env: { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, OGM_ENV_DIR: await envDir(games) },
+    });
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toMatch(/^deploy: VITE_API_ORIGIN is not set/m);
   });
 });

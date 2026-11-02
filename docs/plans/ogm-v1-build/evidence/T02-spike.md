@@ -18,7 +18,7 @@ tracker repository.
 
 | Measurement | Value in this workspace | Command or evidence |
 | --- | --- | --- |
-| `todo` nudge to first allocated/running event | Not measurable with the prescribed standalone memory tracker | `git -C /home/orangekid/github/aiur show 0f692a45b:src/lib/aiur/memory/tracker.ex` shows that `issue_entries/0` reads only `Application.get_env(:aiur, :memory_tracker_issues, [])` |
+| `todo` nudge to first allocated/running event | Not measurable with the prescribed standalone memory tracker | `git -C ~/github/aiur show 0f692a45b:src/lib/aiur/memory/tracker.ex` shows that `issue_entries/0` reads only `Application.get_env(:aiur, :memory_tracker_issues, [])` |
 | Cancel confirmation | Not measurable without a running memory-tracker ticket | `POST /api/v1/<id>/cancel`; record elapsed time through the response whose `process.status` is `exited` |
 | Spend-cap trip | Not measurable without a ticket; additionally, `fake` exposes no paid-model spend | `PUT /api/v1/<id>/spend-cap` with `{"amount":"0.000001","currency":"USD"}`; observe `ticket.<id>.usage.spend_cap_reached` |
 | Committed `.codex/skills` link | Manual CLI smoke not run in this issue workspace | `codex sandbox -- ls -l .codex/skills` from a disposable committed repository containing `.codex/skills/x -> ../../.claude/skills/x` |
@@ -54,10 +54,10 @@ Use a disposable tracker repository or an Executor-root harness that can seed
 `:aiur, :memory_tracker_issues`; do not use a paid provider.
 
 1. Start aiur from a scratch checkout with the configuration above and the
-   `fake` provider: `/home/orangekid/github/aiur/scripts/aiurdev run --bg
+   `fake` provider: `~/github/aiur/scripts/aiurdev run --bg
    .aiur/config`.
 2. Create a write token in the same scratch directory:
-   `/home/orangekid/github/aiur/scripts/aiurdev token create ogm-spike --scope
+   `~/github/aiur/scripts/aiurdev token create ogm-spike --scope
    write`; store its printed value only in `AIUR_TOKEN` for the current shell.
 3. Seed ticket `1` as `todo`, start an event subscription at its current head,
    and record a monotonic timestamp. Send the versioned control request

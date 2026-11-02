@@ -5,32 +5,30 @@ everything else comes from env files ([runbook.md](runbook.md) "Per-unit values"
 
 - `<user>`: the Linux account that runs OGM.
 - `<tailnet-host>`: the machine's Tailscale name, for example `box.tailXXXX.ts.net`.
-- `<current-host>`: the tailnet host already in the file; replace it wherever it appears.
 - `<app-origin>`: the Netlify site URL, for example `https://<site>.netlify.app`.
 
 ## Files
 
 | File | Line today | Change to |
 | --- | --- | --- |
-| `apps/web/public/_redirects` | `/api/*  https://<current-host>:8443/api/:splat  200` | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
-| `apps/web/public/_redirects` | `/auth/*  https://<current-host>:8443/auth/:splat  200` | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
 | `apps/web/public/_headers` | no host today | nothing; sockets take their hosts from `OGM_PUBLIC_ORIGIN` and `OGM_VOICE_WS_URL` |
 | `apps/web/.netlify-site-id` | the current site's id | your Netlify site's id; `apps/web/tools/deploy.sh` reads it |
-| `services/voice-host/README.md` (build command) | `OGM_AIUR_GIT=` followed by the current owner's checkout path | `OGM_AIUR_GIT=$HOME/github/aiur`, the aiur checkout from setup step 3 |
 
-The games frame's origin is baked into the web build: `apps/web/src/routes/game/GameScreen.tsx` reads
-`VITE_GAMES_ORIGIN` and falls back to `http://127.0.0.1:10000`. `apps/web/tools/deploy.sh` reads it from
-`~/.config/ogm/env/web.env` (`ogm-env-init web`) and refuses to deploy without it:
+`apps/web/tools/deploy.sh` reads two host values from `~/.config/ogm/env/web.env` (`ogm-env-init web`) and refuses to
+deploy without either. `VITE_GAMES_ORIGIN` is baked into the web build for the games frame
+(`apps/web/src/routes/game/GameScreen.tsx` falls back to `http://127.0.0.1:10000`). `VITE_API_ORIGIN` is where Netlify
+proxies `/api/*` and `/auth/*`; deploy writes `_redirects` from it, so the repo keeps no copy:
 
 ```
 VITE_GAMES_ORIGIN=https://<tailnet-host>:10000
+VITE_API_ORIGIN=https://<tailnet-host>:8443
 ```
 
 The commit unit needs no edit: `ops/systemd/ogm-commit.service` uses `@REPO@` like every other unit, and
 `ops/bin/ogm-host-setup.sh` fills in the checkout path.
 
-`.env.example` and `packages/config/src/names.ts` show the current host in the comments for `OGM_PUBLIC_ORIGIN`,
-`OGM_GAMES_ORIGIN` and `OGM_VOICE_WS_URL`. They are examples; set the real values in the env files:
+`.env.example` and `packages/config/src/names.ts` show placeholders in the comments for `OGM_PUBLIC_ORIGIN`,
+`OGM_GAMES_ORIGIN` and `OGM_VOICE_WS_URL`; set the real values in the env files:
 
 ```
 OGM_PUBLIC_ORIGIN=https://<tailnet-host>:8443

@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 // Print the games origin deploy.sh bakes into the build, read from <env dir>/web.env.
+// readApiOrigin reads the Netlify proxy target the same way (redirects.mjs).
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import process from 'node:process';
 import { pathToFileURL, URL } from 'node:url';
-
-const NAME = 'VITE_GAMES_ORIGIN';
 
 // Read only this name; never echo other lines, since unit files also hold secrets.
 function readValue(file, name) {
@@ -19,29 +18,35 @@ function readValue(file, name) {
     .replace(/^(['"])(.*)\1$/, '$2');
 }
 
-export function readGamesOrigin(envDir) {
+// web.env holds the value; the matching name in the serving unit's env file must agree when that file exists.
+function readOrigin(envDir, name, unitFile, unitName) {
   const file = join(envDir, 'web.env');
-  if (!existsSync(file)) throw new Error(`${NAME} is not set: ${file} is missing (run ogm-env-init web)`);
-  const raw = readValue(file, NAME);
-  if (!raw) throw new Error(`${NAME} is not set in ${file}`);
+  if (!existsSync(file)) throw new Error(`${name} is not set: ${file} is missing (run ogm-env-init web)`);
+  const raw = readValue(file, name);
+  if (!raw) throw new Error(`${name} is not set in ${file}`);
   let url;
   try {
     url = new URL(raw);
   } catch {
-    throw new Error(`${NAME} in ${file} is not a URL`);
+    throw new Error(`${name} in ${file} is not a URL`);
   }
-  // The deployed app is served over https, so an http games frame would be blocked as mixed content.
+  // The deployed app is served over https, so an http games frame or API proxy would be blocked or downgrade cookies.
   if (url.protocol !== 'https:' || url.origin !== raw.replace(/\/$/, '')) {
-    throw new Error(`${NAME} in ${file} must be a bare https origin`);
+    throw new Error(`${name} in ${file} must be a bare https origin`);
   }
-  // Rooms accepts only draft URLs on its OGM_GAMES_ORIGIN; a stale web.env would ship an app whose drafts it drops.
-  const roomsFile = join(envDir, 'rooms.env');
-  const accepted = existsSync(roomsFile) ? readValue(roomsFile, 'OGM_GAMES_ORIGIN').replace(/\/$/, '') : '';
+  const servingFile = join(envDir, unitFile);
+  const accepted = existsSync(servingFile) ? readValue(servingFile, unitName).replace(/\/$/, '') : '';
   if (accepted && accepted !== url.origin) {
-    throw new Error(`${NAME} in ${file} differs from OGM_GAMES_ORIGIN in ${roomsFile}`);
+    throw new Error(`${name} in ${file} differs from ${unitName} in ${servingFile}`);
   }
   return url.origin;
 }
+
+// Rooms accepts only draft URLs on its OGM_GAMES_ORIGIN; a stale web.env would ship an app whose drafts it drops.
+export const readGamesOrigin = (envDir) => readOrigin(envDir, 'VITE_GAMES_ORIGIN', 'rooms.env', 'OGM_GAMES_ORIGIN');
+
+// The API serves auth on OGM_PUBLIC_ORIGIN; proxying anywhere else would break sign-in.
+export const readApiOrigin = (envDir) => readOrigin(envDir, 'VITE_API_ORIGIN', 'api.env', 'OGM_PUBLIC_ORIGIN');
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const envDir = process.env.OGM_ENV_DIR || join(homedir(), '.config', 'ogm', 'env');
