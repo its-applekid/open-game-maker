@@ -275,6 +275,9 @@ importers:
       '@ogm/asset-measure':
         specifier: workspace:*
         version: link:../asset-measure
+      '@ogm/asset-previews':
+        specifier: workspace:*
+        version: link:../asset-previews
       '@ogm/blob-store':
         specifier: workspace:*
         version: link:../blob-store
