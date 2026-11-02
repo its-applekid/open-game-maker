@@ -26,7 +26,11 @@ export class NarrationCache {
     if (!audioHash || !alignmentHash || !blobHash.test(audioHash) || !blobHash.test(alignmentHash)) return null;
 
     const entry = { audioHash: audioHash as BlobHash, alignmentHash: alignmentHash as BlobHash };
-    if ((await this.blobs.head(entry.audioHash)) && (await this.blobs.head(entry.alignmentHash))) return entry;
+    const [audio, alignment] = await Promise.all([
+      this.blobs.head(entry.audioHash),
+      this.blobs.head(entry.alignmentHash),
+    ]);
+    if (audio && alignment) return entry;
     this.delete(key);
     return null;
   }

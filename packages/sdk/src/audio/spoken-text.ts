@@ -10,8 +10,8 @@ export type SpokenTextOptions = {
 export type SpokenTextHandle = { cancel(): void };
 
 type AudioRuntime = { context: AudioContext; voice: GainNode; status(): AudioStatus };
-type RenderedData = { key: string; bytes: ArrayBuffer; sentences: TimedSentence[] };
-type FallbackData = { text: string; lang?: string; sentences: string[] };
+type RenderedData = { bytes: ArrayBuffer; sentences: TimedSentence[] };
+type FallbackData = { lang?: string; sentences: string[] };
 
 let activeRuntime: AudioRuntime | null = null;
 
@@ -31,14 +31,13 @@ export class SpokenText {
     if (!alignment.ok) throw new Error(`SpokenText alignment request failed (${alignment.status})`);
     const document = (await alignment.json()) as unknown;
     return new SpokenText({
-      key: entry.key,
       bytes: await audio.arrayBuffer(),
       sentences: groupSentences(readAlignment(document)),
     });
   }
 
   static fromText(text: string, lang?: string): SpokenText {
-    return new SpokenText({ text, ...(lang ? { lang } : {}), sentences: splitSentences(text) });
+    return new SpokenText({ ...(lang ? { lang } : {}), sentences: splitSentences(text) });
   }
 
   sentences(): string[] {

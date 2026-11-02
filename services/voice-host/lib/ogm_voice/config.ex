@@ -95,10 +95,7 @@ defmodule OgmVoice.Config do
       token_issuer: OgmVoice.TokenIssuer,
       allowed_tools: @allowed_tools,
       limits: %{max_sessions: config.max_sessions},
-      privacy: %{
-        provider_allowlist: [:elevenlabs_agents, :openai_realtime, :fake],
-        required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
-      }
+      privacy: privacy()
     ]
   end
 
@@ -112,8 +109,15 @@ defmodule OgmVoice.Config do
       provider: provider,
       provider_id: Map.fetch!(@provider_ids, config.provider),
       credentials: OgmVoice.Ports.Credentials,
-      privacy: voice_converse(config)[:privacy]
+      privacy: privacy()
     ]
+  end
+
+  defp privacy do
+    %{
+      provider_allowlist: [:elevenlabs_agents, :openai_realtime, :fake],
+      required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
+    }
   end
 
   defp providers, do: @providers |> Map.keys() |> Enum.sort() |> Enum.join(", ")

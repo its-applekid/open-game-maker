@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { NarrationCache } from '../../src/narration/cache.js';
 import { NarrationRenderer } from '../../src/narration/render.js';
 import { makeDeps } from '../helpers.js';
+import { silentWav } from './helpers.js';
 
 const roots: string[] = [];
 const servers: Server[] = [];
@@ -17,24 +18,6 @@ afterEach(async () => {
   await Promise.all(servers.splice(0).map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
   await Promise.all(roots.splice(0).map((root) => rm(root, { recursive: true, force: true })));
 });
-
-function silentWav(durationMs = 1_000, rate = 24_000): Buffer {
-  const audio = Buffer.alloc((rate * durationMs * 2) / 1_000);
-  const header = Buffer.alloc(44);
-  header.write('RIFF', 0);
-  header.writeUInt32LE(36 + audio.length, 4);
-  header.write('WAVEfmt ', 8);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20);
-  header.writeUInt16LE(1, 22);
-  header.writeUInt32LE(rate, 24);
-  header.writeUInt32LE(rate * 2, 28);
-  header.writeUInt16LE(2, 32);
-  header.writeUInt16LE(16, 34);
-  header.write('data', 36);
-  header.writeUInt32LE(audio.length, 40);
-  return Buffer.concat([header, audio]);
-}
 
 async function fakeHost(options: { badWav?: boolean; unsupported?: boolean } = {}) {
   const root = await mkdtemp(join(tmpdir(), 'ogm-narration-host-'));
