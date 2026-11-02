@@ -126,6 +126,8 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
 
 // #222: files reach the builder as attachment ids on the message; the composer only shows their names.
 test('attaches files with the button and by pasting an image, then sends them with the message', async ({ page }) => {
+  // Two uploads and a post on top of the dock flow, which alone takes most of the default budget on software GL.
+  test.setTimeout(60_000);
   await installAuthRoutes(page, { signedIn: true });
   const uploads: { type: string; name: string }[] = [];
   const posts: unknown[] = [];
