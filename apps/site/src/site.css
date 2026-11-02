@@ -1,0 +1,267 @@
+body {
+  padding: max(20px, var(--safe-t)) max(16px, var(--safe-r)) max(32px, var(--safe-b)) max(16px, var(--safe-l));
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--display);
+}
+
+code,
+pre {
+  font-family: ui-monospace, 'SFMono-Regular', Menlo, monospace;
+}
+
+.setup {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+  width: min(100%, 52rem);
+  margin: 0 auto;
+}
+
+.setup h1 {
+  color: var(--cream);
+  font-size: clamp(28px, 6vw, 40px);
+  font-weight: 700;
+}
+
+.placeholders {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--night-2);
+}
+
+.placeholders label {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.placeholders input {
+  width: 100%;
+  min-width: 0;
+  min-height: var(--tap-secondary);
+  padding: 0 12px;
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--night);
+  color: var(--ink);
+}
+
+.step {
+  border-radius: var(--r);
+  background: var(--night-2);
+  box-shadow: var(--pop-sm);
+}
+
+.step > h2 > button {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: var(--tap-primary);
+  padding: 14px 16px;
+  border: 0;
+  border-radius: var(--r);
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.step .num {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--orange);
+  color: var(--cream);
+  font: 700 22px var(--display);
+}
+
+.step .head,
+.step .meta {
+  display: grid;
+  gap: 2px;
+}
+
+.step .title {
+  font: 600 22px var(--display);
+}
+
+.step .outcome {
+  color: var(--muted);
+  font: 600 15px var(--body);
+}
+
+.step .meta {
+  justify-items: end;
+  color: var(--ink-2);
+  max-width: 9rem;
+  font: 700 14px var(--body);
+  text-align: right;
+}
+
+.step .progress {
+  color: var(--yellow-b);
+}
+
+.panel {
+  overflow: hidden;
+}
+
+.substeps {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0 16px 16px;
+  list-style: none;
+}
+
+.substep {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 12px;
+  padding: 12px;
+  border-radius: 14px;
+  background: var(--night-3);
+}
+
+.substep .say,
+.substep .check {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.substep .say {
+  font-weight: 700;
+}
+
+.substep .check {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.substep .done {
+  width: 28px;
+  height: 28px;
+  margin: 8px;
+  accent-color: var(--green-b);
+}
+
+.hand {
+  margin-right: 6px;
+  color: var(--yellow-b);
+  vertical-align: -5px;
+}
+
+.mark {
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--paper-3);
+  color: var(--ink-2);
+  font-size: 13px;
+}
+
+.command,
+.prompt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  min-width: 0;
+  border-radius: 12px;
+  background: var(--dark);
+}
+
+.command pre,
+.prompt pre {
+  min-width: 0;
+  margin: 0;
+  padding: 12px;
+  color: var(--cream);
+  font-size: 14px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.copy {
+  display: grid;
+  place-items: center;
+  width: var(--tap-secondary);
+  height: var(--tap-secondary);
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+}
+
+.copy[data-copied] {
+  color: var(--green-b);
+}
+
+.agent {
+  display: grid;
+  gap: 10px;
+  padding: 0 16px 16px;
+}
+
+.agent h3 {
+  color: var(--cream);
+  font-size: 18px;
+}
+
+.hand-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ink-2);
+}
+
+@media (max-width: 600px) {
+  .step > h2 > button {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .step .meta {
+    display: flex;
+    flex-wrap: wrap;
+    grid-column: 2;
+    gap: 0 10px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .substeps,
+  .agent {
+    padding: 0 8px 8px;
+  }
+
+  .substep {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .substep .done {
+    margin: 8px 2px;
+  }
+
+  .command pre,
+  .prompt pre {
+    padding: 10px;
+    font-size: 13px;
+  }
+}
