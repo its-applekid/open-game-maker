@@ -51,7 +51,9 @@ export function Palette({ palette, category, onCategory, onPick }: PaletteProps)
               key={item.prefab}
               title={item.hint}
               onPointerDown={() => onPick(item.prefab)}
-              onClick={() => onPick(item.prefab)}
+              onClick={(event) => {
+                if (event.detail === 0) onPick(item.prefab);
+              }}
             >
               {item.thumbnail ? <img src={item.thumbnail} alt="" /> : null}
               <span>{item.label}</span>

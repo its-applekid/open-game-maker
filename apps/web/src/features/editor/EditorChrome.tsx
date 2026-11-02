@@ -49,6 +49,7 @@ export function EditorChrome({
   const [pickedPrefab, setPickedPrefab] = useState<string>();
   const [snap, setSnap] = useState<SnapPrefs>(() => loadSnapPrefs(gameId, manifest.grid?.size ?? 1));
   const controls = useMemo(() => manifestControls(manifest), [manifest]);
+  const activeCategory = manifest.palette.categories.find((candidate) => candidate.id === category);
   const picked = manifest.palette.items.find((item) => item.prefab === pickedPrefab);
   useEffect(() => onCanvasChange?.({ prefab: pickedPrefab, snap }), [onCanvasChange, pickedPrefab, snap]);
   const updateSnap = (next: SnapPrefs) => {
@@ -59,15 +60,17 @@ export function EditorChrome({
   return (
     <div className="editor-chrome">
       <Rail categories={manifest.palette.categories} active={category} onChange={setCategory} />
-      <Palette
-        palette={manifest.palette}
-        category={category}
-        onCategory={setCategory}
-        onPick={(prefab) => {
-          setPickedPrefab(prefab);
-          onTool('place');
-        }}
-      />
+      {activeCategory?.kind === 'items' ? (
+        <Palette
+          palette={manifest.palette}
+          category={category}
+          onCategory={setCategory}
+          onPick={(prefab) => {
+            setPickedPrefab(prefab);
+            onTool('place');
+          }}
+        />
+      ) : null}
       <Tools
         tools={manifest.tools}
         active={session.tool}

@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { EDITOR_FOCUS_ZONES } from '../../features/editor/focus';
 import { FocusZone } from '../../lib/input';
 
@@ -8,6 +10,7 @@ type PlayEditBarProps = {
   build: 'draft' | 'published';
   buildStatus?: string;
   playLabel?: string;
+  children?: ReactNode;
   onBack(): void;
   onMode(mode: 'play' | 'edit'): void;
   onAsk(): void;
@@ -20,6 +23,7 @@ export function PlayEditBar({
   build,
   buildStatus,
   playLabel = 'Play',
+  children,
   onBack,
   onMode,
   onAsk,
@@ -56,6 +60,7 @@ export function PlayEditBar({
       <button className="ask-change tap-primary" type="button" onClick={onAsk}>
         <span className="ask-change-icon" aria-hidden="true" /> Ask for a change
       </button>
+      {children}
     </FocusZone>
   );
 }

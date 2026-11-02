@@ -239,8 +239,9 @@ export function GameScreen() {
         onBack={back}
         onMode={setMode}
         onAsk={() => setMode('edit')}
-      />
-      <GameExtras placement="topbar" gameId={gameId} branchId={branch} mode={mode} />
+      >
+        <GameExtras placement="topbar" gameId={gameId} branchId={branch} mode={mode} />
+      </PlayEditBar>
       <div className="game-stage">
         <div className="game-frame" ref={containerRef} />
         {mode === 'edit' &&

@@ -41,7 +41,7 @@ export function Inspector({
 
   return (
     <FocusZone id={EDITOR_FOCUS_ZONES.inspector} className="editor-inspector">
-      {selected ? (
+      {selected && (onDelete !== undefined || onDuplicate !== undefined) ? (
         <div className="entity-actions" role="group" aria-label={`This ${selected.prefab}`}>
           <button className="tap-secondary" type="button" onClick={() => onDuplicate?.(selected.id)}>
             Copy
@@ -105,8 +105,12 @@ function ControlWidget({
         control.widget.semantics === 'instances' && targets !== 'global' && context.prefab !== undefined;
       const value = instances ? targets.length : numberValue(context.value, control.default, control.widget.min);
       const change = (direction: -1 | 1) => {
-        if (!instances || onInstanceCount === undefined || context.prefab === undefined) {
+        if (!instances) {
           set(value + direction);
+          return;
+        }
+        if (onInstanceCount === undefined || context.prefab === undefined) {
+          setInstanceError('Instance editing is unavailable.');
           return;
         }
         setChangingInstances(true);
