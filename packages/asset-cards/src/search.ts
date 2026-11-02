@@ -78,11 +78,16 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
   ];
 }
 
-/** 0 when any word is missing (AND match), else the sum of weighted hits. */
+/**
+ * 0 when any word is missing (AND match), else the sum of weighted hits. Query words split like titles do,
+ * so `Rig_Medium` needs both `rig` and `medium`.
+ */
 export function score(card: ResolvedCard, words: string[]): number {
   const fields = fieldsOf(card);
+  const queryTokens = words.flatMap(tokens);
+  if (queryTokens.length === 0) return 0;
   let total = 0;
-  for (const word of words.map(normalize)) {
+  for (const word of queryTokens) {
     const hits = fields.reduce(
       (sum, [weight, list]) => sum + weight * list.filter((token) => token === word).length,
       0,
@@ -91,6 +96,11 @@ export function score(card: ResolvedCard, words: string[]): number {
     total += hits;
   }
   return total;
+}
+
+/** The rig a card's skeleton is, plus the rig whose clips it can play (`retarget_rig_id`). */
+function rigIdsOf(card: ResolvedCard): string[] {
+  return [card.rig?.rig_id, card.rig?.retarget_rig_id].filter((id): id is string => Boolean(id));
 }
 
 function collectionOf(index: CardIndex, card: ResolvedCard): ResolvedCard | undefined {
@@ -125,12 +135,23 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
   if (q.pov && !(card.resolved.pov_fit ?? []).includes(q.pov)) return false;
   if (q.tier !== undefined && tierOf(card.id) !== q.tier) return false;
   if (q.collection && card.id !== q.collection && card.collection !== q.collection) return false;
-  if (q.rigId && card.rig?.rig_id !== q.rigId) return false;
+  if (q.rigId && !rigIdsOf(card).includes(q.rigId)) return false;
   if (q.sameRigAs) {
-    const rigId = index.cards.find((other) => other.id === q.sameRigAs)?.rig?.rig_id;
-    if (!rigId || card.rig?.rig_id !== rigId) return false;
+    const reference = index.cards.find((other) => other.id === q.sameRigAs);
+    const wanted = reference ? rigIdsOf(reference) : [];
+    if (!rigIdsOf(card).some((id) => wanted.includes(id))) return false;
   }
   return true;
+}
+
+/**
+ * Text matches that name a character outrank props and tiles that share the word: rigged model characters
+ * (playable with the shared clip libraries) first, then other characters and creatures. Clip libraries get no
+ * boost: their clip names (`Ranged_Bow_Draw`) would outrank the weapons a word like "bow" asks for.
+ */
+function characterTier(card: ResolvedCard): number {
+  if (card.card_type !== 'asset' || (card.subkind !== 'character' && card.subkind !== 'creature')) return 0;
+  return card.kind === 'model' && card.rig ? 2 : 1;
 }
 
 export function search(index: CardIndex, q: SearchQuery): ResolvedCard[] {
@@ -138,9 +159,11 @@ export function search(index: CardIndex, q: SearchQuery): ResolvedCard[] {
   const scored = index.cards
     .filter((card) => passes(index, card, q))
     .map((card) => ({ card, score: words.length > 0 ? score(card, words) : 0 }))
-    .filter(({ score: value }) => words.length === 0 || value > 0);
+    .filter(({ score: value }) => words.length === 0 || value > 0)
+    .map((row) => ({ ...row, tier: words.length > 0 ? characterTier(row.card) : 0 }));
   scored.sort(
     (a, b) =>
+      b.tier - a.tier ||
       b.score - a.score ||
       Number(a.card.card_type === 'collection') - Number(b.card.card_type === 'collection') ||
       STATUS_RANK[b.card.status] - STATUS_RANK[a.card.status] ||

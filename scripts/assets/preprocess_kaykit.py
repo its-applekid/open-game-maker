@@ -236,7 +236,29 @@ def animation_subkind(rig_type: str) -> str:
     return "vehicle" if rig_type == "vehicle" else "humanoid"
 
 
-def build_card(model: Model, analysis: dict, generated: str, source_cache: dict[Path, dict] | None = None) -> dict:
+def retarget_rigs(models: list[Model], results: dict) -> dict[str, str]:
+    """Model uid -> library rig id for skeletons no library targets whose joints (name + parent) a library rig contains."""
+    analyses = {model.uid: results[model.uid]["analysis"] for model in models if results.get(model.uid, {}).get("ok")}
+    libraries = {}
+    for model in models:
+        analysis = analyses.get(model.uid)
+        if analysis and is_animation_library(model, analysis):
+            libraries[analysis["rig"]["rig_id"]] = {(bone["name"], bone["parent"]) for bone in analysis["rig"]["bones"]}
+    out = {}
+    for model in models:
+        analysis = analyses.get(model.uid)
+        rig = analysis.get("rig") if analysis else None
+        if not rig or is_animation_library(model, analysis) or rig["rig_id"] in libraries:
+            continue
+        joints = {(bone["name"], bone["parent"]) for bone in rig["bones"]}
+        matches = sorted(rig_id for rig_id, library in libraries.items() if joints and joints <= library)
+        if matches:
+            out[model.uid] = matches[0]
+    return out
+
+
+def build_card(model: Model, analysis: dict, generated: str, source_cache: dict[Path, dict] | None = None,
+               retarget_rig_id: str | None = None) -> dict:
     source_files = [source_entry(model, item, source_cache) for item in model.files]
     texture_keys = [item.path.as_posix() for item in model.files if item.role == "texture"]
     animation_library = is_animation_library(model, analysis)
@@ -266,6 +288,8 @@ def build_card(model: Model, analysis: dict, generated: str, source_cache: dict[
     if analysis.get("rig") and not animation_library:
         rig = {key: value for key, value in analysis["rig"].items() if key != "bones"}
         rig["clips"] = clips(analysis.get("clips", []))
+        if retarget_rig_id:
+            rig["retarget_rig_id"] = retarget_rig_id
         card["rig"] = rig
     if card["kind"] == "model" and analysis["triangles"] > 300_000:
         card["flags"] = ["oversized-for-mobile"]
@@ -394,10 +418,11 @@ def validate(cards: list[dict]) -> None:
 def write_cards(root: Path, models: list[Model], results: dict, generated: str) -> int:
     source_cache = {}
     pairs = []
+    retargets = retarget_rigs(models, results)
     for model in models:
         if not results.get(model.uid, {}).get("ok"):
             continue
-        card = build_card(model, results[model.uid]["analysis"], generated, source_cache)
+        card = build_card(model, results[model.uid]["analysis"], generated, source_cache, retargets.get(model.uid))
         output = root / "packs" / model.pack_id / "cards" / f"{model.key}.card.json"
         if output.exists():
             card = preserve_unchanged(json.loads(output.read_text()), card)
