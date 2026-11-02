@@ -28,8 +28,8 @@ function levelBounds(scene: Phaser.Scene): { x: number; y: number; width: number
 function worldToScreen(camera: Phaser.Cameras.Scene2D.Camera, point: Vec3): { x: number; y: number } | null {
   if (!camera.worldView.contains(point[0], point[1])) return null;
   return {
-    x: (point[0] - camera.worldView.x) * camera.zoom,
-    y: (point[1] - camera.worldView.y) * camera.zoom,
+    x: ((point[0] - camera.worldView.x) * camera.zoom) / camera.width,
+    y: ((point[1] - camera.worldView.y) * camera.zoom) / camera.height,
   };
 }
 

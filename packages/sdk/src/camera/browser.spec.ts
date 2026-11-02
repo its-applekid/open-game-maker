@@ -6,16 +6,24 @@ const views: ViewId[] = ['iso', 'topdown', 'side', 'follow', 'fps', 'orbit', 'fi
 for (const view of views) {
   test(`${view} renders, projects the player, and replays deterministically`, async ({ page }) => {
     await page.goto(`/camera/?view=${view}`);
-    await expect.poll(() => page.evaluate(() => window.__camera.ready)).toBe(true);
+    await expect.poll(() => page.evaluate(() => window.__gm?.ready)).toBe(true);
     const result = await page.evaluate(() => {
+      const hooks = window.__gm!;
+      hooks.inject({
+        playerIndex: 0,
+        tick: 0,
+        source: 'keyboard',
+        actions: { move: { x: 0.25, y: 0 } },
+      });
+      hooks.advanceTime(500);
       const screen = window.__camera.playerScreen();
       if (!screen) return { calls: 0, hit: false, first: '', second: '', backend: '' };
-      window.__camera.renderAt(1000);
-      const first = window.__camera.renderGameToText();
-      window.__camera.renderAt(1000);
-      const second = window.__camera.renderGameToText();
-      const info = window.__camera.renderInfo();
-      return { ...info, hit: window.__camera.hitTest(screen.x, screen.y), first, second };
+      hooks.renderAt(1000);
+      const first = JSON.stringify(hooks.renderGameToText());
+      hooks.renderAt(1000);
+      const second = JSON.stringify(hooks.renderGameToText());
+      const info = hooks.renderInfo();
+      return { ...info, hit: hooks.hitTest(screen.x, screen.y), first, second };
     });
 
     expect(result.calls).toBeGreaterThan(0);

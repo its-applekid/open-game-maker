@@ -60,11 +60,7 @@ export class EditorCamera implements CameraRig {
   }
 
   worldToScreen(point: Vec3): { x: number; y: number } | null {
-    const viewport = this.options.viewport?.() ?? {
-      width: this.options.canvas.clientWidth || this.options.canvas.width || 1,
-      height: this.options.canvas.clientHeight || this.options.canvas.height || 1,
-    };
-    return projectWorldToScreen(this.options.camera, point, viewport);
+    return projectWorldToScreen(this.options.camera, point);
   }
 
   dispose(): void {
@@ -86,12 +82,14 @@ export class EditorCamera implements CameraRig {
 
   private readonly onPointerDown = (event: PointerEvent) => {
     if (event.pointerType === 'touch') {
+      this.options.canvas.setPointerCapture?.(event.pointerId);
       this.touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
       this.updatePinch();
       return;
     }
     if (event.button !== 1 && event.button !== 2) return;
     this.dragging = true;
+    this.options.canvas.setPointerCapture?.(event.pointerId);
     this.lastPointer = { x: event.clientX, y: event.clientY };
   };
 
@@ -107,6 +105,9 @@ export class EditorCamera implements CameraRig {
   };
 
   private readonly onPointerUp = (event: PointerEvent) => {
+    if (this.options.canvas.hasPointerCapture?.(event.pointerId)) {
+      this.options.canvas.releasePointerCapture(event.pointerId);
+    }
     if (event.pointerType === 'touch') {
       this.touches.delete(event.pointerId);
       this.updatePinch();

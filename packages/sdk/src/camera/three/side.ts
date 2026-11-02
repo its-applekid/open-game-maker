@@ -5,7 +5,11 @@ export function createSideRig(deps: ThreeRigDeps) {
     projection: 'orthographic',
     occlusion: 'none',
     update({ camera, deps: rigDeps, dt, focus, target }) {
-      focus.x += (target.x - focus.x) * Math.min(1, dt * 5);
+      const deadBand = 2;
+      const delta = target.x - focus.x;
+      if (Math.abs(delta) > deadBand) {
+        focus.x += (delta - Math.sign(delta) * deadBand) * Math.min(1, dt * 5);
+      }
       focus.y = target.y;
       focus.z = target.z;
       camera.position.set(focus.x, focus.y + 2, focus.z + 30);

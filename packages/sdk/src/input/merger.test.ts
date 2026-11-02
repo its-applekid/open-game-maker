@@ -67,6 +67,35 @@ describe('InputMerger', () => {
     expect(merger.sample(4)[0]!.actions.use).toBeUndefined();
   });
 
+  it('accumulates pointer deltas and keeps pointer sensitivity when gamepad owns another action', () => {
+    const { host, merger } = setup();
+    host({ playerIndex: 0, tick: 0, source: 'gamepad', actions: { move: { x: 0.5, y: 0 } } });
+    merger.inject({ playerIndex: 0, tick: 0, source: 'pointer', actions: { look: { x: 4, y: -2 } } });
+    merger.inject({ playerIndex: 0, tick: 0, source: 'pointer', actions: { look: { x: 6, y: 3 } } });
+
+    expect(merger.sample(8)[0]).toMatchObject({
+      source: 'pointer',
+      actions: { move: { x: 0.5, y: 0 }, look: { x: 10, y: 1 } },
+    });
+  });
+
+  it('defaults to four local players', () => {
+    const merger = new InputMerger({ localPlayerIndex: 0, mapping });
+    merger.acceptHostFrame({ playerIndex: 4, tick: 0, source: 'gamepad', actions: { jump: true } });
+
+    expect(merger.dropped).toBe(1);
+    expect(merger.sample(1).map(({ playerIndex }) => playerIndex)).toEqual([0]);
+  });
+
+  it('moves browser input ownership when the local player changes', () => {
+    const { canvas, merger } = setup();
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyW' }));
+
+    merger.setLocalPlayerIndex(1);
+
+    expect(merger.sample(1)).toEqual([{ playerIndex: 1, tick: 1, source: 'keyboard', actions: {} }]);
+  });
+
   it('forwards Escape as a raw key without producing an action', () => {
     const { canvas, merger, send } = setup();
     canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));

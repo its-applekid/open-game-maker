@@ -15,7 +15,7 @@ export function createOrbitRig(deps: ThreeRigDeps) {
         .copy(target)
         .add(
           new Vector3(
-            Math.sin(state.yaw) * cosPitch * state.distance,
+            -Math.sin(state.yaw) * cosPitch * state.distance,
             Math.sin(state.pitch) * state.distance,
             Math.cos(state.yaw) * cosPitch * state.distance,
           ),

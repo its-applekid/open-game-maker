@@ -1,4 +1,4 @@
-import type { ActionFrame, CameraRig, Vec3, ViewId } from '@ogm/contracts';
+import type { ActionFrame, CameraRig, RigInputMapping, Vec3, ViewId } from '@ogm/contracts';
 import type { Camera, Scene } from 'three';
 import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 
@@ -13,10 +13,12 @@ export interface ThreeRigDeps {
   reduceMotion?: boolean;
   fixedPose?: { position: Vec3; target: Vec3 };
   occlusion?: OcclusionKind;
+  inputMapping?: RigInputMapping;
 }
 
 export interface ThreeCameraRig extends CameraRig {
   readonly camera: Camera;
+  mapInput(frame: ActionFrame): ActionFrame;
   dispose(): void;
 }
 
@@ -64,7 +66,7 @@ export function applyLook(
   look: { x: number; y: number },
 ): void {
   const scale = frame.source === 'pointer' ? 0.002 : dt * 2.5;
-  state.yaw -= look.x * scale;
+  state.yaw += look.x * scale;
   state.pitch = Math.max(-Math.PI * 0.45, Math.min(Math.PI * 0.45, state.pitch - look.y * scale));
 }
 
@@ -82,12 +84,38 @@ export function makeThreeRig(
   const state = { yaw: 0, pitch: 0.25, distance: 7 };
   let targetAdapter: { position(): Vec3 } | undefined;
 
+  const movementYaw = (): number => {
+    if (id === 'iso') return -Math.PI / 4;
+    if (id !== 'fixed') return state.yaw;
+    const pose = deps.fixedPose ?? { position: [10, 10, 10] as Vec3, target: [0, 0, 0] as Vec3 };
+    return Math.atan2(pose.target[0] - pose.position[0], pose.position[2] - pose.target[2]);
+  };
+
+  const mapInput = (frame: ActionFrame): ActionFrame => {
+    const move = frame.actions.move;
+    if (!move || typeof move !== 'object' || id === 'side') return frame;
+    const yaw = movementYaw();
+    const cos = Math.cos(yaw);
+    const sin = Math.sin(yaw);
+    return {
+      ...frame,
+      actions: {
+        ...frame.actions,
+        move: {
+          x: move.x * cos + move.y * sin,
+          y: move.x * sin - move.y * cos,
+        },
+      },
+    };
+  };
+
   return {
     id,
     dimension: '3d',
     camera,
     occlusion: controller.kind,
-    inputMapping: defaultInputMapping(id),
+    inputMapping: deps.inputMapping ?? defaultInputMapping(id),
+    mapInput,
     attach(target) {
       targetAdapter = target;
       focus.fromArray(target.position());
@@ -97,12 +125,18 @@ export function makeThreeRig(
       const target = new Vector3().fromArray(targetAdapter.position());
       if (deps.reduceMotion) focus.copy(target);
       options.update({ camera, deps, dt, focus, frame, look: frameLook(frame), state, target });
+      if (camera instanceof PerspectiveCamera) {
+        const viewport = deps.viewport?.();
+        if (viewport && viewport.height > 0 && camera.aspect !== viewport.width / viewport.height) {
+          camera.aspect = viewport.width / viewport.height;
+          camera.updateProjectionMatrix();
+        }
+      }
       camera.updateMatrixWorld();
       controller.update(camera, target, dt);
     },
     worldToScreen(point) {
-      const viewport = deps.viewport?.() ?? { width: 1, height: 1 };
-      return projectWorldToScreen(camera, point, viewport);
+      return projectWorldToScreen(camera, point);
     },
     dispose() {
       controller.restore();

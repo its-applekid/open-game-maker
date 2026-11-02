@@ -1,4 +1,4 @@
-import type { ActionFrame, ViewId } from '@ogm/contracts';
+import type { ActionFrame, GmTestHooks, ViewId } from '@ogm/contracts';
 import {
   BoxGeometry,
   Color,
@@ -63,14 +63,38 @@ const rig = createRig(view, '3d', {
 });
 rig.attach({ position: () => targetPosition }, 0);
 
-const frame: ActionFrame = { playerIndex: 0, tick: 60, source: 'keyboard', actions: {} };
+const pending: ActionFrame[] = [];
 const raycaster = new Raycaster();
 let calls = 0;
+let tick = 0;
 
-function renderAt(): void {
-  rig.update(1, frame);
+function render(frame: ActionFrame, dt = 1 / 60): void {
+  rig.update(dt, frame);
   renderer.render(scene, rig.camera);
   calls += 1;
+}
+
+function step(): void {
+  tick += 1;
+  const frame = pending.shift() ?? {
+    playerIndex: 0,
+    tick,
+    source: 'keyboard',
+    actions: {},
+  };
+  const move = frame.actions.move;
+  if (move && typeof move === 'object') {
+    targetPosition[0] += move.x;
+    targetPosition[2] += move.y;
+    if (view !== 'fps') player.position.set(targetPosition[0], targetPosition[1] + 0.5, targetPosition[2]);
+  }
+  rig.update(1 / 60, { ...frame, tick });
+}
+
+function advanceTime(ms: number): void {
+  const steps = Math.floor((ms + 1e-9) / (1000 / 60));
+  for (let index = 0; index < steps; index += 1) step();
+  render({ playerIndex: 0, tick, source: 'keyboard', actions: {} }, 0);
 }
 
 function playerScreen(): { x: number; y: number } | null {
@@ -78,7 +102,7 @@ function playerScreen(): { x: number; y: number } | null {
 }
 
 function hitTest(x: number, y: number): boolean {
-  raycaster.setFromCamera(new Vector2((x / canvas.width) * 2 - 1, 1 - (y / canvas.height) * 2), rig.camera);
+  raycaster.setFromCamera(new Vector2(x * 2 - 1, 1 - y * 2), rig.camera);
   return raycaster.intersectObject(player, false).length > 0;
 }
 
@@ -92,7 +116,47 @@ function renderGameToText(): string {
   });
 }
 
-renderAt();
+render({ playerIndex: 0, tick, source: 'keyboard', actions: {} }, 1);
+
+const hooks: GmTestHooks & { tick(seconds: number): void } = {
+  ready: true,
+  marks: [['ready', performance.now()]],
+  advanceTime,
+  tick(seconds) {
+    advanceTime(seconds * 1000);
+  },
+  renderAt(ms) {
+    const targetTick = Math.floor((ms + 1e-9) / (1000 / 60));
+    while (tick < targetTick) step();
+    render({ playerIndex: 0, tick, source: 'keyboard', actions: {} }, 0);
+  },
+  renderGameToText() {
+    return {
+      coords: '3d world, x right, y up, z toward camera, metres',
+      tick,
+      mode: 'play',
+      state: JSON.parse(renderGameToText()),
+      players: [{ playerIndex: 0, position: [...targetPosition] }],
+    };
+  },
+  renderInfo() {
+    return {
+      calls: Math.max(calls, renderer.info.render.calls),
+      triangles: renderer.info.render.triangles,
+      frameMs: 0,
+      textureBytes: 0,
+      backend: String(renderer.getContext().getParameter(0x1f01)),
+    };
+  },
+  hitTest,
+  setSeed() {},
+  inject(frame) {
+    pending.push(structuredClone(frame));
+  },
+  probes: () => ({ cutaway: cutawayWall.scale.y }),
+  events: () => [],
+  seed: () => 1,
+};
 
 declare global {
   interface Window {
@@ -113,10 +177,11 @@ window.__camera = {
   hitTest,
   playerScreen,
   probes: () => ({ cutaway: cutawayWall.scale.y }),
-  renderAt,
+  renderAt: (ms) => hooks.renderAt(ms),
   renderGameToText,
   renderInfo: () => ({
     calls: Math.max(calls, renderer.info.render.calls),
     backend: renderer.getContext().getParameter(0x1f01),
   }),
 };
+window.__gm = hooks;

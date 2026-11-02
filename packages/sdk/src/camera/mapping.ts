@@ -30,12 +30,16 @@ const touchByView: Record<ViewId, RigInputMapping['touch']> = {
   follow: 'two-stick',
   fps: 'two-stick',
   orbit: 'two-stick',
-  fixed: 'tap',
+  fixed: 'stick',
 };
 
-export function defaultInputMapping(view: ViewId): RigInputMapping {
+export interface ManifestInputOverrides {
+  keyboard?: Readonly<Record<string, string>>;
+}
+
+export function defaultInputMapping(view: ViewId, overrides?: ManifestInputOverrides): RigInputMapping {
   return {
-    keyboard: { ...movementKeys },
+    keyboard: { ...movementKeys, ...overrides?.keyboard },
     touch: touchByView[view],
     gamepad: { ...gamepad },
     pointerLock: view === 'fps',

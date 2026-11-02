@@ -20,10 +20,12 @@ export class PointerInput {
     options.canvas.addEventListener('pointerup', this.onPointerUp);
     options.canvas.addEventListener('pointercancel', this.onPointerUp);
     document.addEventListener('pointerlockerror', this.onPointerLockError);
+    document.addEventListener('pointerlockchange', this.onPointerLockChange);
   }
 
   setPointerLock(enabled: boolean): void {
     this.enabled = enabled && this.options.pointerLock;
+    if (!this.enabled) this.exitOwnedPointerLock();
   }
 
   dispose(): void {
@@ -33,15 +35,23 @@ export class PointerInput {
     canvas.removeEventListener('pointerup', this.onPointerUp);
     canvas.removeEventListener('pointercancel', this.onPointerUp);
     document.removeEventListener('pointerlockerror', this.onPointerLockError);
+    document.removeEventListener('pointerlockchange', this.onPointerLockChange);
+    this.enabled = false;
+    this.exitOwnedPointerLock();
   }
 
   private readonly onPointerDown = (event: PointerEvent) => {
     if (event.pointerType === 'touch') return;
     this.dragging = true;
+    this.options.canvas.setPointerCapture?.(event.pointerId);
     this.last = { x: event.clientX, y: event.clientY };
     if (!this.enabled || event.button !== 0 || globalThis.matchMedia?.('(pointer: coarse)').matches) return;
-    const request = this.options.canvas.requestPointerLock?.();
-    if (request && typeof request.catch === 'function') request.catch(() => this.onPointerLockError());
+    try {
+      const request = this.options.canvas.requestPointerLock?.();
+      if (request && typeof request.catch === 'function') request.catch(() => this.onPointerLockError());
+    } catch {
+      this.onPointerLockError();
+    }
   };
 
   private readonly onPointerMove = (event: PointerEvent) => {
@@ -57,8 +67,15 @@ export class PointerInput {
     this.last = { x: event.clientX, y: event.clientY };
   };
 
-  private readonly onPointerUp = () => {
+  private readonly onPointerUp = (event: PointerEvent) => {
     this.dragging = false;
+    if (this.options.canvas.hasPointerCapture?.(event.pointerId)) {
+      this.options.canvas.releasePointerCapture(event.pointerId);
+    }
+  };
+
+  private readonly onPointerLockChange = () => {
+    if (!this.enabled) this.exitOwnedPointerLock();
   };
 
   private readonly onPointerLockError = () => {
@@ -66,4 +83,13 @@ export class PointerInput {
     this.pointerLockErrorLogged = true;
     console.warn('pointer lock unavailable; using drag look');
   };
+
+  private exitOwnedPointerLock(): void {
+    if (document.pointerLockElement !== this.options.canvas) return;
+    try {
+      document.exitPointerLock?.();
+    } catch {
+      // The lock is already being released or the document is leaving; teardown remains best-effort.
+    }
+  }
 }

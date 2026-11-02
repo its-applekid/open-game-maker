@@ -10,7 +10,11 @@ const mapping: RigInputMapping = {
   pointerLock: true,
 };
 
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  Object.defineProperty(document, 'pointerLockElement', { configurable: true, value: null });
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe('pointer input', () => {
   it('requests pointer lock only from pointerdown on fine pointers', () => {
@@ -43,6 +47,54 @@ describe('pointer input', () => {
     canvas.dispatchEvent(new MouseEvent('pointerdown', { button: 0 }));
 
     expect(requestPointerLock).not.toHaveBeenCalled();
+    merger.dispose();
+  });
+
+  it('falls back when pointer lock throws synchronously', () => {
+    const canvas = document.createElement('canvas');
+    Object.defineProperty(canvas, 'requestPointerLock', {
+      configurable: true,
+      value: vi.fn(() => {
+        throw new DOMException('denied');
+      }),
+    });
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: false })),
+    );
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const merger = new InputMerger({ localPlayerIndex: 0, mapping, canvas });
+
+    expect(() => canvas.dispatchEvent(new MouseEvent('pointerdown', { button: 0 }))).not.toThrow();
+    expect(warn).toHaveBeenCalledOnce();
+    merger.dispose();
+  });
+
+  it('captures drag pointers and releases an owned pointer lock when disabled', () => {
+    const canvas = document.createElement('canvas');
+    const capture = vi.fn();
+    const release = vi.fn();
+    Object.defineProperties(canvas, {
+      setPointerCapture: { configurable: true, value: capture },
+      hasPointerCapture: { configurable: true, value: vi.fn(() => true) },
+      releasePointerCapture: { configurable: true, value: release },
+    });
+    Object.defineProperty(document, 'pointerLockElement', { configurable: true, value: canvas });
+    const exitPointerLock = vi.fn();
+    Object.defineProperty(document, 'exitPointerLock', { configurable: true, value: exitPointerLock });
+    const merger = new InputMerger({ localPlayerIndex: 0, mapping, canvas });
+    const down = new MouseEvent('pointerdown', { button: 2 });
+    Object.defineProperty(down, 'pointerId', { value: 7 });
+    const up = new MouseEvent('pointerup');
+    Object.defineProperty(up, 'pointerId', { value: 7 });
+
+    canvas.dispatchEvent(down);
+    canvas.dispatchEvent(up);
+    merger.setPointerLock(false);
+
+    expect(capture).toHaveBeenCalledWith(7);
+    expect(release).toHaveBeenCalledWith(7);
+    expect(exitPointerLock).toHaveBeenCalledOnce();
     merger.dispose();
   });
 });

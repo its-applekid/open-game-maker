@@ -42,4 +42,25 @@ describe('RigSet', () => {
     set.viewAsPlayer(null);
     expect(set.active).toBe(editor);
   });
+
+  it('uses the configured local player when no editor is active', () => {
+    const rigs = [fakeRig('iso'), fakeRig('follow')];
+    const set = new RigSet((index) => rigs[index]!, undefined, 1);
+
+    expect(set.active).toBe(rigs[1]);
+    set.setLocalPlayerIndex(0);
+    expect(set.active).toBe(rigs[0]);
+  });
+
+  it('disposes each created rig and the editor once', () => {
+    const player = { ...fakeRig(), dispose: vi.fn() };
+    const editor = { ...fakeRig('topdown'), dispose: vi.fn() };
+    const set = new RigSet(() => player, editor);
+    set.for(0);
+
+    set.dispose();
+
+    expect(player.dispose).toHaveBeenCalledOnce();
+    expect(editor.dispose).toHaveBeenCalledOnce();
+  });
 });

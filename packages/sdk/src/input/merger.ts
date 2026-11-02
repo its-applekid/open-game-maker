@@ -10,7 +10,7 @@ type Actions = Record<string, ActionValue>;
 const sourceOrder: Source[] = ['network', 'touch', 'keyboard', 'pointer', 'gamepad'];
 
 export interface InputBridge {
-  on(type: 'input.frame', listener: (frame: ActionFrame) => void): () => void;
+  on?(type: 'input.frame', listener: (frame: ActionFrame) => void): () => void;
   send(type: 'input.rawKey', payload: RawKey): void;
 }
 
@@ -22,6 +22,7 @@ export interface InputMergerOptions {
   hotkeys?: string[];
   maxLocalPlayers?: number;
   pointerAim?: (clientX: number, clientY: number) => ActionValue | null;
+  mapFrame?: (frame: ActionFrame) => ActionFrame;
 }
 
 function mergeInto(target: Actions, source: Actions): void {
@@ -37,28 +38,31 @@ export class InputMerger {
   private readonly pointer?: PointerInput;
   private readonly touch?: TouchInput;
   private readonly cleanupBridge?: () => void;
+  private localPlayerIndex: number;
 
   constructor(private readonly options: InputMergerOptions) {
-    this.maxLocalPlayers = Math.min(MAX_PLAYERS, options.maxLocalPlayers ?? MAX_PLAYERS);
+    this.maxLocalPlayers = Math.min(MAX_PLAYERS, options.maxLocalPlayers ?? 4);
+    this.localPlayerIndex = options.localPlayerIndex;
     if (!this.validPlayer(options.localPlayerIndex))
       throw new RangeError('localPlayerIndex is outside the local player count');
-    if (options.bridge) this.cleanupBridge = options.bridge.on('input.frame', (frame) => this.acceptHostFrame(frame));
+    if (options.bridge?.on)
+      this.cleanupBridge = options.bridge.on('input.frame', (frame) => this.acceptHostFrame(frame));
     if (options.canvas) {
       this.keyboard = new KeyboardInput(
         options.canvas,
         options.mapping.keyboard,
-        (actions) => this.setHeld(options.localPlayerIndex, 'keyboard', actions),
+        (actions) => this.setHeld(this.localPlayerIndex, 'keyboard', actions),
         (key) => options.bridge?.send('input.rawKey', key),
         options.hotkeys,
       );
       this.pointer = new PointerInput({
         canvas: options.canvas,
         pointerLock: options.mapping.pointerLock,
-        emit: (actions) => this.addTransient(options.localPlayerIndex, 'pointer', actions),
+        emit: (actions) => this.addTransient(this.localPlayerIndex, 'pointer', actions),
         aim: options.pointerAim,
       });
       this.touch = new TouchInput(options.canvas, options.mapping.touch, (actions) =>
-        this.addTransient(options.localPlayerIndex, 'touch', actions),
+        this.addTransient(this.localPlayerIndex, 'touch', actions),
       );
     }
   }
@@ -79,22 +83,40 @@ export class InputMerger {
     this.addTransient(frame.playerIndex, frame.source, frame.actions);
   }
 
+  setLocalPlayerIndex(playerIndex: number): void {
+    if (!this.validPlayer(playerIndex)) throw new RangeError('localPlayerIndex is outside the local player count');
+    if (playerIndex === this.localPlayerIndex) return;
+    const previousHeld = this.held.get(this.localPlayerIndex);
+    previousHeld?.delete('keyboard');
+    if (previousHeld?.size === 0) this.held.delete(this.localPlayerIndex);
+    const previousTransient = this.transient.get(this.localPlayerIndex);
+    previousTransient?.delete('keyboard');
+    previousTransient?.delete('pointer');
+    previousTransient?.delete('touch');
+    if (previousTransient?.size === 0) this.transient.delete(this.localPlayerIndex);
+    this.localPlayerIndex = playerIndex;
+  }
+
   sample(tick: number): ActionFrame[] {
-    const players = new Set<number>([this.options.localPlayerIndex, ...this.held.keys(), ...this.transient.keys()]);
+    const players = new Set<number>([this.localPlayerIndex, ...this.held.keys(), ...this.transient.keys()]);
     const frames = [...players]
       .sort((left, right) => left - right)
       .map((playerIndex): ActionFrame => {
         const actions: Actions = {};
         let source: Source = 'keyboard';
+        let lookSource: Source | undefined;
         for (const candidate of sourceOrder) {
           const held = this.held.get(playerIndex)?.get(candidate);
           const transient = this.transient.get(playerIndex)?.get(candidate);
           if (held) mergeInto(actions, held);
           if (transient) mergeInto(actions, transient);
+          if (held && 'look' in held) lookSource = candidate;
+          if (transient && 'look' in transient) lookSource = candidate;
           if ((held && Object.keys(held).length > 0) || (transient && Object.keys(transient).length > 0))
             source = candidate;
         }
-        return { playerIndex, tick, source, actions };
+        const frame = { playerIndex, tick, source: lookSource ?? source, actions } satisfies ActionFrame;
+        return this.options.mapFrame?.(frame) ?? frame;
       });
     this.transient.clear();
     return frames;
@@ -126,7 +148,14 @@ export class InputMerger {
   private addTransient(playerIndex: number, source: Source, actions: Actions): void {
     const bySource = this.transient.get(playerIndex) ?? new Map<Source, Actions>();
     const current = bySource.get(source) ?? {};
-    mergeInto(current, actions);
+    for (const [action, value] of Object.entries(actions)) {
+      const previous = current[action];
+      if (source === 'pointer' && action === 'look' && typeof previous === 'object' && typeof value === 'object') {
+        current[action] = { x: previous.x + value.x, y: previous.y + value.y };
+      } else {
+        current[action] = structuredClone(value);
+      }
+    }
     bySource.set(source, current);
     this.transient.set(playerIndex, bySource);
   }
