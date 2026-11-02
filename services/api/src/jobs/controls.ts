@@ -157,7 +157,13 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
           if (error instanceof AiurHttpError && error.status === 409 && error.code === 'agent_not_running') {
             return labelFallback();
           }
-          controlError(error);
+          if (
+            error instanceof AiurHttpError &&
+            error.status === 409 &&
+            (error.code === 'still_running' || error.code === 'kill_failed')
+          ) {
+            status = error.code; // retry like a non-exited 200
+          } else controlError(error);
         }
         if (attempt < 2) await sleep(5_000);
       }

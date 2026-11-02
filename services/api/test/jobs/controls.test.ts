@@ -163,6 +163,37 @@ describe('job controls', () => {
     );
   });
 
+  it('retries a thrown 409 still_running/kill_failed and cancels once the process exits', async () => {
+    const deps = setup();
+    const cancel = vi
+      .fn()
+      .mockRejectedValueOnce(new AiurHttpError(409, 'still_running', 'busy', 'http://127.0.0.1:4101'))
+      .mockRejectedValueOnce(new AiurHttpError(409, 'kill_failed', 'busy', 'http://127.0.0.1:4101'))
+      .mockResolvedValue({ process: { status: 'exited' } });
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    const { app } = appWith(deps, { client: { cancel }, sleep });
+
+    const response = await post(app, 'cancel');
+
+    expect(response.status).toBe(200);
+    expect(cancel).toHaveBeenCalledTimes(3);
+    expect(sleep).toHaveBeenCalledTimes(2);
+    expect(deps.db.select().from(schema.jobs).get()?.state).toBe('cancelled');
+  });
+
+  it('returns 503 when a cancel keeps throwing 409 kill_failed three times', async () => {
+    const deps = setup();
+    const cancel = vi.fn().mockRejectedValue(new AiurHttpError(409, 'kill_failed', 'busy', 'http://127.0.0.1:4101'));
+    const { app } = appWith(deps, { client: { cancel } });
+
+    const response = await post(app, 'cancel');
+
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: 'cancel_unconfirmed', details: { status: 'kill_failed' } });
+    expect(cancel).toHaveBeenCalledTimes(3);
+    expect(deps.db.select().from(schema.jobs).get()?.state).toBe('running');
+  });
+
   it('falls back to the cancelled state label when aiur has no running process', async () => {
     const deps = setup('filed');
     const cancel = vi
