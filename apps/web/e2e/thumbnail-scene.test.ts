@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { execFile } from 'node:child_process';
+import { execFile, spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -23,6 +23,8 @@ import {
 import { safeOutput } from '../tools/thumbnail-paths.mjs';
 
 const execFileAsync = promisify(execFile);
+const ffmpegAvailable = spawnSync('ffmpeg', ['-version'], { stdio: 'ignore' }).status === 0;
+const ffprobeAvailable = spawnSync('ffprobe', ['-version'], { stdio: 'ignore' }).status === 0;
 
 type TestCard = {
   id: string;
@@ -458,27 +460,36 @@ describe('headless thumbnail scene renderer', () => {
     expect(await readFile(join(root, 'first.png'))).toEqual(await readFile(join(root, 'second.png')));
   });
 
-  it('encodes the exact four-second H.264 and looping GIF outputs', async () => {
-    const { root, scene } = await fixtureLibrary();
+  it.skipIf(!ffmpegAvailable || !ffprobeAvailable)(
+    'encodes the exact four-second H.264 and looping GIF outputs (skipped when ffmpeg or ffprobe is absent)',
+    async () => {
+      const { root, scene } = await fixtureLibrary();
 
-    await renderSceneOutputs({ root, scene, outputBase: 'sets/fixture-set/diorama.fantasy', softwareGL: true });
+      await renderSceneOutputs({ root, scene, outputBase: 'sets/fixture-set/diorama.fantasy', softwareGL: true });
 
-    const { stdout } = await execFileAsync('ffprobe', [
-      '-v',
-      'error',
-      '-show_entries',
-      'stream=codec_name,width,height,avg_frame_rate:format=duration',
-      '-of',
-      'json',
-      join(root, 'sets/fixture-set/diorama.fantasy.1024.mp4'),
-    ]);
-    const probe = JSON.parse(stdout);
-    expect(probe.streams[0]).toMatchObject({ codec_name: 'h264', width: 1024, height: 1024, avg_frame_rate: '24/1' });
-    expect(Number(probe.format.duration)).toBeCloseTo(4, 3);
-    expect((await readFile(join(root, 'sets/fixture-set/diorama.fantasy.256.gif'))).subarray(0, 6).toString()).toMatch(
-      /^GIF8[79]a$/,
-    );
-  }, 120_000);
+      const { stdout } = await execFileAsync('ffprobe', [
+        '-v',
+        'error',
+        '-show_entries',
+        'stream=codec_name,width,height,avg_frame_rate:format=duration',
+        '-of',
+        'json',
+        join(root, 'sets/fixture-set/diorama.fantasy.1024.mp4'),
+      ]);
+      const probe = JSON.parse(stdout);
+      expect(probe.streams[0]).toMatchObject({
+        codec_name: 'h264',
+        width: 1024,
+        height: 1024,
+        avg_frame_rate: '24/1',
+      });
+      expect(Number(probe.format.duration)).toBeCloseTo(4, 3);
+      expect(
+        (await readFile(join(root, 'sets/fixture-set/diorama.fantasy.256.gif'))).subarray(0, 6).toString(),
+      ).toMatch(/^GIF8[79]a$/);
+    },
+    120_000,
+  );
 
   it('refuses an invalid final target before publishing another scene artifact', async () => {
     const { root, scene } = await fixtureLibrary();
