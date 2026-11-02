@@ -41,7 +41,9 @@ describe('PlatformHud', () => {
     fireEvent.click(pause);
     expect(screen.getByRole('dialog', { name: 'Paused' })).toBeVisible();
     expect(test.frame.pause).toHaveBeenCalledOnce();
-    fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
+    const resume = screen.getByRole('button', { name: 'Resume' });
+    await waitFor(() => expect(resume).toHaveFocus());
+    fireEvent.click(resume);
 
     expect(test.frame.resume).toHaveBeenCalledOnce();
     await waitFor(() => expect(pause).toHaveFocus());
