@@ -32,6 +32,9 @@ use. Work here the way those agents will work: dogfood the skills.
   each errored ticket (if "not resumable", drop `agent:error`/`agent:ci-red` with gh and `--todo`). A `dispatch_decline=dependency` is
   GitHub's native blocked-by list (`gh api repos/<r>/issues/<n>/dependencies/blocked_by`), not the body's "Depends on" line; queue the
   open blockers instead of re-`--todo`. When Actions is down, `executor/local-ci.sh <pr|main>` replays the workspace job locally.
+  A worker in `agent:human-review` whose workpad says the branch is pushed but governed `gh pr create` timed out: open the PR by
+  hand from its branch (body from the workpad), relabel `agent:ci-wait`, report the timeout to Aiur. GitHub's merge queue is not
+  available on this user-owned repo (ruleset 26376924 = PR + green `required`, non-strict; merge on green without update-branch).
   Config changes hot-reload: the daemon watches `.aiur/config` and applies it within a second without dropping agent turns
   (back the file up first; use only keys the running build knows; `aiur-main status` shows `CONFIG RELOAD REJECTED` on a
   bad file). Never stop/relaunch the daemon for a config change.

@@ -54,4 +54,4 @@ Turns a downloaded Drive drop into a library entry. The listener (`scripts/drive
 
 ## Cleanup
 
-Quarantine folders are cheap. Delete one only after its files are in `originals/` and Kevin has confirmed. Don't touch anything in Drive: the listener tracks processed files by Drive id and MD5, so leaving them there is safe (C2 §7, open question 1, option a).
+Quarantine folders are cheap. Delete one only after its files are in `originals/` and Kevin has confirmed. Don't touch anything in Drive: the listener tracks processed files by Drive id and MD5, so leaving them there is safe (C2 §7, open question 1, option a). Kevin renaming or moving folders inside the watch folder is safe too: a rename or move only re-settles the drop and logs "nothing new to download"; only a move out of the watch folder forgets files (local copies stay).
