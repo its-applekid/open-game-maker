@@ -107,6 +107,23 @@ describe('NewGameScreen', () => {
     expect(screen.queryByRole('button', { name: 'Isometric' })).not.toBeInTheDocument();
   });
 
+  it('replaces an Other style with the selected catalog set', async () => {
+    renderScreen('/new?step=family');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Other' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Type it' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your own style' }), { target: { value: 'Clay' } });
+    fireEvent.click(button('Add'));
+    expect(screen.getByText('“Clay”')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select SmallScaleInt' }));
+    expect(screen.queryByText('“Clay”')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
+    expect(screen.getByRole('button', { name: 'Select SmallScaleInt' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('offers a working retry when game creation fails', async () => {
     let createCalls = 0;
     vi.stubGlobal(

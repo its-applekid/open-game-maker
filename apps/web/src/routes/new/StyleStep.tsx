@@ -165,7 +165,7 @@ export function StyleStep({
               </button>
             </span>
           </div>
-          <ShowcaseDetail choice={active} />
+          <ShowcaseDetail key={active.id} choice={active} />
           <button
             className="new-style-select tap-primary"
             type="button"
@@ -197,8 +197,6 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
   const sheet = useRef<HTMLVideoElement>(null);
   const showcase = choice.showcase;
   const stop = showcase?.stops[activeStop];
-
-  useEffect(() => setActiveStop(0), [choice.id]);
 
   if (!showcase) {
     const preview = choice.packs.find((pack) => pack.thumbnailUrl)?.thumbnailUrl;

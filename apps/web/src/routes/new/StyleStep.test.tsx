@@ -27,7 +27,16 @@ const showcase = {
 
 const families: CatalogFamily[] = [
   family('chunky-low-poly', 'Chunky low poly', [set('chunky', 'Chunky set')]),
-  family('pixel-art', 'Pixel art', [set('pixel-town', 'Pixel Town')]),
+  family('pixel-art', 'Pixel art', [
+    {
+      ...set('pixel-town', 'Pixel Town'),
+      showcase: {
+        ...showcase,
+        tileVideoUrl: '/showcase/town-tiles.mp4',
+        sheetVideoUrl: '/showcase/town-sheets.mp4',
+      },
+    },
+  ]),
   family('flat-cartoon', 'Flat cartoon', []),
   family('isometric-2d', 'Isometric 2D', [
     { ...set('smallscaleint', 'SmallScaleInt'), pickerFamilies: ['pixel-art'], showcase },
@@ -117,6 +126,12 @@ describe('StyleStep', () => {
     expect(tile).toHaveAttribute('playsinline');
     expect(tile.loop).toBe(true);
     expect(tile.muted).toBe(true);
+    const track = tile.closest('.new-style-track');
+    expect(track).toHaveAttribute('data-ready', 'false');
+    fireEvent.canPlay(tile);
+    expect(track).toHaveAttribute('data-ready', 'true');
+    fireEvent.error(tile);
+    expect(track).toHaveAttribute('data-ready', 'false');
     fireEvent.click(screen.getByRole('button', { name: 'Modern zombie' }));
     expect(tile.currentTime).toBe(7.5);
     expect(sheet.currentTime).toBe(7.5);
@@ -139,5 +154,19 @@ describe('StyleStep', () => {
     expect(screen.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
     fireEvent.keyDown(document, { key: 'ArrowRight' });
     expect(screen.getByRole('heading', { name: 'Pixel Town' })).toBeVisible();
+  });
+
+  it('shows the next set fallback until its own video is ready', () => {
+    renderStep();
+    fireEvent.click(screen.getByRole('button', { name: 'Pixel art' }));
+    fireEvent.click(screen.getByRole('button', { name: 'SmallScaleInt' }));
+    const first = screen.getByLabelText('Diorama preview');
+    fireEvent.canPlay(first);
+    expect(first.closest('.new-style-track')).toHaveAttribute('data-ready', 'true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next set' }));
+    const next = screen.getByLabelText('Diorama preview');
+    expect(screen.getByRole('heading', { name: 'Pixel Town' })).toBeVisible();
+    expect(next.closest('.new-style-track')).toHaveAttribute('data-ready', 'false');
   });
 });

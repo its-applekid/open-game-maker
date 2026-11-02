@@ -63,6 +63,16 @@ async function safeFile(root: string, path: string): Promise<ShowcaseFile | unde
   }
 }
 
+async function safeDirectory(root: string, path: string): Promise<string | undefined> {
+  try {
+    const [info, resolved] = await Promise.all([lstat(path), realpath(path)]);
+    if (!info.isDirectory() || info.isSymbolicLink() || !isInside(root, resolved)) return undefined;
+    return resolved;
+  } catch {
+    return undefined;
+  }
+}
+
 function mediaUrl(setId: string, name: string): string {
   return `${prefix}/style-sets/${encodeURIComponent(setId)}/showcase/${encodeURIComponent(name)}`;
 }
@@ -82,8 +92,9 @@ async function discoverShowcase(
   } catch {
     return undefined;
   }
-  const showcaseRoot = join(assetsRoot, 'sets', setId, 'showcase');
-  const sequenceFile = await safeFile(root, join(showcaseRoot, 'sequence.json'));
+  const showcaseRoot = await safeDirectory(root, join(root, 'sets', setId, 'showcase'));
+  if (!showcaseRoot) return undefined;
+  const sequenceFile = await safeFile(showcaseRoot, join(showcaseRoot, 'sequence.json'));
   if (!sequenceFile) return undefined;
   let sequence: unknown;
   try {
@@ -96,10 +107,11 @@ async function discoverShowcase(
   const stops = (sequence as { stops: unknown[] }).stops;
   if (stops.length === 0) return undefined;
 
-  const mediaRoot = join(showcaseRoot, 'out', 'media');
+  const mediaRoot = await safeDirectory(showcaseRoot, join(showcaseRoot, 'out', 'media'));
+  if (!mediaRoot) return undefined;
   const files = new Map<string, ShowcaseFile>();
   const add = async (name: string): Promise<string | undefined> => {
-    const file = await safeFile(root, join(mediaRoot, name));
+    const file = await safeFile(mediaRoot, join(mediaRoot, name));
     if (!file) return undefined;
     files.set(name, file);
     return mediaUrl(setId, name);

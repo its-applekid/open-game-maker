@@ -185,7 +185,10 @@ export function NewGameScreen() {
                 onOtherChange={(other) =>
                   setChoice('family', { picks: selected?.picks ?? [], ...(other ? { other } : {}) })
                 }
-                onSelect={(id) => toggle('family', id, 1)}
+                onSelect={(id) => {
+                  setChoice('family', { picks: [id] });
+                  setNotice('');
+                }}
               />
             ) : (
               <div className="new-option-grid" role="group" aria-label={current?.ask}>

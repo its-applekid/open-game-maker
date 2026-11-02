@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -72,6 +72,21 @@ async function libraryWithShowcase(): Promise<string> {
   writeFileSync(join(media, '1-fantasy.sheet.256.gif'), new Uint8Array([12, 13]));
   writeFileSync(join(media, '2-modern-zombie.tile.256.gif'), new Uint8Array([14, 15]));
   writeFileSync(join(media, '2-modern-zombie.sheet.256.gif'), new Uint8Array([16, 17]));
+  return root;
+}
+
+async function libraryWithEscapingShowcase(): Promise<string> {
+  const root = await library();
+  const showcase = join(root, 'sets', 'smallscaleint', 'showcase');
+  const outside = join(root, 'sibling-showcase-media');
+  mkdirSync(join(showcase, 'out'), { recursive: true });
+  mkdirSync(outside, { recursive: true });
+  writeFileSync(
+    join(showcase, 'sequence.json'),
+    JSON.stringify({ stops: [{ tile: 'fantasy', sheet: 'fantasy', seconds: 4 }] }),
+  );
+  writeFileSync(join(outside, 'showcase.tiles-row.720.mp4'), new Uint8Array([0, 1, 2]));
+  symlinkSync(outside, join(showcase, 'out', 'media'), 'dir');
   return root;
 }
 
@@ -280,6 +295,23 @@ describe('GET /api/catalog/style-families', () => {
     ).toBe(416);
     expect(
       (await app.request('/api/catalog/style-sets/unknown/showcase/showcase.tiles-row.720.mp4', { headers })).status,
+    ).toBe(404);
+  });
+
+  it('refuses a showcase media directory that escapes its set through a symlink', async () => {
+    const { app } = appWith(await libraryWithEscapingShowcase());
+    const families = (await (await get(app)).json()) as StyleFamilyApi[];
+    const smallscaleint = families
+      .find((family) => family.id === 'isometric-2d')
+      ?.sets.find((set) => set.id === 'smallscaleint');
+
+    expect(smallscaleint?.showcase).toBeUndefined();
+    expect(
+      (
+        await app.request('/api/catalog/style-sets/smallscaleint/showcase/showcase.tiles-row.720.mp4', {
+          headers: asUser(CREATOR.userId),
+        })
+      ).status,
     ).toBe(404);
   });
 });
