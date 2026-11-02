@@ -8,6 +8,7 @@ export {
   type BuildKind,
   type GameMode,
   type RenderInfo,
+  type RuntimeRenderInfo,
   type Runtime,
   type RuntimeInputOptions,
 } from './runtime.js';

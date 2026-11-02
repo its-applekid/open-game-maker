@@ -3,7 +3,7 @@ import { copyFile, lstat, mkdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { loadIndex, type ResolvedCard } from '@ogm/asset-cards';
-import { povIdSchema, styleFamilyIdSchema, type LockEntry } from '@ogm/contracts';
+import { povIdSchema, styleFamilyIdSchema, type AssetMetadata, type LockEntry } from '@ogm/contracts';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot, resolveContainedPath } from '../../context.js';
@@ -112,6 +112,16 @@ async function copySources(
 
 function refusalLine(refusal: Refusal): string {
   return `${refusal.id}  ${refusal.rule}  ${refusal.detail}. Try: gm assets why ${refusal.id}`;
+}
+
+function metadataFor(card: ResolvedCard): AssetMetadata | undefined {
+  const meta: AssetMetadata = {
+    ...(card.sprite === undefined ? {} : { sprite: card.sprite }),
+    ...(card.rig === undefined ? {} : { rig: card.rig }),
+    ...(card.kit === undefined ? {} : { kit: card.kit }),
+    ...(card.geometry === undefined ? {} : { geometry: card.geometry }),
+  };
+  return Object.keys(meta).length === 0 ? undefined : meta;
 }
 
 async function idsFromArgs(cwd: string, args: string[], picks: unknown): Promise<string[]> {
@@ -259,12 +269,14 @@ export const command: GmCommand = {
       const primary = item.copies.find((copy) => copy.primary);
       const path = primary ? relative(ctx.cwd, primary.destination).replaceAll(sep, '/') : item.existing!.path;
       const sha256 = primary ? primary.sha256! : item.existing!.sha256;
+      const meta = metadataFor(item.card);
       lock = upsertLock(lock, {
         id: item.card.id,
         sha256,
         path,
         license: item.card.resolved.license,
         rights: rightsForCard(item.card, index.collections),
+        ...(meta === undefined ? {} : { meta }),
         added: item.existing?.added ?? new Date().toISOString().slice(0, 10),
       });
       if (item.familyException) {

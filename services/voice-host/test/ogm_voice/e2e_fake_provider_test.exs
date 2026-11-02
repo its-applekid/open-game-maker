@@ -12,10 +12,15 @@ defmodule OgmVoice.E2EFakeProviderTest do
   @target %{"kind" => "build", "game_id" => "g1", "job_id" => "j1", "ticket" => "142", "creator_id" => "u1"}
 
   setup context do
+    render_dir = Path.join(System.tmp_dir!(), "ogm_voice_e2e_#{System.unique_integer([:positive])}")
+
     {stub, api_url} =
       ApiStub.start!(self(), Map.get(context, :api_status, 200), 0, Map.get(context, :api_body))
 
-    on_exit(fn -> Process.exit(stub, :shutdown) end)
+    on_exit(fn ->
+      Process.exit(stub, :shutdown)
+      File.rm_rf!(render_dir)
+    end)
 
     config = %OgmVoice.Config{
       port: 0,
@@ -24,6 +29,7 @@ defmodule OgmVoice.E2EFakeProviderTest do
       llm: "fake",
       max_sessions: 2,
       api_internal_url: api_url,
+      render_dir: render_dir,
       token_secret: fn -> @token_secret end,
       internal_secret: fn -> @internal_secret end
     }

@@ -72,6 +72,45 @@ class Reader(unittest.TestCase):
     def tearDown(self):
         self.tmp.cleanup()
 
+    def test_collection_previews_reference_local_outputs_and_verified_store_fallback(self):
+        store = self.pack / "store"
+        store.mkdir(parents=True)
+        (store / "fallback.gif").write_bytes(b"GIF89a")
+        (store / "media.json").write_text(json.dumps({
+            "pack_id": self.pack.name,
+            "media": [{"path": "fallback.gif"}],
+            "selected_fallback": "fallback.gif",
+        }))
+        card = collection(self.pack.name)
+        ssi.decorate_collection(card, self.pack.name, self.pack)
+        self.assertEqual(card["previews"], {
+            "specimen": f"packs/{self.pack.name}/specimen.png",
+            "diorama": "sets/smallscaleint/diorama.fantasy.256.png",
+            "loop": "sets/smallscaleint/diorama.fantasy.256.gif",
+            "store": f"packs/{self.pack.name}/store/fallback.gif",
+        })
+        self.assertEqual(card["provenance"]["previews.store"]["by"], "vendor-metadata")
+
+    def test_collection_store_fallback_rejects_traversal_and_missing_files(self):
+        store = self.pack / "store"
+        store.mkdir(parents=True)
+        outside = self.pack / "outside.gif"
+        outside.write_bytes(b"GIF89a")
+        manifest = {
+            "pack_id": self.pack.name,
+            "media": [{"path": "../outside.gif"}],
+            "selected_fallback": "../outside.gif",
+        }
+        (store / "media.json").write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, "invalid store media manifest"):
+            ssi.decorate_collection(collection(self.pack.name), self.pack.name, self.pack)
+
+        manifest["media"] = [{"path": "missing.gif"}]
+        manifest["selected_fallback"] = "missing.gif"
+        (store / "media.json").write_text(json.dumps(manifest))
+        with self.assertRaisesRegex(ValueError, "invalid store media manifest"):
+            ssi.decorate_collection(collection(self.pack.name), self.pack.name, self.pack)
+
     def test_all_26_imported_packs_have_one_of_the_three_worlds(self):
         self.assertEqual(len(ssi.PACKS), 26)
         self.assertEqual({ssi.world_for(pack) for pack in ssi.PACKS}, {"fantasy", "modern-zombie", "creatures"})

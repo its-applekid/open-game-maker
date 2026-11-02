@@ -102,6 +102,32 @@ describe('flushQueue', () => {
 });
 
 describe('error capture', () => {
+  it('includes route and game context when a screen boundary catches an error', async () => {
+    const fetchMock = vi.fn(async () => created());
+    vi.stubGlobal('fetch', fetchMock);
+
+    bug.captureError(new RangeError('bad tile'), { route: '/games', gameId: 'g1' });
+    await bug.sendReport({});
+
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body.gameId).toBe('g1');
+    expect(body.error).toMatchObject({ type: 'RangeError', message: '/games · game g1 — bad tile' });
+  });
+
+  it('does not carry an earlier game into a crash on a game-less route', async () => {
+    const fetchMock = vi.fn(async () => created());
+    vi.stubGlobal('fetch', fetchMock);
+    bug.setBugContext({ gameId: 'old-game', buildHash: 'old-build' });
+
+    bug.captureError(new Error('bad form'), { route: '/new' });
+    await bug.sendReport({});
+
+    const body = JSON.parse((fetchMock.mock.calls[0] as unknown as [string, RequestInit])[1].body as string);
+    expect(body).not.toHaveProperty('gameId');
+    expect(body).not.toHaveProperty('buildHash');
+    expect(body.error).toMatchObject({ message: '/new — bad form' });
+  });
+
   it('attaches the last uncaught error summary to the next report', async () => {
     const fetchMock = vi.fn(async () => created());
     vi.stubGlobal('fetch', fetchMock);

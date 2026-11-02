@@ -9,12 +9,13 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
     "pretest": "pnpm run build:deps",
-    "test": "vitest run --exclude e2e/render-gltf.test.ts",
+    "test": "vitest run --exclude e2e/render-gltf.test.ts --exclude e2e/thumbnail-scene.test.ts",
     "pretypecheck": "pnpm run build:deps",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
-    "test:browser": "vitest run e2e/render-gltf.test.ts && playwright test"
+    "pretest:browser": "pnpm run build:deps",
+    "test:browser": "vitest run e2e/render-gltf.test.ts e2e/thumbnail-scene.test.ts && playwright test"
   },
   "dependencies": {
     "@colyseus/sdk": "0.18.9",
