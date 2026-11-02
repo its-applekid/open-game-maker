@@ -22,3 +22,5 @@ Before opening or un-drafting a PR that adds a migration under `packages/db`: me
 migration so it sorts after main's latest, give it the next `_journal.json` idx, and regenerate its snapshot with
 `prevId` = the previous snapshot's id (prettier the JSON). Three PRs in one night (#176, #188, #189) failed review on
 exactly this; the reviewer bounces it every time.
+Never modify an already-merged migration or its journal or snapshot entry: the journal is append-only (a PR that
+re-timestamped main's entry was bounced too).
