@@ -32,6 +32,7 @@ export interface BugBundle {
 export interface RuntimeHooks extends GmTestHooks {
   renderGameToText(): GameTextSnapshot;
   bundle(): BugBundle;
+  restore(save: SaveData<unknown>): void;
 }
 
 export class SdkHooks<D, S> implements RuntimeHooks {
@@ -146,6 +147,10 @@ export class SdkHooks<D, S> implements RuntimeHooks {
       players: [],
       truncated: true,
     };
+  }
+
+  restore(save: SaveData<unknown>): void {
+    this.runtime.instance.restore(structuredClone(save) as SaveData<S>);
   }
 
   renderInfo(): ReturnType<GmTestHooks['renderInfo']> {

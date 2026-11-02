@@ -50,13 +50,26 @@ export function parseTimeline(value: unknown): { from: number; to: number; step:
   return { from: parts[0], to: parts[1], step: parts[2] };
 }
 
-export function parseRecord(value: unknown): { seconds: number } | undefined {
-  if (value === undefined) return undefined;
+export function parseRecord(
+  value: unknown,
+  fpsValue: unknown,
+  native: boolean,
+): { seconds: number; fps?: number; native?: boolean } | undefined {
+  if (value === undefined) {
+    if (fpsValue !== undefined) throw new UsageError('--record-fps requires --record', 'gm run --record 4s');
+    if (native) throw new UsageError('--record-native requires --record', 'gm run --record 4s');
+    return undefined;
+  }
   const match = typeof value === 'string' ? /^(\d+(?:\.\d+)?)s?$/.exec(value) : null;
   const seconds = match ? Number(match[1]) : Number.NaN;
   if (!(seconds > 0 && seconds <= 60))
     throw new UsageError('--record needs a duration from 0 to 60 seconds', 'gm run --record 10s');
-  return { seconds };
+  if (
+    fpsValue !== undefined &&
+    (typeof fpsValue !== 'number' || !Number.isInteger(fpsValue) || fpsValue < 1 || fpsValue > 60)
+  )
+    throw new UsageError('--record-fps must be an integer from 1 to 60', 'gm run --record 4s --record-fps 60');
+  return { seconds, ...(fpsValue === undefined ? {} : { fps: fpsValue }), ...(native ? { native: true } : {}) };
 }
 
 function loadInputs(
@@ -123,6 +136,8 @@ export const command: GmCommand = {
     frames: { type: 'string', help: 'comma-separated capture times in seconds' },
     timeline: { type: 'string', help: 'from:to:step seconds tiled into one PNG' },
     record: { type: 'string', help: 'H.264 clip duration, for example 10s' },
+    'record-fps': { type: 'number', help: 'clip frame rate from 1 to 60 (default 30)' },
+    'record-native': { type: 'boolean', default: false, help: 'keep source viewport dimensions (default 960 px)' },
     rig: { type: 'string', help: 'camera rig id' },
     out: { type: 'string', default: 'shots', help: 'direct-run output directory' },
     budgets: { type: 'string', help: 'calibration budget overrides JSON' },
@@ -134,7 +149,7 @@ export const command: GmCommand = {
     const rig = flags.rig === undefined ? undefined : (oneOf('rig', flags.rig, RIGS) as ViewId);
     const frames = parseFrames(flags.frames);
     const timeline = parseTimeline(flags.timeline);
-    const record = parseRecord(flags.record);
+    const record = parseRecord(flags.record, flags['record-fps'], flags['record-native'] === true);
     const url = typeof flags.url === 'string' ? flags.url : undefined;
 
     if (url && !isLoopbackUrl(url))

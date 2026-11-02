@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { GmContext } from '../src/command.js';
 import { command as perfCommand } from '../src/commands/perf/index.js';
-import { finish } from '../src/commands/run/index.js';
+import { finish, parseRecord } from '../src/commands/run/index.js';
 import type { VerifyReport } from '@ogm/gm-verify';
 import { gm, tempDir } from './helpers.js';
 
@@ -54,6 +54,19 @@ const unknownBudgets = (): VerifyReport['budgets'] => ({
 });
 
 describe('gm run', () => {
+  it('parses opt-in 60 fps native recording without changing the defaults', () => {
+    expect(parseRecord('4s', undefined, false)).toEqual({ seconds: 4 });
+    expect(parseRecord('4s', 60, true)).toEqual({ seconds: 4, fps: 60, native: true });
+  });
+
+  it('rejects recording fidelity flags without a clip and invalid frame rates', () => {
+    expect(() => parseRecord(undefined, 60, false)).toThrow(/--record-fps requires --record/);
+    expect(() => parseRecord(undefined, undefined, true)).toThrow(/--record-native requires --record/);
+    expect(() => parseRecord('4s', 0, false)).toThrow(/--record-fps must be an integer from 1 to 60/);
+    expect(() => parseRecord('4s', 61, false)).toThrow(/--record-fps must be an integer from 1 to 60/);
+    expect(() => parseRecord('4s', 29.97, false)).toThrow(/--record-fps must be an integer from 1 to 60/);
+  });
+
   it('refuses a non-loopback URL before launching a browser', async () => {
     const result = await gm(['run', '--url', 'http://0.0.0.0:8000/']);
     expect(result.code).toBe(2);

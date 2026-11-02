@@ -132,6 +132,17 @@ describe('runtime hooks', () => {
     expect(new TextEncoder().encode(JSON.stringify(text)).byteLength).toBeLessThanOrEqual(65_536);
   });
 
+  it('restores serialized state through the browser hook surface', async () => {
+    const { runtime } = await start();
+    const save = runtime.instance.serialize();
+    runtime.hooks.inject({ playerIndex: 0, tick: 0, source: 'network', actions: { go: true } });
+    runtime.hooks.advanceTime(17);
+
+    runtime.hooks.restore(save);
+
+    expect(runtime.instance.serialize()).toEqual(save);
+  });
+
   it('is deterministic for equal seeds and injected frames', async () => {
     const first = await start();
     const second = await start();

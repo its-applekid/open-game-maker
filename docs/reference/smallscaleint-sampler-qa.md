@@ -1,0 +1,30 @@
+# SmallScaleInt sampler QA
+
+The sampler at `games/samplers/smallscaleint` is the repeatable quality gate for the private SmallScaleInt style set.
+It produces six four-second clips and one 24-second hard-cut trailer at 1440x900 and 60 fps. Licensed source media,
+captures, and the final trailer remain in ignored `assets-local/` paths and are never published from the repository.
+
+## Pipeline findings
+
+| Finding | Resolution |
+| --- | --- |
+| The verifier only exposed a phone-safe 30 fps encode, so it could not produce the requested native 3x/60 fps evidence. | `gm run` now accepts `--record-fps` and `--record-native`; the browser samples the authored 12 fps sprite motion deterministically and the H.264 delivery stream is retimed to an exact 60 fps. |
+| Full-page PNG capture degraded severely under SwiftShader, including after the sampler moved to Phaser's Canvas renderer. | Recording uses the canvas capture stream and manual deterministic frame requests, avoiding hundreds of Playwright screenshot round trips. |
+| Deterministic capture records video only, but the trailer requires game SFX and no music. | The game and trailer builder share `src/trailer-cues.json`; post-processing mixes only the verified `move-a`, `hurt-a`, and `coin-a` game SFX. |
+| Private licensed files cannot be checked in or attached to public GitHub records. | `prepare-assets.mjs` verifies card ids and source SHA-256 values before copying the 25 required files into ignored `public/assets-local/`; every output stays under ignored `assets-local/`. |
+| The Orc 04 combined sequences are catalogued as a prop and do not expose sheet geometry, although the files are 15-column, eight-direction character sheets. | The sampler declares that geometry locally. Asset preprocessing should classify combined character sheets and emit their frame/direction metadata so future games do not need this override. |
+| The Animals Mega Pack mixes frame sizes: the bison sheets use 96 px frames while the alpacha and wolf use 64 px, and the cards do not say so. A 64 px declaration made the bison flicker in and out of the creatures beat. | The sampler declares 96 px bison frames and rescales them to match; it now refuses to start when a sheet's width is not its column count times its frame width. Card preprocessing should record frame size per sheet. |
+| Earlier SmallScaleInt cards had inconsistent direction order, frame rate, and shadow-sheet grouping. | The current cards expose `E, SE, S, SW, W, NW, N, NE`, 12 fps animation metadata, and grouped shadow variants; no sampler workaround is required. |
+
+## Visual acceptance
+
+The final pass checks every clip at its opening, action beat, and closing frame for missing textures, blank frames,
+cropping, unreadable scale, and abrupt intra-scene jumps. It also checks the assembled trailer metadata and confirms
+that the six clips appear once in the required order. Listening and physical-device checks are manual acceptance
+steps; automated checks do not claim that they were performed.
+
+The local acceptance render produced six 1440x900 H.264 clips with exactly 240 frames and 4.00 seconds per clip. The
+assembled H.264/AAC trailer contains 1,440 frames at 60 fps and runs 24.00 seconds. A two-second-interval contact sheet
+showed all six beats in order, with their state changes visible, no blank or missing-texture frames, no text, stable
+ground anchors, and no cropping at the logical-canvas edge. The private contact sheet and media remain ignored beside
+the trailer.

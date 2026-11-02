@@ -23,6 +23,7 @@ gm check [--json]
 gm check static [--json]
 gm check hooks [--json]
 gm test [--inputs <script.json>] [--ticks <count>] [--serve <dir>] [--out <dir>] [--json]
+gm run [--url <loopback-url>] [--viewport <desktop|phone|both>] [--frames <seconds>] [--timeline <from:to:step>] [--record <duration>] [--record-fps <1..60>] [--record-native] [--out <dir>]
 ```
 
 `gm check` runs TypeScript, deterministic simulation-source, test-hook, and registered asset gates. Use `static` or
@@ -33,6 +34,11 @@ gate result.
 logical-input script, checks a save-state round trip, writes a HUD still, runs `promises/*.spec.ts`, and writes
 `shots/test/report.json`. A failed or unavailable check exits 1. `--serve`, `--ticks`, and `--out` override the defaults;
 `--json` emits the L1 gate result and report path.
+
+`gm run` captures deterministic stills, timelines, and H.264 clips from a built game or loopback URL. Clips default to
+30 fps and a phone-safe 960-pixel width. `--record-fps` selects up to 60 fps, and `--record-native` keeps the source
+viewport dimensions; both require `--record`. Native output is intended for pixel-art capture where rescaling would
+soften source pixels. The shared verifier queue carries the same recording controls.
 
 ## Refresh the skill pack
 
