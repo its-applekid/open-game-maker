@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "95aeb2e5-052e-43d0-9484-c666201df966",
-  "prevId": "c18c5463-528a-472c-ae1a-7af05ac89560",
+  "id": "8ce482e8-cf27-420f-aec6-3bb473c5c28e",
+  "prevId": "26b35d7a-65c6-4016-91ef-22b60a3e36d6",
   "tables": {
     "app_meta": {
       "name": "app_meta",
@@ -282,6 +282,13 @@
         },
         "repo_url": {
           "name": "repo_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "published_release_id": {
+          "name": "published_release_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -5113,8 +5120,8 @@
         }
       }
     },
-    "game_abuse_flags": {
-      "name": "game_abuse_flags",
+    "builds": {
+      "name": "builds",
       "columns": {
         "id": {
           "name": "id",
@@ -5130,22 +5137,71 @@
           "notNull": true,
           "autoincrement": false
         },
-        "family_id": {
-          "name": "family_id",
+        "branch_id": {
+          "name": "branch_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "flagged_by": {
-          "name": "flagged_by",
+        "git_sha": {
+          "name": "git_sha",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "reason": {
-          "name": "reason",
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "sdk_version": {
+          "name": "sdk_version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "save_schema_version": {
+          "name": "save_schema_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "migrates_from_schema": {
+          "name": "migrates_from_schema",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "achievement_catalog_hash": {
+          "name": "achievement_catalog_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "artifact": {
+          "name": "artifact",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "artifact_path": {
+          "name": "artifact_path",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -5160,32 +5216,27 @@
         }
       },
       "indexes": {
-        "game_abuse_flags_family_created": {
-          "name": "game_abuse_flags_family_created",
-          "columns": ["family_id", "created_at"],
-          "isUnique": false
-        },
-        "game_abuse_flags_game_created": {
-          "name": "game_abuse_flags_game_created",
-          "columns": ["game_id", "created_at"],
+        "builds_game_branch_index": {
+          "name": "builds_game_branch_index",
+          "columns": ["game_id", "branch_id"],
           "isUnique": false
         }
       },
       "foreignKeys": {
-        "game_abuse_flags_game_id_games_id_fk": {
-          "name": "game_abuse_flags_game_id_games_id_fk",
-          "tableFrom": "game_abuse_flags",
+        "builds_game_id_games_id_fk": {
+          "name": "builds_game_id_games_id_fk",
+          "tableFrom": "builds",
           "tableTo": "games",
           "columnsFrom": ["game_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "game_abuse_flags_family_id_families_id_fk": {
-          "name": "game_abuse_flags_family_id_families_id_fk",
-          "tableFrom": "game_abuse_flags",
-          "tableTo": "families",
-          "columnsFrom": ["family_id"],
+        "builds_branch_id_branches_id_fk": {
+          "name": "builds_branch_id_branches_id_fk",
+          "tableFrom": "builds",
+          "tableTo": "branches",
+          "columnsFrom": ["branch_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -5194,9 +5245,395 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "game_abuse_flags_reason_check": {
-          "name": "game_abuse_flags_reason_check",
-          "value": "\"game_abuse_flags\".\"reason\" IN ('spam', 'harmful', 'other')"
+        "builds_save_schema_version_check": {
+          "name": "builds_save_schema_version_check",
+          "value": "\"builds\".\"save_schema_version\" >= 0"
+        },
+        "builds_migrates_from_schema_check": {
+          "name": "builds_migrates_from_schema_check",
+          "value": "\"builds\".\"migrates_from_schema\" IS NULL OR \"builds\".\"migrates_from_schema\" >= 0"
+        },
+        "builds_status_check": {
+          "name": "builds_status_check",
+          "value": "\"builds\".\"status\" IN ('building', 'tested', 'failed')"
+        },
+        "builds_artifact_check": {
+          "name": "builds_artifact_check",
+          "value": "\"builds\".\"artifact\" IN ('present', 'gc')"
+        }
+      }
+    },
+    "change_notes": {
+      "name": "change_notes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "job_id": {
+          "name": "job_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "tx_id": {
+          "name": "tx_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "change_notes_game_release_index": {
+          "name": "change_notes_game_release_index",
+          "columns": ["game_id", "release_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "change_notes_game_id_games_id_fk": {
+          "name": "change_notes_game_id_games_id_fk",
+          "tableFrom": "change_notes",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "change_notes_release_id_releases_id_fk": {
+          "name": "change_notes_release_id_releases_id_fk",
+          "tableFrom": "change_notes",
+          "tableTo": "releases",
+          "columnsFrom": ["release_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "change_notes_kind_check": {
+          "name": "change_notes_kind_check",
+          "value": "\"change_notes\".\"kind\" IN ('fix', 'add', 'change', 'remove')"
+        }
+      }
+    },
+    "override_snapshots": {
+      "name": "override_snapshots",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "build_id": {
+          "name": "build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "head_rev": {
+          "name": "head_rev",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "sha256": {
+          "name": "sha256",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entries_json": {
+          "name": "entries_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_ops_json": {
+          "name": "entity_ops_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fold_sha": {
+          "name": "fold_sha",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "override_snapshots_game_build_hash_rev_unique": {
+          "name": "override_snapshots_game_build_hash_rev_unique",
+          "columns": ["game_id", "build_id", "sha256", "head_rev"],
+          "isUnique": true
+        },
+        "override_snapshots_game_index": {
+          "name": "override_snapshots_game_index",
+          "columns": ["game_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "override_snapshots_game_id_games_id_fk": {
+          "name": "override_snapshots_game_id_games_id_fk",
+          "tableFrom": "override_snapshots",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "override_snapshots_branch_id_branches_id_fk": {
+          "name": "override_snapshots_branch_id_branches_id_fk",
+          "tableFrom": "override_snapshots",
+          "tableTo": "branches",
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "override_snapshots_build_id_builds_id_fk": {
+          "name": "override_snapshots_build_id_builds_id_fk",
+          "tableFrom": "override_snapshots",
+          "tableTo": "builds",
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "override_snapshots_head_rev_check": {
+          "name": "override_snapshots_head_rev_check",
+          "value": "\"override_snapshots\".\"head_rev\" >= 0"
+        }
+      }
+    },
+    "releases": {
+      "name": "releases",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "build_id": {
+          "name": "build_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "snapshot_id": {
+          "name": "snapshot_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "git_tag": {
+          "name": "git_tag",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "restores_release_id": {
+          "name": "restores_release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "predecessor_release_id": {
+          "name": "predecessor_release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "changelog_json": {
+          "name": "changelog_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "published_by": {
+          "name": "published_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "published_at": {
+          "name": "published_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "releases_game_seq_unique": {
+          "name": "releases_game_seq_unique",
+          "columns": ["game_id", "seq"],
+          "isUnique": true
+        },
+        "releases_git_tag_unique": {
+          "name": "releases_git_tag_unique",
+          "columns": ["git_tag"],
+          "isUnique": true
+        },
+        "releases_game_published_index": {
+          "name": "releases_game_published_index",
+          "columns": ["game_id", "published_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "releases_game_id_games_id_fk": {
+          "name": "releases_game_id_games_id_fk",
+          "tableFrom": "releases",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "releases_build_id_builds_id_fk": {
+          "name": "releases_build_id_builds_id_fk",
+          "tableFrom": "releases",
+          "tableTo": "builds",
+          "columnsFrom": ["build_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "releases_snapshot_id_override_snapshots_id_fk": {
+          "name": "releases_snapshot_id_override_snapshots_id_fk",
+          "tableFrom": "releases",
+          "tableTo": "override_snapshots",
+          "columnsFrom": ["snapshot_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "releases_seq_check": {
+          "name": "releases_seq_check",
+          "value": "\"releases\".\"seq\" > 0"
+        },
+        "releases_kind_check": {
+          "name": "releases_kind_check",
+          "value": "\"releases\".\"kind\" IN ('publish', 'rollback')"
         }
       }
     }

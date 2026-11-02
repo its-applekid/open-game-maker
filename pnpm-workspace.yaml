@@ -1,6 +1,7 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'packages/pack-adapters/*'
   - 'services/*'
   - 'skills/*'
   - 'templates/*'

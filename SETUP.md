@@ -473,26 +473,43 @@ Writes: `~/.config/ogm/env/intake.env`, `~/.local/state/ogm/intake/status.json`
 
 Check: cat ~/.local/state/ogm/intake/status.json
 
-### 6.2 Follow the free Drive one-time setup to create a service account and Viewer folder, then configure and start ogm-drive-sync. (OPTIONAL)
+### 6.2 Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer. (HAND)
+
+Command:
+
+```sh
+# One-time setup 1-5 in scripts/py/drive-sync/README.md (web console or gcloud).
+chmod 600 ~/.config/ogm/drive-sa.json
+```
+
+Writes: `~/.config/ogm/drive-sa.json`
+
+Check: stat -c %a ~/.config/ogm/drive-sa.json prints 600
+
+Hand back to the human: Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer.
+
+### 6.3 Write the Drive config with the folder id, build the worker venv, prove the dry run, then restart ogm-drive-sync so its placeholder clears. (OPTIONAL)
 
 Command:
 
 ```sh
 cp scripts/py/drive-sync/drive-sync.example.toml ~/.config/ogm/drive-sync.toml
-~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py run --once --dry-run
+sed -i 's/PASTE_FOLDER_ID_HERE/<folder-id>/' ~/.config/ogm/drive-sync.toml
+make venv-drive-sync
+scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py run --once --dry-run
 systemctl --user restart ogm-drive-sync
 ```
 
-Writes: `~/.config/ogm/drive-sa.json`, `~/.config/ogm/drive-sync.toml`
+Writes: `~/.config/ogm/drive-sync.toml`, `scripts/py/drive-sync/.venv`
 
-Check: the dry run logs watching '<folder>' as <email> and ogm-drive-sync has no PLACEHOLDER line
+Check: the dry run logs watching '<folder>' as <email>, and systemctl --user status ogm-drive-sync no longer prints PLACEHOLDER
 
-### 6.3 Put a small zip in the drop folder and confirm Drive sync queues it for intake.
+### 6.4 Put a small zip in the Drive folder and confirm Drive sync queues it once for intake, which skips a drop id and MD5 set it has already handled. (OPTIONAL)
 
 Command:
 
 ```sh
-~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py status
+scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py status
 ```
 
 Writes: `assets-local/inbox/queue.jsonl`, `assets-local/inbox/quarantine`
@@ -501,9 +518,9 @@ Check: intake.json appears next to the downloaded manifest after intake handles 
 
 ### Ask an agent
 
-> You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 6, Local asset pipeline, optional Google Drive drop**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
+> You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 6, Local asset pipeline, optional Google Drive drop**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. For the Drive path, never open the Google console or read, print or copy the key file's contents; only check that `~/.config/ogm/drive-sa.json` exists with mode 600. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: none.
+> Hand steps in this step: `Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer`.
 
 ## 7. Configure
 

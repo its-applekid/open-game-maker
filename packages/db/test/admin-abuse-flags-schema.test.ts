@@ -18,13 +18,13 @@ describe('game abuse flag schema', () => {
       entries: Array<{ idx: number; tag: string }>;
     };
     const previous = JSON.parse(
-      readFileSync(new URL('../migrations/meta/20261102092046_snapshot.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('../migrations/meta/20261102110848_snapshot.json', import.meta.url), 'utf8'),
     ) as { id: string };
     const snapshot = JSON.parse(
-      readFileSync(new URL('../migrations/meta/20261102102449_snapshot.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('../migrations/meta/20261102153000_snapshot.json', import.meta.url), 'utf8'),
     ) as { prevId: string };
 
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 22, tag: '20261102102449_game_abuse_flags' });
+    expect(journal.entries.at(-1)).toMatchObject({ idx: 24, tag: '20261102153000_game_abuse_flags' });
     expect(snapshot.prevId).toBe(previous.id);
   });
 

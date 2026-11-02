@@ -34,9 +34,11 @@ A queue entry is open until `intake.json` exists next to its manifest.
 
 ## Run
 
+Commands below use `<repo>` for your OGM checkout; this host keeps it at `~/games/open-game-maker-2000`.
+
 ```bash
-PY=~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python
-SYNC=~/games/open-game-maker-2000/scripts/py/drive-sync/drive_sync.py
+PY=<repo>/scripts/py/drive-sync/.venv/bin/python
+SYNC=<repo>/scripts/py/drive-sync/drive_sync.py
 $PY -I $SYNC run --once --dry-run          # read Drive only: no state, files, queue or notifications
 $PY -I $SYNC run --once --quiet-seconds 0  # one real poll that downloads anything already settled
 $PY -I $SYNC run                           # poll forever (what the systemd unit runs)
@@ -48,7 +50,7 @@ $PY -I $SYNC status                        # drops by status, plus queue entries
 ## Tests
 
 ```bash
-python3 -I ~/games/open-game-maker-2000/scripts/py/drive-sync/test_drive_sync.py -v
+python3 -I <repo>/scripts/py/drive-sync/test_drive_sync.py -v
 ```
 
 The tests use a fake Drive, so they need no network and no Google libraries. They cover folder filtering, debounce, two-look stability, missing checksums, checksum mismatches, size caps, Google-native files, hostile names, zip-slip, symlinks, corrupt or truncated archives, zip bombs, 7z, re-changes, the strict-rights manifest, dry runs, and the config refusing secrets inside the repo.
@@ -81,27 +83,26 @@ All of this is free: the Drive API has no charge, and no billing account is need
 5. In Google Drive, create the watch folder. Share it with the email printed above as **Viewer**, and untick "Notify people". Then copy the folder id, which is the part of the folder's URL after `/folders/`.
 6. Write the config:
    ```bash
-   cp ~/games/open-game-maker-2000/scripts/py/drive-sync/drive-sync.example.toml ~/.config/ogm/drive-sync.toml
+   cp <repo>/scripts/py/drive-sync/drive-sync.example.toml ~/.config/ogm/drive-sync.toml
    sed -i 's/PASTE_FOLDER_ID_HERE/<the folder id>/' ~/.config/ogm/drive-sync.toml
    ```
 7. Install the dependencies. On this machine the venv already exists, so this step can be skipped.
    ```bash
-   python3 -m venv ~/games/open-game-maker-2000/scripts/py/drive-sync/.venv
-   ~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/pip install -r ~/games/open-game-maker-2000/scripts/py/drive-sync/requirements.txt
+   python3 -m venv <repo>/scripts/py/drive-sync/.venv
+   <repo>/scripts/py/drive-sync/.venv/bin/pip install -r <repo>/scripts/py/drive-sync/requirements.txt
    ```
 8. Verify. Put a small file in the Drive folder, then:
    ```bash
-   PY=~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python
-   SYNC=~/games/open-game-maker-2000/scripts/py/drive-sync/drive_sync.py
+   PY=<repo>/scripts/py/drive-sync/.venv/bin/python
+   SYNC=<repo>/scripts/py/drive-sync/drive_sync.py
    $PY -I $SYNC run --once --dry-run           # should log: watching '<folder>' as <sa email>
    $PY -I $SYNC run --once --quiet-seconds 0   # downloads it into assets-local/inbox/quarantine/
    $PY -I $SYNC status
    ```
-9. Run it in the background:
+9. Run it in the background. `ops/bin/ogm-host-setup.sh` (setup step 1) already installed and enabled `ogm-drive-sync`, which runs `ops/bin/ogm-run drive-sync`; it waits as a placeholder until the venv, `~/.config/ogm/drive-sync.toml` and `~/.config/ogm/drive-sa.json` exist. Restart it once they do (the `ogm-drive-sync.service` in this folder is the older standalone unit):
    ```bash
-   mkdir -p ~/.config/systemd/user
-   cp ~/games/open-game-maker-2000/scripts/py/drive-sync/ogm-drive-sync.service ~/.config/systemd/user/
-   systemctl --user daemon-reload && systemctl --user enable --now ogm-drive-sync
+   systemctl --user restart ogm-drive-sync
+   systemctl --user status ogm-drive-sync     # no PLACEHOLDER line
    journalctl --user -u ogm-drive-sync -f
    ```
    To keep it running while logged out, run `loginctl enable-linger $USER`. Desktop notifications only appear while you're logged into a desktop session.

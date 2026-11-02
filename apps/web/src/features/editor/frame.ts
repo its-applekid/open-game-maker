@@ -1,7 +1,10 @@
 import { createGameFrame, type GameFrame, type GameFrameOptions } from '@gm/host';
 import type {
   DesignDoc,
+  Envelope,
   GameManifest,
+  GameToHost,
+  HostToGame,
   Patch,
   PlacementResult,
   PlayerSettings,
@@ -9,6 +12,7 @@ import type {
   SaveData,
   TargetRef,
 } from '@ogm/contracts/browser';
+import { hostToGameSchema, SDK_PROTOCOL } from '@ogm/contracts/browser';
 
 type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSettings'> & {
   bridge: Pick<GameFrame['bridge'], 'dropped'>;
@@ -36,6 +40,7 @@ export type GameFrameController = {
   pause(): void;
   resume(): void;
   restoreSave(save: SaveData<unknown>): void;
+  sendRoomMessage(envelope: Envelope<string, unknown>): void;
   onSaveWrite(callback: (save: SaveData<unknown>) => void): () => void;
   onEvent(callback: (kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown) => void): () => void;
   dispose(): void;
@@ -53,6 +58,7 @@ export type MountGameFrameOptions = {
   onState?(state: GameFrameState): void;
   onSaveWrite?(payload: { saveSchemaVersion: number; data: unknown }): void;
   onEvent?(kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown): void;
+  onRoomMessage?(envelope: Envelope<string, unknown>): void;
 };
 
 export function mountGameFrame(options: MountGameFrameOptions): GameFrameController {
@@ -70,6 +76,11 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
   const placementQueue: PlacementRequest[] = [];
   let activePlacement: (PlacementRequest & { timer: ReturnType<typeof setTimeout>; settled: boolean }) | undefined;
   let stopPlacement: () => void = () => undefined;
+  let roomMessageSequence = 0;
+  const emitRoomMessage = (type: GameToHost['t'], payload: unknown) => {
+    roomMessageSequence += 1;
+    options.onRoomMessage?.({ v: 1, id: `game-room-${roomMessageSequence}`, t: type, payload });
+  };
 
   const snapshot = (): GameFrameState => ({ ...current, dropped: frame.bridge.dropped + wrongOriginDrops });
   const publish = () => options.onState?.(snapshot());
@@ -92,9 +103,10 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       capabilities: [],
       role: () => 'owner',
       readyTimeoutMs: 10_000,
-      onReady: (manifest) => {
+      onReady: (manifest, marks) => {
         current = { bridgeState: 'ready', manifest };
         frame.send('design.apply', { rev: options.design.rev, doc: options.design.doc, patches: [] });
+        emitRoomMessage('ready', { protocol: SDK_PROTOCOL, manifest, marks });
         publish();
       },
       onSaveWrite: options.onSaveWrite,
@@ -130,6 +142,9 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     frame.send('editor.validatePlacement', { prefab: request.prefab, pose: request.pose });
   };
   stopPlacement = frame.on('editor.placement', finishPlacement);
+  const stopRoomMessages = (['net.input', 'net.snapshot', 'net.event'] as const).map((type) =>
+    frame.on(type, (payload) => emitRoomMessage(type, payload)),
+  );
 
   return {
     state: snapshot,
@@ -160,6 +175,13 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     restoreSave: (save) => {
       frame.send('save.restore', save);
     },
+    sendRoomMessage: (envelope) => {
+      const parsed = hostToGameSchema.safeParse(envelope);
+      if (!parsed.success || parsed.data.t === 'hello') return;
+      const message = parsed.data;
+      const send = frame.send as (type: Exclude<HostToGame['t'], 'hello'>, payload: unknown) => void;
+      send(message.t, message.payload);
+    },
     onSaveWrite: (callback) => frame.on('save.write', callback),
     onEvent: (callback) => frame.on('event', ({ kind, payload }) => callback(kind, payload)),
     dispose: () => {
@@ -167,6 +189,7 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       disposed = true;
       window.removeEventListener('message', observeOrigin);
       stopPlacement();
+      for (const stop of stopRoomMessages) stop();
       if (activePlacement !== undefined) {
         clearTimeout(activePlacement.timer);
         if (!activePlacement.settled) activePlacement.resolve({ ok: false, reason: 'Game closed.' });

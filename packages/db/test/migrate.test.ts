@@ -46,7 +46,9 @@ describe('migrate', () => {
         '20261102050906_usage_samples.sql',
         '20261102054226_merge_plans.sql',
         '20261102092046_scope_session_revisions.sql',
-        '20261102102449_game_abuse_flags.sql',
+        '20261102100555_report_triage.sql',
+        '20261102110848_releases.sql',
+        '20261102153000_game_abuse_flags.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -79,7 +81,9 @@ describe('migrate', () => {
       'migration:20261102050906_usage_samples.sql',
       'migration:20261102054226_merge_plans.sql',
       'migration:20261102092046_scope_session_revisions.sql',
-      'migration:20261102102449_game_abuse_flags.sql',
+      'migration:20261102100555_report_triage.sql',
+      'migration:20261102110848_releases.sql',
+      'migration:20261102153000_game_abuse_flags.sql',
     ]);
     sqlite.close();
   });

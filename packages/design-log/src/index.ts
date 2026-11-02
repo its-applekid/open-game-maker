@@ -2,6 +2,7 @@ export * from './apply.js';
 export * from './canonical.js';
 export * from './hash.js';
 export * from './merge.js';
+export * from './fold.js';
 export * from './reduce.js';
 export * from './reapply.js';
 export * from './replay.js';
