@@ -168,8 +168,16 @@ describe('aiur usage reconciliation', () => {
     expect(base.db.select().from(schema.jobs).get()?.usageMicroUsd).toBe(0);
   });
 
-  it('reconciles terminal usage and releases reservation and slot once', async () => {
-    const { base, deps } = setup();
+  it('retries transient terminal usage before releasing reservation and slot once', async () => {
+    let usageAvailable = false;
+    const { base, deps } = setup({
+      usage: async () => {
+        if (!usageAvailable) {
+          throw new AiurHttpError(503, 'usage_unavailable', 'not ready', 'http://127.0.0.1:4101');
+        }
+        return usage();
+      },
+    });
     expect(activeJobsForRepo(base.db, 'owner/game')).toEqual([{ kind: 'feature' }]);
     const lifecycle = { ...deps, events: base.events };
     markTerminal(lifecycle, 'j_1', 'done', { deferRelease: true });
@@ -177,6 +185,11 @@ describe('aiur usage reconciliation', () => {
     expect(base.db.select().from(schema.jobs).get()?.releasedAt).toBeNull();
 
     const reconciler = startUsageReconciler(deps, 60_000);
+    await reconciler.idle();
+    expect(base.db.select().from(schema.jobs).get()).toMatchObject({ usageMicroUsd: 0, releasedAt: null });
+
+    usageAvailable = true;
+    base.events.emit('job.changed', { jobId: 'j_1', gameId: 'g_1', familyId: 'f_1', state: 'done' });
     await reconciler.idle();
     reconciler.stop();
 

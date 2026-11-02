@@ -5,7 +5,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 import type { LogLine } from '../app/types.js';
-import { markPaused, type LifecycleDeps } from '../jobs/spend-cap.js';
+import { isCapRaiseInProgress, markPaused, type LifecycleDeps } from '../jobs/spend-cap.js';
 import type { JobRow } from '../jobs/repo.js';
 import { getBudgetSettings, type BudgetDefaults } from './settings.js';
 import { recordUsage, releaseReservation } from './ledger.js';
@@ -32,6 +32,7 @@ export type UsageReconcilerDeps = {
 const ACTIVE_STATES = ['filed', 'running', 'paused_budget'] as const;
 const RECONCILE_STATES = [...ACTIVE_STATES, 'done', 'failed', 'cancelled'] as const;
 const TERMINAL_STAGES = new Set<JobStage>(['done', 'failed', 'cancelled', 'out_of_budget']);
+const RETRYABLE_SKIPS = new Set(['daemon_unavailable', 'usage_unavailable']);
 
 function nowFor(deps: UsageReconcilerDeps): Date {
   return (deps.now ?? (() => new Date()))();
@@ -76,16 +77,20 @@ export async function reconcileJob(
 
   const observedAt = nowFor(deps);
   const settings = getBudgetSettings(deps.db, job.familyId, deps.defaults);
+  const previousSamples = new Map(
+    deps.db
+      .select({ runId: schema.usageSamples.runId, apiEquivalentMicro: schema.usageSamples.apiEquivalentMicro })
+      .from(schema.usageSamples)
+      .where(eq(schema.usageSamples.jobId, job.id))
+      .all()
+      .map((sample) => [sample.runId, sample.apiEquivalentMicro] as const),
+  );
   for (const session of usage.sessions) {
     const apiEquivalentMicro = money(session.api_equivalent.amount.USD);
     const providerReportedMicro = money(session.provider_reported.USD);
-    const previous = deps.db
-      .select({ apiEquivalentMicro: schema.usageSamples.apiEquivalentMicro })
-      .from(schema.usageSamples)
-      .where(and(eq(schema.usageSamples.jobId, job.id), eq(schema.usageSamples.runId, session.run_id)))
-      .get();
+    const previous = previousSamples.get(session.run_id);
     // The ledger write comes first: a crash can repeat it safely, while a sample written first could hide missing usage.
-    if (previous === undefined || apiEquivalentMicro > previous.apiEquivalentMicro) {
+    if (previous === undefined || apiEquivalentMicro > previous) {
       recordUsage({
         db: deps.db,
         jobId: job.id,
@@ -157,6 +162,7 @@ export function releaseTerminal(deps: UsageReconcilerDeps, jobId: string, stage:
   if (!TERMINAL_STAGES.has(stage)) return false;
   const row = deps.db.select().from(schema.jobs).where(eq(schema.jobs.id, jobId)).get();
   if (!row) return false;
+  if (stage === 'out_of_budget' && (row.state !== 'paused_budget' || isCapRaiseInProgress(jobId))) return false;
   const at = nowFor(deps);
   const settings = getBudgetSettings(deps.db, row.familyId, deps.defaults);
   return deps.sqlite
@@ -186,11 +192,9 @@ export function startUsageReconciler(deps: UsageReconcilerDeps, intervalMs = 60_
           await reconcileJob(deps, jobId);
           return;
         }
-        try {
-          await reconcileJob(deps, jobId);
-        } finally {
-          releaseTerminal(deps, jobId, terminal);
-        }
+        const result = await reconcileJob(deps, jobId);
+        if ('skipped' in result && RETRYABLE_SKIPS.has(result.skipped)) return;
+        releaseTerminal(deps, jobId, terminal);
       })
       .catch((error: unknown) => {
         deps.log?.({ event: 'usage-reconcile-error', jobId, error: (error as Error).name });
