@@ -37,12 +37,18 @@ export type StyleSetTraits = {
   scale?: string;
   judgment: string;
 };
+export type StyleSetPreviews = {
+  specimen: string;
+  diorama: Record<string, string>;
+  loop: Record<string, string>;
+};
 export type StyleSet = {
   id: string;
   label: string;
   vendors: string[];
   traits: StyleSetTraits;
   packs: StyleSetPack[];
+  previews?: StyleSetPreviews;
 };
 
 export type StyleFamily = {
@@ -98,6 +104,27 @@ const styleSetTraitsSchema = z
     message: 'a set needs at least one measured trait',
   });
 
+const previewPathSchema = z
+  .string()
+  .regex(/^[a-z0-9][a-z0-9/._-]*$/)
+  .refine((path) => !path.split('/').some((segment) => segment === '.' || segment === '..'), {
+    message: 'preview paths may not contain traversal segments',
+  });
+const worldPreviewSchema = z.record(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/), previewPathSchema);
+const styleSetPreviewsSchema = z
+  .strictObject({
+    specimen: previewPathSchema,
+    diorama: worldPreviewSchema,
+    loop: worldPreviewSchema,
+  })
+  .superRefine((previews, ctx) => {
+    const stillWorlds = Object.keys(previews.diorama).sort();
+    const loopWorlds = Object.keys(previews.loop).sort();
+    if (stillWorlds.length === 0) ctx.addIssue({ code: 'custom', message: 'set previews need at least one world' });
+    if (stillWorlds.join('\0') !== loopWorlds.join('\0'))
+      ctx.addIssue({ code: 'custom', message: 'set still and loop previews must name the same worlds' });
+  });
+
 const styleSetSchema = z.strictObject({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   label: z.string().min(1),
@@ -111,6 +138,7 @@ const styleSetSchema = z.strictObject({
       }),
     )
     .min(1),
+  previews: styleSetPreviewsSchema.optional(),
 });
 
 /** C2 §2: a family is offered at creation only when it has characters, environment and props. */

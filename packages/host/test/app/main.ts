@@ -18,13 +18,28 @@ declare global {
 const ready: GameManifest[] = [];
 const relays: unknown[] = [];
 const errors: unknown[] = [];
+const template = new URLSearchParams(location.search).get('template');
+const game =
+  template === 'game-2d' || template === 'game-3d'
+    ? {
+        build: template === 'game-2d' ? ('published' as const) : ('test' as const),
+        buildId: 'b1',
+        gameId: template,
+        mode: 'test' as const,
+      }
+    : {
+        build: 'draft' as const,
+        buildId: 'draft-1',
+        gameId: 'fixture',
+        mode: 'play' as const,
+      };
 const frame = createGameFrame({
   container: document.querySelector<HTMLElement>('#game')!,
   gamesOrigin: 'http://127.0.0.1:4174',
-  gameId: 'fixture',
-  buildId: 'draft-1',
-  build: 'draft',
-  mode: 'play',
+  gameId: game.gameId,
+  buildId: game.buildId,
+  build: game.build,
+  mode: game.mode,
   playerIndex: 0,
   capabilities: [],
   inputMapping: { touch: 'stick', gamepad: { move: 'leftStick', jump: 'a', use: 'x' } },

@@ -12,7 +12,7 @@ installStandaloneHost(build);
 
 async function main(): Promise<void> {
   const runtime = await boot(game, {
-    hostOrigin: location.origin,
+    hostOrigin: window.parent === window ? location.origin : undefined,
     build,
     headless: build === 'test',
   });
