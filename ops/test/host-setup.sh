@@ -133,7 +133,7 @@ HOME=$dry_home \
 
 [[ ! -e "$dry_config/systemd/user" ]] || fail "dry run should not create the unit directory"
 [[ ! -s "$dry_log" ]] || fail "dry run should not call systemctl"
-assert_grep 'ogm-commit' "$scratch/dry.out"
+assert_grep 'enable ogm-api ogm-rooms ogm-games ogm-commit ' "$scratch/dry.out"
 
 stop_log=$scratch/stop-systemctl.log
 HOME=$home \

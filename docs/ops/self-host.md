@@ -13,9 +13,16 @@ everything else comes from env files ([runbook.md](runbook.md) "Per-unit values"
 | --- | --- | --- |
 | `apps/web/public/_redirects` | `/api/*  https://applekid.tailee0e71.ts.net:8443/api/:splat  200` | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
 | `apps/web/public/_redirects` | `/auth/*  https://applekid.tailee0e71.ts.net:8443/auth/:splat  200` | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
-| `apps/web/public/_headers` | no host today | nothing; sockets and the games frame take their hosts from `OGM_PUBLIC_ORIGIN`, `OGM_GAMES_ORIGIN` and `OGM_VOICE_WS_URL` |
+| `apps/web/public/_headers` | no host today | nothing; sockets take their hosts from `OGM_PUBLIC_ORIGIN` and `OGM_VOICE_WS_URL` |
 | `apps/web/.netlify-site-id` | Kevin's site id | your Netlify site's id; `apps/web/tools/deploy.sh` reads it |
 | `services/voice-host/README.md` (build command) | `OGM_AIUR_GIT=/home/orangekid/github/aiur` | `OGM_AIUR_GIT=/home/<user>/github/aiur`, the aiur checkout from setup step 3 |
+
+The games frame's origin is baked into the web build: `apps/web/src/routes/game/GameScreen.tsx` reads
+`VITE_GAMES_ORIGIN` and falls back to `http://127.0.0.1:10000`. Set it when you build or deploy the app:
+
+```
+VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 apps/web/tools/deploy.sh
+```
 
 The commit unit needs no edit: `ops/systemd/ogm-commit.service` uses `@REPO@` like every other unit, and
 `ops/bin/ogm-host-setup.sh` fills in the checkout path.
