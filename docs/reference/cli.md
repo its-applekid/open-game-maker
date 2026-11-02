@@ -48,6 +48,15 @@ recorded in the lock.
 The optional `GM_SKILLS_DIR` path selects a platform skill-pack root. Normal installed use locates the pack beside
 `gm-cli`; tests and source checkouts can use the override without network access.
 
+## Agree a scope session
+
+```text
+gm scope done --file .gm/scope/<session-id>.json
+```
+
+The file must match the agreed-scope schema and its name must match the session id. The command queues
+`scope.agreed` in `.gm/outbox/scope.jsonl` for the build-chat relay.
+
 ## Build game assets
 
 ```text

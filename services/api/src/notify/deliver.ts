@@ -34,6 +34,8 @@ function triggerData(trigger: NotificationTrigger): Record<string, string | numb
       };
     case 'job.started':
       return { gameId: trigger.gameId, jobId: trigger.jobId };
+    case 'scope.agreed':
+      return { gameId: trigger.gameId, jobId: trigger.jobId, sessionId: trigger.sessionId };
     case 'intake.report':
       return { dropId: trigger.dropId, status: trigger.status };
   }

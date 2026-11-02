@@ -15,6 +15,7 @@
       "enum": [
         "build.done",
         "job.started",
+        "scope.agreed",
         "intake.report"
       ]
     },
