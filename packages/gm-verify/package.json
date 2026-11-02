@@ -29,7 +29,7 @@
     "emit": "node scripts/emit-schema.mjs",
     "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/room-protocol --filter @ogm/iframe-bridge --filter @gm/host --filter @ogm/design-log build && pnpm build",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p scenarios/tsconfig.json",
-    "pretest": "pnpm --filter @ogm/contracts build && pnpm build && node scripts/emit-schema.mjs --check",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/room-protocol build && pnpm build && node scripts/emit-schema.mjs --check",
     "test": "vitest run",
     "pretest:browser": "pnpm --filter @ogm/contracts build",
     "test:browser": "vitest run --config vitest.browser.config.ts",
