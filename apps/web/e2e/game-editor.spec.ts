@@ -1,4 +1,4 @@
-import { expect, test, type Frame, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
 import { installGameApi, type GameApiFixture } from './support/mock-game-api';
@@ -54,8 +54,11 @@ test('runs the cross-origin editor transaction, undo, and mode flow', async ({ p
   }
 
   await page.getByRole('button', { name: /Play/ }).click({ force: true });
-  const frame = gameFrame(page);
-  await expect.poll(() => fixtureState(frame).then((state) => state.mode)).toBe('play');
+  await expect.poll(() => playFrameState(page), { timeout: 10_000 }).toEqual({
+    attached: true,
+    bridgeState: 'ready',
+    mode: 'play',
+  });
 });
 
 test('replays one conflict and becomes read-only on lease loss', async ({ page }, testInfo) => {
@@ -92,12 +95,20 @@ function gameState(page: Page): Promise<GameHook | undefined> {
   return page.evaluate(() => (window as Window & { __ogmHost?: { game?: GameHook } }).__ogmHost?.game);
 }
 
-function gameFrame(page: Page): Frame {
+async function playFrameState(
+  page: Page,
+): Promise<{ attached: boolean; bridgeState?: string; mode?: string }> {
   const frame = page.frames().find((candidate) => candidate.url().startsWith('http://127.0.0.1:10001/g/'));
-  if (!frame) throw new Error('cross-origin game frame was not mounted');
-  return frame;
-}
+  if (!frame || frame.isDetached()) return { attached: false };
 
-function fixtureState(frame: Frame): Promise<FixtureHook> {
-  return frame.evaluate(() => (window as Window & { __fixture: FixtureHook }).__fixture);
+  try {
+    const [game, fixture] = await Promise.all([
+      gameState(page),
+      frame.evaluate(() => (window as Window & { __fixture: FixtureHook }).__fixture),
+    ]);
+    if (frame.isDetached()) return { attached: false };
+    return { attached: true, bridgeState: game?.bridgeState, mode: fixture.mode };
+  } catch {
+    return { attached: false };
+  }
 }
