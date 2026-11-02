@@ -324,6 +324,23 @@ class Library(unittest.TestCase):
         self.assertEqual((card["describe"]["style_family"], card["describe"]["set"]), ("any", "abstraction-music-loop"))
         self.assertTrue(validator_ok(d / "collection.card.json"))
 
+    def test_unconfirmed_licence_row_still_takes_the_confirmed_pack_rights_minus_forbidden_uses(self):
+        """The Sonniss EULA row is not confirmed, so the strict default is the ceiling; Kevin's confirmed pack rights must
+        still make the sounds usable in game, while derive-audio (AI conditioning; the EULA bars AI use) stays out."""
+        pid = "sonniss-gdc2026-part9-1of5"
+        d = add_pack(self.root, pid, "sonniss", "LicenseRef-Sonniss-GDC", {"Lib/A.wav": b"RIFF"}, ver="2026-11-02")
+        m = json.loads((d / "pack.json").read_text())
+        m["category"] = "audio"
+        m["versions"]["2026-11-02"]["usage_rights"] = {
+            "uses": ["in-game", "derive", "vision-input", "audio-input"], "audience": "private", "redistribution": "none",
+            "confirmed_by": "kevin (standing rule 2026-11-01)", "confirmed_on": "2026-11-02", "processing": "local-only"}
+        (d / "pack.json").write_text(json.dumps(m))
+        self.assertEqual(bcc.run(self.root, only=pid)["failures"], {})
+        rights = card_of(self.root, pid)["rights"]
+        self.assertEqual(sorted(rights["uses"]), ["edit-audio", "in-game", "vision-input"])
+        self.assertEqual([b["type"] for b in rights["basis"]], ["license", "default", "interpretation", "decision"])
+        self.assertTrue(validator_ok(d / "collection.card.json"))
+
     def test_dry_run_writes_nothing(self):
         bcc.run(self.root, dry_run=True)
         self.assertFalse((self.root / "packs" / KENNEY / "collection.card.json").exists())

@@ -109,7 +109,9 @@ def audio_pack_basis(m: dict, ceiling: list) -> list:
         return []
     uses = list(dict.fromkeys(u for w in ur["uses"] for u in AUDIO_PACK_USES.get(w, [w])))
     lic = next((b for b in ceiling if b["type"] == "license"), {})
-    extra = [u for u in uses if u not in lic.get("uses", []) and u not in lic.get("forbids", [])]
+    # Compare with the ceiling in force: an unconfirmed licence row leaves the strict default as the ceiling (effective()).
+    in_force = lic if lic.get("confirmed_by") else next((b for b in ceiling if b["type"] == "default"), lic)
+    extra = [u for u in uses if u not in in_force.get("uses", []) and u not in lic.get("forbids", [])]
     who = {"role": "admin", "name": ur["confirmed_by"].split()[0]}
     day = ur.get("confirmed_on") or ur.get("date") or v.get("added") or TODAY
     note = f"{ur['confirmed_by']}; attribution: {ur.get('attribution') or 'none'}"[:300]
