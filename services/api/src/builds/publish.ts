@@ -66,6 +66,8 @@ export type PublishOutcome = { state: 'done'; buildId: string } | { state: 'fail
 
 const publishing = new Set<string>();
 
+export const isPublishing = (jobId: string) => publishing.has(jobId);
+
 // Publishes a staged build: register, move into `<gamesRoot>/<gameId>/<buildId>/`, write `.complete` last, switch
 // the job's branch to it, mark it tested, then finish the job. A failure before the switch removes the build and fails
 // the job; once the switch has committed, the branch points at the build, so it is kept and only the failure is logged.
@@ -175,7 +177,12 @@ export async function sweepBuilds(deps: AppDeps, graceMs: number, now = new Date
         await writeFile(marker, now.toISOString());
         continue;
       }
-      if (now.getTime() - Date.parse(seenAt) < graceMs) continue;
+      const seen = Date.parse(seenAt);
+      if (Number.isNaN(seen)) {
+        await writeFile(marker, now.toISOString());
+        continue;
+      }
+      if (now.getTime() - seen < graceMs) continue;
       markTerminal(lifecycle(deps), job.jobId, 'failed', { deferRelease: true });
       deps.log({ event: 'build_publish_failed', jobId: job.jobId, gameId: job.gameId, reason: 'build_not_received' });
     } catch (error) {
