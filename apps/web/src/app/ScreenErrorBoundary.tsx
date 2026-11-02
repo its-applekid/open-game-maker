@@ -17,7 +17,7 @@ export function ScreenErrorBoundary({ children }: { children: ReactNode }) {
   const gameId = params.gameId?.trim() || spotlight || undefined;
 
   return (
-    <Boundary key={`${location.pathname}${location.search}`} context={{ route: location.pathname, gameId }}>
+    <Boundary key={`${location.pathname}:${gameId ?? ''}`} context={{ route: location.pathname, gameId }}>
       {children}
     </Boundary>
   );

@@ -1,0 +1,1 @@
+Build a tense top-down stealth game in a clockwork archive. The player can sneak between reading desks and hide behind shelves while one librarian follows a predictable patrol. Avoid combat, health, loot, a score, and failure titles; being seen simply resets the current room. The player wins when they recover the map and return to the entrance.
