@@ -159,6 +159,38 @@ describe('gm assets use', () => {
     expect(existsSync(join(cwd, 'assets.lock.json'))).toBe(false);
   });
 
+  it('refuses to vendor a second card whose file would overwrite different vendored bytes', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    const cardPath = join(root, 'packs/kenney-mini-dungeon/cards/character-orc.card.json');
+    const card = JSON.parse(readFileSync(cardPath, 'utf8')) as { source: { files: Array<Record<string, unknown>> } };
+    card.source.files.push({ ...card.source.files[0], path: 'Models/OBJ format/colormap.png', role: 'texture' });
+    writeFileSync(cardPath, `${JSON.stringify(card, null, 2)}\n`);
+    mkdirSync(join(root, 'packs/kenney-mini-dungeon/2.0/extracted/Models/OBJ format'), { recursive: true });
+    writeFileSync(join(root, 'packs/kenney-mini-dungeon/2.0/extracted/Models/OBJ format/colormap.png'), 'orc-map');
+    rmSync(join(root, 'index'), { recursive: true, force: true });
+    const env = { OGM_ASSETS_ROOT: root };
+    await gm(['assets', 'use', WALL, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], { cwd, env });
+
+    const result = await gm(['assets', 'use', ORC, '--vendor'], { cwd, env });
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain(`${ORC}  name-collision`);
+    expect(readFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'utf8')).toBe('map-bytes');
+  });
+
+  it('keeps a vendored copy edited since vendoring when the id becomes a library reference', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    await gm(['assets', 'use', WALL, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
+    writeFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'recoloured');
+    expect((await gm(['assets', 'use', WALL], { cwd, env: { OGM_ASSETS_ROOT: root } })).code).toBe(0);
+    expect(readFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'utf8')).toBe('recoloured');
+    expect(existsSync(join(cwd, 'assets/model/kenney-mini-dungeon/wall.glb'))).toBe(false);
+  });
+
   // Build-only redistribution lets the bytes ship inside a built game, never as files in a repo.
   it('refuses to vendor an asset whose rights allow redistribution only in a build', async () => {
     const cwd = tempDir();

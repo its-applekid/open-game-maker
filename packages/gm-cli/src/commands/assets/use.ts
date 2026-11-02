@@ -125,10 +125,17 @@ async function removeReplacedCopies(
   const owned = new Set(lock.assets.flatMap((entry) => repoPaths(entry, byId.get(entry.id))));
   for (const { card, existing } of accepted) {
     if (existing === undefined) continue;
+    const pinned = new Map([
+      [existing.path, existing.sha256],
+      ...(existing.files ?? []).map((f) => [f.path, f.sha256] as const),
+    ]);
     for (const path of repoPaths(existing, card).filter((candidate) => !owned.has(candidate))) {
       const absolute = resolve(cwd, path);
       try {
         if ((await lstat(absolute)).isSymbolicLink() || (await resolveContainedPath(cwd, absolute)) === null) continue;
+        /* A copy edited since it was vendored is someone's work: leave it for `gm check assets` to report. */
+        const expected = pinned.get(path);
+        if (expected !== undefined && (await sha256File(absolute)) !== expected) continue;
         await unlink(absolute);
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
@@ -214,6 +221,13 @@ export const command: GmCommand = {
     if (exception === '') {
       throw new UsageError('--exception needs a reason', 'gm assets use <id> --exception "intentional contrast"');
     }
+    /* Repo files already vendored, so a new copy never overwrites another entry's different bytes. */
+    const vendoredBytes = new Map<string, { id: string; sha256: string }>();
+    for (const entry of lock.assets.filter((candidate) => candidate.source === 'vendored')) {
+      for (const file of [{ path: entry.path, sha256: entry.sha256 }, ...(entry.files ?? [])]) {
+        vendoredBytes.set(file.path, { id: entry.id, sha256: file.sha256 });
+      }
+    }
     const refusals: Refusal[] = [];
     const accepted: Array<{
       card: ResolvedCard;
@@ -267,17 +281,25 @@ export const command: GmCommand = {
         continue;
       }
       if (destinationRoot !== null) {
-        const destinations = vendorCopies(destinationRoot, card, sources.files).map((copy) => copy.destination);
-        const clash = destinations.find((destination, at) => destinations.indexOf(destination) !== at);
+        const copies = vendorCopies(destinationRoot, card, sources.files).map((copy) => ({
+          path: relative(ctx.cwd, copy.destination).replaceAll(sep, '/'),
+          sha256: copy.sha256,
+        }));
+        const clash = copies.find((copy, at) => {
+          const held = vendoredBytes.get(copy.path);
+          const twice = copies.findIndex((other) => other.path === copy.path) !== at;
+          return twice || (held !== undefined && held.id !== id && held.sha256 !== copy.sha256);
+        });
         if (clash !== undefined) {
           refusals.push({
             code: 'rights',
             rule: 'name-collision',
             id,
-            detail: `two source files would both be vendored as ${relative(ctx.cwd, clash).replaceAll(sep, '/')}`,
+            detail: `${clash.path} would hold different bytes from another vendored file`,
           });
           continue;
         }
+        for (const copy of copies) vendoredBytes.set(copy.path, { id, sha256: copy.sha256 });
       }
       accepted.push({ card, files: sources.files, existing, familyException });
     }

@@ -70,7 +70,9 @@ export const rightsRule: BoundaryRule = (input) => {
       reasons.push({ code: 'rights', path: file.path, detail: 'asset is not listed in assets.lock.json' });
       continue;
     }
-    if (file.sha256 !== locked.sha256) reasons.push(detail(locked.entry, 'sha256 does not match assets.lock.json'));
+    if (file.sha256 !== locked.sha256) {
+      reasons.push({ ...detail(locked.entry, 'sha256 does not match assets.lock.json'), path: file.path });
+    }
     if (checked.has(locked.entry.id)) continue;
     checked.add(locked.entry.id);
     reasons.push(...entryReasons(locked.entry, input));

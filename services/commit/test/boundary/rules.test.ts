@@ -243,6 +243,10 @@ describe('rights rule', () => {
         input({ draft: false, files: [file(asset.path), file(companion.path)], lockfile: lock([vendored]) }),
       ),
     ).toEqual({ allowed: true, reasons: [] });
+    const changedCompanion = [file(asset.path), file(companion.path, { sha256: 'f'.repeat(64) })];
+    expect(evaluateDiff(input({ files: changedCompanion, lockfile: lock([vendored]) })).reasons).toEqual([
+      expect.objectContaining({ path: companion.path, detail: expect.stringContaining('sha256') }),
+    ]);
     expect(
       evaluateTree(input({ draft: false, files: [file(asset.path)], lockfile: lock([vendored]) })).reasons,
     ).toEqual([
