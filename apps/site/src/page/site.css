@@ -1,0 +1,122 @@
+/* The splash page: the title screen's layout (apps/web/src/routes/title/title.css) over the committed poster. */
+html {
+  overflow-x: hidden;
+}
+
+.s-hero {
+  position: relative;
+  display: grid;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  min-height: 100svh;
+  overflow: hidden;
+  padding: max(24px, var(--safe-t)) max(16px, var(--safe-r)) max(32px, var(--safe-b)) max(16px, var(--safe-l));
+  background: #a69b8d;
+}
+
+.s-poster,
+.s-poster img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.s-poster img {
+  object-fit: cover;
+}
+
+.s-logo {
+  position: relative;
+  align-self: start;
+  margin: 0;
+}
+
+.s-logo img {
+  display: block;
+  width: min(80vw, 34rem);
+  height: auto;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+}
+
+.s-menu {
+  position: relative;
+  display: grid;
+  gap: 14px;
+  width: min(100%, 22rem);
+}
+
+.s-line {
+  margin: 0 0 6px;
+  padding: 14px 18px;
+  border-radius: var(--r);
+  background: var(--paper);
+  backdrop-filter: var(--glass);
+  color: var(--cream);
+  font: 600 20px/1.3 var(--display);
+  text-align: center;
+}
+
+/* .title-start's recipe, as links; --ink, not --cream, because --cream on --orange is 2.8:1, under 3:1 for large text */
+.s-cta {
+  display: grid;
+  place-items: center;
+  min-height: var(--tap-primary);
+  border-radius: var(--r);
+  background: var(--orange);
+  color: var(--ink);
+  font: 700 28px var(--display);
+  text-decoration: none;
+  box-shadow: var(--pop);
+}
+
+.s-feature {
+  display: grid;
+  justify-items: center;
+  align-content: start;
+  gap: 16px;
+  padding: 48px 16px 0;
+}
+
+.s-feature h2 {
+  margin: 0;
+  color: var(--cream);
+  font: 700 28px var(--display);
+}
+
+.s-feature video {
+  display: block;
+  /* sized by its poster: the phone clips are portrait, the play clip landscape */
+  width: min(100%, 390px);
+  height: auto;
+  border-radius: var(--r);
+  background: var(--night-2);
+  box-shadow: var(--pop);
+}
+
+.s-footer {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 48px 16px max(32px, var(--safe-b));
+  color: var(--muted);
+}
+
+.s-footer a {
+  display: grid;
+  place-items: center;
+  width: var(--tap-secondary);
+  height: var(--tap-secondary);
+  color: var(--ink);
+}
+
+@media (min-width: 900px) {
+  main {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .s-hero {
+    grid-column: 1 / -1;
+  }
+}
