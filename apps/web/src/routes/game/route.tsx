@@ -1,11 +1,13 @@
 import type { ScreenRoute } from '../../app/screen';
 import { GameScreen } from './GameScreen';
-import { gameExtraRoutes } from './extras';
 
 export const route: ScreenRoute = {
   path: '/g/:gameId',
   element: <GameScreen />,
   chrome: 'app',
   auth: 'required',
-  children: gameExtraRoutes,
+  children: [
+    { path: 'versions', element: <h2>Versions</h2> },
+    { path: 'releases', element: <h2>Releases</h2> },
+  ],
 };

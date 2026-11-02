@@ -68,6 +68,7 @@ function renderGame(entry = '/g/game') {
 
 beforeEach(() => {
   editorApi.getGame.mockResolvedValue({ id: 'game', title: 'Goblin Cellar' });
+  editorApi.getOptionalPublished.mockResolvedValue({ available: false });
   editorApi.listJobs.mockResolvedValue({ jobs: [] });
   editorApi.getDesignSnapshot.mockResolvedValue({
     rev: 4,
@@ -130,6 +131,22 @@ describe('GameScreen', () => {
     expect(host.controller.setMode).toHaveBeenCalledWith('edit');
   });
 
+  it('marks and mounts the current release as published', async () => {
+    editorApi.getOptionalPublished.mockResolvedValue({
+      available: true,
+      modified: true,
+      etag: '"release"',
+      value: { buildId: 'build' },
+    });
+
+    renderGame();
+
+    expect(await screen.findByText('Published')).toBeVisible();
+    await waitFor(() =>
+      expect(host.mountGameFrame).toHaveBeenLastCalledWith(expect.objectContaining({ build: 'published' })),
+    );
+  });
+
   it('disposes the frame before returning to Games', async () => {
     renderGame();
     await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalled());
@@ -151,7 +168,12 @@ describe('GameScreen', () => {
     window.__ogmHost = baseHost;
     renderGame('/g/game?test');
 
-    await waitFor(() => expect((window.__ogmHost as OgmHost & { game?: { mode: string } }).game?.mode).toBe('play'));
+    await waitFor(() =>
+      expect((window.__ogmHost as OgmHost & { game?: { headRev: number; mode: string } }).game).toMatchObject({
+        headRev: 4,
+        mode: 'play',
+      }),
+    );
   });
 
   it('renders manifest palette controls only in edit mode', async () => {
@@ -175,6 +197,7 @@ describe('GameScreen', () => {
             },
             tools: ['select', 'place'],
             gizmos: {},
+            playLabel: 'Enter crypt',
             saves: false,
             overrides: { aliases: {}, retired: [] },
           },
@@ -186,5 +209,6 @@ describe('GameScreen', () => {
     renderGame('/g/game?mode=edit');
 
     expect(await screen.findByRole('button', { name: 'Skeleton' })).toBeVisible();
+    expect(screen.getByRole('button', { name: '▶ Enter crypt' })).toBeVisible();
   });
 });

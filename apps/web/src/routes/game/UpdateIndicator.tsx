@@ -9,11 +9,13 @@ export function UpdateIndicator({
   api = getOptionalPublished,
   currentBuildId,
   gameId,
+  onPublishedBuild,
   onUpdate,
 }: {
   api?: PublishedApi;
   currentBuildId: string;
   gameId: string;
+  onPublishedBuild?(buildId: string | undefined): void;
   onUpdate(): void;
 }) {
   const etagRef = useRef<string | undefined>(undefined);
@@ -22,11 +24,15 @@ export function UpdateIndicator({
     const result = await api(gameId, etagRef.current);
     if (!result.available) {
       setPublishedBuildId(undefined);
+      onPublishedBuild?.(undefined);
       return;
     }
     if (result.etag !== undefined) etagRef.current = result.etag;
-    if (result.modified) setPublishedBuildId(result.value.buildId);
-  }, [api, currentBuildId, gameId]);
+    if (result.modified) {
+      setPublishedBuildId(result.value.buildId);
+      onPublishedBuild?.(result.value.buildId);
+    }
+  }, [api, gameId, onPublishedBuild]);
 
   useEffect(() => {
     const run = () => void poll().catch(() => undefined);

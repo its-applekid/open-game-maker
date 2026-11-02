@@ -1,13 +1,19 @@
-import type { ControlDecl, DesignDoc, EditorCommand, Entity } from '@ogm/contracts';
+import { useState } from 'react';
+
+import type { ControlDecl, DesignDoc, EditorCommand, Entity, PlacementResult } from '@ogm/contracts';
 
 import { FocusZone } from '../../lib/input';
 import { EDITOR_FOCUS_ZONES } from './focus';
+import type { InstanceCountChange } from './instanceCount';
 
 type InspectorProps = {
   doc: DesignDoc;
   selectedIds: readonly string[];
   controls: readonly ControlDecl[];
   onCommand(command: EditorCommand): void;
+  onDelete?(entityId: string): void;
+  onDuplicate?(entityId: string): void;
+  onInstanceCount?(change: InstanceCountChange): Promise<PlacementResult>;
 };
 
 type ControlContext = {
@@ -15,9 +21,18 @@ type ControlContext = {
   targets: Extract<EditorCommand, { op: 'set' }>['targets'];
   value: unknown;
   scopeLabel: string;
+  prefab?: string;
 };
 
-export function Inspector({ doc, selectedIds, controls, onCommand }: InspectorProps) {
+export function Inspector({
+  doc,
+  selectedIds,
+  controls,
+  onCommand,
+  onDelete,
+  onDuplicate,
+  onInstanceCount,
+}: InspectorProps) {
   const selected = selectedIds.map((id) => doc.entities[id]).find((entity) => entity !== undefined);
   const visible = controls.flatMap((control) => {
     const context = controlContext(control, doc, selected);
@@ -26,21 +41,41 @@ export function Inspector({ doc, selectedIds, controls, onCommand }: InspectorPr
 
   return (
     <FocusZone id={EDITOR_FOCUS_ZONES.inspector} className="editor-inspector">
+      {selected ? (
+        <div className="entity-actions" role="group" aria-label={`This ${selected.prefab}`}>
+          <button className="tap-secondary" type="button" onClick={() => onDuplicate?.(selected.id)}>
+            Copy
+          </button>
+          <button className="tap-secondary" type="button" onClick={() => onDelete?.(selected.id)}>
+            Remove
+          </button>
+        </div>
+      ) : null}
       {visible.map((context) => (
         <div className="control-row" key={context.control.id}>
           <div className="control-heading">
             <span>{context.control.label}</span>
             <small>{context.scopeLabel}</small>
           </div>
-          <ControlWidget context={context} onCommand={onCommand} />
+          <ControlWidget context={context} onCommand={onCommand} onInstanceCount={onInstanceCount} />
         </div>
       ))}
     </FocusZone>
   );
 }
 
-function ControlWidget({ context, onCommand }: { context: ControlContext; onCommand(command: EditorCommand): void }) {
+function ControlWidget({
+  context,
+  onCommand,
+  onInstanceCount,
+}: {
+  context: ControlContext;
+  onCommand(command: EditorCommand): void;
+  onInstanceCount?(change: InstanceCountChange): Promise<PlacementResult>;
+}) {
   const { control, targets } = context;
+  const [instanceError, setInstanceError] = useState<string>();
+  const [changingInstances, setChangingInstances] = useState(false);
   const set = (value: unknown) => onCommand({ op: 'set', control: control.id, targets, value });
   switch (control.widget.kind) {
     case 'toggle': {
@@ -66,29 +101,44 @@ function ControlWidget({ context, onCommand }: { context: ControlContext; onComm
       );
     }
     case 'count': {
-      const value = numberValue(context.value, control.default, control.widget.min);
+      const instances =
+        control.widget.semantics === 'instances' && targets !== 'global' && context.prefab !== undefined;
+      const value = instances ? targets.length : numberValue(context.value, control.default, control.widget.min);
+      const change = (direction: -1 | 1) => {
+        if (!instances || onInstanceCount === undefined || context.prefab === undefined) {
+          set(value + direction);
+          return;
+        }
+        setChangingInstances(true);
+        void onInstanceCount({ direction, prefab: context.prefab, targetIds: targets })
+          .then((result) => setInstanceError(result.ok ? undefined : result.reason))
+          .finally(() => setChangingInstances(false));
+      };
       return (
-        <div className="count-control">
-          <button
-            className="tap-secondary"
-            type="button"
-            aria-label={`Decrease ${control.label}`}
-            disabled={value <= control.widget.min}
-            onClick={() => set(value - 1)}
-          >
-            −
-          </button>
-          <output>{value}</output>
-          <button
-            className="tap-secondary"
-            type="button"
-            aria-label={`Increase ${control.label}`}
-            disabled={value >= control.widget.max}
-            onClick={() => set(value + 1)}
-          >
-            +
-          </button>
-        </div>
+        <>
+          <div className="count-control">
+            <button
+              className="tap-secondary"
+              type="button"
+              aria-label={`Decrease ${control.label}`}
+              disabled={changingInstances || value <= control.widget.min}
+              onClick={() => change(-1)}
+            >
+              −
+            </button>
+            <output>{value}</output>
+            <button
+              className="tap-secondary"
+              type="button"
+              aria-label={`Increase ${control.label}`}
+              disabled={changingInstances || value >= control.widget.max}
+              onClick={() => change(1)}
+            >
+              +
+            </button>
+          </div>
+          {instanceError ? <small role="alert">{instanceError}</small> : null}
+        </>
       );
     }
     case 'choice':
@@ -166,6 +216,7 @@ function controlContext(
       targets: [selected.id],
       value: selected.props[control.id] ?? control.default,
       scopeLabel: `This ${selected.prefab}`,
+      prefab: selected.prefab,
     };
   }
   if (control.scope === 'prefab') {
@@ -177,6 +228,7 @@ function controlContext(
       targets,
       value: selected.props[control.id] ?? control.default,
       scopeLabel: `All ${selected.prefab}s`,
+      prefab: selected.prefab,
     };
   }
   const targets = matchingTargets(doc, control.scope.selector);
@@ -185,20 +237,27 @@ function controlContext(
     targets,
     value: selected.props[control.id] ?? control.default,
     scopeLabel: 'Matching',
+    prefab: selected.prefab,
   };
 }
 
 function matchingTargets(
   doc: DesignDoc,
-  selector: { prefab?: string; ids?: string[]; where?: Record<string, unknown> },
+  selector: { tag?: string; prefab?: string; ids?: string[]; where?: Record<string, unknown> },
 ): string[] {
   return Object.values(doc.entities)
     .filter((entity) => selector.prefab === undefined || entity.prefab === selector.prefab)
     .filter((entity) => selector.ids === undefined || selector.ids.includes(entity.id))
+    .filter((entity) => selector.tag === undefined || hasTag(entity, selector.tag))
     .filter((entity) =>
       Object.entries(selector.where ?? {}).every(([key, value]) => Object.is(entity.props[key], value)),
     )
     .map((entity) => entity.id);
+}
+
+function hasTag(entity: Entity, tag: string): boolean {
+  if (entity.props.tag === tag) return true;
+  return Array.isArray(entity.props.tags) && entity.props.tags.includes(tag);
 }
 
 function numberValue(value: unknown, fallback: unknown, minimum: number): number {

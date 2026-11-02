@@ -1,10 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import { controlDeclSchema, type ControlDecl, type EditorCommand, type GameManifest } from '@ogm/contracts';
+import {
+  controlDeclSchema,
+  type ControlDecl,
+  type EditorCommand,
+  type GameManifest,
+  type PlacementResult,
+} from '@ogm/contracts';
 
 import type { EditorSessionState } from './session';
 import { HintStrip } from './HintStrip';
 import { Inspector } from './Inspector';
+import type { InstanceCountChange } from './instanceCount';
 import { Palette } from './Palette';
 import { Rail } from './Rail';
 import { loadSnapPrefs, saveSnapPrefs, type SnapPrefs } from './SnapPrefs';
@@ -19,6 +26,9 @@ type EditorChromeProps = {
   onTool(tool: string): void;
   onUndo(): void;
   onRedo(): void;
+  onDelete(entityId: string): void;
+  onDuplicate(entityId: string): void;
+  onInstanceCount(change: InstanceCountChange): Promise<PlacementResult>;
   onCanvasChange?(value: { prefab?: string; snap: SnapPrefs }): void;
 };
 
@@ -30,6 +40,9 @@ export function EditorChrome({
   onTool,
   onUndo,
   onRedo,
+  onDelete,
+  onDuplicate,
+  onInstanceCount,
   onCanvasChange,
 }: EditorChromeProps) {
   const [category, setCategory] = useState(manifest.palette.categories[0]?.id ?? '');
@@ -69,7 +82,15 @@ export function EditorChrome({
         onUndo={onUndo}
         onRedo={onRedo}
       />
-      <Inspector doc={session.doc} selectedIds={session.selection} controls={controls} onCommand={onCommand} />
+      <Inspector
+        doc={session.doc}
+        selectedIds={session.selection}
+        controls={controls}
+        onCommand={onCommand}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+        onInstanceCount={onInstanceCount}
+      />
       <HintStrip hint={picked?.hint} />
     </div>
   );

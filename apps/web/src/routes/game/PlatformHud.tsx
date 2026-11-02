@@ -28,6 +28,7 @@ type PlatformHudProps = {
   saves: boolean;
   saveApi?: PlatformSaveApi;
   toast?: (message: string) => void;
+  onLeave?(): void;
 };
 
 const defaultSaveApi: PlatformSaveApi = { list: getOptionalSaves, read: getSave, write: putSave };
@@ -39,6 +40,7 @@ export function PlatformHud({
   saves,
   saveApi = defaultSaveApi,
   toast = pushToast,
+  onLeave,
 }: PlatformHudProps) {
   const [paused, setPaused] = useState(false);
   const [slots, setSlots] = useState<SaveSlot[]>();
@@ -159,6 +161,11 @@ export function PlatformHud({
               </div>
             ) : null}
             <SettingsControls settings={settings} onChange={setSettings} />
+            {onLeave ? (
+              <button className="tap-primary" type="button" onClick={onLeave}>
+                Leave
+              </button>
+            ) : null}
           </div>
         </div>
       ) : null}

@@ -47,6 +47,17 @@ describe('PlatformHud', () => {
     await waitFor(() => expect(pause).toHaveFocus());
   });
 
+  it('leaves through the screen-owned navigation action', () => {
+    const test = frameHarness();
+    const onLeave = vi.fn();
+    render(<PlatformHud build="draft" frame={test.frame} gameId="game" saves={false} onLeave={onLeave} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Leave' }));
+
+    expect(onLeave).toHaveBeenCalledOnce();
+  });
+
   it('hides save controls when the later-owned route is unavailable', async () => {
     const test = frameHarness();
     render(

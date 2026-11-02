@@ -103,8 +103,9 @@ describe('Inspector', () => {
     expect(screen.getByRole('combobox', { name: 'Voice' })).toBeVisible();
   });
 
-  it('does not emit an invalid count below its boundary', () => {
+  it('validates instance-count placement and shows the rejection without setting a scalar', async () => {
     const onCommand = vi.fn();
+    const onInstanceCount = vi.fn().mockResolvedValue({ ok: false, reason: 'That tile is blocked.' });
     render(
       <Inspector
         doc={doc()}
@@ -113,15 +114,44 @@ describe('Inspector', () => {
           control({
             id: 'enemy.count',
             label: 'Count',
+            scope: 'prefab',
             widget: { kind: 'count', min: 1, max: 3, semantics: 'instances' },
           }),
         ]}
         onCommand={onCommand}
+        onInstanceCount={onInstanceCount}
       />,
     );
 
-    expect(screen.getByRole('button', { name: 'Decrease Count' })).toBeDisabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Decrease Count' }));
+    expect(screen.getByText('2')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Increase Count' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That tile is blocked.');
+    expect(onInstanceCount).toHaveBeenCalledWith({
+      direction: 1,
+      prefab: 'skeleton',
+      targetIds: [skeletonA, skeletonB],
+    });
     expect(onCommand).not.toHaveBeenCalled();
+  });
+
+  it('exposes copy and remove as selected-entity actions', () => {
+    const onDelete = vi.fn();
+    const onDuplicate = vi.fn();
+    render(
+      <Inspector
+        doc={doc()}
+        selectedIds={[skeletonA]}
+        controls={[]}
+        onCommand={vi.fn()}
+        onDelete={onDelete}
+        onDuplicate={onDuplicate}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    expect(onDuplicate).toHaveBeenCalledWith(skeletonA);
+    expect(onDelete).toHaveBeenCalledWith(skeletonA);
   });
 });

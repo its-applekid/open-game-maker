@@ -7,12 +7,23 @@ type PlayEditBarProps = {
   saved?: string;
   build: 'draft' | 'published';
   buildStatus?: string;
+  playLabel?: string;
   onBack(): void;
   onMode(mode: 'play' | 'edit'): void;
   onAsk(): void;
 };
 
-export function PlayEditBar({ title, mode, saved, build, buildStatus, onBack, onMode, onAsk }: PlayEditBarProps) {
+export function PlayEditBar({
+  title,
+  mode,
+  saved,
+  build,
+  buildStatus,
+  playLabel = 'Play',
+  onBack,
+  onMode,
+  onAsk,
+}: PlayEditBarProps) {
   return (
     <FocusZone id={EDITOR_FOCUS_ZONES.bar} className="play-bar">
       <button className="back tap-primary" type="button" onClick={onBack}>
@@ -30,7 +41,7 @@ export function PlayEditBar({ title, mode, saved, build, buildStatus, onBack, on
           aria-pressed={mode === 'play'}
           onClick={() => onMode('play')}
         >
-          ▶ Play
+          ▶ {playLabel}
         </button>
         <button
           className="tap-primary"

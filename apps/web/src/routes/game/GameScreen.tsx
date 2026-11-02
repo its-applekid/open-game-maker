@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 
-import type { ReapplyReport } from '@ogm/contracts';
+import type { Entity, ReapplyReport } from '@ogm/contracts';
 
 import type { OgmHost } from '../../app/testHook';
 import {
@@ -21,24 +21,31 @@ import {
 import { activeBuildStatus, inspectBuildChange } from '../../features/editor/builds';
 import { EditorChrome } from '../../features/editor/EditorChrome';
 import { GizmoOverlay } from '../../features/editor/GizmoOverlay';
+import { changeInstanceCount } from '../../features/editor/instanceCount';
 import { mountGameFrame, type GameFrameController, type GameFrameState } from '../../features/editor/frame';
 import { LeaseController } from '../../features/editor/lease';
 import { ReapplyCard } from '../../features/editor/ReapplyCard';
 import { createEditorSession, type EditorSessionState } from '../../features/editor/session';
 import type { SnapPrefs } from '../../features/editor/SnapPrefs';
 import { connectTransactionStream } from '../../features/editor/stream';
-import { createIntent } from '../../features/editor/transactions';
+import {
+  createEntityIntent,
+  createIntent,
+  createStableId,
+  deleteEntityIntent,
+} from '../../features/editor/transactions';
 import { pushToast } from '../../lib/notify/slice';
 import { PlayEditBar } from './PlayEditBar';
 import { PlatformHud } from './PlatformHud';
 import { UpdateIndicator } from './UpdateIndicator';
+import { gameExtras, type GameExtraProps } from './extras';
 import './game.css';
 
 const initialFrameState: GameFrameState = { bridgeState: 'connecting', dropped: 0 };
 
 type GameTestState = {
   bridgeState: GameFrameState['bridgeState'];
-  revision: number;
+  headRev: number;
   saved: string;
   mode: 'play' | 'edit';
   selection: string[];
@@ -76,8 +83,10 @@ export function GameScreen() {
   const [canvasOptions, setCanvasOptions] = useState<{ prefab?: string; snap: SnapPrefs }>();
   const [adopted, setAdopted] = useState<{ gameId: string; branch: string; snapshot: DesignSnapshot }>();
   const [pendingBuild, setPendingBuild] = useState<{ snapshot: DesignSnapshot; report: ReapplyReport }>();
+  const [publishedBuildId, setPublishedBuildId] = useState<string>();
   const inspectedBuildRef = useRef<string | undefined>(undefined);
   const activeSnapshot = adopted?.gameId === gameId && adopted.branch === branch ? adopted.snapshot : design.data;
+  const build = publishedBuildId !== undefined && publishedBuildId === activeSnapshot?.buildId ? 'published' : 'draft';
 
   useEffect(() => {
     inspectedBuildRef.current = undefined;
@@ -122,6 +131,7 @@ export function GameScreen() {
       buildId: snapshot.buildId,
       mode,
       design: snapshot,
+      build,
       onState: setFrameState,
     });
     frameRef.current = controller;
@@ -129,7 +139,7 @@ export function GameScreen() {
       controller.dispose();
       if (frameRef.current === controller) frameRef.current = undefined;
     };
-  }, [activeSnapshot, branch, frameAttempt, gameId, gamesOrigin]);
+  }, [activeSnapshot, branch, build, frameAttempt, gameId, gamesOrigin]);
 
   useEffect(() => {
     frameRef.current?.setMode(mode);
@@ -189,7 +199,7 @@ export function GameScreen() {
 
   const testState: GameTestState = {
     bridgeState: frameState.bridgeState,
-    revision: sessionView?.headRev ?? activeSnapshot?.rev ?? 0,
+    headRev: sessionView?.headRev ?? activeSnapshot?.rev ?? 0,
     saved: sessionView?.saved ?? 'saved',
     mode,
     selection: sessionView?.selection ?? [],
@@ -223,12 +233,14 @@ export function GameScreen() {
         title={game.data?.title ?? ''}
         mode={mode}
         saved={mode === 'edit' ? savedLabel(sessionView?.saved) : undefined}
-        build="draft"
+        build={build}
         buildStatus={activeBuildStatus(jobs.data?.jobs ?? [])}
+        playLabel={frameState.manifest?.playLabel}
         onBack={back}
         onMode={setMode}
         onAsk={() => setMode('edit')}
       />
+      <GameExtras placement="topbar" gameId={gameId} branchId={branch} mode={mode} />
       <div className="game-stage">
         <div className="game-frame" ref={containerRef} />
         {mode === 'edit' &&
@@ -246,16 +258,25 @@ export function GameScreen() {
         ) : null}
         {mode === 'play' && frameRef.current !== undefined && frameState.manifest !== undefined ? (
           <>
-            <PlatformHud build="draft" frame={frameRef.current} gameId={gameId} saves={frameState.manifest.saves} />
-            {activeSnapshot ? (
-              <UpdateIndicator
-                currentBuildId={activeSnapshot.buildId}
-                gameId={gameId}
-                onUpdate={() => window.location.reload()}
-              />
-            ) : null}
+            <PlatformHud
+              build={build}
+              frame={frameRef.current}
+              gameId={gameId}
+              saves={frameState.manifest.saves}
+              onLeave={back}
+            />
           </>
         ) : null}
+        <GameExtras placement="hud" gameId={gameId} branchId={branch} mode={mode} />
+        {activeSnapshot ? (
+          <UpdateIndicator
+            currentBuildId={activeSnapshot.buildId}
+            gameId={gameId}
+            onPublishedBuild={setPublishedBuildId}
+            onUpdate={() => window.location.reload()}
+          />
+        ) : null}
+        <GameExtras placement="overlay" gameId={gameId} branchId={branch} mode={mode} />
       </div>
       {mode === 'edit' &&
       frameState.manifest !== undefined &&
@@ -274,6 +295,22 @@ export function GameScreen() {
           onTool={(tool) => sessionStore.getState().setTool(tool)}
           onUndo={() => void sessionStore.getState().undo()}
           onRedo={() => void sessionStore.getState().redo()}
+          onDelete={(entityId) => {
+            const state = sessionStore.getState();
+            void state.submit(
+              deleteEntityIntent(state.doc, entityId, `Removed ${state.doc.entities[entityId]?.prefab}`),
+            );
+          }}
+          onDuplicate={(entityId) => {
+            const state = sessionStore.getState();
+            const source = state.doc.entities[entityId];
+            if (source === undefined) return;
+            const entity: Entity = { ...structuredClone(source), id: createStableId('e_'), origin: 'creator' };
+            void state.submit(createEntityIntent(state.doc, entity, `Copied ${source.prefab}`));
+          }}
+          onInstanceCount={(change) =>
+            changeInstanceCount(change, frameState.manifest!, frameRef.current!, sessionStore)
+          }
           onCanvasChange={setCanvasOptions}
         />
       ) : null}
@@ -327,7 +364,7 @@ function savedLabel(saved: EditorSessionState['saved'] | undefined): string {
     case 'saving':
       return 'Saving…';
     case 'retrying':
-      return 'Trying again…';
+      return 'Not saved, retrying…';
     case 'not-saved':
       return 'Not saved';
     case 'read-only':
@@ -335,4 +372,9 @@ function savedLabel(saved: EditorSessionState['saved'] | undefined): string {
     default:
       return 'Saved';
   }
+}
+
+function GameExtras({ placement, ...props }: GameExtraProps & { placement: 'topbar' | 'hud' | 'overlay' }) {
+  const extras = gameExtras.filter((extra) => extra.placement === placement);
+  return extras.map(({ id, Component }) => <Component key={id} {...props} />);
 }

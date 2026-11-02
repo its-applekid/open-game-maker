@@ -133,6 +133,7 @@
 .palette-tabs,
 .palette-items,
 .editor-tools,
+.entity-actions,
 .choice-segment,
 .count-control {
   display: flex;
