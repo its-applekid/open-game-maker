@@ -36,6 +36,7 @@ export function checkRunOutput(verdict: BoundaryVerdict): { title: string; summa
 
 export class BoundaryCheckPoster {
   readonly #posted = new Set<string>();
+  readonly #posting = new Map<string, Promise<void>>();
   readonly #delay: Delay;
 
   constructor(options: { delay?: Delay } = {}) {
@@ -64,7 +65,23 @@ export class BoundaryCheckPoster {
     return exists;
   }
 
-  async post(request: GitHubRequest, repository: Repository, headSha: string, verdict: BoundaryVerdict): Promise<void> {
+  post(request: GitHubRequest, repository: Repository, headSha: string, verdict: BoundaryVerdict): Promise<void> {
+    const key = `${repository.owner}/${repository.name}@${headSha}`;
+    const existing = this.#posting.get(key);
+    if (existing !== undefined) return existing;
+    const posting = this.#post(request, repository, headSha, verdict).finally(() => {
+      if (this.#posting.get(key) === posting) this.#posting.delete(key);
+    });
+    this.#posting.set(key, posting);
+    return posting;
+  }
+
+  async #post(
+    request: GitHubRequest,
+    repository: Repository,
+    headSha: string,
+    verdict: BoundaryVerdict,
+  ): Promise<void> {
     const key = `${repository.owner}/${repository.name}@${headSha}`;
     if (this.#posted.has(key)) return;
 

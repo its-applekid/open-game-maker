@@ -113,6 +113,24 @@ describe('boundary check run', () => {
     expect(JSON.stringify(posts[0]?.parameters)).not.toContain(token);
   });
 
+  it('coalesces concurrent posts for the same head sha', async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.endsWith('/check-runs') && call.route.startsWith('GET')) return { total_count: 0, check_runs: [] };
+      if (call.route.endsWith('/check-runs') && call.route.startsWith('POST')) return { id: 1 };
+      throw new Error(`unexpected route ${call.route}`);
+    });
+    const poster = new BoundaryCheckPoster({ delay: async () => {} });
+    const verdict: BoundaryVerdict = { allowed: true, reasons: [] };
+
+    await Promise.all([
+      poster.post(request, repository, 'head-concurrent', verdict),
+      poster.post(request, repository, 'head-concurrent', verdict),
+    ]);
+
+    expect(calls.filter(({ route }) => route.startsWith('GET'))).toHaveLength(1);
+    expect(calls.filter(({ route }) => route.startsWith('POST'))).toHaveLength(1);
+  });
+
   it('retries transient check-run failures three times', async () => {
     let posts = 0;
     const { request } = fakeRequest((call) => {

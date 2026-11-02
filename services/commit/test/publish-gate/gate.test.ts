@@ -103,6 +103,32 @@ describe('RealBoundaryGate', () => {
     ).resolves.toEqual({ allowed: true, reasons: [] });
   });
 
+  it('refuses releasing a rights-restricted tree from a public repository', async () => {
+    const asset: LockEntry = {
+      id: 't1:synty-polygon-dungeon/barrel@1.0',
+      sha256,
+      path: 'assets/props/barrel.glb',
+      license: 'LicenseRef-Synty',
+      rights: { uses: ['in-game'], audience: 'private', redistribution: 'in-build', attribution: null },
+      added: '2026-11-01',
+    };
+    const gate = new RealBoundaryGate(dependencies(treeRequest(lock([asset]), true)));
+
+    await expect(
+      gate.evaluate({
+        kind: 'release',
+        gameId: 'game-1',
+        repository: { ...repository, visibility: 'public' },
+        sha: 'release-sha',
+      }),
+    ).resolves.toMatchObject({
+      allowed: false,
+      reasons: [
+        expect.objectContaining({ code: 'rights', path: asset.path, detail: expect.stringContaining(asset.id) }),
+      ],
+    });
+  });
+
   it('checks an inline public template before its repository exists', async () => {
     const gate = new RealBoundaryGate({
       ...dependencies(fakeRequest(() => ({})).request),
