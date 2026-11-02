@@ -11,7 +11,8 @@ export const STILL_VIEWPORTS: { name: string; size: ViewportSize }[] = [
 ];
 /** Status bar and home indicator; OGM-090 may pass device values later. */
 export const SAFE_INSETS: Insets = { top: 24, right: 0, bottom: 20, left: 0 };
-const SCAN_GRID = 24;
+/** A coarse `editor.pick` grid, then a finer one when a small player falls between cells. */
+const SCAN_GRIDS = [24, 48];
 
 /** Ids of the players `renderGameToText` reports, wherever the game keeps them. */
 export function playerIds(text: GameText): string[] {
@@ -66,12 +67,18 @@ export const c07Stills: Check = {
         stills.push(path);
         if (colours < 2) return `${name} still is a single colour`;
         const players = playerIds(await session.text());
-        const located = locatePlayers(await session.scan(SCAN_GRID), players, size, SAFE_INSETS);
+        let located: ReturnType<typeof locatePlayers> = [];
+        for (const grid of SCAN_GRIDS) {
+          located = locatePlayers(await session.scan(grid), players, size, SAFE_INSETS);
+          if (located.length === players.length) break;
+        }
+        const lost = players.find((id) => !located.some((player) => player.id === id));
+        if (lost) return `${name}: player ${lost} is not on screen`;
         const outside = located.find((player) => !player.inside);
         if (outside) {
           return `${name}: player ${outside.id} at (${outside.nx.toFixed(2)}, ${outside.ny.toFixed(2)}) is outside the safe area`;
         }
-        notes.push(`${name} ${colours} colours, ${located.length}/${players.length} players located in the safe area`);
+        notes.push(`${name} ${colours} colours, ${players.length} players inside the safe area`);
         return null;
       });
       if (problem) return fail(problem, stills);

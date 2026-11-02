@@ -10,7 +10,10 @@ describe('C1 manifest-valid', () => {
 
   it('fails a duplicate control id and names it', async () => {
     const result = await c01Manifest.run(fakeContext({ controls: [SPEED, { ...SPEED, label: 'Again' }] }));
-    expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('duplicate control id player.speed') });
+    expect(result).toMatchObject({
+      status: 'fail',
+      detail: expect.stringContaining('duplicate control id player.speed'),
+    });
   });
 
   it('fails a manifest the contract rejects', async () => {

@@ -25,7 +25,8 @@ export const c01Manifest: Check = {
     ];
     const categories = new Set(game.manifest.palette.categories.map((category) => category.id));
     for (const item of game.manifest.palette.items) {
-      if (!categories.has(item.category)) problems.push(`palette ${item.prefab} names unknown category ${item.category}`);
+      if (!categories.has(item.category))
+        problems.push(`palette ${item.prefab} names unknown category ${item.category}`);
     }
     if (problems.length > 0) return fail(problems.join('; '));
     return pass(`${game.controls.length} controls, ${game.manifest.palette.items.length} palette items, ids unique`);

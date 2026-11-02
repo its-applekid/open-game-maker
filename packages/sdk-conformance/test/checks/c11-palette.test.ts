@@ -13,8 +13,8 @@ describe('C11 palette-undo', () => {
     expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('palette platform: undo left') });
   });
 
-  it('fails a place tool with an empty palette', async () => {
+  it('is unchecked, not passed, with an empty palette', async () => {
     const ctx = fakeContext({ manifest: { palette: { ...MANIFEST.palette, items: [] } } });
-    expect((await c11Palette.run(ctx)).status).toBe('fail');
+    expect((await c11Palette.run(ctx)).status).toBe('unchecked');
   });
 });

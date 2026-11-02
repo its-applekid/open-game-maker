@@ -51,12 +51,14 @@ export class BrowserSession implements Session {
       if (!game) throw new Error('game frame is missing');
       /* Templates send `ready` at boot, then hold `__ready` false until their renderer compiles. */
       if (options.build === 'test') {
-        await game.waitForFunction(() => (window as { __ready?: boolean }).__ready === true, null, { timeout: READY_TIMEOUT_MS });
+        await game.waitForFunction(() => (window as { __ready?: boolean }).__ready === true, null, {
+          timeout: READY_TIMEOUT_MS,
+        });
       }
-      await page.evaluate(
-        ({ width, height, safe }) => window.__conf.setViewport(width, height, safe),
-        { ...options.viewport, safe: options.safe },
-      );
+      await page.evaluate(({ width, height, safe }) => window.__conf.setViewport(width, height, safe), {
+        ...options.viewport,
+        safe: options.safe,
+      });
       return new BrowserSession(context, page, game, manifest);
     } catch (error) {
       await context.close();

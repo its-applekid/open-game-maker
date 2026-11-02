@@ -26,6 +26,8 @@ export type FakeScript = {
   ignoresPause?: boolean;
   /** C7: where the player is picked, normalized. */
   player?: { nx: number; ny: number };
+  /** C7: the player is never picked (off screen). */
+  playerHidden?: boolean;
   colours?: number;
   /** C8: globals left on a published window. */
   publishedGlobals?: string[];
@@ -73,6 +75,7 @@ let sessionsCreated = 0;
 export class FakeSession implements Session {
   readonly manifest: GameManifest;
   closed = false;
+  readonly scans: number[] = [];
   private tick = 0;
   private paused = false;
   private design: Design = structuredClone(DESIGN);
@@ -147,6 +150,8 @@ export class FakeSession implements Session {
   }
 
   async scan(n: number): Promise<TargetHit[]> {
+    this.scans.push(n);
+    if (this.script.playerHidden) return [];
     const { nx, ny } = this.script.player ?? { nx: 0.5, ny: 0.5 };
     const cell = 1 / n;
     return [{ id: 'p1', nx: Math.floor(nx / cell) * cell + cell / 2, ny: Math.floor(ny / cell) * cell + cell / 2 }];

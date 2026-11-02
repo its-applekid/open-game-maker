@@ -21,6 +21,13 @@ describe('C7 stills-safe-area', () => {
     expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('player p1') });
   });
 
+  it('rescans finer, then fails a player that is not on screen', async () => {
+    const ctx = fakeContext({ playerHidden: true });
+    const result = await c07Stills.run(ctx);
+    expect(result).toMatchObject({ status: 'fail', detail: 'desktop: player p1 is not on screen' });
+    expect(ctx.sessions[0]!.scans).toEqual([24, 48]);
+  });
+
   it('fails a blank still', async () => {
     const result = await c07Stills.run(fakeContext({ colours: 1 }));
     expect(result).toMatchObject({ status: 'fail', detail: 'desktop still is a single colour' });

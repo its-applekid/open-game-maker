@@ -43,10 +43,14 @@ export async function main(argv: string[], io: CliIo): Promise<number> {
     io.err(USAGE);
     return 2;
   }
-  const env = loadEnv('gm', {
-    GM_VERIFY_SOFTWARE_GL: { kind: 'bool', required: false },
-    XDG_RUNTIME_DIR: { kind: 'path', required: false },
-  }, io.env);
+  const env = loadEnv(
+    'gm',
+    {
+      GM_VERIFY_SOFTWARE_GL: { kind: 'bool', required: false },
+      XDG_RUNTIME_DIR: { kind: 'path', required: false },
+    },
+    io.env,
+  );
   const report = await (io.run ?? runConformance)({
     gameDir,
     outDir: parsed.values.out,

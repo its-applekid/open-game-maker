@@ -17,7 +17,9 @@ describe('C9 override-hints', () => {
   });
 
   it('fails when two sessions disagree on the folded design', async () => {
-    const result = await c09Hints.run(fakeContext({ nondeterministic: true }, { previous: { ...previous, controlIds: [] } }));
+    const result = await c09Hints.run(
+      fakeContext({ nondeterministic: true }, { previous: { ...previous, controlIds: [] } }),
+    );
     expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('diverged') });
   });
 

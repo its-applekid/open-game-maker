@@ -13,7 +13,10 @@ describe('C2 controls-round-trip', () => {
 
   it('fails a control whose apply mutates unrelated state, naming the control and key', async () => {
     const result = await c02Controls.run(fakeContext({ applyLeaks: true }));
-    expect(result).toMatchObject({ status: 'fail', detail: expect.stringMatching(/player\.speed = 1 left \/state\/score/) });
+    expect(result).toMatchObject({
+      status: 'fail',
+      detail: expect.stringMatching(/player\.speed = 1 left \/state\/score/),
+    });
   });
 
   it('is unchecked, not passed, when there are no controls', async () => {

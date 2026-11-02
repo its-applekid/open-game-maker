@@ -21,7 +21,6 @@ export const c11Palette: Check = {
   async run(ctx) {
     const { design, manifest } = ctx.game;
     const items = manifest.palette.items;
-    if (manifest.tools.includes('place') && items.length === 0) return fail('the place tool has no palette items');
     if (items.length === 0) return unchecked('the palette has no items');
     const entities = Object.values((design.entities ?? {}) as Record<string, Entity>);
     if (entities.length === 0) return fail('design has no entity to model a palette placement on');
