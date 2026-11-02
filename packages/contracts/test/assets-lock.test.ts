@@ -80,6 +80,14 @@ describe('assets lock contract', () => {
     unknown.assets[0]!.source = 'cdn';
     expect(AssetsLockSchema.safeParse(unknown).success).toBe(false);
     expect(emittedValidator('assets-lock.v1')(unknown)).toBe(false);
+    const tierThreeLibrary = fixture() as LockFixture & { assets: Array<{ source?: string }> };
+    tierThreeLibrary.assets[0]!.id = 't3:coin-hop/model/door';
+    tierThreeLibrary.assets[0]!.source = 'library';
+    expect(AssetsLockSchema.safeParse(tierThreeLibrary).error?.issues.map((issue) => issue.path)).toContainEqual([
+      'assets',
+      0,
+      'source',
+    ]);
     const badFile = fixture() as LockFixture & { assets: Array<{ files?: unknown }> };
     badFile.assets[0]!.files = [{ path: 'Textures/colormap.png', sha256: 'not-a-sha' }];
     expect(AssetsLockSchema.safeParse(badFile).success).toBe(false);

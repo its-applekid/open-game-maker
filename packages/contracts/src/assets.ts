@@ -197,6 +197,13 @@ export const AssetsLockSchema = z
           message: 'assets with redistribution none cannot enter the lock',
         });
       }
+      if (entry.source === 'library' && entry.id.startsWith('t3:')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['assets', index, 'source'],
+          message: 'tier-3 assets live in the blob store or the repo, not the library',
+        });
+      }
       if (!safeRepoPath(entry.path)) {
         ctx.addIssue({
           code: 'custom',
