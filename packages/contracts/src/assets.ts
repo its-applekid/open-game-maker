@@ -211,6 +211,15 @@ export const AssetsLockSchema = z
           message: 'path must be relative, inside the repo, and outside node_modules and .gm',
         });
       }
+      for (const [fileIndex, file] of (entry.files ?? []).entries()) {
+        if (!safeRepoPath(file.path)) {
+          ctx.addIssue({
+            code: 'custom',
+            path: ['assets', index, 'files', fileIndex, 'path'],
+            message: 'path must be relative, inside the repo, and outside node_modules and .gm',
+          });
+        }
+      }
     }
   });
 export const assetsLockSchema = AssetsLockSchema;

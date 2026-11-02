@@ -291,6 +291,13 @@ describe('vendored rule', () => {
     });
   });
 
+  it('passes a hash-matching legacy vendored entry without source', () => {
+    const legacy = { ...cc0, source: undefined };
+    const files = [png(legacy.path, { sha256: legacy.sha256 })];
+
+    expect(evaluateDiff(input({ files, lockfile: lock([legacy]) }))).toEqual({ allowed: true, reasons: [] });
+  });
+
   it('passes a vendored companion file matched by its files[] sha', () => {
     const textureSha = 'd'.repeat(64);
     const entry = { ...cc0, files: [{ path: 'assets/props/barrel.png', sha256: textureSha }] };

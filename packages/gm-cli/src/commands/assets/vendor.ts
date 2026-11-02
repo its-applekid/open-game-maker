@@ -1,5 +1,7 @@
-import { copyFile, lstat, mkdir } from 'node:fs/promises';
-import { dirname, join, relative, resolve, sep } from 'node:path';
+import { randomBytes } from 'node:crypto';
+import { constants } from 'node:fs';
+import { copyFile, lstat, mkdir, rename, rm } from 'node:fs/promises';
+import { basename, dirname, join, posix, relative, resolve } from 'node:path';
 
 import type { AssetsLock, LockEntry } from '@ogm/contracts';
 
@@ -9,7 +11,7 @@ import { readLock, sha256File, writeLock } from '../../lock.js';
 import { entrySource, repoPaths, resolveEntry, type Locations, type ResolvedFile } from '../../resolve.js';
 
 type Refusal = { id: string; rule: string; detail: string; fix: string };
-type PlannedFile = ResolvedFile & { destination: string; repoPath: string };
+type PlannedFile = ResolvedFile & { destination: string; repoPath: string; present: boolean };
 type VendorPlan = { entry: LockEntry; files: PlannedFile[] };
 type DestinationResult = { ok: true; file: PlannedFile } | { ok: false; refusal: Refusal };
 type PlanResult = { ok: true; plan: VendorPlan } | { ok: false; refusal: Refusal };
@@ -23,9 +25,16 @@ function collectionSlug(id: string): string {
 }
 
 /** Keep each source tree intact and isolate equal pack paths under their collection slug. */
-function vendorPath(entry: LockEntry, path: string): string {
+export function vendorPath(entry: LockEntry, path: string): string | null {
   const normalized = path.replaceAll('\\', '/').replace(/^assets\//u, '');
-  return join('assets', collectionSlug(entry.id), normalized).replaceAll(sep, '/');
+  if (normalized.startsWith('/') || /^[A-Za-z]:\//u.test(normalized)) return null;
+
+  const root = posix.join('assets', collectionSlug(entry.id));
+  const candidate = posix.join(root, normalized);
+  const fromRoot = posix.relative(root, candidate);
+  return fromRoot !== '' && fromRoot !== '..' && !fromRoot.startsWith('../') && !posix.isAbsolute(fromRoot)
+    ? candidate
+    : null;
 }
 
 async function ensureRepoDirectory(cwd: string, repoPath: string): Promise<boolean> {
@@ -50,6 +59,17 @@ async function destinationRefusal(
   held: Map<string, string>,
 ): Promise<DestinationResult> {
   const repoPath = vendorPath(entry, file.path);
+  if (repoPath === null) {
+    return {
+      ok: false,
+      refusal: {
+        id: entry.id,
+        rule: 'unsafe-destination',
+        detail: `${file.path} escapes the asset collection directory`,
+        fix: `remove the unsafe path from assets.lock.json, then retry gm assets vendor ${entry.id}`,
+      },
+    };
+  }
   const heldBy = held.get(repoPath);
   if (heldBy !== undefined && heldBy !== entry.id) {
     return {
@@ -76,6 +96,7 @@ async function destinationRefusal(
     };
   }
 
+  let present = false;
   try {
     const current = await lstat(destination);
     if (current.isSymbolicLink() || !current.isFile() || (await sha256File(destination)) !== file.sha256) {
@@ -89,11 +110,12 @@ async function destinationRefusal(
         },
       };
     }
+    present = true;
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 
-  return { ok: true, file: { ...file, destination, repoPath } };
+  return { ok: true, file: { ...file, destination, repoPath, present } };
 }
 
 function vendoredEntry(entry: LockEntry, files: PlannedFile[]): LockEntry {
@@ -160,15 +182,27 @@ async function planEntry(entry: LockEntry, locations: Locations, held: Map<strin
 
 async function applyPlans(cwd: string, lock: AssetsLock, plans: VendorPlan[]): Promise<AssetsLock> {
   const replacements = new Map<string, LockEntry>();
-  for (const plan of plans) {
-    if (plan.files.length === 0) continue;
-    for (const file of plan.files) {
-      await copyFile(file.absolute, file.destination);
-      if ((await sha256File(file.destination)) !== file.sha256) {
-        throw new Error(`copied asset failed sha256 verification: ${relative(cwd, file.destination)}`);
+  const staged: Array<{ file: PlannedFile; temporary: string }> = [];
+  try {
+    for (const plan of plans) {
+      if (plan.files.length === 0) continue;
+      for (const file of plan.files.filter((candidate) => !candidate.present)) {
+        const temporary = join(
+          dirname(file.destination),
+          `.${basename(file.destination)}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`,
+        );
+        staged.push({ file, temporary });
+        await copyFile(file.absolute, temporary, constants.COPYFILE_EXCL);
+        if ((await sha256File(temporary)) !== file.sha256) {
+          throw new Error(`copied asset failed sha256 verification: ${relative(cwd, file.destination)}`);
+        }
       }
+      replacements.set(plan.entry.id, vendoredEntry(plan.entry, plan.files));
     }
-    replacements.set(plan.entry.id, vendoredEntry(plan.entry, plan.files));
+
+    for (const { file, temporary } of staged) await rename(temporary, file.destination);
+  } finally {
+    await Promise.all(staged.map(({ temporary }) => rm(temporary, { force: true })));
   }
   return replacements.size === 0
     ? lock

@@ -67,6 +67,18 @@ describe('assets lock contract', () => {
     },
   );
 
+  it('rejects unsafe companion paths', () => {
+    const doc = fixture() as LockFixture & { assets: Array<{ files?: unknown }> };
+    doc.assets[0]!.files = [{ path: '../../outside.png', sha256: 'a'.repeat(64) }];
+    expect(AssetsLockSchema.safeParse(doc).error?.issues.map((issue) => issue.path)).toContainEqual([
+      'assets',
+      0,
+      'files',
+      0,
+      'path',
+    ]);
+  });
+
   // The build trusts `source` to pick library, blob store or repo; an unknown one must not silently mean "repo".
   it('accepts library, blob and vendored sources with per-file shas and rejects anything else', () => {
     for (const source of ['library', 'blob', 'vendored']) {
