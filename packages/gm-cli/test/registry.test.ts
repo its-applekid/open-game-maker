@@ -53,6 +53,7 @@ describe('command registry', () => {
       'packs blocklist',
       'packs import',
       'packs index',
+      'packs sync',
       'perf',
       'run',
       'shot',
