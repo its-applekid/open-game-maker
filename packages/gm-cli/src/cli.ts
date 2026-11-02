@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from '@ogm/config';
 
-import { EXIT, UsageError, type GmContext } from './command.js';
+import { CommandError, EXIT, UsageError, type GmContext } from './command.js';
 import { findAssetsRoot } from './context.js';
 import { makeEmitter } from './events.js';
 import { parseFlags } from './flags.js';
@@ -12,6 +12,7 @@ import { loadCommands, match } from './registry.js';
 
 export type { FlagSpec, GmCommand, GmContext } from './command.js';
 export { EXIT, UsageError } from './command.js';
+export { postChat, type PostChatOptions } from './commands/chat/post.js';
 export { printJson, requireAssetsRoot } from './context.js';
 export { loadCommands } from './registry.js';
 
@@ -103,6 +104,10 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
     if (error instanceof UsageError) {
       err(error.message);
       return EXIT.usage;
+    }
+    if (error instanceof CommandError) {
+      err(error.message);
+      return EXIT.failed;
     }
     throw error;
   }

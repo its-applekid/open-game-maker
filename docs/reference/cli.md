@@ -23,6 +23,19 @@ gm skills sync [--check] [--force]
 gm skills list
 ```
 
+## Build chat and checkpoints
+
+```text
+gm chat post --job <id> --text "<one line>" [--image <png>]
+gm chat post --job <id> --text "<one line>" --clip <mp4> --poster <png>
+gm checkpoint open --job <id> --question "<question>" --option <id>=<label> --option <id>=<label> [--media <id>=<chat-message-id>] [--recommend <id>] [--blocking]
+gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
+```
+
+`gm chat post` copies media into `.gm/outbox/media/` and prints the chat message id. `gm checkpoint open` prints
+the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
+the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
+
 `sync` installs every platform `gm-*` skill and the vendored engine references under `.claude/skills/`. Relative
 links in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without
 symlink support receive copies and record `"linkMode": "copy"` in `skills.lock`.

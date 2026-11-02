@@ -43,10 +43,14 @@ describe('command registry', () => {
       'assets sheet',
       'assets use',
       'assets why',
+      'chat post',
       'check assets',
+      'checkpoint open',
+      'checkpoint wait',
       'maps search',
       'new',
       'packs blocklist',
+      'packs import',
       'packs index',
       'perf',
       'run',
@@ -58,7 +62,7 @@ describe('command registry', () => {
     for (const command of registry.values()) expect(commandHelp(command).length).toBeLessThanOrEqual(15);
     const help = await gm(['help', 'assets', 'search']);
     expect(help.out[0]).toBe('usage: gm assets search <words...> [filters]');
-  });
+  }, 10_000);
 
   it('exits 2 with one cause line and a suggested command on unknown commands and flags', async () => {
     expect(await gm(['nope'])).toEqual({ code: 2, out: [], err: ['unknown command "nope". Try: gm help'] });

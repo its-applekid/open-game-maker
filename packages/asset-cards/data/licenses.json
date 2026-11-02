@@ -1,7 +1,7 @@
 [
   {
     "id": "CC0-1.0",
-    "aliases": ["kaykit"],
+    "aliases": ["kaykit", "kenney"],
     "ceiling": {
       "uses": ["in-game", "placeholder", "derive-layout", "style-reference", "vision-input"],
       "audience": "public",
@@ -11,6 +11,7 @@
     "processing": "any",
     "ref": "License.txt",
     "note": "CC0 public domain dedication; credit optional.",
+    "license_text_sha256": "0c0f722d36d8d887fe238dd6c25ac42a6711b0d87db7835cc8d90a497271f9fe",
     "confirmed": {
       "by": "kevin",
       "on": "2026-10-26"
@@ -78,6 +79,23 @@
     "confirmed": {
       "by": "kevin",
       "on": "2026-10-30"
+    }
+  },
+  {
+    "id": "LicenseRef-smallscaleint-itch",
+    "aliases": ["smallscaleint-itch"],
+    "ceiling": {
+      "uses": ["in-game", "placeholder", "style-reference", "vision-input"],
+      "audience": "private",
+      "redistribution": "in-build",
+      "attribution": null
+    },
+    "processing": "local-only",
+    "ref": "itch.io store page",
+    "note": "Private SmallScaleInt purchase; use only in builds, never redistribute raw files, and process locally.",
+    "confirmed": {
+      "by": "kevin",
+      "on": "2026-11-01"
     }
   },
   {

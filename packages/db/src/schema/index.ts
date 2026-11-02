@@ -11,3 +11,4 @@ export * from './jobs.js';
 export * from './budget.js';
 export * from './build-chat.js';
 export * from './reports.js';
+export * from './rooms.js';
