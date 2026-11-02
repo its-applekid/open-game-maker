@@ -164,6 +164,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'OGM_CHAT_POLL_MS', unit: 'api', kind: 'int', doc: 'build chat aiur progress poll period (default 10000)' },
   {
+    name: 'OGM_CHECKPOINT_POLL_MS',
+    unit: 'api',
+    kind: 'int',
+    doc: 'build chat aiur decision poll period (default 5000)',
+  },
+  {
     name: 'OGM_PLATFORM_ISSUE_REPO',
     unit: 'commit',
     kind: 'string',
