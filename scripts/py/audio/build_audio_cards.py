@@ -1,6 +1,6 @@
 """Turn analysis sidecars into C3 sound cards (plan U5): score CLAP labels, rank them against the library, write and validate.
 
-usage: .venv/bin/python -I build_audio_cards.py [--packs DIR] [--no-validate]
+usage: .venv/bin/python -I build_audio_cards.py [--packs DIR] [--no-validate] [--json]
 reads  packs/<id>/<ver>/analysis/**/*.analysis.json (from analyze.py) and packs/<id>/collection.card.json
 writes packs/<id>/cards/<path>.card.json, updates each audio collection card's counts, prints a summary.
 
@@ -52,6 +52,26 @@ PACK_GENRES = {"orchestral": ["orchestral", "cinematic"], "ambient": ["ambient"]
                "rock": ["rock"], "country": ["country"], "electronic": ["electronic"], "piano": ["piano"], "jazz": ["jazz"],
                "blues": ["blues"], "metal": ["metal"], "folk": ["folk"], "chiptune": ["chiptune"]}
 MUSIC_CONF = 0.5  # uncalibrated until Kevin's sample review (plan U6); below 0.6 the card carries low-confidence
+
+
+def card_record(path: str, card: dict) -> dict:
+    return {"card": path, "status": card["status"], "flags": card.get("flags", [])}
+
+
+def emit(record: dict, json_mode: bool = False, summary: bool = False):
+    stream = sys.stderr if json_mode and summary else sys.stdout
+    print(json.dumps(record), file=stream, flush=True)
+
+
+def stage_json(out: Path, payload: dict, indent=1) -> Path:
+    out.parent.mkdir(parents=True, exist_ok=True)
+    staged = out.with_name(out.name + ".part")
+    staged.write_text(json.dumps(payload, indent=indent) + "\n")
+    return staged
+
+
+def promote(staged: Path, out: Path):
+    staged.replace(out)
 
 
 def prompts():
@@ -285,7 +305,7 @@ def sfx_describe(d, lift, sets, a, stem, pid):
     return desc, subkind, conf, events[top], float(p[top])
 
 
-def build(rows, sets, means, packs: Path):
+def build(rows, sets, means, packs: Path, update_counts=True):
     by_pack = defaultdict(list)
     for d in rows:
         by_pack[d["_pack"]].append(d)
@@ -293,7 +313,7 @@ def build(rows, sets, means, packs: Path):
     for d in rows:
         if d["_pack"].startswith("sidetrax-"):
             same_name[stem_key(Path(d["file"]).stem)].append(d)
-    written, flags_count, counts = 0, defaultdict(int), defaultdict(lambda: defaultdict(int))
+    written, flags_count, counts, records, collection_updates = 0, defaultdict(int), defaultdict(lambda: defaultdict(int)), [], []
     for pid, items in by_pack.items():
         cc = json.loads((packs / pid / "collection.card.json").read_text())
         coll = cc["id"]
@@ -368,21 +388,24 @@ def build(rows, sets, means, packs: Path):
             for f in flags:
                 flags_count[f] += 1
             out = packs / pid / "cards" / (path_id + ".card.json")
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(json.dumps(card, indent=1) + "\n")
+            staged = stage_json(out, card)
+            records.append((out, staged, card))
             counts[pid]["audio/" + subkind] += 1
             counts[pid]["audio"] += 1
             written += 1
-        info = cc.setdefault("collection_info", {})
-        info["counts"] = {**{k: v for k, v in info.get("counts", {}).items() if not k.startswith("audio")}, **dict(sorted(counts[pid].items()))}
-        (packs / pid / "collection.card.json").write_text(json.dumps(cc, indent=1 if pid.startswith(("kenney-", "synty-")) else 2) + "\n")
-    return written, dict(flags_count)
+        if update_counts:
+            info = cc.setdefault("collection_info", {})
+            info["counts"] = {**{k: v for k, v in info.get("counts", {}).items() if not k.startswith("audio")}, **dict(sorted(counts[pid].items()))}
+            out = packs / pid / "collection.card.json"
+            staged = stage_json(out, cc, indent=1 if pid.startswith(("kenney-", "synty-")) else 2)
+            collection_updates.append((out, staged))
+    return written, dict(flags_count), records, collection_updates
 
 
-def validate(packs: Path):
+def validate(packs: Path, staged=()):
     cards = sorted(str(p) for p in packs.glob("*/cards/**/*.card.json"))
     colls = sorted(str(p) for p in packs.glob("*/collection.card.json"))
-    r = subprocess.run(["node", str(VALIDATOR), *colls, *cards], capture_output=True, text=True)
+    r = subprocess.run(["node", str(VALIDATOR), *colls, *cards, *(str(p) for p in staged)], capture_output=True, text=True)
     fails = [l for l in r.stdout.splitlines() if l.startswith("FAIL")]
     return r.returncode, len(cards), fails, r.stdout
 
@@ -391,6 +414,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
     ap.add_argument("--no-validate", action="store_true")
+    ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
     rows = load(a.packs)
     sets = prompts()
@@ -398,15 +422,31 @@ def main():
     score_all(rows, emb, scale, sets)
     means = library_means(rows)
     energy_ranks(rows)
-    n, flags = build(rows, sets, means, a.packs)
-    print(json.dumps({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}))
+    n, flags, records, collection_updates = build(rows, sets, means, a.packs, update_counts=not a.json)
+    staged = [part for _, part, _ in records] + [part for _, part in collection_updates]
+    emit({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}, a.json, summary=True)
     if not a.no_validate:
-        rc, nc, fails, out = validate(a.packs)
-        print(json.dumps({"validated": nc, "fail_lines": len(fails), "rc": rc}))
+        rc, nc, fails, out = validate(a.packs, staged)
+        emit({"validated": nc, "fail_lines": len(fails), "rc": rc}, a.json, summary=True)
         for l in fails[:30]:
-            print(l)
+            print(l, file=sys.stderr if a.json else sys.stdout)
         if rc and not fails:
-            print(out[-3000:])
+            print(out[-3000:], file=sys.stderr if a.json else sys.stdout)
+        if rc:
+            if a.json:
+                for path, part, _ in records:
+                    if any(part.name in failure for failure in fails):
+                        emit({"card": path.relative_to(ROOT).as_posix(), "status": "invalid", "flags": [], "errors": fails})
+            for part in staged:
+                part.unlink(missing_ok=True)
+            raise SystemExit(1)
+    for path, part, _ in records:
+        promote(part, path)
+    for path, part in collection_updates:
+        promote(part, path)
+    if a.json:
+        for path, _, card in records:
+            emit(card_record(path.relative_to(ROOT).as_posix(), card), json_mode=True)
 
 
 if __name__ == "__main__":
