@@ -90,7 +90,7 @@ export function Chat({
     [canPost, job],
   );
 
-  const admit = async (text: string, start: 'now' | 'at_reset') => {
+  const admit = async (text: string, start: 'now' | 'at_reset'): Promise<string | undefined> => {
     if (admittingRef.current) throw new Error('admission in flight');
     admittingRef.current = true;
     setSubmitting(true);
@@ -102,13 +102,14 @@ export function Chat({
       if (result.kind === 'refused') {
         setPendingText(text);
         setRefusal(result);
-        return;
+        return undefined;
       }
       admissionKeyRef.current = undefined;
       setRefusal(undefined);
       setWaitingForAdmin(false);
       void queryClient.invalidateQueries({ queryKey: myJobsQueryKey });
       if (mountedRef.current) onAdmitted?.(result.jobId, target);
+      return result.jobId;
     } finally {
       admittingRef.current = false;
       setSubmitting(false);
@@ -157,7 +158,8 @@ export function Chat({
       <Composer
         jobId={streamId ?? `edit-${target.gameId}-${target.branchId}`}
         voiceTarget={voiceTarget}
-        postText={canPost ? postChatText : (_jobId, text) => admit(text, 'now')}
+        postText={postChatText}
+        startJob={canPost ? undefined : (text) => admit(text, 'now')}
         onOptimistic={addMessage}
         onPosted={addMessage}
         onFailed={removeMessage}
