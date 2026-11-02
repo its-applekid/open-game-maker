@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
@@ -95,8 +95,7 @@ function probesMatch(
   });
 }
 
-function writeReplayScript(bundle: z.output<typeof replayBundleSchema>, outDir?: string): string {
-  const directory = outDir ? resolve(outDir) : mkdtempSync(join(tmpdir(), 'gm-replay-'));
+function writeReplayScript(bundle: z.output<typeof replayBundleSchema>, directory: string): string {
   mkdirSync(directory, { recursive: true });
   const path = join(directory, 'replay.json');
   const [expectedError] = expectedErrors(bundle);
@@ -161,10 +160,20 @@ async function withDeadline<T>(operation: Promise<T>, wallClockMs: number): Prom
   }
 }
 
+/** Without `outDir` the script lands in a temp dir that is removed before returning, so `scriptPath` no longer exists. */
 export async function replay(input: ReplayBundle, options: ReplayOptions): Promise<ReplayResult> {
+  const tempDir = options.outDir ? undefined : mkdtempSync(join(tmpdir(), 'gm-replay-'));
+  try {
+    return await replayIn(input, options, tempDir ?? resolve(options.outDir!));
+  } finally {
+    if (tempDir) rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
+async function replayIn(input: ReplayBundle, options: ReplayOptions, directory: string): Promise<ReplayResult> {
   const startedAt = Date.now();
   const parsed = replayBundleSchema.parse(input);
-  const scriptPath = writeReplayScript(parsed, options.outDir);
+  const scriptPath = writeReplayScript(parsed, directory);
   const finish = (value: Omit<ReplayResult, 'durationMs'>): ReplayResult => ({
     ...value,
     durationMs: Math.max(0, Date.now() - startedAt),
