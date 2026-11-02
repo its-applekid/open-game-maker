@@ -34,11 +34,11 @@ export function readGamesOrigin(envDir) {
   if (url.protocol !== 'https:' || url.origin !== raw.replace(/\/$/, '')) {
     throw new Error(`${NAME} in ${file} must be a bare https origin`);
   }
-  // The games host serves OGM_GAMES_ORIGIN; a stale web.env would ship an app that frames an old host.
-  const gamesFile = join(envDir, 'games.env');
-  const served = existsSync(gamesFile) ? readValue(gamesFile, 'OGM_GAMES_ORIGIN').replace(/\/$/, '') : '';
-  if (served && served !== url.origin) {
-    throw new Error(`${NAME} in ${file} differs from OGM_GAMES_ORIGIN in ${gamesFile}`);
+  // Rooms accepts only draft URLs on its OGM_GAMES_ORIGIN; a stale web.env would ship an app whose drafts it drops.
+  const roomsFile = join(envDir, 'rooms.env');
+  const accepted = existsSync(roomsFile) ? readValue(roomsFile, 'OGM_GAMES_ORIGIN').replace(/\/$/, '') : '';
+  if (accepted && accepted !== url.origin) {
+    throw new Error(`${NAME} in ${file} differs from OGM_GAMES_ORIGIN in ${roomsFile}`);
   }
   return url.origin;
 }

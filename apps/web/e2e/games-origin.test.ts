@@ -2,26 +2,27 @@
 import { spawnSync } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
 import { readGamesOrigin } from '../tools/games-origin.mjs';
 
-async function envDir(contents?: string, games?: string): Promise<string> {
+async function envDir(contents?: string, rooms?: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'ogm-web-env-'));
   if (contents !== undefined) await writeFile(join(dir, 'web.env'), contents);
-  if (games !== undefined) await writeFile(join(dir, 'games.env'), games);
+  if (rooms !== undefined) await writeFile(join(dir, 'rooms.env'), rooms);
   return dir;
 }
 
-async function readFrom(contents?: string, games?: string): Promise<() => string> {
-  const dir = await envDir(contents, games);
+async function readFrom(contents?: string, rooms?: string): Promise<() => string> {
+  const dir = await envDir(contents, rooms);
   return () => readGamesOrigin(dir);
 }
 
 function runCli(dir: string) {
-  return spawnSync(process.execPath, [resolve('tools/games-origin.mjs')], {
+  return spawnSync(process.execPath, [fileURLToPath(new URL('../tools/games-origin.mjs', import.meta.url))], {
     encoding: 'utf8',
     env: { OGM_ENV_DIR: dir },
   });
@@ -55,7 +56,7 @@ describe('deploy games origin', () => {
     expect(read).not.toThrow(/do-not-print/);
   });
 
-  it('refuses a web.env origin the games host no longer serves', async () => {
+  it('refuses a web.env origin rooms would not accept draft URLs from', async () => {
     const web = 'VITE_GAMES_ORIGIN=https://games.example:10000\n';
 
     expect(await readFrom(web, 'OGM_GAMES_ORIGIN=https://new.example:10000\n')).toThrow(
