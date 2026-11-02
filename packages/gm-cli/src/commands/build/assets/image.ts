@@ -9,7 +9,8 @@ export async function buildImage(job: BuildJob): Promise<FreshJobResult> {
   const input = await source.metadata();
   if (!input.width || !input.height) throw new Error(`${item.entry.id}: image dimensions are unavailable`);
   let pipeline = source.clone();
-  if (item.meta?.sprite === undefined && Math.max(input.width, input.height) > 2_048) {
+  // Scaling a pixel-art image destroys its pixel grid, so it keeps its size like a sprite sheet does.
+  if (!job.pixelArt && item.meta?.sprite === undefined && Math.max(input.width, input.height) > 2_048) {
     pipeline = pipeline.resize(2_048, 2_048, { fit: 'inside', withoutEnlargement: true });
   }
   const bytes = await pipeline.webp(job.pixelArt ? { lossless: true } : { quality: 85 }).toBuffer();
