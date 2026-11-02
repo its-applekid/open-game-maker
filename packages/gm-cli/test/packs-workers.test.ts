@@ -66,7 +66,7 @@ describe('pack workers', () => {
       env: workerEnvironment({ assetsRoot: directory, workers: 1, home: directory }),
       onRecord: (record) => records.push(record),
     });
-    expect(records).toEqual([{ file: 'one', status: 'ok', priority: getPriority(0) + 10 }]);
+    expect(records).toEqual([{ file: 'one', status: 'ok', priority: Math.min(19, getPriority(0) + 10) }]);
     expect(result.stderr).toContain('worker summary');
   });
 
