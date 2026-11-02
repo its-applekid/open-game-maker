@@ -34,17 +34,17 @@ describe('content/setup.yaml', () => {
     expect(missing).toEqual([]);
   });
 
-  it('names only repo paths in commands that exist, or that an earlier sub-step writes', () => {
+  it('names only repo paths in commands that exist, or that an earlier required sub-step writes', () => {
     const written: string[] = [];
     const missing: string[] = [];
     for (const step of content.steps) {
       for (const [index, substep] of step.substeps.entries()) {
-        written.push(...substep.writes);
         for (const token of repoPathTokens(substep.command)) {
           const path = token.replace(/^\.\//, '');
           const created = written.some((write) => path === write || path.startsWith(`${write}/`));
           if (!created && !existsSync(resolve(repositoryRoot, path))) missing.push(`${step.id}.${index + 1} ${path}`);
         }
+        if (substep.kind !== 'optional') written.push(...substep.writes);
       }
     }
     expect(missing).toEqual([]);

@@ -73,8 +73,9 @@ test('Enter and Space toggle a header and flip aria-expanded', async ({ page }) 
 });
 
 test('every checkbox has a label and every copy button an aria-label', async ({ page }) => {
+  /* names are computed for what a user can reach, so open every step first (instantly: the animation is not under test) */
+  await page.emulateMedia({ reducedMotion: 'reduce' });
   await openSetup(page);
-  /* names are computed for what a user can reach, so open every step first */
   for (const button of await page.locator(headers).all()) await button.click();
   const boxes = await page.locator('input[type="checkbox"]').count();
   expect(boxes).toBeGreaterThan(0);
@@ -112,6 +113,7 @@ test('a keyboard-focused header shows a visible focus ring at 375 px', async ({ 
   const box = (await button.boundingBox())!;
   const clip = { x: 0, y: Math.max(0, box.y - 12), width: 375, height: box.height + 24 };
   const blurred = await page.screenshot({ clip, animations: 'disabled' });
+  const scrollY = await page.evaluate(() => window.scrollY);
 
   /* reach the header by keyboard so :focus-visible applies, as it would for a keyboard user */
   for (let presses = 0; presses < 20 && !(await button.evaluate((el) => el === document.activeElement)); presses++) {
@@ -127,6 +129,7 @@ test('a keyboard-focused header shows a visible focus ring at 375 px', async ({ 
   expect(ring.width).toBeGreaterThan(0);
 
   /* the baseline is the same header unfocused, captured in this run: a ring that does not paint leaves them equal */
+  expect(await page.evaluate(() => window.scrollY)).toBe(scrollY);
   const focused = await page.screenshot({ clip, animations: 'disabled' });
   expect(focused.equals(blurred)).toBe(false);
 });
