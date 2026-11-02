@@ -1,4 +1,4 @@
-// Icons: Phosphor duotone (MIT, phosphoricons.com), inlined from prototypes/studio-v0/icons.js plus bug and close.
+// Icons: Phosphor duotone (MIT, phosphoricons.com), inlined from prototypes/studio-v0/icons.js plus bug, close and paperclip.
 // They draw in currentColor; the soft fill is the duotone layer.
 const svg = (body: string) => `<svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">${body}</svg>`;
 
@@ -188,5 +188,8 @@ export const ICONS: Record<string, string> = {
   ),
   close: svg(
     '<path d="M216,56V200a16,16,0,0,1-16,16H56a16,16,0,0,1-16-16V56A16,16,0,0,1,56,40H200A16,16,0,0,1,216,56Z" opacity="0.2"/><path d="M205.66,194.34a8,8,0,0,1-11.32,11.32L128,139.31,61.66,205.66a8,8,0,0,1-11.32-11.32L116.69,128,50.34,61.66A8,8,0,0,1,61.66,50.34L128,116.69l66.34-66.35a8,8,0,0,1,11.32,11.32L139.31,128Z"/>',
+  ),
+  paperclip: svg(
+    '<path d="M180.75,104.75,204,128l-82.06,81.94a48,48,0,0,1-67.88-67.88L153.37,41.37a32,32,0,0,1,45.26,45.26Z" opacity="0.2"/><path d="M209.66,122.34a8,8,0,0,1,0,11.32l-82.05,82a56,56,0,0,1-79.2-79.21L147.67,35.73a40,40,0,1,1,56.61,56.55L105,193A24,24,0,1,1,71,159L154.3,74.38A8,8,0,1,1,165.7,85.6L82.39,170.31a8,8,0,1,0,11.27,11.36L192.93,81A24,24,0,1,0,159,47L59.76,147.68a40,40,0,1,0,56.53,56.62l82.06-82A8,8,0,0,1,209.66,122.34Z"/>',
   ),
 };

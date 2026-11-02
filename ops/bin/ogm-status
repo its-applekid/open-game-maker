@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # OGM host status: units, placeholders, listeners, disk, sizes, backup, ingress. Names and sizes only.
 # usage: ogm-status [--json] [--check]
-# exit 0 always; with --check, 1 when a unit failed, a listener is STRAY, or the last backup is over 48 h old.
+# exit 0 always; with --check, 1 when a unit failed, a listener is STRAY, a service's built entry is missing or its unit
+# still idles on the placeholder, or the last backup is over 48 h old.
 
 set -uo pipefail
 
@@ -15,6 +16,8 @@ for arg in "$@"; do
   esac
 done
 
+bin_dir=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+repo=${OGM_REPO:-$(dirname -- "$(dirname -- "$bin_dir")")}
 proc=${OGM_PROC:-/proc}
 backup_state=${OGM_BACKUP_STATE:-$HOME/.local/state/ogm/backup}
 sections=(units placeholders listeners disk sizes backup ingress)
@@ -25,6 +28,23 @@ out[units]=$(systemctl --user list-units 'ogm-*' --all --no-pager --plain --no-l
 while read -r unit _ active _; do
   [[ $active == failed ]] && problems+=("unit failed: $unit")
 done <<< "${out[units]}"
+
+# The Node services' units run the file each package's start script names; a missing one would idle as a placeholder,
+# and a unit that started before its build keeps idling until it restarts.
+for pair in api:ogm-api rooms:ogm-rooms games-host:ogm-games intake:ogm-intake commit:ogm-commit; do
+  service=${pair%%:*}
+  unit=${pair#*:}
+  if ! entry=$("$bin_dir/ogm-entry" "$repo/services/$service" 2> /dev/null); then
+    problems+=("no start entry: services/$service/package.json")
+  elif [[ ! -f $entry ]]; then
+    problems+=("missing entry: ${entry#"$repo/"}")
+  elif [[ -n $unit ]]; then
+    pid=$(systemctl --user show -p MainPID --value "$unit.service" 2> /dev/null)
+    if [[ $pid =~ ^[1-9][0-9]*$ ]] && [[ $(tr '\0' ' ' < "$proc/$pid/cmdline" 2> /dev/null) == 'sleep '* ]]; then
+      problems+=("placeholder running after build: $unit")
+    fi
+  fi
+done
 
 out[placeholders]=$(journalctl --user -u 'ogm-*' -b -o cat --no-pager 2>/dev/null | grep '^PLACEHOLDER' | sort -u)
 

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": 1,
+  "globals": {
+    "sampler.seed": 15601
+  }
+}

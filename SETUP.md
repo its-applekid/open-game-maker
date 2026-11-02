@@ -24,7 +24,7 @@ Writes: `/var/lib/systemd/linger/<user>`
 
 Check: systemctl --user status
 
-### 1.2 Clone OGM at the path expected by the commit unit and Drive worker.
+### 1.2 Clone OGM at the path expected by the Drive worker.
 
 Command:
 
@@ -52,16 +52,13 @@ Check: tailscale status && tailscale cert <tailnet-host>
 
 Hand back to the human: Install Tailscale, grant <user> operator access, enable HTTPS certificates, and choose Funnel or tailnet-only in the admin console.
 
-### 1.4 Preview and install the host directories and user units, including the separate commit unit.
+### 1.4 Preview and install the host directories and user units, including the commit unit.
 
 Command:
 
 ```sh
 ops/bin/ogm-host-setup.sh --dry-run
 ops/bin/ogm-host-setup.sh
-cp services/commit/ops/ogm-commit.service ~/.config/systemd/user/
-systemctl --user daemon-reload
-systemctl --user enable --now ogm-commit
 ```
 
 Writes: `~/.config/systemd/user`, `~/.config/ogm`, `~/.local/share/ogm`, `~/.local/state/ogm`
@@ -82,7 +79,7 @@ Time: ~30 min, mostly waiting
 
 Preconditions: Step 1 is complete and the checkout is at ~/games/open-game-maker-2000.
 
-### 2.1 Install Node 24 and pnpm 10.33.0, then install and build the workspace.
+### 2.1 Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
 
 Command:
 
@@ -90,6 +87,7 @@ Command:
 corepack enable
 pnpm install --frozen-lockfile
 pnpm build
+systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
 ```
 
 Writes: `node_modules`, `apps/*/dist`, `packages/*/dist`, `services/*/dist`
@@ -565,13 +563,13 @@ Command:
 
 ```sh
 # Write the Netlify site id to apps/web/.netlify-site-id.
-# Replace the host in apps/web/public/_redirects and apps/web/public/_headers.
+# Replace the host on both lines of apps/web/public/_redirects (_headers names no host).
 apps/web/tools/town.sh --public
 apps/web/tools/deploy.sh --dry-run
 apps/web/tools/deploy.sh
 ```
 
-Writes: `apps/web/.netlify-site-id`, `apps/web/public/_redirects`, `apps/web/public/_headers`
+Writes: `apps/web/.netlify-site-id`, `apps/web/public/_redirects`
 
 Check: <app-origin> loads the title town and <app-origin>/api/healthz answers
 

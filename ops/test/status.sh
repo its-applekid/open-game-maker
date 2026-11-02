@@ -27,7 +27,8 @@ fake() {
   printf '#!/usr/bin/env bash\n%s\n' "$2" > "$bin/$1"
   chmod +x "$bin/$1"
 }
-fake systemctl "printf 'ogm-api.service loaded active running OGM API\n'"
+fake systemctl "[[ \$2 == show ]] && { cat '$scratch/mainpid-'\"\${@: -1}\" 2> /dev/null || echo 0; exit 0; }
+printf 'ogm-api.service loaded active running OGM API\n'"
 fake journalctl '[[ " $* " == *" --disk-usage "* ]] && { echo "Archived and active journals take up 2G in the file system."; exit 0; }
 printf "PLACEHOLDER rooms\nlistening\nPLACEHOLDER rooms\n"'
 ss_lines="LISTEN 0 511 127.0.0.1:3100 0.0.0.0:* users:((\"node\",pid=100,fd=20))
@@ -39,6 +40,13 @@ fake df "printf 'Filesystem Size Used Avail Use%% Mounted on\n/dev/nvme0n1p2 900
 fake du 'printf "1.5G\t%s\n" "${@: -1}"'
 fake tailscale 'exit 1'
 export PATH=$bin:$PATH
+
+export OGM_REPO=$scratch/repo
+for service in api rooms games-host intake commit; do
+  mkdir -p "$OGM_REPO/services/$service/dist"
+  printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$OGM_REPO/services/$service/package.json"
+  touch "$OGM_REPO/services/$service/dist/main.js"
+done
 
 touch "$OGM_BACKUP_STATE/last-ok"
 printf '20260101T033000Z\n' > "$OGM_BACKUP_STATE/last-stamp"
@@ -72,6 +80,38 @@ node -e 'const o = JSON.parse(require("node:fs").readFileSync(process.argv[1], "
 
 grep -v ':8792 ' "$scratch/ss.txt" > "$scratch/ss.clean" && mv "$scratch/ss.clean" "$scratch/ss.txt"
 "$status" --check > /dev/null || fail '--check should pass with no stray and a fresh backup'
+
+# A unit whose built entry is absent would only idle as a placeholder; --check names it.
+rm "$OGM_REPO/services/intake/dist/main.js"
+set +e
+"$status" --check > "$scratch/entry.txt"
+code=$?
+set -e
+assert_eq 1 "$code" '--check should fail on a missing service entry'
+assert_grep 'missing entry: services/intake/dist/main.js' "$scratch/entry.txt"
+touch "$OGM_REPO/services/intake/dist/main.js"
+
+# A unit that started before the build still idles on its placeholder; the entry existing is not enough.
+mkdir -p "$OGM_PROC/400"
+printf 'sleep\0infinity\0' > "$OGM_PROC/400/cmdline"
+printf '400\n' > "$scratch/mainpid-ogm-rooms.service"
+set +e
+"$status" --check > "$scratch/idle.txt"
+code=$?
+set -e
+assert_eq 1 "$code" '--check should fail while a built unit still runs its placeholder'
+assert_grep 'placeholder running after build: ogm-rooms' "$scratch/idle.txt"
+printf 'node\0dist/main.js\0' > "$OGM_PROC/400/cmdline"
+"$status" --check > /dev/null || fail '--check should pass once the unit runs its build'
+
+printf '{"scripts":{}}\n' > "$OGM_REPO/services/commit/package.json"
+set +e
+"$status" --check > "$scratch/nostart.txt"
+code=$?
+set -e
+assert_eq 1 "$code" '--check should fail when a service names no start entry'
+assert_grep 'no start entry: services/commit/package.json' "$scratch/nostart.txt"
+printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$OGM_REPO/services/commit/package.json"
 
 touch -d '3 days ago' "$OGM_BACKUP_STATE/last-ok"
 set +e

@@ -1,0 +1,76 @@
+import { cleanup, render, screen } from '@testing-library/react';
+import { useState } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import type { GameManifest } from '@ogm/contracts/browser';
+
+import { EditorChrome } from './EditorChrome';
+import type { EditorSessionState } from './session';
+
+const manifest = {
+  palette: {
+    categories: [{ id: 'actors', label: 'Actors', kind: 'items' }],
+    items: [{ prefab: 'skeleton', label: 'Skeleton', category: 'actors', hint: 'A bony guard' }],
+  },
+  tools: ['select', 'place'],
+} as unknown as GameManifest;
+
+const session = {
+  doc: { schemaVersion: 1, globals: {}, entities: {} },
+  selection: [],
+  tool: 'select',
+  canUndo: false,
+  canRedo: false,
+} as unknown as EditorSessionState;
+
+function Screen() {
+  const [prefab, setPrefab] = useState<string>();
+  return (
+    <>
+      <EditorChrome
+        gameId="game"
+        manifest={manifest}
+        session={session}
+        onCommand={vi.fn()}
+        onTool={vi.fn()}
+        onUndo={vi.fn()}
+        onRedo={vi.fn()}
+        onDelete={vi.fn()}
+        onDuplicate={vi.fn()}
+        onInstanceCount={vi.fn()}
+        onCanvasChange={(value) => setPrefab(value.prefab)}
+      />
+      <output data-testid="canvas-prefab">{prefab ?? ''}</output>
+    </>
+  );
+}
+
+afterEach(cleanup);
+
+describe('EditorChrome', () => {
+  // A creator who taps a palette item and then the canvas must place that item. If the canvas learns the pick a
+  // task after the palette shows it, a quick tap lands as a select-pick and nothing is placed (#297).
+  it('hands the picked prefab to the canvas in the same commit that shows the pick', async () => {
+    render(<Screen />);
+    const seen: string[] = [];
+    const observer = new MutationObserver(() => {
+      if (seen.length === 0 && screen.queryByText('A bony guard') !== null) {
+        seen.push(screen.getByTestId('canvas-prefab').textContent ?? '');
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+
+    const act = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+    const previous = act.IS_REACT_ACT_ENVIRONMENT;
+    act.IS_REACT_ACT_ENVIRONMENT = false;
+    try {
+      screen.getByRole('button', { name: 'Skeleton' }).click();
+      await vi.waitFor(() => expect(seen).toHaveLength(1));
+    } finally {
+      act.IS_REACT_ACT_ENVIRONMENT = previous;
+      observer.disconnect();
+    }
+
+    expect(seen).toEqual(['skeleton']);
+  });
+});

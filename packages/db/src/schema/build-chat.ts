@@ -49,3 +49,26 @@ export const buildChatWorkspaces = sqliteTable(
   },
   (table) => [index('build_chat_workspaces_job').on(table.jobId)],
 );
+
+// #222: files a creator uploads for a chat message. `message_id` stays null until a post claims the upload; text files
+// keep their bytes in the blob store like images, so the row holds only metadata.
+export const buildChatAttachments = sqliteTable(
+  'build_chat_attachments',
+  {
+    id: text('id').primaryKey(),
+    jobId: text('job_id').notNull(),
+    creatorId: text('creator_id').notNull(),
+    messageId: text('message_id'),
+    kind: text('kind', { enum: ['image', 'text'] }).notNull(),
+    name: text('name').notNull(),
+    mime: text('mime').notNull(),
+    blobHash: text('blob_hash').notNull(),
+    bytes: integer('bytes').notNull(),
+    createdAt: text('created_at').notNull(),
+  },
+  (table) => [
+    index('build_chat_attachments_job').on(table.jobId, table.createdAt),
+    index('build_chat_attachments_message').on(table.messageId),
+    check('build_chat_attachments_kind', sql`${table.kind} IN ('image', 'text')`),
+  ],
+);

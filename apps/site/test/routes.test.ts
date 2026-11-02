@@ -1,0 +1,39 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+import { describe, expect, it } from 'vitest';
+import { loadSetupContent } from '../src/schema.js';
+import { loadSplashContent } from '../src/splash.js';
+
+/* dist/ is written by tools/build.mts in the pretest step */
+const distDir = fileURLToPath(new URL('../dist', import.meta.url));
+const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
+const setup = loadSetupContent(fileURLToPath(new URL('../content/setup.yaml', import.meta.url)), repositoryRoot);
+const splash = loadSplashContent(fileURLToPath(new URL('../content/splash.yaml', import.meta.url)));
+
+function page(path: string): Document {
+  return new JSDOM(readFileSync(`${distDir}/${path}`, 'utf8')).window.document;
+}
+
+describe('built routes', () => {
+  it.each(['index.html', 'setup/index.html'])('%s exists with one <h1> and a <title>', (path) => {
+    expect(existsSync(`${distDir}/${path}`)).toBe(true);
+    const doc = page(path);
+    expect(doc.querySelectorAll('h1')).toHaveLength(1);
+    expect(doc.title.trim()).not.toBe('');
+  });
+
+  it('points the splash CTAs at /setup and the app origin from splash.yaml', () => {
+    const ctas = [...page('index.html').querySelectorAll('a.s-cta')].map((a) => a.getAttribute('href'));
+    expect(ctas).toEqual(['/setup', splash.app_origin]);
+  });
+
+  it('renders the eight setup headers in order', () => {
+    const headers = [...page('setup/index.html').querySelectorAll('h2 > button')].map((button) => [
+      button.querySelector('.num')?.textContent,
+      button.querySelector('.title')?.textContent,
+    ]);
+    expect(headers).toEqual(setup.steps.map((step) => [String(step.id), step.title]));
+    expect(headers).toHaveLength(8);
+  });
+});

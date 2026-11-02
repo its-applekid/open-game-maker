@@ -1,0 +1,74 @@
+{
+  "id": "bridge-fixture",
+  "sdk": "^1.0.0",
+  "title": "Goblin Cellar",
+  "inputs": {
+    "actions": {}
+  },
+  "presentation": {
+    "orientation": "any",
+    "minLogical": {
+      "w": 100,
+      "h": 60
+    },
+    "fit": "responsive"
+  },
+  "view": "iso",
+  "dimension": "2d",
+  "capabilities": [],
+  "palette": {
+    "categories": [
+      {
+        "id": "actors",
+        "label": "Actors",
+        "kind": "items"
+      }
+    ],
+    "items": [
+      {
+        "prefab": "skeleton",
+        "label": "Skeleton",
+        "hint": "Place a skeleton",
+        "category": "actors"
+      }
+    ]
+  },
+  "controls": [
+    {
+      "id": "enemy.speed",
+      "label": "Speed",
+      "scope": "instance",
+      "path": "/speed",
+      "widget": {
+        "kind": "slider",
+        "min": 1,
+        "max": 5,
+        "step": 1
+      },
+      "default": 2
+    },
+    {
+      "id": "world.dark",
+      "label": "Dark",
+      "scope": "global",
+      "path": "/dark",
+      "widget": {
+        "kind": "toggle"
+      },
+      "default": false
+    }
+  ],
+  "tools": ["select", "place"],
+  "gizmos": {
+    "skeleton": ["translate"]
+  },
+  "grid": {
+    "size": 1,
+    "units": "tile"
+  },
+  "saves": false,
+  "overrides": {
+    "aliases": {},
+    "retired": []
+  }
+}

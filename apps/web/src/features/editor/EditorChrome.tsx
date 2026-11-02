@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useLayoutEffect, useMemo, useState } from 'react';
 
 import {
   controlDeclSchema,
@@ -51,7 +51,9 @@ export function EditorChrome({
   const controls = useMemo(() => manifestControls(manifest), [manifest]);
   const activeCategory = manifest.palette.categories.find((candidate) => candidate.id === category);
   const picked = manifest.palette.items.find((item) => item.prefab === pickedPrefab);
-  useEffect(() => onCanvasChange?.({ prefab: pickedPrefab, snap }), [onCanvasChange, pickedPrefab, snap]);
+  // Layout, not passive: the canvas must hold the pick in the same commit the palette shows it, or a quick tap
+  // after picking lands as a select and places nothing (#297).
+  useLayoutEffect(() => onCanvasChange?.({ prefab: pickedPrefab, snap }), [onCanvasChange, pickedPrefab, snap]);
   const updateSnap = (next: SnapPrefs) => {
     setSnap(next);
     saveSnapPrefs(gameId, next);

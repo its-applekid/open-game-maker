@@ -18,6 +18,15 @@ after_create: |
         tar -xzf .gm/context/skills.tgz -C .claude/skills
       fi
     fi
+    node -e '
+      const ok = (a) => /^a_[0-9a-f-]{36}$/.test(a.blob) && /^\.gm\/inbox\/attachments\/[A-Za-z0-9][A-Za-z0-9._-]{0,239}$/.test(a.path);
+      for (const a of require("./.gm/context/bundle.json").attachments || []) if (ok(a)) console.log(a.blob + " " + a.path);
+    ' | while read -r blob path; do
+      mkdir -p .gm/inbox/attachments
+      curl -fsS --max-time 60 -H "Authorization: Bearer ${secret}" \
+        "${OGM_INTERNAL_URL:-http://127.0.0.1:0}/internal/jobs/by-ticket/${ticket}/attachments/${blob}" \
+        -o "$path" || rm -f "$path"
+    done
   else
     rm -f .gm/context/bundle.json
     echo "bundle unavailable" > .gm/context/bundle.missing

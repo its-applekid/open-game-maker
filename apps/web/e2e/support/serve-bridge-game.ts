@@ -3,7 +3,13 @@ import { readFile } from 'node:fs/promises';
 
 const host = '127.0.0.1';
 const port = 10_001;
-const fixture = new URL('../fixtures/bridge-game/index.html', import.meta.url);
+const fixture = new URL('../fixtures/bridge-game/', import.meta.url);
+/* A build dir as the publisher stages it: the page plus its manifest and folded design. */
+const files: Record<string, string> = {
+  'index.html': 'text/html; charset=utf-8',
+  'manifest.json': 'application/json; charset=utf-8',
+  'design/design.json': 'application/json; charset=utf-8',
+};
 
 createServer(async (request, response) => {
   const pathname = new URL(request.url ?? '/', `http://${host}:${port}`).pathname;
@@ -11,15 +17,16 @@ createServer(async (request, response) => {
     response.writeHead(204).end();
     return;
   }
-  if (!pathname.startsWith('/g/') || !pathname.endsWith('/index.html')) {
+  const file = Object.keys(files).find((name) => pathname.startsWith('/g/') && pathname.endsWith(`/${name}`));
+  if (!file) {
     response.writeHead(404, { 'content-type': 'text/plain' }).end('not found');
     return;
   }
   response.writeHead(200, {
     'cache-control': 'no-store',
-    'content-type': 'text/html; charset=utf-8',
+    'content-type': files[file],
   });
-  response.end(await readFile(fixture));
+  response.end(await readFile(new URL(file, fixture)));
 }).listen(port, host, () => {
   process.stdout.write(`bridge fixture listening on http://${host}:${port}\n`);
 });
