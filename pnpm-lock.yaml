@@ -35,6 +35,9 @@ importers:
       '@better-auth/passkey':
         specifier: 1.7.15
         version: 1.7.15(@better-auth/core@1.7.15(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.4(zod@4.6.7))(jose@6.2.14)(kysely@0.29.8)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-auth@1.7.15(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))))(better-call@1.4.4(zod@4.6.7))(nanostores@1.5.5)
+      '@colyseus/sdk':
+        specifier: 0.18.9
+        version: 0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7)
       '@noriginmedia/norigin-spatial-navigation':
         specifier: 2.3.0
         version: 2.3.0(react@19.3.1)
@@ -44,6 +47,12 @@ importers:
       '@ogm/voice-client':
         specifier: workspace:*
         version: link:../../packages/voice-client
+      '@ogm/design-log':
+        specifier: workspace:*
+        version: link:../../packages/design-log
+      '@ogm/iframe-bridge':
+        specifier: workspace:*
+        version: link:../../packages/iframe-bridge
       '@tanstack/react-query':
         specifier: 5.105.1
         version: 5.105.1(@types/react@19.3.0)(react@19.3.1)
@@ -63,6 +72,15 @@ importers:
         specifier: 5.0.16
         version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.1)
     devDependencies:
+      '@colyseus/testing':
+        specifier: 0.18.6
+        version: 0.18.6(@colyseus/core@0.18.24)(@colyseus/sdk@0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7))(@colyseus/tools@0.18.11(@colyseus/core@0.18.24)(@colyseus/ws-transport@0.18.4))
+      '@ogm/room-protocol':
+        specifier: workspace:*
+        version: link:../../packages/room-protocol
+      '@ogm/rooms':
+        specifier: workspace:*
+        version: link:../../services/rooms
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
