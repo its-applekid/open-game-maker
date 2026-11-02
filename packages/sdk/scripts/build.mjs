@@ -13,6 +13,7 @@ await build({
     'core/index': 'src/core/index.ts',
     'fx/index': 'src/fx/index.ts',
     'nav/index': 'src/nav/index.ts',
+    'phaser/index': 'src/phaser/index.ts',
     'proc/index': 'src/proc/index.ts',
     'test/index': 'src/test/index.ts',
     'three/index': 'src/three/index.ts',
