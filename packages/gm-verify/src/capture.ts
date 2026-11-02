@@ -9,8 +9,6 @@ export const SOFTWARE_MAX_FRAMES = 6;
 export const SOFTWARE_MAX_RECORD_S = 5;
 export const MAX_CAPTURE_FRAMES = 120;
 export const FFMPEG_HINT = 'sudo apt install ffmpeg';
-/** Sprite sheets are authored at 12 fps; duplicate samples when the delivery encode requests a higher rate. */
-export const STREAM_CAPTURE_FPS = 12;
 /** A synchronous encode blocks the run's timeout timer, so ffmpeg carries its own limit. */
 export const FFMPEG_TIMEOUT_MS = 5 * 60_000;
 
@@ -55,74 +53,61 @@ async function shot(h: HookDriver, ms: number, path: string, type: 'png' | 'jpeg
   await h.page.screenshot({ path, type, ...(type === 'jpeg' ? { quality: 92 } : {}) });
 }
 
-async function canvasVideo(
+/** Frames read back per page round trip; bounds the data URLs held in memory at once. */
+export const CANVAS_FRAME_CHUNK = 60;
+
+/**
+ * Renders each frame through the page's deterministic hook and reads the game canvas back as PNG, so a native clip
+ * holds exactly one image per requested frame (a MediaRecorder stream drops frames under load).
+ */
+async function canvasFrames(
   h: HookDriver,
-  options: Required<Pick<RecordOptions, 'seconds' | 'fps' | 'start'>>,
-  path: string,
+  options: { seconds: number; fps: number; start: number },
+  dir: string,
 ): Promise<{ width: number; height: number }> {
-  const encoded = await h.page.locator('canvas').evaluate(async (element, capture) => {
-    const source = element as HTMLCanvasElement;
-    if (!source.captureStream || typeof MediaRecorder === 'undefined') {
-      throw new Error('canvas stream recording is unavailable');
-    }
-
-    const stream = source.captureStream(0);
-    const track = stream.getVideoTracks()[0] as CanvasCaptureMediaStreamTrack | undefined;
-    if (!track?.requestFrame) throw new Error('manual canvas frame capture is unavailable');
-    const mimeType = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'].find((type) =>
-      MediaRecorder.isTypeSupported(type),
+  const total = Math.round(options.seconds * options.fps);
+  let size = { width: 0, height: 0 };
+  for (let first = 0; first < total; first += CANVAS_FRAME_CHUNK) {
+    const count = Math.min(CANVAS_FRAME_CHUNK, total - first);
+    const chunk = await h.page.locator('canvas').evaluate(
+      (element, capture) => {
+        const source = element as HTMLCanvasElement;
+        type BrowserHooks = { renderAt?: (ms: number) => void; advanceTime?: (ms: number) => void };
+        const browser = window as unknown as { __gm?: BrowserHooks; __frame?: (seconds: number) => void };
+        const hooks = browser.__gm;
+        let clockMs = capture.clockMs;
+        const frames: string[] = [];
+        for (let frame = capture.first; frame < capture.first + capture.count; frame += 1) {
+          const ms = (capture.start + frame / capture.fps) * 1_000;
+          for (let pass = 0; pass < capture.passes; pass += 1) {
+            if (hooks?.renderAt) hooks.renderAt(ms);
+            else if (hooks?.advanceTime) hooks.advanceTime(Math.max(0, ms - clockMs));
+            else if (browser.__frame) browser.__frame(ms / 1_000);
+            else throw new Error('page exposes no deterministic frame hook');
+            clockMs = ms;
+          }
+          frames.push(source.toDataURL('image/png'));
+        }
+        return { frames, width: source.width, height: source.height };
+      },
+      {
+        ...options,
+        first,
+        count,
+        passes: h.passes,
+        clockMs: (options.start + Math.max(0, first - 1) / options.fps) * 1_000,
+      },
     );
-    if (!mimeType) throw new Error('WebM canvas recording is unavailable');
-
-    const chunks: Blob[] = [];
-    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: 4_000_000 });
-    const stopped = new Promise<void>((resolve, reject) => {
-      recorder.addEventListener('dataavailable', ({ data }) => {
-        if (data.size > 0) chunks.push(data);
-      });
-      recorder.addEventListener('stop', () => resolve(), { once: true });
-      recorder.addEventListener('error', () => reject(new Error('canvas MediaRecorder failed')), { once: true });
-    });
-
-    type BrowserHooks = {
-      renderAt?: (ms: number) => void;
-      advanceTime?: (ms: number) => void;
-    };
-    const browser = window as unknown as { __gm?: BrowserHooks; __frame?: (seconds: number) => void };
-    const hooks = browser.__gm;
-    let clockMs = capture.start * 1_000;
-    const renderAt = (ms: number): void => {
-      if (hooks?.renderAt) hooks.renderAt(ms);
-      else if (hooks?.advanceTime) hooks.advanceTime(Math.max(0, ms - clockMs));
-      else if (browser.__frame) browser.__frame(ms / 1_000);
-      else throw new Error('page exposes no deterministic frame hook');
-      clockMs = ms;
-    };
-
-    recorder.start();
-    try {
-      const frames = Math.round(capture.seconds * capture.fps);
-      for (let frame = 0; frame < frames; frame += 1) {
-        renderAt((capture.start + frame / capture.fps) * 1_000);
-        track.requestFrame();
-        // Yield through a paint so Chromium commits the requested frame. Media timestamps are discarded below.
-        await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-      }
-    } finally {
-      recorder.stop();
-      track.stop();
+    if (chunk.frames.length !== count) throw new Error(`canvas returned ${chunk.frames.length} of ${count} frames`);
+    for (const [index, url] of chunk.frames.entries()) {
+      writeFileSync(
+        join(dir, `f${String(first + index).padStart(5, '0')}.png`),
+        Buffer.from(url.split(',')[1] ?? '', 'base64'),
+      );
     }
-    await stopped;
-
-    const bytes = new Uint8Array(await new Blob(chunks, { type: mimeType }).arrayBuffer());
-    let binary = '';
-    for (let offset = 0; offset < bytes.length; offset += 32_768) {
-      binary += String.fromCharCode(...bytes.subarray(offset, offset + 32_768));
-    }
-    return { data: btoa(binary), width: source.width, height: source.height };
-  }, options);
-  writeFileSync(path, Buffer.from(encoded.data, 'base64'));
-  return { width: encoded.width, height: encoded.height };
+    size = { width: chunk.width, height: chunk.height };
+  }
+  return size;
 }
 
 /** One still per time (seconds) at `<dir>/t<t>.png`. */
@@ -176,92 +161,67 @@ export async function timeline(h: HookDriver, times: number[], out: string, bina
   }
 }
 
-/** H.264/yuv420p capture: phone-safe 960 px by default, or the source viewport dimensions when native is requested. */
-export function clipArgs(
-  framesDir: string,
-  fps: number,
-  out: string,
-  native = false,
-  nativeSize?: { width: number; height: number },
-): string[] {
-  const nativeScale = nativeSize
-    ? `scale=${nativeSize.width}:${nativeSize.height}:flags=neighbor:in_range=full:out_range=tv,format=yuv420p`
-    : 'scale=iw:ih:in_range=full:out_range=tv,format=yuv420p';
+/** The phone-verified encode (E10-2): H.264, yuv420p, 960 px wide, CRF 27, moov first. */
+export function clipArgs(framesDir: string, fps: number, out: string): string[] {
   return [
     '-framerate',
     String(fps),
     '-i',
     join(framesDir, 'f%05d.jpg'),
     '-vf',
-    native ? nativeScale : 'scale=960:-2:in_range=full:out_range=tv,format=yuv420p',
+    'scale=960:-2:in_range=full:out_range=tv,format=yuv420p',
     ...h264Args(out, 'slow'),
   ];
 }
 
-/** Retimes manually requested canvas samples to an exact duration and frame rate before the H.264 encode. */
-export function streamClipArgs(
-  input: string,
+/** Native encode of canvas frames: whole-number nearest-neighbour upscale, or the canvas size rounded to even. */
+export function nativeClipArgs(
+  framesDir: string,
   fps: number,
-  sampleFps: number,
-  seconds: number,
   out: string,
-  native = false,
   nativeSize?: { width: number; height: number },
 ): string[] {
-  const scale = native
-    ? nativeSize
-      ? `scale=${nativeSize.width}:${nativeSize.height}:flags=neighbor:in_range=full:out_range=tv`
-      : 'scale=iw:ih:in_range=full:out_range=tv'
-    : 'scale=960:-2:in_range=full:out_range=tv';
+  const size = nativeSize ? `${nativeSize.width}:${nativeSize.height}` : 'trunc(iw/2)*2:trunc(ih/2)*2';
   return [
+    '-framerate',
+    String(fps),
     '-i',
-    input,
+    join(framesDir, 'f%05d.png'),
     '-vf',
-    `setpts=N/(${sampleFps}*TB),tpad=stop_mode=clone:stop_duration=${seconds},fps=${fps},${scale},format=yuv420p`,
-    '-t',
-    String(seconds),
-    '-frames:v',
-    String(Math.round(seconds * fps)),
-    ...h264Args(out),
-  ];
-}
-
-/** MediaRecorder may drop requested canvas frames; normalize the staged H.264 stream to the delivery contract. */
-export function normalizeClipArgs(input: string, fps: number, seconds: number, out: string): string[] {
-  return [
-    '-i',
-    input,
-    '-vf',
-    `tpad=stop_mode=clone:stop_duration=${seconds},fps=${fps},trim=duration=${seconds},format=yuv420p`,
-    '-t',
-    String(seconds),
-    '-frames:v',
-    String(Math.round(seconds * fps)),
-    '-an',
+    `scale=${size}:flags=neighbor:in_range=full:out_range=tv,format=yuv420p`,
     ...h264Args(out),
   ];
 }
 
 export type RecordOptions = { seconds: number; fps?: number; start?: number; native?: boolean };
 
+/** Native output keeps the canvas backing size unless the viewport is an exact whole-number upscale of it. */
+export function nativeUpscale(
+  source: { width: number; height: number },
+  viewport: { width: number; height: number } | null,
+): { width: number; height: number } | undefined {
+  if (!viewport || source.width <= 0 || source.height <= 0) return undefined;
+  const factor = viewport.width / source.width;
+  return Number.isInteger(factor) && factor >= 1 && source.height * factor === viewport.height ? viewport : undefined;
+}
+
 export async function record(h: HookDriver, options: RecordOptions, out: string, binary = 'ffmpeg'): Promise<void> {
   if (!hasFfmpeg(binary)) throw new FfmpegMissingError(binary);
   const fps = options.fps ?? 30;
-  const sampleFps = Math.min(fps, STREAM_CAPTURE_FPS);
   const start = options.start ?? 0;
   mkdirSync(dirname(out), { recursive: true });
   const tmp = mkdtempSync(`${out}.frames-`);
   try {
-    const input = join(tmp, 'capture.webm');
-    const staged = join(tmp, 'staged.mp4');
-    const sourceSize = await canvasVideo(h, { seconds: options.seconds, fps: sampleFps, start }, input);
-    const viewport = h.page.viewportSize();
-    const nativeSize =
-      options.native && viewport && sourceSize.width * viewport.height === sourceSize.height * viewport.width
-        ? viewport
-        : undefined;
-    ffmpeg(binary, streamClipArgs(input, fps, sampleFps, options.seconds, staged, options.native, nativeSize));
-    ffmpeg(binary, normalizeClipArgs(staged, fps, options.seconds, out));
+    if (!options.native) {
+      for (let i = 0; i < Math.round(options.seconds * fps); i += 1) {
+        await shot(h, (start + i / fps) * 1000, join(tmp, `f${String(i).padStart(5, '0')}.jpg`), 'jpeg');
+      }
+      ffmpeg(binary, clipArgs(tmp, fps, out));
+      return;
+    }
+
+    const sourceSize = await canvasFrames(h, { seconds: options.seconds, fps, start }, tmp);
+    ffmpeg(binary, nativeClipArgs(tmp, fps, out, nativeUpscale(sourceSize, h.page.viewportSize())));
   } finally {
     rmSync(tmp, { recursive: true, force: true });
   }

@@ -21,7 +21,7 @@ const PALETTES: Record<SceneId, { sky: number; ground: number; edge: number; acc
 type ActorView = Phaser.GameObjects.Sprite | Phaser.GameObjects.Container | Phaser.GameObjects.Arc;
 
 export class Level extends Phaser.Scene {
-  private readonly privateMode = __GM_PRIVATE_ASSETS__ || new URLSearchParams(location.search).get('private') === '1';
+  private readonly privateMode = __GM_PRIVATE_ASSETS__;
   private readonly pinnedScene: SceneId | undefined = (() => {
     const value = new URLSearchParams(location.search).get('scene');
     return isSceneId(value) ? value : undefined;
@@ -75,6 +75,7 @@ export class Level extends Phaser.Scene {
       this.actorViews.delete(id);
     }
     for (const actor of sample.actors) this.syncActor(actor, sample.localSeconds);
+    this.root?.sort('depth');
   }
 
   private buildStage(id: SceneId): void {

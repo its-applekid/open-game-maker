@@ -36,9 +36,10 @@ logical-input script, checks a save-state round trip, writes a HUD still, runs `
 `--json` emits the L1 gate result and report path.
 
 `gm run` captures deterministic stills, timelines, and H.264 clips from a built game or loopback URL. Clips default to
-30 fps and a phone-safe 960-pixel width. `--record-fps` selects up to 60 fps, and `--record-native` keeps the source
-viewport dimensions; both require `--record`. Native output is intended for pixel-art capture where rescaling would
-soften source pixels. The shared verifier queue carries the same recording controls.
+30 fps and a phone-safe 960-pixel width. `--record-fps` selects up to 60 fps. `--record-native` records the game canvas
+itself at its pixel size, scaled up only by a whole-number factor to fill the viewport, for pixel art that rescaling
+would soften; it samples the game at up to 12 frames per second and fails if the browser drops a frame. Both flags
+require `--record`, and the shared verifier queue carries them.
 
 ## Refresh the skill pack
 

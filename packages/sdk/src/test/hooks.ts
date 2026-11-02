@@ -151,6 +151,9 @@ export class SdkHooks<D, S> implements RuntimeHooks {
 
   restore(save: SaveData<unknown>): void {
     this.runtime.instance.restore(structuredClone(save) as SaveData<S>);
+    // History before the restore no longer leads to this state; rewinding past it must fail rather than replay it.
+    for (const history of [this.frames, this.inputHistory, this.keyframes, this.textKeyframes]) history.length = 0;
+    this.captureKeyframe();
   }
 
   renderInfo(): ReturnType<GmTestHooks['renderInfo']> {

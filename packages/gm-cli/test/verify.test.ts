@@ -67,6 +67,16 @@ describe('gm run', () => {
     expect(() => parseRecord('4s', 29.97, false)).toThrow(/--record-fps must be an integer from 1 to 60/);
   });
 
+  it('wires the recording fidelity flags from argv before launching a browser', async () => {
+    const orphan = await gm(['run', '--record-native']);
+    expect(orphan.code).toBe(2);
+    expect(orphan.err.join('\n')).toMatch(/--record-native requires --record/);
+
+    const tooFast = await gm(['run', '--record', '4s', '--record-fps', '61']);
+    expect(tooFast.code).toBe(2);
+    expect(tooFast.err.join('\n')).toMatch(/--record-fps must be an integer from 1 to 60/);
+  });
+
   it('refuses a non-loopback URL before launching a browser', async () => {
     const result = await gm(['run', '--url', 'http://0.0.0.0:8000/']);
     expect(result.code).toBe(2);

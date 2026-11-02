@@ -143,6 +143,17 @@ describe('runtime hooks', () => {
     expect(runtime.instance.serialize()).toEqual(save);
   });
 
+  it('refuses to rewind across a restore instead of replaying the overwritten history', async () => {
+    const { runtime } = await start();
+    const save = runtime.instance.serialize();
+    runtime.hooks.advanceTime(500);
+
+    runtime.hooks.restore(save);
+
+    expect(() => runtime.hooks.renderAt(100)).toThrow('predates retained rewind history');
+    expect(runtime.instance.serialize()).toEqual(save);
+  });
+
   it('is deterministic for equal seeds and injected frames', async () => {
     const first = await start();
     const second = await start();
