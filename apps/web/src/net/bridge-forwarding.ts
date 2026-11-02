@@ -1,4 +1,10 @@
-import { gameToHostSchema, LIMITS, type ClientMessage, type Envelope, type ServerMessage } from '@ogm/contracts';
+import {
+  gameToHostSchema,
+  LIMITS,
+  type ClientMessage,
+  type Envelope,
+  type ServerMessage,
+} from '@ogm/contracts/browser';
 
 import type { DesignBridge, WatcherSync } from './watcher-sync';
 import type { RoomStore, RoomStoreApi } from './room-store';

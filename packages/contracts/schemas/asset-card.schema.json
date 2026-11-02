@@ -399,6 +399,7 @@
         "rig_type": { "enum": ["humanoid", "quadruped", "creature", "vehicle", "custom"] },
         "rig_id": { "type": "string", "pattern": "^rig:[0-9a-f]{12}$", "description": "Hash of the sorted joint names plus parent links. Same rig_id = animations transfer. 'Shares a rig with' is an index query on this field, not stored on the card." },
         "joint_count": { "type": "integer", "minimum": 1 },
+        "retarget_rig_id": { "type": "string", "pattern": "^rig:[0-9a-f]{12}$", "description": "A different rig whose clips play on this skeleton: every joint here exists there with the same parent; tracks for that rig's extra joints are dropped. Set when no clip library targets rig_id itself." },
         "attach_points": {
           "type": "array",
           "items": {

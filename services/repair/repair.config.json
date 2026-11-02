@@ -1,0 +1,6 @@
+{
+  "attempts": 2,
+  "reservationFraction": 0.333,
+  "wallClockMinutes": 10,
+  "pollMs": 5000
+}

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "805de922-9918-4c90-a786-5094a3826f44",
+  "id": "26b35d7a-65c6-4016-91ef-22b60a3e36d6",
   "prevId": "c18c5463-528a-472c-ae1a-7af05ac89560",
   "tables": {
     "app_meta": {
@@ -2808,102 +2808,6 @@
         }
       }
     },
-    "build_chat_attachments": {
-      "name": "build_chat_attachments",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "job_id": {
-          "name": "job_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "creator_id": {
-          "name": "creator_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "message_id": {
-          "name": "message_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "mime": {
-          "name": "mime",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "blob_hash": {
-          "name": "blob_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "bytes": {
-          "name": "bytes",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "build_chat_attachments_job": {
-          "name": "build_chat_attachments_job",
-          "columns": ["job_id", "created_at"],
-          "isUnique": false
-        },
-        "build_chat_attachments_message": {
-          "name": "build_chat_attachments_message",
-          "columns": ["message_id"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "build_chat_attachments_kind": {
-          "name": "build_chat_attachments_kind",
-          "value": "\"build_chat_attachments\".\"kind\" IN ('image', 'text')"
-        }
-      }
-    },
     "build_chat_messages": {
       "name": "build_chat_messages",
       "columns": {
@@ -3472,6 +3376,41 @@
           "notNull": false,
           "autoincrement": false
         },
+        "triage_state": {
+          "name": "triage_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "triage_claimed_at": {
+          "name": "triage_claimed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "triage_signature": {
+          "name": "triage_signature",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "triage_json": {
+          "name": "triage_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "diagnostics_key": {
+          "name": "diagnostics_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "reporter_id": {
           "name": "reporter_id",
           "type": "text",
@@ -3502,6 +3441,16 @@
           "name": "reports_platform_signature",
           "columns": ["platform_signature"],
           "isUnique": false
+        },
+        "reports_triage_claim": {
+          "name": "reports_triage_claim",
+          "columns": ["triage_state", "route", "created_at"],
+          "isUnique": false
+        },
+        "reports_triage_signature": {
+          "name": "reports_triage_signature",
+          "columns": ["triage_signature"],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -3529,6 +3478,10 @@
         "reports_text_length": {
           "name": "reports_text_length",
           "value": "\"reports\".\"text\" IS NULL OR length(\"reports\".\"text\") <= 2000"
+        },
+        "reports_triage_state": {
+          "name": "reports_triage_state",
+          "value": "\"reports\".\"triage_state\" IS NULL OR \"reports\".\"triage_state\" IN ('processing', 'ready', 'stored', 'deduped')"
         }
       }
     },
