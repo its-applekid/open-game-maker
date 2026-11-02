@@ -13,7 +13,10 @@ describe('saves schema', () => {
       readFileSync(new URL('../migrations/meta/20261102023822_snapshot.json', import.meta.url), 'utf8'),
     ) as { prevId: string };
 
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 17, tag: '20261102023822_saves' });
+    expect(journal.entries.find(({ tag }) => tag === '20261102023822_saves')).toMatchObject({
+      idx: 17,
+      tag: '20261102023822_saves',
+    });
     expect(snapshot.prevId).toBe('bee1d21c-c195-4d9e-bc64-02d3b37dde9e');
   });
 

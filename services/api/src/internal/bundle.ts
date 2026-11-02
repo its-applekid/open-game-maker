@@ -8,6 +8,7 @@ import { JobBundle } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 
 import type { ApiBindings, AppDeps } from '../app/types.js';
+import { scopeSessions } from '../scope/store.js';
 
 // Resolves an after_create hook's bearer to the one game repo whose daemon holds that secret, or null.
 export type HookDaemonResolver = (secret: string, deps: AppDeps) => Promise<string | null>;
@@ -51,12 +52,14 @@ export function bundleRoutes(opts: { daemonForSecret: HookDaemonResolver; skills
       if (!job || job.repo.toLowerCase() !== repo.toLowerCase()) return c.json({ error: { code: 'not_found' } }, 404);
 
       const { version } = opts.skills();
+      const scopeSessionId = job.kind === 'scope' ? scopeSessions.getByJob(deps.db, job.jobId)?.id : undefined;
       const bundle = JobBundle.parse({
         v: 1,
         jobId: job.jobId,
         gameId: job.gameId,
         repo: job.repo,
         kind: job.kind,
+        ...(scopeSessionId === undefined ? {} : { scope_session_id: scopeSessionId }),
         skillPackVersion: version,
         skillPackUrl: new URL(`/internal/skills/${encodeURIComponent(version)}.tgz`, c.req.url).href,
         gameContext: { ...job.game, branch: 'main', lockfilePath: 'assets.lock.json' },

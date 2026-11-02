@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { Id } from './api.js';
 import { JobKind } from './jobs.js';
 
 // T02 §4 after_create contract: what a game repo's hook writes to `.gm/context/bundle.json` (OGM-036).
@@ -11,6 +12,7 @@ export const JobBundle = z
     gameId: z.string().min(1),
     repo: z.string().min(1),
     kind: JobKind,
+    scope_session_id: Id.optional(),
     skillPackVersion: z.string().min(1),
     // Loopback URL of the pack tarball, fetched with the same hook bearer.
     skillPackUrl: z.string().url(),
