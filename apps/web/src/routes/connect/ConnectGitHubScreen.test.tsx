@@ -1,27 +1,40 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const auth = vi.hoisted(() => ({
-  authClient: { linkSocial: vi.fn() },
   authErrorMessage: (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
+  connectGitHubInstallation: vi.fn(),
   getGitHubStatus: vi.fn(),
   getRepoVisibilityDefault: vi.fn(),
-  isAgeRequiredError: vi.fn(() => false),
-  requireAge: vi.fn(),
+  gitHubInstallUrl: vi.fn(),
   safeNext: (value: string | null, fallback: string) => value ?? fallback,
   setRepoVisibilityDefault: vi.fn(),
 }));
+const assign = vi.fn();
 
 vi.mock('../../lib/api/auth', () => auth);
 
 import { ConnectGitHubScreen } from './ConnectGitHubScreen';
 
+function LocationProbe() {
+  const location = useLocation();
+  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+}
+
 function renderConnect(entry = '/connect/github') {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <Routes>
-        <Route path="/connect/github" element={<ConnectGitHubScreen />} />
+        <Route
+          path="/connect/github"
+          element={
+            <>
+              <ConnectGitHubScreen />
+              <LocationProbe />
+            </>
+          }
+        />
         <Route path="/games" element={<h1>Games destination</h1>} />
       </Routes>
     </MemoryRouter>,
@@ -29,26 +42,51 @@ function renderConnect(entry = '/connect/github') {
 }
 
 beforeEach(() => {
-  auth.authClient.linkSocial.mockResolvedValue({ data: {}, error: null });
+  vi.stubGlobal('location', { ...window.location, assign });
+  auth.gitHubInstallUrl.mockImplementation(
+    (next: string) => `https://github.com/apps/ogm/installations/new?state=${encodeURIComponent(next)}`,
+  );
+  auth.connectGitHubInstallation.mockResolvedValue({ connected: true, login: 'octocat' });
   auth.getGitHubStatus.mockResolvedValue({ connected: false });
   auth.getRepoVisibilityDefault.mockReturnValue('private');
-  auth.requireAge.mockResolvedValue(undefined);
 });
 
 afterEach(() => {
   cleanup();
+  vi.unstubAllGlobals();
   vi.clearAllMocks();
 });
 
 describe('ConnectGitHubScreen', () => {
-  it('starts the GitHub link flow', async () => {
+  it('sends the creator to the GitHub App installation, carrying next', async () => {
     renderConnect('/connect/github?next=%2Fgames');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Connect GitHub' }));
 
-    expect(auth.authClient.linkSocial).toHaveBeenCalledWith(
-      expect.objectContaining({ provider: 'github', callbackURL: expect.stringContaining('/connect/github?') }),
-    );
+    expect(auth.gitHubInstallUrl).toHaveBeenCalledWith('/games');
+    expect(assign).toHaveBeenCalledWith('https://github.com/apps/ogm/installations/new?state=%2Fgames');
+  });
+
+  it('connects the installation GitHub returns with and shows the login', async () => {
+    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=%2Fgames');
+
+    expect(await screen.findByText('@octocat')).toBeVisible();
+    expect(auth.connectGitHubInstallation).toHaveBeenCalledTimes(1);
+    expect(auth.connectGitHubInstallation).toHaveBeenCalledWith('4242');
+    expect(auth.getGitHubStatus).not.toHaveBeenCalled();
+    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fgames');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Games destination' })).toBeVisible());
+  });
+
+  it('shows a refused installation and lets the creator start again', async () => {
+    auth.connectGitHubInstallation.mockRejectedValueOnce(new Error('That GitHub account is already connected.'));
+    renderConnect('/connect/github?installation_id=4242&state=%2Fgames');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('That GitHub account is already connected.');
+    fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
+    expect(assign).toHaveBeenCalledTimes(1);
   });
 
   it('renders the connected login and persists the visibility choice', async () => {
@@ -90,15 +128,14 @@ describe('ConnectGitHubScreen', () => {
     expect(await screen.findByRole('button', { name: 'Connect GitHub' })).toBeVisible();
   });
 
-  it('shows a failed GitHub link and permits a retry', async () => {
-    auth.authClient.linkSocial.mockRejectedValueOnce(new Error('GitHub is unavailable.'));
+  it('reports an unconfigured GitHub App instead of navigating', async () => {
+    auth.gitHubInstallUrl.mockReturnValue(null);
     renderConnect();
 
     fireEvent.click(await screen.findByRole('button', { name: 'Connect GitHub' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('GitHub is unavailable.');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not connect GitHub.');
+    expect(assign).not.toHaveBeenCalled();
     expect(screen.getByRole('button', { name: 'Connect GitHub' })).toBeEnabled();
-    fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
-    await waitFor(() => expect(auth.authClient.linkSocial).toHaveBeenCalledTimes(2));
   });
 });
