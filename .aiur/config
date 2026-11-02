@@ -91,7 +91,7 @@ agent:
     2: 8
     3: 12
   max_dispatches_per_ticket: 80
-  max_agent_duration_minutes: 90
+  max_agent_duration_minutes: 180
   stall_timeout_ms: 1200000
   prior_work_continuation: true
   codex:

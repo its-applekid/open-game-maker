@@ -29,14 +29,15 @@ use. Work here the way those agents will work: dogfood the skills.
   (back the file up first; use only keys the running build knows; `aiur-main status` shows `CONFIG RELOAD REJECTED` on a
   bad file). Never stop/relaunch the daemon for a config change.
   Throughput gate: when `AGENTS` shows `binding: AIMD envelope` below the cap while CPU PSI is under target, `aiur-main set
-  max-agents <cap>` (the same value) resets the envelope within a minute (fleet 6→12 on 2026-11-01). Lowering the PSI
+  max-agents <cap>` (the same value) resets a *held* envelope within a minute (fleet 6→12 on 2026-11-01); while `AGENTS`
+  says `resuming toward N (safe level)` it is already ramping and the reset does nothing, wait it out. Lowering the PSI
   thresholds is not the lever: at 55/70 the fleet fell 10→6 and PSI stayed ~88 % (the daemon BEAM itself uses ~2 cores,
   Aiur #7468). Wrap RPCs that must land in `executor/retry.sh <args>` (3 tries on timeout); `executor/status.sh` prints the
   build progress line for ETA questions.
   Review loop (Kevin, 2026-11-01 06:20: "way too many Claude tokens"): the deep review is the worker's own `ce-code-review`
   run before the PR (`.aiur/prompt.md`, AGENTS.md); the Executor's background check is the light brief in
   `docs/plans/ogm-v1-build/review-brief.md` (does the PR do the ticket, scope, evidence, secrets) on `model: haiku`,
-  no mutation runs, no gate rebuilds; post reviews as comments (`gh pr review --comment`, with explicit `Blocking:` lines) and then send the same asks into the running worker with `aiur-main message <ticket> "…"` (comments never reach a worker mid-turn; Aiur, 2026-11-01, #7459), because the
+  no mutation runs, no gate rebuilds; post reviews as comments (`gh pr review --comment`, with explicit `Blocking:` lines) and then send the same asks into the running worker with `aiur-main message <ticket> "…"` (comments never reach a worker mid-turn; Aiur, 2026-11-01, #7459; `message` to a *paused* worker is refused with "max concurrent agents reached", so for a paused worker leave the note as an issue comment instead, which it reads on resume), because the
   single-identity install makes self-approval impossible; merge with `gh pr merge --merge` after a green `ci / required`
   (`aiur pr merge` fails here: "unexpected tool failure"); wait on checks with `gh pr checks <n> --watch --fail-fast` (this gh 2.46 has no `--json` for checks).
 - **Branch and safety:** commit research to `research` as you go; never commit `assets-local/`, keys, download links or
