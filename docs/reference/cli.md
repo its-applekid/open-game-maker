@@ -39,7 +39,9 @@ logical-input script, checks a save-state round trip, writes a HUD still, runs `
 
 `gm run` captures deterministic stills, timelines, clips, and browser budgets. It writes `report.json` plus
 `state.json` containing the final `renderGameToText()` value when that hook is available; sameness evals use the state
-keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags.
+keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags. `--record-native`
+records the game canvas at its pixel size, scaled up only by a whole-number factor, rendering every frame through the
+game's deterministic hook so a clip holds exactly duration x fps frames.
 
 ## Refresh the skill pack
 

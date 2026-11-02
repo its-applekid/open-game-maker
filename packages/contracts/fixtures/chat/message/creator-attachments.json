@@ -1,0 +1,24 @@
+{
+  "id": "m_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e11",
+  "job_id": "j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+  "at": "2026-11-01T09:14:40Z",
+  "actor": "creator",
+  "kind": "text",
+  "text": "use these for the castle level",
+  "attachments": [
+    {
+      "id": "a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e20",
+      "kind": "text",
+      "name": "level-ideas.md",
+      "mime": "text/markdown",
+      "bytes": 412
+    },
+    {
+      "id": "a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e21",
+      "kind": "image",
+      "name": "castle sketch.png",
+      "mime": "image/webp",
+      "bytes": 48213
+    }
+  ]
+}

@@ -1,7 +1,21 @@
 import { z } from 'zod';
 
 import { Id } from './api.js';
+import { ChatAttachmentKind, MAX_IMAGE_ATTACHMENT_BYTES } from './chat.js';
 import { JobKind } from './jobs.js';
+
+// A file the creator attached to the job's chat (#222). The after_create hook downloads `blob` (an attachment id served
+// at /internal/jobs/by-ticket/:ticket/attachments/:id) to `path`, inside `.gm/inbox/attachments/`.
+export const JobBundleAttachment = z
+  .object({
+    kind: ChatAttachmentKind,
+    name: z.string().min(1).max(200),
+    blob: Id,
+    bytes: z.number().int().positive().max(MAX_IMAGE_ATTACHMENT_BYTES),
+    message_id: Id,
+    path: z.string().regex(/^\.gm\/inbox\/attachments\/[A-Za-z0-9][A-Za-z0-9._-]{0,239}$/),
+  })
+  .strict();
 
 // T02 §4 after_create contract: what a game repo's hook writes to `.gm/context/bundle.json` (OGM-036).
 // Never tokens, keys, cookies, email addresses or the creator's name.
@@ -32,7 +46,9 @@ export const JobBundle = z
       .object({ reportId: z.string().min(1), bundleKey: z.string().min(1) })
       .strict()
       .optional(),
+    attachments: z.array(JobBundleAttachment).optional(),
   })
   .strict();
 
+export type JobBundleAttachment = z.infer<typeof JobBundleAttachment>;
 export type JobBundle = z.infer<typeof JobBundle>;

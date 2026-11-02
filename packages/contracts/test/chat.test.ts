@@ -5,7 +5,14 @@ import addFormats from 'ajv-formats';
 import { describe, expect, it } from 'vitest';
 import { toJSONSchema, type z } from 'zod';
 
-import { AgentOutboxLine, BuildChatMessage, ChatPostBody, ChatPostPayload, chatSchemas } from '../src/chat.js';
+import {
+  AgentOutboxLine,
+  BuildChatMessage,
+  ChatAttachment,
+  ChatPostBody,
+  ChatPostPayload,
+  chatSchemas,
+} from '../src/chat.js';
 import { loadJson } from './helpers.js';
 
 const packageRoot = new URL('../', import.meta.url);
@@ -44,6 +51,8 @@ describe('build chat contract', () => {
     { file: 'message.media-without-size.json', schema: BuildChatMessage, path: 'media.width' },
     { file: 'outbox-line.bad-type.json', schema: AgentOutboxLine, path: 'type' },
     { file: 'post-payload.image-without-file.json', schema: ChatPostPayload, path: 'file' },
+    { file: 'post.too-many-attachments.json', schema: ChatPostBody, path: 'attachments' },
+    { file: 'attachment.disallowed-type.json', schema: ChatAttachment, path: 'mime' },
   ])('rejects $file at $path', ({ file, schema, path }) => {
     const result = (schema as z.ZodType).safeParse(loadJson(`fixtures/chat-negative/${file}`));
     expect(result.success).toBe(false);
@@ -73,5 +82,14 @@ describe('build chat contract', () => {
       kind: payload.kind,
       text: payload.text,
     });
+  });
+
+  // A creator may send files with no words, but never an empty message or the same file twice.
+  it('accepts attachments without text and refuses an empty or duplicated post', () => {
+    const id = 'a_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e20';
+    expect(ChatPostBody.parse({ attachments: [id] })).toEqual({ attachments: [id] });
+    expect(ChatPostBody.safeParse({}).success).toBe(false);
+    expect(ChatPostBody.safeParse({ attachments: [] }).success).toBe(false);
+    expect(ChatPostBody.safeParse({ text: 'two', attachments: [id, id] }).success).toBe(false);
   });
 });

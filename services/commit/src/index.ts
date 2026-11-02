@@ -32,6 +32,7 @@ async function main(): Promise<void> {
     serviceToken: config.serviceToken,
     repos: new RepoResolver(config.apiInternalUrl, config.serviceToken),
     audit: new JsonlAuditWriter(config.dataDirectory),
+    installations: github,
     operations: {
       app: github,
       gate: new RealBoundaryGate({ app: github, api, blocklist }),

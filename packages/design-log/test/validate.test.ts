@@ -88,6 +88,25 @@ describe('validatePatches', () => {
     });
   });
 
+  // JSON.parse keeps `__proto__` as an own key, as a decoded request body would.
+  it.each([
+    ['{"op":"replace","path":["globals","__proto__"],"value":1}', 'patches.0.path'],
+    ['{"op":"replace","path":["entities","constructor"],"value":{}}', 'patches.0.path'],
+    ['{"op":"replace","path":["globals","door"],"value":[[{"__proto__":{}}]]}', 'patches.0.value'],
+    ['{"op":"add","path":["globals","door"],"value":{"a":{"__proto__":1}}}', 'patches.0.value'],
+  ])('rejects reserved prototype keys in %s', (patch, path) => {
+    expect(validatePatches([JSON.parse(patch) as Patch])).toEqual({
+      ok: false,
+      errors: [{ path, code: 'reserved_key' }],
+    });
+  });
+
+  it('keeps constructor and prototype as ordinary value fields', () => {
+    const value = { constructor: 1, nested: [{ prototype: null }] };
+    expect(validatePatches([{ op: 'add', path: ['globals', 'door'], value }])).toEqual({ ok: true });
+    expect(apply(baseDoc(), [{ op: 'add', path: ['globals', 'door'], value }]).globals.door).toEqual(value);
+  });
+
   it('throws a typed error above the 256 KiB canonical cap', () => {
     expect(() => validatePatches([{ op: 'add', path: ['globals', 'large'], value: 'x'.repeat(300 * 1024) }])).toThrow(
       PatchTooLargeError,
@@ -98,5 +117,8 @@ describe('validatePatches', () => {
     expect(() => apply(baseDoc(), [{ op: 'add', path: ['secrets', 'token'], value: 'x' }])).toThrow(InvalidPatchError);
     expect(() => apply(baseDoc(), [{ op: 'remove', path: ['entities'] }])).toThrow(InvalidPatchError);
     expect(() => apply(baseDoc(), [{ op: 'replace', path: ['globals', 'gravity'] }])).toThrow(InvalidPatchError);
+    // Without the guard, immer's clone turns the own `__proto__` key into the object's prototype.
+    const polluted = JSON.parse('{"op":"replace","path":["globals","door"],"value":[{"__proto__":{}}]}') as Patch;
+    expect(() => apply(baseDoc(), [polluted])).toThrow(InvalidPatchError);
   });
 });

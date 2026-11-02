@@ -89,9 +89,9 @@ export function useScopeSession(gameId: string, choices: ScopeChoices, transport
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, attachments?: string[]) => {
       if (!jobId) return;
-      addMessage(await transport.postText(jobId, text));
+      addMessage(await (attachments ? transport.postText(jobId, text, attachments) : transport.postText(jobId, text)));
     },
     [addMessage, jobId, transport],
   );

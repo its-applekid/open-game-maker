@@ -14,7 +14,7 @@ export type ScopeSessionResponse = {
 export type ScopeTransport = {
   createSession(gameId: string, choices: ScopeChoices): Promise<{ sessionId: string; jobId: string }>;
   getSession(gameId: string, sessionId: string): Promise<ScopeSessionResponse>;
-  postText(jobId: string, text: string): Promise<StreamedChatMessage>;
+  postText(jobId: string, text: string, attachments?: string[]): Promise<StreamedChatMessage>;
   subscribe(jobId: string, onMessage: (message: StreamedChatMessage) => void): () => void;
 };
 
@@ -26,10 +26,10 @@ export const scopeTransport: ScopeTransport = {
     }),
   getSession: (gameId, sessionId) =>
     api(`/games/${encodeURIComponent(gameId)}/scope/sessions/${encodeURIComponent(sessionId)}`),
-  postText: (jobId, text) =>
+  postText: (jobId, text, attachments) =>
     api(`/jobs/${encodeURIComponent(jobId)}/chat`, {
       method: 'POST',
-      json: { text },
+      json: { ...(text ? { text } : {}), ...(attachments ? { attachments } : {}) },
     }),
   subscribe: (jobId, onMessage) => subscribeChat(jobId, 0, onMessage),
 };
