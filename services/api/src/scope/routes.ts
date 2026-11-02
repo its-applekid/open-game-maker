@@ -11,16 +11,24 @@ import { eq } from 'drizzle-orm';
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
 import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
+import { readBoundedBody } from '../app/read-body.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
+import { createRateLimiter } from '../auth/rate-limit.js';
+import { MediaError, putCreatorImage } from '../build-chat/media.js';
+import { getChatRuntime } from '../build-chat/routes.js';
+import { insertChatRow } from '../build-chat/store.js';
 import { AdmissionRefused, admit } from '../jobs/admission.js';
 import { findJobRow } from '../jobs/repo.js';
 import { markTerminal } from '../jobs/spend-cap.js';
 import { scopeSessions } from './store.js';
 
 export const prefix = '/api/v1/games';
+export const MAX_CREATOR_IMAGE_BYTES = 10 * 1024 * 1024;
+export const CREATOR_IMAGES_PER_MINUTE = 10;
 
 const creates = new Map<string, Promise<unknown>>();
+const imageLimiters = new WeakMap<AppDeps, ReturnType<typeof createRateLimiter>>();
 const createBody = z.object({ choices: ScopeChoices }).strict();
 type UserPrincipal = Extract<Principal, { kind: 'user' }>;
 
@@ -63,6 +71,14 @@ async function serialized<T>(gameId: string, work: () => Promise<T>): Promise<T>
   } finally {
     if (creates.get(gameId) === current) creates.delete(gameId);
   }
+}
+
+function imageLimiter(deps: AppDeps) {
+  const existing = imageLimiters.get(deps);
+  if (existing) return existing;
+  const limiter = createRateLimiter(CREATOR_IMAGES_PER_MINUTE, 60_000);
+  imageLimiters.set(deps, limiter);
+  return limiter;
 }
 
 const routes = new Hono<ApiBindings>()
@@ -133,6 +149,41 @@ const routes = new Hono<ApiBindings>()
       throw new HttpError(404, 'scope_session_not_found');
     requireOwner(deps, session, principal);
     return c.json(response(session));
+  })
+  .post('/:gameId/scope/sessions/:id/images', async (c) => {
+    const principal = requirePrincipal(c, ['user']);
+    const deps = c.get('deps');
+    const session = scopeSessions.get(deps.db, c.req.param('id'));
+    if (session === null || session.game_id !== c.req.param('gameId'))
+      throw new HttpError(404, 'scope_session_not_found');
+    requireOwner(deps, session, principal);
+    if (session.status !== 'open') throw new HttpError(409, 'scope_session_not_open');
+    if (!imageLimiter(deps)(`${principal.userId}:${session.id}`)) throw new HttpError(429, 'rate_limited');
+
+    const contentType = (c.req.header('content-type') ?? '').split(';', 1)[0]!.trim().toLowerCase();
+    if (!contentType.startsWith('image/')) throw new HttpError(415, 'unsupported_image_type');
+    const length = c.req.header('content-length');
+    if (length !== undefined && (!/^[0-9]+$/.test(length) || Number(length) > MAX_CREATOR_IMAGE_BYTES)) {
+      throw new HttpError(413, 'image_too_large');
+    }
+    const bytes = await readBoundedBody(c.req.raw, MAX_CREATOR_IMAGE_BYTES, 'image_too_large');
+    if (bytes.byteLength === 0) throw new HttpError(400, 'empty_image');
+
+    const media = await putCreatorImage(deps.blobStore, bytes).catch((error: unknown) => {
+      if (error instanceof MediaError) throw new HttpError(422, 'invalid_image');
+      throw error;
+    });
+    if (scopeSessions.get(deps.db, session.id)?.status !== 'open') {
+      throw new HttpError(409, 'scope_session_not_open');
+    }
+    const { row } = insertChatRow(deps.sqlite, {
+      jobId: session.job_id,
+      actor: 'creator',
+      kind: 'image',
+      media,
+    });
+    getChatRuntime(deps).hub.publish(session.job_id);
+    return c.json({ imageId: row!.id }, 201);
   })
   .post('/:gameId/scope/sessions/:id/abandon', async (c) => {
     const principal = requirePrincipal(c, ['user']);
