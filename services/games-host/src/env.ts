@@ -1,17 +1,27 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { cwd, env as processEnvironment } from 'node:process';
+import { fileURLToPath } from 'node:url';
+
+import { loadEnv } from '@ogm/config';
 
 export const GAMES_HOST = '127.0.0.1' as const;
+const DEFAULT_WORKER_SCRIPT = fileURLToPath(new URL('../../../packages/host/dist/game-cache.js', import.meta.url));
 
 export interface GamesHostEnv {
   appOrigin: string;
   host: typeof GAMES_HOST;
   port: number;
   root: string;
+  workerScript: string;
 }
 
 export function loadGamesHostEnv(environment: NodeJS.ProcessEnv = processEnvironment): GamesHostEnv {
+  const { OGM_GAMES_SW: configuredWorkerScript } = loadEnv(
+    'games',
+    { OGM_GAMES_SW: { kind: 'path', required: false } },
+    environment,
+  );
   const host = environment.OGM_GAMES_BIND ?? GAMES_HOST;
   if (host !== GAMES_HOST) {
     throw new Error(`OGM_GAMES_BIND must be ${GAMES_HOST}`);
@@ -31,6 +41,7 @@ export function loadGamesHostEnv(environment: NodeJS.ProcessEnv = processEnviron
     host: GAMES_HOST,
     port,
     root: resolve(required(environment, 'OGM_GAMES_ROOT')),
+    workerScript: configuredWorkerScript ? resolve(configuredWorkerScript) : DEFAULT_WORKER_SCRIPT,
   };
 }
 

@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { open, realpath, rename, rm, stat } from 'node:fs/promises';
-import { isAbsolute, join, relative, sep } from 'node:path';
+import { constants } from 'node:fs';
+import { copyFile, link, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises';
+import { basename, isAbsolute, join, relative, sep } from 'node:path';
 import { pid } from 'node:process';
 
 import { StableIdSchema } from '@ogm/contracts';
 
 const LEGACY_ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+const BLOB_FILE_RE = /^[0-9a-f]{64}\.(?:glb|webp|png|mp3|ogg|woff2|ktx2|json)$/u;
 
 /* The API's ULID ids (StableIdSchema), plus the lowercase ids (build hashes) already on disk. */
 export function isServableId(id: string): boolean {
@@ -16,6 +18,58 @@ export class BadId extends Error {
   constructor(id: string) {
     super(`invalid game or build id: ${id}`);
     this.name = 'BadId';
+  }
+}
+
+export class BadBlobName extends Error {
+  constructor(file: string) {
+    super(`invalid blob name: ${file}`);
+    this.name = 'BadBlobName';
+  }
+}
+
+export function blobPath(root: string, file: string): string {
+  if (!BLOB_FILE_RE.test(file)) {
+    throw new BadBlobName(file);
+  }
+  return join(root, '_a', file);
+}
+
+export async function putBlob(root: string, source: string): Promise<string> {
+  const destination = blobPath(root, basename(source));
+  if (await isFile(destination)) {
+    return destination;
+  }
+
+  const directory = join(root, '_a');
+  await mkdir(directory, { recursive: true });
+  if (await isFile(destination)) {
+    return destination;
+  }
+
+  const temporary = join(directory, `.${basename(source)}.${pid}.${randomUUID()}.tmp`);
+  try {
+    try {
+      await link(source, temporary);
+    } catch (error) {
+      if (!canFallBackToCopy(error)) {
+        throw error;
+      }
+      await copyFile(source, temporary, constants.COPYFILE_EXCL);
+    }
+
+    const handle = await open(temporary, 'r');
+    try {
+      await handle.sync();
+    } finally {
+      await handle.close();
+    }
+
+    await rename(temporary, destination);
+    await syncDirectory(directory);
+    return destination;
+  } finally {
+    await rm(temporary, { force: true });
   }
 }
 
@@ -127,4 +181,19 @@ async function syncDirectory(directory: string): Promise<void> {
   } finally {
     await handle.close();
   }
+}
+
+async function isFile(path: string): Promise<boolean> {
+  try {
+    return (await stat(path)).isFile();
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function canFallBackToCopy(error: unknown): boolean {
+  return ['EACCES', 'EPERM', 'EXDEV', 'ENOSYS', 'ENOTSUP'].includes((error as NodeJS.ErrnoException).code ?? '');
 }

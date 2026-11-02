@@ -1,19 +1,21 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, type Stats } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { relative, sep } from 'node:path';
 import { Readable } from 'node:stream';
+import { createBrotliCompress, createGzip } from 'node:zlib';
 
-import { Hono, type Handler } from 'hono';
+import { Hono, type Context, type Handler, type MiddlewareHandler } from 'hono';
 
 import { gameHeaders, healthHeaders } from './headers.js';
-import { BadId, buildDir, isComplete, resolveFile } from './layout.js';
-import { mimeForPath } from './mime.js';
+import { BadBlobName, BadId, blobPath, buildDir, isComplete, resolveFile } from './layout.js';
+import { isCompressiblePath, mimeForPath } from './mime.js';
 
 export interface GamesHostOptions {
   appOrigin: string;
   root: string;
   uptimeSec?: () => number;
   version: string;
+  workerScript: string;
 }
 
 export function createApp(options: GamesHostOptions): Hono {
@@ -21,16 +23,21 @@ export function createApp(options: GamesHostOptions): Hono {
   const gameHeaderEntries = Object.entries(gameHeaders(options.appOrigin));
   const uptimeSec = options.uptimeSec ?? (() => process.uptime());
 
-  app.use('/g/*', async (context, next) => {
+  const secureResponse: MiddlewareHandler = async (context, next) => {
     await next();
     for (const [name, value] of gameHeaderEntries) {
       context.res.headers.set(name, value);
     }
     if (context.res.status !== 200) {
       context.res.headers.set('Cache-Control', 'no-store');
+    } else if (new URL(context.req.url).pathname === '/game-cache.js') {
+      context.res.headers.set('Cache-Control', 'no-cache');
     }
     context.res.headers.delete('set-cookie');
-  });
+  };
+  app.use('/g/*', secureResponse);
+  app.use('/a/*', secureResponse);
+  app.use('/game-cache.js', secureResponse);
 
   app.get('/healthz', (context) =>
     context.json(
@@ -68,24 +75,25 @@ export function createApp(options: GamesHostOptions): Hono {
       return context.text('Not Found', 404);
     }
 
-    let fileStat;
-    try {
-      fileStat = await stat(file);
-    } catch {
-      return context.text('Not Found', 404);
-    }
-    if (!fileStat.isFile()) {
-      return context.text('Not Found', 404);
-    }
-
     const relativePath = relative(directory, file).split(sep).join('/');
-    const headers = new Headers({
-      'Content-Length': String(fileStat.size),
-      'Content-Type': mimeForPath(file),
+    return serveFile(context, file, {
       ETag: `"${buildId}:${encodeURIComponent(relativePath)}"`,
     });
-    const body = context.req.method === 'HEAD' ? null : (Readable.toWeb(createReadStream(file)) as unknown as BodyInit);
-    return new Response(body, { headers, status: 200 });
+  };
+
+  const serveBlob: Handler = async (context) => {
+    const file = context.req.param('file') ?? '';
+    let path: string;
+    try {
+      path = blobPath(options.root, file);
+    } catch (error) {
+      if (error instanceof BadBlobName) {
+        return context.text('Not Found', 404);
+      }
+      throw error;
+    }
+
+    return serveFile(context, path, { ETag: `"${file.slice(0, 64)}"` });
   };
 
   app.on(['GET', 'HEAD'], '/g/:gameId/:buildId', (context) => {
@@ -102,8 +110,110 @@ export function createApp(options: GamesHostOptions): Hono {
     return context.redirect(`/g/${gameId}/${buildId}/`, 308);
   });
   app.on(['GET', 'HEAD'], '/g/:gameId/:buildId/*', serveGame);
+  app.on(['GET', 'HEAD'], '/a/:file', serveBlob);
+  app.on(['GET', 'HEAD'], '/game-cache.js', (context) =>
+    serveFile(context, options.workerScript, { 'Service-Worker-Allowed': '/g/' }),
+  );
 
   app.notFound((context) => context.text('Not Found', 404, { 'Cache-Control': 'no-store' }));
 
   return app;
+}
+
+async function serveFile(
+  context: Context,
+  file: string,
+  extraHeaders: Readonly<Record<string, string>> = {},
+): Promise<Response> {
+  const fileStat = await regularFileStat(file);
+  if (fileStat === null) {
+    return context.text('Not Found', 404);
+  }
+
+  const headers = new Headers({
+    'Content-Type': mimeForPath(file),
+    ...extraHeaders,
+  });
+  let bodyFile = file;
+  let bodySize: number | undefined = fileStat.size;
+  let encoding: 'br' | 'gzip' | null = null;
+
+  if (isCompressiblePath(file)) {
+    headers.set('Vary', 'Accept-Encoding');
+    encoding = preferredEncoding(context.req.header('Accept-Encoding'));
+    if (encoding === 'br') {
+      const precompressed = `${file}.br`;
+      const precompressedStat = await regularFileStat(precompressed);
+      if (precompressedStat !== null) {
+        bodyFile = precompressed;
+        bodySize = precompressedStat.size;
+      } else {
+        bodySize = undefined;
+      }
+    } else if (encoding === 'gzip') {
+      bodySize = undefined;
+    }
+  }
+
+  if (encoding !== null) {
+    headers.set('Content-Encoding', encoding);
+  }
+  if (bodySize === undefined) {
+    headers.delete('Content-Length');
+  } else {
+    headers.set('Content-Length', String(bodySize));
+  }
+
+  if (context.req.method === 'HEAD') {
+    return new Response(null, { headers, status: 200 });
+  }
+
+  let body: Readable = createReadStream(bodyFile);
+  if (encoding === 'br' && bodyFile === file) {
+    body = body.pipe(createBrotliCompress());
+  } else if (encoding === 'gzip') {
+    body = body.pipe(createGzip());
+  }
+  return new Response(Readable.toWeb(body) as unknown as BodyInit, { headers, status: 200 });
+}
+
+async function regularFileStat(file: string): Promise<Stats | null> {
+  try {
+    const fileStat = await stat(file);
+    return fileStat.isFile() ? fileStat : null;
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+      return null;
+    }
+    throw error;
+  }
+}
+
+function preferredEncoding(header: string | undefined): 'br' | 'gzip' | null {
+  if (header === undefined) {
+    return null;
+  }
+
+  const qualities = new Map<string, number>();
+  for (const item of header.split(',')) {
+    const [rawName, ...parameters] = item.trim().split(';');
+    const name = rawName?.trim().toLowerCase();
+    if (!name) continue;
+
+    let quality = 1;
+    const qualityParameter = parameters.map((value) => value.trim()).find((value) => value.startsWith('q='));
+    if (qualityParameter !== undefined) {
+      const parsed = Number(qualityParameter.slice(2));
+      quality = Number.isFinite(parsed) && parsed >= 0 && parsed <= 1 ? parsed : 0;
+    }
+    qualities.set(name, Math.max(qualities.get(name) ?? 0, quality));
+  }
+
+  const wildcard = qualities.get('*') ?? 0;
+  const brotli = qualities.get('br') ?? wildcard;
+  const gzip = qualities.get('gzip') ?? wildcard;
+  if (brotli <= 0 && gzip <= 0) {
+    return null;
+  }
+  return brotli >= gzip ? 'br' : 'gzip';
 }

@@ -1,4 +1,4 @@
-/* global URLSearchParams, document, fetch, window */
+/* global URLSearchParams, document, fetch, navigator, window */
 
 const outside = new URLSearchParams(window.location.search).get('outside');
 
@@ -14,9 +14,15 @@ const fetchOutside = await fetch(outside).then(
   () => 'blocked',
 );
 
+const serviceWorkerScope = await navigator.serviceWorker.register('/game-cache.js', { scope: '/g/' }).then(
+  (registration) => registration.scope,
+  () => 'unavailable',
+);
+
 window.__probe = {
   cookie: document.cookie,
   fetchOutside,
   parentDocument,
+  serviceWorkerScope,
 };
 document.querySelector('#ready').textContent = 'ready';

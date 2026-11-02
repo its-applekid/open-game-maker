@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { loadGamesHostEnv } from '../src/env.js';
@@ -8,6 +9,7 @@ const validEnvironment = {
   OGM_GAMES_ROOT: './games',
   OGM_APP_ORIGIN: 'https://ogm2000.netlify.app',
 };
+const defaultWorkerScript = fileURLToPath(new URL('../../../packages/host/dist/game-cache.js', import.meta.url));
 
 describe('games-host environment', () => {
   it('loads the loopback-only service configuration', () => {
@@ -16,7 +18,14 @@ describe('games-host environment', () => {
       host: '127.0.0.1',
       port: 3400,
       root: resolve('./games'),
+      workerScript: defaultWorkerScript,
     });
+  });
+
+  it('resolves an explicit cache worker path', () => {
+    expect(loadGamesHostEnv({ ...validEnvironment, OGM_GAMES_SW: './worker.js' }).workerScript).toBe(
+      resolve('./worker.js'),
+    );
   });
 
   it('accepts multiple explicit frame ancestors', () => {

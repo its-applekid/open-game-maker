@@ -70,6 +70,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'OGM_ROOMS_PORT', unit: 'rooms', kind: 'port', doc: 'loopback port of the Colyseus relay' },
   { name: 'OGM_GAMES_PORT', unit: 'games', kind: 'port', doc: 'loopback port of the games origin host' },
+  { name: 'OGM_GAMES_SW', unit: 'games', kind: 'path', doc: 'compiled game cache worker script' },
   { name: 'OGM_COMMIT_PORT', unit: 'commit', kind: 'port', doc: 'loopback port of the commit service' },
   { name: 'OGM_VOICE_PORT', unit: 'voice-host', kind: 'port', doc: 'loopback port of the voice host' },
   { name: 'OGM_PUBLIC_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:8443' },

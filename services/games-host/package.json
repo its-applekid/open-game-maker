@@ -15,17 +15,18 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "pretypecheck": "pnpm --filter @ogm/contracts build",
+    "pretypecheck": "pnpm --filter @ogm/config --filter @ogm/contracts build",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts build",
+    "pretest": "pnpm --filter @ogm/config --filter @ogm/contracts build",
     "test": "vitest run",
-    "pretest:browser": "pnpm --filter @ogm/contracts build",
+    "pretest:browser": "pnpm --filter @ogm/config --filter @ogm/contracts build",
     "test:browser": "playwright test",
     "lint": "eslint src test playwright.config.ts vitest.config.ts"
   },
   "dependencies": {
     "@hono/node-server": "2.1.5",
+    "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
     "hono": "4.13.16"
   },

@@ -44,6 +44,7 @@ test.describe('games origin browser boundary', () => {
       root,
       appOrigin: allowedParent.origin,
       version: 'browser-test',
+      workerScript: fileURLToPath(new URL('./fixtures/game-cache.js', import.meta.url)),
     });
     gamesServer = serve({ fetch: app.fetch, hostname: '127.0.0.1', port: 0 });
     if (!gamesServer.listening) {
@@ -88,7 +89,12 @@ test.describe('games origin browser boundary', () => {
             },
         ),
       )
-      .toEqual({ cookie: '', fetchOutside: 'blocked', parentDocument: 'blocked' });
+      .toEqual({
+        cookie: '',
+        fetchOutside: 'blocked',
+        parentDocument: 'blocked',
+        serviceWorkerScope: `${gamesOrigin}/g/`,
+      });
     expect(outsideHits).toBe(0);
   });
 

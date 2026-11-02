@@ -20,7 +20,12 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
   '.wav': 'audio/wav',
   '.webp': 'image/webp',
 };
+const COMPRESSIBLE_EXTENSIONS = new Set(['.css', '.html', '.js', '.json', '.map', '.mjs']);
 
 export function mimeForPath(filePath: string): string {
   return MIME_TYPES[extname(filePath).toLowerCase()] ?? 'application/octet-stream';
+}
+
+export function isCompressiblePath(filePath: string): boolean {
+  return COMPRESSIBLE_EXTENSIONS.has(extname(filePath).toLowerCase());
 }
