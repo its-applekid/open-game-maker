@@ -57,7 +57,10 @@ describe('TopdownMap', () => {
   });
 
   it('rejects a map drawn at another scale than the game', () => {
-    expect(() => new TopdownMap(fixtureMap(32), 16)).toThrow(/scale is 16/);
+    const wide = { ...fixtureMap(16), tilewidth: 32 };
+    expect(() => new TopdownMap(wide, 16)).toThrow(/32x16; the game's scale is 16/);
+    const tall = { ...fixtureMap(16), tileheight: 32 };
+    expect(() => new TopdownMap(tall, 16)).toThrow(/16x32/);
   });
 
   it('rejects an unknown tile layer and an autotile layer naming no tileset', () => {

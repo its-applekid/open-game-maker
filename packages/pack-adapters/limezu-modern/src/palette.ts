@@ -55,7 +55,7 @@ export function palette(manifest: AssetManifest, scale: Scale): Record<PaletteGr
   const groups: Record<PaletteGroup, string[]> = { prop: [], animal: [], crop: [], vehicle: [] };
   for (const [id, entry] of Object.entries(manifest.assets)) {
     const source = entry.source;
-    if (!source || !SET_PACKS.includes(source.pack) || scaleOf(source.path) !== scale) continue;
+    if (!source || !SET_PACKS.includes(source.pack)) continue;
     for (const [group, folder] of Object.entries(PALETTE_GROUPS) as [PaletteGroup, string][]) {
       if (new RegExp(`(?:^|/)${folder}_${scale}x${scale}/`).test(source.path)) groups[group].push(id);
     }
