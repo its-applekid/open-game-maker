@@ -1,0 +1,314 @@
+import { AiurHttpError } from '@ogm/aiur-client';
+import { JobPlan, Reservation } from '@ogm/contracts';
+import { schema } from '@ogm/db';
+import { and, eq, lte } from 'drizzle-orm';
+
+import { OutcomeUnknownError } from '../github/issues.js';
+import { renderIssue, usdFromMicro } from './render.js';
+import type { FileResult, IntakeAlert, IntakeDeps } from './types.js';
+
+const DEFAULT_SWEEP_MS = 60_000;
+const SPEND_CAP_RETRY_MS = 5_000;
+
+export function createIntake(deps: IntakeDeps) {
+  const now = deps.now ?? (() => new Date());
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
+  const sweepMs = deps.sweepMs ?? DEFAULT_SWEEP_MS;
+  const inFlight = new Map<string, Promise<FileResult>>();
+  let unsubscribe: (() => void) | undefined;
+  let timer: ReturnType<typeof setInterval> | undefined;
+
+  async function notify(event: IntakeAlert): Promise<void> {
+    await deps.alert?.(event);
+  }
+
+  function fileJob(jobId: string): Promise<FileResult> {
+    const current = inFlight.get(jobId);
+    if (current) return current;
+    const pending = performFileJob(jobId).finally(() => inFlight.delete(jobId));
+    inFlight.set(jobId, pending);
+    return pending;
+  }
+
+  async function performFileJob(jobId: string): Promise<FileResult> {
+    const found = deps.db
+      .select({ job: schema.jobs, game: schema.games })
+      .from(schema.jobs)
+      .innerJoin(schema.games, eq(schema.jobs.gameId, schema.games.id))
+      .where(eq(schema.jobs.id, jobId))
+      .get();
+    if (!found) return { skipped: 'missing' };
+    if (found.job.state !== 'admitted') return { skipped: `state:${found.job.state}` };
+
+    const repo =
+      found.game.githubOwner && found.game.githubRepo
+        ? `${found.game.githubOwner}/${found.game.githubRepo}`.toLowerCase()
+        : null;
+    if (!repo) return failPreflight(found.job, ['game repository is not provisioned']);
+
+    const fleetResult = await deps.fleet.ensureDaemon(repo, fleetKind(found.job.kind));
+    if (fleetResult.status === 'waiting_capacity') return { deferred: 'capacity' };
+    if (fleetResult.status === 'stopped') return failPreflight(found.job, fleetResult.reasons);
+
+    const plan = JobPlan.parse(JSON.parse(found.job.plan));
+    let tickets: JobPlan['tickets'];
+    try {
+      tickets = dependencyOrder(plan.tickets);
+    } catch (error) {
+      return failPreflight(found.job, [message(error)]);
+    }
+
+    try {
+      await deps.issues.ensureLabel(repo, `feature:gm-${jobId}`, '0e8a16', 'OGM job');
+    } catch (error) {
+      await notify({ code: 'github_failed', jobId, reasons: [message(error)] });
+      return { deferred: 'github' };
+    }
+
+    const reservation = Reservation.parse(JSON.parse(found.job.reservation));
+    const spendCap = usdFromMicro(reservation.amountMicroUsd);
+    let aiur: Awaited<ReturnType<IntakeDeps['aiurForRepo']>>;
+    try {
+      aiur = await deps.aiurForRepo(repo);
+    } catch (error) {
+      await notify({ code: 'spend_cap_failed', jobId, reasons: [message(error)] });
+      return { deferred: 'aiur' };
+    }
+    const rows = new Map(
+      deps.db
+        .select()
+        .from(schema.jobTickets)
+        .where(eq(schema.jobTickets.jobId, jobId))
+        .all()
+        .map((row) => [row.key, row]),
+    );
+    const issueNumbers: number[] = [];
+
+    // Create and durably record the complete job before making any ticket runnable.
+    for (const ticket of tickets) {
+      const blockedBy = ticket.dependsOn.map((key) => rows.get(key)!.issueNumber);
+      const rendered = renderIssue({
+        jobId,
+        complexity: found.job.complexity,
+        plan,
+        ticket,
+        blockedBy,
+        shippedSkills: deps.shippedSkills,
+      });
+      let row = rows.get(ticket.key);
+
+      if (!row) {
+        let issue;
+        try {
+          issue = await deps.issues.findByMarkers(repo, jobId, ticket.key);
+          if (!issue) {
+            try {
+              issue = await deps.issues.create(repo, rendered);
+            } catch (error) {
+              if (!(error instanceof OutcomeUnknownError)) throw error;
+              issue = await deps.issues.findByMarkers(repo, jobId, ticket.key);
+              if (!issue) {
+                await notify({ code: 'github_failed', jobId, reasons: [error.message] });
+                return { deferred: 'github' };
+              }
+            }
+          }
+        } catch (error) {
+          await notify({ code: 'github_failed', jobId, reasons: [message(error)] });
+          return { deferred: 'github' };
+        }
+        deps.db
+          .insert(schema.jobTickets)
+          .values({ jobId, key: ticket.key, issueNumber: issue.number, repo, sig: rendered.sig })
+          .run();
+        row = deps.db
+          .select()
+          .from(schema.jobTickets)
+          .where(and(eq(schema.jobTickets.jobId, jobId), eq(schema.jobTickets.key, ticket.key)))
+          .get()!;
+        rows.set(ticket.key, row);
+      }
+    }
+
+    for (const ticket of tickets) {
+      let row = rows.get(ticket.key)!;
+      if (row.capSetAt === null) {
+        try {
+          await setSpendCap(aiur, row.issueNumber, spendCap, sleep);
+        } catch (error) {
+          if (error instanceof AiurHttpError && error.status === 409 && error.code === 'spend_cap_exhausted') {
+            const at = now().toISOString();
+            deps.db
+              .update(schema.jobs)
+              .set({ state: 'paused_budget', pausedReason: 'budget_exhausted', updatedAt: at })
+              .where(eq(schema.jobs.id, jobId))
+              .run();
+            deps.onJobChanged?.({
+              jobId,
+              gameId: found.job.gameId,
+              familyId: found.job.familyId,
+              state: 'paused_budget',
+            });
+            return { deferred: 'aiur' };
+          }
+          await notify({ code: 'spend_cap_failed', jobId, reasons: [message(error)] });
+          return { deferred: 'aiur' };
+        }
+        const capSetAt = now().toISOString();
+        deps.db
+          .update(schema.jobTickets)
+          .set({ capSetAt })
+          .where(and(eq(schema.jobTickets.jobId, jobId), eq(schema.jobTickets.key, ticket.key)))
+          .run();
+        row = { ...row, capSetAt };
+        rows.set(ticket.key, row);
+      }
+
+      if (row.todoAt === null) {
+        try {
+          const labels = await deps.issues.labels(repo, row.issueNumber);
+          if (!labels.includes('agent:todo')) await deps.issues.addLabel(repo, row.issueNumber, 'agent:todo');
+        } catch (error) {
+          await notify({ code: 'github_failed', jobId, reasons: [message(error)] });
+          return { deferred: 'github' };
+        }
+        const todoAt = now().toISOString();
+        deps.db
+          .update(schema.jobTickets)
+          .set({ todoAt, filedAt: todoAt })
+          .where(and(eq(schema.jobTickets.jobId, jobId), eq(schema.jobTickets.key, ticket.key)))
+          .run();
+        row = { ...row, todoAt, filedAt: todoAt };
+        rows.set(ticket.key, row);
+      }
+      issueNumbers.push(row.issueNumber);
+    }
+
+    try {
+      await aiur.nudgeTodo(issueNumbers.map(String));
+    } catch (error) {
+      await notify({ code: 'nudge_failed', jobId, reasons: [message(error)] });
+    }
+
+    const updatedAt = now().toISOString();
+    deps.db
+      .update(schema.jobs)
+      .set({
+        state: 'filed',
+        aiurRepo: repo,
+        aiurIssueNumber: issueNumbers[0],
+        aiurSpendCapMicroUsd: reservation.amountMicroUsd,
+        updatedAt,
+      })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
+    deps.onJobChanged?.({
+      jobId,
+      gameId: found.job.gameId,
+      familyId: found.job.familyId,
+      state: 'filed',
+    });
+    return { filed: true, issues: issueNumbers };
+  }
+
+  async function failPreflight(
+    job: typeof schema.jobs.$inferSelect,
+    reasons: string[],
+  ): Promise<{ failed: 'preflight'; reasons: string[] }> {
+    deps.failJob(job.id);
+    await notify({ code: 'preflight_failed', jobId: job.id, reasons });
+    return { failed: 'preflight', reasons };
+  }
+
+  async function sweep(): Promise<void> {
+    const cutoff = new Date(now().getTime() - sweepMs).toISOString();
+    const admitted = deps.db
+      .select({ id: schema.jobs.id })
+      .from(schema.jobs)
+      .where(and(eq(schema.jobs.state, 'admitted'), lte(schema.jobs.updatedAt, cutoff)))
+      .all();
+    for (const { id } of admitted) {
+      try {
+        await fileJob(id);
+      } catch (error) {
+        await notify({ code: 'sweep_failed', jobId: id, reasons: [message(error)] });
+      }
+    }
+  }
+
+  function start(): void {
+    if (timer) return;
+    unsubscribe = deps.subscribeAdmitted?.((jobId) => {
+      void fileJob(jobId).catch((error) =>
+        notify({ code: 'sweep_failed', jobId, reasons: [message(error)] }).catch(() => undefined),
+      );
+    });
+    void sweep();
+    timer = setInterval(() => void sweep(), sweepMs);
+    timer.unref();
+  }
+
+  function stop(): void {
+    unsubscribe?.();
+    unsubscribe = undefined;
+    if (timer) clearInterval(timer);
+    timer = undefined;
+  }
+
+  return { fileJob, start, stop, sweep };
+}
+
+async function setSpendCap(
+  aiur: Awaited<ReturnType<IntakeDeps['aiurForRepo']>>,
+  issueNumber: number,
+  amount: string,
+  sleep: (ms: number) => Promise<void>,
+): Promise<void> {
+  for (let attempt = 0; ; attempt += 1) {
+    try {
+      await aiur.setSpendCap(String(issueNumber), amount);
+      return;
+    } catch (error) {
+      if (
+        !(error instanceof AiurHttpError) ||
+        error.status !== 404 ||
+        error.code !== 'ticket_not_found' ||
+        attempt >= 2
+      ) {
+        throw error;
+      }
+      await sleep(SPEND_CAP_RETRY_MS);
+    }
+  }
+}
+
+function dependencyOrder(tickets: JobPlan['tickets']): JobPlan['tickets'] {
+  const byKey = new Map(tickets.map((ticket) => [ticket.key, ticket]));
+  if (byKey.size !== tickets.length) throw new Error('plan ticket keys must be unique');
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const ordered: JobPlan['tickets'] = [];
+
+  function visit(key: string): void {
+    if (visited.has(key)) return;
+    if (visiting.has(key)) throw new Error(`plan ticket dependency cycle at ${key}`);
+    const ticket = byKey.get(key);
+    if (!ticket) throw new Error(`unknown plan ticket dependency ${key}`);
+    visiting.add(key);
+    for (const dependency of ticket.dependsOn) visit(dependency);
+    visiting.delete(key);
+    visited.add(key);
+    ordered.push(ticket);
+  }
+
+  for (const ticket of tickets) visit(ticket.key);
+  return ordered;
+}
+
+function fleetKind(kind: 'new_game' | 'feature' | 'repair' | 'scope'): 'new_game' | 'feature' | 'repair' {
+  return kind === 'scope' ? 'feature' : kind;
+}
+
+function message(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
