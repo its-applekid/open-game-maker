@@ -357,7 +357,7 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
             a = dict(d["measure"]["audio"])
             a["analysis"] = d["_sidecar"].relative_to(packs / pid).as_posix()
             v = d.get("vendor", {})
-            vend = {k: v[k] for k in ("title", "album", "composer") if v.get(k)}
+            vend = {k: v[k][:120] for k in ("title", "album", "composer") if v.get(k)}  # schema caps vendor strings at 120
             if v.get("catalog_no") is not None:
                 vend["catalog_no"] = v["catalog_no"]
             elif album_no(v.get("album")) is not None:

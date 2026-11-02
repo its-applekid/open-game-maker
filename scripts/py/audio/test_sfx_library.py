@@ -86,6 +86,7 @@ def test_card_takes_title_kind_catid_and_library_keywords(tmp_path):
     sets = b.prompts()
     p = {k: np.full(len(sets[k][0]), 1 / len(sets[k][0])) for k in ("sfx_event", "sfx_material")}
     row = {"file": UCS_FILE, "sha256": "0" * 64, "bytes": 1, "music": False, "_p": p, "_pack": pid, "_ver": ver,
+           "vendor": {"title": "A vendor title tag far longer than the card schema allows " * 4},
            "_sidecar": tmp_path / pid / ver / "analysis" / "x.analysis.json",
            "preview": {"waveform": "private/previews/00/0000000000000000-waveform.png"},
            "measure": {"audio": {"duration_s": 12.0, "sample_rate": 48000, "channels": 2, "peak_dbfs": -3.0, "loopable": True},
@@ -98,6 +99,7 @@ def test_card_takes_title_kind_catid_and_library_keywords(tmp_path):
     assert {"loop", "clock", "antique"} <= set(card["describe"]["keywords"])
     assert "Antique Clocks" in card["describe"]["description"] and card["rights"] == rights
     assert card["describe"]["set"] == "sonniss-gdc2026-part9"
+    assert len(card["audio"]["vendor"]["title"]) == 120  # the schema caps vendor strings; one long BWF title failed a card
 
 
 def _card(packs, pid, folder, title, dur, kw, subkind="sfx/foley"):
