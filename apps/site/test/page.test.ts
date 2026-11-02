@@ -69,6 +69,18 @@ describe('checklist', () => {
     expect(document.querySelector('[data-progress="1"]')?.textContent).toBe('1/2');
   });
 
+  it('forgets a sub-step when it is unticked', () => {
+    initChecklist(document);
+    const box = document.querySelector<HTMLInputElement>('input.done[data-substep="1.1"]')!;
+    box.click();
+    box.click();
+
+    mount();
+    initChecklist(document);
+    expect(document.querySelector<HTMLInputElement>('input.done[data-substep="1.1"]')?.checked).toBe(false);
+    expect(localStorage.length).toBe(0);
+  });
+
   it('works when localStorage throws', () => {
     vi.spyOn(window, 'localStorage', 'get').mockImplementation(() => {
       throw new Error('denied');
@@ -101,6 +113,13 @@ describe('accordion', () => {
     expect(document.getElementById('step-2-panel')?.hidden).toBe(false);
     expect(document.getElementById('step-1-panel')?.hidden).toBe(true);
   });
+
+  it('opens a step when the hash changes after load', () => {
+    initAccordion(document);
+    window.location.hash = '#step-1';
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+    expect(document.getElementById('step-1-panel')?.hidden).toBe(false);
+  });
 });
 
 describe('copy', () => {
@@ -113,6 +132,12 @@ describe('copy', () => {
 
     document.querySelector<HTMLButtonElement>('#step-1-panel button.copy')!.click();
     await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith('echo kev@<tailnet-host>'));
+
+    const promptButton = document.querySelector<HTMLButtonElement>('#step-1-panel .agent button.copy')!;
+    promptButton.click();
+    await vi.waitFor(() => expect(promptButton.dataset.copied).toBe(''));
+    expect(writeText).toHaveBeenLastCalledWith(document.querySelector('#step-1-panel .agent pre')?.textContent);
+    expect(writeText.mock.lastCall?.[0]).toContain('for kev.');
   });
 
   it('falls back to selecting text when the clipboard API is refused', async () => {

@@ -16,11 +16,11 @@ export function escapeHtml(value: string): string {
   return value.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;');
 }
 
-export function substepId(step: SetupStep, index: number): string {
+function substepId(step: SetupStep, index: number): string {
   return `${step.id}.${index + 1}`;
 }
 
-export function handSteps(step: SetupStep): SetupSubstep[] {
+function handSteps(step: SetupStep): SetupSubstep[] {
   return step.substeps.filter((substep) => substep.kind === 'hand');
 }
 
@@ -37,6 +37,7 @@ export function renderPage(options: { title: string; script: string; body: strin
     <link rel="stylesheet" href="${fontsHref}" />
     <link rel="stylesheet" href="/tokens.css" />
     <link rel="stylesheet" href="/site.css" />
+    <noscript><style>[hidden] { display: block; }</style></noscript>
     <script type="module" src="${escapeHtml(options.script)}"></script>
   </head>
   <body>
@@ -106,7 +107,7 @@ function renderPlaceholderForm(): string {
 
 export function renderSetupHtml(content: SetupContent): string {
   const body = `<main class="setup">
-<h1>Set up Open Game Maker 2000</h1>
+<h1 class="sr">Set up Open Game Maker 2000</h1>
 ${renderPlaceholderForm()}
 ${content.steps.map(renderStep).join('\n')}
 </main>`;

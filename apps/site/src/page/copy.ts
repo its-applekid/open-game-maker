@@ -26,12 +26,14 @@ export async function copyText(text: string, doc: Document = document): Promise<
 
 export function initCopy(root: ParentNode, doc: Document = document): void {
   for (const button of root.querySelectorAll<HTMLButtonElement>('button.copy')) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     button.addEventListener('click', async () => {
       const source = button.parentElement?.querySelector('pre');
       if (!source) return;
       if (await copyText(source.textContent ?? '', doc)) {
         button.dataset.copied = '';
-        setTimeout(() => delete button.dataset.copied, 1200);
+        clearTimeout(timer);
+        timer = setTimeout(() => delete button.dataset.copied, 1200);
       }
     });
   }

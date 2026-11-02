@@ -22,12 +22,6 @@ pre {
   margin: 0 auto;
 }
 
-.setup h1 {
-  color: var(--cream);
-  font-size: clamp(28px, 6vw, 40px);
-  font-weight: 700;
-}
-
 .placeholders {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
