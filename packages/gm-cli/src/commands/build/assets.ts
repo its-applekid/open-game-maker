@@ -18,7 +18,7 @@ import { buildKit } from './assets/kit.js';
 import { assembleManifest, writeManifest } from './assets/manifest.js';
 import { buildModel } from './assets/model.js';
 import { planBuild } from './assets/plan.js';
-import type { AssetBudgetReport, BuildFailure, BuildJob, FreshJobResult, JobResult } from './assets/types.js';
+import type { AssetBudgetReport, BuildFailure, BuildJob, CompletedJob, FreshJobResult } from './assets/types.js';
 
 function parseTiers(value: unknown): Tier[] {
   if (typeof value !== 'string') throw new UsageError('--tier needs a comma-separated list', 'gm build assets');
@@ -99,12 +99,12 @@ function reportBuildFailures(
 export const command: GmCommand = {
   name: 'build assets',
   summary: 'build tiered, content-hashed game assets and enforce budgets',
-  usage: '[--tier desktop,mobile,low] [--budget mobile] [--out public/assets] [--ktx2] [--no-cache] [--strict]',
+  usage: '[--tier desktop,mobile,low] [--budget mobile] [--out public/a] [--ktx2] [--no-cache] [--strict]',
   example: 'build assets --tier desktop,mobile,low --budget mobile --json',
   flags: {
     tier: { type: 'string', default: 'desktop,mobile,low', help: 'comma-separated output tiers' },
     budget: { type: 'string', default: 'mobile', help: 'tier whose limits determine the exit code' },
-    out: { type: 'string', default: 'public/assets', help: 'generated output directory inside the game repo' },
+    out: { type: 'string', default: 'public/a', help: 'generated asset file directory inside the game repo' },
     ktx2: { type: 'boolean', default: false, help: 'encode KTX2 textures when the external tool is available' },
     'no-cache': { type: 'boolean', default: false, help: 'ignore and do not update the asset cache' },
     strict: { type: 'boolean', default: false, help: 'stop at the first asset failure' },
@@ -120,6 +120,7 @@ export const command: GmCommand = {
     const tiers = parseTiers(flags.tier);
     const budgetTier = parseBudget(flags.budget, tiers);
     const outDir = resolveOutputDir(ctx.cwd, flags.out as string);
+    const manifestDir = resolveOutputDir(ctx.cwd, 'public/assets');
     const strict = flags.strict === true;
     const useCache = flags['no-cache'] !== true;
 
@@ -132,6 +133,7 @@ export const command: GmCommand = {
     }
     if (!lock) throw new UsageError('assets.lock.json not found', 'gm assets use <id>');
     await assertNoSymlinks(ctx.cwd, outDir);
+    await assertNoSymlinks(ctx.cwd, manifestDir);
     await assertNoSymlinks(ctx.cwd, join(ctx.cwd, '.gm/cache/assets'));
     for (const entry of lock.assets) {
       if (entrySource(entry) === 'vendored') await assertNoSymlinks(ctx.cwd, join(ctx.cwd, entry.path));
@@ -155,7 +157,7 @@ export const command: GmCommand = {
       return EXIT.failed;
     }
 
-    const results: JobResult[] = [];
+    const results: CompletedJob[] = [];
     let cacheHits = 0;
     let cacheMisses = 0;
     for (const job of planned.jobs) {
@@ -165,13 +167,13 @@ export const command: GmCommand = {
         if (cached) {
           if ((await sourceDigest(job, true)) !== identity.sourceHash)
             throw new Error('source changed during build; retry');
-          results.push(cached);
+          results.push({ job, result: cached });
           cacheHits += 1;
         } else {
           const built = await buildFresh(job);
           if ((await sourceDigest(job, true)) !== identity.sourceHash)
             throw new Error('source changed during build; retry');
-          results.push(await saveBuilt(identity, ctx.cwd, outDir, built, useCache));
+          results.push({ job, result: await saveBuilt(identity, ctx.cwd, outDir, built, useCache) });
           cacheMisses += 1;
         }
       } catch (error) {
@@ -189,14 +191,14 @@ export const command: GmCommand = {
       return EXIT.failed;
     }
 
-    const { manifest, details } = assembleManifest(
+    const { manifest, cachePlan, details } = assembleManifest(
       tiers,
       results,
       lock.assets.map((entry) => entry.id),
     );
     const reports = tiers.map((tier) => budgetReport(manifest, details, tier));
-    await writeIfChanged(join(outDir, 'budget.json'), `${JSON.stringify(reports, null, 2)}\n`, ctx.cwd);
-    await writeManifest(ctx.cwd, outDir, manifest);
+    await writeIfChanged(join(manifestDir, 'budget.json'), `${JSON.stringify(reports, null, 2)}\n`, ctx.cwd);
+    await writeManifest(ctx.cwd, manifestDir, manifest, cachePlan);
     const selected = reports.find((report) => report.tier === budgetTier)!;
     const payload = {
       tiers,

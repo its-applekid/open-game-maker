@@ -34,11 +34,16 @@ export async function loadCached(identity: CacheIdentity, cwd: string, outDir: s
     await assertNoSymlinks(cwd, directory);
     result = JSON.parse(await readFile(join(directory, 'result.json'), 'utf8')) as JobResult;
     validateGeneratedNames(result);
+    const cachedFiles: Array<{ name: string; bytes: Buffer }> = [];
     for (const name of Object.keys(result.files)) {
       const cachedPath = generatedPath(join(directory, 'files'), name);
       await assertNoSymlinks(cwd, cachedPath);
-      await writeIfChanged(generatedPath(outDir, name), await readFile(cachedPath), cwd);
+      const bytes = await readFile(cachedPath);
+      const address = /^([0-9a-f]{64})\.[a-z0-9]+$/.exec(name)?.[1];
+      if (address !== sha256(bytes) || result.files[name]?.bytes !== bytes.length) return null;
+      cachedFiles.push({ name, bytes });
     }
+    for (const { name, bytes } of cachedFiles) await writeIfChanged(generatedPath(outDir, name), bytes, cwd);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT' || error instanceof SyntaxError) return null;
     throw error;

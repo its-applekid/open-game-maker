@@ -1,4 +1,4 @@
-import type { AssetManifest, AssetMetadata } from '@ogm/contracts';
+import { ASSETS_SCHEMA_MINOR, type AssetManifest, type AssetMetadata } from '@ogm/contracts';
 import type { WebGLRenderer } from 'three';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -155,6 +155,30 @@ describe('AssetLoader', () => {
     });
     expect(loader.resolve('castle/tower-base').file).toBe('kit-castle.3f9a1c.glb');
     expect(loader.resolve('castle/tower-base').meta).toEqual(metadata);
+  });
+
+  it('resolves schema-minor-2 content addresses from the games origin root', async () => {
+    const digest = 'a'.repeat(64);
+    const file = `/a/${digest}.glb`;
+    const contentAddressed = structuredClone(manifest);
+    contentAddressed.minor = 2;
+    contentAddressed.files[file] = { bytes: 4, decoders: ['meshopt'] };
+    contentAddressed.assets['content-addressed/model'] = {
+      file: { '*': file },
+      license: { id: 'CC0-1.0', use: 'any' },
+    };
+    const loader = new AssetLoader({
+      manifestUrl: 'https://game.test/g/game/build/assets/manifest.json',
+      tier: 'desktop',
+      fetch: fetchFor(contentAddressed),
+    });
+    await loader.load();
+
+    expect(ASSETS_SCHEMA_MINOR).toBe(2);
+    expect(loader.resolve('content-addressed/model')).toMatchObject({
+      file,
+      url: `https://game.test/a/${digest}.glb`,
+    });
   });
 
   it('fetches a shared file once when ids preload in parallel', async () => {

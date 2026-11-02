@@ -37,7 +37,7 @@ export async function buildAudio(job: BuildJob): Promise<FreshJobResult> {
       throw new Error(`${item.entry.id}: ffmpeg failed: ${detail}`, { cause: error });
     }
     const bytes = await readFile(target);
-    const name = outputName(job.slug, '*', bytes, 'mp3');
+    const name = outputName(bytes, 'mp3');
     return {
       files: { [name]: { bytes: bytes.length, decoders: [] } },
       assets: { [item.entry.id]: manifestAsset(item, { '*': name }) },

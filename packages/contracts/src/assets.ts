@@ -8,9 +8,80 @@ export type Tier = z.infer<typeof tierSchema>;
 /**
  * Additive revision within `version: 1` for both the lock and the manifest; readers accept any minor.
  * 1: entries may carry `meta` (card sprite/rig/kit/geometry blocks).
+ * 2: build manifests use content-addressed `/a/` URLs and may be accompanied by a cache plan.
  */
-export const ASSETS_SCHEMA_MINOR = 1;
+export const ASSETS_SCHEMA_MINOR = 2;
 const minorSchema = z.number().int().min(0).optional();
+
+export const loadPhaseSchema = z.enum(['boot', 'ready', 'stream']);
+export type LoadPhase = z.infer<typeof loadPhaseSchema>;
+
+export const cacheEntryKindSchema = z.enum([
+  'code',
+  'model',
+  'texture',
+  'sprite',
+  'sfx',
+  'music',
+  'voice',
+  'font',
+  'data',
+]);
+export type CacheEntryKind = z.infer<typeof cacheEntryKindSchema>;
+
+const digestSchema = z.string().regex(/^[0-9a-f]{64}$/);
+const tierOrWildcardSchema = z.enum([...tierSchema.options, '*']);
+
+export const cachePlanEntrySchema = z.looseObject({
+  sha256: digestSchema,
+  url: z.string().min(1),
+  bytes: z.number().int().min(0),
+  kind: cacheEntryKindSchema,
+  phase: loadPhaseSchema,
+  tiers: z.array(tierOrWildcardSchema).min(1),
+  ids: z.array(z.string().min(1)).optional(),
+});
+export type CachePlanEntry = z.infer<typeof cachePlanEntrySchema>;
+
+const cacheTotalSchema = z.strictObject({
+  bytes: z.number().int().min(0),
+  files: z.number().int().min(0),
+});
+const phaseTotalsSchema = z.strictObject({
+  boot: cacheTotalSchema,
+  ready: cacheTotalSchema,
+  stream: cacheTotalSchema,
+});
+const tierTotalsSchema = z.strictObject({
+  desktop: phaseTotalsSchema,
+  mobile: phaseTotalsSchema,
+  low: phaseTotalsSchema,
+});
+const tierBytesSchema = z.strictObject({
+  desktop: z.number().int().min(0),
+  mobile: z.number().int().min(0),
+  low: z.number().int().min(0),
+});
+
+export const cachePlanSchema = z.looseObject({
+  version: z.literal(1),
+  gameId: z.string(),
+  buildId: z.string(),
+  built: z.iso.datetime(),
+  sdkVersion: z.string(),
+  tiers: z.array(tierSchema).min(1),
+  entries: z.array(cachePlanEntrySchema),
+  totals: tierTotalsSchema,
+  lineage: z
+    .strictObject({
+      previousBuildId: z.string().min(1),
+      added: z.array(digestSchema),
+      removed: z.array(digestSchema),
+      addedBytes: tierBytesSchema,
+    })
+    .optional(),
+});
+export type CachePlan = z.infer<typeof cachePlanSchema>;
 
 const fileEntrySchema = z.looseObject({
   bytes: z.number().int().min(0),
@@ -220,4 +291,5 @@ export type LockEntry = AssetsLock['assets'][number];
 export const assetsSchemas = {
   'assets.v1': assetManifestSchema,
   'assets-lock.v1': assetsLockSchema,
-} satisfies Record<'assets.v1' | 'assets-lock.v1', z.ZodType>;
+  'cache-plan.v1': cachePlanSchema,
+} satisfies Record<'assets.v1' | 'assets-lock.v1' | 'cache-plan.v1', z.ZodType>;

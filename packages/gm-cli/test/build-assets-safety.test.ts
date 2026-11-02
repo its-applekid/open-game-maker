@@ -145,6 +145,31 @@ describe('gm build assets safety boundaries', () => {
     expect(existsSync(join(cwd, 'escape.bin'))).toBe(false);
   });
 
+  it('treats cached bytes that do not match their content address as a miss', async () => {
+    const cwd = tempDir('gm-build-cache-content-');
+    const directory = join(cwd, '.gm/cache/assets/safe');
+    const expected = Buffer.from('right');
+    const name = `${sha256(expected)}.webp`;
+    mkdirSync(join(directory, 'files'), { recursive: true });
+    writeFileSync(join(directory, 'files', name), Buffer.from('wrong'));
+    writeFileSync(
+      join(directory, 'result.json'),
+      JSON.stringify({
+        files: { [name]: { bytes: expected.length, decoders: [] } },
+        assets: {
+          't3:fixture/image': {
+            file: { '*': name },
+            license: { id: 'CC0-1.0', use: 'any' },
+          },
+        },
+      }),
+    );
+
+    const outDir = join(cwd, 'public/a');
+    await expect(loadCached({ sourceHash: 'source', key: 'safe' }, cwd, outDir)).resolves.toBeNull();
+    expect(existsSync(join(outDir, name))).toBe(false);
+  });
+
   it('honors --no-cache without creating asset cache entries', async () => {
     const cwd = tempDir('gm-build-no-cache-');
     writeImage(cwd);

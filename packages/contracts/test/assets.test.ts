@@ -1,13 +1,19 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 
-import { assetManifestSchema, assetsLockSchema } from '../src/assets.js';
+import { assetManifestSchema, assetsLockSchema, cachePlanSchema } from '../src/assets.js';
 import { loadJson } from './helpers.js';
 import { emittedValidator } from './json-schema.js';
 
 type Manifest = { assets: Record<string, { file: Record<string, string> }> };
 
 describe('assets contract', () => {
+  it('accepts the golden cache plan in both Zod and the emitted JSON Schema', () => {
+    const doc = loadJson('fixtures/cache-plan.v1.json');
+    expect(cachePlanSchema.safeParse(doc).success).toBe(true);
+    expect(emittedValidator('cache-plan.v1')(doc)).toBe(true);
+  });
+
   it('accepts the golden manifest in both Zod and the emitted JSON Schema', () => {
     const doc = loadJson('fixtures/assets.v1.json');
     expect(assetManifestSchema.safeParse(doc).success).toBe(true);

@@ -111,13 +111,16 @@ in two files fails the build). Exits 1 naming each missing or invalid file.
 ## Build game assets
 
 ```text
-gm build assets [--tier desktop,mobile,low] [--budget mobile] [--out public/assets] [--ktx2] [--no-cache] [--strict]
+gm build assets [--tier desktop,mobile,low] [--budget mobile] [--out public/a] [--ktx2] [--no-cache] [--strict]
 ```
 
-The command validates `assets.lock.json`, builds content-hashed GLB, WebP, MP3, and font files, then writes
-`public/assets/manifest.json` and `public/assets/budget.json`. Models receive tiered geometry and texture limits;
-small prop collections that share an embedded texture are combined into a single kit GLB. Sprite and pixel-art
-images keep their source dimensions and use lossless WebP encoding.
+The command validates `assets.lock.json` and writes GLB, WebP, MP3, and font files to
+`public/a/<full-sha256>.<ext>`. Manifest URLs use the matching `/a/…` path so identical outputs are shared across
+games and versions. It also writes `public/assets/manifest.json`, `public/assets/cache-plan.json`, and
+`public/assets/budget.json`. The cache plan lists each file's size, kind, tier coverage, and ready/stream phase.
+Models receive tiered geometry and texture limits; small prop collections that share an embedded texture are
+combined into a single kit GLB. Sprite and pixel-art images keep their source dimensions and use lossless WebP
+encoding.
 
 Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild without reading or updating that
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
