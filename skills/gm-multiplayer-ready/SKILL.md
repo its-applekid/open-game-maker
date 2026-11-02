@@ -67,15 +67,17 @@ Run the static checker after any change to input, players, entities, spawns, sna
 node .claude/skills/gm-multiplayer-ready/scripts/check.ts .
 ```
 
-It fails, naming the rule and file, on: no `applyInput` (1), a module-scope `player` singleton (2), entity ids from
-array positions or counters (3), fewer spawns than `maxPlayers` (4), missing `snapshot`/`applySnapshot` (6), and a
-HUD that never reads `players.get(...)` (7). Ambiguous shapes print as notes; read them. Rules 5 and 8 need two
-running clients.
+It prints `rule N file:line message` and exits 1 on: no `applyInput(...)` call (1), a module-scope `player` singleton
+(2), entity ids from array positions or counters (3), fewer spawns than `maxPlayers` (4), `snapshot`/`applySnapshot`
+missing from the `net` hooks (6), and a HUD that never reads `players.get(...)` (7). Exit 0 is a pass; exit 2 is a
+usage error or no `gm.manifest.json`. Ambiguous shapes print as notes; read them. Rules 5 and 8 need two running
+clients. It needs `typescript` installed in the game (the template has it).
 
 ## Two-client verify
 
 Run it after a conversion, after changing snapshots or input, and before calling a multiplayer feature done. It runs
-on the platform host against a local rooms service, never the public hostname, from the platform repository:
+on the platform host against a local rooms service, never the public hostname, from the platform repository; from a
+game directory, ask the platform to run it:
 
 ```sh
 pnpm --filter @ogm/gm-verify scenario two-client --game <gameDir> --out shots/mp
@@ -84,7 +86,8 @@ pnpm --filter @ogm/gm-verify scenario two-client --game <gameDir> --out shots/mp
 Two browsers join one room and it asserts: welcome within 2 s, the watcher's design equals the host's at each rev,
 a private canary never reaches the watcher, the peer is playing within 500 ms of Play, peer input moves the peer's
 avatar in the host's snapshot, host loss pauses then ends the room, and a draft load reaches both clients. Its
-report says `clients: 2` and lists what it could not check (WAN latency, iPhone Safari).
+report says `clients: 2` and lists what it could not check (WAN latency, iPhone Safari). It prints `report <path>`
+and exits 0 on pass, 1 otherwise.
 
 ## Done
 

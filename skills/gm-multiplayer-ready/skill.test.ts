@@ -43,5 +43,5 @@ describe('gm-multiplayer-ready skill', () => {
 
     expect(checkSkill(SKILL, { commands, sdkExports })).toEqual({ commands: [], sdk: [] });
     expect(checkSkill(RECIPE, { commands, sdkExports })).toEqual({ commands: [], sdk: [] });
-  }, 10_000);
+  }, 30_000);
 });

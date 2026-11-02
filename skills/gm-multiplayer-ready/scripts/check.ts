@@ -82,6 +82,17 @@ function bodyCallsPlayersGet(node: ts.Node): boolean {
   return found;
 }
 
+/** True when the node is a member of an object literal held by a `net` property or variable (the GameModule hooks). */
+function inNetHooks(node: ts.Node): boolean {
+  const literal = node.parent;
+  if (!literal || !ts.isObjectLiteralExpression(literal)) return false;
+  const holder = literal.parent;
+  if (!holder) return false;
+  if ((ts.isPropertyAssignment(holder) || ts.isVariableDeclaration(holder)) && ts.isIdentifier(holder.name))
+    return holder.name.text === 'net';
+  return false;
+}
+
 function isEntitiesTarget(node: ts.Expression): boolean {
   const text = ts.isPropertyAccessExpression(node) ? node.name.text : ts.isIdentifier(node) ? node.text : '';
   return text === 'entities';
@@ -119,7 +130,7 @@ export function checkGame(dir: string): CheckResult {
     }
   }
 
-  let applyInputFound = false;
+  let applyInputCalled = false;
   let snapshotFound = false;
   let applySnapshotFound = false;
   const huds: { file: string; line: number; readsPlayer: boolean }[] = [];
@@ -149,9 +160,10 @@ export function checkGame(dir: string): CheckResult {
 
     const visit = (node: ts.Node): void => {
       const name = declaredFunctionName(node);
-      if (name === 'applyInput') applyInputFound = true;
-      if (name === 'snapshot') snapshotFound = true;
-      if (name === 'applySnapshot') applySnapshotFound = true;
+      if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === 'applyInput')
+        applyInputCalled = true;
+      if (name === 'snapshot' && inNetHooks(node)) snapshotFound = true;
+      if (name === 'applySnapshot' && inNetHooks(node)) applySnapshotFound = true;
       if (name === 'hud') {
         huds.push({ file, line: lineOf(node), readsPlayer: bodyCallsPlayersGet(node) });
       }
@@ -198,18 +210,19 @@ export function checkGame(dir: string): CheckResult {
     visit(source);
   }
 
-  if (!applyInputFound) {
+  if (!applyInputCalled) {
     findings.push({
       rule: 1,
       file: 'src',
-      message: 'no applyInput(playerIndex, frame); input must reach the world only through it in the fixed step',
+      message:
+        'no applyInput(state, playerIndex, frame) call; input must reach the world only through it in the fixed step',
     });
   }
   if (!snapshotFound || !applySnapshotFound) {
     findings.push({
       rule: 6,
       file: 'src',
-      message: 'net.snapshot() and net.applySnapshot() must both exist and cover everything visible',
+      message: 'the net hooks must define snapshot() and applySnapshot() and cover everything visible',
     });
   }
   if (huds.length === 0) {

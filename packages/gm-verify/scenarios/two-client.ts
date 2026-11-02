@@ -109,11 +109,16 @@ function sendFile(response: ServerResponse, path: string): void {
   response.end(readFileSync(path));
 }
 
-/** Games origin: every build id serves the same draft build, so a draft load swaps the pin without a rebuild. */
+/**
+ * Games origin: the pinned build and the draft build serve the same dist, so a draft load swaps the pin without a
+ * rebuild. Any other build id is a 404, so a client that loads the wrong build fails its ready wait.
+ */
 function gamesServer(dist: string): Server {
+  const builds = new Set<string>([PIN.buildId, DRAFT_BUILD]);
   return createServer((request, response) => {
     const path = new URL(request.url ?? '/', 'http://127.0.0.1').pathname;
-    if (/^\/g\/[^/]+\/[^/]+\/index\.html$/.test(path)) return sendFile(response, join(dist, 'index.html'));
+    const page = /^\/g\/[^/]+\/([^/]+)\/index\.html$/.exec(path);
+    if (page && builds.has(page[1]!)) return sendFile(response, join(dist, 'index.html'));
     if (path.startsWith('/assets/') && !path.includes('..')) return sendFile(response, join(dist, path));
     response.writeHead(404).end('not found');
   });
@@ -139,10 +144,14 @@ function endedServer(ended: { roomId: string; reason: string }[], secret: string
     let body = '';
     request.on('data', (chunk: Buffer) => (body += chunk.toString('utf8')));
     request.on('end', () => {
-      ended.push({
-        roomId: decodeURIComponent(match[1]!),
-        reason: String((JSON.parse(body) as { reason?: unknown }).reason),
-      });
+      let reason: unknown;
+      try {
+        reason = (JSON.parse(body) as { reason?: unknown }).reason;
+      } catch {
+        response.writeHead(400).end();
+        return;
+      }
+      ended.push({ roomId: decodeURIComponent(match[1]!), reason: String(reason) });
       response.writeHead(204).end();
     });
   });
@@ -176,7 +185,10 @@ async function startRooms(roomsDist: string, env: Record<string, string>): Promi
   let stderr = '';
   child.stderr!.on('data', (chunk: Buffer) => (stderr += chunk.toString('utf8')));
   await new Promise<void>((done, fail) => {
-    const timer = setTimeout(() => fail(new Error(`rooms did not start: ${stderr.slice(-400)}`)), 20_000);
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      fail(new Error(`rooms did not start: ${stderr.slice(-400)}`));
+    }, 20_000);
     child.stdout!.on('data', (chunk: Buffer) => {
       if (!chunk.toString('utf8').includes('"listening"')) return;
       clearTimeout(timer);
@@ -231,6 +243,15 @@ async function until(page: Page, predicate: string | (() => unknown), timeoutMs:
 }
 
 type EntitySnapshot = { playerIndex: number; p: number[] };
+
+/** Polls from Node: `renderGameToText()` is async, and `waitForFunction` treats a returned promise as truthy. */
+async function untilNode(page: Page, check: () => Promise<boolean>, timeoutMs: number, what: string): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!(await check())) {
+    if (Date.now() > deadline) throw new ScenarioFailure(`timed out after ${timeoutMs} ms waiting for ${what}`);
+    await page.waitForTimeout(50);
+  }
+}
 
 async function playerX(page: Page, playerIndex: number): Promise<number | undefined> {
   const text = (await page.evaluate(() => window.__harness.renderGameToText())) as {
@@ -434,11 +455,11 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
     ]);
 
     log('5 peer input for 1 s moves its avatar in the host snapshot');
-    await until(
+    await untilNode(
       host.page,
-      `window.__harness.renderGameToText().then((t) => Object.values(t.state.entities).some((e) => e.playerIndex === 1))`,
+      async () => (await playerX(host.page, 1)) !== undefined && (await playerX(peer.page, 1)) !== undefined,
       10_000,
-      'peer avatar spawned on the host',
+      'peer avatar spawned on the host and the peer',
     );
     const peerXBefore = await playerX(host.page, 1);
     const hostXBefore = await playerX(host.page, 0);
@@ -452,6 +473,12 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
       `peer avatar did not move in the host's renderGameToText (${peerXBefore} -> ${peerXAfter})`,
     );
     assert(hostXAfter === hostXBefore, 'host avatar moved on peer input');
+    await untilNode(
+      peer.page,
+      async () => ((await playerX(peer.page, 1)) ?? Number.NEGATIVE_INFINITY) > peerXBefore,
+      5_000,
+      "the peer's own render to show the host snapshot's move",
+    );
     await shoot(5, [
       ['host', host],
       ['peer', peer],

@@ -100,6 +100,60 @@ describe('gm-multiplayer-ready checker', () => {
     expect(rulesOf(dir)).toEqual([6]);
   });
 
+  it('fails snapshot hooks defined outside the net hooks with rule 6 (bad-decoy-snapshot)', () => {
+    /* Moving the hooks off `net` leaves both names in the source; the room would still never sync. */
+    const dir = fixture('bad-decoy-snapshot', (root) => {
+      replaceIn(root, 'src/game.ts', 'snapshot() {', 'takeState() {');
+      replaceIn(root, 'src/game.ts', 'applySnapshot(snapshot) {', 'loadState(snapshot) {');
+      replaceIn(
+        root,
+        'src/state.ts',
+        /^export const spawns/m,
+        'export const unused = { snapshot() {}, applySnapshot() {} };\nexport const spawns',
+      );
+    });
+
+    expect(rulesOf(dir)).toEqual([6]);
+  });
+
+  it('fails an applyInput that is declared but never called with rule 1 (bad-uncalled-applyinput)', () => {
+    const dir = fixture('bad-uncalled-applyinput', (root) =>
+      replaceIn(
+        root,
+        'src/game.ts',
+        'for (const frame of frames) applyInput(context.state, frame.playerIndex, frame);',
+        'void frames;',
+      ),
+    );
+
+    expect(rulesOf(dir)).toEqual([1]);
+  });
+
+  it('fails entities pushed onto an array with rule 3 (bad-entities-push)', () => {
+    const dir = fixture('bad-entities-push', (root) =>
+      replaceIn(
+        root,
+        'src/state.ts',
+        /^export const spawns/m,
+        'const entities: unknown[] = [];\nexport function track(value: unknown): void {\n  entities.push(value);\n}\nexport const spawns',
+      ),
+    );
+
+    expect(rulesOf(dir)).toEqual([3]);
+  });
+
+  it('fails a missing spawns.json and a non-positive maxPlayers with rule 4', () => {
+    const missing = fixture('bad-no-spawns', (root) => rmSync(join(root, 'design/spawns.json')));
+    const zero = fixture('bad-max-players', (root) =>
+      replaceIn(root, 'gm.manifest.json', /"maxPlayers":\s*4/, '"maxPlayers": 0'),
+    );
+
+    expect(rulesOf(missing)).toEqual([4]);
+    expect(checkGame(missing).findings[0]!.file).toBe('design/spawns.json');
+    expect(rulesOf(zero)).toEqual([4]);
+    expect(checkGame(zero).findings[0]!.file).toBe('gm.manifest.json');
+  });
+
   it('fails a HUD that does not read players.get with rule 7', () => {
     const dir = fixture('bad-hud', (root) =>
       replaceIn(
