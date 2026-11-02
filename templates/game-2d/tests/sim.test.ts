@@ -106,8 +106,12 @@ describe('2D game module', () => {
     const restartScene = vi.fn();
     connectPhaserLifecycle({ pause: vi.fn(), resume: vi.fn(), dispose: vi.fn(), restartScene });
     const next = structuredClone(defaultDesign);
-    next.entities.plat_1!.props.x = 480;
-    const patch: Patch = { op: 'replace', path: ['entities', 'plat_1', 'props', 'x'], value: 480 };
+    next.entities.platform_01K8ZTEMP00000000000000003!.props.x = 480;
+    const patch: Patch = {
+      op: 'replace',
+      path: ['entities', 'platform_01K8ZTEMP00000000000000003', 'props', 'x'],
+      value: 480,
+    };
 
     expect(instance.applyDesign(next, [patch])).toBe('restart-scene');
     expect(restartScene).toHaveBeenCalledOnce();
@@ -134,7 +138,7 @@ describe('2D game module', () => {
       worldToScreen: ([x, y]) => ({ x: x - 100, y: y - 50 }),
     };
 
-    expect(instance.pick?.(0, 0)).toEqual([{ id: 'plat_1', kind: 'entity' }]);
-    expect(instance.worldToScreen?.('plat_1')).toEqual({ x: 300, y: 270 });
+    expect(instance.pick?.(0, 0)).toEqual([{ id: 'platform_01K8ZTEMP00000000000000003', kind: 'entity' }]);
+    expect(instance.worldToScreen?.('platform_01K8ZTEMP00000000000000003')).toEqual({ x: 300, y: 270 });
   });
 });
