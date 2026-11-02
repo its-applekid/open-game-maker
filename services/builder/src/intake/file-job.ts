@@ -112,7 +112,10 @@ export function createIntake(deps: IntakeDeps) {
             try {
               issue = await deps.issues.create(repo, {
                 ...rendered,
-                labels: rendered.labels.filter((label) => label !== 'agent:todo'),
+                labels:
+                  found.job.kind === 'scope'
+                    ? rendered.labels.filter((label) => label !== 'agent:todo')
+                    : rendered.labels,
               });
             } catch (error) {
               if (!(error instanceof OutcomeUnknownError)) throw error;
