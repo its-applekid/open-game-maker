@@ -1,6 +1,6 @@
 """Analyse every audio file in assets-local/packs once (plan U2/U5): code facts, vendor tags, a CLAP embedding, a waveform preview.
 
-usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N]
+usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N] [--json]
 writes, per file, packs/<id>/<ver>/analysis/<path without ext>.analysis.json:
   {"file", "sha256", "bytes", "music", "measure": {audio, sidecar, timing_s}, "vendor": {...}, "clap": {"model", "windows": [...],
    "excerpts": [{"name", "start_s", "end_s", "embedding": [512 floats]}]}, "preview": bucket key}
@@ -18,6 +18,12 @@ CLAP_ID = "laion/clap-htsat-unfused"
 CLAP_SR = 48000
 WIN_S = 10  # CLAP's native window; whole windows only, so its random-crop path never runs
 PRIVATE_VENDORS = ("sidetrax-", "synty-")  # redistribution none/in-build: previews under private/
+
+
+def emit(record: dict, json_mode: bool = False, summary: bool = False):
+    """Keep JSON-mode records on stdout and operational summaries on stderr."""
+    stream = sys.stderr if json_mode and summary else sys.stdout
+    print(json.dumps(record), file=stream, flush=True)
 
 
 def is_music(pack: str) -> bool:
@@ -193,17 +199,20 @@ def main():
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
     ap.add_argument("--only", default="*")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
     jobs = audio_files(a.packs, a.only)
     jobs = jobs[:a.limit] if a.limit else jobs
-    print(json.dumps({"files": len(jobs), "workers": a.workers}), flush=True)
+    emit({"files": len(jobs), "workers": a.workers}, a.json, summary=True)
     counts = {}
     with Pool(a.workers, maxtasksperchild=200) as pool:
         for i, r in enumerate(pool.imap_unordered(analyse, jobs, chunksize=1), 1):
             counts[r["status"]] = counts.get(r["status"], 0) + 1
             if r["status"] != "skip":
-                print(json.dumps({"n": i, **r}), flush=True)
-    print(json.dumps({"done": counts}), flush=True)
+                emit({"n": i, **r}, a.json)
+    emit({"done": counts}, a.json, summary=True)
+    if counts.get("fail"):
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

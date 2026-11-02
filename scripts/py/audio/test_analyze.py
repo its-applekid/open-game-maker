@@ -31,3 +31,11 @@ def test_long_music_gets_typical_and_loudest_without_overlap():
 def test_sound_effects_keep_one_whole_file_excerpt():
     """Short SFX are embedded whole; splitting a 0.3 s click would only add noise."""
     assert a.excerpts([], 0.3, music=False) == [("whole", 0.0, 0.3)]
+
+
+def test_json_mode_keeps_records_on_stdout_and_summaries_on_stderr(capsys):
+    a.emit({"file": "music.wav", "status": "ok"}, json_mode=True)
+    a.emit({"done": {"ok": 1}}, json_mode=True, summary=True)
+    captured = capsys.readouterr()
+    assert captured.out.strip() == '{"file": "music.wav", "status": "ok"}'
+    assert captured.err.strip() == '{"done": {"ok": 1}}'

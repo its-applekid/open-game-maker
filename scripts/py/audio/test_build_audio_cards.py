@@ -108,6 +108,25 @@ def test_plate_is_not_a_material_word():
     assert "plate" not in b.MAT_WORDS
 
 
+def test_worker_card_record_has_only_the_json_lines_contract_fields():
+    assert b.card_record("packs/music/cards/track.card.json", {"status": "tagged", "flags": ["low-confidence"]}) == {
+        "card": "packs/music/cards/track.card.json",
+        "status": "tagged",
+        "flags": ["low-confidence"],
+    }
+
+
+def test_staged_card_preserves_previous_file_until_promotion(tmp_path):
+    out = tmp_path / "track.card.json"
+    out.write_text("old\n")
+    staged = b.stage_json(out, {"status": "tagged"})
+
+    assert out.read_text() == "old\n"
+    assert staged.name.endswith(".part")
+    b.promote(staged, out)
+    assert '"status": "tagged"' in out.read_text()
+
+
 def test_voice_lines_have_no_material():
     """'We need wood' is a spoken line, not a wooden sound."""
     desc, *_ = _sfx("we_need_wood", "kenney-synth-voice-2")
