@@ -26,7 +26,12 @@ const host = vi.hoisted(() => {
   const controller = {
     applyDesign: vi.fn(),
     dispose: vi.fn(),
+    onEvent: vi.fn(() => vi.fn()),
     onPicked: vi.fn(() => vi.fn()),
+    onSaveWrite: vi.fn((callback: (save: unknown) => void) => {
+      void callback;
+      return vi.fn();
+    }),
     onScreen: vi.fn(() => vi.fn()),
     pick: vi.fn(),
     select: vi.fn(),
@@ -217,5 +222,47 @@ describe('GameScreen', () => {
 
     expect(await screen.findByRole('button', { name: 'Skeleton' })).toBeVisible();
     expect(screen.getByRole('button', { name: '▶ Enter crypt' })).toBeVisible();
+  });
+
+  // The API files each save under the branch and build that wrote it; the player knows them only here.
+  it('saves under the branch and build of the adopted snapshot', async () => {
+    editorApi.getOptionalSaves.mockResolvedValue({ available: true, value: { slots: [] } });
+    editorApi.putSave.mockResolvedValue({ revision: 1 });
+    host.mountGameFrame.mockImplementationOnce((options) => {
+      queueMicrotask(() =>
+        options?.onState?.({
+          bridgeState: 'ready',
+          dropped: 0,
+          manifest: {
+            id: 'cellar',
+            sdk: '^1',
+            title: 'Goblin Cellar',
+            inputs: { actions: {} },
+            presentation: { orientation: 'any', minLogical: { w: 320, h: 180 }, fit: 'responsive' },
+            view: 'main',
+            dimension: '2d',
+            capabilities: [],
+            tools: [],
+            gizmos: {},
+            saves: true,
+            overrides: { aliases: {}, retired: [] },
+          },
+        }),
+      );
+      return host.controller;
+    });
+    renderGame();
+
+    await waitFor(() => expect(host.controller.onSaveWrite).toHaveBeenCalled());
+    await waitFor(() => expect(editorApi.getOptionalSaves).toHaveBeenCalledWith('game'));
+    const save = { saveSchemaVersion: 1, data: { room: 'crypt' } };
+    host.controller.onSaveWrite.mock.calls.at(-1)![0](save);
+
+    await waitFor(() =>
+      expect(editorApi.putSave).toHaveBeenCalledWith('game', 'auto', save, undefined, {
+        branch: 'main',
+        buildId: 'build',
+      }),
+    );
   });
 });

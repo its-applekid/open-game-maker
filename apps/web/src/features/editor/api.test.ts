@@ -121,6 +121,46 @@ describe('editor API classifications', () => {
     expect(second.get('idempotency-key')).not.toBe(first.get('idempotency-key'));
   });
 
+  // The API keeps the reason in each revision's history; the SDK sends it on every save.write.
+  it('records the reason the game saved for, and checkpoint when it sent none the API accepts', async () => {
+    const fetch = vi.fn().mockImplementation(async () => response(200, { revision: 1 }));
+    vi.stubGlobal('fetch', fetch);
+    const context = { branch: 'main', buildId };
+
+    await putSave(gameId, 'auto', { saveSchemaVersion: 1, data: {}, reason: 'pause' } as never, 1, context);
+    await putSave(gameId, 'auto', { saveSchemaVersion: 1, data: {}, reason: 'bogus' } as never, 2, context);
+
+    const [, paused] = fetch.mock.calls[1] as [string, RequestInit];
+    const [, bogus] = fetch.mock.calls[3] as [string, RequestInit];
+    expect(new Headers(paused.headers).get('x-save-reason')).toBe('pause');
+    expect(new Headers(bogus.headers).get('x-save-reason')).toBe('checkpoint');
+  });
+
+  // The API holds the play lease per device: a new device id per save would lock this browser out of its own lease.
+  it('keeps one device id across saves, also when storage is unavailable', async () => {
+    const fetch = vi.fn().mockImplementation(async () => response(200, { revision: 1 }));
+    vi.stubGlobal('fetch', fetch);
+    const save = { saveSchemaVersion: 1, data: {} };
+    const leaseDevice = (call: number) =>
+      (JSON.parse(String((fetch.mock.calls[call] as [string, RequestInit])[1].body)) as { deviceId: string }).deviceId;
+
+    await putSave(gameId, '1', save, 1, { branch: 'main', buildId });
+    await putSave(gameId, '1', save, 2, { branch: 'main', buildId });
+    expect(leaseDevice(2)).toBe(leaseDevice(0));
+    expect(localStorage.getItem('ogm:saves:device')).toBe(leaseDevice(0));
+
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('denied', 'SecurityError');
+    });
+    try {
+      await putSave(gameId, '1', save, 3, { branch: 'main', buildId });
+      await putSave(gameId, '1', save, 4, { branch: 'main', buildId });
+    } finally {
+      vi.restoreAllMocks();
+    }
+    expect(leaseDevice(6)).toBe(leaseDevice(4));
+  });
+
   it('uses a conditional published request and preserves the ETag on 304', async () => {
     const fetch = vi.fn().mockResolvedValue(
       new Response(undefined, {

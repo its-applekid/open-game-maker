@@ -6,10 +6,11 @@ import type {
   ReapplyReport,
   Release,
   SaveData,
+  SaveRevision,
   SaveSlot,
   Transaction,
 } from '@ogm/contracts/browser';
-import { savesPath } from '@ogm/contracts/browser';
+import { SaveRevisionSchema, savesPath } from '@ogm/contracts/browser';
 import { PatchTooLargeError, validatePatches } from '@ogm/design-log/browser';
 
 import { api, ApiError, apiFetch, sse } from '../../lib/api/client';
@@ -170,10 +171,16 @@ export async function putSave(
       'x-save-schema': String(payload.saveSchemaVersion),
       'x-save-branch': context.branch,
       'x-save-build': context.buildId,
-      'x-save-reason': 'checkpoint',
+      'x-save-reason': saveReason(payload),
     },
     body: await gzipJson({ saveSchemaVersion: payload.saveSchemaVersion, data: payload.data }),
   });
+}
+
+/** The SDK adds why it saved (`pause`, `interval`...) to each save.write; the bridge passes it through untyped. */
+function saveReason(payload: SaveData<unknown>): SaveRevision['reason'] {
+  const parsed = SaveRevisionSchema.shape.reason.safeParse((payload as { reason?: unknown }).reason);
+  return parsed.success ? parsed.data : 'checkpoint';
 }
 
 function gzipJson(value: unknown): Promise<ArrayBuffer> {
