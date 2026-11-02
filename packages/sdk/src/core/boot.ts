@@ -117,6 +117,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
       events,
       () => bridge.close(),
     );
+    runtime.setLocalPlayerIndex(hello.payload.playerIndex);
     runtimeState.current = runtime;
     const hooks = new SdkHooks(runtime, module.manifest, marks);
     runtime.attachHooks(hooks);
@@ -231,7 +232,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
           );
           return;
         case 'input.frame':
-          active.inject(envelope.payload as ActionFrame);
+          active.acceptHostFrame(envelope.payload as ActionFrame);
           return;
         case 'viewport':
           host.updateViewport(envelope.payload as Viewport);
@@ -256,6 +257,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
           return;
         }
         case 'net.players':
+          active.setLocalPlayerIndex(envelope.payload.local);
           active.players.splice(0, active.players.length, ...structuredClone(envelope.payload.players));
           active.emitNet(envelope.t, envelope.payload);
           return;

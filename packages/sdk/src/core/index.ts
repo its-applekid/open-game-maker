@@ -3,4 +3,11 @@ export { FIXED_DT, STEP_MS, FixedClock, type Clock, type StepListener } from './
 export { EventRing, type RuntimeEvent } from './events.js';
 export { defineFeature, type Feature, type SaveSlice } from './registry.js';
 export { SeededRng, type Rng, type RngState } from './rng.js';
-export { RuntimeImpl, type BuildKind, type GameMode, type RenderInfo, type Runtime } from './runtime.js';
+export {
+  RuntimeImpl,
+  type BuildKind,
+  type GameMode,
+  type RenderInfo,
+  type Runtime,
+  type RuntimeInputOptions,
+} from './runtime.js';

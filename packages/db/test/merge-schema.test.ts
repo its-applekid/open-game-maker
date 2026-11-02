@@ -6,18 +6,18 @@ import { migrate, openDb } from '../src/index.js';
 import { mergePlans } from '../src/schema/index.js';
 
 describe('merge plan schema', () => {
-  it('chains the generated migration after saves at journal index 18', () => {
+  it('chains the generated migration after scope sessions at journal index 19', () => {
     const journal = JSON.parse(readFileSync(new URL('../migrations/meta/_journal.json', import.meta.url), 'utf8')) as {
       entries: Array<{ idx: number; tag: string }>;
     };
     const previous = JSON.parse(
-      readFileSync(new URL('../migrations/meta/20261102023822_snapshot.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('../migrations/meta/20261102033839_snapshot.json', import.meta.url), 'utf8'),
     ) as { id: string };
     const snapshot = JSON.parse(
-      readFileSync(new URL('../migrations/meta/20261102041645_snapshot.json', import.meta.url), 'utf8'),
+      readFileSync(new URL('../migrations/meta/20261102052022_snapshot.json', import.meta.url), 'utf8'),
     ) as { prevId: string };
 
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 18, tag: '20261102041645_merge_plans' });
+    expect(journal.entries.at(-1)).toMatchObject({ idx: 19, tag: '20261102052022_merge_plans' });
     expect(snapshot.prevId).toBe(previous.id);
   });
 

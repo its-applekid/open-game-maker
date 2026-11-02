@@ -12,7 +12,7 @@ defmodule OgmVoice.Test.ApiStub do
     {:ok, body, conn} = read_body(conn)
     send(opts[:test], {:api_stub, conn.method, conn.request_path, get_req_header(conn, "x-ogm-internal"), body})
     Process.sleep(opts[:delay_ms] || 0)
-    send_resp(conn, opts[:status] || 200, opts[:body] || ~s({"delivery_id":"d-1"}))
+    send_resp(conn, opts[:status] || 200, opts[:body] || ~s({"delivery_id":"d-1","status":"delivered"}))
   end
 
   @doc "Starts the stub on a free loopback port and returns its base URL."

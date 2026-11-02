@@ -16,6 +16,12 @@ export function render(trigger: NotificationTrigger, context: { gameTitle?: stri
         body: context.gameTitle ?? trigger.gameId,
         url: `/games/${trigger.gameId}?chat=${trigger.jobId}`,
       };
+    case 'scope.agreed':
+      return {
+        title: 'Your game plan is ready',
+        body: context.gameTitle ?? trigger.gameId,
+        url: `/games/${trigger.gameId}?chat=${trigger.jobId}`,
+      };
     case 'intake.report':
       return {
         title: 'New assets arrived',

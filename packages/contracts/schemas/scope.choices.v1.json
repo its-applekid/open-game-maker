@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "genre": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "vibe": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "family": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "world": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "players": {
+      "type": "string",
+      "enum": [
+        "single",
+        "multi"
+      ]
+    },
+    "pov": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "other": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 2000
+    }
+  },
+  "required": [
+    "genre",
+    "vibe",
+    "family",
+    "world",
+    "players",
+    "pov"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/scope.choices.v1.json"
+}

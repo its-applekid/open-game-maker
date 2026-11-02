@@ -27,7 +27,7 @@ defmodule OgmVoice.BriefingCacheTest do
 
     assert at == ~U[2026-11-01 05:25:00Z]
     assert briefing.next_steps.value == ["Paint the door red"]
-    assert [%{title: "Budget"}] = briefing.extra
+    assert [%{title: "How to talk about budget"}, %{title: "Budget"}] = briefing.extra
     # Not pushed means not reported, never an empty value that reads as "nothing waiting".
     assert briefing.waiting_on == nil
     assert {:ok, "Door next"} = Ports.call_port(BriefingSource, :details, [@target, "progress", []], :details)

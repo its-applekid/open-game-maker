@@ -16,6 +16,7 @@ export async function merge(op: ExtractCommitOp<'merge'>, context: OperationCont
   });
   const verdict = await context.gate.evaluate({
     kind: op.kind,
+    gameId: op.gameId,
     repository,
     prNumber: op.prNumber,
     sha: pull.data.head.sha,

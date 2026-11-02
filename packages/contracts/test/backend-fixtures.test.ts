@@ -11,6 +11,7 @@ import { budgetSchemas, SizeClassRow } from '../src/budget.js';
 import { CreateJobAccepted, CreateJobRequest, Job, jobsSchemas } from '../src/jobs.js';
 import { notificationsSchemas } from '../src/notifications.js';
 import { reportsSchemas } from '../src/reports.js';
+import { scopeSchemas } from '../src/scope.js';
 import { voiceSchemas } from '../src/voice.js';
 import { loadJson } from './helpers.js';
 
@@ -20,6 +21,7 @@ const families: Record<string, Record<string, z.ZodType>> = {
   budget: budgetSchemas,
   analytics: analyticsSchemas,
   reports: reportsSchemas,
+  scope: scopeSchemas,
   notifications: notificationsSchemas,
   voice: voiceSchemas,
 };

@@ -97,7 +97,7 @@ defmodule OgmVoice.Delivery do
 
     case :httpc.request(:post, request, [timeout: @timeout_ms, connect_timeout: @timeout_ms], []) do
       {:ok, {{_version, status, _reason}, _headers, response_body}} when status in 200..299 ->
-        if valid_receipt?(response_body) do
+        if delivered_receipt?(response_body) do
           :delivered
         else
           Logger.warning("voice instruct delivery returned an invalid receipt")
@@ -114,10 +114,14 @@ defmodule OgmVoice.Delivery do
     end
   end
 
-  defp valid_receipt?(body) do
+  defp delivered_receipt?(body) do
     case Jason.decode(body) do
-      {:ok, %{"delivery_id" => id}} when is_binary(id) and id != "" -> true
-      _ -> false
+      {:ok, %{"delivery_id" => id, "status" => status}}
+      when is_binary(id) and id != "" and status in ["delivered", "queued_at_reset", "needs_choice"] ->
+        true
+
+      _ ->
+        false
     end
   end
 end

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bd5d4855-4075-4162-8ff3-db5cccc660c3",
+  "id": "8a07f54b-3f0c-4a07-a7b3-2004aa7917ef",
   "prevId": "0e4eac12-c814-42b3-8886-4189f9ada0af",
   "tables": {
     "app_meta": {
@@ -4626,8 +4626,8 @@
         }
       }
     },
-    "merge_plans": {
-      "name": "merge_plans",
+    "scope_sessions": {
+      "name": "scope_sessions",
       "columns": {
         "id": {
           "name": "id",
@@ -4643,39 +4643,25 @@
           "notNull": true,
           "autoincrement": false
         },
-        "source_branch_id": {
-          "name": "source_branch_id",
+        "creator_id": {
+          "name": "creator_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "target_branch_id": {
-          "name": "target_branch_id",
+        "job_id": {
+          "name": "job_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "base_rev": {
-          "name": "base_rev",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "target_head_rev": {
-          "name": "target_head_rev",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "plan_json": {
-          "name": "plan_json",
+        "ticket": {
+          "name": "ticket",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "status": {
@@ -4685,15 +4671,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "landed_tx_id": {
-          "name": "landed_tx_id",
+        "choices": {
+          "name": "choices",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
         },
-        "rolled_back_tx_id": {
-          "name": "rolled_back_tx_id",
+        "scope_hash": {
+          "name": "scope_hash",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -4705,85 +4698,63 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
         }
       },
       "indexes": {
-        "merge_plans_game_id_index": {
-          "name": "merge_plans_game_id_index",
-          "columns": ["game_id"],
-          "isUnique": false
+        "scope_sessions_job_unique": {
+          "name": "scope_sessions_job_unique",
+          "columns": ["job_id"],
+          "isUnique": true
         },
-        "merge_plans_target_branch_id_index": {
-          "name": "merge_plans_target_branch_id_index",
-          "columns": ["target_branch_id"],
+        "scope_sessions_game_open_unique": {
+          "name": "scope_sessions_game_open_unique",
+          "columns": ["game_id"],
+          "isUnique": true,
+          "where": "\"scope_sessions\".\"status\" = 'open'"
+        },
+        "scope_sessions_game_created": {
+          "name": "scope_sessions_game_created",
+          "columns": ["game_id", "created_at"],
           "isUnique": false
         }
       },
       "foreignKeys": {
-        "merge_plans_game_id_games_id_fk": {
-          "name": "merge_plans_game_id_games_id_fk",
-          "tableFrom": "merge_plans",
+        "scope_sessions_game_id_games_id_fk": {
+          "name": "scope_sessions_game_id_games_id_fk",
+          "tableFrom": "scope_sessions",
           "tableTo": "games",
           "columnsFrom": ["game_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "merge_plans_source_branch_id_branches_id_fk": {
-          "name": "merge_plans_source_branch_id_branches_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "branches",
-          "columnsFrom": ["source_branch_id"],
+        "scope_sessions_job_id_jobs_id_fk": {
+          "name": "scope_sessions_job_id_jobs_id_fk",
+          "tableFrom": "scope_sessions",
+          "tableTo": "jobs",
+          "columnsFrom": ["job_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "merge_plans_target_branch_id_branches_id_fk": {
-          "name": "merge_plans_target_branch_id_branches_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "branches",
-          "columnsFrom": ["target_branch_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "merge_plans_landed_tx_id_design_transactions_id_fk": {
-          "name": "merge_plans_landed_tx_id_design_transactions_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "design_transactions",
-          "columnsFrom": ["landed_tx_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        },
-        "merge_plans_rolled_back_tx_id_design_transactions_id_fk": {
-          "name": "merge_plans_rolled_back_tx_id_design_transactions_id_fk",
-          "tableFrom": "merge_plans",
-          "tableTo": "design_transactions",
-          "columnsFrom": ["rolled_back_tx_id"],
-          "columnsTo": ["id"],
-          "onDelete": "set null",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "merge_plans_base_rev_check": {
-          "name": "merge_plans_base_rev_check",
-          "value": "\"merge_plans\".\"base_rev\" >= 0"
+        "scope_sessions_status": {
+          "name": "scope_sessions_status",
+          "value": "\"scope_sessions\".\"status\" IN ('open', 'agreed', 'abandoned')"
         },
-        "merge_plans_target_head_rev_check": {
-          "name": "merge_plans_target_head_rev_check",
-          "value": "\"merge_plans\".\"target_head_rev\" >= 0"
-        },
-        "merge_plans_status_check": {
-          "name": "merge_plans_status_check",
-          "value": "\"merge_plans\".\"status\" IN ('planned', 'resolving', 'previewing', 'landed', 'abandoned')"
-        },
-        "merge_plans_distinct_branches_check": {
-          "name": "merge_plans_distinct_branches_check",
-          "value": "\"merge_plans\".\"source_branch_id\" <> \"merge_plans\".\"target_branch_id\""
+        "scope_sessions_agreed_payload": {
+          "name": "scope_sessions_agreed_payload",
+          "value": "(\"scope_sessions\".\"status\" = 'agreed' AND \"scope_sessions\".\"scope\" IS NOT NULL AND \"scope_sessions\".\"scope_hash\" IS NOT NULL) OR (\"scope_sessions\".\"status\" != 'agreed')"
         }
       }
     }

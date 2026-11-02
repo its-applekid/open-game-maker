@@ -72,6 +72,55 @@ defmodule OgmVoice.E2EFakeProviderTest do
     assert {%{"type" => "ended"}, _ws} = WsClient.await(ws, &match?(%{"type" => "ended"}, &1))
   end
 
+  @tag api_body: ~s({"delivery_id":"d-1","status":"needs_choice"})
+  test "the fake provider reads budget details and keeps a needs-choice session live", %{
+    port: port,
+    internal_port: internal_port
+  } do
+    budget = "Remaining today: 2.0 stars (40%). Resets at 12:00 am. Free slots: 1 new game, 2 edits. Queued: none."
+    sizes = "Rough sizes: small ≈ 0.5 star, medium ≈ 1–2, large ≈ 3–5, huge ≈ 6+ (low confidence)."
+    assert :ok = push_briefing(internal_port, budget, sizes)
+
+    {:ok, ws} = WsClient.connect(port, "/?token=" <> token("u1"))
+    ws = WsClient.send_json(ws, %{v: 1, type: "start", target: @target})
+    {_, _ws} = WsClient.await(ws, &match?(%{"type" => "state", "state" => "listening"}, &1))
+    provider = provider_ref()
+    test = self()
+    Agent.update(provider, &Map.put(&1, :call_observer, test))
+
+    :ok =
+      FakeProvider.emit(provider, %Events.ToolCall{
+        call_id: "budget",
+        name: "get_details",
+        params: %{"section" => "budget"}
+      })
+
+    assert_receive {:fake_provider, :tool_result, "budget", %{text: details, is_error: false}}, 1_000
+    assert details =~ "Remaining today"
+    assert details =~ "Rough sizes"
+
+    waiting_on = "Doesn't fit today: trim, split, queue for 12:00 am, or ask an admin"
+    assert :ok = push_briefing(internal_port, budget, sizes, waiting_on)
+    :ok = FakeProvider.emit(provider, %Events.ToolCall{call_id: "status", name: "get_status", params: %{}})
+    assert_receive {:fake_provider, :tool_result, "status", %{text: status, is_error: false}}, 1_000
+    assert status =~ waiting_on
+
+    :ok =
+      FakeProvider.emit(provider, %Events.ToolCall{
+        call_id: "later",
+        name: "propose_instruction",
+        params: %{"text" => "[later] add a boss"}
+      })
+
+    {draft, ws} = WsClient.await(ws, &match?(%{"type" => "draft"}, &1))
+    ws = WsClient.send_json(ws, %{v: 1, type: "confirm_draft", draft_id: draft["draft_id"]})
+    assert_receive {:api_stub, "POST", "/internal/voice/instruct", [@internal_secret], body}, 2_000
+    assert %{"text" => "[later] add a boss"} = Jason.decode!(body)
+
+    assert {%{"type" => "delivery", "status" => "delivered"}, _ws} =
+             WsClient.await(ws, &match?(%{"type" => "delivery", "status" => "delivered"}, &1))
+  end
+
   @tag api_status: 500
   test "an API that refuses the instruction reports delivery failed", %{port: port} do
     {:ok, ws} = WsClient.connect(port, "/?token=" <> token("u1"))
@@ -173,6 +222,34 @@ defmodule OgmVoice.E2EFakeProviderTest do
   defp provider_ref do
     [{_id, session}] = sessions()
     :sys.get_state(session).provider_ref
+  end
+
+  defp push_briefing(port, budget, sizes, waiting_on \\ nil) do
+    body =
+      Jason.encode!(%{
+        target_key: "build:j1",
+        observed_at: "2026-11-01T05:10:00Z",
+        summary: "Building",
+        current_task: "Placing the first room",
+        next_steps: [],
+        waiting_on: waiting_on,
+        questions: [],
+        extra: [%{title: "Budget", text: budget}],
+        sections: [
+          %{id: "budget", text: budget <> "\n" <> sizes},
+          %{id: "progress", text: "Building: placing the first room"},
+          %{id: "estimate", text: sizes}
+        ]
+      })
+
+    request =
+      {~c"http://127.0.0.1:#{port}/internal/briefing", [{~c"x-ogm-internal", String.to_charlist(@internal_secret)}],
+       ~c"application/json", body}
+
+    case :httpc.request(:post, request, [], []) do
+      {:ok, {{_version, 204, _reason}, _headers, _body}} -> :ok
+      other -> {:error, other}
+    end
   end
 
   defp listener_port(host, id) do

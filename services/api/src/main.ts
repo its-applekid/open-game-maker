@@ -70,6 +70,7 @@ const deps: AppDeps = {
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
     voiceTokenSecret: env.OGM_VOICE_TOKEN_SECRET,
     voiceWsUrl: env.OGM_VOICE_WS_URL,
+    voiceInternalSecret: env.OGM_VOICE_INTERNAL_SECRET,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
     intakeDir: env.OGM_INTAKE_DIR,

@@ -16,6 +16,24 @@ packages or add game entities. Install afterward with `pnpm install --offline --
 `--family` must name a family id from `packages/asset-cards/data/style-families.json`, the registry `gm assets search`
 reads. A set id (for example `limezu-modern`) is refused with its family named; sets stay nested under their family.
 
+## Verify a game
+
+```text
+gm check [--json]
+gm check static [--json]
+gm check hooks [--json]
+gm test [--inputs <script.json>] [--ticks <count>] [--serve <dir>] [--out <dir>] [--json]
+```
+
+`gm check` runs TypeScript, deterministic simulation-source, test-hook, and registered asset gates. Use `static` or
+`hooks` to select only that gate group. Failures name `file:line` where available and exit 1; `--json` emits the L0
+gate result.
+
+`gm test` serves the built game from `dist/` on `127.0.0.1`, advances 3,600 fixed ticks by default, applies an optional
+logical-input script, checks a save-state round trip, writes a HUD still, runs `promises/*.spec.ts`, and writes
+`shots/test/report.json`. A failed or unavailable check exits 1. `--serve`, `--ticks`, and `--out` override the defaults;
+`--json` emits the L1 gate result and report path.
+
 ## Refresh the skill pack
 
 ```text
@@ -47,6 +65,15 @@ recorded in the lock.
 
 The optional `GM_SKILLS_DIR` path selects a platform skill-pack root. Normal installed use locates the pack beside
 `gm-cli`; tests and source checkouts can use the override without network access.
+
+## Agree a scope session
+
+```text
+gm scope done --file .gm/scope/<session-id>.json
+```
+
+The file must match the agreed-scope schema and its name must match the session id. The command queues
+`scope.agreed` in `.gm/outbox/scope.jsonl` for the build-chat relay.
 
 ## Build game assets
 

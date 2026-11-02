@@ -108,6 +108,7 @@ export default new Hono().get('/seen', (c) => c.text(seen));
       '/api/v1/jobs',
       '/api/catalog',
       '/api/v1/jobs',
+      '/internal',
       '/api/v1',
       '/api/v1',
       '/api/v1',
@@ -119,7 +120,8 @@ export default new Hono().get('/seen', (c) => c.text(seen));
       '/api/v1/reports',
       '/',
       '/api/v1',
-      '/api/v1/voice',
+      '/api/v1/games',
+      '/',
     ]);
   });
 });
