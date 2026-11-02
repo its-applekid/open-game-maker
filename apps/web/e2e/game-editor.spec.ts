@@ -1,7 +1,7 @@
 import { expect, test, type Frame, type Page } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
-import { installGameApi } from './support/mock-game-api';
+import { installGameApi, type GameApiFixture } from './support/mock-game-api';
 
 type GameHook = {
   bridgeState: string;
@@ -20,9 +20,7 @@ test.use({ serviceWorkers: 'block' });
 test('runs the cross-origin editor transaction, undo, and mode flow', async ({ page }, testInfo) => {
   await installAuthRoutes(page, { signedIn: true });
   const api = await installGameApi(page);
-  await page.goto('/g/game?mode=edit&test');
-
-  await expect.poll(() => gameState(page).then((state) => state?.bridgeState), { timeout: 5_000 }).toBe('ready');
+  await openReadyEditor(page, api);
   const before = (await gameState(page))!;
   await page.evaluate(() => {
     window.dispatchEvent(
@@ -35,11 +33,9 @@ test('runs the cross-origin editor transaction, undo, and mode flow', async ({ p
   await expect.poll(() => gameState(page).then((state) => state?.dropped)).toBe(before.dropped + 1);
   expect(await gameState(page)).toMatchObject({ headRev: before.headRev, selection: before.selection });
 
-  await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
-  await expect(page.getByRole('button', { name: 'place', exact: true })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('Place a skeleton', { exact: true })).toBeVisible();
+  await selectSkeleton(page);
   await page.getByLabel('Editor canvas').click({ force: true, position: { x: 180, y: 120 } });
-  await expect.poll(() => api.transactions.length, { timeout: 15_000 }).toBe(1);
+  await expect.poll(() => api.transactions.length).toBe(1);
   expect(api.transactions[0]?.baseRev).toBe(4);
   await expect.poll(() => gameState(page).then((state) => state?.saved)).toBe('saved');
 
@@ -67,10 +63,9 @@ test('replays one conflict and becomes read-only on lease loss', async ({ page }
   await installAuthRoutes(page, { signedIn: true });
   const api = await installGameApi(page);
   api.script('conflict', 'success');
-  await page.goto('/g/game?mode=edit&test');
-  await expect.poll(() => gameState(page).then((state) => state?.bridgeState), { timeout: 5_000 }).toBe('ready');
+  await openReadyEditor(page, api);
 
-  await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
+  await selectSkeleton(page);
   const canvas = page.getByLabel('Editor canvas');
   await canvas.click({ force: true, position: { x: 160, y: 100 } });
   await expect.poll(() => api.attempts.length).toBe(2);
@@ -81,6 +76,17 @@ test('replays one conflict and becomes read-only on lease loss', async ({ page }
   await expect.poll(() => api.attempts.length).toBe(3);
   await expect.poll(() => gameState(page).then((state) => state?.readOnly)).toBe(true);
 });
+
+async function openReadyEditor(page: Page, api: GameApiFixture): Promise<void> {
+  await page.goto('/g/game?mode=edit&test');
+  await Promise.all([api.transactionStreamReady, page.getByLabel('Editor canvas').waitFor()]);
+}
+
+async function selectSkeleton(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
+  await expect(page.getByRole('button', { name: 'place', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Place a skeleton', { exact: true })).toBeVisible();
+}
 
 function gameState(page: Page): Promise<GameHook | undefined> {
   return page.evaluate(() => (window as Window & { __ogmHost?: { game?: GameHook } }).__ogmHost?.game);
