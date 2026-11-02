@@ -1,8 +1,8 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { cp, readFile, writeFile } from 'node:fs/promises';
+import { copyFile, cp, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { renderSplashHtml } from '../dist/render/html.js';
+import { renderSetupHtml, renderSplashHtml } from '../dist/render/html.js';
 import { renderSetupMarkdown } from '../dist/render/markdown.js';
 import { loadSetupContent } from '../dist/schema.js';
 import { loadSplashContent } from '../dist/splash.js';
@@ -28,17 +28,21 @@ if (process.argv.includes('--check')) {
   }
 } else {
   await writeFile(targetPath, generated);
-
-  // the site shares dist/ with tsc's output; tools/deploy.sh publishes only the site files
-  const site = fileURLToPath(new URL('dist/', packageRoot));
-  await cp(fileURLToPath(new URL('public/', packageRoot)), site, { recursive: true });
-  await cp(fileURLToPath(new URL('apps/web/src/tokens.css', repositoryRoot)), `${site}tokens.css`);
-  await cp(fileURLToPath(new URL('src/page/site.css', packageRoot)), `${site}site.css`);
-  const publicDir = fileURLToPath(new URL('public', packageRoot));
-  const hashed = (path: string) =>
-    `${path}?v=${createHash('sha256')
-      .update(readFileSync(`${publicDir}${path}`))
-      .digest('hex')
-      .slice(0, 10)}`;
-  await writeFile(`${site}index.html`, renderSplashHtml(splash, hashed));
 }
+
+const distRoot = new URL('dist/', packageRoot);
+await mkdir(new URL('setup/', distRoot), { recursive: true });
+await writeFile(new URL('setup/index.html', distRoot), renderSetupHtml(content));
+await copyFile(new URL('apps/web/src/tokens.css', repositoryRoot), new URL('tokens.css', distRoot));
+await copyFile(new URL('src/site.css', packageRoot), new URL('site.css', distRoot));
+
+// the splash at /: public/ (hero, captures, _headers) is copied as-is; media URLs carry a content hash so the immutable
+// cache in _headers still picks up a re-recorded clip
+await cp(new URL('public/', packageRoot), distRoot, { recursive: true });
+const publicDir = fileURLToPath(new URL('public', packageRoot));
+const hashed = (path: string) =>
+  `${path}?v=${createHash('sha256')
+    .update(readFileSync(`${publicDir}${path}`))
+    .digest('hex')
+    .slice(0, 10)}`;
+await writeFile(new URL('index.html', distRoot), renderSplashHtml(splash, hashed));

@@ -1,11 +1,11 @@
 import { AiurHttpError } from '@ogm/aiur-client';
-import { JobPlan, Reservation } from '@ogm/contracts';
+import { CompleteTriage, JobPlan, Reservation, type TriageResult } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { and, eq, lte } from 'drizzle-orm';
 
 import { OutcomeUnknownError } from '../github/issues.js';
 import { scopeTicketForJob } from '../scope/file.js';
-import { renderIssue, usdFromMicro } from './render.js';
+import { renderIssue, renderRepairIssue, usdFromMicro } from './render.js';
 import type { FileResult, IntakeAlert, IntakeDeps } from './types.js';
 
 const DEFAULT_SWEEP_MS = 60_000;
@@ -40,6 +40,8 @@ export function createIntake(deps: IntakeDeps) {
       .get();
     if (!found) return { skipped: 'missing' };
     if (found.job.state !== 'admitted') return { skipped: `state:${found.job.state}` };
+    const repairTriage = found.job.kind === 'repair' ? triageForRepair(deps.db, jobId) : undefined;
+    if (found.job.kind === 'repair' && !repairTriage?.ticket) return { deferred: 'triage' };
 
     const repo =
       found.game.githubOwner && found.game.githubRepo
@@ -94,14 +96,16 @@ export function createIntake(deps: IntakeDeps) {
       const blockedBy = ticket.dependsOn.map((key) => rows.get(key)!.issueNumber);
       const rendered =
         scopeTicket ??
-        renderIssue({
-          jobId,
-          complexity: found.job.complexity,
-          plan,
-          ticket,
-          blockedBy,
-          shippedSkills: deps.shippedSkills,
-        });
+        (repairTriage?.ticket
+          ? renderRepairIssue({ jobId, complexity: found.job.complexity, ticket: repairTriage.ticket })
+          : renderIssue({
+              jobId,
+              complexity: found.job.complexity,
+              plan,
+              ticket,
+              blockedBy,
+              shippedSkills: deps.shippedSkills,
+            }));
       let row = rows.get(ticket.key);
 
       if (!row) {
@@ -276,6 +280,17 @@ export function createIntake(deps: IntakeDeps) {
   }
 
   return { fileJob, start, stop, sweep };
+}
+
+function triageForRepair(db: IntakeDeps['db'], jobId: string): TriageResult | undefined {
+  const row = db
+    .select({ triageJson: schema.reports.triageJson })
+    .from(schema.reports)
+    .where(and(eq(schema.reports.jobId, jobId), eq(schema.reports.triageState, 'ready')))
+    .get();
+  if (!row?.triageJson) return undefined;
+  const parsed = CompleteTriage.safeParse(JSON.parse(row.triageJson));
+  return parsed.success && parsed.data.status === 'triaged' ? parsed.data.result : undefined;
 }
 
 async function setSpendCap(

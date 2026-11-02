@@ -199,7 +199,9 @@ async function play(page, ready) {
 }
 
 const SCENES = {
-  creation: { run: creation, viewport: PHONE },
+  /* poster: the second the WebP poster is taken from (default: a second before the end); the creation clip ends on chat
+     bubbles still streaming in, so its poster is the genre grid */
+  creation: { run: creation, viewport: PHONE, poster: 1 },
   build: { run: build, viewport: PHONE },
   play: { run: play, viewport: { width: 844, height: 390 } },
 };
@@ -255,7 +257,7 @@ try {
   }
   await mkdir(OUT, { recursive: true });
   for (const name of names) {
-    const { run, viewport } = SCENES[name];
+    const { run, viewport, poster } = SCENES[name];
     const dir = join(work, name);
     const context = await browser.newContext({
       viewport,
@@ -311,7 +313,7 @@ try {
       'error',
       '-y',
       '-ss',
-      String(Math.max(0, seconds - 1)),
+      String(poster ?? Math.max(0, seconds - 1)),
       '-i',
       video,
       '-frames:v',

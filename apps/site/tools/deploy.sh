@@ -20,13 +20,15 @@ pnpm --dir "$SITE" exec tsc -b --clean
 rm -rf "$SITE/dist"
 pnpm --dir "$SITE" build
 
-# dist/ also holds tsc's output (one .js, .d.ts and maps per src/**/*.ts); publish only the site files
+# dist/ also holds tsc's output (one .js, .d.ts and maps per src/**/*.ts); publish only the site files, which include
+# the /setup page scripts tsc compiles from src/page/
 DEPLOY_DIR="$(mktemp -d)"
 trap 'rm -rf -- "$DEPLOY_DIR"' EXIT
 cp -R "$SITE/dist/." "$DEPLOY_DIR/"
 while IFS= read -r source; do
   stem="${source#"$SITE/src/"}"; stem="${stem%.ts}"
-  rm -f "$DEPLOY_DIR/$stem".{js,js.map,d.ts,d.ts.map}
+  rm -f "$DEPLOY_DIR/$stem".{js.map,d.ts,d.ts.map}
+  [[ "$stem" == page/* ]] || rm -f "$DEPLOY_DIR/$stem.js"
 done < <(find "$SITE/src" -name '*.ts')
 rm -f "$DEPLOY_DIR"/*.tsbuildinfo
 find "$DEPLOY_DIR" -type d -empty -delete

@@ -1,4 +1,4 @@
-import type { ServerMessage } from '@ogm/contracts';
+import type { ServerMessage } from '@ogm/contracts/browser';
 
 import type { JoinRoom } from './room-client';
 import type { RoomStoreApi } from './room-store';
