@@ -28,6 +28,11 @@ use. Work here the way those agents will work: dogfood the skills.
   Config changes hot-reload: the daemon watches `.aiur/config` and applies it within a second without dropping agent turns
   (back the file up first; use only keys the running build knows; `aiur-main status` shows `CONFIG RELOAD REJECTED` on a
   bad file). Never stop/relaunch the daemon for a config change.
+  Throughput gate: when `AGENTS` shows `binding: AIMD envelope` below the cap while CPU PSI is under target, `aiur-main set
+  max-agents <cap>` (the same value) resets the envelope within a minute (fleet 6→12 on 2026-11-01). Lowering the PSI
+  thresholds is not the lever: at 55/70 the fleet fell 10→6 and PSI stayed ~88 % (the daemon BEAM itself uses ~2 cores,
+  Aiur #7468). Wrap RPCs that must land in `executor/retry.sh <args>` (3 tries on timeout); `executor/status.sh` prints the
+  build progress line for ETA questions.
   Review loop (Kevin, 2026-11-01 06:20: "way too many Claude tokens"): the deep review is the worker's own `ce-code-review`
   run before the PR (`.aiur/prompt.md`, AGENTS.md); the Executor's background check is the light brief in
   `docs/plans/ogm-v1-build/review-brief.md` (does the PR do the ticket, scope, evidence, secrets) on `model: haiku`,
