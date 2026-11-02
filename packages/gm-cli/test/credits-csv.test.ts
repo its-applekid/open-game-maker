@@ -34,11 +34,15 @@ describe('LPC credits CSV', () => {
     });
   });
 
-  it('keeps share-alike and GPL rows only when explicitly requested', () => {
+  it('keeps share-alike when explicitly requested but always drops GPL rows', () => {
     const map = parseLpcCredits(CSV, { includeSa: true });
     expect(map['sa.png']).toEqual({ license: 'CC-BY-SA-3.0', attribution: 'Cy' });
-    expect(map['gpl.png']).toEqual({ license: 'GPL-3.0-only', attribution: 'Dee' });
-    expect(lpcCollectionLicense(map)).toBe('GPL-3.0-only');
+    expect(map['gpl.png']).toEqual({
+      license: 'GPL-3.0-only',
+      attribution: 'Dee',
+      dropped: 'GPL item excluded from tier 2',
+    });
+    expect(lpcCollectionLicense(map)).toBe('CC-BY-SA-3.0');
   });
 
   it('requires the five LPC columns while tolerating their order', () => {

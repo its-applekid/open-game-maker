@@ -105,6 +105,12 @@ describe('gm packs sync', () => {
     await expect(stat(destination)).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
+  it('refuses moving refs as Git mirror pin overrides', async () => {
+    const result = await gm(['packs', 'sync', 'kaykit', '--pin', 'main', '--dry-run']);
+    expect(result).toMatchObject({ code: 2, out: [] });
+    expect(result.err.join('\n')).toContain('40-character commit SHA');
+  });
+
   it('prints a dry-run plan without creating the destination', async () => {
     const dest = `/home/orangekid/Downloads/ogm-mirrors-test-${process.pid}/not-created`;
     const events = join(fresh('gm-sync-events-'), 'events.jsonl');
@@ -218,11 +224,11 @@ describe('gm packs sync', () => {
     await expect(stat(join(destination, 'checkout', '.git'))).rejects.toMatchObject({ code: 'ENOENT' });
   });
 
-  it('uses the restrictive kept LPC licence as the collection ceiling', async () => {
+  it('uses the restrictive kept LPC share-alike licence as the collection ceiling', async () => {
     const fixture = await localGitFixture({
       'CREDITS.csv':
-        'filename,notes,authors,licenses,urls\n"gpl.png","","GPL Author","GPL 3.0","https://example.test/gpl"\n',
-      'spritesheets/gpl.png': 'not-a-real-png',
+        'filename,notes,authors,licenses,urls\n"sa.png","","SA Author","CC-BY-SA 3.0","https://example.test/sa"\n',
+      'spritesheets/sa.png': 'not-a-real-png',
     });
     const assetsRoot = fresh('gm-sync-lpc-assets-');
     const destination = join(fresh('gm-sync-lpc-download-'), 'fixture');
@@ -257,11 +263,11 @@ describe('gm packs sync', () => {
       confirmedBy: 'test-operator',
     });
 
-    expect(result).toMatchObject({ collection: `t2:lpc-fixture@${fixture.sha}`, license: 'GPL-3.0-only' });
-    const card = JSON.parse(await readFile(join(assetsRoot, 'packs', 'lpc-fixture', 'cards', 'gpl.card.json'), 'utf8'));
+    expect(result).toMatchObject({ collection: `t2:lpc-fixture@${fixture.sha}`, license: 'CC-BY-SA-3.0' });
+    const card = JSON.parse(await readFile(join(assetsRoot, 'packs', 'lpc-fixture', 'cards', 'sa.card.json'), 'utf8'));
     expect(card).toMatchObject({
-      license: 'GPL-3.0-only',
-      rights: { attribution: 'GPL Author', redistribution: 'free' },
+      license: 'CC-BY-SA-3.0',
+      rights: { attribution: 'SA Author', redistribution: 'free' },
     });
   });
 
@@ -314,6 +320,11 @@ describe('gm packs sync', () => {
         'asset.svg': { license: 'CC-BY-3.0', attribution: null },
       }),
     ).toThrow(/requires attribution/);
+    expect(() =>
+      validateLicenseMap({
+        'asset.svg': { license: 'GPL-3.0-only', attribution: 'Author' },
+      }),
+    ).toThrow(/GPL license .* must be dropped/);
   });
 
   it('imports tier-2 cards with per-item rights and omits dropped or unmapped assets', async () => {
@@ -389,5 +400,30 @@ describe('gm packs sync', () => {
     );
     expect(result.code).toBe(2);
     expect(result.err.join('\n')).toContain('--confirmed-by');
+  });
+
+  it('refuses GPL as a tier-2 collection license', async () => {
+    const input = fresh('gm-sync-input-');
+    await writeFile(join(input, 'asset.obj'), 'o asset\n');
+    const result = await gm(
+      [
+        'packs',
+        'import',
+        input,
+        '--id',
+        'mirror-test',
+        '--version',
+        'pin1',
+        '--tier',
+        '2',
+        '--license',
+        'GPL-3.0-only',
+        '--confirmed-by',
+        'test-operator',
+      ],
+      { env: { OGM_ASSETS_ROOT: fresh('gm-sync-assets-') } },
+    );
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain('unsupported kept tier-2 license');
   });
 });

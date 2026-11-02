@@ -32,7 +32,7 @@ const PREFERENCE = [
   'GPL-3.0-only',
   'GPL-2.0-only',
 ];
-const RESTRICTIVE_LPC_CEILING = ['GPL-3.0-only', 'GPL-2.0-only', 'CC-BY-SA-4.0', 'CC-BY-SA-3.0'];
+const RESTRICTIVE_LPC_CEILING = ['CC-BY-SA-4.0', 'CC-BY-SA-3.0'];
 
 function requiresAttribution(license: string): boolean {
   return license.startsWith('CC-BY-') || license === 'OGA-BY-3.0';
@@ -122,9 +122,9 @@ export function parseLpcCredits(csv: string, options: { includeSa: boolean }): L
       };
       continue;
     }
-    const allowed = options.includeSa
-      ? mapped
-      : mapped.filter((license) => !license.includes('-SA-') && !license.startsWith('GPL-'));
+    const allowed = mapped.filter(
+      (license) => !license.startsWith('GPL-') && (options.includeSa || !license.includes('-SA-')),
+    );
     const candidates = allowed.length > 0 ? allowed : mapped;
     const license = PREFERENCE.find((candidate) => candidates.includes(candidate)) ?? candidates[0]!;
     const excluded = allowed.length === 0;
@@ -137,7 +137,7 @@ export function parseLpcCredits(csv: string, options: { includeSa: boolean }): L
             dropped: missingAttribution
               ? `missing attribution for ${license}`
               : license.startsWith('GPL-')
-                ? 'GPL item excluded; pass --include-sa to keep it'
+                ? 'GPL item excluded from tier 2'
                 : 'share-alike item excluded; pass --include-sa to keep it',
           }
         : {}),

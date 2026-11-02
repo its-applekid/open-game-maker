@@ -35,6 +35,10 @@ function requiresAttribution(license: string): boolean {
   return license.startsWith('CC-BY-') || license === 'OGA-BY-3.0';
 }
 
+function isGpl(license: string): boolean {
+  return license.startsWith('GPL-');
+}
+
 function safePath(path: string): boolean {
   return Boolean(path) && !isAbsolute(path) && !path.includes('\\') && !path.split('/').includes('..');
 }
@@ -59,6 +63,9 @@ function validateEntry(path: string, value: unknown): LicenseMapEntry {
   }
   if (entry.dropped !== undefined && (typeof entry.dropped !== 'string' || entry.dropped.trim() === '')) {
     throw new Error(`invalid dropped reason for ${path}`);
+  }
+  if (!entry.dropped && isGpl(entry.license ?? '')) {
+    throw new Error(`tier-2 GPL license ${entry.license} must be dropped for ${path}`);
   }
   if (!entry.dropped && entry.license === 'NOASSERTION') throw new Error(`kept item ${path} needs a mapped license`);
   return entry as LicenseMapEntry;
@@ -107,7 +114,9 @@ function basis(
   date: string,
   ref: string,
 ): RightsBasis {
-  if (!LICENSES.has(license)) throw new Error(`unsupported tier-2 license ${JSON.stringify(license)}`);
+  if (!LICENSES.has(license) || isGpl(license)) {
+    throw new Error(`unsupported kept tier-2 license ${JSON.stringify(license)}`);
+  }
   return {
     type: 'license',
     license,

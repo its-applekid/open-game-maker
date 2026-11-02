@@ -122,6 +122,6 @@ List the approved git and npm mirrors, including their reviewed pins and licence
 gm packs sync --list
 ```
 
-`gm packs sync kaykit`, `lpc`, `game-icons`, or `fontsource:<font>` fetches only the pinned public source into `~/Downloads/ogm-mirrors/`, verifies the commit or package version, writes `sources.json`, and imports the kept files as `t2:` cards. A real sync requires `--confirmed-by <human>`; inspect its network-free plan first with `--dry-run`. LPC share-alike and GPL items are excluded unless the operator passes `--include-sa`, and any item without a machine-readable licence is always dropped.
+`gm packs sync kaykit`, `lpc`, `game-icons`, or `fontsource:<font>` fetches only the pinned public source into `~/Downloads/ogm-mirrors/`, verifies the commit or package version, writes `sources.json`, and imports the kept files as `t2:` cards. A real sync requires `--confirmed-by <human>`; inspect its network-free plan first with `--dry-run`. LPC share-alike items are excluded unless the operator passes `--include-sa`; GPL items and anything without a machine-readable licence are always dropped.
 
 The command is operator-only: it refuses game repositories, `GM_JOB` jobs, and Aiur ticket workspaces. It never runs package scripts or reads provider keys. The underlying importer accepts `--tier 2 --license <SPDX> --license-map <json> --confirmed-by <human>` for the mirror handoff; normal local and Drive imports remain tier 1.

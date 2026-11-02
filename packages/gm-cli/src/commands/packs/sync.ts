@@ -63,7 +63,10 @@ function printList(ctx: GmContext): void {
     ctx.out(`${mirrorName(mirror)}  ${mirror.kind}  ${mirror.pin}  ${licenseLabel(mirror)}`);
 }
 
-function checkedPin(value: string): string {
+function checkedPin(value: string, kind: Mirror['kind']): string {
+  if (kind === 'git' && !/^[a-f0-9]{40}$/i.test(value)) {
+    throw new UsageError('git mirror pins must be full 40-character commit SHAs', 'gm packs sync --list');
+  }
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value) || value.includes('..')) {
     throw new UsageError(`unsafe mirror pin ${JSON.stringify(value)}`, 'gm packs sync --list');
   }
@@ -177,7 +180,7 @@ export const command: GmCommand = {
     pin: { type: 'string', help: 'override the reviewed commit or version' },
     dest: { type: 'string', help: 'download directory outside the game repo' },
     'dry-run': { type: 'boolean', default: false, help: 'print the fetch/import plan without network access' },
-    'include-sa': { type: 'boolean', default: false, help: 'include LPC share-alike and GPL assets' },
+    'include-sa': { type: 'boolean', default: false, help: 'include LPC share-alike assets' },
     'confirmed-by': { type: 'string', help: 'human who confirmed the mirror licences' },
   },
   async run(ctx, args, flags) {
@@ -195,7 +198,7 @@ export const command: GmCommand = {
         'gm packs sync --list',
       );
     }
-    const pin = checkedPin(typeof flags.pin === 'string' ? flags.pin : mirror.pin);
+    const pin = checkedPin(typeof flags.pin === 'string' ? flags.pin : mirror.pin, mirror.kind);
     const destination = resolve(
       ctx.cwd,
       typeof flags.dest === 'string' ? flags.dest : join(homedir(), 'Downloads', 'ogm-mirrors', mirror.id, pin),
