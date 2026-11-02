@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "if command -v mise >/dev/null 2>&1; then mise exec -- mix compile --warnings-as-errors; else echo 'skipping @ogm/voice-host build (mise unavailable)'; fi",
-    "typecheck": "if command -v mise >/dev/null 2>&1; then mise exec -- mix compile --warnings-as-errors; else echo 'skipping @ogm/voice-host typecheck (mise unavailable)'; fi",
-    "test": "if command -v mise >/dev/null 2>&1; then mise exec -- mix test; else echo 'skipping @ogm/voice-host test (mise unavailable)'; fi",
-    "lint": "if command -v mise >/dev/null 2>&1; then mise exec -- mix format --check-formatted; else echo 'skipping @ogm/voice-host lint (mise unavailable)'; fi"
+    "build": "if command -v mise >/dev/null 2>&1; then mise exec -- mix compile --warnings-as-errors; elif [ -n \"${CI:-}\" ]; then echo 'mise is required for @ogm/voice-host build in CI' >&2; exit 1; else echo 'skipping @ogm/voice-host build (mise unavailable)'; fi",
+    "typecheck": "if command -v mise >/dev/null 2>&1; then mise exec -- mix compile --warnings-as-errors; elif [ -n \"${CI:-}\" ]; then echo 'mise is required for @ogm/voice-host typecheck in CI' >&2; exit 1; else echo 'skipping @ogm/voice-host typecheck (mise unavailable)'; fi",
+    "test": "if command -v mise >/dev/null 2>&1; then mise exec -- mix test; elif [ -n \"${CI:-}\" ]; then echo 'mise is required for @ogm/voice-host test in CI' >&2; exit 1; else echo 'skipping @ogm/voice-host test (mise unavailable)'; fi",
+    "lint": "if command -v mise >/dev/null 2>&1; then mise exec -- mix format --check-formatted; elif [ -n \"${CI:-}\" ]; then echo 'mise is required for @ogm/voice-host lint in CI' >&2; exit 1; else echo 'skipping @ogm/voice-host lint (mise unavailable)'; fi"
   }
 }

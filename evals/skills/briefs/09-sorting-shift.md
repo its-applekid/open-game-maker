@@ -1,0 +1,1 @@
+Build a satisfying sorting game at a small parcel depot. The player can sort parcels by matching their shape to one of three bays and switch conveyor lanes before each parcel reaches the fork. The pace may rise gently, but do not add a score, lives, health, upgrades, or a game-over screen. The player wins when they clear the backlog without a parcel entering the wrong bay.

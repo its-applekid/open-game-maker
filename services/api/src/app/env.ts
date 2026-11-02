@@ -38,6 +38,7 @@ export const apiEnvSpec = {
   OGM_VOICE_WS_URL: { kind: 'string', required: false },
   OGM_VOICE_HOST_INTERNAL_URL: { kind: 'url', required: false },
   OGM_VOICE_INTERNAL_SECRET: { kind: 'secret', required: false },
+  OGM_NARRATION_CONCURRENCY: { kind: 'int', default: '2' },
   OGM_BUILDER_WORKSPACES_ROOT: { kind: 'path', required: false },
   OGM_CHAT_POLL_MS: { kind: 'int', default: '10000' },
   OGM_CHECKPOINT_POLL_MS: { kind: 'int', default: '5000' },
@@ -79,6 +80,9 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
   }
   if (voiceUrl !== undefined && env.OGM_VOICE_INTERNAL_SECRET === undefined) {
     throw new ConfigError('api', ['OGM_VOICE_INTERNAL_SECRET'], []);
+  }
+  if (env.OGM_NARRATION_CONCURRENCY <= 0) {
+    throw new ConfigError('api', [], [{ name: 'OGM_NARRATION_CONCURRENCY', reason: 'must be a positive integer' }]);
   }
   if (env.OGM_REPORT_BUNDLE_MAX_BYTES <= 0) {
     throw new ConfigError('api', [], [{ name: 'OGM_REPORT_BUNDLE_MAX_BYTES', reason: 'must be a positive integer' }]);

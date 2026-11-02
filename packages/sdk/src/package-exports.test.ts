@@ -17,4 +17,8 @@ describe('SDK package exports', () => {
       import: './dist/analytics.js',
     });
   });
+
+  it('exposes the net area through the root namespace', () => {
+    expect(readFileSync('src/index.ts', 'utf8')).toContain("export * as net from './net/index.js';");
+  });
 });

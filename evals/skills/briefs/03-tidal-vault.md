@@ -1,0 +1,1 @@
+Build a dreamy underwater exploration game inside a flooded archive. The player can swim through connected chambers and must surface for air at visible pockets. Three shell switches open the vault; there is no combat, inventory, score, or player death. The player wins when all switches are active and they open the vault.
