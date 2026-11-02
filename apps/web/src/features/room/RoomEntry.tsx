@@ -27,7 +27,13 @@ type RoomEntryProps = {
   status: RoomStatus;
 };
 
-export function RoomEntry({ gameTitle, onLeave, onReload = () => window.location.reload(), rejection, status }: RoomEntryProps) {
+export function RoomEntry({
+  gameTitle,
+  onLeave,
+  onReload = () => window.location.reload(),
+  rejection,
+  status,
+}: RoomEntryProps) {
   if (status === 'connected' || status === 'ended' || status === 'idle') return null;
 
   if (status === 'rejected' && rejection !== undefined) {
@@ -45,11 +51,7 @@ export function RoomEntry({ gameTitle, onLeave, onReload = () => window.location
   }
 
   const message =
-    status === 'reconnecting'
-      ? 'Reconnecting…'
-      : status === 'desynced'
-        ? 'Catching up…'
-        : `Joining ${gameTitle}…`;
+    status === 'reconnecting' ? 'Reconnecting…' : status === 'desynced' ? 'Catching up…' : `Joining ${gameTitle}…`;
   return (
     <div className="room-entry" role="status" aria-live="polite">
       <div className="room-phase-card">{message}</div>

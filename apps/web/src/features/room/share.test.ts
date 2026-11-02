@@ -7,9 +7,9 @@ describe('shareInvite', () => {
     const share = vi.fn(async () => undefined);
     const writeText = vi.fn(async () => undefined);
 
-    await expect(
-      shareInvite('https://maker.test/join/invite-1', { share, clipboard: { writeText } }),
-    ).resolves.toEqual({ method: 'share' });
+    await expect(shareInvite('https://maker.test/join/invite-1', { share, clipboard: { writeText } })).resolves.toEqual(
+      { method: 'share' },
+    );
 
     expect(share).toHaveBeenCalledWith({ url: 'https://maker.test/join/invite-1' });
     expect(writeText).not.toHaveBeenCalled();
@@ -18,9 +18,9 @@ describe('shareInvite', () => {
   it('copies the same URL when the share sheet is unavailable', async () => {
     const writeText = vi.fn(async () => undefined);
 
-    await expect(
-      shareInvite('https://maker.test/join/invite-2', { clipboard: { writeText } }),
-    ).resolves.toEqual({ method: 'copy' });
+    await expect(shareInvite('https://maker.test/join/invite-2', { clipboard: { writeText } })).resolves.toEqual({
+      method: 'copy',
+    });
 
     expect(writeText).toHaveBeenCalledWith('https://maker.test/join/invite-2');
   });

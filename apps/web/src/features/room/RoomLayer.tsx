@@ -42,12 +42,7 @@ export function RoomLayer({ gameTitle, lastSaveAt, onLeave, onMode, onSelection,
 
   return (
     <>
-      <RoomEntry
-        gameTitle={gameTitle}
-        onLeave={onLeave}
-        rejection={snapshot.rejection}
-        status={snapshot.status}
-      />
+      <RoomEntry gameTitle={gameTitle} onLeave={onLeave} rejection={snapshot.rejection} status={snapshot.status} />
       {watcher && snapshot.presence !== undefined && pin !== undefined ? (
         <WatcherOverlay
           branchName={branch.data?.name ?? pin.branchId}

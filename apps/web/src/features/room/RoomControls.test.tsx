@@ -44,14 +44,7 @@ it('lets only the owner kick a member through the relay and revoke route', async
     },
   };
 
-  render(
-    <RoomMembersControl
-      branchId="main"
-      gameId="game"
-      roomSession={session}
-      roomSnapshot={snapshot}
-    />,
-  );
+  render(<RoomMembersControl branchId="main" gameId="game" roomSession={session} roomSnapshot={snapshot} />);
   fireEvent.click(screen.getByRole('button', { name: '2 room members' }));
   fireEvent.click(screen.getByRole('button', { name: 'Kick Sam' }));
 

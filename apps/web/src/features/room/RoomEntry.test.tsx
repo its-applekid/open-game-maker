@@ -30,12 +30,7 @@ it('renders joining and retry states without exposing the grant', () => {
   expect(screen.getByRole('status')).toHaveTextContent('Joining Goblin Cellar…');
 
   rerender(
-    <RoomEntry
-      gameTitle="Goblin Cellar"
-      onLeave={onLeave}
-      rejection={{ code: 'GRANT_EXPIRED' }}
-      status="rejected"
-    />,
+    <RoomEntry gameTitle="Goblin Cellar" onLeave={onLeave} rejection={{ code: 'GRANT_EXPIRED' }} status="rejected" />,
   );
   expect(screen.getByRole('status')).toHaveTextContent('Ask for a new link');
   fireEvent.click(screen.getByRole('button', { name: 'Back to games' }));

@@ -38,10 +38,7 @@ describe('fromRoomClient', () => {
     const listener = vi.fn();
     const unsubscribe = session.subscribe(listener);
 
-    store.getState().welcome(
-      { userId: 'owner', playerIndex: 0, sessionId: 'session-owner' },
-      roomState,
-    );
+    store.getState().welcome({ userId: 'owner', playerIndex: 0, sessionId: 'session-owner' }, roomState);
     session.send({ t: 'phase', to: 'playing' });
     await session.leave();
 

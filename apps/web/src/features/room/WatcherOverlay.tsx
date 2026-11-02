@@ -10,7 +10,13 @@ type WatcherOverlayProps = {
   version?: string;
 };
 
-export function WatcherOverlay({ branchName, catchingUp = false, onSelection, presence, version }: WatcherOverlayProps) {
+export function WatcherOverlay({
+  branchName,
+  catchingUp = false,
+  onSelection,
+  presence,
+  version,
+}: WatcherOverlayProps) {
   useEffect(() => {
     onSelection?.(presence.privateMode ? [] : presence.selection);
   }, [onSelection, presence.privateMode, presence.selection]);
