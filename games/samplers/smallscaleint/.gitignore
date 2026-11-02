@@ -1,0 +1,6 @@
+# Scaffold-installed agent skills; refresh with `gm skills sync`.
+.claude/
+.codex/
+.agents/
+skills.lock
+AGENTS.md

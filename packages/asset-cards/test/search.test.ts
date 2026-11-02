@@ -114,19 +114,174 @@ describe('search', () => {
     expect(hits.map((card) => card.id)).toContain(tileId);
   });
 
-  it('indexes sprite action names instead of requiring action words in file paths', () => {
+  it('splits numbered vendor titles and indexes sprite action names', () => {
     const base = index.cards.find((card) => card.id === 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0');
     if (!base) throw new Error('fixture sprite missing');
     const knight = {
       ...base,
-      id: 't1:kenney-tiny-dungeon/characters/knight@1.0',
-      title: 'Knight',
-      source: { ...base.source!, files: [{ ...base.source!.files[0]!, path: 'Sprites/knight.png' }] },
+      id: 't1:kenney-tiny-dungeon/characters/1knight@1.0',
+      title: '1Knight',
+      describe: { ...base.describe, objects: [], keywords: [] },
+      source: { ...base.source!, files: [{ ...base.source!.files[0]!, path: 'Sprites/1Knight.png' }] },
       sprite: { ...base.sprite!, animations: [{ name: 'attack', frames: [0, 1] }] },
     };
     expect(search({ ...index, cards: [knight] }, { words: ['knight', 'attack'] }).map((card) => card.id)).toEqual([
       knight.id,
     ]);
+  });
+
+  it('filters by the curated compatibility set instead of stale card metadata', () => {
+    const tileId = 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0';
+    const tile = index.cards.find((card) => card.id === tileId);
+    if (!tile) throw new Error('fixture tile missing');
+    const stale = { ...tile, resolved: { ...tile.resolved, set: 'wrong-stored-set' } };
+    expect(search({ ...index, cards: [stale] }, { words: [], set: 'kenney-tiny' }).map((card) => card.id)).toEqual([
+      tileId,
+    ]);
+    expect(search({ ...index, cards: [stale] }, { words: [], set: 'kenney-pixel-platformer' })).toEqual([]);
+    expect(search({ ...index, cards: [stale] }, { words: [], set: '' })).toEqual([]);
+  });
+
+  it('indexes rig and standalone animation clip names and canonical actions', () => {
+    expect(ids({ words: ['drive'] })).toContain(ORC);
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base) throw new Error('fixture model missing');
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig-medium-general@7',
+      title: 'Rig Medium General',
+      kind: 'anim' as const,
+      subkind: 'humanoid',
+      geometry: undefined,
+      rig: undefined,
+      anim: {
+        target_rig_id: 'rig:0123456789ab',
+        clips: [
+          { name: 'Idle_A', duration_s: 1.5, canonical: 'idle' as const, loop: true },
+          { name: 'Melee_1H_Attack', duration_s: 0.4, canonical: 'attack-melee' as const, loop: false },
+        ],
+      },
+    };
+    const animationIndex = { ...index, cards: [library] };
+    expect(search(animationIndex, { words: ['idle'] }).map((card) => card.id)).toEqual([library.id]);
+    expect(search(animationIndex, { words: ['attack'] }).map((card) => card.id)).toEqual([library.id]);
+  });
+
+  it('splits query words on underscores and hyphens like titles, so a file-name query finds the card', () => {
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base) throw new Error('fixture model missing');
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig_medium_general@1.1',
+      title: 'Rig Medium General',
+    };
+    const only = { ...index, cards: [library] };
+    expect(search(only, { words: ['Rig_Medium'] }).map((card) => card.id)).toEqual([library.id]);
+    expect(search(only, { words: ['rig-medium-general'] }).map((card) => card.id)).toEqual([library.id]);
+    expect(search(only, { words: ['Rig_Large'] })).toEqual([]);
+  });
+
+  it('ranks rigged characters named by the query above sprite characters, then props with more word hits', () => {
+    // Asking for "knight" means the playable character: a board-game token or a sprite sheet whose paths
+    // repeat the word must not bury the rigged model that the shared clip libraries animate.
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base) throw new Error('fixture model missing');
+    const rigged = { ...base, id: 't1:kaykit-adventurers/characters/knight@2.0', title: 'Knight', describe: {} };
+    const sprite = {
+      ...base,
+      id: 't1:smallscaleint-knight/characters/knight-knight-knight@1',
+      title: 'Knight Knight',
+      kind: 'sprite' as const,
+      subkind: 'character',
+      rig: undefined,
+      describe: {},
+    };
+    const token = {
+      ...base,
+      id: 't1:kaykit-board-game-bits/assets/playercard_knight_knight@1.0',
+      title: 'Playercard Knight Knight Knight',
+      subkind: 'prop',
+      rig: undefined,
+      describe: {},
+    };
+    const hits = search({ ...index, cards: [token, sprite, rigged] }, { words: ['knight'] });
+    expect(hits.map((card) => card.id)).toEqual([rigged.id, sprite.id, token.id]);
+  });
+
+  it('gives no character tier to a character that matches only through a clip or file name', () => {
+    // "walk" asks for walking, not for every character that ships a walk cycle: the sprite named "Walk" leads
+    // even though the rogue's four walk clips give it more word hits.
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base?.rig) throw new Error('fixture rig missing');
+    const walk = { name: 'Walking_A', duration_s: 1, canonical: 'walk' as const, loop: true };
+    const walker = {
+      ...base,
+      id: 't1:kaykit-adventurers/characters/rogue@2.0',
+      title: 'Rogue',
+      describe: {},
+      rig: { ...base.rig, clips: [walk, walk, walk, walk] },
+    };
+    const named = {
+      ...base,
+      id: 't1:smallscaleint-heroes/characters/hero@1',
+      title: 'Walk',
+      kind: 'sprite' as const,
+      subkind: 'character',
+      rig: undefined,
+      describe: {},
+    };
+    const hits = search({ ...index, cards: [walker, named] }, { words: ['walk'] });
+    expect(hits.map((card) => card.id)).toEqual([named.id, walker.id]);
+  });
+
+  it('ranks a rigged character first only when it has clips or a clip library targets its rig', () => {
+    // A skeleton nothing animates is not playable, so the knight on a library rig beats the bare one even
+    // though the bare one's title repeats the word.
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base?.rig) throw new Error('fixture rig missing');
+    const bare = {
+      ...base,
+      id: 't1:vendor/characters/knight-knight@1',
+      title: 'Knight Knight',
+      describe: {},
+      rig: { ...base.rig, rig_id: 'rig:aaaaaaaaaaaa', clips: [] },
+    };
+    const animated = {
+      ...base,
+      id: 't1:kaykit-adventurers/characters/knight@2.0',
+      title: 'Knight',
+      describe: {},
+      rig: { ...base.rig, rig_id: 'rig:bbbbbbbbbbbb', clips: [] },
+    };
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig_medium_general@1.1',
+      title: 'Rig Medium General',
+      kind: 'anim' as const,
+      subkind: 'humanoid',
+      rig: undefined,
+      describe: {},
+      anim: { target_rig_id: 'rig:bbbbbbbbbbbb', clips: [] },
+    };
+    const hits = search({ ...index, cards: [bare, animated, library] }, { words: ['knight'] });
+    expect(hits.map((card) => card.id)).toEqual([animated.id, bare.id]);
+  });
+
+  it('matches a skeleton by the rig it retargets to, for --rig-id and --same-rig-as', () => {
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base?.rig) throw new Error('fixture rig missing');
+    const shared = { ...base, id: 't1:kaykit/knight@1', rig: { ...base.rig, rig_id: 'rig:89200673d97d' } };
+    const mannequin = {
+      ...base,
+      id: 't1:kaykit/mannequin_medium@1',
+      rig: { ...base.rig, rig_id: 'rig:a83c5e75e523', retarget_rig_id: 'rig:89200673d97d' },
+    };
+    const rigs = { ...index, cards: [shared, mannequin] };
+    const rigIds = (q: Parameters<typeof search>[1]) => search(rigs, q).map((card) => card.id);
+    expect(rigIds({ words: [], rigId: 'rig:89200673d97d' })).toEqual([shared.id, mannequin.id]);
+    expect(rigIds({ words: [], sameRigAs: mannequin.id })).toEqual([shared.id, mannequin.id]);
+    expect(rigIds({ words: [], sameRigAs: shared.id })).toEqual([shared.id, mannequin.id]);
+    expect(rigIds({ words: [], rigId: 'rig:a83c5e75e523' })).toEqual([mannequin.id]);
   });
 
   it('applies --limit after ranking', () => {

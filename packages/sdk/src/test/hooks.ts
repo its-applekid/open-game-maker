@@ -1,7 +1,7 @@
 import type { ActionFrame, GameManifest, GmTestHooks, SaveData } from '@ogm/contracts';
 
 import { STEP_MS } from '../core/clock.js';
-import type { RuntimeImpl } from '../core/runtime.js';
+import type { RuntimeImpl, RuntimeRenderInfo } from '../core/runtime.js';
 import type { RngState } from '../core/rng.js';
 
 const TEXT_LIMIT = 65_536;
@@ -21,6 +21,7 @@ export interface GameTextSnapshot {
   mode: 'play' | 'edit';
   state: unknown;
   players: unknown[];
+  net: { role: 'host' | 'peer'; localPlayerIndex: number; players: number[] };
   truncated?: boolean;
 }
 
@@ -31,7 +32,9 @@ export interface BugBundle {
 
 export interface RuntimeHooks extends GmTestHooks {
   renderGameToText(): GameTextSnapshot;
+  renderInfo(): RuntimeRenderInfo;
   bundle(): BugBundle;
+  restore(save: SaveData<unknown>): void;
 }
 
 export class SdkHooks<D, S> implements RuntimeHooks {
@@ -102,6 +105,7 @@ export class SdkHooks<D, S> implements RuntimeHooks {
         const replayFrames = this.inputHistory.filter(({ tick }) => tick > keyframe.tick && tick <= targetTick);
         let frameIndex = 0;
         this.replaying = true;
+        this.runtime.setInputReplay(true);
         try {
           while (this.runtime.clock.tick < targetTick) {
             const nextTick = this.runtime.clock.tick + 1;
@@ -112,6 +116,7 @@ export class SdkHooks<D, S> implements RuntimeHooks {
             this.runtime.advance(STEP_MS, false);
           }
         } finally {
+          this.runtime.setInputReplay(false);
           this.replaying = false;
         }
         this.truncateTimeline(targetTick);
@@ -135,6 +140,11 @@ export class SdkHooks<D, S> implements RuntimeHooks {
       mode: this.runtime.mode,
       state: structuredClone(this.runtime.instance.serialize().data),
       players: structuredClone(this.runtime.players),
+      net: {
+        role: this.runtime.net.role,
+        localPlayerIndex: this.runtime.net.localPlayerIndex,
+        players: this.runtime.net.players.map(({ playerIndex }) => playerIndex),
+      },
     };
     if (new TextEncoder().encode(JSON.stringify(snapshot)).byteLength <= TEXT_LIMIT) return snapshot;
 
@@ -146,7 +156,14 @@ export class SdkHooks<D, S> implements RuntimeHooks {
     };
   }
 
-  renderInfo(): ReturnType<GmTestHooks['renderInfo']> {
+  restore(save: SaveData<unknown>): void {
+    this.runtime.instance.restore(structuredClone(save) as SaveData<S>);
+    // History before the restore no longer leads to this state; rewinding past it must fail rather than replay it.
+    for (const history of [this.frames, this.inputHistory, this.keyframes, this.textKeyframes]) history.length = 0;
+    this.captureKeyframe();
+  }
+
+  renderInfo(): RuntimeRenderInfo {
     return this.runtime.renderInfo();
   }
 

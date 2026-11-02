@@ -20,6 +20,7 @@ export interface AppDeps {
     roomsInternalUrl: string;
     roomsInternalSecret: string;
     roomGrantSecret: string;
+    gamesOrigin: string;
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
@@ -34,6 +35,9 @@ export interface AppDeps {
     // Both unset until the voice host is configured; the token route answers 503 meanwhile.
     voiceTokenSecret?: string;
     voiceWsUrl?: string;
+    voiceHostInternalUrl?: string;
+    voiceInternalSecret?: string;
+    narrationConcurrency: number;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
     intakeDir?: string;

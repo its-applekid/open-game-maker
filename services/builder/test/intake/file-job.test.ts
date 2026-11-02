@@ -20,7 +20,7 @@ function plan(twoTickets = false) {
   };
 }
 
-function seed(db: Db, twoTickets = false) {
+function seed(db: Db, twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
   db.insert(schema.families)
     .values({ id: 'f_1', name: 'Family', ownerUserId: 'u_1', createdAt: NOW.toISOString() })
     .run();
@@ -45,26 +45,61 @@ function seed(db: Db, twoTickets = false) {
       branchId: 'main',
       familyId: 'f_1',
       creatorId: 'u_1',
-      kind: 'feature',
-      complexity: 3,
+      kind,
+      complexity: kind === 'scope' ? 1 : 3,
       state: 'admitted',
       start: 'now',
       slot: 'edit',
-      plan: JSON.stringify(plan(twoTickets)),
+      plan: JSON.stringify(
+        kind === 'scope'
+          ? {
+              ...plan(false),
+              tickets: [
+                {
+                  key: 'scope',
+                  skills: ['gm-scope-options'],
+                  dependsOn: [],
+                  acceptanceCriteria: ['agree the scope'],
+                },
+              ],
+            }
+          : plan(twoTickets),
+      ),
       reservation: JSON.stringify({ amountMicroUsd: 9_000_001, sizeClass: 'large', confidence: 'low' }),
       hardCapMicroUsd: 12_000_000,
       createdAt: NOW.toISOString(),
       updatedAt: NOW.toISOString(),
     })
     .run();
+  if (kind === 'scope') {
+    db.insert(schema.scopeSessions)
+      .values({
+        id: 's_88000000-0000-4000-8000-000000000001',
+        gameId: 'g_1',
+        creatorId: 'u_1',
+        jobId: 'j_1',
+        status: 'open',
+        choices: JSON.stringify({
+          genre: 'platformer',
+          vibe: 'cozy',
+          family: 'chunky-low-poly',
+          world: 'floating islands',
+          players: 'single',
+          pov: 'isometric',
+        }),
+        createdAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      })
+      .run();
+  }
 }
 
 type Harness = ReturnType<typeof harness>;
 
-function harness(twoTickets = false) {
+function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
   const { sqlite, db } = openDb(':memory:');
   migrate({ sqlite });
-  seed(db, twoTickets);
+  seed(db, twoTickets, kind);
   const calls: string[] = [];
   let issueNumber = 0;
   const issues: IssuesClient = {
@@ -75,7 +110,9 @@ function harness(twoTickets = false) {
     create: vi.fn(async (_repo, issue) => {
       issueNumber += 1;
       calls.push(`create:${issueNumber}`);
-      expect(issue.labels).toEqual(['complexity:3', 'feature:gm-j_1']);
+      expect(issue.labels).toEqual(
+        expect.arrayContaining([`complexity:${kind === 'scope' ? 1 : 3}`, 'feature:gm-j_1']),
+      );
       return { number: issueNumber, url: `https://github.com/owner/game/issues/${issueNumber}` };
     }),
     labels: vi.fn(async () => ['complexity:3', 'feature:gm-j_1']),
@@ -135,6 +172,96 @@ function close(input: Harness) {
 }
 
 describe('fileJob', () => {
+  it('defers repair filing until triage is ready, then files only the redacted triage ticket', async () => {
+    const input = harness();
+    input.db.update(schema.jobs).set({ kind: 'repair' }).where(eq(schema.jobs.id, 'j_1')).run();
+    input.db
+      .insert(schema.reports)
+      .values({
+        id: 'r_10000000-0000-4000-8000-000000000001',
+        gameId: 'g_1',
+        buildHash: 'a'.repeat(64),
+        text: 'private creator words',
+        signature: 'b'.repeat(64),
+        route: 'game_repair',
+        reproduction: 'crash_with_error',
+        jobId: 'j_1',
+        bundleKey: 'sha256:' + 'c'.repeat(64),
+        reporterId: 'u_1',
+        createdAt: NOW.toISOString(),
+      })
+      .run();
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ deferred: 'triage' });
+    expect(input.fleet.ensureDaemon).not.toHaveBeenCalled();
+
+    const body = [
+      'Repair crash in draft (dddddddd)',
+      '',
+      '## Context',
+      'Release: draft',
+      `Signature: ${'d'.repeat(64)}`,
+      'Reproduction: reproduces_with_error',
+      'gm-report:r_10000000-0000-4000-8000-000000000001',
+      'gm-job:j_1',
+      '',
+      '## Load skills',
+      '- gm-repair',
+      '- gm-verify',
+      '',
+      '## Acceptance',
+      `- the promise test \`promises/${'d'.repeat(64)}.spec.ts\` passes; gm check and gm test green`,
+    ].join('\n');
+    input.db
+      .update(schema.reports)
+      .set({
+        triageState: 'ready',
+        triageSignature: 'd'.repeat(64),
+        triageJson: JSON.stringify({
+          status: 'triaged',
+          result: {
+            reportId: 'r_10000000-0000-4000-8000-000000000001',
+            replay: {
+              class: 'reproduces_with_error',
+              durationMs: 15,
+            },
+            signature: 'd'.repeat(64),
+            diagnosticsKey: 'sha256:' + 'e'.repeat(64),
+            ticket: { title: 'Repair: crash in draft (dddddddd)', body, labels: ['kind:repair'] },
+            promise: {
+              specPath: `promises/${'d'.repeat(64)}.spec.ts`,
+              replayPath: `promises/${'d'.repeat(64)}.replay.json`,
+            },
+          },
+        }),
+      })
+      .where(eq(schema.reports.jobId, 'j_1'))
+      .run();
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [1] });
+    const issue = vi.mocked(input.issues.create).mock.calls[0]?.[1];
+    expect(issue).toMatchObject({ title: 'Repair: crash in draft (dddddddd)' });
+    expect(issue?.body).toContain('gm-report:r_10000000-0000-4000-8000-000000000001');
+    expect(issue?.body.match(/<!-- gm-job:/g)).toHaveLength(1);
+    expect(issue?.body).toContain('gm-ticket:repair');
+    expect(issue?.body).not.toContain('private creator words');
+    close(input);
+  });
+
+  it('files a scope ticket with its session marker before making it runnable', async () => {
+    const input = harness(false, 'scope');
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [1] });
+
+    const issue = vi.mocked(input.issues.create).mock.calls[0]?.[1];
+    expect(issue?.body).toContain('gm-ticket:scope');
+    expect(issue?.body).toContain('gm-scope:s_88000000-0000-4000-8000-000000000001');
+    expect(issue?.body).toContain('## Load skills\n- gm-scope-options');
+    expect(input.calls).toEqual(['ensure-feature', 'create:1', 'cap:1:9.000001', 'label:1:agent:todo', 'nudge:1']);
+    expect(input.db.select().from(schema.scopeSessions).get()?.ticket).toBe('1');
+    close(input);
+  });
+
   it('files every ticket with spend caps before todo, then nudges once and marks the job filed', async () => {
     const input = harness(true);
 

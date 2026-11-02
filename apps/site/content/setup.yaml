@@ -1,0 +1,455 @@
+steps:
+  - id: 1
+    title: Host an instance
+    time: ~45 min + hand steps
+    outcome: A Linux host runs OGM as one normal user through systemd user units.
+    preconditions: A Debian or Ubuntu x86_64 machine with about 100 GB free.
+    agent_prompt: &agent_prompt |-
+      You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step {{N}}, {{title}}**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
+
+      {{hand_list}}
+    substeps:
+      - kind: run
+        text: Prepare a Debian or Ubuntu x86_64 machine with 12 cores and 16 GB RAM suggested, create a normal user, and enable lingering.
+        command: loginctl enable-linger <user>
+        writes: ['/var/lib/systemd/linger/<user>']
+        check: systemctl --user status
+        cites: [ops/bin/ogm-host-setup.sh]
+      - kind: run
+        text: Clone OGM at the path expected by the Drive worker.
+        command: git clone https://github.com/its-everdred/open-game-maker-2000 ~/games/open-game-maker-2000
+        writes: [~/games/open-game-maker-2000]
+        check: git -C ~/games/open-game-maker-2000 log -1
+        cites: [scripts/py/drive-sync/README.md]
+      - kind: hand
+        text: Install Tailscale, grant <user> operator access, enable HTTPS certificates, and choose Funnel or tailnet-only in the admin console.
+        command: |-
+          sudo tailscale set --operator=<user>
+          tailscale up
+          tailscale cert <tailnet-host>
+        writes: [/var/lib/tailscale]
+        check: tailscale status && tailscale cert <tailnet-host>
+        cites: [docs/ops/ingress.md, ops/bin/ogm-ingress.sh]
+      - kind: run
+        text: Preview and install the host directories and user units, including the commit unit.
+        command: |-
+          ops/bin/ogm-host-setup.sh --dry-run
+          ops/bin/ogm-host-setup.sh
+        writes: [~/.config/systemd/user, ~/.config/ogm, ~/.local/share/ogm, ~/.local/state/ogm]
+        check: systemctl --user list-units 'ogm-*'
+        cites: [ops/bin/ogm-host-setup.sh, ops/systemd/ogm-commit.service, docs/ops/self-host.md]
+
+  - id: 2
+    title: Install dependencies
+    time: ~30 min, mostly waiting
+    outcome: OGM, its workers, and its verification browser are built locally.
+    preconditions: Step 1 is complete and the checkout is at ~/games/open-game-maker-2000.
+    agent_prompt: *agent_prompt
+    substeps:
+      - kind: run
+        text: Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
+        command: |-
+          corepack enable
+          pnpm install --frozen-lockfile
+          pnpm build
+          systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
+        writes: [node_modules, apps/*/dist, packages/*/dist, services/*/dist]
+        check: pnpm build
+        cites: [.github/workflows/ci.yml, package.json]
+      - kind: run
+        text: Install Elixir and Erlang through mise at ~/.local/bin/mise and build the voice-host release.
+        command: |-
+          mise install
+          cd services/voice-host
+          mise exec -- mix deps.get
+          mise exec -- env MIX_ENV=prod mix release
+        writes: [~/.local/bin/mise, services/voice-host/_build/prod/rel/voice_host]
+        check: curl --fail http://127.0.0.1:40401/healthz after step 7
+        cites: [services/voice-host/README.md, ops/bin/ogm-run]
+      - kind: run
+        text: Build the Drive-sync and audio Python virtual environments.
+        command: |-
+          make venv-drive-sync
+          make venv-audio
+        writes: [scripts/py/drive-sync/.venv, scripts/py/audio/.venv]
+        check: make test-py
+        cites: [Makefile, scripts/py/workers.json]
+      - kind: hand
+        text: Install ffmpeg, p7zip, git, curl, OpenSSL, unrar from non-free, and optional Blender with sudo.
+        command: sudo apt install ffmpeg p7zip-full git curl openssl unrar
+        writes: [/usr/bin/ffmpeg, /usr/bin/7z]
+        check: ffmpeg -version && 7z
+        cites: [scripts/py/drive-sync/README.md]
+      - kind: hand
+        text: Install Chromium for Playwright, including its sudo-managed system dependencies once.
+        command: pnpm --dir apps/web exec playwright install --with-deps chromium
+        writes: [~/.cache/ms-playwright]
+        check: pnpm --dir apps/web run e2e -- --list
+        cites: [apps/web/package.json, .github/workflows/ci.yml]
+      - kind: hand
+        text: Install the Codex CLI and Claude Code through their official installers and complete their subscription logins without API keys.
+        command: |-
+          codex --version
+          claude --version
+        writes: [~/.codex, ~/.claude]
+        check: codex --version && claude --version
+        cites: [docs/ops/sandbox.md]
+      - kind: run
+        text: Generate each service env file, add the documented ports and roots, and copy the commit env example without printing secrets.
+        command: |-
+          pnpm --filter @ogm/config build
+          for unit in api rooms games voice-host intake backup drive-sync; do pnpm --filter @ogm/config exec ogm-env-init "$unit"; done
+          cp services/commit/ops/ogm-commit.env.example ~/.config/ogm/env/ogm-commit.env
+          # Fill OGM_API_PORT=4300, OGM_COMMIT_PORT=4301,
+          # OGM_ROOMS_PORT=4302, OGM_GAMES_PORT=<unused-loopback-port>,
+          # OGM_VOICE_PORT=40400, and OGM_VOICE_INTERNAL_PORT=40401.
+          # Fill OGM_DATA_DIR=~/.local/share/ogm/data,
+          # OGM_BLOB_ROOT=~/.local/share/ogm/blobs,
+          # OGM_GAMES_ROOT=~/.local/share/ogm/games,
+          # and OGM_ASSETS_ROOT=~/games/open-game-maker-2000/assets-local.
+        writes: [~/.config/ogm/env]
+        check: ops/bin/ogm-status
+        cites: [packages/config, .env.example, services/commit/ops/ogm-commit.env.example, ops/bin/ogm-status]
+      - kind: run
+        text: Seed the offline dependency store used by sandboxed builds.
+        command: bash scripts/sandbox/seed-store.sh
+        writes: [~/.local/share/ogm/pnpm-store]
+        check: bash scripts/sandbox/seed-store.sh prints the store size
+        cites: [scripts/sandbox/seed-store.sh, docs/ops/sandbox.md]
+
+  - id: 3
+    title: Set up aiur for agent orchestration
+    time: ~40 min + two browser logins
+    outcome: Aiur can run authenticated builder agents inside the OGM sandbox.
+    preconditions: Step 2 is complete and ~/.config/ogm/env/api.env exists.
+    agent_prompt: *agent_prompt
+    substeps:
+      - kind: run
+        text: Clone aiur-team/aiur to ~/github/aiur, build it from its README, and link the launcher OGM expects.
+        command: |-
+          git clone https://github.com/aiur-team/aiur ~/github/aiur
+          # Follow ~/github/aiur/README.md, then link its built aiur executable:
+          ln -sfn ~/github/aiur/scripts/aiurdev ~/.local/bin/aiur
+        writes: [~/github/aiur, ~/.local/bin/aiur]
+        check: aiur --help
+        cites: [ops/systemd/ogm-aiur@.service, ops/bin/ogm-run]
+      - kind: hand
+        text: After step 4 creates the builder machine user's PAT, return here to put it and a random Erlang cookie in ~/.aiur/.env with mode 0600.
+        command: |-
+          install -d -m 700 ~/.aiur
+          install -m 600 /dev/null ~/.aiur/.env
+          # Add GITHUB_TOKEN without printing it, then generate the cookie into the file:
+          cookie="$(openssl rand -hex 16)"
+          printf 'AIUR_ERLANG_COOKIE=%s\n' "$cookie" >> ~/.aiur/.env
+          unset cookie
+        writes: [~/.aiur/.env]
+        check: test "$(stat -c %a ~/.aiur/.env)" = 600
+        cites: [.env.example, docs/ops/sandbox.md]
+      - kind: hand
+        text: Run aiur login codex gamebuilder and aiur login claude default in a browser, then place the Codex login at ~/.config/ogm/codex-gamebuilder/auth.json.
+        command: |-
+          aiur login codex gamebuilder
+          aiur login claude default
+          install -d -m 700 ~/.config/ogm/codex-gamebuilder
+          # Link or copy the Codex login to ~/.config/ogm/codex-gamebuilder/auth.json.
+        writes: [~/.config/ogm/codex-gamebuilder/auth.json, ~/.config/aiur]
+        check: aiur accounts && ls -l ~/.config/ogm/codex-gamebuilder/auth.json
+        cites: [docs/ops/sandbox.md]
+      - kind: run
+        text: Run the sandbox probe and full offline proof.
+        command: |-
+          bash scripts/sandbox/probe.sh
+          bash scripts/sandbox/proof/run.sh
+        writes: [~/.local/share/ogm/pnpm-store]
+        check: bash scripts/sandbox/proof/run.sh has no FAIL rows
+        cites: [scripts/sandbox/probe.sh, scripts/sandbox/proof/run.sh, docs/ops/sandbox.md]
+      - kind: run
+        text: Fill the aiur and builder fleet values in api.env; the fleet creates per-game daemon env files on the first job.
+        command: |-
+          # Set AIUR_API_URL, AIUR_API_TOKEN, OGM_BUILDER_WORKSPACES_ROOT,
+          # OGM_BUILDER_BOT_TOKEN, and OGM_BUILDER_BOT_LOGIN in api.env.
+          systemctl --user restart ogm-api
+        writes: [~/.config/ogm/env/api.env, ~/.config/ogm/env/ogm-aiur@<slug>.env]
+        check: systemctl --user list-units 'ogm-aiur@*' after the first build in step 8
+        cites: [.env.example, services/builder/src/fleet]
+      - kind: optional
+        text: Initialize aiur in an OGM fork that should accept agents on its own code, and optionally connect a Khala channel.
+        command: |-
+          aiur init
+          aiur --bg
+        writes: [.aiur/config]
+        check: aiur status
+        cites: [AGENTS.md]
+
+  - id: 4
+    title: Set up the games private repo
+    time: ~30 min, mostly hand steps
+    outcome: Builder and intake machine users can create private gm-<gameId> repositories through the GitHub App.
+    preconditions: Step 3 is complete and a GitHub owner is chosen.
+    agent_prompt: *agent_prompt
+    substeps:
+      - kind: hand
+        text: Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>.
+        command: '# In GitHub, choose or create <github-owner>; game repositories remain private by default.'
+        writes: ['<github-owner>/gm-<gameId>']
+        check: <github-owner> is recorded for the remaining setup steps
+        cites: [services/builder/src/provision.ts, packages/game-repo-template]
+      - kind: hand
+        text: Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env.
+        command: |-
+          # Create the two machine users and scoped PATs in GitHub.
+          # Set OGM_INTAKE_GITHUB_TOKEN, OGM_INTAKE_BOT_LOGIN,
+          # OGM_BUILDER_BOT_TOKEN, and OGM_BUILDER_BOT_LOGIN in api.env.
+        writes: [~/.config/ogm/env/api.env, ~/.aiur/.env]
+        check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/env/api.env
+        cites: [.env.example, docs/ops/runbook.md]
+      - kind: hand
+        text: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
+        command: |-
+          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
+          chmod 600 ~/.config/ogm/ogm-github-app.pem
+          systemctl --user restart ogm-commit
+          # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
+        writes: [~/.config/ogm/ogm-github-app.pem, ~/.config/ogm/env/ogm-commit.env]
+        check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
+        cites:
+          [
+            services/commit/README.md,
+            services/commit/src/auth/app.ts,
+            services/commit/ops/ogm-commit.env.example,
+            apps/web/src/lib/api/auth.ts,
+          ]
+      - kind: run
+        text: Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
+        command: '# Set matching shared tokens in ~/.config/ogm/env/api.env and ogm-commit.env.'
+        writes: [~/.config/ogm/env/api.env, ~/.config/ogm/env/ogm-commit.env]
+        check: grep -l '^OGM_INTERNAL_TOKEN=' ~/.config/ogm/env/*.env lists both files
+        cites: [docs/ops/runbook.md, .env.example]
+
+  - id: 5
+    title: Find assets
+    time: ~20 min
+    outcome: A local, licensed asset catalog is searchable without committing private packs.
+    preconditions: Steps 1 and 2 are complete and OGM_ASSETS_ROOT points at assets-local/.
+    agent_prompt: *agent_prompt
+    substeps:
+      - kind: run
+        text: Create the gitignored asset-library layout with originals, extracted files, pack metadata, and a licence per version.
+        command: mkdir -p assets-local/packs/<vendor>-<pack>/<version>/{originals,extracted}
+        writes: [assets-local/packs]
+        check: test -d assets-local/packs && git check-ignore assets-local
+        cites: [docs/reference/local-asset-library.md, .gitignore]
+      - kind: run
+        text: Import free permissive packs first from Kenney, KayKit, itch.io, or Poly Pizza, and never run downloaded files.
+        command: |-
+          python3 -I scripts/assets/import_kenney_bundle.py --help
+          pnpm --filter @ogm/gm-cli exec gm packs sync kaykit --dry-run
+          python3 -I scripts/assets/fetch_itch_free.py <page> <out>
+          python3 -I scripts/assets/fetch_polypizza_bundle.py --licenses CC0
+        writes: [assets-local/packs]
+        check: each imported pack contains pack.json and its licence file
+        cites:
+          [
+            scripts/assets/import_kenney_bundle.py,
+            scripts/assets/fetch_itch_free.py,
+            scripts/assets/fetch_polypizza_bundle.py,
+            packages/gm-cli,
+          ]
+      - kind: run
+        text: Build the catalog and collection cards, search before choosing, and render thumbnails for candidate packs.
+        command: |-
+          python3 -I scripts/assets/build_catalog.py
+          python3 -I scripts/assets/build_collection_cards.py
+          pnpm --filter @ogm/gm-cli exec gm assets search <words>
+          python3 -I scripts/assets/pack_thumbnails.py --help
+        writes: [assets-local/catalog.json, assets-local/cards]
+        check: your pack id appears in assets-local/catalog.json
+        cites:
+          [
+            scripts/assets/build_catalog.py,
+            scripts/assets/build_collection_cards.py,
+            scripts/assets/pack_thumbnails.py,
+            packages/gm-cli,
+          ]
+      - kind: hand
+        text: Confirm every licence from the author's page and keep paid packs, keys, serials, download links, and all assets-local content off git and cloud models.
+        command: pnpm --filter @ogm/gm-cli exec gm packs blocklist --help
+        writes: [assets-local/pack-blocklist.json]
+        check: git status --short contains nothing under assets-local/
+        cites: [docs/reference/local-asset-library.md, packages/gm-cli, AGENTS.md]
+
+  - id: 6
+    title: Local asset pipeline, optional Google Drive drop
+    time: ~30 min + optional Google console hand steps
+    outcome: Local drops enter the intake queue, with an optional free Drive watch folder.
+    preconditions: Step 5 is complete and the intake env file points at the asset and state roots.
+    agent_prompt: |-
+      You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step {{N}}, {{title}}**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. For the Drive path, never open the Google console or read, print or copy the key file's contents; only check that `~/.config/ogm/drive-sa.json` exists with mode 600. Report each sub-step as done, skipped (why) or blocked (what you need from me).
+
+      {{hand_list}}
+    substeps:
+      - kind: run
+        text: Configure and restart the intake worker so it de-duplicates drops and waits for human licence confirmation when required.
+        command: |-
+          pnpm --filter @ogm/config exec ogm-env-init intake
+          systemctl --user restart ogm-intake
+        writes: [~/.config/ogm/env/intake.env, ~/.local/state/ogm/intake/status.json]
+        check: cat ~/.local/state/ogm/intake/status.json
+        cites: [services/intake/README.md, packages/config]
+      - kind: hand
+        text: 'Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer.'
+        command: |-
+          # One-time setup 1-5 in scripts/py/drive-sync/README.md (web console or gcloud).
+          chmod 600 ~/.config/ogm/drive-sa.json
+        writes: [~/.config/ogm/drive-sa.json]
+        check: stat -c %a ~/.config/ogm/drive-sa.json prints 600
+        cites: [scripts/py/drive-sync/README.md]
+      - kind: optional
+        text: Write the Drive config with the folder id, build the worker venv, prove the dry run, then restart ogm-drive-sync so its placeholder clears.
+        command: |-
+          cp scripts/py/drive-sync/drive-sync.example.toml ~/.config/ogm/drive-sync.toml
+          sed -i 's/PASTE_FOLDER_ID_HERE/<folder-id>/' ~/.config/ogm/drive-sync.toml
+          make venv-drive-sync
+          scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py run --once --dry-run
+          systemctl --user restart ogm-drive-sync
+        writes: [~/.config/ogm/drive-sync.toml, scripts/py/drive-sync/.venv]
+        check: the dry run logs watching '<folder>' as <email>, and systemctl --user status ogm-drive-sync no longer prints PLACEHOLDER
+        cites:
+          [
+            scripts/py/drive-sync/README.md,
+            scripts/py/drive-sync/drive-sync.example.toml,
+            ops/systemd/ogm-drive-sync.service,
+            ops/bin/ogm-run,
+            Makefile,
+          ]
+      - kind: optional
+        text: Put a small zip in the Drive folder and confirm Drive sync queues it once for intake, which skips a drop id and MD5 set it has already handled.
+        command: scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py status
+        writes: [assets-local/inbox/queue.jsonl, assets-local/inbox/quarantine]
+        check: intake.json appears next to the downloaded manifest after intake handles the drop
+        cites: [scripts/py/drive-sync/README.md, services/intake/README.md]
+
+  - id: 7
+    title: Configure
+    time: ~30 min + hand steps
+    outcome: Origins, ingress, sign-in, budgets, and backups are configured for the host.
+    preconditions: Steps 1 through 6 are complete and all selected env files exist.
+    agent_prompt: *agent_prompt
+    substeps:
+      - kind: run
+        text: Set public, games, app, and voice origins everywhere the shared env template names them.
+        command: |-
+          # Set OGM_PUBLIC_ORIGIN=https://<tailnet-host>:8443
+          # Set OGM_GAMES_ORIGIN=https://<tailnet-host>:10000
+          # Set OGM_APP_ORIGIN=<app-origin> and OGM_VOICE_WS_URL in the named env files.
+        writes: [~/.config/ogm/env]
+        check: grep -l '^OGM_PUBLIC_ORIGIN=' ~/.config/ogm/env/*.env
+        cites: [.env.example, packages/config]
+      - kind: run
+        text: Preview and configure Tailscale ingress with Funnel or tailnet-only access.
+        command: |-
+          ops/bin/ogm-ingress.sh --dry-run
+          ops/bin/ogm-ingress.sh
+          # Use --tailnet-only instead of the second command when chosen in step 1.
+        writes: [~/.config/ogm/tls]
+        check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
+        cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
+      - kind: hand
+        text: Create the free Netlify app site, record its site id, replace the two host literals, set the app and games origin pair, build the town, and approve the manual deployment.
+        command: |-
+          # Write the Netlify site id to apps/web/.netlify-site-id.
+          # Replace the host on both lines of apps/web/public/_redirects (_headers names no host).
+          pnpm --filter @ogm/config exec ogm-env-init web
+          # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
+          # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
+          apps/web/tools/town.sh --public
+          apps/web/tools/deploy.sh --dry-run
+          apps/web/tools/deploy.sh
+        writes:
+          [
+            apps/web/.netlify-site-id,
+            apps/web/public/_redirects,
+            ~/.config/ogm/env/web.env,
+            ~/.config/ogm/env/games.env,
+          ]
+        check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
+        cites:
+          [
+            docs/ops/self-host.md,
+            apps/web/tools/town.sh,
+            apps/web/tools/deploy.sh,
+            apps/web/tools/games-origin.mjs,
+            apps/web/public/_redirects,
+          ]
+      - kind: hand
+        text: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
+        command: |-
+          # Optional Google redirect: <app-origin>/auth/callback/google
+          # Set SMTP_URL, SMTP_FROM, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
+          # and OGM_MAINTAINER_EMAILS only for the options you enable.
+        writes: [~/.config/ogm/env/api.env]
+        check: complete the iPhone check in docs/ops/netlify-proxy.md
+        cites: [docs/ops/netlify-proxy.md, .env.example]
+      - kind: optional
+        text: Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending.
+        command: '# Keep OGM_VOICE_PROVIDER=fake in voice-host.env for the no-spend setup.'
+        writes: [~/.config/ogm/env/voice-host.env]
+        check: grep '^OGM_VOICE_PROVIDER=fake$' ~/.config/ogm/env/voice-host.env
+        cites: [services/voice-host/README.md, .env.example]
+      - kind: run
+        text: Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
+        command: |-
+          # Set OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD and OGM_RESET_ZONE_DEFAULT in api.env.
+          systemctl --user restart ogm-api
+        writes: [~/.config/ogm/env/api.env]
+        check: /admin/budgets shows the configured defaults after sign-in
+        cites: [.env.example, docs/ops/runbook.md]
+      - kind: hand
+        text: Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof.
+        command: |-
+          # Set OGM_BACKUP_TARGET=ssh:<host>:~/ogm-backups or local:<path> in backup.env.
+          systemctl --user start ogm-backup
+          bash ops/test/backup-restore.sh
+        writes: [~/.config/ogm/env/backup.env, ~/.local/state/ogm/backup]
+        check: bash ops/test/backup-restore.sh && ops/bin/ogm-status --check
+        cites: [docs/ops/runbook.md, ops/test/backup-restore.sh, ops/bin/ogm-status]
+      - kind: optional
+        text: Configure a VAPID key file and subject when web push is wanted.
+        command: '# Set OGM_VAPID_KEY_FILE and OGM_VAPID_SUBJECT in api.env.'
+        writes: [~/.config/ogm/env/api.env]
+        check: test -r the path named by OGM_VAPID_KEY_FILE
+        cites: [.env.example]
+
+  - id: 8
+    title: Verify
+    time: ~20 min
+    outcome: One complete game creation, edit, release, and invitation flow works from a phone.
+    preconditions: Steps 1 through 7 are complete and the selected services are running.
+    agent_prompt: *agent_prompt
+    substeps:
+      - kind: run
+        text: Run the host status gate and resolve every unexpected placeholder.
+        command: ops/bin/ogm-status --check
+        writes: []
+        check: ops/bin/ogm-status --check exits 0
+        cites: [ops/bin/ogm-status]
+      - kind: hand
+        text: On a phone, sign in at <app-origin>, connect GitHub, agree a game scope, and confirm the private repo, aiur unit, build chat, and game appear.
+        command: '# Open <app-origin>/new on a phone and create a game under <github-owner>.'
+        writes: ['<github-owner>/gm-<gameId>', ~/.config/ogm/env/ogm-aiur@<slug>.env]
+        check: /admin/builds, the private repo, systemctl --user status ogm-aiur@<slug>, and /g/<gameId> all show the build
+        cites: [services/builder/src/provision.ts, services/builder/src/fleet, apps/web/src]
+      - kind: hand
+        text: Edit the game while playing, publish a release, open its games-host URL, and invite a friend.
+        command: '# Complete one design transaction, publish from /g/<gameId>/releases, then open /join/<token>.'
+        writes: ['<github-owner>/gm-<gameId>']
+        check: /g/<gameId>/versions shows the edit and https://<tailnet-host>:10000 serves the release
+        cites: [apps/web/src, services/games-host/src]
+      - kind: run
+        text: Inspect the last hour of service logs and rerun the sandbox proof.
+        command: |-
+          journalctl --user -u 'ogm-*' --since -1h
+          bash scripts/sandbox/proof/run.sh
+        writes: []
+        check: the journal has no errors and bash scripts/sandbox/proof/run.sh is green
+        cites: [scripts/sandbox/proof/run.sh, docs/ops/runbook.md]

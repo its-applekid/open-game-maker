@@ -46,6 +46,13 @@ const ROUTES: Row[] = [
   { method: 'GET', path: '/games?includeDelisted=1', expect: ok(200) },
   { method: 'POST', path: `/games/${X.game}/delist`, expect: ok(200, 404) },
   { method: 'POST', path: `/games/${X.game}/relist`, expect: ok(200, 404) },
+  {
+    method: 'POST',
+    path: `/games/${X.game}/flag-abuse`,
+    body: { reason: 'spam' },
+    expect: ok(201, 404),
+  },
+  { method: 'GET', path: '/builds', expect: ok(200) },
   { method: 'GET', path: '/intake', expect: ok(200) },
   { method: 'GET', path: '/mail?unopened=1', expect: ok(200) },
   { method: 'POST', path: `/mail/${X.mail}/opened`, expect: ok(204, 404) },

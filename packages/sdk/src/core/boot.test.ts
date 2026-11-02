@@ -131,6 +131,9 @@ describe('boot', () => {
     bridge.onMessage!(message('save.restore', { saveSchemaVersion: 0, data: { counter: 4 } }));
     await vi.waitFor(() => expect(migrated.metrics.restoreCalls).toHaveLength(1));
     expect(migrated.metrics.restoreCalls[0]?.saveSchemaVersion).toBe(1);
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'save.write', payload: expect.objectContaining({ reason: 'migration' }) }),
+    );
 
     bridge.send.mockClear();
     const unsupported = await start({ migrate: false });
@@ -141,6 +144,21 @@ describe('boot', () => {
       ),
     );
     expect(unsupported.metrics.restoreCalls).toHaveLength(0);
+  });
+
+  it('does not call migrate for a save two schemas behind', async () => {
+    const { metrics, runtime } = await start();
+    runtime.instance.serialize = () => ({ saveSchemaVersion: 2, data: { counter: 0, entities: {}, players: [] } });
+    runtime.instance.migrate = vi.fn(runtime.instance.migrate);
+    bridge.onMessage!(message('save.restore', { saveSchemaVersion: 0, data: { counter: 4 } }));
+
+    await vi.waitFor(() =>
+      expect(bridge.send).toHaveBeenCalledWith(
+        expect.objectContaining({ t: 'error', payload: expect.objectContaining({ code: 'save_unsupported' }) }),
+      ),
+    );
+    expect(runtime.instance.migrate).not.toHaveBeenCalled();
+    expect(metrics.restoreCalls).toHaveLength(0);
   });
 
   it('fans input, viewport, settings, lifecycle, and checkpoint saves through the runtime', async () => {
@@ -174,6 +192,157 @@ describe('boot', () => {
     runtime.host.events.emit('checkpoint', { reason: 'test' });
     expect(bridge.send).toHaveBeenCalledWith(expect.objectContaining({ t: 'event' }));
     expect(bridge.send).toHaveBeenCalledWith(expect.objectContaining({ t: 'save.write' }));
+  });
+
+  it('samples held canvas input on each fixed step and forwards raw host hotkeys', async () => {
+    const { runtime } = await start();
+    const canvas = document.createElement('canvas');
+    runtime.attachInput({
+      canvas,
+      mapping: {
+        keyboard: { KeyG: 'go', Escape: 'host.pause' },
+        touch: 'stick',
+        gamepad: {},
+        pointerLock: false,
+      },
+    });
+
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG' }));
+    runtime.hooks.advanceTime(34);
+    expect(runtime.instance.serialize().data.counter).toBe(2);
+
+    canvas.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyG' }));
+    runtime.hooks.advanceTime(17);
+    expect(runtime.instance.serialize().data.counter).toBe(2);
+
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'input.rawKey', payload: { code: 'Escape', down: true } }),
+    );
+  });
+
+  it('owns host net input and post-step snapshots through Runtime.net', async () => {
+    const { runtime } = await start();
+    const received = vi.fn();
+    runtime.net.onInput(received);
+    bridge.onMessage!(
+      message('net.players', {
+        local: 0,
+        players: [
+          { playerIndex: 0, name: 'Host', connected: true },
+          { playerIndex: 1, name: 'Peer', connected: true },
+        ],
+      }),
+    );
+    bridge.onMessage!(message('net.role', { role: 'host' }));
+    bridge.send.mockClear();
+    bridge.onMessage!(message('net.input', { f: { playerIndex: 1, seq: 1, tick: 1, axes: [], buttons: 1 } }));
+    runtime.hooks.advanceTime(3_000);
+
+    expect(received).toHaveBeenCalledWith(1, expect.objectContaining({ source: 'network', actions: { go: true } }));
+    expect(runtime.instance.serialize().data.counter).toBe(1);
+    expect(bridge.send.mock.calls.filter(([envelope]) => envelope.t === 'net.snapshot')).toHaveLength(60);
+    expect(bridge.send.mock.calls.some(([envelope]) => envelope.t === 'net.input')).toBe(false);
+    expect(runtime.hooks.renderGameToText()).toMatchObject({
+      players: [{ playerIndex: 0 }, { playerIndex: 1 }],
+      net: { role: 'host', localPlayerIndex: 0, players: [0, 1] },
+    });
+  });
+
+  it('sends peer input without advancing gameplay simulation', async () => {
+    const { runtime } = await start();
+    bridge.onMessage!(
+      message('net.players', {
+        local: 1,
+        players: [
+          { playerIndex: 0, name: 'Host', connected: true },
+          { playerIndex: 1, name: 'Peer', connected: true },
+        ],
+      }),
+    );
+    bridge.onMessage!(message('net.role', { role: 'peer' }));
+    bridge.send.mockClear();
+
+    runtime.hooks.inject({ playerIndex: 1, tick: 1, source: 'keyboard', actions: { go: true } });
+    runtime.hooks.advanceTime(17);
+
+    expect(runtime.instance.serialize().data.counter).toBe(0);
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'net.input', payload: { f: expect.objectContaining({ buttons: 1 }) } }),
+    );
+    expect(bridge.send.mock.calls.some(([envelope]) => envelope.t === 'net.snapshot')).toBe(false);
+  });
+
+  // Templates and three/physics drive gameplay through Runtime.onStep; its signature and host/solo
+  // behavior must stay what it was when it delegated to clock.onStep. Only peers skip it (no local sim).
+  it('keeps Runtime.onStep firing with merged frames on solo/host and only silences it on peers', async () => {
+    const { runtime } = await start();
+    const step = vi.fn();
+    const stop = runtime.onStep(step);
+
+    runtime.hooks.inject({ playerIndex: 0, tick: 1, source: 'keyboard', actions: { go: true } });
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(1);
+    expect(step).toHaveBeenCalledWith(1 / 60, [expect.objectContaining({ actions: { go: true } })]);
+
+    bridge.onMessage!(
+      message('net.players', {
+        local: 1,
+        players: [
+          { playerIndex: 0, name: 'Host', connected: true },
+          { playerIndex: 1, name: 'Peer', connected: true },
+        ],
+      }),
+    );
+    bridge.onMessage!(message('net.role', { role: 'peer' }));
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(1);
+
+    bridge.onMessage!(message('net.role', { role: 'host' }));
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(2);
+    stop();
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(2);
+  });
+
+  it('keeps default single-player net traffic-free over six hundred ticks', async () => {
+    const { runtime } = await start();
+    bridge.send.mockClear();
+
+    runtime.hooks.advanceTime(10_000);
+
+    expect(runtime.net.role).toBe('host');
+    expect(runtime.net.players).toHaveLength(1);
+    expect(runtime.hooks.renderGameToText()).toMatchObject({
+      net: { role: 'host', localPlayerIndex: 0, players: [0] },
+    });
+    expect(bridge.send.mock.calls.some(([envelope]) => String(envelope.t).startsWith('net.'))).toBe(false);
+    expect(runtime.hooks.renderInfo()).toMatchObject({
+      net: { dropped: 0, eventGaps: 0, outOfOrderSnapshots: 0, stalls: 0, oversized: 0 },
+    });
+  });
+
+  it('replays recorded merged frames without current held input leaking into history', async () => {
+    const { runtime } = await start();
+    const canvas = document.createElement('canvas');
+    runtime.attachInput({
+      canvas,
+      mapping: {
+        keyboard: { KeyG: 'go' },
+        touch: 'stick',
+        gamepad: {},
+        pointerLock: false,
+      },
+    });
+
+    runtime.hooks.advanceTime(17);
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG' }));
+    runtime.hooks.advanceTime(17);
+    expect(runtime.instance.serialize().data.counter).toBe(1);
+
+    runtime.hooks.renderAt(17);
+    expect(runtime.instance.serialize().data.counter).toBe(0);
   });
 
   it('refuses a published build forced into test mode by the URL', async () => {

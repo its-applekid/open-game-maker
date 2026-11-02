@@ -8,6 +8,7 @@ import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../src/app/app.js';
+import { claimAttachments, storeAttachment } from '../../src/build-chat/attachments.js';
 import type { TicketJob } from '../../src/app/registry.js';
 import { bundleRoutes, hookSecretFiles } from '../../src/internal/bundle.js';
 import { tarGz } from '../../src/internal/tarball.js';
@@ -115,6 +116,75 @@ describe('GET /internal/jobs/by-ticket/:identifier/bundle', () => {
     expect((await (await get('/internal/jobs/by-ticket/12/bundle', SECRET_A)).json()).diagnostics).toEqual(diagnostics);
   });
 
+  it('passes the scope session id through for a scope ticket', async () => {
+    const scopeSessionId = 's_88000000-0000-4000-8000-000000000001';
+    const jobId = 'j_88000000-0000-4000-8000-000000000001';
+    const gameId = 'g_88000000-0000-4000-8000-000000000001';
+    const familyId = 'f_88000000-0000-4000-8000-000000000001';
+    const creatorId = 'u_88000000-0000-4000-8000-000000000001';
+    const { deps, get } = await setup([job({ jobId, gameId, kind: 'scope' })]);
+    deps.db
+      .insert(schema.families)
+      .values({ id: familyId, name: 'Family', ownerUserId: creatorId, createdAt: '2026-11-01T00:00:00.000Z' })
+      .run();
+    deps.db
+      .insert(schema.games)
+      .values({
+        id: gameId,
+        familyId,
+        ownerId: creatorId,
+        title: 'Game',
+        visibility: 'private',
+        repoVisibility: 'private',
+        createdAt: '2026-11-01T00:00:00.000Z',
+      })
+      .run();
+    deps.db
+      .insert(schema.jobs)
+      .values({
+        id: jobId,
+        gameId,
+        branchId: 'main',
+        familyId,
+        creatorId,
+        kind: 'scope',
+        complexity: 1,
+        state: 'filed',
+        start: 'now',
+        slot: 'edit',
+        plan: '{}',
+        reservation: '{}',
+        hardCapMicroUsd: 1,
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+      })
+      .run();
+    deps.db
+      .insert(schema.scopeSessions)
+      .values({
+        id: scopeSessionId,
+        gameId,
+        creatorId,
+        jobId,
+        status: 'open',
+        choices: JSON.stringify({
+          genre: 'platformer',
+          vibe: 'cozy',
+          family: 'chunky-low-poly',
+          world: 'island',
+          players: 'single',
+          pov: 'isometric',
+        }),
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+      })
+      .run();
+
+    expect((await (await get('/internal/jobs/by-ticket/12/bundle', SECRET_A)).json()).scope_session_id).toBe(
+      scopeSessionId,
+    );
+  });
+
   it('answers 500 rather than serve a token- or email-shaped value', async () => {
     for (const title of ['ghp_abcdefghijkl', 'kevin@example.com']) {
       const { deps, get } = await setup([job({ game: { ...job().game, title } })]);
@@ -133,6 +203,66 @@ describe('GET /internal/jobs/by-ticket/:identifier/bundle', () => {
       expect((await response.json()).gameContext.title).toBe(title);
     }
   });
+});
+
+describe('job attachments for the after_create hook', () => {
+  const markdown = new TextEncoder().encode('# Castle\n\nTowers at each corner.\n');
+
+  async function attach(deps: ReturnType<typeof makeDeps>, jobId: string, name: string, messageId: string | null) {
+    const row = await storeAttachment(deps.sqlite, deps.blobStore, {
+      jobId,
+      creatorId: 'u1',
+      type: 'text/markdown',
+      name,
+      bytes: markdown,
+    });
+    if (messageId !== null) claimAttachments(deps.sqlite, { ids: [row.id], jobId, creatorId: 'u1', messageId });
+    return row;
+  }
+
+  it('lists the files sent with chat messages and serves their bytes only to the owning daemon', async () => {
+    const { deps, get } = await setup();
+    const sent = await attach(deps, 'j1', 'castle notes.md', 'm_88000000-0000-4000-8000-000000000001');
+    const unsent = await attach(deps, 'j1', 'draft.md', null);
+    const elsewhere = await attach(deps, 'j2', 'other.md', 'm_88000000-0000-4000-8000-000000000002');
+
+    const bundle = JobBundle.parse(await (await get('/internal/jobs/by-ticket/12/bundle', SECRET_A)).json());
+    expect(bundle.attachments).toEqual([
+      {
+        kind: 'text',
+        name: 'castle notes.md',
+        blob: sent.id,
+        bytes: markdown.byteLength,
+        message_id: 'm_88000000-0000-4000-8000-000000000001',
+        path: `.gm/inbox/attachments/${sent.id}-castle-notes.md`,
+      },
+    ]);
+
+    const response = await get(`/internal/jobs/by-ticket/12/attachments/${sent.id}`, SECRET_A);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/markdown');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(markdown);
+
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${sent.id}`)).status).toBe(401);
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${sent.id}`, SECRET_B)).status).toBe(404);
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${unsent.id}`, SECRET_A)).status).toBe(404);
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${elsewhere.id}`, SECRET_A)).status).toBe(404);
+  });
+
+  // The bundle refuses to serve anything token- or email-shaped, so a creator's file name must never stall the job.
+  it.each(['kevin@example.com.md', 'sk-learn notes.md', 'ghp_abcdefgh.txt'])(
+    'keeps serving the bundle when a file is named %s',
+    async (name) => {
+      const { deps, get } = await setup();
+      const row = await attach(deps, 'j1', name, 'm_88000000-0000-4000-8000-000000000001');
+      const response = await get('/internal/jobs/by-ticket/12/bundle', SECRET_A);
+      expect(response.status).toBe(200);
+      const [listed] = JobBundle.parse(await response.json()).attachments ?? [];
+      expect(listed?.name).toBe(row.id);
+      expect(listed?.path.startsWith(`.gm/inbox/attachments/${row.id}-`)).toBe(true);
+      expect(listed?.path).not.toMatch(/sk-|ghp_|@/);
+    },
+  );
 });
 
 describe('GET /internal/skills/:version.tgz', () => {

@@ -1,0 +1,4 @@
+{
+  "name": "baseline",
+  "excludeSkills": ["gm-genre-*"]
+}

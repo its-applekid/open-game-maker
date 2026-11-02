@@ -5,7 +5,8 @@ The platform API: Hono on `127.0.0.1:$OGM_API_PORT`, the only process that opens
 
 Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_ANALYTICS_RETENTION_DAYS` (default `90`), `OGM_DATA_DIR`,
 `OGM_GAMES_ROOT` (optional; defaults to the `games` directory beside `OGM_DATA_DIR`),
-`OGM_INTERNAL_TOKEN`, `OGM_JOB_TOKEN_SECRET`, `OGM_BLOB_ROOT`, `OGM_BLOB_SIGNING_KEY`, `OGM_PUBLIC_ORIGIN`; the auth
+`OGM_GAMES_ORIGIN`, `OGM_INTERNAL_TOKEN`, `OGM_JOB_TOKEN_SECRET`, `OGM_BLOB_ROOT`, `OGM_BLOB_SIGNING_KEY`,
+`OGM_PUBLIC_ORIGIN`; the auth
 context adds `OGM_APP_ORIGIN`, `OGM_SESSION_SECRET`, `OGM_AGE_COOKIE_SECRET`, `OGM_WS_TOKEN_SECRET` and the optional
 `OGM_MAINTAINER_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_URL`, `SMTP_FROM` (see
 `docs/ops/netlify-proxy.md`). Room lifecycle calls add `OGM_ROOMS_INTERNAL_URL` and `OGM_ROOMS_INTERNAL_SECRET`.
@@ -13,7 +14,9 @@ The API also reads `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_G
 `game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
 `OGM_CHAT_POLL_MS` (default `10000`), and `OGM_CHECKPOINT_POLL_MS` (default `5000`).
 Optional `OGM_ASSETS_ROOT` (the `assets-local/` library) gives `GET /api/catalog/style-families` its pack titles and
-thumbnails; without it packs are named by id.
+thumbnails; without it packs are named by id. Each style set includes `requiresPrivateRepository`: creation must force
+private repository visibility when it is `true`. The field is `false` only when every referenced pack resolves to a
+recognized public SPDX license; `LicenseRef-*`, unknown, and missing licenses fail closed to `true`.
 
 `OGM_VAPID_KEY_FILE` defaults to `~/.config/ogm/env/ogm-api.vapid.json`; the API creates the key pair with mode
 `0600` on first boot. Set `OGM_VAPID_SUBJECT` to the contact email used for the Web Push `mailto:` subject.
@@ -27,6 +30,40 @@ go to a context's `src/<context>/outbox.ts`, which exports `type` and `handle(li
 injectable for focused tests. Without an aiur client creator posts stay pending and nothing is polled. The trusted job
 launcher must call `registerWorkspace(sqlite, jobId, workspaceRoot)` before sandbox output is accepted; unregistered
 workspaces and lines naming another job are rejected.
+
+## Scope session image uploads
+
+`POST /api/v1/games/:gameId/scope/sessions/:sessionId/images` accepts one authenticated raw image body for the owner
+of an open scope session. Set `Content-Type` to an `image/*` media type; do not send multipart data. The compressed
+request body is limited to 10 MiB and uploads are limited to 10 per session and creator per minute. The API applies
+the source orientation, re-encodes the pixels as WebP without source metadata, appends a creator image message to the
+session's existing build-chat stream, mirrors a time-limited signed image reference to the scope worker, and returns:
+
+```json
+{ "imageId": "m_…" }
+```
+
+`imageId` is the appended build-chat message id. The creation transport should upload each image before posting any
+accompanying text; no second attachment commit is required. The route returns `400 empty_image`, `413 image_too_large`,
+`415 unsupported_image_type`, `422 invalid_image`, or `429 rate_limited` for upload validation failures. Missing or
+mismatched sessions return `404 scope_session_not_found`, closed sessions return `409 scope_session_not_open`, and
+normal authentication and game-owner authorization errors remain `401` or `403`.
+
+## Chat attachments
+
+`POST /api/v1/jobs/:jobId/chat/attachments` takes one raw file from the job's creator: `Content-Type` is an `image/*`
+type (at most 10 MiB, re-encoded to WebP with no source metadata) or `text/plain`, `text/markdown` or
+`application/json` (at most 64 KB, UTF-8, JSON must parse), and `X-File-Name` is the URI-encoded file name. It answers
+`201` with a `chat.attachment.v1` object. Post the returned ids in `attachments` (at most 8) on
+`POST /api/v1/jobs/:jobId/chat`; `text` may then be left out. Uploads return `400 empty_attachment`,
+`413 attachment_too_large`, `415 unsupported_attachment_type`, `422 invalid_image`, `422 invalid_text`,
+`422 invalid_json` or `429 rate_limited`; a post naming an id that is not the creator's unsent upload for that job
+returns `422 attachment_not_found` and stores nothing.
+
+The worker gets each file three ways: the job bundle lists it (`attachments[]`) and the after_create hook downloads it
+from `/internal/jobs/by-ticket/:ticket/attachments/:id` into `.gm/inbox/attachments/`; a message posted after the
+workspace is pinned copies its files there directly; and the aiur message inlines text files that fit within its
+8,000 characters and names every file by that path (images also carry a signed URL).
 
 Direction checkpoints use the same workspace pin. The API polls each active job's aiur Commands every
 `OGM_CHECKPOINT_POLL_MS`, keeps the supervisor token server-side, and writes answered or moot results under

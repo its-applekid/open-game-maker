@@ -68,6 +68,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       roomsInternalUrl: 'http://127.0.0.1:4302',
       roomsInternalSecret: 'rooms-internal-secret-for-tests',
       roomGrantSecret: 'room-grant-secret-for-tests-with-32-bytes',
+      gamesOrigin: 'https://games.example.test',
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
       gameTemplateRef: 'game-2d@1',
@@ -78,6 +79,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       defaultDailyAllowanceMicroUsd: 5_000_000,
       resetZoneDefault: 'America/Los_Angeles',
       reportBundleMaxBytes: 2 * 1024 * 1024,
+      narrationConcurrency: 2,
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),

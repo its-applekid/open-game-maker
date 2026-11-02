@@ -187,7 +187,8 @@ mkdirSync(resolvedDirectory, { recursive: true, mode: 0o700 });
 
 const target = join(resolvedDirectory, `${unit}.env`);
 const existingValues = readExistingValues(resolvedDirectory);
-const rows = OGM_ENV_NAMES.filter(({ unit: owner }) => owner === unit || owner === 'shared');
+// web.env feeds a public build, so it gets its own origins and never the shared secrets.
+const rows = OGM_ENV_NAMES.filter(({ unit: owner }) => owner === unit || (owner === 'shared' && unit !== 'web'));
 let generated = 0;
 const lines = rows.map(({ name, kind }) => {
   if (kind !== 'secret') return `${name}=`;

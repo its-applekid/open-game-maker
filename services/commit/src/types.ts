@@ -36,4 +36,9 @@ export type GitHubApp = {
   identity(): Promise<GitHubIdentity>;
 };
 
+export type GitHubInstallations = {
+  // The account login an installation of the App belongs to, or null when GitHub has no such installation.
+  installationLogin(installationId: number): Promise<string | null>;
+};
+
 export type OperationName = CommitOp['kind'];

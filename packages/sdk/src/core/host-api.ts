@@ -1,12 +1,4 @@
-import type {
-  ActionFrame,
-  ActionValue,
-  GmTestHooks,
-  HostApi,
-  PlayerSettings,
-  SaveData,
-  Viewport,
-} from '@ogm/contracts';
+import type { ActionFrame, ActionValue, GmTestHooks, HostApi, PlayerSettings, Viewport } from '@ogm/contracts';
 
 export type SendEnvelope = (type: string, payload: unknown, replyTo?: string) => void;
 
@@ -18,14 +10,15 @@ const defaultViewport: Viewport = {
   safe: { top: 0, right: 0, bottom: 0, left: 0 },
 };
 
-export class SdkHostApi<S> implements HostApi {
+export class SdkHostApi implements HostApi {
   capabilities: ReadonlySet<string> = new Set();
   private currentViewport = defaultViewport;
   private hooks: GmTestHooks | undefined;
   private readonly inputListeners = new Map<string, Set<(value: ActionValue) => void>>();
   private readonly settingsListeners = new Set<(settings: PlayerSettings) => void>();
   private readonly viewportListeners = new Set<(viewport: Viewport) => void>();
-  private saveProvider: (() => SaveData<S>) | undefined;
+  // Checkpoints delegate to the save machine so it can persist before transport.
+  private saveHandler: (() => void) | undefined;
 
   constructor(
     private readonly send: SendEnvelope,
@@ -55,7 +48,7 @@ export class SdkHostApi<S> implements HostApi {
       if (this.capabilities.has('events') || this.capabilities.has(kind) || this.capabilities.has(`events.${kind}`)) {
         this.send('event', { kind, payload });
       }
-      if (kind === 'checkpoint' && this.saveProvider) this.send('save.write', this.saveProvider());
+      if (kind === 'checkpoint') this.saveHandler?.();
     },
   };
 
@@ -80,8 +73,12 @@ export class SdkHostApi<S> implements HostApi {
     this.capabilities = new Set(capabilities);
   }
 
-  setSaveProvider(provider: () => SaveData<S>): void {
-    this.saveProvider = provider;
+  setSaveHandler(handler: () => void): void {
+    this.saveHandler = handler;
+  }
+
+  sendRawKey(payload: { code: string; down: boolean }): void {
+    this.send('input.rawKey', payload);
   }
 
   dispatchInput(frames: ActionFrame[]): void {

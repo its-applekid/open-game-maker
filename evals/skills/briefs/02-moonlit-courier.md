@@ -1,0 +1,1 @@
+Build a quiet, precise side-view platformer about a courier crossing moonlit rooftops. The player can run and jump, then deliver letters at three marked windows in any order. Do not add enemies, coins, health, a score, or extra movement abilities. The player wins when every letter is delivered and they reach the tower.

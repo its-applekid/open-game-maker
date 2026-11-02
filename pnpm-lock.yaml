@@ -30,17 +30,45 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
+  apps/site:
+    dependencies:
+      yaml:
+        specifier: 2.9.1
+        version: 2.9.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      jsdom:
+        specifier: 27.4.0
+        version: 27.4.0(@noble/hashes@2.4.0)
+
   apps/web:
     dependencies:
       '@better-auth/passkey':
         specifier: 1.7.15
         version: 1.7.15(@better-auth/core@1.7.15(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.4(zod@4.6.7))(jose@6.2.14)(kysely@0.29.8)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-auth@1.7.15(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))))(better-call@1.4.4(zod@4.6.7))(nanostores@1.5.5)
+      '@colyseus/sdk':
+        specifier: 0.18.9
+        version: 0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7)
+      '@gm/host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@noriginmedia/norigin-spatial-navigation':
         specifier: 2.3.0
         version: 2.3.0(react@19.3.1)
       '@ogm/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@ogm/design-log':
+        specifier: workspace:*
+        version: link:../../packages/design-log
+      '@ogm/iframe-bridge':
+        specifier: workspace:*
+        version: link:../../packages/iframe-bridge
       '@ogm/voice-client':
         specifier: workspace:*
         version: link:../../packages/voice-client
@@ -63,6 +91,15 @@ importers:
         specifier: 5.0.16
         version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.1)
     devDependencies:
+      '@colyseus/testing':
+        specifier: 0.18.6
+        version: 0.18.6(@colyseus/core@0.18.24)(@colyseus/sdk@0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7))(@colyseus/tools@0.18.11(@colyseus/core@0.18.24)(@colyseus/ws-transport@0.18.4))
+      '@ogm/room-protocol':
+        specifier: workspace:*
+        version: link:../../packages/room-protocol
+      '@ogm/rooms':
+        specifier: workspace:*
+        version: link:../../services/rooms
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
@@ -108,6 +145,31 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))
+
+  games/samplers/smallscaleint:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../../packages/contracts
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      vite:
+        specifier: 8.3.5
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
 
   packages/aiur-client:
     dependencies:
@@ -250,6 +312,15 @@ importers:
 
   packages/gm-cli:
     dependencies:
+      '@gltf-transform/core':
+        specifier: 4.5.1
+        version: 4.5.1
+      '@gltf-transform/extensions':
+        specifier: 4.5.1
+        version: 4.5.1
+      '@gltf-transform/functions':
+        specifier: 4.5.1
+        version: 4.5.1(@types/node@26.6.6)
       '@ogm/asset-cards':
         specifier: workspace:*
         version: link:../asset-cards
@@ -271,6 +342,9 @@ importers:
       adm-zip:
         specifier: 0.6.1
         version: 0.6.1
+      meshoptimizer:
+        specifier: 1.3.0
+        version: 1.3.0
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@26.6.6)
@@ -289,6 +363,9 @@ importers:
       playwright:
         specifier: 1.64.1
         version: 1.64.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -334,6 +411,72 @@ importers:
         specifier: 27.4.0
         version: 27.4.0(@noble/hashes@2.4.0)
 
+  packages/pack-adapters/kaykit:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../sdk
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      '@types/three':
+        specifier: 0.186.0
+        version: 0.186.0
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      three:
+        specifier: 0.186.1
+        version: 0.186.1
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/pack-adapters/limezu-modern:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../contracts
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  packages/pack-adapters/smallscaleint:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../sdk
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
   packages/policy: {}
 
   packages/room-protocol:
@@ -359,9 +502,15 @@ importers:
       fastnoise-lite:
         specifier: 1.1.1
         version: 1.1.1
+      idb:
+        specifier: 8.0.3
+        version: 8.0.3
       meshoptimizer:
         specifier: 1.3.0
         version: 1.3.0
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
       three:
         specifier: 0.186.1
         version: 0.186.1
@@ -384,6 +533,9 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
+      fake-indexeddb:
+        specifier: 6.2.5
+        version: 6.2.5
       jsdom:
         specifier: 27.4.0
         version: 27.4.0(@noble/hashes@2.4.0)
@@ -396,6 +548,9 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+      vite:
+        specifier: 8.3.5
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -557,6 +712,9 @@ importers:
       '@hono/node-server':
         specifier: 2.1.5
         version: 2.1.5(hono@4.13.16)
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
       hono:
         specifier: 4.13.16
         version: 4.13.16
@@ -573,6 +731,25 @@ importers:
       '@ogm/config':
         specifier: workspace:*
         version: link:../../packages/config
+
+  services/repair:
+    dependencies:
+      '@ogm/config':
+        specifier: workspace:*
+        version: link:../../packages/config
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ogm/gm-verify':
+        specifier: workspace:*
+        version: link:../../packages/gm-verify
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
 
   services/rooms:
     dependencies:
@@ -617,6 +794,98 @@ importers:
         specifier: 4.23.15
         version: 4.23.15
 
+  services/voice-host: {}
+
+  skills/gm-genre-platformer:
+    devDependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  skills/gm-input:
+    devDependencies:
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ogm/gm-cli':
+        specifier: workspace:*
+        version: link:../../packages/gm-cli
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  skills/gm-pack-adapter:
+    devDependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/gm-cli':
+        specifier: workspace:*
+        version: link:../../packages/gm-cli
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  skills/gm-repair: {}
+
+  skills/gm-ui-hud:
+    devDependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@ogm/gm-cli':
+        specifier: workspace:*
+        version: link:../../packages/gm-cli
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  templates/game-2d:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      vite:
+        specifier: 8.3.5
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
   templates/game-3d:
     dependencies:
       '@gm/sdk':
@@ -650,10 +919,16 @@ importers:
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))
-  services/voice-host: {}
 
   tools/skills:
+    dependencies:
+      '@ogm/config':
+        specifier: workspace:*
+        version: link:../../packages/config
     devDependencies:
+      jscpd:
+        specifier: 5.4.2
+        version: 5.4.2
       phaser:
         specifier: 4.2.1
         version: 4.2.1
@@ -663,6 +938,9 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
       vitest:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
@@ -2993,6 +3271,10 @@ packages:
     resolution: {integrity: sha512-qCqy1xSoaugxOD4IVHb1ZWdkvCF2W3aE2okKouWj8VwJ+ztskSiXoBnCSJqfKT+cVPJhuJqe9YLbY425+Zh00g==}
     engines: {node: '>= 18'}
 
+  fake-indexeddb@6.2.5:
+    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
+    engines: {node: '>=18'}
+
   fast-check@4.10.2:
     resolution: {integrity: sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==}
     engines: {node: '>=12.17.0'}
@@ -3130,6 +3412,9 @@ packages:
     resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
     engines: {node: '>=0.10.0'}
 
+  idb@8.0.3:
+    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
+
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
     engines: {node: '>= 4'}
@@ -3195,6 +3480,55 @@ packages:
 
   js-yaml@5.5.0:
     resolution: {integrity: sha512-paNr4LFIFPjeeSmwNYdrb8FafLLG/Cr2Af3GjbsHJ5CxIjH4r0c2emlmRdAtpPAieP1gRVzk6buBbVP5gBMGAg==}
+    hasBin: true
+
+  jscpd-darwin-arm64@5.4.2:
+    resolution: {integrity: sha512-EGoPYQZqESW2kJfxKZrUYsYWhzq2Irk6sBQQWZ7VPAGj2wwk3n8HtDP2FnJOiHWZtSz55I8zQWldzIrD55B5Vw==}
+    cpu: [arm64]
+    os: [darwin]
+
+  jscpd-darwin-x64@5.4.2:
+    resolution: {integrity: sha512-/bz/rgoahqeK0p5r+KjeTTS59d7bZpMxD7hQ4CaQ0qKZWBZIyu7hRdExzJ7/KrCEJ5cmRogvXX1jhFqldYLNXw==}
+    cpu: [x64]
+    os: [darwin]
+
+  jscpd-linux-arm64-gnu@5.4.2:
+    resolution: {integrity: sha512-YW/eX+mOYZmT/A3QEARYmJQoVQNV/cfecKCobNXZcD3mE57drpKHmJnvuL9uS85z0cUKWGCM57JVkVz6Y9oxxw==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [glibc]
+
+  jscpd-linux-arm64-musl@5.4.2:
+    resolution: {integrity: sha512-jOLTO8YVRz65NaeYNeXoIf13yOPWhbM61xKXpv51DXQ2BXce6XfgPaJVeDCOM5s+8mt6aDtq0BZ8zptNeqGuIw==}
+    cpu: [arm64]
+    os: [linux]
+    libc: [musl]
+
+  jscpd-linux-x64-gnu@5.4.2:
+    resolution: {integrity: sha512-eAmKLxx+pIOEX4lZ342CCCjL5bvf+a3gdmaaVHXiGIx2Zr3zKkF32YkfuN2sCvCui5I/wnely80XsRvVVFO47Q==}
+    cpu: [x64]
+    os: [linux]
+    libc: [glibc]
+
+  jscpd-linux-x64-musl@5.4.2:
+    resolution: {integrity: sha512-ers9YFscD6DrmhyjBDXo/L+yBKcclHdWTFLMulYVGLcoGRKfBFhmK08MI3ajN/GMmCpJu7rkDYKL3egdfE8OIw==}
+    cpu: [x64]
+    os: [linux]
+    libc: [musl]
+
+  jscpd-windows-arm64-msvc@5.4.2:
+    resolution: {integrity: sha512-kOhVw4cVhN8T9jr3OVThB3pPpbff0ITHTwpJ/+4EGzMkbf0y6QtPpHDzRgiHJj7u1FSTBXTI6VhPhDUhT/os1g==}
+    cpu: [arm64]
+    os: [win32]
+
+  jscpd-windows-x64-msvc@5.4.2:
+    resolution: {integrity: sha512-BuR5DCV7F/G5ukMEIzCrz43ea5C0t0ALcP7v+opOWefoi4aiQYCEmtoRwfXMM/zjOmNYmvJBDDfeH05U9uuzEg==}
+    cpu: [x64]
+    os: [win32]
+
+  jscpd@5.4.2:
+    resolution: {integrity: sha512-bxZ1ObA4NyWBcM7Zh+QoGrdcMovbCxrDofFaLo2Lwgk/Axe/e45VYu8EM+mpPx2CpU/QGCoktONRnaRZl8Yq2w==}
+    engines: {node: '>=18'}
     hasBin: true
 
   jsdom@27.4.0:
@@ -6199,6 +6533,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  fake-indexeddb@6.2.5: {}
+
   fast-check@4.10.2:
     dependencies:
       pure-rand: 8.4.2
@@ -6338,6 +6674,8 @@ snapshots:
     dependencies:
       safer-buffer: 2.1.2
 
+  idb@8.0.3: {}
+
   ignore@5.3.2: {}
 
   ignore@7.0.14: {}
@@ -6383,6 +6721,41 @@ snapshots:
   js-yaml@5.5.0:
     dependencies:
       argparse: 3.0.4
+
+  jscpd-darwin-arm64@5.4.2:
+    optional: true
+
+  jscpd-darwin-x64@5.4.2:
+    optional: true
+
+  jscpd-linux-arm64-gnu@5.4.2:
+    optional: true
+
+  jscpd-linux-arm64-musl@5.4.2:
+    optional: true
+
+  jscpd-linux-x64-gnu@5.4.2:
+    optional: true
+
+  jscpd-linux-x64-musl@5.4.2:
+    optional: true
+
+  jscpd-windows-arm64-msvc@5.4.2:
+    optional: true
+
+  jscpd-windows-x64-msvc@5.4.2:
+    optional: true
+
+  jscpd@5.4.2:
+    optionalDependencies:
+      jscpd-darwin-arm64: 5.4.2
+      jscpd-darwin-x64: 5.4.2
+      jscpd-linux-arm64-gnu: 5.4.2
+      jscpd-linux-arm64-musl: 5.4.2
+      jscpd-linux-x64-gnu: 5.4.2
+      jscpd-linux-x64-musl: 5.4.2
+      jscpd-windows-arm64-msvc: 5.4.2
+      jscpd-windows-x64-msvc: 5.4.2
 
   jsdom@27.4.0(@noble/hashes@2.4.0):
     dependencies:

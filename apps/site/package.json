@@ -1,0 +1,23 @@
+{
+  "name": "@ogm/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && node tools/build.mts",
+    "check": "tsc -b && node tools/build.mts --check",
+    "pretest": "pnpm run check",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "test:browser": "pnpm run check && playwright test"
+  },
+  "dependencies": {
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "jsdom": "27.4.0"
+  }
+}

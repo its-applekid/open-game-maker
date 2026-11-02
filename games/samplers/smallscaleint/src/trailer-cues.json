@@ -1,0 +1,15 @@
+{
+  "duration": 24,
+  "sceneSeconds": 4,
+  "cues": [
+    { "at": 0.8, "sound": "move-a", "volume": 0.28 },
+    { "at": 1.45, "sound": "move-a", "volume": 0.24 },
+    { "at": 5.35, "sound": "hurt-a", "volume": 0.48 },
+    { "at": 9.8, "sound": "coin-a", "volume": 0.5 },
+    { "at": 12.65, "sound": "move-a", "volume": 0.3 },
+    { "at": 13.45, "sound": "move-a", "volume": 0.26 },
+    { "at": 17.85, "sound": "hurt-a", "volume": 0.42 },
+    { "at": 21.7, "sound": "move-a", "volume": 0.34 },
+    { "at": 22.4, "sound": "hurt-a", "volume": 0.36 }
+  ]
+}

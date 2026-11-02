@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "globals": {
+    "player.speed": 160,
+    "level.width": 1280
+  },
+  "entities": {
+    "spawn_01K8ZTEMP00000000000000001": {
+      "id": "spawn_01K8ZTEMP00000000000000001",
+      "prefab": "spawn",
+      "level": "main",
+      "origin": "build",
+      "props": { "x": 96, "y": 400 }
+    },
+    "spawn_01K8ZTEMP00000000000000002": {
+      "id": "spawn_01K8ZTEMP00000000000000002",
+      "prefab": "spawn",
+      "level": "main",
+      "origin": "build",
+      "props": { "x": 192, "y": 400 }
+    },
+    "platform_01K8ZTEMP00000000000000003": {
+      "id": "platform_01K8ZTEMP00000000000000003",
+      "prefab": "platform",
+      "level": "main",
+      "origin": "build",
+      "props": { "x": 400, "y": 320, "w": 200 }
+    }
+  }
+}

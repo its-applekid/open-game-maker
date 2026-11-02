@@ -38,6 +38,7 @@ type CreateLink = (target: string, path: string) => void;
 export type SyncSkillPackOptions = {
   repoDir: string;
   packDir: string;
+  set?: string;
   force?: boolean;
   checkOnly?: boolean;
   createLink?: CreateLink;
@@ -70,23 +71,50 @@ function walkFiles(root: string, prefix = ''): string[] {
   return files;
 }
 
+function isRuntimeSkillFile(path: string): boolean {
+  const parts = path.split('/');
+  const name = parts.at(-1) ?? '';
+  return (
+    !parts.includes('dist') &&
+    name !== 'package.json' &&
+    !name.startsWith('tsconfig') &&
+    !name.endsWith('.test.ts') &&
+    name !== 'test-support.ts'
+  );
+}
+
 export function gmCliVersion(): string {
   const parsed = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as { version?: unknown };
   if (typeof parsed.version !== 'string') throw new Error('gm-cli package.json has no version');
   return parsed.version;
 }
 
-function sourcePack(packDir: string): { files: SourceFile[]; discovery: DiscoverySkill[] } {
-  const roots = readdirSync(packDir, { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && (entry.name.startsWith('gm-') || entry.name === 'vendor'))
+function sourcePack(packDir: string, set: string | undefined): { files: SourceFile[]; discovery: DiscoverySkill[] } {
+  const selectedSetSkill = set ? `gm-set-${set}` : null;
+  const entries = readdirSync(packDir, { withFileTypes: true });
+  if (set && !entries.some((entry) => entry.isDirectory() && entry.name === selectedSetSkill)) {
+    throw new UsageError(
+      `style set "${set}" has no installed skill`,
+      'choose a set supported by this Game Maker installation',
+    );
+  }
+  const roots = entries
+    .filter(
+      (entry) =>
+        entry.isDirectory() &&
+        (entry.name === 'vendor' ||
+          (entry.name.startsWith('gm-') && (!entry.name.startsWith('gm-set-') || entry.name === selectedSetSkill))),
+    )
     .map((entry) => entry.name)
     .sort();
   const files = roots.flatMap((root) =>
-    walkFiles(packDir, root).map((path) => ({
-      path,
-      source: join(packDir, path),
-      sha256: fileSha256(join(packDir, path)),
-    })),
+    walkFiles(packDir, root)
+      .filter(isRuntimeSkillFile)
+      .map((path) => ({
+        path,
+        source: join(packDir, path),
+        sha256: fileSha256(join(packDir, path)),
+      })),
   );
   const discovery: DiscoverySkill[] = [];
   for (const file of files.filter(({ path }) => path.endsWith('/SKILL.md'))) {
@@ -116,6 +144,10 @@ function findUp(cwd: string, child: string): string | null {
     if (existsSync(candidate)) return candidate;
     if (dirname(dir) === dir) return null;
   }
+}
+
+export function locatePackAdapterPackage(cwd: string, set: string): string | null {
+  return findUp(cwd, join('packages', 'pack-adapters', set, 'package.json'));
 }
 
 export function locateTemplates(cwd: string): string | null {
@@ -392,7 +424,7 @@ export function syncSkillPack(options: SyncSkillPackOptions): SyncSkillPackResul
       throw new UsageError(`managed root is not a directory: ${path}`, `move ${root} aside before syncing skills`);
     }
   }
-  const source = sourcePack(packDir);
+  const source = sourcePack(packDir, options.set);
   const currentVersion = gmCliVersion();
   const installedRoot = join(repoDir, '.claude', 'skills');
   const oldLock = readSkillsLock(repoDir);

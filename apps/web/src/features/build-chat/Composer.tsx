@@ -9,10 +9,20 @@ import {
   type DictationTranscript,
   type VoiceClientOptions,
 } from '@ogm/voice-client';
+import type { VoiceTarget } from '@ogm/contracts';
 
 import { Icon } from '../../components/Icon';
+import { ApiError } from '../../lib/api/client';
+import {
+  addAttachments,
+  ATTACH_ACCEPT,
+  uploadAll,
+  uploadChatAttachment,
+  type PendingAttachment,
+  type UploadAttachment,
+} from './attachments';
 import type { StreamedChatMessage } from './stream';
-import { probeVoice as defaultProbeVoice, type BuildVoiceTarget, type VoiceAvailability } from './voice';
+import { probeVoice as defaultProbeVoice, type VoiceAvailability } from './voice';
 
 export type DictationPort = {
   pressStart(): void;
@@ -21,13 +31,15 @@ export type DictationPort = {
   on(event: 'error', listener: (value: DictationError) => void): () => void;
 };
 
-type PostText = (jobId: string, text: string) => Promise<unknown>;
+// `attachmentIds` is passed only when the message carries files.
+type PostText = (jobId: string, text: string, attachmentIds?: string[]) => Promise<unknown>;
 
 export function Composer({
   jobId,
   voiceTarget,
   dictation: providedDictation,
   postText,
+  uploadAttachment = uploadChatAttachment,
   probeVoice = defaultProbeVoice,
   createVoiceClient = (options) => new VoiceClient(options),
   onOptimistic,
@@ -35,10 +47,11 @@ export function Composer({
   onFailed,
 }: {
   jobId: string;
-  voiceTarget?: BuildVoiceTarget;
+  voiceTarget?: VoiceTarget;
   dictation?: DictationPort;
   postText: PostText;
-  probeVoice?: (target: BuildVoiceTarget) => Promise<VoiceAvailability>;
+  uploadAttachment?: UploadAttachment;
+  probeVoice?: (target: VoiceTarget) => Promise<VoiceAvailability>;
   createVoiceClient?: (options: VoiceClientOptions) => VoiceClient;
   onOptimistic?: (message: StreamedChatMessage) => void;
   onPosted?: (message: StreamedChatMessage) => void;
@@ -48,6 +61,8 @@ export function Composer({
     () => providedDictation ?? (Dictation.isSupported() ? new Dictation() : undefined),
   );
   const [text, setText] = useState('');
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [partial, setPartial] = useState('');
   const [notice, setNotice] = useState('');
   const [voice, setVoice] = useState<VoiceAvailability>({ available: false });
@@ -95,7 +110,8 @@ export function Composer({
 
   const submit = async () => {
     const value = text.trim();
-    if (!value || submittingRef.current) return;
+    const files = attachments;
+    if ((!value && files.length === 0) || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     const optimistic: StreamedChatMessage = {
@@ -104,17 +120,38 @@ export function Composer({
       at: new Date().toISOString(),
       actor: 'creator',
       kind: 'text',
-      text: value,
+      ...(value ? { text: value } : {}),
+      ...(files.length === 0
+        ? {}
+        : {
+            attachments: files.map(({ key, file, type }) => ({
+              id: key,
+              kind: type.startsWith('image/') ? ('image' as const) : ('text' as const),
+              name: file.name,
+              mime: type.startsWith('image/') ? ('image/webp' as const) : (type as 'text/plain'),
+              bytes: file.size,
+            })),
+          }),
       optimistic: true,
     };
     onOptimistic?.(optimistic);
     setText('');
+    setAttachments([]);
     try {
-      const posted = await postText(jobId, value);
+      const posted = await (files.length === 0
+        ? postText(jobId, value)
+        : postText(
+            jobId,
+            value,
+            (await uploadAll(jobId, files, uploadAttachment)).map(({ id }) => id),
+          ));
       if (posted && typeof posted === 'object' && 'id' in posted) onPosted?.(posted as StreamedChatMessage);
-    } catch {
+    } catch (error) {
+      // 422 means the uploads were refused or already used (a post whose reply was lost); upload them again next time.
+      if (error instanceof ApiError && error.status === 422) for (const item of files) delete item.uploaded;
       onFailed?.(optimistic.id);
       setText(value);
+      setAttachments(files);
       setNotice('Message not sent. Try again.');
     } finally {
       submittingRef.current = false;
@@ -174,11 +211,33 @@ export function Composer({
       <label className="sr" htmlFor={`build-chat-text-${jobId}`}>
         Message the builder
       </label>
+      {attachments.length > 0 ? (
+        <ul className="build-chat-attachments">
+          {attachments.map(({ key, file }) => (
+            <li key={key}>
+              <span>{file.name}</span>
+              <button
+                type="button"
+                aria-label={`Remove ${file.name}`}
+                onClick={() => setAttachments((current) => current.filter((item) => item.key !== key))}
+              >
+                <Icon name="close" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <textarea
         id={`build-chat-text-${jobId}`}
         rows={2}
         value={text}
         onChange={(event) => setText(event.target.value)}
+        onPaste={(event) => {
+          const images = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith('image/'));
+          if (images.length === 0) return;
+          if (!event.clipboardData.types.includes('text/plain')) event.preventDefault();
+          setAttachments((current) => addAttachments(current, images));
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
             event.preventDefault();
@@ -187,6 +246,26 @@ export function Composer({
         }}
       />
       <div className="build-chat-composer-actions">
+        <button
+          className="build-chat-attach tap-secondary"
+          type="button"
+          aria-label="Attach files"
+          onClick={() => fileInput.current?.click()}
+        >
+          <Icon name="paperclip" />
+        </button>
+        <input
+          ref={fileInput}
+          type="file"
+          multiple
+          accept={ATTACH_ACCEPT}
+          hidden
+          onChange={(event) => {
+            const picked = Array.from(event.target.files ?? []);
+            event.target.value = '';
+            setAttachments((current) => addAttachments(current, picked));
+          }}
+        />
         {dictation ? (
           <button
             className="build-chat-dictate tap-secondary"
@@ -221,7 +300,7 @@ export function Composer({
         <button
           className="build-chat-send tap-primary"
           type="button"
-          disabled={submitting || !text.trim()}
+          disabled={submitting || (!text.trim() && attachments.length === 0)}
           onClick={() => void submit()}
         >
           Send

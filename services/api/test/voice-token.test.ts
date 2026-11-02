@@ -8,6 +8,7 @@ import { loadApiEnv } from '../src/app/env.js';
 import { createGameRow } from '../src/games/games.js';
 import { activeTargetFor } from '../src/voice/briefing-push.js';
 import { mintVoiceToken, VOICE_TOKEN_TTL_SEC } from '../src/voice/token.js';
+import { makeApiEnv } from './env-fixture.js';
 import { asUser, installUsers, makeApp, makeDeps, type TestUser } from './helpers.js';
 
 const now = '2026-11-01T00:00:00.000Z';
@@ -173,26 +174,7 @@ describe('POST /api/v1/voice/token', () => {
 });
 
 describe('voice token configuration', () => {
-  const baseEnv = {
-    OGM_API_PORT: '4300',
-    OGM_DATA_DIR: '/tmp/ogm',
-    OGM_INTERNAL_TOKEN: 'internal-token-0123456789',
-    OGM_JOB_TOKEN_SECRET: 'job-token-secret-0123456789',
-    OGM_BLOB_ROOT: '/tmp/ogm/blobs',
-    OGM_BLOB_SIGNING_KEY: 'blob-signing-key-0123456789',
-    OGM_PUBLIC_ORIGIN: 'https://api.example.test',
-    OGM_APP_ORIGIN: 'https://app.example.test',
-    OGM_ROOMS_INTERNAL_URL: 'http://127.0.0.1:4302',
-    OGM_ROOMS_INTERNAL_SECRET: 'rooms-internal-secret-for-tests',
-    OGM_WS_TOKEN_SECRET: 'room-grant-secret-for-tests-with-32-bytes',
-    OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
-    OGM_COMMIT_SERVICE_TOKEN: 'commit-token-0123456789',
-    OGM_BUILDER_BOT_TOKEN: 'builder-bot-token-for-tests-0123456789',
-    OGM_BUILDER_BOT_LOGIN: 'ogm-builder-bot',
-    OGM_INTAKE_GITHUB_TOKEN: 'intake-github-token-for-tests-0123456789',
-    OGM_INTAKE_BOT_LOGIN: 'ogm-intake-bot',
-    OGM_VAPID_SUBJECT: 'operator@example.test',
-  };
+  const baseEnv = makeApiEnv();
 
   it('refuses a token secret the voice host would reject (under 32 bytes), naming the variable', () => {
     expect(() => loadApiEnv({ ...baseEnv, OGM_VOICE_TOKEN_SECRET: 'x'.repeat(31) })).toThrow(/OGM_VOICE_TOKEN_SECRET/);

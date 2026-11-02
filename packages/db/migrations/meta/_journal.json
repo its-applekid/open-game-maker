@@ -99,6 +99,90 @@
       "when": 1793582411658,
       "tag": "20261102012011_reapply_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793585790308,
+      "tag": "20261102021630_achievements",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793585807169,
+      "tag": "20261102021647_creator_analytics",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793586884310,
+      "tag": "20261102023444_nullable_branch_fork_sha",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793587102015,
+      "tag": "20261102023822_saves",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793590719082,
+      "tag": "20261102033839_scope_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793596146366,
+      "tag": "20261102050906_usage_samples",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "6",
+      "when": 1793598146077,
+      "tag": "20261102054226_merge_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793611247002,
+      "tag": "20261102092046_scope_session_revisions",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1793613955089,
+      "tag": "20261102100555_report_triage",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793617728980,
+      "tag": "20261102110848_releases",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793635540512,
+      "tag": "20261102160540_game_abuse_flags",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793636167362,
+      "tag": "20261102161607_chat_attachments",
+      "breakpoints": true
     }
   ]
 }

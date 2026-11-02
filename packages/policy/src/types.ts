@@ -6,6 +6,7 @@ export const ACTIONS = [
   'game.fork',
   'job.create',
   'job.cancel',
+  'job.edit',
   'member.invite',
   'admin.budget.set',
   'report.file',
@@ -13,6 +14,7 @@ export const ACTIONS = [
   'admin.settings.set',
   'admin.analytics.read',
   'game.delist',
+  'game.flag_abuse',
   'report.view',
 ] as const;
 

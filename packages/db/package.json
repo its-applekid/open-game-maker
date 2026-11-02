@@ -14,7 +14,7 @@
     "pretypecheck": "tsc -b",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "pretest": "tsc -b",
-    "test": "vitest run",
+    "test": "drizzle-kit check && vitest run",
     "lint": "eslint src test",
     "migrate": "tsc -b && node dist/cli.js",
     "generate": "drizzle-kit generate"

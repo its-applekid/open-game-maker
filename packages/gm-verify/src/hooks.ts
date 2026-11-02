@@ -20,6 +20,11 @@ export class HookDriver {
     private readonly rig: ViewId | undefined,
   ) {}
 
+  /** Render passes per frame: a follow camera needs a second pass to settle (look.mjs). */
+  get passes(): number {
+    return this.rig === 'follow' ? 2 : 1;
+  }
+
   static async attach(page: Page, rig?: ViewId): Promise<HookDriver> {
     const probe = await page.evaluate((): Probe => {
       const w = window as unknown as { __gm?: Record<string, unknown>; __frame?: unknown };
@@ -41,8 +46,7 @@ export class HookDriver {
 
   /** Draws the frame at absolute game time `ms`; twice for a follow camera so it settles (look.mjs). */
   async renderAt(ms: number): Promise<void> {
-    const passes = this.rig === 'follow' ? 2 : 1;
-    for (let i = 0; i < passes; i += 1) {
+    for (let i = 0; i < this.passes; i += 1) {
       if (this.probe.renderAt) await this.page.evaluate((t) => (window as unknown as GmWindow).__gm.renderAt(t), ms);
       else if (this.probe.advanceTime) {
         if (ms > this.clockMs) await this.advanceTime(ms - this.clockMs);
@@ -58,6 +62,20 @@ export class HookDriver {
 
   async inject(frame: ActionFrame): Promise<void> {
     await this.page.evaluate((f) => (window as unknown as GmWindow).__gm.inject(f), frame);
+  }
+
+  async setSeed(seed: number): Promise<void> {
+    await this.page.evaluate((value) => (window as unknown as GmWindow).__gm.setSeed(value), seed);
+  }
+
+  async restore(state: unknown): Promise<void> {
+    const restored = await this.page.evaluate((value) => {
+      const gm = (window as unknown as { __gm?: { restore?: (save: unknown) => void } }).__gm;
+      if (typeof gm?.restore !== 'function') return false;
+      gm.restore({ saveSchemaVersion: 1, data: value });
+      return true;
+    }, state);
+    if (!restored) throw new Error('page exposes no window.__gm.restore hook');
   }
 
   async text(): Promise<GameText | null> {

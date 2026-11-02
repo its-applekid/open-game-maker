@@ -13,7 +13,7 @@ export type TicketJob = {
   jobId: string;
   gameId: string;
   repo: string;
-  kind: 'new_game' | 'feature' | 'repair';
+  kind: JobKind;
   game: { title: string; family: string; pov: string; genre: string; multiplayer: boolean };
   diagnostics?: { reportId: string; bundleKey: string };
 };
@@ -25,6 +25,10 @@ export type RepoProvisioner = {
     owner: { login: string; installationId: string };
     visibility: 'public' | 'private';
   }): Promise<{ owner: string; repo: string; url: string }>;
+};
+// The GitHub account an App installation belongs to; null when GitHub has no such installation.
+export type GitHubInstallationLookup = {
+  loginFor(installationId: string): Promise<string | null>;
 };
 export type MailSender = {
   send(message: { to: string; subject: string; text: string }): Promise<void>;
@@ -55,6 +59,9 @@ export type UserDirectory = {
   emailForUser(userId: string): Promise<string | null>;
   userIdForEmail(email: string): Promise<string | null>;
 };
+export interface IssueStateWriter {
+  setStateLabel(repo: string, issue: number, state: 'cancelled'): Promise<void>;
+}
 
 // Seams filled by contexts from `setup(deps)`: auth adds session, user-directory and mail
 // providers; accounts/games add repository provisioning and game lookup; jobs adds the ticket/chat directories;
@@ -63,11 +70,13 @@ export interface Registry {
   principalResolvers: Resolver[];
   gameResolver: GameResolver | null;
   repoProvisioner: RepoProvisioner | null;
+  githubInstallations: GitHubInstallationLookup | null;
   mailSender: MailSender | null;
   userDirectory: UserDirectory | null;
   ticketJobResolver: TicketJobResolver | null;
   chatJobs: ChatJobDirectory | null;
   aiurClientFor: AiurClientResolver | null;
+  issueStateWriter: IssueStateWriter | null;
 }
 
 export function createRegistry(): Registry {
@@ -75,11 +84,13 @@ export function createRegistry(): Registry {
     principalResolvers: [],
     gameResolver: null,
     repoProvisioner: null,
+    githubInstallations: null,
     mailSender: null,
     userDirectory: null,
     ticketJobResolver: null,
     chatJobs: null,
     aiurClientFor: null,
+    issueStateWriter: null,
   };
 }
 

@@ -24,7 +24,7 @@ systemctl=${OGM_SYSTEMCTL:-systemctl}
 config_home=${XDG_CONFIG_HOME:-$HOME/.config}
 unit_dir=$config_home/systemd/user
 ogm_config_dir=$HOME/.config/ogm
-units=(ogm-api ogm-rooms ogm-games ogm-voice-host ogm-intake ogm-drive-sync ogm-backup.timer)
+units=(ogm-api ogm-rooms ogm-games ogm-commit ogm-voice-host ogm-intake ogm-drive-sync ogm-backup.timer)
 
 if [[ $mode == stop ]]; then
   "$systemctl" --user disable --now "${units[@]}"
@@ -33,8 +33,9 @@ fi
 
 if [[ $mode == dry-run ]]; then
   printf 'Would create OGM config, data, state, and user-unit directories.\n'
-  printf 'Would render eleven OGM user units.\n'
-  printf 'Would reload systemd and enable the six services plus backup timer.\n'
+  printf 'Would render twelve OGM user units.\n'
+  printf 'Would reload systemd and enable %s.\n' "${units[*]}"
+  printf 'ogm-commit reads ~/.config/ogm/env/ogm-commit.env (copy services/commit/ops/ogm-commit.env.example).\n'
   exit 0
 fi
 

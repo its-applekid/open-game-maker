@@ -17,6 +17,7 @@ import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
 import { startEstimateRefinement } from './budget/estimate.js';
+import { createApplyUsage, startUsageReconciler } from './budget/aiur-usage.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
 import { activeJobs, activeJobsForRepo, byTicket } from './jobs/repo.js';
@@ -45,6 +46,7 @@ const fleet = createFleet({
   },
   alert: (message) => log({ event: 'daemon_alert', message }),
 });
+const issues = createIssuesClient({ token: env.OGM_INTAKE_GITHUB_TOKEN });
 
 const deps: AppDeps = {
   db,
@@ -58,6 +60,7 @@ const deps: AppDeps = {
     roomsInternalUrl: env.OGM_ROOMS_INTERNAL_URL,
     roomsInternalSecret: env.OGM_ROOMS_INTERNAL_SECRET,
     roomGrantSecret: env.OGM_WS_TOKEN_SECRET,
+    gamesOrigin: env.OGM_GAMES_ORIGIN,
     commitInternalUrl: env.OGM_COMMIT_INTERNAL_URL,
     commitServiceToken: env.OGM_COMMIT_SERVICE_TOKEN,
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,
@@ -70,6 +73,9 @@ const deps: AppDeps = {
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
     voiceTokenSecret: env.OGM_VOICE_TOKEN_SECRET,
     voiceWsUrl: env.OGM_VOICE_WS_URL,
+    voiceHostInternalUrl: env.OGM_VOICE_HOST_INTERNAL_URL,
+    voiceInternalSecret: env.OGM_VOICE_INTERNAL_SECRET,
+    narrationConcurrency: env.OGM_NARRATION_CONCURRENCY,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
     intakeDir: env.OGM_INTAKE_DIR,
@@ -89,6 +95,7 @@ const deps: AppDeps = {
 };
 deps.registry.chatJobs = createChatJobDirectory(db);
 deps.registry.aiurClientFor = daemonDirectory.clientForSlug;
+deps.registry.issueStateWriter = issues;
 
 const budgetDefaults = {
   dailyAllowanceMicroUsd: deps.config.defaultDailyAllowanceMicroUsd,
@@ -104,14 +111,14 @@ const projectionDeps = {
     markPaused: (jobId: string, reason: 'over_reservation' | 'budget_exhausted' | 'admin') =>
       void markPaused(lifecycleDeps, jobId, reason),
     markTerminal: (jobId: string, state: 'done' | 'failed' | 'cancelled') =>
-      void markTerminal(lifecycleDeps, jobId, state),
+      void markTerminal(lifecycleDeps, jobId, state, { deferRelease: true }),
   },
 };
 
 const intake = createIntake({
   db,
   fleet,
-  issues: createIssuesClient({ token: env.OGM_INTAKE_GITHUB_TOKEN }),
+  issues,
   async aiurForRepo(repo) {
     const running = await fleet.daemonFor(repo);
     if (!running) throw new Error(`Aiur daemon is unavailable for ${repo}`);
@@ -148,6 +155,12 @@ const stopBriefingPush =
         log,
       })
     : () => {};
+const usageReconciler = startUsageReconciler({
+  ...lifecycleDeps,
+  daemonFor: async (repo) => (await daemonDirectory.fleet.daemonFor(repo))?.client ?? null,
+  applyUsage: createApplyUsage(lifecycleDeps),
+  log,
+});
 const feed = startFeedConsumers({
   fleet,
   db,
@@ -171,5 +184,6 @@ process.once('SIGTERM', () => {
   stopScheduler();
   stopEstimateRefinement();
   stopBriefingPush();
-  void feed.stop().finally(() => server.close(() => sqlite.close()));
+  usageReconciler.stop();
+  void Promise.all([feed.stop(), usageReconciler.idle()]).finally(() => server.close(() => sqlite.close()));
 });

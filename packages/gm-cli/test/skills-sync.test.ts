@@ -37,6 +37,11 @@ function makePack(): string {
   write(root, 'gm-core/SKILL.md', '---\nname: gm-core\n---\ncore v1\n');
   write(root, 'gm-core/references/rules.md', 'rules v1\n');
   write(root, 'gm-build/SKILL.md', '---\nname: gm-build\n---\nbuild v1\n');
+  write(root, 'gm-set-smallscaleint/SKILL.md', '---\nname: gm-set-smallscaleint\n---\nset v1\n');
+  write(root, 'gm-set-kaykit/SKILL.md', '---\nname: gm-set-kaykit\n---\nset v1\n');
+  write(root, 'gm-core/package.json', '{"private":true}\n');
+  write(root, 'gm-core/references/example.test.ts', 'throw new Error("test-only")\n');
+  write(root, 'gm-core/dist/example.js', 'throw new Error("build-only")\n');
   write(root, 'vendor/phaser/cameras/SKILL.md', '---\nname: cameras\n---\ncameras v1\n');
   write(
     root,
@@ -54,7 +59,7 @@ function sha(file: string): string {
 }
 
 describe('gm skills sync', () => {
-  it('installs every pack file, relative discovery link, and vendored pin', async () => {
+  it('installs runtime pack files, relative discovery links, and vendored pins', async () => {
     const pack = makePack();
     const repo = tempDir('gm-game-');
     const result = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
@@ -65,6 +70,11 @@ describe('gm skills sync', () => {
     expect(readlinkSync(join(repo, '.agents/skills/gm-core'))).toBe('../../.claude/skills/gm-core');
     expect(readlinkSync(join(repo, '.codex/skills/cameras'))).toBe('../../.claude/skills/vendor/phaser/cameras');
     expect(statSync(join(repo, '.codex/skills/cameras/SKILL.md')).isFile()).toBe(true);
+    expect(existsSync(join(repo, '.claude/skills/gm-core/package.json'))).toBe(false);
+    expect(existsSync(join(repo, '.claude/skills/gm-core/references/example.test.ts'))).toBe(false);
+    expect(existsSync(join(repo, '.claude/skills/gm-core/dist/example.js'))).toBe(false);
+    expect(existsSync(join(repo, '.claude/skills/gm-set-smallscaleint'))).toBe(false);
+    expect(existsSync(join(repo, '.claude/skills/gm-set-kaykit'))).toBe(false);
 
     const lock = JSON.parse(readFileSync(join(repo, 'skills.lock'), 'utf8')) as SkillsLock;
     expect(lock).toMatchObject({ v: 1, pack: '0.0.0', vendored: { 'phaserjs/phaser': 'abc123' } });
@@ -75,6 +85,42 @@ describe('gm skills sync', () => {
     expect(lock.skills['vendor/phaser/cameras/SKILL.md']?.sha256).toBe(
       sha(join(repo, '.claude/skills/vendor/phaser/cameras/SKILL.md')),
     );
+  });
+
+  it('keeps the set skill recorded by gm new in step without installing other sets', async () => {
+    const pack = makePack();
+    const repo = tempDir('gm-game-');
+    writeFileSync(join(repo, 'gm.lock.json'), '{"v":1,"set":"smallscaleint"}\n');
+
+    const first = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+
+    expect(first).toMatchObject({ code: 0, err: [] });
+    expect(statSync(join(repo, '.claude/skills/gm-set-smallscaleint/SKILL.md')).isFile()).toBe(true);
+    expect(existsSync(join(repo, '.claude/skills/gm-set-kaykit'))).toBe(false);
+    writeFileSync(join(pack, 'gm-set-smallscaleint/SKILL.md'), 'set v2\n');
+    const second = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+    expect(second.out).toContain('updated gm-set-smallscaleint');
+    expect(readFileSync(join(repo, '.claude/skills/gm-set-smallscaleint/SKILL.md'), 'utf8')).toBe('set v2\n');
+  });
+
+  it('rejects malformed and unavailable set locks', async () => {
+    const pack = makePack();
+    const cases = [
+      ['not JSON\n', 'gm.lock.json is not valid JSON'],
+      ['{"v":1,"set":"../escape"}\n', 'gm.lock.json has an invalid set'],
+      ['{"v":1,"set":"synty-simple"}\n', 'style set "synty-simple" has no installed skill'],
+    ] as const;
+
+    for (const [lock, message] of cases) {
+      const repo = tempDir('gm-game-');
+      writeFileSync(join(repo, 'gm.lock.json'), lock);
+
+      const result = await gm(['skills', 'sync'], { cwd: repo, env: { GM_SKILLS_DIR: pack } });
+
+      expect(result.code).toBe(2);
+      expect(result.err[0]).toContain(message);
+      expect(existsSync(join(repo, '.claude/skills'))).toBe(false);
+    }
   });
 
   it('is a true no-op when the installed tree and links match the lock', async () => {

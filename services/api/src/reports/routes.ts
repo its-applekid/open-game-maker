@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import {
   CreateReport,
+  CompleteTriage,
   Id,
+  IsoTime,
   type CreateReportResponse,
   type IssueWriter,
   type ReportError,
@@ -18,6 +20,7 @@ import { createRateLimiter } from '../auth/rate-limit.js';
 import { findGame, hasGameGrant } from '../games/games.js';
 import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
+import { readBoundedBody } from '../app/read-body.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody, parseQuery } from '../app/validate.js';
 import { StoredIssueWriter } from './issue-writer.js';
@@ -26,6 +29,8 @@ import { admitRepair } from './repair.js';
 import { frameKey, normaliseMessage } from './signature.js';
 import {
   claimPlatformFiling,
+  claimTriage,
+  findOpenTriage,
   findReport,
   jobState,
   listPlatformQueue,
@@ -38,6 +43,7 @@ import {
   setReportRoute,
   type Intake,
 } from './store.js';
+import { completeTriage, DIAGNOSTICS_MAX_BYTES, storeDiagnostics } from './triage.js';
 
 const BUNDLE_TYPES = new Set(['application/octet-stream', 'application/json', 'application/gzip']);
 const BUNDLE_URL_TTL_MS = 5 * 60 * 1000;
@@ -136,35 +142,21 @@ async function routeRepair(
     return { jobId: outcome.jobId };
   }
   setReportRoute(deps.db, report.id, 'stored');
+  if (outcome.attemptsExhausted) {
+    deps.log({ event: 'report-repair-attempts-exhausted', reportId: report.id, signature: sig.signature });
+    return { route: 'stored' };
+  }
   return { route: 'stored', pendingBudget: true };
 }
 
-// Reads at most `max` bytes, also when the client sends no (or a false) Content-Length.
-async function readBundle(request: Request, max: number): Promise<Uint8Array> {
-  const reader = request.body?.getReader();
-  if (!reader) return new Uint8Array();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      throw new HttpError(413, 'bundle_too_large');
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
-
 const listQuery = z.object({ gameId: Id }).strict();
+const claimBody = z.strictObject({ now: IsoTime, staleBefore: IsoTime });
+const dedupeQuery = z.strictObject({ signature: z.string().regex(/^[0-9a-f]{64}$/), exclude: Id });
+
+function requireRepairService(c: Parameters<typeof requirePrincipal>[0]): void {
+  const principal = requirePrincipal(c, ['service']);
+  if (principal.service !== 'repair') throw new HttpError(403, 'forbidden');
+}
 
 const routes = new Hono<ApiBindings>()
   .post('/', async (c) => {
@@ -224,6 +216,50 @@ const routes = new Hono<ApiBindings>()
     requireAuthorization(authorize(actorFromPrincipal(principal), 'report.view'));
     return c.json({ issues: listPlatformQueue(c.get('deps').db) });
   })
+  .post('/triage/claim', async (c) => {
+    requireRepairService(c);
+    const deps = c.get('deps');
+    const body = await parseBody(c, claimBody);
+    if (body.staleBefore > body.now) throw new HttpError(400, 'invalid_stale_before');
+    const report = claimTriage(deps, body);
+    if (!report) return c.json({ report: null });
+    const { url } = await deps.blobStore.signedGet(
+      report.bundleKey as Parameters<AppDeps['blobStore']['signedGet']>[0],
+      new Date(Date.parse(body.now) + BUNDLE_URL_TTL_MS),
+    );
+    return c.json({
+      reportId: report.id,
+      gameId: report.gameId,
+      ...(report.releaseId ? { releaseId: report.releaseId } : {}),
+      buildHash: report.buildHash,
+      route: report.route,
+      ...(report.jobId ? { jobId: report.jobId } : {}),
+      ...(report.text ? { text: report.text } : {}),
+      ...(report.errorJson ? { error: JSON.parse(report.errorJson) as ReportError } : {}),
+      bundleUrl: url,
+    });
+  })
+  .get('/triage/dedupe', (c) => {
+    requireRepairService(c);
+    const query = parseQuery(c, dedupeQuery);
+    const deps = c.get('deps');
+    const source = findReport(deps.db, query.exclude);
+    const report = findOpenTriage(deps.db, query.signature, source.gameId, source.id);
+    return c.json({ jobId: report?.jobId ?? null });
+  })
+  .post('/triage/:id/diagnostics', async (c) => {
+    requireRepairService(c);
+    const declared = Number(c.req.header('content-length') ?? '0');
+    if (declared > DIAGNOSTICS_MAX_BYTES) throw new HttpError(413, 'diagnostics_too_large');
+    const bytes = await readBoundedBody(c.req.raw, DIAGNOSTICS_MAX_BYTES, 'bundle_too_large');
+    const diagnosticsKey = await storeDiagnostics(c.get('deps'), c.req.param('id'), bytes);
+    return c.json({ diagnosticsKey }, 201);
+  })
+  .post('/triage/:id/complete', async (c) => {
+    requireRepairService(c);
+    const completion = await parseBody(c, CompleteTriage);
+    return c.json(completeTriage(c.get('deps'), c.req.param('id'), completion));
+  })
   .post('/:id/bundle', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     const deps = c.get('deps');
@@ -235,7 +271,7 @@ const routes = new Hono<ApiBindings>()
     const max = deps.config.reportBundleMaxBytes;
     const declared = Number(c.req.header('content-length') ?? '0');
     if (declared > max) throw new HttpError(413, 'bundle_too_large');
-    const bytes = await readBundle(c.req.raw, max);
+    const bytes = await readBoundedBody(c.req.raw, max, 'bundle_too_large');
     if (bytes.byteLength === 0) throw new HttpError(400, 'empty_bundle');
 
     try {

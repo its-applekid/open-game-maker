@@ -45,6 +45,8 @@ function normalize(word: string): string {
 
 function tokens(text: string | undefined): string[] {
   return (text ?? '')
+    .replace(/([a-zA-Z])([0-9])/g, '$1 $2')
+    .replace(/([0-9])([a-zA-Z])/g, '$1 $2')
     .split(/[^a-zA-Z0-9]+/)
     .filter(Boolean)
     .map(normalize);
@@ -66,6 +68,8 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
     card.id,
     ...(card.source?.files ?? []).map((file) => file.path),
     ...(card.sprite?.animations ?? []).map((animation) => animation.name),
+    ...(card.rig?.clips ?? []).flatMap((clip) => [clip.name, clip.canonical]),
+    ...(card.anim?.clips ?? []).flatMap((clip) => [clip.name, clip.canonical]),
   ];
   return [
     [3, tokens(card.title)],
@@ -74,11 +78,16 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
   ];
 }
 
-/** 0 when any word is missing (AND match), else the sum of weighted hits. */
+/**
+ * 0 when any word is missing (AND match), else the sum of weighted hits. Query words split like titles do,
+ * so `Rig_Medium` needs both `rig` and `medium`.
+ */
 export function score(card: ResolvedCard, words: string[]): number {
   const fields = fieldsOf(card);
+  const queryTokens = words.flatMap(tokens);
+  if (queryTokens.length === 0) return 0;
   let total = 0;
-  for (const word of words.map(normalize)) {
+  for (const word of queryTokens) {
     const hits = fields.reduce(
       (sum, [weight, list]) => sum + weight * list.filter((token) => token === word).length,
       0,
@@ -87,6 +96,11 @@ export function score(card: ResolvedCard, words: string[]): number {
     total += hits;
   }
   return total;
+}
+
+/** The rig a card's skeleton is, plus the rig whose clips it can play (`retarget_rig_id`). */
+function rigIdsOf(card: ResolvedCard): string[] {
+  return [card.rig?.rig_id, card.rig?.retarget_rig_id].filter((id): id is string => Boolean(id));
 }
 
 function collectionOf(index: CardIndex, card: ResolvedCard): ResolvedCard | undefined {
@@ -108,31 +122,63 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
   if (q.subkind && card.card_type === 'asset' && card.subkind !== q.subkind) return false;
 
   if (q.family && card.resolved.style_family !== q.family) return false;
+  const needsSet = q.set !== undefined || Boolean(q.gameSets?.length);
+  const pack = needsSet ? packOf(card.id) : undefined;
+  const set = pack ? setFor(pack)?.id : undefined;
+  if (q.set !== undefined) {
+    if (set !== q.set) return false;
+  }
   if (q.gameFamily && !inFamily(card, q.gameFamily)) return false;
   if (q.gameSets?.length && card.resolved.style_family !== 'any') {
-    const pack = packOf(card.id);
-    const set = pack ? setFor(pack)?.id : undefined;
     if ((!set || !q.gameSets.includes(set)) && (!pack || !q.gamePacks?.includes(pack))) return false;
   }
   if (q.pov && !(card.resolved.pov_fit ?? []).includes(q.pov)) return false;
   if (q.tier !== undefined && tierOf(card.id) !== q.tier) return false;
   if (q.collection && card.id !== q.collection && card.collection !== q.collection) return false;
-  if (q.rigId && card.rig?.rig_id !== q.rigId) return false;
+  if (q.rigId && !rigIdsOf(card).includes(q.rigId)) return false;
   if (q.sameRigAs) {
-    const rigId = index.cards.find((other) => other.id === q.sameRigAs)?.rig?.rig_id;
-    if (!rigId || card.rig?.rig_id !== rigId) return false;
+    const reference = index.cards.find((other) => other.id === q.sameRigAs);
+    const wanted = reference ? rigIdsOf(reference) : [];
+    if (!rigIdsOf(card).some((id) => wanted.includes(id))) return false;
   }
   return true;
 }
 
+/** Whether every query word is in the card's name (title, objects, roles or id), not only its files or clips. */
+function names(card: ResolvedCard, words: string[]): boolean {
+  const describe = card.describe ?? {};
+  const name = new Set(
+    [card.title, card.id, ...(describe.objects ?? []), ...(describe.roles ?? [])].flatMap((value) => tokens(value)),
+  );
+  const queryTokens = words.flatMap(tokens);
+  return queryTokens.length > 0 && queryTokens.every((token) => name.has(token));
+}
+
+/**
+ * Characters the query names outrank props and tiles that share the word: animated model characters (their own
+ * clips, or a rig a clip library targets) first, then other characters and creatures. A match on animation or
+ * file names alone ("walk") earns no tier, and clip libraries get none: `Ranged_Bow_Draw` would outrank bows.
+ */
+function characterTier(card: ResolvedCard, words: string[], animatedRigs: Set<string>): number {
+  if (card.card_type !== 'asset' || (card.subkind !== 'character' && card.subkind !== 'creature')) return 0;
+  if (!names(card, words)) return 0;
+  const animated = (card.rig?.clips ?? []).length > 0 || rigIdsOf(card).some((id) => animatedRigs.has(id));
+  return card.kind === 'model' && animated ? 2 : 1;
+}
+
 export function search(index: CardIndex, q: SearchQuery): ResolvedCard[] {
   const words = q.words ?? [];
+  const animatedRigs = new Set(
+    index.cards.flatMap((card) => (card.card_type === 'asset' && card.anim ? [card.anim.target_rig_id] : [])),
+  );
   const scored = index.cards
     .filter((card) => passes(index, card, q))
     .map((card) => ({ card, score: words.length > 0 ? score(card, words) : 0 }))
-    .filter(({ score: value }) => words.length === 0 || value > 0);
+    .filter(({ score: value }) => words.length === 0 || value > 0)
+    .map((row) => ({ ...row, tier: words.length > 0 ? characterTier(row.card, words, animatedRigs) : 0 }));
   scored.sort(
     (a, b) =>
+      b.tier - a.tier ||
       b.score - a.score ||
       Number(a.card.card_type === 'collection') - Number(b.card.card_type === 'collection') ||
       STATUS_RANK[b.card.status] - STATUS_RANK[a.card.status] ||

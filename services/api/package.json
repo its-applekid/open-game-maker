@@ -16,6 +16,7 @@
     "pretest": "tsc -b",
     "test": "vitest run",
     "lint": "eslint src test vitest.config.ts",
+    "rollup": "node dist/creator-analytics/rollup.js",
     "start": "node dist/main.js",
     "dev": "tsx src/main.ts"
   },

@@ -6,11 +6,13 @@ export const OGM_ENV_UNITS = [
   'games',
   'commit',
   'voice-host',
+  'repair',
   'intake',
   'drive-sync',
   'aiur',
   'backup',
   'gm',
+  'web',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -54,6 +56,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'int',
     doc: 'largest bug-report diagnostic bundle in bytes (default 2097152)',
   },
+  {
+    name: 'OGM_NARRATION_CONCURRENCY',
+    unit: 'api',
+    kind: 'int',
+    doc: 'parallel narration renders (default 2)',
+  },
   { name: 'OGM_ROOMS_PORT', unit: 'rooms', kind: 'port', doc: 'loopback port of the Colyseus relay' },
   { name: 'OGM_GAMES_PORT', unit: 'games', kind: 'port', doc: 'loopback port of the games origin host' },
   { name: 'OGM_COMMIT_PORT', unit: 'commit', kind: 'port', doc: 'loopback port of the commit service' },
@@ -61,9 +69,15 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_PUBLIC_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://applekid.tailee0e71.ts.net:8443' },
   { name: 'OGM_GAMES_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://applekid.tailee0e71.ts.net:10000' },
   { name: 'OGM_APP_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://ogm2000.netlify.app (frame-ancestors, CORS)' },
+  {
+    name: 'VITE_GAMES_ORIGIN',
+    unit: 'web',
+    kind: 'url',
+    doc: 'games origin deploy.sh bakes into the app build (same as OGM_GAMES_ORIGIN)',
+  },
   { name: 'OGM_DATA_DIR', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/data (SQLite, state)' },
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
-  { name: 'OGM_GAMES_ROOT', unit: 'games', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
+  { name: 'OGM_GAMES_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
   { name: 'OGM_BLOB_SIGNING_KEY', unit: 'api', kind: 'secret', doc: 'HMAC key for signed blob URLs' },
   {
     name: 'OGM_VAPID_KEY_FILE',
@@ -153,13 +167,14 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GM_SKILLS_DIR', unit: 'gm', kind: 'path', doc: 'platform skill-pack root used by gm skills sync' },
   { name: 'GM_EVENTS_FILE', unit: 'gm', kind: 'path', doc: 'JSONL file gm appends activity events to' },
   { name: 'GM_JOB', unit: 'gm', kind: 'string', doc: 'job id gm stamps on activity events' },
+  { name: 'OGM_EVAL_CORPUS', unit: 'gm', kind: 'path', doc: 'optional local reference-game corpus for skill evals' },
   { name: 'AIUR_HOOK_TICKET_IDENTIFIER', unit: 'gm', kind: 'int', doc: 'Aiur issue number stamped on gm activity' },
   { name: 'AIUR_TICKET_BRANCH', unit: 'gm', kind: 'string', doc: 'Aiur run branch stamped on gm activity' },
   {
     name: 'OGM_API_INTERNAL_URL',
     unit: 'shared',
     kind: 'url',
-    doc: 'loopback URL of the internal API (commit, voice-host)',
+    doc: 'loopback URL of the internal API (commit, voice-host, repair)',
   },
   {
     name: 'OGM_BUILDER_WORKSPACES_ROOT',
@@ -199,9 +214,22 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'int',
     doc: 'concurrent voice conversations (default 2)',
   },
+  {
+    name: 'OGM_VOICE_RENDER_DIR',
+    unit: 'voice-host',
+    kind: 'path',
+    doc: 'temporary WAV render directory (default system temp/ogm-voice-renders)',
+  },
+  {
+    name: 'OGM_VOICE_NARRATION_ENABLED',
+    unit: 'voice-host',
+    kind: 'bool',
+    doc: 'allow batch narration renders (default false; a provider key alone never renders)',
+  },
   { name: 'OGM_VOICE_WS_URL', unit: 'api', kind: 'string', doc: 'wss://applekid.tailee0e71.ts.net:8443/ws/voice' },
   { name: 'GM_VERIFY_SOFTWARE_GL', unit: 'gm', kind: 'bool', doc: 'gm run uses SwiftShader instead of the GPU (CI)' },
   { name: 'GM_VERIFY_QUEUE', unit: 'gm', kind: 'bool', doc: 'gm run hands captures to the host runner (sandbox)' },
+  { name: 'OGM_SANDBOX', unit: 'gm', kind: 'bool', doc: 'refuses operator-only gm commands inside a sandbox' },
   { name: 'PLAYWRIGHT_BROWSERS_PATH', unit: 'gm', kind: 'path', doc: 'cached Chromium browsers used by gm verify' },
   { name: 'XDG_RUNTIME_DIR', unit: 'gm', kind: 'path', doc: 'holds the ogm-verify capture slots (2 per host)' },
   {
@@ -209,5 +237,11 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     unit: 'shared',
     kind: 'path',
     doc: 'redistribution:none hash feed (gm packs blocklist writes, commit service reads)',
+  },
+  {
+    name: 'OGM_GITHUB_WEBHOOK_SECRET',
+    unit: 'commit',
+    kind: 'secret',
+    doc: 'optional HMAC secret for GitHub pull-request webhooks',
   },
 ];

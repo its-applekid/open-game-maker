@@ -3,7 +3,13 @@ import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import { LeaseHeld, LeaseMismatch, acquireLease, heartbeatLease, releaseLease } from '../src/design/lease.js';
-import { StaleBaseRev, appendTransaction, ensureMainBranch, readTransactions } from '../src/design/store.js';
+import {
+  BranchArchived,
+  StaleBaseRev,
+  appendTransaction,
+  ensureMainBranch,
+  readTransactions,
+} from '../src/design/store.js';
 import { makeDeps } from './helpers.js';
 
 const ids = {
@@ -94,6 +100,16 @@ describe('design store', () => {
         now,
       }).rev,
     ).toBe(1);
+  });
+
+  it('rejects writes after a branch is archived', () => {
+    const { deps, branch } = setup();
+    deps.sqlite.prepare("UPDATE branches SET status = 'archived' WHERE id = ?").run(branch.id);
+    expect(() =>
+      appendTransaction(deps.sqlite, transaction(branch.id, { kind: 'system', leaseToken: 0, sessionId: undefined }), {
+        now,
+      }),
+    ).toThrow(BranchArchived);
   });
 
   it('exposes typed stale-head and lease errors', () => {

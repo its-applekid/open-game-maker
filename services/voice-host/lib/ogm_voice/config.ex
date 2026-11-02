@@ -14,6 +14,11 @@ defmodule OgmVoice.Config do
     "elevenlabs_agents" => {VoiceConverse.Providers.ElevenLabsAgents, []},
     "openai_realtime" => {VoiceConverse.Providers.OpenAIRealtime, []}
   }
+  @provider_ids %{
+    "fake" => :fake,
+    "elevenlabs_agents" => :elevenlabs_agents,
+    "openai_realtime" => :openai_realtime
+  }
   @allowed_tools ~w(get_status get_details list_open_commands propose_instruction record_summary end_conversation)
 
   @enforce_keys [
@@ -23,10 +28,11 @@ defmodule OgmVoice.Config do
     :llm,
     :max_sessions,
     :api_internal_url,
+    :render_dir,
     :token_secret,
     :internal_secret
   ]
-  defstruct @enforce_keys
+  defstruct @enforce_keys ++ [narration_enabled: false]
 
   @type secret :: (-> String.t() | nil)
   @type t :: %__MODULE__{
@@ -36,6 +42,8 @@ defmodule OgmVoice.Config do
           llm: String.t(),
           max_sessions: pos_integer(),
           api_internal_url: String.t(),
+          render_dir: Path.t(),
+          narration_enabled: boolean(),
           token_secret: secret(),
           internal_secret: secret()
         }
@@ -66,6 +74,8 @@ defmodule OgmVoice.Config do
       llm: llm!(env, provider),
       max_sessions: positive!(env, "OGM_VOICE_MAX_SESSIONS", "2"),
       api_internal_url: url!(env, "OGM_API_INTERNAL_URL"),
+      render_dir: path!(env, "OGM_VOICE_RENDER_DIR", Path.join(System.tmp_dir!(), "ogm-voice-renders")),
+      narration_enabled: bool!(env, "OGM_VOICE_NARRATION_ENABLED", "false"),
       token_secret: fn -> System.get_env("OGM_VOICE_TOKEN_SECRET") end,
       internal_secret: fn -> System.get_env("OGM_VOICE_INTERNAL_SECRET") end
     }
@@ -86,12 +96,30 @@ defmodule OgmVoice.Config do
       command_source: OgmVoice.Ports.CommandSource,
       token_issuer: OgmVoice.TokenIssuer,
       allowed_tools: @allowed_tools,
-      limits: %{max_sessions: config.max_sessions},
-      privacy: %{
-        provider_allowlist: [:elevenlabs_agents, :openai_realtime, :fake],
-        required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
-      }
+      limits: %{max_sessions: config.max_sessions, briefing_token_budget: 2_500},
+      privacy: privacy()
     ]
+  end
+
+  @doc "The options shared by every batch narration render."
+  @spec narration(t()) :: keyword()
+  def narration(%__MODULE__{} = config) do
+    {provider, _provider_opts} = Map.fetch!(@providers, config.provider)
+
+    [
+      render_dir: config.render_dir,
+      provider: provider,
+      provider_id: Map.fetch!(@provider_ids, config.provider),
+      credentials: OgmVoice.Ports.Credentials,
+      privacy: privacy()
+    ]
+  end
+
+  defp privacy do
+    %{
+      provider_allowlist: [:elevenlabs_agents, :openai_realtime, :fake],
+      required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
+    }
   end
 
   defp providers, do: @providers |> Map.keys() |> Enum.sort() |> Enum.join(", ")
@@ -134,6 +162,19 @@ defmodule OgmVoice.Config do
       _ ->
         fail!(name, "is missing or not an http(s) URL")
     end
+  end
+
+  defp bool!(env, name, default) do
+    case get(env, name, default) do
+      value when value in ["true", "1"] -> true
+      value when value in ["false", "0"] -> false
+      _ -> fail!(name, "is not true, false, 1 or 0")
+    end
+  end
+
+  defp path!(env, name, default) do
+    path = get(env, name, default)
+    if Path.type(path) == :absolute, do: path, else: fail!(name, "is not an absolute path")
   end
 
   # `ogm-env-init` writes every name as `NAME=`, so a blank value selects the default, as in `@ogm/config`.

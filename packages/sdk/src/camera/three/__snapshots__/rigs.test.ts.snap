@@ -1,0 +1,18 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Three camera rigs > places the iso camera along the proven isometric vector 1`] = `
+[
+  21.744367165578424,
+  18.41880388213627,
+  21.744367165578424,
+]
+`;
+
+exports[`Three camera rigs > places the iso camera along the proven isometric vector 2`] = `
+[
+  -0.29984336370709525,
+  0.36196846706286556,
+  0.12419918783504752,
+  0.8738691823345692,
+]
+`;

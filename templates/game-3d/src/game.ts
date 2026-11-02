@@ -4,6 +4,8 @@ import { z } from 'zod';
 
 import type { Runtime } from '@gm/sdk/core';
 
+import { manifest } from './manifest.js';
+
 export interface SpawnEntity {
   id: string;
   prefab: 'spawn';
@@ -40,15 +42,15 @@ export const DEFAULT_DESIGN: LevelDesign = {
   schemaVersion: 1,
   globals: { 'player.speed': 4, 'level.size': 12 },
   entities: {
-    spawn_a: {
-      id: 'spawn_a',
+    spawn_01K8ZTEMP00000000000000001: {
+      id: 'spawn_01K8ZTEMP00000000000000001',
       prefab: 'spawn',
       level: 'main',
       origin: 'build',
       props: { x: -3, z: 0 },
     },
-    spawn_b: {
-      id: 'spawn_b',
+    spawn_01K8ZTEMP00000000000000002: {
+      id: 'spawn_01K8ZTEMP00000000000000002',
       prefab: 'spawn',
       level: 'main',
       origin: 'build',
@@ -149,22 +151,7 @@ export function createGame(): {
   };
 
   const module: GameModule<LevelDesign, GameSave> = {
-    manifest: {
-      id: 'game-3d',
-      sdk: '*',
-      title: '3D Game',
-      inputs: { actions: { move: 'stick', jump: 'button' } },
-      presentation: { orientation: 'landscape', minLogical: { w: 640, h: 360 }, fit: 'responsive' },
-      view: 'fixed',
-      dimension: '3d',
-      capabilities: [],
-      palette: { categories: [], items: [] },
-      tools: ['select', 'place'],
-      gizmos: { spawn: ['translate'] },
-      grid: { size: 1, units: 'm' },
-      saves: true,
-      overrides: { aliases: {}, retired: [] },
-    },
+    manifest,
     designSchema: levelDesignSchema,
     controls: [
       {

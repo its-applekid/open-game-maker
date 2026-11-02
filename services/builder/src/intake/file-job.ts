@@ -1,10 +1,11 @@
 import { AiurHttpError } from '@ogm/aiur-client';
-import { JobPlan, Reservation } from '@ogm/contracts';
+import { CompleteTriage, JobPlan, Reservation, type TriageResult } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { and, eq, lte } from 'drizzle-orm';
 
 import { OutcomeUnknownError } from '../github/issues.js';
-import { renderIssue, usdFromMicro } from './render.js';
+import { scopeTicketForJob } from '../scope/file.js';
+import { renderIssue, renderRepairIssue, usdFromMicro } from './render.js';
 import type { FileResult, IntakeAlert, IntakeDeps } from './types.js';
 
 const DEFAULT_SWEEP_MS = 60_000;
@@ -39,6 +40,8 @@ export function createIntake(deps: IntakeDeps) {
       .get();
     if (!found) return { skipped: 'missing' };
     if (found.job.state !== 'admitted') return { skipped: `state:${found.job.state}` };
+    const repairTriage = found.job.kind === 'repair' ? triageForRepair(deps.db, jobId) : undefined;
+    if (found.job.kind === 'repair' && !repairTriage?.ticket) return { deferred: 'triage' };
 
     const repo =
       found.game.githubOwner && found.game.githubRepo
@@ -56,6 +59,10 @@ export function createIntake(deps: IntakeDeps) {
       tickets = dependencyOrder(plan.tickets);
     } catch (error) {
       return failPreflight(found.job, [message(error)]);
+    }
+    const scopeTicket = found.job.kind === 'scope' ? scopeTicketForJob(deps.db, jobId) : null;
+    if (found.job.kind === 'scope' && (scopeTicket === null || tickets.length !== 1 || tickets[0]?.key !== 'scope')) {
+      return failPreflight(found.job, ['scope job is missing its session or scope ticket']);
     }
 
     try {
@@ -87,14 +94,18 @@ export function createIntake(deps: IntakeDeps) {
     // Create and durably record the complete job before making any ticket runnable.
     for (const ticket of tickets) {
       const blockedBy = ticket.dependsOn.map((key) => rows.get(key)!.issueNumber);
-      const rendered = renderIssue({
-        jobId,
-        complexity: found.job.complexity,
-        plan,
-        ticket,
-        blockedBy,
-        shippedSkills: deps.shippedSkills,
-      });
+      const rendered =
+        scopeTicket ??
+        (repairTriage?.ticket
+          ? renderRepairIssue({ jobId, complexity: found.job.complexity, ticket: repairTriage.ticket })
+          : renderIssue({
+              jobId,
+              complexity: found.job.complexity,
+              plan,
+              ticket,
+              blockedBy,
+              shippedSkills: deps.shippedSkills,
+            }));
       let row = rows.get(ticket.key);
 
       if (!row) {
@@ -103,7 +114,13 @@ export function createIntake(deps: IntakeDeps) {
           issue = await deps.issues.findByMarkers(repo, jobId, ticket.key);
           if (!issue) {
             try {
-              issue = await deps.issues.create(repo, rendered);
+              issue = await deps.issues.create(repo, {
+                ...rendered,
+                labels:
+                  found.job.kind === 'scope'
+                    ? rendered.labels.filter((label) => label !== 'agent:todo')
+                    : rendered.labels,
+              });
             } catch (error) {
               if (!(error instanceof OutcomeUnknownError)) throw error;
               issue = await deps.issues.findByMarkers(repo, jobId, ticket.key);
@@ -202,6 +219,13 @@ export function createIntake(deps: IntakeDeps) {
       })
       .where(eq(schema.jobs.id, jobId))
       .run();
+    if (found.job.kind === 'scope') {
+      deps.db
+        .update(schema.scopeSessions)
+        .set({ ticket: String(issueNumbers[0]), updatedAt })
+        .where(eq(schema.scopeSessions.jobId, jobId))
+        .run();
+    }
     deps.onJobChanged?.({
       jobId,
       gameId: found.job.gameId,
@@ -256,6 +280,17 @@ export function createIntake(deps: IntakeDeps) {
   }
 
   return { fileJob, start, stop, sweep };
+}
+
+function triageForRepair(db: IntakeDeps['db'], jobId: string): TriageResult | undefined {
+  const row = db
+    .select({ triageJson: schema.reports.triageJson })
+    .from(schema.reports)
+    .where(and(eq(schema.reports.jobId, jobId), eq(schema.reports.triageState, 'ready')))
+    .get();
+  if (!row?.triageJson) return undefined;
+  const parsed = CompleteTriage.safeParse(JSON.parse(row.triageJson));
+  return parsed.success && parsed.data.status === 'triaged' ? parsed.data.result : undefined;
 }
 
 async function setSpendCap(

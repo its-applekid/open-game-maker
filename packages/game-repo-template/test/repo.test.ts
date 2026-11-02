@@ -124,6 +124,8 @@ describe('renderRepoTemplate', () => {
       expect.objectContaining({ content: 'multiplayer scaffold\n' }),
     ]);
     expect(files.find((f) => f.path === 'src/run.sh')).toMatchObject({ mode: '100755' });
+    expect(files.filter((f) => f.path === 'README.md')).toHaveLength(1);
+    expect(files.find((f) => f.path === 'README.md')!.content).not.toBe('scaffold readme\n');
     expect(files.some((f) => f.path === 'pnpm-lock.yaml')).toBe(false);
   });
 

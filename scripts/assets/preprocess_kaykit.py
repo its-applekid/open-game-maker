@@ -1,7 +1,7 @@
-"""Generate KayKit model cards, thumbnails, lineups, QA, and catalog metadata.
+"""Generate KayKit model and animation cards, thumbnails, lineups, QA, and catalog metadata.
 
-The glTF copy is canonical. FBX/OBJ/Blend copies and external glTF resources are
-recorded on that model's source block instead of becoming duplicate cards.
+The glTF copy is canonical when present; otherwise GLB is canonical. Other model
+formats and external glTF resources are recorded on the same source block.
 
 Run: python3 -I scripts/assets/preprocess_kaykit.py [--root assets-local]
 """
@@ -29,6 +29,8 @@ VOCAB = "2026-10-27"
 TOOL = "preprocess-kaykit@0.1"
 FORMAT_DIRS = {"blend", "blender", "fbx", "glb", "gltf", "models", "obj", "source", "sources"}
 COMPANION_EXTS = {".blend", ".dae", ".fbx", ".mtl", ".obj"}
+MODEL_EXTS = {".glb", ".gltf"}
+MESHLESS_PACK_IDS = {"kaykit-character-animations"}
 LOOP_CLIPS = {"crouch", "drive", "fall", "hold", "idle", "run", "sit", "sprint", "swim", "walk"}
 CLIP_WORDS = (
     ("attack-ranged", ("shoot", "ranged", "bow", "gun")),
@@ -84,8 +86,11 @@ def slug(value: str) -> str:
 
 
 def canonical_key(path: Path) -> str:
+    path = path.with_suffix("")
+    while path.suffix.lower() in MODEL_EXTS:
+        path = path.with_suffix("")
     parts = []
-    for part in path.with_suffix("").parts:
+    for part in path.parts:
         normalized = slug(part).removesuffix("-format")
         if normalized not in FORMAT_DIRS:
             parts.append(normalized)
@@ -116,38 +121,57 @@ def external_resources(gltf: Path, extracted: Path) -> list[SourceFile]:
     return files
 
 
-def discover_models(root: Path, only: str = "kaykit-*") -> list[Model]:
+def kaykit_manifests(root: Path, only: str = "kaykit-*") -> list[tuple[Path, dict]]:
+    manifests = []
+    for path in sorted((root / "packs").glob(f"{only}/pack.json")):
+        manifest = json.loads(path.read_text())
+        if manifest.get("vendor") == "kaykit" or manifest["id"].startswith("kaykit-"):
+            manifests.append((path, manifest))
+    return manifests
+
+
+def models_for_manifests(manifests: list[tuple[Path, dict]]) -> list[Model]:
     models = []
-    seen = {}
-    for manifest_path in sorted((root / "packs").glob(f"{only}/pack.json")):
-        manifest = json.loads(manifest_path.read_text())
-        if manifest.get("vendor") != "kaykit" and not manifest["id"].startswith("kaykit-"):
-            continue
+    for manifest_path, manifest in manifests:
         version = manifest["current"]
         extracted = manifest_path.parent / version / "extracted"
         companions = defaultdict(list)
+        candidates = defaultdict(list)
         for path in extracted.rglob("*"):
-            if path.is_file() and path.suffix.lower() in COMPANION_EXTS:
-                relative = path.relative_to(extracted)
+            if not path.is_file():
+                continue
+            relative = path.relative_to(extracted)
+            if path.suffix.lower() in COMPANION_EXTS:
                 companions[canonical_key(relative)].append(SourceFile(relative, "companion"))
-        gltfs = sorted(path for path in extracted.rglob("*") if path.is_file() and path.suffix.lower() == ".gltf")
-        for path in gltfs:
+            elif path.suffix.lower() in MODEL_EXTS:
+                candidates[canonical_key(relative)].append(path)
+        for key, paths in sorted(candidates.items()):
+            paths.sort(key=lambda path: path.as_posix().lower())
+            gltfs = [path for path in paths if path.suffix.lower() == ".gltf"]
+            canonical = gltfs if gltfs else paths
+            if len(canonical) != 1:
+                relative = [path.relative_to(extracted) for path in canonical]
+                uid = f"{manifest['id']}/{key}"
+                raise ValueError(f"canonical model key {uid!r} is shared by {relative[0]} and {relative[1]}")
+            path = canonical[0]
             primary = path.relative_to(extracted)
-            key = canonical_key(primary)
             error = None
-            try:
-                resources = external_resources(path, extracted)
-            except (OSError, UnicodeError, ValueError) as caught:
-                resources = []
-                error = f"invalid glTF metadata: {caught}"
-            sources = [SourceFile(primary, "primary"), *resources, *companions.get(key, [])]
+            resources = []
+            if path.suffix.lower() == ".gltf":
+                try:
+                    resources = external_resources(path, extracted)
+                except (OSError, UnicodeError, ValueError) as caught:
+                    error = f"invalid glTF metadata: {caught}"
+            alternatives = [SourceFile(item.relative_to(extracted), "companion") for item in paths if item != path]
+            sources = [SourceFile(primary, "primary"), *resources, *alternatives, *companions.get(key, [])]
             files = tuple(sorted(set(sources), key=lambda item: item.path.as_posix().lower()))
             model = Model(manifest["id"], version, manifest["title"], extracted, primary, key, files, error)
-            if model.uid in seen:
-                raise ValueError(f"canonical model key {model.uid!r} is shared by {seen[model.uid]} and {primary}")
-            seen[model.uid] = primary
             models.append(model)
     return models
+
+
+def discover_models(root: Path, only: str = "kaykit-*") -> list[Model]:
+    return models_for_manifests(kaykit_manifests(root, only))
 
 
 def sha256(path: Path) -> str:
@@ -201,30 +225,79 @@ def title_for(model: Model) -> str:
     return re.sub(r"[_-]+", " ", Path(model.key).name).strip().title()
 
 
-def build_card(model: Model, analysis: dict, generated: str, source_cache: dict[Path, dict] | None = None) -> dict:
+def is_animation_library(model: Model, analysis: dict) -> bool:
+    return (bool(analysis.get("rig") and analysis.get("clips")) and
+            re.match(r"^rig[-_]", Path(model.key).name, re.IGNORECASE) is not None)
+
+
+def animation_subkind(rig_type: str) -> str:
+    if rig_type in {"creature", "quadruped"}:
+        return "creature"
+    return "vehicle" if rig_type == "vehicle" else "humanoid"
+
+
+def library_rigs(models: list[Model], results: dict) -> dict[str, set]:
+    """Rig id -> joints (name, parent) of every clip library this run measured."""
+    libraries = {}
+    for model in models:
+        analysis = results.get(model.uid, {}).get("analysis") if results.get(model.uid, {}).get("ok") else None
+        if analysis and is_animation_library(model, analysis):
+            libraries[analysis["rig"]["rig_id"]] = {(bone["name"], bone["parent"]) for bone in analysis["rig"]["bones"]}
+    return libraries
+
+
+def retarget_rigs(models: list[Model], results: dict) -> dict[str, str]:
+    """Model uid -> library rig id for skeletons no library targets whose joints (name + parent) a library rig contains."""
+    analyses = {model.uid: results[model.uid]["analysis"] for model in models if results.get(model.uid, {}).get("ok")}
+    libraries = library_rigs(models, results)
+    out = {}
+    for model in models:
+        analysis = analyses.get(model.uid)
+        rig = analysis.get("rig") if analysis else None
+        if not rig or is_animation_library(model, analysis) or rig["rig_id"] in libraries:
+            continue
+        joints = {(bone["name"], bone["parent"]) for bone in rig["bones"]}
+        matches = sorted(rig_id for rig_id, library in libraries.items() if joints and joints <= library)
+        if matches:
+            out[model.uid] = matches[0]
+    return out
+
+
+def build_card(model: Model, analysis: dict, generated: str, source_cache: dict[Path, dict] | None = None,
+               retarget_rig_id: str | None = None) -> dict:
     source_files = [source_entry(model, item, source_cache) for item in model.files]
     texture_keys = [item.path.as_posix() for item in model.files if item.role == "texture"]
+    animation_library = is_animation_library(model, analysis)
     card = {
         "schema": "ogm.asset-card/1.0", "vocab": VOCAB,
         "id": f"t1:{model.pack_id}/{model.key}@{model.version}", "card_type": "asset", "status": "measured",
-        "title": title_for(model), "kind": "model", "subkind": subkind(model, analysis),
+        "title": title_for(model),
         "collection": f"t1:{model.pack_id}@{model.version}",
         "source": {"files": source_files, "content_hash": next(row["sha256"] for row in source_files if row["role"] == "primary")},
         "previews": {"thumb": f"packs/{model.pack_id}/thumbnails/{model.key}.png"},
         "describe": {"style_family": "chunky-low-poly"},
-        "geometry": {"bounds_m": analysis["bounds"], "pivot": analysis["pivot"], "triangles": analysis["triangles"],
-                     "vertices": analysis["vertices"], "materials": analysis["materials"],
-                     "texture_keys": texture_keys, "normalized": False},
         "provenance": {"*": {"by": "code", "tool": TOOL, "at": generated,
-                                "input": "glTF loaded by three.js; source files hashed"},
+                                "input": "glTF/GLB loaded by three.js; source files hashed"},
                        "describe.style_family": {"by": "collection", "tool": TOOL, "at": generated,
                                                  "input": "KayKit Complete v7 compatibility pass"}},
     }
-    if analysis.get("rig"):
+    if animation_library:
+        rig = analysis["rig"]
+        card.update({"kind": "anim", "subkind": animation_subkind(rig["rig_type"]),
+                     "anim": {"target_rig_id": rig["rig_id"], "clips": clips(analysis["clips"])}})
+    else:
+        card.update({"kind": "model", "subkind": subkind(model, analysis),
+                     "geometry": {"bounds_m": analysis["bounds"], "pivot": analysis["pivot"],
+                                  "triangles": analysis["triangles"], "vertices": analysis["vertices"],
+                                  "materials": analysis["materials"], "texture_keys": texture_keys,
+                                  "normalized": False}})
+    if analysis.get("rig") and not animation_library:
         rig = {key: value for key, value in analysis["rig"].items() if key != "bones"}
         rig["clips"] = clips(analysis.get("clips", []))
+        if retarget_rig_id:
+            rig["retarget_rig_id"] = retarget_rig_id
         card["rig"] = rig
-    if analysis["triangles"] > 300_000:
+    if card["kind"] == "model" and analysis["triangles"] > 300_000:
         card["flags"] = ["oversized-for-mobile"]
     return card
 
@@ -298,7 +371,7 @@ def qa_markdown(results: dict, packs: dict[str, list[Model]], generated: str) ->
 
     total = sum(len(models) for models in packs.values())
     return (f"# KayKit Complete v7 asset QA\n\nGenerated: {generated} by `{TOOL}`.\n\n"
-            f"Checked {len(packs)} packs and {total} canonical glTF models: {len(failures)} load failures.\n\n"
+            f"Checked {len(packs)} packs and {total} canonical glTF/GLB assets: {len(failures)} load failures.\n\n"
             + section("Load failures", [f"`{uid}`: {error}" for uid, error in failures]) + "\n"
             + section("Suspect pivots", pivots) + "\n" + section("Scale outliers", scales) + "\n"
             + section("Missing source variants", variants) + "\n" + section("Missing previews", previews))
@@ -348,16 +421,28 @@ def validate(cards: list[dict]) -> None:
         raise RuntimeError(f"generated card validation failed:\n{completed.stdout}{completed.stderr}")
 
 
+def keep_unmeasured_retarget(old: dict, card: dict, libraries: dict[str, set]) -> None:
+    """A run that measured no clip library (`--only` another pack, or their renders failed) keeps the old retarget."""
+    kept = old.get("rig", {}).get("retarget_rig_id")
+    rig = card.get("rig")
+    if kept and rig and not libraries and rig["rig_id"] == old["rig"].get("rig_id"):
+        rig["retarget_rig_id"] = kept
+
+
 def write_cards(root: Path, models: list[Model], results: dict, generated: str) -> int:
     source_cache = {}
     pairs = []
+    libraries = library_rigs(models, results)
+    retargets = retarget_rigs(models, results)
     for model in models:
         if not results.get(model.uid, {}).get("ok"):
             continue
-        card = build_card(model, results[model.uid]["analysis"], generated, source_cache)
+        card = build_card(model, results[model.uid]["analysis"], generated, source_cache, retargets.get(model.uid))
         output = root / "packs" / model.pack_id / "cards" / f"{model.key}.card.json"
         if output.exists():
-            card = preserve_unchanged(json.loads(output.read_text()), card)
+            old = json.loads(output.read_text())
+            keep_unmeasured_retarget(old, card, libraries)
+            card = preserve_unchanged(old, card)
         pairs.append((output, card))
     validate([card for _, card in pairs])
     for output, card in pairs:
@@ -378,12 +463,18 @@ def main() -> int:
     parser.add_argument("--expected-packs", type=int, default=0)
     args = parser.parse_args()
     root = args.root.resolve()
-    models = discover_models(root, args.only)
+    manifests = kaykit_manifests(root, args.only)
+    models = models_for_manifests(manifests)
     if not models:
-        parser.error(f"no KayKit glTF models found under {root / 'packs'}")
-    pack_ids = {model.pack_id for model in models}
-    if args.expected_packs and len(pack_ids) != args.expected_packs:
-        parser.error(f"expected {args.expected_packs} KayKit packs with glTF models, found {len(pack_ids)}")
+        parser.error(f"no KayKit glTF or GLB assets found under {root / 'packs'}")
+    pack_ids = {manifest["id"] for _, manifest in manifests}
+    if args.expected_packs:
+        model_pack_ids = {model.pack_id for model in models}
+        unexpected_meshless = sorted(pack_ids - model_pack_ids - MESHLESS_PACK_IDS)
+        if unexpected_meshless:
+            parser.error(f"KayKit packs contain no glTF or GLB assets: {', '.join(unexpected_meshless)}")
+        if len(pack_ids) != args.expected_packs:
+            parser.error(f"expected {args.expected_packs} KayKit packs, found {len(pack_ids)}")
     subprocess.run([sys.executable, "-I", str(COLLECTION_BUILDER), "--root", str(root), "--only", args.only], check=True)
     packs = defaultdict(list)
     for model in models:
@@ -399,7 +490,7 @@ def main() -> int:
     subprocess.run([sys.executable, "-I", str(CATALOG_BUILDER), "--root", str(root)], check=True, cwd=REPO)
     subprocess.run(["pnpm", "--filter", "@ogm/asset-cards", "index:build", "--", str(root)], check=True, cwd=REPO)
     failed = sum(not result.get("ok") for result in results.values()) + sum(not row.get("ok") for row in lineups)
-    print(f"{len(packs)} packs, {len(models)} glTF models, {written} cards, {failed} failures -> {args.qa}")
+    print(f"{len(pack_ids)} packs, {len(models)} glTF/GLB assets, {written} cards, {failed} failures -> {args.qa}")
     return 1 if failed else 0
 
 

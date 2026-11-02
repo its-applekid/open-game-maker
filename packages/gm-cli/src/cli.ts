@@ -15,6 +15,13 @@ export { EXIT, UsageError } from './command.js';
 export { postChat, type PostChatOptions } from './commands/chat/post.js';
 export { printJson, requireAssetsRoot } from './context.js';
 export { loadCommands } from './registry.js';
+export {
+  checkSkill,
+  extractCommands,
+  extractSdkNames,
+  type SkillReferenceCatalog,
+  type SkillReferenceMisses,
+} from './skills/lint.js';
 
 export const COMMANDS_DIR = fileURLToPath(new URL('./commands/', import.meta.url));
 
@@ -33,6 +40,7 @@ const ENV = {
   GM_JOB: { kind: 'string', required: false },
   AIUR_HOOK_TICKET_IDENTIFIER: { kind: 'int', required: false },
   AIUR_TICKET_BRANCH: { kind: 'string', required: false },
+  OGM_SANDBOX: { kind: 'bool', required: false },
   GM_VERIFY_SOFTWARE_GL: { kind: 'bool', required: false },
   GM_VERIFY_QUEUE: { kind: 'bool', required: false },
   PLAYWRIGHT_BROWSERS_PATH: { kind: 'path', required: false },
@@ -80,6 +88,7 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
         jobId: env.GM_JOB,
         aiurIssue: env.AIUR_HOOK_TICKET_IDENTIFIER,
         aiurRunId: env.AIUR_TICKET_BRANCH,
+        sandbox: env.OGM_SANDBOX === true,
         verifySoftwareGl: env.GM_VERIFY_SOFTWARE_GL === true,
         verifyQueue: env.GM_VERIFY_QUEUE === true,
         runtimeDir: env.XDG_RUNTIME_DIR,

@@ -1,8 +1,10 @@
+import type { BlobStore } from '@ogm/blob-store';
 import type { Sqlite } from '@ogm/db';
 
 import type { LogLine } from '../app/types.js';
 import type { AiurClientResolver, ChatJobDirectory } from '../app/registry.js';
-import { getChatRow, insertChatRow, markMirror, pendingMirrors } from './store.js';
+import { inWorkspace, messageAttachments, mirrorText } from './attachments.js';
+import { getChatRow, insertChatRow, markMirror, pendingMirrors, type MediaSigner } from './store.js';
 
 export const MIRROR_FAILED_TEXT = "Your message didn't reach the builder; try again.";
 
@@ -10,6 +12,8 @@ export type MirrorDeps = {
   sqlite: Sqlite;
   jobs: () => ChatJobDirectory | null;
   clientFor: () => AiurClientResolver | null;
+  sign: MediaSigner;
+  blobStore: BlobStore;
   publish: (jobId: string) => void;
   log: (line: LogLine) => void;
   sleep?: (ms: number) => Promise<void>;
@@ -39,17 +43,26 @@ export function createMirror(deps: MirrorDeps): Mirror {
 
   async function send(id: string): Promise<void> {
     const row = getChatRow(deps.sqlite, id);
-    if (row === null || row.mirrorState !== 'pending' || row.text === null) return;
+    if (row === null || row.mirrorState !== 'pending') return;
     const job = await deps.jobs()?.get(row.jobId);
     if (!job?.aiur) return;
     const resolveClient = deps.clientFor();
     if (!resolveClient) return;
     const client = await resolveClient(job.aiur.daemonSlug);
     if (!client) return;
+    const attachments = messageAttachments(deps.sqlite, row.id);
+    const message =
+      attachments.length > 0
+        ? await mirrorText(row.text, attachments, deps, await inWorkspace(deps.sqlite, row.jobId, attachments))
+        : (row.text ??
+          (row.kind === 'image' && row.mediaHash !== null
+            ? `Creator attached an image: ${await deps.sign(row.mediaHash)}`
+            : null));
+    if (message === null) return;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {
       try {
-        await client.message(job.aiur.ticket, row.text, row.id, AbortSignal.timeout(requestTimeoutMs));
+        await client.message(job.aiur.ticket, message, row.id, AbortSignal.timeout(requestTimeoutMs));
         markMirror(deps.sqlite, id, 'sent');
         return;
       } catch (error) {
