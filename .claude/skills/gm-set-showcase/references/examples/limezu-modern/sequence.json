@@ -1,0 +1,44 @@
+{
+  "schema": "ogm.set-showcase/1",
+  "set": "limezu-modern",
+  "style_family": "modern-top-down-pixel-art",
+  "fps": 24,
+  "sprite_fps": 8,
+  "layout": {
+    "projection": "top-down",
+    "seam": "grid",
+    "viewport": [512, 512],
+    "directions": ["down", "left", "right", "up"]
+  },
+  "required_packs": ["limezu-modern-exteriors", "limezu-modern-farm"],
+  "runner": {
+    "ref": "card:limezu-modern-farm/farmer-one",
+    "action": "walk",
+    "path": { "from": [136, 400], "to": [376, 400] },
+    "speed": 48,
+    "scale": 2
+  },
+  "stops": [
+    {
+      "id": "market-errand",
+      "region": "regions/market-errand.json",
+      "sheet": "sheets/market-errand.json",
+      "seconds": 5,
+      "tile_sprites": [
+        "card:limezu-modern-exteriors/pavement",
+        "card:limezu-modern-exteriors/mall",
+        "card:limezu-modern-exteriors/fruit-cart"
+      ],
+      "sheet_sprites": ["card:limezu-modern-farm/farmer-two"],
+      "story": [
+        {
+          "actor": "runner",
+          "action": "greet",
+          "target": "fruit-cart",
+          "reaction": "vendor-wave",
+          "timing": [1.25, 3.75]
+        }
+      ]
+    }
+  ]
+}

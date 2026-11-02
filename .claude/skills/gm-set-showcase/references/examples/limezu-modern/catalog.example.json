@@ -1,0 +1,93 @@
+{
+  "cards": [
+    {
+      "id": "t1:pavement@example",
+      "card_type": "asset",
+      "collection": { "pack_id": "limezu-modern-exteriors" },
+      "subkind": "terrain",
+      "source": {
+        "files": [
+          {
+            "path": "Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/2_City_Terrains_Singles_32x32/ME_Singles_City_Terrains_32x32_Sidewalk_1_1.png"
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:mall@example",
+      "card_type": "asset",
+      "collection": { "pack_id": "limezu-modern-exteriors" },
+      "subkind": "building",
+      "source": {
+        "files": [
+          {
+            "path": "Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/9_Shopping_Center_and_Markets_Singles_32x32/ME_Singles_Shopping_Center_and_Markets_32x32_Mall_1.png"
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:fruit-cart@example",
+      "card_type": "asset",
+      "collection": { "pack_id": "limezu-modern-exteriors" },
+      "subkind": "prop",
+      "source": {
+        "files": [
+          {
+            "path": "Modern_Exteriors_32x32/ME_Theme_Sorter_32x32/3_City_Props_Singles_32x32/ME_Singles_City_Props_32x32_Candies_Cart_1.png"
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:farmer-one@example",
+      "card_type": "asset",
+      "collection": { "pack_id": "limezu-modern-farm" },
+      "subkind": "character",
+      "source": { "files": [{ "path": "RPG_Maker_MV/Characters/MV_Farmers.png" }] },
+      "sprite": {
+        "animations": [
+          {
+            "name": "walk",
+            "directions": ["down", "left", "right", "up"],
+            "frames": [0, 1, 2, 1],
+            "sheets": [
+              {
+                "path": "RPG_Maker_MV/Characters/MV_Farmers.png",
+                "frame_w": 48,
+                "frame_h": 96,
+                "left": 0,
+                "top": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "t1:farmer-two@example",
+      "card_type": "asset",
+      "collection": { "pack_id": "limezu-modern-farm" },
+      "subkind": "character",
+      "source": { "files": [{ "path": "RPG_Maker_MV/Characters/MV_Farmers.png" }] },
+      "sprite": {
+        "animations": [
+          {
+            "name": "walk",
+            "directions": ["down", "left", "right", "up"],
+            "frames": [0, 1, 2, 1],
+            "sheets": [
+              {
+                "path": "RPG_Maker_MV/Characters/MV_Farmers.png",
+                "frame_w": 48,
+                "frame_h": 96,
+                "left": 144,
+                "top": 0
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}
