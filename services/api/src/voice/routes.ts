@@ -1,6 +1,8 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
+
 import { Hono } from 'hono';
 
-import { VoiceTokenRequest, type VoiceTokenResponse } from '@ogm/contracts';
+import { InstructRequest, VoiceTokenRequest, type VoiceTokenResponse } from '@ogm/contracts';
 import { authorize } from '@ogm/policy';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
@@ -11,10 +13,22 @@ import { parseBody } from '../app/validate.js';
 import { findGameForFamily } from '../games/games.js';
 import { findJobRow } from '../jobs/repo.js';
 import { registerVoiceTarget } from './briefing-push.js';
+import { deliverInstruction } from './instruct.js';
 import { mintVoiceToken } from './token.js';
 
+export const prefix = '/';
+
+function internalSecret(given: string | undefined, expected: string | undefined): boolean {
+  if (!expected) return false;
+  const actualHash = createHash('sha256')
+    .update(given ?? '')
+    .digest();
+  const expectedHash = createHash('sha256').update(expected).digest();
+  return timingSafeEqual(actualHash, expectedHash);
+}
+
 // POST /api/v1/voice/token: a short-lived token for the voice host, only for a target the caller may edit.
-const routes = new Hono<ApiBindings>().post('/token', async (c) => {
+const routes = new Hono<ApiBindings>().post('/api/v1/voice/token', async (c) => {
   const principal = requirePrincipal(c, ['user']);
   const { target } = await parseBody(c, VoiceTokenRequest);
   const { config, db } = c.get('deps');
@@ -37,6 +51,16 @@ const routes = new Hono<ApiBindings>().post('/token', async (c) => {
     url: config.voiceWsUrl,
   };
   return c.json(body);
+});
+
+routes.post('/internal/voice/instruct', async (c) => {
+  const deps = c.get('deps');
+  if (!internalSecret(c.req.header('x-ogm-internal'), deps.config.voiceInternalSecret)) {
+    throw new HttpError(401, 'unauthorized');
+  }
+  const request = await parseBody(c, InstructRequest);
+  const response = await deliverInstruction(deps, request);
+  return response.status === 'failed' ? c.json(response, 500) : c.json(response);
 });
 
 export default routes;

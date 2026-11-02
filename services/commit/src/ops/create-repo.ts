@@ -8,16 +8,18 @@ import type { CommitResult, Repository } from '../types.js';
 export async function createRepo(op: ExtractCommitOp<'create_repo'>, context: OperationContext): Promise<CommitResult> {
   const name = repositoryName(op.gameId);
   const repository: Repository = { owner: op.owner, name, visibility: 'private' };
+  const rendered = await context.templates.render(op.templateRef, op);
   if (op.visibility === 'public') {
     const verdict = await context.gate.evaluate({
       kind: 'set_visibility',
+      gameId: op.gameId,
       repository,
       targetVisibility: 'public',
+      files: rendered.files.map(({ path, content, mode }) => ({ path, content, mode })),
     });
     if (!verdict.allowed) return { ok: false, verdict };
   }
 
-  const rendered = await context.templates.render(op.templateRef, op);
   const github = await context.app.forOwner(op.owner);
   await createPrivateRepository(github, op.owner, name);
   const identity = await context.app.identity();

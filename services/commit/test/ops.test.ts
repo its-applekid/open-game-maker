@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { GitHubRequestError } from '../src/github-request.js';
 import { createBranch } from '../src/ops/create-branch.js';
@@ -9,6 +9,7 @@ import { fork, MAX_FORK_BYTES, MAX_FORK_FILES } from '../src/ops/fork.js';
 import { merge } from '../src/ops/merge.js';
 import { release } from '../src/ops/release.js';
 import { setVisibility } from '../src/ops/set-visibility.js';
+import { allowed } from '../src/result.js';
 import { fakeRequest, contextWith } from './helpers.js';
 
 describe('commit operations', () => {
@@ -62,6 +63,7 @@ describe('commit operations', () => {
       if (call.route.endsWith('/git/ref/{ref}')) return { object: { sha: 'new-base' } };
       throw new Error(`unexpected route ${call.route}`);
     });
+    const evaluate = vi.fn(async () => allowed());
     const result = await foldDesign(
       {
         kind: 'fold_design',
@@ -69,12 +71,20 @@ describe('commit operations', () => {
         base: 'old-base',
         files: [{ path: 'design/entities.json', content: '{}' }],
       },
-      contextWith(request),
+      contextWith(request, { gate: { evaluate } }),
     );
     expect(result).toEqual({ ok: true, sha: 'commit-2' });
     expect(refUpdates).toBe(2);
     expect(calls.filter((call) => call.route.endsWith('/git/ref/{ref}'))).toHaveLength(1);
     expect(calls.at(-1)?.parameters).toMatchObject({ force: false });
+    expect(evaluate).toHaveBeenNthCalledWith(1, {
+      kind: 'fold_design',
+      gameId: 'game-1',
+      repository: { owner: 'alice', name: 'gm-game-1', visibility: 'private' },
+      sha: 'old-base',
+      files: [{ path: 'design/entities.json', content: '{}' }],
+    });
+    expect(evaluate).toHaveBeenNthCalledWith(2, expect.objectContaining({ sha: 'new-base' }));
   });
 
   it('gives up after three concurrent fold updates', async () => {
@@ -443,14 +453,20 @@ describe('commit operations', () => {
     expect(calls.some((call) => call.route === 'POST /user/repos')).toBe(false);
   });
 
-  it('does not create a public fork when the gate refuses it', async () => {
-    const { request, calls } = fakeRequest(() => ({}));
+  it('does not make a completed fork public when the gate refuses it', async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'source-tree' } };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) return { truncated: false, tree: [] };
+      if (call.route.endsWith('/git/trees')) return { sha: 'fork-tree' };
+      if (call.route.endsWith('/git/commits')) return { sha: 'fork-commit' };
+      return {};
+    });
+    const evaluate = vi.fn(async () => ({
+      allowed: false as const,
+      reasons: [{ code: 'denylist' as const, detail: 'blocked' }],
+    }));
     const context = contextWith(request, {
-      gate: {
-        async evaluate() {
-          return { allowed: false, reasons: [{ code: 'denylist', detail: 'blocked' }] };
-        },
-      },
+      gate: { evaluate },
     });
     await expect(
       fork(
@@ -465,6 +481,7 @@ describe('commit operations', () => {
         context,
       ),
     ).resolves.toMatchObject({ ok: false });
-    expect(calls).toHaveLength(0);
+    expect(calls.some((call) => call.route === 'PATCH /repos/{owner}/{repo}')).toBe(false);
+    expect(evaluate).toHaveBeenCalledWith(expect.objectContaining({ sha: 'fork-commit' }));
   });
 });

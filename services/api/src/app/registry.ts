@@ -13,7 +13,7 @@ export type TicketJob = {
   jobId: string;
   gameId: string;
   repo: string;
-  kind: 'new_game' | 'feature' | 'repair';
+  kind: JobKind;
   game: { title: string; family: string; pov: string; genre: string; multiplayer: boolean };
   diagnostics?: { reportId: string; bundleKey: string };
 };

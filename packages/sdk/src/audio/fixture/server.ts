@@ -3,7 +3,7 @@ import { createServer } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const root = resolve(fileURLToPath(new URL('../../../dist/audio-fixture', import.meta.url)));
+const dist = resolve(fileURLToPath(new URL('../../../dist', import.meta.url)));
 const contentTypes: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -14,7 +14,14 @@ const contentTypes: Record<string, string> = {
 const server = createServer(async (request, response) => {
   if (request.url === '/health') return response.end('ok');
   const pathname = new URL(request.url ?? '/', 'http://127.0.0.1:4181').pathname;
-  const filename = resolve(root, `.${pathname === '/' ? '/index.html' : pathname}`);
+  const match = /^\/(audio|camera)(\/.*)?$/.exec(pathname);
+  if (!match) {
+    response.writeHead(404);
+    return response.end('not found');
+  }
+  const root = resolve(dist, `${match[1]}-fixture`);
+  const relative = match[2] === undefined || match[2] === '/' ? '/index.html' : match[2];
+  const filename = resolve(root, `.${relative}`);
   if (filename !== root && !filename.startsWith(`${root}${sep}`)) {
     response.writeHead(403);
     return response.end('forbidden');

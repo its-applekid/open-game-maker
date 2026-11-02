@@ -52,4 +52,19 @@ describe('gm skill pack', () => {
     expect(text).toContain('package name, exact version, and reason');
     expect(text).toContain('Never run `npm install` or `pnpm add`');
   });
+
+  it('keeps gm-verify short, gate-first, and free of the obsolete delivery workflow', () => {
+    const verify = lines('gm-verify');
+    const text = verify.join('\n');
+
+    expect(verify.length).toBeLessThanOrEqual(80);
+    expect(text).toContain('gm check');
+    expect(text).toContain('gm test');
+    expect(text).toContain('gm shot --sheet');
+    expect(text).toContain('127.0.0.1');
+    expect(text).toContain('iPhone Safari');
+    expect(text).toContain('sound');
+    expect(text).toContain('## Verify');
+    expect(text).not.toMatch(/prototypes\/|clips_page|artifact/i);
+  });
 });
