@@ -5,12 +5,14 @@ import type { AssetsLock, LockEntry } from '@ogm/contracts';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { resolveContainedPath } from '../../context.js';
-import { readLock, sha256File, upsertLock, writeLock } from '../../lock.js';
-import { entrySource, resolveEntry, type ResolvedFile } from '../../resolve.js';
+import { readLock, sha256File, writeLock } from '../../lock.js';
+import { entrySource, repoPaths, resolveEntry, type Locations, type ResolvedFile } from '../../resolve.js';
 
 type Refusal = { id: string; rule: string; detail: string; fix: string };
 type PlannedFile = ResolvedFile & { destination: string; repoPath: string };
 type VendorPlan = { entry: LockEntry; files: PlannedFile[] };
+type DestinationResult = { ok: true; file: PlannedFile } | { ok: false; refusal: Refusal };
+type PlanResult = { ok: true; plan: VendorPlan } | { ok: false; refusal: Refusal };
 
 function refusalLine(refusal: Refusal): string {
   return `${refusal.id}  ${refusal.rule}  ${refusal.detail}. Try: ${refusal.fix}`;
@@ -46,11 +48,12 @@ async function destinationRefusal(
   entry: LockEntry,
   file: ResolvedFile,
   held: Map<string, string>,
-): Promise<{ file?: PlannedFile; refusal?: Refusal }> {
+): Promise<DestinationResult> {
   const repoPath = vendorPath(entry, file.path);
   const heldBy = held.get(repoPath);
   if (heldBy !== undefined && heldBy !== entry.id) {
     return {
+      ok: false,
       refusal: {
         id: entry.id,
         rule: 'name-collision',
@@ -63,6 +66,7 @@ async function destinationRefusal(
   const destination = resolve(cwd, repoPath);
   if (!(await ensureRepoDirectory(cwd, repoPath))) {
     return {
+      ok: false,
       refusal: {
         id: entry.id,
         rule: 'unsafe-destination',
@@ -76,6 +80,7 @@ async function destinationRefusal(
     const current = await lstat(destination);
     if (current.isSymbolicLink() || !current.isFile() || (await sha256File(destination)) !== file.sha256) {
       return {
+        ok: false,
         refusal: {
           id: entry.id,
           rule: 'name-collision',
@@ -88,7 +93,7 @@ async function destinationRefusal(
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
   }
 
-  return { file: { ...file, destination, repoPath } };
+  return { ok: true, file: { ...file, destination, repoPath } };
 }
 
 function vendoredEntry(entry: LockEntry, files: PlannedFile[]): LockEntry {
@@ -104,15 +109,10 @@ function vendoredEntry(entry: LockEntry, files: PlannedFile[]): LockEntry {
   };
 }
 
-async function planEntry(
-  cwd: string,
-  entry: LockEntry,
-  assetsRoot: string | null,
-  blobRoot: string | null,
-  held: Map<string, string>,
-): Promise<{ plan?: VendorPlan; refusal?: Refusal }> {
+async function planEntry(entry: LockEntry, locations: Locations, held: Map<string, string>): Promise<PlanResult> {
   if (entry.rights.redistribution !== 'free') {
     return {
+      ok: false,
       refusal: {
         id: entry.id,
         rule: 'no-redistribution',
@@ -122,9 +122,10 @@ async function planEntry(
     };
   }
 
-  const resolution = await resolveEntry(entry, { cwd, assetsRoot, blobRoot });
+  const resolution = await resolveEntry(entry, locations);
   if (!resolution.ok) {
     return {
+      ok: false,
       refusal: {
         id: entry.id,
         rule: resolution.rule,
@@ -133,31 +134,32 @@ async function planEntry(
       },
     };
   }
-  if (entrySource(entry) === 'vendored') return { plan: { entry, files: [] } };
+  if (entrySource(entry) === 'vendored') return { ok: true, plan: { entry, files: [] } };
 
   const files: PlannedFile[] = [];
   const ownPaths = new Set<string>();
   for (const resolved of resolution.files) {
-    const target = await destinationRefusal(cwd, entry, resolved, held);
-    if (target.refusal !== undefined) return { refusal: target.refusal };
-    if (ownPaths.has(target.file!.repoPath)) {
+    const target = await destinationRefusal(locations.cwd, entry, resolved, held);
+    if (!target.ok) return target;
+    if (ownPaths.has(target.file.repoPath)) {
       return {
+        ok: false,
         refusal: {
           id: entry.id,
           rule: 'name-collision',
-          detail: `${target.file!.repoPath} would hold more than one source file`,
+          detail: `${target.file.repoPath} would hold more than one source file`,
           fix: `gm assets why ${entry.id}`,
         },
       };
     }
-    ownPaths.add(target.file!.repoPath);
-    files.push(target.file!);
+    ownPaths.add(target.file.repoPath);
+    files.push(target.file);
   }
-  return { plan: { entry, files } };
+  return { ok: true, plan: { entry, files } };
 }
 
 async function applyPlans(cwd: string, lock: AssetsLock, plans: VendorPlan[]): Promise<AssetsLock> {
-  let updated = lock;
+  const replacements = new Map<string, LockEntry>();
   for (const plan of plans) {
     if (plan.files.length === 0) continue;
     for (const file of plan.files) {
@@ -166,9 +168,11 @@ async function applyPlans(cwd: string, lock: AssetsLock, plans: VendorPlan[]): P
         throw new Error(`copied asset failed sha256 verification: ${relative(cwd, file.destination)}`);
       }
     }
-    updated = upsertLock(updated, vendoredEntry(plan.entry, plan.files));
+    replacements.set(plan.entry.id, vendoredEntry(plan.entry, plan.files));
   }
-  return updated;
+  return replacements.size === 0
+    ? lock
+    : { ...lock, assets: lock.assets.map((entry) => replacements.get(entry.id) ?? entry) };
 }
 
 export const command: GmCommand = {
@@ -184,13 +188,10 @@ export const command: GmCommand = {
     if (lock === null) throw new UsageError('assets.lock.json not found', 'gm assets use <id>');
 
     const byId = new Map(lock.assets.map((entry) => [entry.id, entry]));
-    const held = new Map(
-      lock.assets
-        .filter((entry) => entrySource(entry) === 'vendored')
-        .flatMap((entry) =>
-          [entry.path, ...(entry.files ?? []).map((file) => file.path)].map((path) => [path, entry.id]),
-        ),
+    const held = new Map<string, string>(
+      lock.assets.flatMap((entry) => repoPaths(entry).map((path) => [path.replaceAll('\\', '/'), entry.id] as const)),
     );
+    const locations: Locations = { cwd: ctx.cwd, assetsRoot: ctx.assetsRoot, blobRoot: ctx.blobRoot };
     const plans: VendorPlan[] = [];
     const refusals: Refusal[] = [];
     for (const id of ids) {
@@ -204,11 +205,11 @@ export const command: GmCommand = {
         });
         continue;
       }
-      const planned = await planEntry(ctx.cwd, entry, ctx.assetsRoot, ctx.blobRoot, held);
-      if (planned.refusal !== undefined) refusals.push(planned.refusal);
+      const planned = await planEntry(entry, locations, held);
+      if (!planned.ok) refusals.push(planned.refusal);
       else {
-        plans.push(planned.plan!);
-        for (const file of planned.plan!.files) held.set(file.repoPath, entry.id);
+        plans.push(planned.plan);
+        for (const file of planned.plan.files) held.set(file.repoPath, entry.id);
       }
     }
 

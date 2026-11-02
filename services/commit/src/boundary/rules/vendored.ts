@@ -14,7 +14,7 @@ function isAssetBytes(file: BoundaryFile): boolean {
   );
 }
 
-/** Every sha256 an entry pins: the primary file and its companion `files[]` (#298). */
+/** Every sha256 an entry pins: the primary file and its companion `files[]`. */
 function entryShas(entry: LockEntry): string[] {
   return [entry.sha256, ...(entry.files ?? []).map((file) => file.sha256)];
 }
