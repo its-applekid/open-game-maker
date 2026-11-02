@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { cp, mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
+import { cp, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -69,8 +69,10 @@ export async function writeRunRecord(outDir: string, game: GameSource): Promise<
     `${JSON.stringify({ ...game.manifest, controls: game.controls }, null, 2)}\n`,
   );
   const design = join(game.dir, 'design');
-  if (existsSync(design)) await cp(design, join(outDir, 'design'), { recursive: true });
-  else await mkdir(join(outDir, 'design'), { recursive: true });
+  const recordedDesign = join(outDir, 'design');
+  await rm(recordedDesign, { force: true, recursive: true });
+  if (existsSync(design)) await cp(design, recordedDesign, { recursive: true });
+  else await mkdir(recordedDesign, { recursive: true });
 }
 
 /** `<dir>/manifest.json` (with `controls`), `<dir>/design/*.json` and an optional `<dir>/save.json`. */

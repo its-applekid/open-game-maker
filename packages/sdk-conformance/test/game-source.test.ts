@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +17,11 @@ describe('game source', () => {
     expect(game.controls.map((control) => control.id)).toEqual(['player.speed', 'level.width']);
     expect(game.entityIds).toContain('platform_01K8ZTEMP00000000000000003');
 
+    const staleDesign = join(work, 'design', 'removed.json');
+    mkdirSync(join(work, 'design'));
+    writeFileSync(staleDesign, JSON.stringify({ entities: { removed: {} } }));
     await writeRunRecord(work, game);
+    expect(existsSync(staleDesign)).toBe(false);
     const previous = await loadPrevious(work);
     expect(previous).toEqual({
       controlIds: ['player.speed', 'level.width'],
