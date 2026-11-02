@@ -13,4 +13,5 @@ export * from './build-chat.js';
 export * from './job-tickets.js';
 export * from './reports.js';
 export * from './rooms.js';
+export * from './reapply.js';
 export * from './saves.js';
