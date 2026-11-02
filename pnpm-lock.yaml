@@ -277,6 +277,9 @@ importers:
       tar:
         specifier: 7.5.22
         version: 7.5.22
+      ulid:
+        specifier: 3.0.2
+        version: 3.0.2
 
   packages/gm-verify:
     dependencies:
@@ -3830,6 +3833,10 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  ulid@3.0.2:
+    resolution: {integrity: sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w==}
+    hasBin: true
+
   undici-types@8.9.0:
     resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
@@ -7058,6 +7065,8 @@ snapshots:
       - supports-color
 
   typescript@6.0.3: {}
+
+  ulid@3.0.2: {}
 
   undici-types@8.9.0: {}
 
