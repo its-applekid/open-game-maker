@@ -23,8 +23,18 @@ describe('games-host layout', () => {
 
   it('builds paths only from valid ids', () => {
     expect(buildDir(root, 'demo', 'b1')).toBe(join(root, 'demo', 'b1'));
+    expect(buildDir(root, 'g_01ARZ3NDEKTSV4RRFFQ69G5FAV', 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ')).toBe(
+      join(root, 'g_01ARZ3NDEKTSV4RRFFQ69G5FAV', 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ'),
+    );
 
-    for (const id of ['Demo', '..', `a${'b'.repeat(64)}`]) {
+    /* Uppercase is allowed only in the exact ULID shape: no ULID past 7ZZZ…, no uppercase prefix. */
+    for (const id of [
+      'Demo',
+      '..',
+      `a${'b'.repeat(64)}`,
+      'b_81ARZ3NDEKTSV4RRFFQ69G5FAV',
+      'B_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+    ]) {
       expect(() => buildDir(root, id, 'b1')).toThrow(BadId);
       expect(() => buildDir(root, 'demo', id)).toThrow(BadId);
     }

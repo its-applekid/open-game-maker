@@ -3,7 +3,14 @@ import { open, realpath, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 import { pid } from 'node:process';
 
-export const ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+import { StableIdSchema } from '@ogm/contracts';
+
+const LEGACY_ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+
+/* The API's ULID ids (StableIdSchema), plus the lowercase ids (build hashes) already on disk. */
+export function isServableId(id: string): boolean {
+  return LEGACY_ID_RE.test(id) || StableIdSchema.safeParse(id).success;
+}
 
 export class BadId extends Error {
   constructor(id: string) {
@@ -13,10 +20,10 @@ export class BadId extends Error {
 }
 
 export function buildDir(root: string, gameId: string, buildId: string): string {
-  if (!ID_RE.test(gameId)) {
+  if (!isServableId(gameId)) {
     throw new BadId(gameId);
   }
-  if (!ID_RE.test(buildId)) {
+  if (!isServableId(buildId)) {
     throw new BadId(buildId);
   }
 
