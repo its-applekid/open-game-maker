@@ -92,13 +92,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-// Keys immer refuses in patch paths; its value clone assigns them as prototypes instead of own properties.
-const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+// Path keys immer refuses to patch through.
+const RESERVED_PATH_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 
-function hasReservedKey(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some(hasReservedKey);
+// Immer's value clone assigns an own `__proto__` key as the prototype, so the applied value is no longer plain JSON.
+function hasProtoKey(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasProtoKey);
   if (!isRecord(value)) return false;
-  return Object.keys(value).some((key) => RESERVED_KEYS.has(key) || hasReservedKey(value[key]));
+  return Object.keys(value).some((key) => key === '__proto__' || hasProtoKey(value[key]));
 }
 
 export function validatePatches(patches: readonly Patch[]): ValidationResult {
@@ -117,11 +118,11 @@ export function validatePatches(patches: readonly Patch[]): ValidationResult {
       errors.push({ path: errorPath, code: 'path_root' });
       return;
     }
-    if (path.some((part) => RESERVED_KEYS.has(String(part)))) {
+    if (path.some((part) => RESERVED_PATH_KEYS.has(String(part)))) {
       errors.push({ path: errorPath, code: 'reserved_key' });
       return;
     }
-    if (hasReservedKey(patch.value)) {
+    if (hasProtoKey(patch.value)) {
       errors.push({ path: `patches.${index}.value`, code: 'reserved_key' });
       return;
     }

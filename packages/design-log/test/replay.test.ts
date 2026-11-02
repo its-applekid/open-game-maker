@@ -105,6 +105,7 @@ describe('replay', () => {
       expected = canonical(txs.reduce((doc, tx) => apply(doc, tx.patches), baseDoc()));
     } catch (error) {
       expect(error).toBeInstanceOf(InvalidPatchError);
+      expect((error as InvalidPatchError).errors.map(({ code }) => code)).toEqual(['reserved_key']);
       expect(run).toThrow(InvalidPatchError);
       return;
     }

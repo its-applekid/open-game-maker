@@ -93,13 +93,18 @@ describe('validatePatches', () => {
     ['{"op":"replace","path":["globals","__proto__"],"value":1}', 'patches.0.path'],
     ['{"op":"replace","path":["entities","constructor"],"value":{}}', 'patches.0.path'],
     ['{"op":"replace","path":["globals","door"],"value":[[{"__proto__":{}}]]}', 'patches.0.value'],
-    ['{"op":"add","path":["globals","door"],"value":{"a":{"constructor":1}}}', 'patches.0.value'],
-    ['{"op":"add","path":["globals","door"],"value":{"prototype":null}}', 'patches.0.value'],
+    ['{"op":"add","path":["globals","door"],"value":{"a":{"__proto__":1}}}', 'patches.0.value'],
   ])('rejects reserved prototype keys in %s', (patch, path) => {
     expect(validatePatches([JSON.parse(patch) as Patch])).toEqual({
       ok: false,
       errors: [{ path, code: 'reserved_key' }],
     });
+  });
+
+  it('keeps constructor and prototype as ordinary value fields', () => {
+    const value = { constructor: 1, nested: [{ prototype: null }] };
+    expect(validatePatches([{ op: 'add', path: ['globals', 'door'], value }])).toEqual({ ok: true });
+    expect(apply(baseDoc(), [{ op: 'add', path: ['globals', 'door'], value }]).globals.door).toEqual(value);
   });
 
   it('throws a typed error above the 256 KiB canonical cap', () => {
