@@ -92,10 +92,10 @@ export type IntakeDrop = {
 export type IntakeStatus = { drops: IntakeDrop[]; parseErrors: number };
 
 export type AdminBuild = {
-  job: Job;
-  game: AdminGame;
-  member?: AdminMember;
-  retries: number | null;
+  job: Pick<Job, 'id' | 'kind' | 'state' | 'usageMicroUsd' | 'createdAt' | 'updatedAt' | 'terminalAt'>;
+  game: Pick<AdminGame, 'id' | 'title' | 'ownerId' | 'visibility' | 'delistedAt'>;
+  member: { userId: string; email: string | null };
+  retries: number;
 };
 
 export type AdminBuildData = {

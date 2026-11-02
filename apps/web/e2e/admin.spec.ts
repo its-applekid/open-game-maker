@@ -149,11 +149,10 @@ async function installAdminRoutes(page: Page, platformRole: 'admin' | 'maintaine
         members: [owner, familyMember],
       });
     }
+    if (path === '/api/v1/admin/games') return json(route, { games: [game] });
     if (path === '/api/v1/admin/builds') {
       return json(route, {
-        builds: [{ job, game, member: familyMember, retries: 1 }],
-        games: [game],
-        members: [owner, familyMember],
+        builds: [{ job, game, member: { userId: familyMember.userId, email: familyMember.email }, retries: 1 }],
       });
     }
     if (path === `/api/v1/analytics/builds/${ids.job}/timeline`) return json(route, timeline());

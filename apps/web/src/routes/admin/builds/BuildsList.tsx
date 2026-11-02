@@ -13,7 +13,7 @@ export function BuildsList() {
   if (data.isPending || settings.isPending) return <p className="admin-state">Loading builds…</p>;
   if (data.isError || settings.isError) return <p className="admin-state">Not allowed</p>;
   const builds = data.data.builds.filter(
-    ({ job }) => (!gameId || job.gameId === gameId) && (!memberId || job.creatorId === memberId),
+    ({ game, member }) => (!gameId || game.id === gameId) && (!memberId || member.userId === memberId),
   );
   return (
     <section>
@@ -62,13 +62,13 @@ export function BuildsList() {
                 <td data-label="Game">
                   <Link to={job.id}>{game.title}</Link>
                 </td>
-                <td data-label="Member">{member?.email ?? 'Unknown'}</td>
+                <td data-label="Member">{member.email ?? 'Unknown'}</td>
                 <td data-label="Kind">{job.kind}</td>
                 <td data-label="State">{job.state}</td>
                 <td data-label="Cost">
                   {formatUnits(job.usageMicroUsd, settings.data.unitLabel, settings.data.microUsdPerUnit)}
                 </td>
-                <td data-label="Retries">{retries ?? 'Unknown'}</td>
+                <td data-label="Retries">{retries}</td>
                 <td data-label="Duration">{formatDuration(job.createdAt, job.terminalAt ?? job.updatedAt)}</td>
               </tr>
             ))}

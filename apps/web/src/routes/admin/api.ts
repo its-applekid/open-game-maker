@@ -6,7 +6,9 @@ import { queryClient } from '../../app/query';
 import { api, ApiError } from '../../lib/api/client';
 import type {
   AdminBudget,
+  AdminBuild,
   AdminBuildData,
+  AdminGame,
   AdminInvitation,
   AdminMe,
   AdminMember,
@@ -120,5 +122,10 @@ export function useRollups(scope: 'game' | 'member', days: number, items: { id: 
 }
 
 export async function fetchAdminBuilds(): Promise<AdminBuildData> {
-  return adminRequest<AdminBuildData>('/admin/builds');
+  const [{ builds }, { games }, { members }] = await Promise.all([
+    adminRequest<{ builds: AdminBuild[] }>('/admin/builds'),
+    adminRequest<{ games: AdminGame[] }>('/admin/games?includeDelisted=1'),
+    adminRequest<{ members: AdminMember[] }>('/admin/members'),
+  ]);
+  return { builds, games, members };
 }
