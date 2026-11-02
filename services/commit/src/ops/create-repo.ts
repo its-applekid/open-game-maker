@@ -11,6 +11,7 @@ export async function createRepo(op: ExtractCommitOp<'create_repo'>, context: Op
   if (op.visibility === 'public') {
     const verdict = await context.gate.evaluate({
       kind: 'set_visibility',
+      gameId: op.gameId,
       repository,
       targetVisibility: 'public',
     });

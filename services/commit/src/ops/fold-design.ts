@@ -36,8 +36,14 @@ export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: Op
   const repository = await context.repos.resolve(op.gameId);
   const verdict = await context.gate.evaluate({
     kind: op.kind,
+    gameId: op.gameId,
     repository,
-    files: op.files.map((file) => ({ path: file.path, bytes: Buffer.byteLength(file.content) })),
+    files: op.files.map((file) => ({
+      path: file.path,
+      bytes: Buffer.byteLength(file.content),
+      content: file.content,
+    })),
+    sha: op.base,
   });
   if (!verdict.allowed) return { ok: false, verdict };
 

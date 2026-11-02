@@ -163,4 +163,10 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'path',
     doc: 'redistribution:none hash feed (gm packs blocklist writes, commit service reads)',
   },
+  {
+    name: 'OGM_GITHUB_WEBHOOK_SECRET',
+    unit: 'commit',
+    kind: 'secret',
+    doc: 'optional HMAC secret for GitHub pull-request webhooks',
+  },
 ];

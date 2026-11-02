@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { GitHubRequestError } from '../src/github-request.js';
 import { createBranch } from '../src/ops/create-branch.js';
@@ -9,6 +9,7 @@ import { fork, MAX_FORK_BYTES, MAX_FORK_FILES } from '../src/ops/fork.js';
 import { merge } from '../src/ops/merge.js';
 import { release } from '../src/ops/release.js';
 import { setVisibility } from '../src/ops/set-visibility.js';
+import { allowed } from '../src/result.js';
 import { fakeRequest, contextWith } from './helpers.js';
 
 describe('commit operations', () => {
@@ -62,6 +63,7 @@ describe('commit operations', () => {
       if (call.route.endsWith('/git/ref/{ref}')) return { object: { sha: 'new-base' } };
       throw new Error(`unexpected route ${call.route}`);
     });
+    const evaluate = vi.fn(async () => allowed());
     const result = await foldDesign(
       {
         kind: 'fold_design',
@@ -69,12 +71,19 @@ describe('commit operations', () => {
         base: 'old-base',
         files: [{ path: 'design/entities.json', content: '{}' }],
       },
-      contextWith(request),
+      contextWith(request, { gate: { evaluate } }),
     );
     expect(result).toEqual({ ok: true, sha: 'commit-2' });
     expect(refUpdates).toBe(2);
     expect(calls.filter((call) => call.route.endsWith('/git/ref/{ref}'))).toHaveLength(1);
     expect(calls.at(-1)?.parameters).toMatchObject({ force: false });
+    expect(evaluate).toHaveBeenCalledWith({
+      kind: 'fold_design',
+      gameId: 'game-1',
+      repository: { owner: 'alice', name: 'gm-game-1', visibility: 'private' },
+      sha: 'old-base',
+      files: [{ path: 'design/entities.json', bytes: 2, content: '{}' }],
+    });
   });
 
   it('gives up after three concurrent fold updates', async () => {

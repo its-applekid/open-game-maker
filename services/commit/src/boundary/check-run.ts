@@ -53,11 +53,11 @@ export class BoundaryCheckPoster {
     if (this.#posted.has(key)) return;
 
     for (let attempt = 0; attempt < 3; attempt += 1) {
-      if (await this.#exists(request, repository, headSha)) {
-        this.#posted.add(key);
-        return;
-      }
       try {
+        if (await this.#exists(request, repository, headSha)) {
+          this.#posted.add(key);
+          return;
+        }
         await request('POST /repos/{owner}/{repo}/check-runs', {
           ...repository,
           name: 'ogm/boundary',

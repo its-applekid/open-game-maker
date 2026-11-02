@@ -47,7 +47,12 @@ export function registerBoundaryWebhook(
       return c.json({ error: 'invalid signature' }, 401);
     }
     if (c.req.header('x-github-event') !== 'pull_request') return c.body(null, 202);
-    const payload = JSON.parse(Buffer.from(raw).toString('utf8')) as Payload;
+    let payload: Payload;
+    try {
+      payload = JSON.parse(Buffer.from(raw).toString('utf8')) as Payload;
+    } catch {
+      return c.json({ error: 'invalid payload' }, 422);
+    }
     if (!['opened', 'synchronize', 'reopened'].includes(payload.action ?? '')) return c.body(null, 202);
     const owner = payload.repository?.owner?.login;
     const name = payload.repository?.name;

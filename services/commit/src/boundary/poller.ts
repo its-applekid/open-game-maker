@@ -71,6 +71,11 @@ export function startBoundaryPoller(options: {
     running = true;
     try {
       await runBoundaryPoll(options);
+    } catch (error) {
+      options.log({
+        event: 'boundary-poll-error',
+        error: error instanceof Error ? error.name : 'UnknownError',
+      });
     } finally {
       running = false;
     }

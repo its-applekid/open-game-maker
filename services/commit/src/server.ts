@@ -6,6 +6,9 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 
 import type { AuditEntry, AuditWriter } from './audit.js';
+import type { ActiveRepository } from './boundary/api-client.js';
+import type { BoundaryCheck } from './boundary/poller.js';
+import { registerBoundaryWebhook } from './boundary/webhook.js';
 import type { OperationContext, RepositoryResolver } from './ops/context.js';
 import { executeOperation } from './ops/registry.js';
 import { repositoryName } from './paths.js';
@@ -19,6 +22,11 @@ type ServerDependencies = {
   remoteAddress?: (context: Context) => string | undefined;
   execute?: (op: CommitOp, context: OperationContext) => Promise<CommitResult>;
   now?: () => Date;
+  boundaryWebhook?: {
+    secret: string | undefined;
+    resolveRepository(owner: string, name: string): Promise<ActiveRepository | undefined>;
+    run: BoundaryCheck;
+  };
 };
 
 function tokenMatches(expected: string, authorization: string | undefined): boolean {
@@ -78,6 +86,10 @@ export function createCommitApp(dependencies: ServerDependencies): Hono {
       uptimeSec: Math.floor((Date.now() - startedAt) / 1_000),
     }),
   );
+
+  if (dependencies.boundaryWebhook !== undefined) {
+    registerBoundaryWebhook(app, dependencies.boundaryWebhook);
+  }
 
   app.post('/internal/commit', async (context) => {
     if (!isLoopback(remoteAddress(context))) return context.json({ error: 'loopback required' }, 403);

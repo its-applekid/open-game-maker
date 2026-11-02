@@ -81,6 +81,7 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
   if (op.visibility === 'public') {
     const verdict = await context.gate.evaluate({
       kind: 'set_visibility',
+      gameId: op.newGameId,
       repository: destination,
       targetVisibility: 'public',
     });
