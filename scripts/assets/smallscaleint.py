@@ -65,8 +65,8 @@ def world_for(pack_id: str) -> str:
     return "modern-zombie" if pack_id in MODERN else "fantasy"
 
 
-def decorate_collection(card: dict, pack_id: str) -> dict:
-    """Add the canonical family, set, and curated world to one collection card."""
+def decorate_collection(card: dict, pack_id: str, pack_dir: Path | None = None) -> dict:
+    """Add the canonical set, world, and local illustration references to one collection card."""
     if pack_id not in PACKS:
         return card
     card["describe"].update(style_family="isometric-2d", set="smallscaleint", world=world_for(pack_id))
@@ -74,6 +74,43 @@ def decorate_collection(card: dict, pack_id: str) -> dict:
         card["provenance"][f"describe.{field}"] = {
             "by": "code", "tool": TOOL, "at": NOW, "input": value,
         }
+    world = world_for(pack_id)
+    card["previews"] = {
+        **card.get("previews", {}),
+        "specimen": f"packs/{pack_id}/specimen.png",
+        "diorama": f"sets/smallscaleint/diorama.{world}.256.png",
+        "loop": f"sets/smallscaleint/diorama.{world}.256.gif",
+    }
+    for field in ("specimen", "diorama", "loop"):
+        card["provenance"][f"previews.{field}"] = {
+            "by": "code", "tool": "thumbnail-scene@0.1", "at": NOW, "input": "deterministic local render",
+        }
+    manifest = None
+    if pack_dir is not None:
+        manifest_path = pack_dir / "store" / "media.json"
+        try:
+            manifest = json.loads(manifest_path.read_text())
+        except FileNotFoundError:
+            pass
+    if manifest is not None:
+        fallback = manifest.get("selected_fallback")
+        media_paths = {item.get("path") for item in manifest.get("media", []) if isinstance(item, dict)}
+        valid_fallback = (
+            isinstance(fallback, str)
+            and fallback not in (".", "..")
+            and Path(fallback).name == fallback
+            and fallback in media_paths
+            and (manifest_path.parent / fallback).is_file()
+        )
+        if manifest.get("pack_id") != pack_id or not valid_fallback:
+            raise ValueError(f"invalid store media manifest for {pack_id}")
+        card["previews"]["store"] = f"packs/{pack_id}/store/{fallback}"
+        card["provenance"]["previews.store"] = {
+            "by": "vendor-metadata", "tool": "thumbnail-scene@0.1", "at": NOW,
+            "input": f"packs/{pack_id}/store/media.json",
+        }
+    if card.get("flags") == ["missing-preview"]:
+        card.pop("flags")
     return card
 
 

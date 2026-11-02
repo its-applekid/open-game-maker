@@ -41,6 +41,7 @@ function coverageTokens(card, target) {
 }
 
 export function selectSpecimenCards(cards, target) {
+  if (!['set', 'pack'].includes(target.kind)) throw new Error(`unknown specimen target kind: ${target.kind}`);
   const eligible = cards
     .filter((card) => card.kind === 'sprite')
     .filter((card) => target.kind !== 'set' || card.describe?.set === target.id)
@@ -131,7 +132,10 @@ function frameFromCard(card, layer, time) {
     const index = (selection.frame + advance) % animation.frames.length;
     frame = animation.frames[index];
     if (animation.sheets?.length) {
-      const sheet = animation.sheets.find((item) => item.variant === selection.variant) ?? animation.sheets[0];
+      const sheet = selection.variant
+        ? animation.sheets.find((item) => item.variant === selection.variant)
+        : animation.sheets[0];
+      if (!sheet) throw new Error(`${card.id} action ${selection.action} has no variant ${selection.variant}`);
       const row = animation.directions?.indexOf(selection.direction);
       if (row === undefined || row < 0)
         throw new Error(`${card.id} action ${selection.action} has no direction ${selection.direction}`);
@@ -153,11 +157,32 @@ function frameFromCard(card, layer, time) {
 }
 
 async function compiledLayers(root, scene) {
-  return Promise.all(scene.layers.map(async (layer) => ({ layer, ...(await loadCard(root, layer.card_id)) })));
+  return Promise.all(
+    scene.layers.map(async (layer) => {
+      const loaded = await loadCard(root, layer.card_id);
+      if (loaded.card.describe?.set !== scene.set_id) {
+        throw new Error(`${layer.card_id} is not in scene set ${scene.set_id}`);
+      }
+      if (scene.target.kind === 'pack' && packOf(layer.card_id).pack !== scene.target.id) {
+        throw new Error(`${layer.card_id} is not in scene pack ${scene.target.id}`);
+      }
+      return { layer, ...loaded };
+    }),
+  );
+}
+
+function animationSourcePriority(animation) {
+  if (animation.sheets?.length) return 0;
+  if (Object.keys(animation.direction_files ?? {}).length) return 1;
+  if (animation.files?.some((path) => path.split('/').length >= 3)) return 2;
+  return 3;
 }
 
 function specimenLayer(card) {
-  const animation = [...(card.sprite?.animations ?? [])].sort((left, right) => left.name.localeCompare(right.name))[0];
+  const animation = [...(card.sprite?.animations ?? [])].sort(
+    (left, right) =>
+      animationSourcePriority(left) - animationSourcePriority(right) || left.name.localeCompare(right.name),
+  )[0];
   const directions = animation?.directions ?? Object.keys(card.sprite?.facings ?? {}).sort();
   const direction = directions.includes('S') ? 'S' : directions[0];
   return {
@@ -215,7 +240,8 @@ export async function renderSpecimen({ root: assetRoot, cards, target, output })
     });
   }
   const destination = await safeOutput(root, output);
-  const temporary = `${destination}.tmp-${process.pid}.png`;
+  const stage = await mkdtemp(join(dirname(destination), '.thumbnail-specimen-'));
+  const temporary = join(stage, 'specimen.png');
   try {
     await sharp({ create: { width: columns * cell, height: rows * cell, channels: 4, background: '#c8c3b8' } })
       .composite(composite)
@@ -223,19 +249,23 @@ export async function renderSpecimen({ root: assetRoot, cards, target, output })
       .toFile(temporary);
     await rename(temporary, destination);
     return { output: destination, selected: selected.map((card) => card.id) };
-  } catch (error) {
-    await rm(temporary, { force: true });
-    throw error;
+  } finally {
+    await rm(stage, { recursive: true, force: true });
   }
 }
 
-async function payloadFor(root, serverUrl, scene, compiled, time) {
+async function payloadFor(root, serverUrl, scene, compiled, time, sourceCache = new Map()) {
   const layers = [];
   for (const { layer, card, extracted } of compiled) {
     const frame = frameFromCard(card, layer, time);
     if (!frame.path || !card.source?.files?.some((source) => source.path === frame.path))
       throw new Error(`${card.id} frame is not declared in source.files`);
-    const file = await safeInput(extracted, frame.path);
+    const cacheKey = `${extracted}\0${frame.path}`;
+    let file = sourceCache.get(cacheKey);
+    if (!file) {
+      file = await safeInput(extracted, frame.path);
+      sourceCache.set(cacheKey, file);
+    }
     const rootRelative = relative(root, file).split(sep).map(encodeURIComponent).join('/');
     const [anchorX, anchorY] = projectPoint(layer.position.grid, layer.position.offset_px);
     layers.push({
@@ -314,7 +344,8 @@ export async function renderStill({
   const scene = thumbnailSceneSchema.parse(input);
   const root = await realpath(resolve(assetRoot));
   const target = await safeOutput(root, output);
-  const temporary = `${target}.tmp-${process.pid}.png`;
+  const stage = await mkdtemp(join(dirname(target), '.thumbnail-still-'));
+  const temporary = join(stage, 'still.png');
   try {
     await withRenderer(root, scene, softwareGL, async (page, serverUrl, compiled) => {
       await page.evaluate(
@@ -325,9 +356,8 @@ export async function renderStill({
     });
     await rename(temporary, target);
     return target;
-  } catch (error) {
-    await rm(temporary, { force: true });
-    throw error;
+  } finally {
+    await rm(stage, { recursive: true, force: true });
   }
 }
 
@@ -364,21 +394,24 @@ export async function renderSceneOutputs({
   const stage = await mkdtemp(join(dirname(still1024), '.thumbnail-scene-'));
   try {
     await withRenderer(root, scene, softwareGL, async (page, serverUrl, compiled) => {
+      const sourceCache = new Map();
       for (const [index, time] of frameTimes().entries()) {
         await page.evaluate(
           (payload) => globalThis.renderThumbnailScene(payload),
-          await payloadFor(root, serverUrl, scene, compiled, time),
+          await payloadFor(root, serverUrl, scene, compiled, time, sourceCache),
         );
         await page.locator('canvas').screenshot({ path: join(stage, `${String(index).padStart(3, '0')}.png`) });
       }
     });
-    await copyFile(join(stage, '000.png'), still1024);
-    const still256Temporary = `${still256}.tmp-${process.pid}.png`;
-    await sharp(still1024).resize(256, 256, { kernel: 'nearest' }).png().toFile(still256Temporary);
-    await rename(still256Temporary, still256);
+    const stagedStill1024 = join(stage, 'still.1024.png');
+    const stagedStill256 = join(stage, 'still.256.png');
+    await copyFile(join(stage, '000.png'), stagedStill1024);
+    await sharp(stagedStill1024).resize(256, 256, { kernel: 'nearest' }).png().toFile(stagedStill256);
     const args = videoArgs(join(stage, '%03d.png'), join(stage, 'scene.mp4'), join(stage, 'scene.gif'));
     await runFfmpeg(args.mp4);
     await runFfmpeg(args.gif);
+    await rename(stagedStill1024, still1024);
+    await rename(stagedStill256, still256);
     await rename(join(stage, 'scene.mp4'), mp4);
     await rename(join(stage, 'scene.gif'), gif);
     return { still1024, still256, mp4, gif };

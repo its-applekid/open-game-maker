@@ -86,7 +86,7 @@ node apps/web/tools/thumbnail-scene.mjs render \
   --output sets/<set-id>/diorama.<world>
 ```
 
-The renderer binds an ephemeral server to `127.0.0.1`, blocks browser egress, writes stills before encoding, and atomically replaces final video outputs only after both encodes succeed. Install `ffmpeg` with `sudo apt install ffmpeg` when it is absent.
+The renderer binds an ephemeral server to `127.0.0.1`, blocks browser egress, stages every still and video privately, and begins replacing final outputs only after both encodes succeed. Install `ffmpeg` with `sudo apt install ffmpeg` when it is absent.
 
 ## Later-set survey
 
@@ -96,4 +96,12 @@ The renderer binds an ephemeral server to `127.0.0.1`, blocks browser egress, wr
 - LimeZu interior previews are useful crop candidates when the room composition represents the pack.
 - SmallScaleInt, TinyRPG, Quaternius, and Synty animation packs need rendered dioramas so characters, tiles, props, and motion are judged together.
 
-Record set-specific visual findings under `docs/plans/ogm-v1-build/asset-qa/`. Do not turn a local render inspection into an approval claim; final curation remains an operator review.
+## SmallScaleInt pilot findings
+
+- The 26-pack corpus mixes 64 px, 128 px, and HD art. Integer nearest-neighbour rendering preserves the pixels, but a useful composition still needs a per-layer integer scale; a single scale for the whole scene makes either the ground or the characters unreadable.
+- The fantasy packs share a palette, but their character silhouettes and tree/ground scale vary enough that category membership alone does not guarantee a balanced scene.
+- The modern-zombie interior tiles, furniture, campfire, and characters make a coherent room scene. Their source sizes differ, so the furniture and characters also need independent integer scales.
+- The only `creatures` pack contains animals but no ground or prop cards. The pilot scene therefore uses set-owned fantasy habitat cards as an explicit compatibility fallback. It demonstrates the animal silhouettes, but does not satisfy a strictly world-owned terrain rule and needs operator review before later sets copy that choice.
+- Public store media was available for 25 of 26 packs. No verified creator page was available for `smallscaleint-2d-topdown-archer-character`, so its collection card deliberately has no `previews.store` fallback.
+
+These observations are QA evidence, not visual approval. Final curation remains an operator review, and generated private-library artifacts stay outside the repository.

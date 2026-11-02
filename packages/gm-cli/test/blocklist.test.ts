@@ -158,7 +158,7 @@ describe('gm packs blocklist', () => {
     expect(feedLines(root).length).toBe(stats.lines);
   });
 
-  it('refuses preview and manifest keys that escape the asset library', async () => {
+  it('rejects traversal preview and manifest keys during card validation', async () => {
     const root = rightsLibrary();
     const outside = `${basename(root).toLowerCase()}-outside`;
     writeFileSync(join(dirname(root), outside), 'outside bytes');
@@ -175,8 +175,9 @@ describe('gm packs blocklist', () => {
 
     const { code, err, stats } = await blocklist(root);
     expect(code).toBe(1);
-    expect(err.filter((line) => line === `unsafe path outside asset library: ${traversal}`)).toHaveLength(2);
-    expect(stats.unsafe_paths).toEqual([traversal, traversal]);
+    expect(err).toContain(`unreadable collection card, its files are not listed: ${ANNUAL}/collection.card.json`);
+    expect(stats.collection_errors).toEqual([`${ANNUAL}/collection.card.json`]);
+    expect(stats.unsafe_paths).toEqual([]);
     expect(feedLines(root).some((line) => line.includes('..'))).toBe(false);
     expect(feedLines(root).some((line) => line.startsWith(`${sha('outside bytes')}  `))).toBe(false);
   });

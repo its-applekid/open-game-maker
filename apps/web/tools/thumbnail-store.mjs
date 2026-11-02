@@ -60,8 +60,25 @@ async function boundedResponse(url, { fetchImpl, kind, expectedHost, byteLimit }
     if (!response.ok) throw new Error(`${kind} fetch returned HTTP ${response.status}`);
     const declared = Number(response.headers.get('content-length') ?? 0);
     if (declared > byteLimit) throw new Error(`${kind} response exceeds byte limit`);
-    const body = Buffer.from(await response.arrayBuffer());
-    if (body.length > byteLimit) throw new Error(`${kind} response exceeds byte limit`);
+    if (!response.body) throw new Error(`${kind} response has no body`);
+    const reader = response.body.getReader();
+    const chunks = [];
+    let bytes = 0;
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        bytes += value.byteLength;
+        if (bytes > byteLimit) {
+          await reader.cancel().catch(() => undefined);
+          throw new Error(`${kind} response exceeds byte limit`);
+        }
+        chunks.push(Buffer.from(value));
+      }
+    } finally {
+      reader.releaseLock();
+    }
+    const body = Buffer.concat(chunks, bytes);
     return { body, response, url: current };
   }
   throw new Error(`${kind} redirect limit exceeded`);
@@ -89,6 +106,7 @@ export async function fetchStoreMedia({
   fetchedAt = new Date().toISOString(),
 }) {
   const root = await realpath(resolve(assetRoot));
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(packId)) throw new Error('pack id must be a slug');
   const page = new URL(pageUrl);
   if (!validItchPage(page) || page.search || page.hash || page.username || page.password)
     throw new Error('page URL must be a plain HTTPS itch.io creator page');
@@ -136,7 +154,7 @@ export async function fetchStoreMedia({
     };
     await mkdir(store, { recursive: true });
     for (const item of media) await rename(join(stage, item.path), join(store, item.path));
-    const temporary = join(store, `.media-${process.pid}.json`);
+    const temporary = join(stage, `.media-${process.pid}.json`);
     await writeFile(temporary, `${JSON.stringify(manifest, null, 2)}\n`);
     await rename(temporary, join(store, 'media.json'));
     return manifest;

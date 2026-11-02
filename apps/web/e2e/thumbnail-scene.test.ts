@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { execFile } from 'node:child_process';
-import { mkdtemp, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, readdir, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -20,6 +20,7 @@ import {
   selectSpecimenCards,
   videoArgs,
 } from '../tools/thumbnail-scene.mjs';
+import { safeOutput } from '../tools/thumbnail-paths.mjs';
 
 const execFileAsync = promisify(execFile);
 
@@ -74,6 +75,51 @@ describe('thumbnail specimens and store references', () => {
     expect(() => selectSpecimenCards([], { kind: 'pack', id: 'smallscaleint-empty-pack' })).toThrow(
       'smallscaleint-empty-pack',
     );
+  });
+
+  it('rejects unknown specimen target kinds', () => {
+    expect(() =>
+      selectSpecimenCards([card('t1:pack-a/characters/hero@1.0', 'fantasy', 'character')], {
+        kind: 'packs',
+        id: 'pack-a',
+      }),
+    ).toThrow('unknown specimen target kind');
+  });
+
+  it('chooses a loose animation frame instead of treating a packed atlas as one specimen', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-specimen-'));
+    const extracted = join(root, 'packs/fixture-pack/1.0/extracted');
+    await mkdir(join(extracted, 'Loose/Idle'), { recursive: true });
+    await writeFile(join(root, 'packs/fixture-pack/pack.json'), '{"current":"1.0"}\n');
+    await sharp({ create: { width: 256, height: 8, channels: 4, background: '#f00' } })
+      .png()
+      .toFile(join(extracted, 'Atlas.png'));
+    await sharp({ create: { width: 8, height: 8, channels: 4, background: '#0f0' } })
+      .png()
+      .toFile(join(extracted, 'Loose/Idle/0001.png'));
+    const specimenCard = {
+      ...card('t1:fixture-pack/characters/hero@1.0', 'fantasy', 'character'),
+      source: { files: [{ path: 'Atlas.png' }, { path: 'Loose/Idle/0001.png' }] },
+      sprite: {
+        animations: [
+          { name: 'atlas', frames: [0], files: ['Atlas.png'] },
+          { name: 'idle', frames: [0], files: ['Loose/Idle/0001.png'] },
+        ],
+      },
+    };
+    await writeCard(root, 'characters/hero', specimenCard);
+
+    await renderSpecimen({
+      root,
+      cards: [specimenCard],
+      target: { kind: 'pack', id: 'fixture-pack' },
+      output: 'packs/fixture-pack/specimen.png',
+    });
+
+    expect(await sharp(join(root, 'packs/fixture-pack/specimen.png')).metadata()).toMatchObject({
+      width: 64,
+      height: 64,
+    });
   });
 
   it('extracts only public itch image media and ignores purchase links', () => {
@@ -147,6 +193,33 @@ describe('thumbnail specimens and store references', () => {
     expect(manifest.media).toHaveLength(21);
   });
 
+  it('stops reading a chunked page response at the byte limit', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-store-'));
+    let cancelled = false;
+    let chunks = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        chunks += 1;
+        controller.enqueue(new Uint8Array(600 * 1024));
+        if (chunks === 10) controller.close();
+      },
+      cancel() {
+        cancelled = true;
+      },
+    });
+
+    await expect(
+      fetchStoreMedia({
+        root,
+        packId: 'smallscaleint-oversized-page',
+        pageUrl: 'https://smallscaleint.itch.io/oversized',
+        fetchImpl: async () => new Response(body, { headers: { 'content-type': 'text/html' } }),
+      }),
+    ).rejects.toThrow('byte limit');
+    expect(cancelled).toBe(true);
+    expect(chunks).toBeLessThan(10);
+  });
+
   it('rejects a redirect away from the allowlisted page host without replacing prior metadata', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-store-'));
     const store = join(root, 'packs/smallscaleint-game/store');
@@ -187,6 +260,18 @@ describe('thumbnail specimens and store references', () => {
       ]),
     ).rejects.toMatchObject({ stderr: expect.stringContaining('input escapes the selected root') });
   }, 20_000);
+
+  it('does not create output directories through a symlinked parent', async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), 'ogm-thumbnail-output-'));
+    const root = join(sandbox, 'assets');
+    const outside = join(sandbox, 'outside');
+    await mkdir(root);
+    await mkdir(outside);
+    await symlink(outside, join(root, 'linked'), 'dir');
+
+    await expect(safeOutput(root, 'linked/missing/specimen.png')).rejects.toThrow('real directory');
+    expect(await readdir(outside)).toEqual([]);
+  });
 });
 
 async function writeSprite(root: string, name: string, colour: string): Promise<void> {
@@ -231,6 +316,7 @@ async function fixtureLibrary(): Promise<{ root: string; scene: Record<string, u
       subkind,
       source: { files: [{ path: file }] },
       sprite: { facings: { S: file } },
+      describe: { set: 'fixture-set' },
     });
   }
   await writeCard(root, 'characters/hero', {
@@ -238,6 +324,7 @@ async function fixtureLibrary(): Promise<{ root: string; scene: Record<string, u
     kind: 'sprite',
     subkind: 'character',
     source: { files: [{ path: 'hero-0.png' }, { path: 'hero-1.png' }] },
+    describe: { set: 'fixture-set' },
     sprite: {
       animations: [
         { name: 'idle', frames: [0, 1], directions: ['S'], direction_files: { S: ['hero-0.png', 'hero-1.png'] } },
@@ -314,6 +401,42 @@ describe('headless thumbnail scene renderer', () => {
     expect([...data.subarray(centreAboveAnchor, centreAboveAnchor + 3)]).toEqual([255, 0, 0]);
   }, 30_000);
 
+  it('rejects cards outside the declared scene set and pack', async () => {
+    const { root, scene } = await fixtureLibrary();
+    const groundPath = join(root, 'packs/fixture-pack/cards/tiles/ground.card.json');
+    const ground = JSON.parse(await readFile(groundPath, 'utf8'));
+    ground.describe.set = 'another-set';
+    await writeFile(groundPath, `${JSON.stringify(ground)}\n`);
+    await expect(renderStill({ root, scene, output: 'cross-set.png', softwareGL: true })).rejects.toThrow(
+      'not in scene set',
+    );
+
+    ground.describe.set = 'fixture-set';
+    await writeFile(groundPath, `${JSON.stringify(ground)}\n`);
+    const packScene = structuredClone(scene);
+    packScene.target = { kind: 'pack', id: 'another-pack', world: 'fantasy' };
+    await expect(renderStill({ root, scene: packScene, output: 'cross-pack.png', softwareGL: true })).rejects.toThrow(
+      'not in scene pack',
+    );
+  }, 60_000);
+
+  it('rejects an explicitly requested sheet variant that does not exist', async () => {
+    const { root, scene } = await fixtureLibrary();
+    const heroPath = join(root, 'packs/fixture-pack/cards/characters/hero.card.json');
+    const hero = JSON.parse(await readFile(heroPath, 'utf8'));
+    hero.sprite.animations[0].sheets = [
+      { path: 'hero-0.png', variant: 'shadowless', frame_w: 8, frame_h: 8, cols: 1, rows: 1 },
+    ];
+    await writeFile(heroPath, `${JSON.stringify(hero)}\n`);
+    const heroLayer = scene.layers.find((layer: { id: string }) => layer.id === 'hero');
+    heroLayer.selection.variant = 'shadow';
+    delete heroLayer.playback;
+
+    await expect(renderStill({ root, scene, output: 'missing-variant.png', softwareGL: true })).rejects.toThrow(
+      'has no variant shadow',
+    );
+  }, 30_000);
+
   it('renders a byte-stable native-pixel specimen with no labels', async () => {
     const { root } = await fixtureLibrary();
     const relativeCards = ['tiles/ground', 'props/a', 'props/b', 'props/c', 'characters/hero', 'characters/enemy'];
@@ -355,5 +478,16 @@ describe('headless thumbnail scene renderer', () => {
     expect((await readFile(join(root, 'sets/fixture-set/diorama.fantasy.256.gif'))).subarray(0, 6).toString()).toMatch(
       /^GIF8[79]a$/,
     );
+  }, 120_000);
+
+  it('refuses an invalid final target before publishing another scene artifact', async () => {
+    const { root, scene } = await fixtureLibrary();
+    const outputDirectory = join(root, 'sets/fixture-set');
+    await mkdir(join(outputDirectory, 'failure.256.png'), { recursive: true });
+
+    await expect(
+      renderSceneOutputs({ root, scene, outputBase: 'sets/fixture-set/failure', softwareGL: true }),
+    ).rejects.toThrow();
+    expect(await readdir(outputDirectory)).toEqual(['failure.256.png']);
   }, 120_000);
 });

@@ -149,6 +149,19 @@ describe('style-families.json', () => {
       .sets.find((candidate) => candidate.id === 'smallscaleint');
     expect(set?.packs.map((pack) => pack.id).sort()).toEqual(SMALLSCALEINT_PACKS);
     expect(set?.traits).toMatchObject({ perspective: 'isometric 2:1' });
+    expect(set?.previews).toEqual({
+      specimen: 'sets/smallscaleint/specimen.png',
+      diorama: {
+        fantasy: 'sets/smallscaleint/diorama.fantasy.256.png',
+        'modern-zombie': 'sets/smallscaleint/diorama.modern-zombie.256.png',
+        creatures: 'sets/smallscaleint/diorama.creatures.256.png',
+      },
+      loop: {
+        fantasy: 'sets/smallscaleint/diorama.fantasy.256.gif',
+        'modern-zombie': 'sets/smallscaleint/diorama.modern-zombie.256.gif',
+        creatures: 'sets/smallscaleint/diorama.creatures.256.gif',
+      },
+    });
   });
 
   // The seeds (filename words, no images) call Kenney's 3D kits simple-low-poly; C2 §2 and this file call them
@@ -197,6 +210,24 @@ describe('StyleFamilySchema', () => {
         : f,
     );
     expect(StyleFamiliesSchema.safeParse(unmeasured).success).toBe(false);
+  });
+
+  it('refuses set previews when a world is missing its still or loop', () => {
+    const families = structuredClone(loadFamilies());
+    const previews = families
+      .find((entry) => entry.id === 'isometric-2d')!
+      .sets.find((set) => set.id === 'smallscaleint')!.previews!;
+    delete previews.loop.creatures;
+    expect(StyleFamiliesSchema.safeParse(families).success).toBe(false);
+  });
+
+  it('refuses traversal segments in set preview paths', () => {
+    const families = structuredClone(loadFamilies());
+    families
+      .find((entry) => entry.id === 'isometric-2d')!
+      .sets.find((set) => set.id === 'smallscaleint')!.previews!.specimen = 'sets/../private.png';
+
+    expect(StyleFamiliesSchema.safeParse(families).success).toBe(false);
   });
 
   it('allows an advisory compatibility link to a known pack outside the set', () => {

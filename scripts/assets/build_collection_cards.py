@@ -228,7 +228,7 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
         out["previews"] = {"thumb": f"packs/{pid}/icon.png"}
     else:
         out["flags"] = ["missing-preview"]
-    smallscaleint.decorate_collection(out, pid)
+    smallscaleint.decorate_collection(out, pid, pj.parent)
     locks = {path: entry for path, entry in (old or {}).get("provenance", {}).items() if entry.get("locked") and path != "*"}
 
     def restore_locks():  # locked fields are never overwritten

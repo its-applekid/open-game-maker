@@ -85,6 +85,11 @@ describe('GET /api/catalog/style-families', () => {
     });
     expect(polygon?.packs.map((pack) => pack.id)).toContain('synty-polygon-goblin-war-camp');
     expect(polygon?.packs.find((pack) => pack.id === 'synty-polygon-goblin-war-camp')?.thumbnailUrl).toBeNull();
+    const smallscaleint = families
+      .find((family) => family.id === 'isometric-2d')
+      ?.sets.find((set) => set.id === 'smallscaleint');
+    expect(smallscaleint).toBeDefined();
+    expect(smallscaleint).not.toHaveProperty('previews');
     expect(Object.keys(families[0]).sort()).toEqual(
       ['coverage', 'creationChoice', 'dimension', 'fidelity', 'id', 'label', 'packs', 'sets', 'views'].sort(),
     );

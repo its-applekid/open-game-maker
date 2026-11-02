@@ -63,16 +63,71 @@ const scenePlaybackSchema = z.strictObject({
   phase_frames: z.number().int().min(0),
 });
 
-export const thumbnailSceneLayerSchema = z.strictObject({
+const sceneLayerShape = {
   id: slugSchema,
   kind: z.enum(['ground', 'prop', 'character', 'effect']),
   role: z.enum(['hero', 'enemy', 'companion']).optional(),
   card_id: thumbnailCardIdSchema,
   position: scenePositionSchema,
-  selection: sceneSelectionSchema,
-  playback: scenePlaybackSchema.optional(),
   z_order: z.number().int(),
+};
+
+export const thumbnailSceneLayerSchema = z
+  .union([
+    z.strictObject({ ...sceneLayerShape, selection: sceneSelectionSchema }),
+    z.strictObject({
+      ...sceneLayerShape,
+      selection: sceneSelectionSchema.extend({ action: slugSchema }),
+      playback: scenePlaybackSchema,
+    }),
+  ])
+  .refine((layer) => !('playback' in layer) || Boolean(layer.selection.action), {
+    path: ['selection', 'action'],
+    message: 'playback requires a selected action',
+  });
+
+const layerCountConstraint = (property: 'kind' | 'role', value: string, minimum: number, maximum?: number) => ({
+  type: 'object',
+  properties: {
+    layers: {
+      type: 'array',
+      contains: { type: 'object', properties: { [property]: { const: value } }, required: [property] },
+      minContains: minimum,
+      ...(maximum === undefined ? {} : { maxContains: maximum }),
+    },
+  },
 });
+
+const emittedCompositionConstraints = {
+  allOf: [
+    layerCountConstraint('kind', 'ground', 1, 1),
+    layerCountConstraint('kind', 'prop', 3, 6),
+    layerCountConstraint('kind', 'character', 2, 3),
+    layerCountConstraint('role', 'hero', 1, 1),
+    layerCountConstraint('role', 'enemy', 1),
+    {
+      type: 'object',
+      properties: {
+        layers: {
+          type: 'array',
+          items: {
+            type: 'object',
+            allOf: [
+              {
+                if: { type: 'object', properties: { kind: { const: 'character' } }, required: ['kind'] },
+                then: { type: 'object', properties: { role: {} }, required: ['role'] },
+              },
+              {
+                if: { type: 'object', properties: { role: {} }, required: ['role'] },
+                then: { type: 'object', properties: { kind: { const: 'character' } } },
+              },
+            ],
+          },
+        },
+      },
+    },
+  ],
+};
 
 function projectedAnchor(layer: z.infer<typeof thumbnailSceneLayerSchema>): [number, number] {
   const [gridX, gridY, gridZ] = layer.position.grid;
@@ -137,7 +192,8 @@ export const thumbnailSceneSchema = z
     if (!scene.layers.some((layer) => layer.role === 'enemy')) {
       ctx.addIssue({ code: 'custom', path: ['layers'], message: 'a scene requires at least one enemy' });
     }
-  });
+  })
+  .meta(emittedCompositionConstraints);
 export type ThumbnailScene = z.infer<typeof thumbnailSceneSchema>;
 export type ThumbnailSceneLayer = z.infer<typeof thumbnailSceneLayerSchema>;
 

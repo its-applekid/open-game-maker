@@ -11,6 +11,8 @@ type Scene = {
     role?: string;
     card_id: string;
     position: { grid: [number, number, number]; offset_px: [number, number]; scale: number };
+    selection?: { action?: string };
+    playback?: { mode: string; fps: number; phase_frames: number };
   }>;
 };
 
@@ -67,6 +69,15 @@ describe('thumbnail scene contract', () => {
     mutate(scene);
 
     expect(thumbnailSceneSchema.safeParse(scene).success).toBe(false);
+    expect(emittedValidator('thumbnail-scene.v1')(scene)).toBe(false);
+  });
+
+  it('keeps character role constraints aligned in Zod and emitted JSON Schema', () => {
+    const scene = fixture();
+    scene.layers.find((layer) => layer.kind === 'prop')!.role = 'companion';
+
+    expect(thumbnailSceneSchema.safeParse(scene).success).toBe(false);
+    expect(emittedValidator('thumbnail-scene.v1')(scene)).toBe(false);
   });
 
   it('requires the hero anchor to project to the canvas centre', () => {
@@ -74,5 +85,14 @@ describe('thumbnail scene contract', () => {
     scene.layers.find((layer) => layer.role === 'hero')!.position.grid = [3, 3, 0];
 
     expect(thumbnailSceneSchema.safeParse(scene).error?.issues[0]?.message).toContain('canvas centre');
+  });
+
+  it('requires playback layers to select an action', () => {
+    const scene = fixture();
+    const animated = scene.layers.find((layer) => layer.playback)!;
+    delete animated.selection?.action;
+
+    expect(thumbnailSceneSchema.safeParse(scene).success).toBe(false);
+    expect(emittedValidator('thumbnail-scene.v1')(scene)).toBe(false);
   });
 });
