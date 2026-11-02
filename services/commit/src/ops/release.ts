@@ -8,6 +8,7 @@ export async function release(op: ExtractCommitOp<'release'>, context: Operation
   const repository = await context.repos.resolve(op.gameId);
   const verdict = await context.gate.evaluate({
     kind: op.kind,
+    gameId: op.gameId,
     repository,
     sha: op.sha,
   });
