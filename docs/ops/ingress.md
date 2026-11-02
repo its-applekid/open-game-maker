@@ -23,7 +23,8 @@ proxies carry no WebSocket upgrades, so sockets connect to 8443 directly with sh
 ## Netlify lines (OGM-070 copies these)
 
 `_redirects`, proxies before the SPA fallback. The repo holds no copy: `apps/web/tools/deploy.sh` writes it into the
-deploy payload from `VITE_API_ORIGIN=https://<tailnet-host>:8443` (`apps/web/tools/redirects.mjs`):
+deploy payload from `VITE_API_ORIGIN=https://<tailnet-host>:8443` in `~/.config/ogm/env/web.env`
+(`apps/web/tools/redirects.mjs`):
 
 ```
 /api/*  https://<tailnet-host>:8443/api/:splat  200

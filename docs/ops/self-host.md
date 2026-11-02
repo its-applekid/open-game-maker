@@ -14,13 +14,14 @@ everything else comes from env files ([runbook.md](runbook.md) "Per-unit values"
 | `apps/web/public/_headers` | no host today | nothing; sockets take their hosts from `OGM_PUBLIC_ORIGIN` and `OGM_VOICE_WS_URL` |
 | `apps/web/.netlify-site-id` | the current site's id | your Netlify site's id; `apps/web/tools/deploy.sh` reads it |
 
-Two host values are set when you deploy the app, never stored in the repo. `VITE_API_ORIGIN` is the API's public
-origin: `apps/web/tools/deploy.sh` writes Netlify's `_redirects` (the `/api/*` and `/auth/*` proxies) from it and stops
-if it is missing. `VITE_GAMES_ORIGIN` is baked into the web build for the games frame
-(`apps/web/src/routes/game/GameScreen.tsx`, falling back to `http://127.0.0.1:10000`):
+`apps/web/tools/deploy.sh` reads two host values from `~/.config/ogm/env/web.env` (`ogm-env-init web`) and refuses to
+deploy without either. `VITE_GAMES_ORIGIN` is baked into the web build for the games frame
+(`apps/web/src/routes/game/GameScreen.tsx` falls back to `http://127.0.0.1:10000`). `VITE_API_ORIGIN` is where Netlify
+proxies `/api/*` and `/auth/*`; deploy writes `_redirects` from it, so the repo keeps no copy:
 
 ```
-VITE_API_ORIGIN=https://<tailnet-host>:8443 VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 apps/web/tools/deploy.sh
+VITE_GAMES_ORIGIN=https://<tailnet-host>:10000
+VITE_API_ORIGIN=https://<tailnet-host>:8443
 ```
 
 The commit unit needs no edit: `ops/systemd/ogm-commit.service` uses `@REPO@` like every other unit, and

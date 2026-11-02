@@ -12,6 +12,7 @@ export const OGM_ENV_UNITS = [
   'aiur',
   'backup',
   'gm',
+  'web',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -68,6 +69,18 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_PUBLIC_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:8443' },
   { name: 'OGM_GAMES_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:10000' },
   { name: 'OGM_APP_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://ogm2000.netlify.app (frame-ancestors, CORS)' },
+  {
+    name: 'VITE_GAMES_ORIGIN',
+    unit: 'web',
+    kind: 'url',
+    doc: 'games origin deploy.sh bakes into the app build (same as OGM_GAMES_ORIGIN)',
+  },
+  {
+    name: 'VITE_API_ORIGIN',
+    unit: 'web',
+    kind: 'url',
+    doc: 'API origin deploy.sh writes into Netlify _redirects for /api and /auth (same as OGM_PUBLIC_ORIGIN)',
+  },
   { name: 'OGM_DATA_DIR', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/data (SQLite, state)' },
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
   { name: 'OGM_GAMES_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },

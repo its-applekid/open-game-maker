@@ -8,7 +8,7 @@ the full origin map.
 
 | Where | Value |
 | --- | --- |
-| `_redirects`, written by `apps/web/tools/deploy.sh` from `VITE_API_ORIGIN`, before the SPA fallback | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
+| `_redirects`, written by `apps/web/tools/deploy.sh` from `VITE_API_ORIGIN` in `web.env`, before the SPA fallback | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
 | | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
 | `OGM_APP_ORIGIN` in `~/.config/ogm/env/api.env` | `https://ogm2000.netlify.app` (Better Auth `baseURL`, `trustedOrigins`, passkey `origin`) |
 | Better Auth `basePath` | `/auth` |

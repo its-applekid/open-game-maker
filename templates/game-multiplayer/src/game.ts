@@ -1,0 +1,267 @@
+import type { ActionFrame, GameInstance, GameModule, Patch, SaveData } from '@ogm/contracts';
+import { z } from 'zod';
+
+import gmManifest from '../gm.manifest.json' with { type: 'json' };
+import { hud } from './hud.js';
+import {
+  addPlayer,
+  applyInput,
+  applySnapshotState,
+  createSimulation,
+  GROUND_Y,
+  platformsFromDesign,
+  removePlayer,
+  restoreSimulation,
+  serializeSimulation,
+  stepSimulation,
+  type SerializedSimulation,
+  type SimulationState,
+} from './state.js';
+
+const entitySchema = z.object({
+  id: z.string(),
+  prefab: z.enum(['platform']),
+  level: z.string(),
+  origin: z.string(),
+  props: z.object({
+    x: z.number(),
+    y: z.number(),
+    w: z.number().positive().optional(),
+    h: z.number().positive().optional(),
+  }),
+});
+
+export const designSchema = z.object({
+  schemaVersion: z.number().int().positive().default(1),
+  globals: z
+    .object({
+      'player.speed': z.number().min(60).max(400).default(160),
+      'level.width': z.number().int().min(640).max(4096).default(1280),
+    })
+    .default({ 'player.speed': 160, 'level.width': 1280 }),
+  entities: z.record(z.string(), entitySchema).default({
+    plat_1: {
+      id: 'plat_1',
+      prefab: 'platform',
+      level: 'main',
+      origin: 'build',
+      props: { x: 400, y: 320, w: 200 },
+    },
+  }),
+});
+
+export type PlatformDesign = z.infer<typeof designSchema>;
+export type PlatformSave = SerializedSimulation;
+
+export const defaultDesign: PlatformDesign = designSchema.parse({});
+
+export interface TemplateContext {
+  design: PlatformDesign;
+  state: SimulationState;
+  /** Which player this client is; the HUD and camera follow it. Kept current from `gm.net`. */
+  localPlayerIndex: number;
+  paused: boolean;
+  disposed: boolean;
+  lifecycle?: {
+    pause(): void;
+    resume(): void;
+    dispose(): void;
+    restartScene(data?: unknown): void;
+  };
+  view?: {
+    screenToWorld(nx: number, ny: number): [number, number];
+    worldToScreen(point: [number, number, number]): { x: number; y: number } | null;
+  };
+  advance(dt: number, frames: ActionFrame[]): void;
+}
+
+let activeContext: TemplateContext | undefined;
+
+export function getGameContext(): TemplateContext {
+  if (!activeContext) throw new Error('game context is not mounted');
+  return activeContext;
+}
+
+export function connectPhaserLifecycle(lifecycle: TemplateContext['lifecycle']): void {
+  getGameContext().lifecycle = lifecycle;
+}
+
+function hitsPlatform(
+  platforms: SimulationState['platforms'],
+  x: number,
+  y: number,
+  width = 160,
+  height = 24,
+): boolean {
+  return platforms.some(
+    (platform) =>
+      Math.abs(x - platform.x) < (width + platform.width) / 2 &&
+      Math.abs(y - platform.y) < (height + platform.height) / 2,
+  );
+}
+
+function playerById(state: SimulationState, id: string) {
+  for (const player of state.players.values()) {
+    if (player.id === id) return player;
+  }
+  return undefined;
+}
+
+export const game: GameModule<PlatformDesign, PlatformSave> = {
+  manifest: {
+    id: gmManifest.id,
+    sdk: '*',
+    title: 'Grey-box Multiplayer',
+    inputs: { actions: { move: 'axis', jump: 'button' } },
+    presentation: { orientation: 'landscape', minLogical: { w: 640, h: 480 }, fit: 'fixed' },
+    view: 'side',
+    dimension: '2d',
+    capabilities: gmManifest.capabilities,
+    maxPlayers: gmManifest.maxPlayers,
+    palette: {
+      categories: [{ id: 'level', label: 'Level', kind: 'items' }],
+      items: [{ prefab: 'platform', label: 'Platform', category: 'level' }],
+    },
+    tools: ['select', 'place'],
+    gizmos: { platform: ['translate'] },
+    grid: { size: 16, units: 'px' },
+    saves: true,
+    overrides: { aliases: {}, retired: [] },
+  },
+  designSchema,
+  controls: [
+    {
+      id: 'player.speed',
+      label: 'Player speed',
+      scope: 'global',
+      path: '/globals/player.speed',
+      widget: { kind: 'slider', min: 60, max: 400, step: 10, unit: 'px/s' },
+      default: 160,
+    },
+    {
+      id: 'level.width',
+      label: 'Level width',
+      scope: 'global',
+      path: '/globals/level.width',
+      widget: { kind: 'count', min: 640, max: 4096, semantics: 'param' },
+      default: 1280,
+    },
+  ],
+  async mount(_host, initialDesign, save): Promise<GameInstance<PlatformDesign, PlatformSave>> {
+    const context: TemplateContext = {
+      design: structuredClone(initialDesign),
+      state: save ? restoreSimulation(initialDesign, save.data) : createSimulation(initialDesign),
+      localPlayerIndex: 0,
+      paused: false,
+      disposed: false,
+      advance(dt, frames) {
+        if (context.paused || context.disposed) return;
+        for (const frame of frames) applyInput(context.state, frame.playerIndex, frame);
+        stepSimulation(context.state, context.design, dt);
+      },
+    };
+    activeContext = context;
+
+    return {
+      pause() {
+        context.paused = true;
+        context.lifecycle?.pause();
+      },
+      resume() {
+        context.paused = false;
+        context.lifecycle?.resume();
+      },
+      dispose() {
+        if (context.disposed) return;
+        context.disposed = true;
+        context.lifecycle?.dispose();
+        if (activeContext === context) activeContext = undefined;
+      },
+      applyDesign(next: PlatformDesign, patches: Patch[]) {
+        context.design = structuredClone(next);
+        context.state.platforms = platformsFromDesign(next);
+        const restart = patches.some(
+          ({ path }) => path[0] === 'entities' || (path[0] === 'globals' && path[1] === 'level.width'),
+        );
+        if (restart) context.lifecycle?.restartScene({ width: next.globals['level.width'] });
+        return restart ? 'restart-scene' : 'live';
+      },
+      serialize(): SaveData<PlatformSave> {
+        return { saveSchemaVersion: 1, data: serializeSimulation(context.state) };
+      },
+      restore(saved) {
+        context.state = restoreSimulation(context.design, saved.data);
+      },
+      migrate(previous) {
+        const data = previous.data as Partial<SerializedSimulation>;
+        return {
+          saveSchemaVersion: 1,
+          data: {
+            tick: Number.isInteger(data.tick) && Number(data.tick) >= 0 ? Number(data.tick) : 0,
+            entities: data.entities && typeof data.entities === 'object' ? structuredClone(data.entities) : {},
+          },
+        };
+      },
+      pick(nx, ny) {
+        const [x, y] = context.view?.screenToWorld(nx, ny) ?? [
+          nx * game.manifest.presentation.minLogical.w,
+          ny * game.manifest.presentation.minLogical.h,
+        ];
+        const targets = [];
+        for (const player of context.state.players.values()) {
+          if (Math.abs(x - player.p[0]) <= 14 && y >= player.p[1] && y <= player.p[1] + 40) {
+            targets.push({ id: player.id, kind: 'entity' as const });
+          }
+        }
+        for (const platform of context.state.platforms) {
+          if (Math.abs(x - platform.x) <= platform.width / 2 && y >= platform.y && y <= platform.y + platform.height) {
+            targets.push({ id: platform.id, kind: 'entity' as const });
+          }
+        }
+        return targets;
+      },
+      worldToScreen(id) {
+        const player = playerById(context.state, id);
+        if (player) {
+          return (
+            context.view?.worldToScreen([player.p[0], player.p[1], 0]) ?? {
+              x: player.p[0],
+              y: player.p[1],
+            }
+          );
+        }
+        const platform = context.state.platforms.find((candidate) => candidate.id === id);
+        if (!platform) return null;
+        return context.view?.worldToScreen([platform.x, platform.y, 0]) ?? { x: platform.x, y: platform.y };
+      },
+      validatePlacement(prefab, pose) {
+        if (prefab !== 'platform') return { ok: false, reason: 'unknown prefab' };
+        const [x, y] = pose.position;
+        if (x < 80 || x > context.design.globals['level.width'] - 80 || y < 0 || y > GROUND_Y - 24) {
+          return { ok: false, reason: 'outside level bounds' };
+        }
+        if (hitsPlatform(context.state.platforms, x, y)) {
+          return { ok: false, reason: 'overlaps an existing platform' };
+        }
+        return { ok: true };
+      },
+      net: {
+        spawn(playerIndex, playerId) {
+          addPlayer(context.state, playerIndex, playerId);
+        },
+        despawn(playerId) {
+          removePlayer(context.state, playerId);
+        },
+        snapshot() {
+          return { tick: context.state.tick, state: serializeSimulation(context.state) };
+        },
+        applySnapshot(snapshot) {
+          applySnapshotState(context.state, snapshot.state as SerializedSimulation);
+        },
+        hud(playerIndex) {
+          return hud(context.state.players, playerIndex);
+        },
+      },
+    };
+  },
+};

@@ -56,8 +56,11 @@ const host = vi.hoisted(() => {
 });
 
 vi.mock('../../features/editor/api', () => editorApi);
+const branchList = vi.hoisted(() => ({ value: undefined as Array<{ id: string; name: string }> | undefined }));
+vi.mock('../games/useBranches', () => ({ useBranches: () => ({ data: branchList.value }) }));
 vi.mock('../../features/editor/frame', () => host);
 
+import { useDock } from '../../features/build-chat/dock';
 import { GameScreen } from './GameScreen';
 
 function renderGame(entry = '/g/game') {
@@ -75,6 +78,8 @@ function renderGame(entry = '/g/game') {
 }
 
 beforeEach(() => {
+  branchList.value = undefined;
+  useDock.getState().reset();
   editorApi.getGame.mockResolvedValue({ id: 'game', title: 'Goblin Cellar' });
   editorApi.getOptionalPublished.mockResolvedValue({ available: false });
   editorApi.listJobs.mockResolvedValue({ jobs: [] });
@@ -140,6 +145,32 @@ describe('GameScreen', () => {
     expect(host.controller.setMode).toHaveBeenCalledWith('edit');
   });
 
+  it('asks for a change in the build chat for this game and branch', async () => {
+    renderGame();
+    await screen.findByText('Goblin Cellar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+
+    expect(useDock.getState()).toMatchObject({
+      view: 'chat',
+      draft: { gameId: 'game', branchId: 'main', title: 'Goblin Cellar' },
+    });
+  });
+
+  it('asks for the change on main when the editor opened the main branch by its id', async () => {
+    // Admission only accepts the literal 'main'; the games screen opens branches by id.
+    branchList.value = [
+      { id: 'b_main', name: 'main' },
+      { id: 'b_side', name: 'side' },
+    ];
+    renderGame('/g/game?v=b_main');
+    await screen.findByText('Goblin Cellar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+
+    expect(useDock.getState().draft).toMatchObject({ gameId: 'game', branchId: 'main' });
+  });
+
   it('reports a denied edit lease as read only', async () => {
     editorApi.acquireLease.mockResolvedValue({ ok: false, kind: 'lease-lost', holder: 'other-session' });
 
@@ -192,6 +223,45 @@ describe('GameScreen', () => {
       }),
     );
   });
+
+  it('does not let a room watcher ask for a change', async () => {
+    window.__ogmHost = {
+      version: 1,
+      route: () => '/g/game',
+      navigate: vi.fn(),
+      register: vi.fn(),
+      get: vi.fn(),
+      snapshot: () => ({ route: '/g/game', registered: [] }),
+    };
+    renderGame('/g/game?test');
+    const room = await waitFor(() => {
+      const current = (window.__ogmHost as OgmHost & { room?: { fake: { emit(message: unknown): void } } }).room;
+      expect(current).toBeDefined();
+      return current!;
+    });
+    room.fake.emit({
+      t: 'welcome',
+      you: { userId: 'watcher', playerIndex: 1, sessionId: 'watcher-session' },
+      state: {
+        protocol: 1,
+        pin: { gameId: 'game', branchId: 'main', buildId: 'build' },
+        ownerId: 'owner',
+        editorSessionId: 'owner-session',
+        phase: 'editing',
+        phaseAt: 1_000,
+        playRev: 5,
+        lastRev: 5,
+        maxPlayers: 4,
+        members: {},
+        presence: { selection: [], privateMode: false },
+      },
+    });
+    await waitFor(() => expect((window.__ogmHost as OgmHost & { game?: { mode: string } }).game?.mode).toBe('edit'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+
+    expect(useDock.getState().draft).toBeUndefined();
+  }, 10_000);
 
   it('drives watcher revisions and modes through the fake room hook', async () => {
     const baseHost: OgmHost = {

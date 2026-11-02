@@ -1,22 +1,28 @@
-// Netlify _redirects for the deploy payload: API and auth proxies to the host's public origin, then the SPA fallback.
-// The origin comes from VITE_API_ORIGIN at deploy time so the repo never names the host.
+#!/usr/bin/env node
+// Print Netlify's _redirects for the deploy payload: API and auth proxies to VITE_API_ORIGIN from <env dir>/web.env,
+// then the SPA fallback. The origin is a host value, so the repo never holds it (#317).
+import { homedir } from 'node:os';
+import { join, resolve } from 'node:path';
+import process from 'node:process';
 import { pathToFileURL } from 'node:url';
 
+import { readApiOrigin } from './games-origin.mjs';
+
 export function renderRedirects(apiOrigin) {
-  const origin = globalThis.URL.canParse(apiOrigin) ? new globalThis.URL(apiOrigin).origin : 'null';
-  if (!origin.startsWith('https://') || origin !== apiOrigin.replace(/\/$/, '')) {
-    throw new Error(`VITE_API_ORIGIN must be an https origin like https://<tailnet-host>:8443, got "${apiOrigin}"`);
-  }
-  return [`/api/*  ${origin}/api/:splat  200`, `/auth/*  ${origin}/auth/:splat  200`, '/*  /index.html  200', ''].join(
-    '\n',
-  );
+  return [
+    `/api/*  ${apiOrigin}/api/:splat  200`,
+    `/auth/*  ${apiOrigin}/auth/:splat  200`,
+    '/*  /index.html  200',
+    '',
+  ].join('\n');
 }
 
-if (globalThis.process.argv[1] && import.meta.url === pathToFileURL(globalThis.process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  const envDir = process.env.OGM_ENV_DIR || join(homedir(), '.config', 'ogm', 'env');
   try {
-    globalThis.process.stdout.write(renderRedirects(globalThis.process.argv[2] ?? ''));
+    process.stdout.write(renderRedirects(readApiOrigin(envDir)));
   } catch (error) {
-    globalThis.process.stderr.write(`${error.message}\n`);
-    globalThis.process.exit(1);
+    process.stderr.write(`deploy: ${error.message}\n`);
+    process.exit(1);
   }
 }

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "globals": {
+    "player.speed": 160,
+    "level.width": 1280
+  },
+  "entities": {
+    "plat_1": {
+      "id": "plat_1",
+      "prefab": "platform",
+      "level": "main",
+      "origin": "build",
+      "props": {
+        "x": 400,
+        "y": 320,
+        "w": 200
+      }
+    }
+  }
+}

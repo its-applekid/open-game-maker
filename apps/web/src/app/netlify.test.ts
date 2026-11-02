@@ -16,20 +16,12 @@ describe('Netlify static configuration', () => {
     ]);
   });
 
-  // A missing or malformed origin would ship an app whose sign-in and API calls 404, so deploy must stop instead.
-  it.each(['', 'http://box.tail0000.ts.net:8443', 'https://box.tail0000.ts.net:8443/api', 'box:8443'])(
-    'refuses %j as the proxy origin',
-    (origin) => {
-      expect(() => renderRedirects(origin)).toThrow(/VITE_API_ORIGIN/);
-    },
-  );
-
   // The host is a deploy-time value (#317): the repo keeps no _redirects of its own.
   it('writes _redirects only into the deploy payload', () => {
     const deploy = readFileSync(resolve(process.cwd(), 'tools/deploy.sh'), 'utf8');
 
     expect(existsSync(resolve(process.cwd(), 'public/_redirects'))).toBe(false);
-    expect(deploy).toContain('tools/redirects.mjs" "${VITE_API_ORIGIN:-}"');
+    expect(deploy).toContain('REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"');
     expect(deploy).toContain('>"$DEPLOY_DIR/_redirects"');
   });
 

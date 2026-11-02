@@ -1,0 +1,5 @@
+{
+  "id": "game-multiplayer",
+  "capabilities": ["multiplayer"],
+  "maxPlayers": 4
+}
