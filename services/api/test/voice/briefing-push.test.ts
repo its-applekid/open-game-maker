@@ -1,16 +1,19 @@
+import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 import { schema } from '@ogm/db';
 import { BriefingPush } from '@ogm/contracts';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadApiEnv } from '../../src/app/env.js';
 import {
   buildBriefing,
+  clearVoiceWaitingOn,
   pushBriefing,
   registerVoiceTarget,
+  setVoiceWaitingOn,
   startBriefingPush,
   type VoiceTarget,
 } from '../../src/voice/briefing-push.js';
@@ -25,6 +28,15 @@ const build: VoiceTarget = {
   job_id: ids.running,
   ticket: '7',
   creator_id: ids.creator,
+};
+const budgetFixture = JSON.parse(
+  readFileSync(new URL('../../../../fixtures/voice/budget-status.json', import.meta.url), 'utf8'),
+) as {
+  reset_zone: string;
+  unit_label: string;
+  micro_usd_per_unit: number;
+  size_classes: Record<'small' | 'medium' | 'large' | 'huge', [number, number]>;
+  expected: [string, string];
 };
 
 type Received = { auth: string | undefined; body: Record<string, unknown> };
@@ -56,6 +68,36 @@ async function fakeHost(delayMs = 0, status = 204) {
 const settle = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 describe('buildBriefing', () => {
+  it('matches the cross-language worked budget fixture exactly', async () => {
+    const deps = worked();
+    deps.db
+      .insert(schema.familyBudgetSettings)
+      .values({
+        familyId: ids.family,
+        resetZone: budgetFixture.reset_zone,
+        unitLabel: budgetFixture.unit_label,
+        microUsdPerUnit: budgetFixture.micro_usd_per_unit,
+        slotsNewGame: 1,
+        slotsEdit: 3,
+        hardCapMultiplier: 1,
+      })
+      .run();
+    for (const [sizeClass, [p50MicroUsd, p80MicroUsd]] of Object.entries(budgetFixture.size_classes)) {
+      deps.db
+        .update(schema.sizeClasses)
+        .set({ p50MicroUsd, p80MicroUsd })
+        .where(and(eq(schema.sizeClasses.kind, 'feature'), eq(schema.sizeClasses.sizeClass, sizeClass)))
+        .run();
+    }
+
+    const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
+
+    expect(briefing.extra[0].text).toBe(budgetFixture.expected[0]);
+    expect(briefing.sections[0].text).toBe(budgetFixture.expected.join('\n'));
+    expect(briefing.sections[2].text).toBe(budgetFixture.expected[1]);
+    expect(briefing.observed_at).toBe(NOW.toISOString());
+  });
+
   it('puts the worked budget in the friendly unit, without dollars', async () => {
     const deps = worked();
     const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
@@ -64,11 +106,15 @@ describe('buildBriefing', () => {
     expect(briefing.target_key).toBe('scope:s_1');
     expect(briefing.extra[0].title).toBe('Budget');
     expect(text).toBe(
-      '20 energy left today (40%); resets 00:00; 2 free edit slots; 0 queued. ' +
-        'Typical sizes in energy: small ≈ 5–15, medium ≈ 15–40, large ≈ 40–90, huge ≈ 90–200.',
+      'Remaining today: 20.0 energy (40%). Resets at 12:00 am. ' + 'Free slots: 1 new game, 2 edits. Queued: none.',
     );
-    expect(briefing.sections.map((section) => section.id)).toEqual(['budget', 'progress']);
-    expect(briefing.sections[0].text).toContain('queue for the reset');
+    expect(briefing.sections.map((section) => section.id)).toEqual(['budget', 'progress', 'estimate']);
+    expect(briefing.sections[0].text).toBe(
+      text + '\nRough sizes: small ≈ 5–15 energy, medium ≈ 15–40, large ≈ 40–90, huge ≈ 90+ (low confidence).',
+    );
+    expect(briefing.sections[2].text).toBe(
+      'Rough sizes: small ≈ 5–15 energy, medium ≈ 15–40, large ≈ 40–90, huge ≈ 90+ (low confidence).',
+    );
     expect(JSON.stringify(briefing)).not.toMatch(/\$|usd|dollar/i);
   });
 
@@ -78,9 +124,10 @@ describe('buildBriefing', () => {
     const paused = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, build);
     expect(paused).toMatchObject({
       target_key: 'build:' + ids.running,
-      waiting_on: 'an admin',
+      waiting_on: 'Build paused at its reservation: ask an admin to raise it, or trim',
       summary: 'Goblin camp',
     });
+    expect(paused.extra[0].text).toMatch(/^Build paused at its reservation\. Remaining today:/);
     expect(paused.current_task).toBe('paused_budget');
 
     deps.db
@@ -106,7 +153,7 @@ describe('buildBriefing', () => {
     const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
 
     expect(briefing.summary).toBe('a new game');
-    expect(briefing.extra[0].text).toContain('energy left today');
+    expect(briefing.extra[0].text).toContain('Remaining today: 50.0 energy');
   });
 
   it('includes open checkpoint questions in the order they were opened', async () => {
@@ -151,6 +198,26 @@ describe('buildBriefing', () => {
     const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, build);
 
     expect(briefing.questions).toEqual(['How many goblins should appear?', 'Which color should the camp use?']);
+  });
+
+  it('omits budget claims when estimate data is unavailable', async () => {
+    const deps = worked();
+    deps.db.delete(schema.sizeClasses).run();
+
+    const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
+
+    expect(briefing.extra).toEqual([]);
+    expect(briefing.sections).toEqual([{ id: 'progress', text: 'running' }]);
+  });
+
+  it('carries a pending over-budget choice into the next status', async () => {
+    const deps = worked();
+    setVoiceWaitingOn(scope, "Doesn't fit today: trim, split, queue for 12:00 am, or ask an admin");
+
+    const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
+
+    expect(briefing.waiting_on).toBe("Doesn't fit today: trim, split, queue for 12:00 am, or ask an admin");
+    clearVoiceWaitingOn(scope);
   });
 });
 
@@ -229,18 +296,15 @@ describe('subscriptions', () => {
       }),
     );
     registerVoiceTarget(scope);
-    await settle(150);
-    expect(host.received).toHaveLength(1);
+    await expect.poll(() => host.received.length).toBe(1);
 
     deps.events.emit('budget.changed', { familyId: ids.family, userId: ids.creator });
     deps.events.emit('budget.changed', { familyId: ids.family, userId: ids.creator });
     deps.events.emit('budget.changed', { familyId: ids.family, userId: ids.other });
-    await settle(150);
-    expect(host.received).toHaveLength(2);
+    await expect.poll(() => host.received.length).toBe(2);
 
     deps.events.emit('job.changed', { jobId: ids.running, gameId: ids.game, familyId: ids.family, state: 'running' });
-    await settle(150);
-    expect(host.received).toHaveLength(3);
+    await expect.poll(() => host.received.length).toBe(3);
   });
 
   it('stops pushing after the target expires', async () => {
@@ -261,6 +325,24 @@ describe('subscriptions', () => {
     deps.events.emit('budget.changed', { familyId: ids.family, userId: ids.creator });
     await settle(150);
     expect(host.received).toHaveLength(1); // the registration push only
+  });
+
+  it('refreshes a live target on the periodic interval', async () => {
+    const deps = worked();
+    const host = await fakeHost();
+    cleanups.push(
+      startBriefingPush({
+        db: deps.db,
+        defaults,
+        url: host.url,
+        secret: SECRET,
+        log: deps.log,
+        events: deps.events,
+        intervalMs: 40,
+      }),
+    );
+    registerVoiceTarget(scope);
+    await expect.poll(() => host.received.length).toBeGreaterThanOrEqual(2);
   });
 });
 

@@ -50,6 +50,7 @@ defmodule OgmVoice.ConfigTest do
     assert {VoiceConverse.Testing.FakeProvider, _script} = vc.provider
     assert vc.privacy.required_provider_options == %{elevenlabs_agents: %{record_voice: false}}
     assert "propose_instruction" in vc.allowed_tools
+    assert vc.limits.briefing_token_budget == 2_500
     assert VoiceConverse.availability(vc) == :ok
   end
 

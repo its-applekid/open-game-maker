@@ -94,7 +94,7 @@ defmodule OgmVoice.Config do
       command_source: OgmVoice.Ports.CommandSource,
       token_issuer: OgmVoice.TokenIssuer,
       allowed_tools: @allowed_tools,
-      limits: %{max_sessions: config.max_sessions},
+      limits: %{max_sessions: config.max_sessions, briefing_token_budget: 2_500},
       privacy: privacy()
     ]
   end

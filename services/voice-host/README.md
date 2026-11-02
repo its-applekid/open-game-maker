@@ -29,6 +29,8 @@ Batch narration writes temporary WAV files to `OGM_VOICE_RENDER_DIR` (the system
 `ogm-voice-renders` child by default). The host creates it with mode `0700`; the API deletes each WAV after
 transcoding it. `OGM_NARRATION_CONCURRENCY` limits API-side renders to 2 by default.
 
+[`roles/creator.md`](roles/creator.md) is the source of truth for the creator agent's role prompt. When enabling a live provider, paste that file into the provider's agent prompt; the host also includes it in every briefing so local and live behavior use the same guidance.
+
 The service binds the conversation socket to `127.0.0.1:40400` and internal HTTP to `127.0.0.1:40401` by default. The internal surface is:
 
 - `GET /healthz`
