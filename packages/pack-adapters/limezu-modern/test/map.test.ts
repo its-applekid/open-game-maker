@@ -27,14 +27,27 @@ describe('TopdownMap', () => {
     }
   });
 
-  it('keeps plain layers as stored, without flip bits', () => {
+  it('keeps plain layers as stored', () => {
+    const map = new TopdownMap(fixtureMap(16), 16);
+    expect(map.tiles('walls')).toEqual(WALLS.map((row) => row.map((v) => (v ? 1001 : 0))));
+    expect(map.tiles('above')).toBeUndefined();
+  });
+
+  it('rejects a flipped tile in a plain layer instead of drawing it unflipped', () => {
     const json = fixtureMap(16);
     const ground = json.layers[0] as { data: number[] };
     ground.data[0] = 1000 + 0x80000000; /* horizontal flip flag */
-    const map = new TopdownMap(json, 16);
-    expect(map.tiles('ground')![0]![0]).toBe(1000);
-    expect(map.tiles('walls')).toEqual(WALLS.map((row) => row.map((v) => (v ? 1001 : 0))));
-    expect(map.tiles('above')).toBeUndefined();
+    expect(() => new TopdownMap(json, 16)).toThrow(/"ground" has flipped or rotated tiles/);
+  });
+
+  it('reads an autotile mask cell regardless of its flip flags', () => {
+    const json = fixtureMap(16, 'godot');
+    const detail = json.layers.find((l) => l.name === 'ground-detail') as { data: number[] };
+    const i = detail.data.findIndex((gid) => gid !== 0);
+    detail.data[i] = detail.data[i]! + 0x40000000; /* vertical flip flag */
+    expect(new TopdownMap(json, 16).tiles('ground-detail')).toEqual(
+      new TopdownMap(fixtureMap(16, 'godot'), 16).tiles('ground-detail'),
+    );
   });
 
   it('builds collision from walls and from objects whose card is not walkable', () => {

@@ -27,6 +27,8 @@ const sheetSchema = z.object({
   frame_h: z.number().int().positive(),
   cols: z.number().int().multipleOf(mv.cols),
   rows: z.number().int().multipleOf(mv.rows),
+  margin_px: z.number().int().nonnegative().optional(),
+  spacing_px: z.number().int().nonnegative().optional(),
 });
 
 function loadSheet(scene: Phaser.Scene, key: string): Promise<void> {
@@ -72,7 +74,12 @@ export async function createSpriteActor4(
 
   const texture = `${id}:mv`;
   if (!scene.textures.exists(texture)) {
-    scene.load.spritesheet(texture, resolved.url, { frameWidth: sheet.frame_w, frameHeight: sheet.frame_h });
+    scene.load.spritesheet(texture, resolved.url, {
+      frameWidth: sheet.frame_w,
+      frameHeight: sheet.frame_h,
+      margin: sheet.margin_px ?? 0,
+      spacing: sheet.spacing_px ?? 0,
+    });
     await loadSheet(scene, texture);
   }
 

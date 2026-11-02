@@ -159,6 +159,10 @@ export class TopdownMap {
       if (layer.width !== map.width || layer.height !== map.height || layer.data.length !== map.width * map.height) {
         throw new Error(`tile layer "${layer.name}" does not cover the ${map.width}x${map.height} map`);
       }
+      const isMask = property(layer.properties, 'autotile') !== undefined;
+      if (!isMask && layer.data.some((gid) => gid > FLIP_BITS)) {
+        throw new Error(`tile layer "${layer.name}" has flipped or rotated tiles, which this map does not draw`);
+      }
       const rows = Array.from({ length: map.height }, (_, y) =>
         layer.data.slice(y * map.width, (y + 1) * map.width).map((gid) => gid & FLIP_BITS),
       );

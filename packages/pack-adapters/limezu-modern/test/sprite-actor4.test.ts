@@ -34,8 +34,12 @@ function fakeScene(urls: Set<string>) {
       sprite.origin = [x, y];
     },
   };
+  const configs: unknown[] = [];
   const load = {
-    spritesheet: (key: string, url: string) => void pending.push([key, url]),
+    spritesheet: (key: string, url: string, config: unknown) => {
+      pending.push([key, url]);
+      configs.push(config);
+    },
     on: (event: string, cb: (arg?: unknown) => void) =>
       void listeners.set(event, [...(listeners.get(event) ?? []), cb]),
     once: (event: string, cb: (arg?: unknown) => void) => {
@@ -68,10 +72,14 @@ function fakeScene(urls: Set<string>) {
       },
     },
   };
-  return { scene: scene as unknown as Phaser.Scene, sprite };
+  return { scene: scene as unknown as Phaser.Scene, sprite, configs };
 }
 
-function loader(sheet: { frame_w: number; frame_h: number; cols: number; rows: number } | undefined): AssetLoader {
+function loader(
+  sheet:
+    | { frame_w: number; frame_h: number; cols: number; rows: number; margin_px?: number; spacing_px?: number }
+    | undefined,
+): AssetLoader {
   return {
     resolve: () => ({
       url: 'https://game.test/a.png',
@@ -115,6 +123,12 @@ describe('createSpriteActor4', () => {
     actor.sync({ x: 0, y: 0, facing: 'right', role: 'walk', t: 2 });
     // Character 5 is block column 1, block row 1: sheet row 4 + 2 (right), sheet column 3 + 2.
     expect(numberedCell(sprite.frame, 12)).toBe(600 + 5);
+  });
+
+  it("slices the sheet with the card's margin and spacing", async () => {
+    const { scene, configs } = fakeScene(new Set(['https://game.test/a.png']));
+    await createSpriteActor4(scene, loader({ ...SINGLE, margin_px: 1, spacing_px: 2 }), 'a', { fps: 4 });
+    expect(configs).toEqual([{ frameWidth: 48, frameHeight: 48, margin: 1, spacing: 2 }]);
   });
 
   it('rejects a sheet that is not a 3 x 4 grid, a missing character and a failed load', async () => {

@@ -49,7 +49,7 @@ const as = (p: Pixels) => p as unknown as LayeredSpriteLayer['image'];
 describe('composeLayers', () => {
   it('draws lower orders first so higher layers cover them, whatever the array order', () => {
     const body = image(4, 4, 1, () => true);
-    const eyes = image(4, 4, 2, (x, y) => y === 1);
+    const eyes = image(4, 4, 2, (_x, y) => y === 1 || y === 2);
     const hair = image(4, 4, 3, (_x, y) => y < 2);
     const out = composeLayers(
       [
@@ -59,7 +59,7 @@ describe('composeLayers', () => {
       ],
       pixelCanvas,
     );
-    expect(out.px).toEqual([3, 3, 3, 3, 3, 3, 3, 3, 1, 1, 1, 1, 1, 1, 1, 1]);
+    expect(out.px).toEqual([3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 2, 2, 1, 1, 1, 1]);
     expect((out as unknown as { smoothing: boolean }).smoothing).toBe(false);
   });
 
@@ -87,10 +87,13 @@ describe('composeLayers offsets', () => {
 describe('farmerLayers', () => {
   it('stacks farmer pieces body < eyes < outfit < hair < accessory < tool', () => {
     const solid = (id: number) => as(image(1, 1, id, () => true));
-    const layers = farmerLayers({ Tools: solid(6), Hairstyles: solid(4), Bodies: solid(1), Eyes: solid(2) });
-    expect(composeLayers(layers, pixelCanvas).px).toEqual([6]);
-    expect(composeLayers(farmerLayers({ Hairstyles: solid(4), Eyes: solid(2) }), pixelCanvas).px).toEqual([4]);
-    expect(composeLayers(farmerLayers({ Accessories: solid(5), Hairstyles: solid(4) }), pixelCanvas).px).toEqual([5]);
+    const stack = ['Bodies', 'Eyes', 'Outfits', 'Hairstyles', 'Accessories', 'Tools'] as const;
+    for (let i = 1; i < stack.length; i += 1) {
+      const [lower, upper] = [stack[i - 1]!, stack[i]!];
+      /* the upper piece first in the record, so only the order can put it on top */
+      const layers = farmerLayers({ [upper]: solid(i + 1), [lower]: solid(i) });
+      expect(composeLayers(layers, pixelCanvas).px, `${upper} over ${lower}`).toEqual([i + 1]);
+    }
   });
 
   it('rejects a piece name the generator does not have', () => {
