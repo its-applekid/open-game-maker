@@ -8,7 +8,7 @@ import type {
   RoomPin,
   RoomState,
   ServerMessage,
-} from '@ogm/contracts';
+} from '@ogm/contracts/browser';
 import { create, type StoreApi, type UseBoundStore } from 'zustand';
 
 export type RoomStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'rejected' | 'desynced' | 'ended';
@@ -25,6 +25,7 @@ export type RoomStore = {
   rejection?: JoinRejection;
   you?: RoomIdentity;
   role?: RoomRole;
+  ownerId?: string;
   phase?: Phase;
   phaseAt?: number;
   playRev?: number;
@@ -33,6 +34,7 @@ export type RoomStore = {
   presence?: Presence;
   pin?: RoomPin;
   draft?: RoomState['draft'];
+  maxPlayers?: number;
   ended?: RoomEndedReason;
   rttMs?: number;
   bind(controller: RoomController): void;
@@ -103,6 +105,7 @@ function stateFields(state: RoomState, you?: RoomIdentity) {
   return {
     role:
       you === undefined ? undefined : state.editorSessionId === you.sessionId ? ('host' as const) : ('peer' as const),
+    ownerId: state.ownerId,
     phase: state.phase,
     phaseAt: state.phaseAt,
     playRev: state.playRev,
@@ -111,6 +114,7 @@ function stateFields(state: RoomState, you?: RoomIdentity) {
     presence: state.presence,
     pin: state.pin,
     draft: state.draft,
+    maxPlayers: state.maxPlayers,
   };
 }
 

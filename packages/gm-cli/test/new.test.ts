@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, readlinkSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readlinkSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -20,7 +20,14 @@ function makeSource(): { cwd: string; pack: string } {
   const pack = join(cwd, 'pack');
   write(pack, 'gm-core/SKILL.md', '---\nname: gm-core\n---\ncore\n');
   write(pack, 'gm-build/SKILL.md', '---\nname: gm-build\n---\nbuild\n');
+  write(pack, 'gm-set-smallscaleint/SKILL.md', '---\nname: gm-set-smallscaleint\n---\nset\n');
+  write(pack, 'gm-set-kaykit/SKILL.md', '---\nname: gm-set-kaykit\n---\nset\n');
   write(pack, 'vendor/skills.lock', '{"v":1,"sets":{}}\n');
+  write(
+    cwd,
+    'packages/pack-adapters/smallscaleint/package.json',
+    '{"name":"@gm/pack-smallscaleint","version":"1.2.3"}\n',
+  );
   return { cwd, pack };
 }
 
@@ -63,6 +70,29 @@ describe('gm new', () => {
     for (const [path, entry] of Object.entries(lock.skills)) {
       expect(entry.sha256).toBe(sha(join(game, '.claude/skills', path)));
     }
+    expect(existsSync(join(game, '.claude/skills/gm-set-smallscaleint'))).toBe(false);
+    expect(existsSync(join(game, '.claude/skills/gm-set-kaykit'))).toBe(false);
+  });
+
+  it('pins one set adapter, installs only its skill, and records the set', async () => {
+    const { cwd, pack } = makeSource();
+    const game = join(cwd, 'set-game');
+
+    const result = await gm(['new', 'game-2d', game, '--family', 'isometric-2d', '--set', 'smallscaleint'], {
+      cwd,
+      env: { GM_SKILLS_DIR: pack },
+    });
+
+    expect(result).toMatchObject({ code: 0, err: [] });
+    expect(JSON.parse(readFileSync(join(game, 'package.json'), 'utf8')).dependencies).toMatchObject({
+      '@gm/pack-smallscaleint': '1.2.3',
+    });
+    expect(JSON.parse(readFileSync(join(game, 'gm.lock.json'), 'utf8'))).toMatchObject({
+      family: 'isometric-2d',
+      set: 'smallscaleint',
+    });
+    expect(statSync(join(game, '.claude/skills/gm-set-smallscaleint/SKILL.md')).isFile()).toBe(true);
+    expect(existsSync(join(game, '.claude/skills/gm-set-kaykit'))).toBe(false);
   });
 
   it('refuses a non-empty destination without changing its contents', async () => {
@@ -97,6 +127,34 @@ describe('gm new', () => {
     expect(valid.code).toBe(0);
     expect(valid.err).toEqual([]);
     expect(JSON.parse(readFileSync(join(cwd, 'good/gm.lock.json'), 'utf8'))).toMatchObject({ family: 'pixel-art' });
+  });
+
+  it('accepts only registered sets that belong to the selected family', async () => {
+    const { cwd, pack } = makeSource();
+    const run = (dir: string, family: string, set: string) =>
+      gm(['new', 'game-2d', join(cwd, dir), '--family', family, '--set', set], {
+        cwd,
+        env: { GM_SKILLS_DIR: pack },
+      });
+
+    const unknown = await run('unknown-set', 'isometric-2d', 'missing');
+    expect(unknown.code).toBe(2);
+    expect(unknown.err[0]).toContain('unknown style set "missing"');
+    expect(() => statSync(join(cwd, 'unknown-set'))).toThrow();
+
+    const mismatch = await run('wrong-family', 'pixel-art', 'smallscaleint');
+    expect(mismatch.code).toBe(2);
+    expect(mismatch.err[0]).toBe(
+      'style set "smallscaleint" belongs to family "isometric-2d", not "pixel-art". Try: use --family isometric-2d',
+    );
+    expect(() => statSync(join(cwd, 'wrong-family'))).toThrow();
+
+    const unavailable = await run('unavailable-set', 'simple-low-poly', 'synty-simple');
+    expect(unavailable.code).toBe(2);
+    expect(unavailable.err[0]).toBe(
+      'style set "synty-simple" has no installed skill. Try: choose a set supported by this Game Maker installation',
+    );
+    expect(() => statSync(join(cwd, 'unavailable-set'))).toThrow();
   });
 
   it('rejects unsupported template names before creating the destination', async () => {

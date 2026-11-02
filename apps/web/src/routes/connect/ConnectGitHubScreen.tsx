@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
 import {
-  authClient,
-  authErrorMessage,
+  connectGitHubInstallation,
   getGitHubStatus,
   getRepoVisibilityDefault,
-  isAgeRequiredError,
-  requireAge,
+  gitHubInstallUrl,
+  readGitHubInstallState,
   safeNext,
   setRepoVisibilityDefault,
   type RepoVisibility,
@@ -18,10 +17,10 @@ type Status = { kind: 'loading' | 'disconnected' | 'error' } | { kind: 'connecte
 
 export function ConnectGitHubScreen() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'), '/games');
-  const returnPath = `${location.pathname}${location.search}`;
+  // GitHub's install redirect: the new `installation_id` and our `state` (nonce and next).
+  const [callback] = useState(() => ({ installationId: params.get('installation_id'), state: params.get('state') }));
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   const [visibility, setVisibility] = useState<RepoVisibility>(getRepoVisibilityDefault);
   const [linking, setLinking] = useState(false);
@@ -40,35 +39,57 @@ export function ConnectGitHubScreen() {
     }
   }, []);
 
+  const finishInstall = useCallback(async (id: string) => {
+    setStatus({ kind: 'loading' });
+    try {
+      const account = await connectGitHubInstallation(id);
+      if (mounted.current) setStatus({ kind: 'connected', login: account.login });
+    } catch {
+      if (!mounted.current) return;
+      setError('Could not connect GitHub.');
+      setStatus({ kind: 'disconnected' });
+    }
+  }, []);
+
+  /* Runs once even when StrictMode replays the effect: the install state is single use. */
+  const started = useRef(false);
   useEffect(() => {
     mounted.current = true;
-    void loadStatus();
+    if (!started.current) {
+      started.current = true;
+      if (callback.state !== null) {
+        // GitHub came back (an org install awaiting approval brings no installation_id). Drop the one-shot
+        // callback parameters so a reload never replays them.
+        const returnedNext = readGitHubInstallState(callback.state);
+        navigate(`/connect/github?next=${encodeURIComponent(safeNext(returnedNext, '/games'))}`, { replace: true });
+        void (callback.installationId && returnedNext !== null ? finishInstall(callback.installationId) : loadStatus());
+      } else {
+        void loadStatus();
+      }
+    }
     return () => {
       mounted.current = false;
     };
-  }, [loadStatus]);
+  }, [callback, finishInstall, loadStatus, navigate]);
 
-  async function connect() {
-    setLinking(true);
+  // Back from GitHub restores this page from the back/forward cache with the button still disabled.
+  useEffect(() => {
+    const restore = (event: PageTransitionEvent) => {
+      if (event.persisted) setLinking(false);
+    };
+    window.addEventListener('pageshow', restore);
+    return () => window.removeEventListener('pageshow', restore);
+  }, []);
+
+  function connect() {
     setError('');
-    const callback = new URL('/connect/github', window.location.origin);
-    callback.searchParams.set('next', next);
-    try {
-      const result = await authClient.linkSocial({ provider: 'github', callbackURL: callback.href });
-      if (result.error) {
-        if (isAgeRequiredError(result.error)) {
-          if (mounted.current) await requireAge(returnPath);
-          return;
-        }
-        throw result.error;
-      }
-    } catch (caught) {
-      if (!mounted.current) return;
-      if (isAgeRequiredError(caught)) await requireAge(returnPath);
-      else setError(authErrorMessage(caught, 'Could not connect GitHub.'));
-    } finally {
-      if (mounted.current) setLinking(false);
+    const url = gitHubInstallUrl(next);
+    if (!url) {
+      setError('Could not connect GitHub.');
+      return;
     }
+    setLinking(true);
+    window.location.assign(url);
   }
 
   function choose(value: RepoVisibility) {
@@ -93,7 +114,7 @@ export function ConnectGitHubScreen() {
           </div>
         )}
         {status.kind === 'disconnected' && (
-          <button className="auth-primary" disabled={linking} type="button" onClick={() => void connect()}>
+          <button className="auth-primary" disabled={linking} type="button" onClick={connect}>
             {linking ? 'Opening GitHub…' : 'Connect GitHub'}
           </button>
         )}

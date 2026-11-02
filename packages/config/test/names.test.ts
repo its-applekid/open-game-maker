@@ -19,6 +19,7 @@ describe('OGM_ENV_NAMES', () => {
       'games',
       'commit',
       'voice-host',
+      'repair',
       'intake',
       'drive-sync',
       'aiur',

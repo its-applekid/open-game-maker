@@ -40,15 +40,15 @@ export const DEFAULT_DESIGN: LevelDesign = {
   schemaVersion: 1,
   globals: { 'player.speed': 4, 'level.size': 12 },
   entities: {
-    spawn_a: {
-      id: 'spawn_a',
+    spawn_01K8ZTEMP00000000000000001: {
+      id: 'spawn_01K8ZTEMP00000000000000001',
       prefab: 'spawn',
       level: 'main',
       origin: 'build',
       props: { x: -3, z: 0 },
     },
-    spawn_b: {
-      id: 'spawn_b',
+    spawn_01K8ZTEMP00000000000000002: {
+      id: 'spawn_01K8ZTEMP00000000000000002',
       prefab: 'spawn',
       level: 'main',
       origin: 'build',

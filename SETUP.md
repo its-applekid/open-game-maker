@@ -348,21 +348,22 @@ Check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/en
 
 Hand back to the human: Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env.
 
-### 4.3 Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. (HAND)
+### 4.3 Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation. (HAND)
 
 Command:
 
 ```sh
-# Open https://github.com/settings/apps/new and install the App on <github-owner>.
+# Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
 chmod 600 ~/.config/ogm/ogm-github-app.pem
 systemctl --user restart ogm-commit
+# Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
 ```
 
 Writes: `~/.config/ogm/ogm-github-app.pem`, `~/.config/ogm/env/ogm-commit.env`
 
 Check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
 
-Hand back to the human: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo.
+Hand back to the human: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
 
 ### 4.4 Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
 
@@ -380,7 +381,7 @@ Check: grep -l '^OGM_INTERNAL_TOKEN=' ~/.config/ogm/env/*.env lists both files
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 4, Set up the games private repo**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>`; `Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env`; `Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo`.
+> Hand steps in this step: `Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>`; `Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env`; `Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation`.
 
 ## 5. Find assets
 
@@ -473,26 +474,43 @@ Writes: `~/.config/ogm/env/intake.env`, `~/.local/state/ogm/intake/status.json`
 
 Check: cat ~/.local/state/ogm/intake/status.json
 
-### 6.2 Follow the free Drive one-time setup to create a service account and Viewer folder, then configure and start ogm-drive-sync. (OPTIONAL)
+### 6.2 Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer. (HAND)
+
+Command:
+
+```sh
+# One-time setup 1-5 in scripts/py/drive-sync/README.md (web console or gcloud).
+chmod 600 ~/.config/ogm/drive-sa.json
+```
+
+Writes: `~/.config/ogm/drive-sa.json`
+
+Check: stat -c %a ~/.config/ogm/drive-sa.json prints 600
+
+Hand back to the human: Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer.
+
+### 6.3 Write the Drive config with the folder id, build the worker venv, prove the dry run, then restart ogm-drive-sync so its placeholder clears. (OPTIONAL)
 
 Command:
 
 ```sh
 cp scripts/py/drive-sync/drive-sync.example.toml ~/.config/ogm/drive-sync.toml
-~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py run --once --dry-run
+sed -i 's/PASTE_FOLDER_ID_HERE/<folder-id>/' ~/.config/ogm/drive-sync.toml
+make venv-drive-sync
+scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py run --once --dry-run
 systemctl --user restart ogm-drive-sync
 ```
 
-Writes: `~/.config/ogm/drive-sa.json`, `~/.config/ogm/drive-sync.toml`
+Writes: `~/.config/ogm/drive-sync.toml`, `scripts/py/drive-sync/.venv`
 
-Check: the dry run logs watching '<folder>' as <email> and ogm-drive-sync has no PLACEHOLDER line
+Check: the dry run logs watching '<folder>' as <email>, and systemctl --user status ogm-drive-sync no longer prints PLACEHOLDER
 
-### 6.3 Put a small zip in the drop folder and confirm Drive sync queues it for intake.
+### 6.4 Put a small zip in the Drive folder and confirm Drive sync queues it once for intake, which skips a drop id and MD5 set it has already handled. (OPTIONAL)
 
 Command:
 
 ```sh
-~/games/open-game-maker-2000/scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py status
+scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py status
 ```
 
 Writes: `assets-local/inbox/queue.jsonl`, `assets-local/inbox/quarantine`
@@ -501,9 +519,9 @@ Check: intake.json appears next to the downloaded manifest after intake handles 
 
 ### Ask an agent
 
-> You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 6, Local asset pipeline, optional Google Drive drop**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
+> You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 6, Local asset pipeline, optional Google Drive drop**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. For the Drive path, never open the Google console or read, print or copy the key file's contents; only check that `~/.config/ogm/drive-sa.json` exists with mode 600. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: none.
+> Hand steps in this step: `Optional Drive drop, all free with no billing account: in the Google Cloud console create a project, enable the Drive API, create the service account ogm-drive-sync, save its JSON key to ~/.config/ogm/drive-sa.json with mode 600, and share a Drive folder with its email as Viewer`.
 
 ## 7. Configure
 

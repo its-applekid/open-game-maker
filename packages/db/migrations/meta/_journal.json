@@ -155,6 +155,34 @@
       "when": 1793611247002,
       "tag": "20261102092046_scope_session_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "6",
+      "when": 1793613955089,
+      "tag": "20261102100555_report_triage",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793617728980,
+      "tag": "20261102110848_releases",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1793635540512,
+      "tag": "20261102160540_game_abuse_flags",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1793636167362,
+      "tag": "20261102161607_chat_attachments",
+      "breakpoints": true
     }
   ]
 }

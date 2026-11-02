@@ -14,7 +14,7 @@ describe('gm skill pack', () => {
     const core = lines('gm-core');
     const text = core.join('\n');
     const firstParty = readdirSync(SKILLS)
-      .filter((name) => name.startsWith('gm-'))
+      .filter((name) => name.startsWith('gm-') && !name.startsWith('gm-set-'))
       .sort();
 
     expect(core.length).toBeLessThanOrEqual(120);
@@ -38,6 +38,10 @@ describe('gm skill pack', () => {
     expect(text).toContain('gm chat post');
     expect(text).toContain('<!-- gm-activity: <activity> start -->');
     expect(text).toContain('<!-- gm-activity: <activity> end -->');
+    expect(text).toContain('| gm-set-<set> |');
+    expect(text).toContain('the second game on the same set');
+    expect(text).toContain('the second set or dimension');
+    expect(text).toContain('write the rule once in L3 before promoting it');
     expect(text).not.toMatch(/assets-local|scripts\/assets|meta-improve|claude\.ai|sprite-forge|landing-page/i);
   });
 

@@ -6,7 +6,7 @@ list and `gm help <command>` for flags.
 ## Create a game repository
 
 ```text
-gm new <game-2d|game-3d|game-multiplayer> <dir> [--family <id>] [--pov <id>]
+gm new <game-2d|game-3d|game-multiplayer> <dir> [--family <id>] [--set <id>] [--pov <id>]
 ```
 
 The destination must be empty. The command copies the scaffold-only engine template, records the creation choices in
@@ -15,6 +15,8 @@ packages or add game entities. Install afterward with `pnpm install --offline --
 
 `--family` must name a family id from `packages/asset-cards/data/style-families.json`, the registry `gm assets search`
 reads. A set id (for example `limezu-modern`) is refused with its family named; sets stay nested under their family.
+`--set` must name a set in that registry and, when `--family` is present, belong to the chosen family. It records the
+set in `gm.lock.json`, pins the exact `@gm/pack-<set>` version, and installs only that set's `gm-set-<set>` skill.
 
 ## Verify a game
 
@@ -37,7 +39,9 @@ logical-input script, checks a save-state round trip, writes a HUD still, runs `
 
 `gm run` captures deterministic stills, timelines, clips, and browser budgets. It writes `report.json` plus
 `state.json` containing the final `renderGameToText()` value when that hook is available; sameness evals use the state
-keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags.
+keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags. `--record-native`
+records the game canvas at its pixel size, scaled up only by a whole-number factor, rendering every frame through the
+game's deterministic hook so a clip holds exactly duration x fps frames.
 
 ## Refresh the skill pack
 
@@ -70,10 +74,11 @@ gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
 the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
 the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
 
-`sync` installs every platform `gm-*` runtime skill and the vendored engine references under `.claude/skills/`.
-Workspace-only package metadata, TypeScript config, and card tests stay in the platform repository. Relative
-links in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without
-symlink support receive copies and record `"linkMode": "copy"` in `skills.lock`.
+`sync` installs the platform's shared `gm-*` runtime skills, the one `gm-set-<set>` skill recorded in `gm.lock.json`,
+and the vendored engine references under `.claude/skills/`. With no recorded set, it installs no set skill.
+Workspace-only package metadata, TypeScript config, and skill tests stay in the platform repository. Relative links
+in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without symlink
+support receive copies and record `"linkMode": "copy"` in `skills.lock`.
 
 The command preserves an installed file whose hash no longer matches the previous lock. Use `--check` to report any
 missing, outdated, or locally edited file without writing; it exits 1 when drift exists. `--force` refreshes locally

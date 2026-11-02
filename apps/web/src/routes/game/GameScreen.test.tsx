@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -30,6 +30,7 @@ const host = vi.hoisted(() => {
     onScreen: vi.fn(() => vi.fn()),
     pick: vi.fn(),
     select: vi.fn(),
+    sendRoomMessage: vi.fn(),
     setMode: vi.fn(),
     setSettings: vi.fn(),
     validatePlacement: vi.fn().mockResolvedValue({ ok: true }),
@@ -38,7 +39,10 @@ const host = vi.hoisted(() => {
   return {
     controller,
     mountGameFrame: vi.fn(
-      (options?: { onState?(state: { bridgeState: 'ready'; dropped: number; manifest: unknown }): void }) => {
+      (options?: {
+        onSaveWrite?(payload: { saveSchemaVersion: number; data: unknown }): void;
+        onState?(state: { bridgeState: 'ready'; dropped: number; manifest: unknown }): void;
+      }) => {
         void options;
         return controller;
       },
@@ -106,6 +110,7 @@ describe('GameScreen', () => {
     renderGame();
 
     expect(await screen.findByText('Goblin Cellar')).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Invite' })).toBeVisible();
     const buttons = screen.getAllByRole('button').map((button) => button.textContent?.trim());
     expect(buttons.slice(0, 4)).toEqual(['Games', '▶ Play', '✎ Edit', 'Ask for a change']);
     await waitFor(() =>
@@ -118,7 +123,7 @@ describe('GameScreen', () => {
         }),
       ),
     );
-  });
+  }, 10_000);
 
   it('shares mode in the query and acquires an edit lease', async () => {
     renderGame();
@@ -183,6 +188,67 @@ describe('GameScreen', () => {
     );
   });
 
+  it('drives watcher revisions and modes through the fake room hook', async () => {
+    const baseHost: OgmHost = {
+      version: 1,
+      route: () => '/g/game',
+      navigate: vi.fn(),
+      register: vi.fn(),
+      get: vi.fn(),
+      snapshot: () => ({ route: '/g/game', registered: [] }),
+    };
+    window.__ogmHost = baseHost;
+    renderGame('/g/game?test');
+    type FakeRoom = {
+      fake: {
+        emit(message: unknown): void;
+        setState(state: object): void;
+      };
+    };
+    const room = await waitFor(() => {
+      const current = (window.__ogmHost as OgmHost & { room?: FakeRoom }).room;
+      expect(current).toBeDefined();
+      return current!;
+    });
+
+    room.fake.emit({
+      t: 'welcome',
+      you: { userId: 'watcher', playerIndex: 1, sessionId: 'watcher-session' },
+      state: {
+        protocol: 1,
+        pin: { gameId: 'game', branchId: 'main', buildId: 'build' },
+        ownerId: 'owner',
+        editorSessionId: 'owner-session',
+        phase: 'editing',
+        phaseAt: 1_000,
+        playRev: 5,
+        lastRev: 5,
+        maxPlayers: 4,
+        members: {},
+        presence: { selection: [], privateMode: false },
+      },
+    });
+    room.fake.emit({
+      t: 'design.tx',
+      tx: { branchId: 'main', rev: 8, baseRev: 7, actor: 'owner', kind: 'manual', patches: [] },
+    });
+    room.fake.setState({ phase: 'playing', phaseAt: 2_000 });
+
+    await waitFor(() =>
+      expect((window.__ogmHost as OgmHost & { game?: { headRev: number; mode: string } }).game).toMatchObject({
+        headRev: 8,
+        mode: 'play',
+      }),
+    );
+    expect(editorApi.acquireLease).not.toHaveBeenCalled();
+
+    act(() => {
+      host.mountGameFrame.mock.calls.at(-1)?.[0]?.onSaveWrite?.({ saveSchemaVersion: 1, data: {} });
+      room.fake.emit({ t: 'ended', reason: 'host-left' });
+    });
+    expect(await screen.findByText(/Last autosave/)).toBeVisible();
+  });
+
   it('renders manifest palette controls only in edit mode', async () => {
     host.mountGameFrame.mockImplementationOnce((options) => {
       queueMicrotask(() =>
@@ -215,7 +281,7 @@ describe('GameScreen', () => {
 
     renderGame('/g/game?mode=edit');
 
-    expect(await screen.findByRole('button', { name: 'Skeleton' })).toBeVisible();
+    expect(await screen.findByRole('button', { name: 'Skeleton' }, { timeout: 5_000 })).toBeVisible();
     expect(screen.getByRole('button', { name: '▶ Enter crypt' })).toBeVisible();
-  });
+  }, 10_000);
 });

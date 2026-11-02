@@ -1,10 +1,12 @@
 packages:
   - 'apps/*'
   - 'packages/*'
+  - 'packages/pack-adapters/*'
   - 'services/*'
   - 'skills/*'
   - 'templates/*'
   - 'tools/*'
+  - 'games/samplers/*'
 
 onlyBuiltDependencies:
   - better-sqlite3
