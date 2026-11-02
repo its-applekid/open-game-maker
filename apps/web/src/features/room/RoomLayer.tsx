@@ -12,13 +12,14 @@ type BranchLabel = { name: string; version: string };
 type RoomLayerProps = {
   gameTitle: string;
   lastSaveAt?: string;
+  onCamera(mode: 'follow' | 'free'): void;
   onLeave(): void;
   onMode(mode: 'play' | 'edit'): void;
   onSelection(ids: readonly string[]): void;
   snapshot?: RoomSessionSnapshot;
 };
 
-export function RoomLayer({ gameTitle, lastSaveAt, onLeave, onMode, onSelection, snapshot }: RoomLayerProps) {
+export function RoomLayer({ gameTitle, lastSaveAt, onCamera, onLeave, onMode, onSelection, snapshot }: RoomLayerProps) {
   const watcher = snapshot?.role === 'peer' && snapshot.phase === 'editing';
   const pin = snapshot?.pin;
   const branch = useQuery({
@@ -47,6 +48,7 @@ export function RoomLayer({ gameTitle, lastSaveAt, onLeave, onMode, onSelection,
         <WatcherOverlay
           branchName={branch.data?.name ?? pin.branchId}
           catchingUp={snapshot.status === 'desynced'}
+          onCamera={onCamera}
           onSelection={onSelection}
           presence={snapshot.presence}
           version={branch.data?.version}

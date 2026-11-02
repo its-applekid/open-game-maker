@@ -25,6 +25,7 @@ const editorApi = vi.hoisted(() => ({
 const host = vi.hoisted(() => {
   const controller = {
     applyDesign: vi.fn(),
+    camera: vi.fn(),
     dispose: vi.fn(),
     onPicked: vi.fn(() => vi.fn()),
     onScreen: vi.fn(() => vi.fn()),

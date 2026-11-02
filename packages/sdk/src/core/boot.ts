@@ -235,6 +235,10 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
           if (active.instance.setSelection) active.instance.setSelection(envelope.payload.ids);
           else send('error', { code: 'unsupported', message: 'selection is not supported' }, envelope.id);
           return;
+        case 'editor.camera':
+          if (active.instance.setCamera) active.instance.setCamera(envelope.payload.mode, envelope.payload.target);
+          else send('error', { code: 'unsupported', message: 'camera modes are not supported' }, envelope.id);
+          return;
         case 'editor.pick':
           send(
             'editor.picked',

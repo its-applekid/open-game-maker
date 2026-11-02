@@ -163,6 +163,8 @@ export interface GameInstance<D, S> {
   worldToScreen?(id: string): { x: number; y: number } | null;
   validatePlacement?(prefab: string, pose: Pose): PlacementResult;
   setSelection?(ids: string[]): void;
+  /** Bridge `editor.camera`; throws for an unknown `target`. */
+  setCamera?(mode: 'follow' | 'free', target?: string): void;
   /** Required by every template (E04-15). */
   net: MultiplayerHooks;
 }

@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import type { Presence } from '@ogm/contracts';
 
 type WatcherOverlayProps = {
   branchName: string;
   catchingUp?: boolean;
+  onCamera?: (mode: 'follow' | 'free') => void;
   onSelection?: (ids: readonly string[]) => void;
   presence: Presence;
   version?: string;
@@ -13,6 +14,7 @@ type WatcherOverlayProps = {
 export function WatcherOverlay({
   branchName,
   catchingUp = false,
+  onCamera,
   onSelection,
   presence,
   version,
@@ -20,9 +22,34 @@ export function WatcherOverlay({
   useEffect(() => {
     onSelection?.(presence.privateMode ? [] : presence.selection);
   }, [onSelection, presence.privateMode, presence.selection]);
+  const [camera, setCamera] = useState<'follow' | 'free'>('follow');
+  const chooseCamera = (mode: 'follow' | 'free') => {
+    setCamera(mode);
+    onCamera?.(mode);
+  };
 
   return (
     <aside className="watcher-overlay" aria-label="Room status">
+      {onCamera ? (
+        <div className="mode-segment watcher-camera" role="group" aria-label="Camera">
+          <button
+            className="tap-secondary"
+            type="button"
+            aria-pressed={camera === 'follow'}
+            onClick={() => chooseCamera('follow')}
+          >
+            Follow
+          </button>
+          <button
+            className="tap-secondary"
+            type="button"
+            aria-pressed={camera === 'free'}
+            onClick={() => chooseCamera('free')}
+          >
+            Free
+          </button>
+        </div>
+      ) : null}
       <span className="room-version-badge">{version === undefined ? branchName : `${branchName} · v${version}`}</span>
       <div className="watcher-status" aria-live="polite">
         {catchingUp ? <span role="status">catching up</span> : null}

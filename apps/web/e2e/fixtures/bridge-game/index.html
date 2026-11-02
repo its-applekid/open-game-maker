@@ -66,7 +66,7 @@
       let port;
       let nextId = 0;
       let ready = false;
-      const fixture = (window.__fixture = { messages: [], mode: 'edit', selected: [], applies: [] });
+      const fixture = (window.__fixture = { messages: [], mode: 'edit', selected: [], applies: [], cameras: [] });
       const envelope = (t, payload, replyTo) => ({
         v: 1,
         id: `fixture-${++nextId}`,
@@ -103,6 +103,8 @@
         } else if (message.t === 'editor.select') {
           fixture.selected = message.payload.ids;
           for (const id of fixture.selected) send('editor.screen', { id, x: 50, y: 30 });
+        } else if (message.t === 'editor.camera') {
+          fixture.cameras.push(message.payload);
         } else if (message.t === 'editor.validatePlacement') {
           const x = message.payload.pose.position[0];
           send('editor.placement', x < 0 ? { ok: false, reason: 'outside the level' } : { ok: true }, message.id);

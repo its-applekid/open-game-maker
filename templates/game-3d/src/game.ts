@@ -110,6 +110,10 @@ export function createGame(): {
   design(): LevelDesign;
   attachPhysics(runtime: Runtime<LevelDesign, GameSave>): Promise<PhysicsHandle>;
   attachScene(adapter: SceneAdapter): void;
+  /** The last bridge `editor.camera`; `undefined` keeps the manifest rig. */
+  camera(): { mode: 'follow' | 'free'; target?: string } | undefined;
+  /** A player's or spawn's world position; the default player when `id` is absent. */
+  position(id?: string): Vec3 | undefined;
 } {
   let design = structuredClone(DEFAULT_DESIGN);
   let state: GameSave = { tick: 0, players: {} };
@@ -119,6 +123,14 @@ export function createGame(): {
   let scene: SceneAdapter | undefined;
   const bodyHandles = new Map<string, number>();
   const stopInputs: (() => void)[] = [];
+  let camera: { mode: 'follow' | 'free'; target?: string } | undefined;
+
+  const position = (id = 'player_0'): Vec3 | undefined => {
+    const player = state.players[id];
+    if (player) return [...player.position];
+    const spawn = design.entities[id];
+    return spawn ? [spawn.props.x, 0, spawn.props.z] : undefined;
+  };
 
   const addPlayerBody = (player: PlayerState) => {
     if (!physics || bodyHandles.has(player.id)) return;
@@ -260,6 +272,10 @@ export function createGame(): {
         worldToScreen(id) {
           return scene?.worldToScreen(id) ?? null;
         },
+        setCamera(mode, target) {
+          if (target !== undefined && !position(target)) throw new Error(`unknown camera target ${target}`);
+          camera = { mode, target };
+        },
         validatePlacement(_prefab, pose) {
           const half = design.globals['level.size'] / 2;
           const [x, , z] = pose.position;
@@ -313,5 +329,7 @@ export function createGame(): {
     attachScene(adapter) {
       scene = adapter;
     },
+    camera: () => (camera ? { ...camera } : undefined),
+    position,
   };
 }

@@ -1,8 +1,9 @@
 import { boot, RuntimeImpl } from '@gm/sdk/core';
 import { pickTier } from '@gm/sdk/assets';
-import { createRig, RigSet, type ThreeCameraRig } from '@gm/sdk/camera';
+import { createRig, EditorCamera, RigSet, type ThreeCameraRig } from '@gm/sdk/camera';
 import { createRenderer, type RendererHandle } from '@gm/sdk/three';
 import { SDK_PROTOCOL } from '@ogm/contracts/bridge';
+import { OrthographicCamera, type Camera } from 'three';
 
 import { createGame, type GameSave, type LevelDesign } from './game.js';
 import { createScene, type SceneHandle } from './scene.js';
@@ -51,6 +52,7 @@ async function start() {
   let rendererHandle: RendererHandle | undefined;
   let sceneHandle: SceneHandle | undefined;
   let cameraRigs: RigSet | undefined;
+  let editorCamera: EditorCamera | undefined;
   let stopViewport: (() => void) | undefined;
   let stopPlayers: (() => void) | undefined;
   let onWindowResize: (() => void) | undefined;
@@ -63,6 +65,7 @@ async function start() {
     stopPlayers?.();
     if (onWindowResize) window.removeEventListener('resize', onWindowResize);
     cameraRigs?.dispose();
+    editorCamera?.dispose();
     sceneHandle?.dispose();
     rendererHandle?.dispose();
   };
@@ -99,6 +102,41 @@ async function start() {
       undefined,
       runtime.localPlayerIndex,
     );
+    const frameEditorCamera = (camera: OrthographicCamera) => {
+      const aspect = canvas.height > 0 ? canvas.width / canvas.height : 1;
+      const half = controller.design().globals['level.size'] * 0.6;
+      camera.left = -half * aspect;
+      camera.right = half * aspect;
+      camera.top = half;
+      camera.bottom = -half;
+      camera.updateProjectionMatrix();
+    };
+    let appliedCamera = '';
+    /* Edit mode obeys bridge `editor.camera` (follow tracks the target, free pans/zooms); otherwise the manifest rig. */
+    const viewCamera = (): Camera => {
+      const command = runtime?.mode === 'edit' ? controller.camera() : undefined;
+      if (!command) {
+        editorCamera?.dispose();
+        editorCamera = undefined;
+        appliedCamera = '';
+        return (cameraRigs!.active as ThreeCameraRig).camera;
+      }
+      if (!editorCamera) {
+        const camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 200);
+        frameEditorCamera(camera);
+        editorCamera = new EditorCamera({ camera, canvas, view: 'iso' });
+      }
+      const key = `${command.mode}:${command.target ?? ''}`;
+      if (key !== appliedCamera) {
+        const target = command.target;
+        editorCamera.follow(
+          command.mode === 'follow' ? { position: () => controller.position(target) ?? [0, 0, 0] } : undefined,
+        );
+        appliedCamera = key;
+      }
+      editorCamera.update();
+      return editorCamera.camera;
+    };
     const attachedPlayers = new Set<number>();
     const attachPlayers = () => {
       for (const player of Object.values(controller.state().players)) {
@@ -120,7 +158,7 @@ async function start() {
     runtime.onStep((dt, frames) => {
       attachPlayers();
       cameraRigs?.update(dt, frames);
-      if (cameraRigs) sceneHandle?.setCamera((cameraRigs.active as ThreeCameraRig).camera);
+      if (cameraRigs) sceneHandle?.setCamera(viewCamera());
     });
     stopPlayers = runtime.onNet((type, payload) => {
       if (type !== 'net.players') return;
@@ -135,6 +173,7 @@ async function start() {
     const resize = (width: number, height: number, dpr: number) => {
       rendererHandle?.resize(width, height, dpr);
       sceneHandle?.resize(width, height);
+      if (editorCamera) frameEditorCamera(editorCamera.camera as OrthographicCamera);
     };
     const viewport = runtime.host.viewport.current();
     resize(viewport.w || window.innerWidth, viewport.h || window.innerHeight, viewport.dpr || window.devicePixelRatio);
@@ -143,6 +182,7 @@ async function start() {
     window.addEventListener('resize', onWindowResize);
 
     runtime.onFrame(() => {
+      sceneHandle?.setCamera(viewCamera());
       sceneHandle?.sync(controller.state());
       if (rendererHandle && sceneHandle) rendererHandle.renderer.render(sceneHandle.scene, sceneHandle.camera);
     });

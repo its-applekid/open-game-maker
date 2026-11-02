@@ -1,14 +1,16 @@
 import type { CameraRig } from '@ogm/contracts';
-import { createRig, RigSet } from '@gm/sdk/camera';
+import { createRig, PhaserEditorCamera, RigSet } from '@gm/sdk/camera';
 import Phaser from 'phaser';
 
-import { game, getGameContext, type TemplateContext } from '../game.js';
+import { cameraView, game, getGameContext, type TemplateContext } from '../game.js';
 import { GROUND_Y, PLAYER_HEIGHT, PLAYER_WIDTH } from '../state.js';
 
 export class Level extends Phaser.Scene {
   private readonly playerViews = new Map<number, Phaser.GameObjects.Rectangle>();
   private cameraRig: CameraRig | undefined;
   private cameraRigs: RigSet | undefined;
+  private freeCamera: PhaserEditorCamera | undefined;
+  private appliedCamera = '';
 
   constructor() {
     super('level');
@@ -37,20 +39,16 @@ export class Level extends Phaser.Scene {
       },
       worldToScreen: (point) => this.cameraRig?.worldToScreen(point) ?? null,
     };
-    const followed = context.state.players.get(0);
-    if (followed) {
-      this.cameraRig = this.cameraRigs.attach(0, {
-        position: () => {
-          const player = getGameContext().state.players.get(0);
-          return player ? [player.pos.x, player.pos.y, 0] : [0, 0, 0];
-        },
-      });
-    }
+    this.freeCamera = new PhaserEditorCamera(this.cameras.main, this.game.canvas);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.freeCamera?.disable());
+    this.appliedCamera = '';
+    this.applyCamera(context);
   }
 
   update(_time: number, delta: number): void {
     const context = getGameContext();
     this.syncViews(context);
+    this.applyCamera(context);
     this.cameraRigs?.update(delta / 1000, [
       {
         playerIndex: 0,
@@ -59,6 +57,17 @@ export class Level extends Phaser.Scene {
         actions: {},
       },
     ]);
+  }
+
+  private applyCamera(context: TemplateContext): void {
+    const view = cameraView(context);
+    if (!view || view.key === this.appliedCamera || !this.cameraRigs) return;
+    if (view.mode === 'free') this.freeCamera?.enable();
+    else {
+      this.freeCamera?.disable();
+      this.cameraRig = this.cameraRigs.attach(0, { position: view.position });
+    }
+    this.appliedCamera = view.key;
   }
 
   private syncViews(context: TemplateContext): void {

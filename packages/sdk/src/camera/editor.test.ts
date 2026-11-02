@@ -35,6 +35,26 @@ describe('EditorCamera', () => {
     editor.dispose();
   });
 
+  // Follow is the watcher's view of the player; Free must stop tracking and keep the last view for panning.
+  it('tracks a followed target each update and stays put once released', () => {
+    const canvas = document.createElement('canvas');
+    const camera = new OrthographicCamera(-10, 10, 10, -10, 0.1, 100);
+    const editor = new EditorCamera({ camera, canvas, view: 'topdown' });
+    let position: [number, number, number] = [4, 0, 2];
+    editor.follow({ position: () => position });
+    expect([camera.position.x, camera.position.z]).toEqual([4, expect.closeTo(2, 2)]);
+
+    position = [6, 0, -3];
+    editor.update();
+    expect([camera.position.x, camera.position.z]).toEqual([6, expect.closeTo(-3, 2)]);
+
+    editor.follow(undefined);
+    position = [-8, 0, 8];
+    editor.update();
+    expect(camera.position.x).toBe(6);
+    editor.dispose();
+  });
+
   it('pans with a middle-button drag', () => {
     const canvas = document.createElement('canvas');
     const camera = new OrthographicCamera(-10, 10, 10, -10, 0.1, 100);

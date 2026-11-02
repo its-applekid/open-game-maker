@@ -358,6 +358,7 @@ export function GameScreen() {
         <RoomLayer
           gameTitle={game.data?.title ?? ''}
           lastSaveAt={lastSaveAt}
+          onCamera={(cameraMode) => frameRef.current?.camera(cameraMode)}
           onLeave={() => void leaveRoom()}
           onMode={setMode}
           onSelection={(ids) => frameRef.current?.select(ids)}

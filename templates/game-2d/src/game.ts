@@ -80,6 +80,9 @@ export interface TemplateContext {
     screenToWorld(nx: number, ny: number): [number, number];
     worldToScreen(point: [number, number, number]): { x: number; y: number } | null;
   };
+  /** Bridge `editor.camera`; applied by the level scene while `editing()`. */
+  camera: { mode: 'follow' | 'free'; target?: string };
+  editing?: () => boolean;
   advance(dt: number, frames: ActionFrame[]): void;
 }
 
@@ -113,6 +116,39 @@ function playerById(state: SimulationState, id: string) {
     if (player.id === id) return player;
   }
   return undefined;
+}
+
+/** A player's or platform's world position, for the follow camera. */
+export function entityPosition(state: SimulationState, id: string): [number, number, number] | undefined {
+  const player = playerById(state, id);
+  if (player) return [player.pos.x, player.pos.y, 0];
+  const platform = state.platforms.find((candidate) => candidate.id === id);
+  return platform ? [platform.x, platform.y, 0] : undefined;
+}
+
+/**
+ * What the level camera shows now: edit mode obeys `editor.camera`, play mode always follows player 0.
+ * `key` changes only when the camera must be re-applied; `undefined` while there is nothing to follow.
+ */
+export function cameraView(
+  context: TemplateContext,
+): { key: string; mode: 'free' } | { key: string; mode: 'follow'; position(): [number, number, number] } | undefined {
+  const editing = context.editing?.() ?? false;
+  const mode = editing ? context.camera.mode : 'follow';
+  const target = editing ? context.camera.target : undefined;
+  const key = `${mode}:${target ?? ''}`;
+  if (mode === 'free') return { key, mode };
+  if (target === undefined && !context.state.players.has(0)) return undefined;
+  return {
+    key,
+    mode,
+    position: () => {
+      const state = getGameContext().state;
+      if (target !== undefined) return entityPosition(state, target) ?? [0, 0, 0];
+      const player = state.players.get(0);
+      return player ? [player.pos.x, player.pos.y, 0] : [0, 0, 0];
+    },
+  };
 }
 
 export const game: GameModule<PlatformDesign, PlatformSave> = {
@@ -160,6 +196,7 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
       state: save ? restoreSimulation(initialDesign, save.data) : createSimulation(initialDesign),
       paused: false,
       disposed: false,
+      camera: { mode: 'follow' },
       advance(dt, frames) {
         if (context.paused || context.disposed) return;
         for (const frame of frames) applyInput(context.state, frame);
@@ -239,6 +276,12 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
         const platform = context.state.platforms.find((candidate) => candidate.id === id);
         if (!platform) return null;
         return context.view?.worldToScreen([platform.x, platform.y, 0]) ?? { x: platform.x, y: platform.y };
+      },
+      setCamera(mode, target) {
+        if (target !== undefined && !entityPosition(context.state, target)) {
+          throw new Error(`unknown camera target ${target}`);
+        }
+        context.camera = { mode, target };
       },
       validatePlacement(prefab, pose) {
         if (prefab !== 'platform') return { ok: false, reason: 'unknown prefab' };
