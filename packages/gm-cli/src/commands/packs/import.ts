@@ -1,14 +1,19 @@
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
+import { basename, resolve } from 'node:path';
+
 import { printJson, requireAssetsRoot } from '../../context.js';
+import { readLicenseMap } from '../../packs/license-map.js';
 
 export const command: GmCommand = {
   name: 'packs import',
   summary: 'safely import a quarantined asset drop or local archive',
-  usage: '<dir|archive> --id <vendor-name> [--license <id>] [--version <v>] [--inspiration] [--from-queue <drop-id>]',
+  usage: '<dir|archive> --id <name> [--tier 1|2] [--license <id>] [--license-map <json>] [--version <v>]',
   example: 'packs import ./Kenney --id kenney-test --version 1 --json',
   flags: {
     id: { type: 'string', help: 'stable kebab-case pack id' },
     license: { type: 'string', help: 'known SPDX or LicenseRef id' },
+    tier: { type: 'string', help: 'asset tier: 1 (default) or 2' },
+    'license-map': { type: 'string', help: 'per-item tier-2 licence JSON' },
     inspiration: { type: 'boolean', default: false, help: 'store outside game-material packs' },
     version: { type: 'string', help: 'vendor or intake version' },
     'from-queue': { type: 'string', help: 'Drive queue drop id' },
@@ -39,6 +44,15 @@ export const command: GmCommand = {
       return EXIT.ok;
     }
     if (typeof flags.id !== 'string') throw new UsageError('--id is required', 'gm help packs import');
+    const tierValue = flags.tier ?? '1';
+    if (tierValue !== '1' && tierValue !== '2') throw new UsageError('--tier must be 1 or 2', 'gm help packs import');
+    const tier = Number(tierValue) as 1 | 2;
+    if (tier === 1 && flags['license-map'] !== undefined) {
+      throw new UsageError('--license-map requires --tier 2', 'gm help packs import');
+    }
+    if (tier === 2 && typeof flags['from-queue'] === 'string') {
+      throw new UsageError('--tier 2 cannot import from the Drive queue', 'gm help packs import');
+    }
     if (
       args.length > 1 ||
       (args.length === 0 && typeof flags['from-queue'] !== 'string') ||
@@ -47,6 +61,15 @@ export const command: GmCommand = {
       throw new UsageError('give one input directory/archive, or --from-queue', 'gm help packs import');
     }
     const { importPack, PackRefusal } = await import('../../packs/importer.js');
+    let licenseMap;
+    try {
+      licenseMap =
+        typeof flags['license-map'] === 'string'
+          ? await readLicenseMap(resolve(ctx.cwd, flags['license-map']))
+          : undefined;
+    } catch (error) {
+      throw new UsageError(error instanceof Error ? error.message : String(error), 'gm help packs import');
+    }
     let result: Awaited<ReturnType<typeof importPack>>;
     try {
       result = await importPack({
@@ -56,6 +79,11 @@ export const command: GmCommand = {
         id: flags.id,
         ...(typeof flags.version === 'string' ? { version: flags.version } : {}),
         ...(typeof flags.license === 'string' ? { license: flags.license } : {}),
+        ...(licenseMap
+          ? { licenseMap, licenseRef: `operator licence map ${basename(flags['license-map'] as string)}` }
+          : {}),
+        ...(typeof flags['confirmed-by'] === 'string' ? { confirmedBy: flags['confirmed-by'] } : {}),
+        tier,
         inspiration: flags.inspiration === true,
         ...(typeof flags['from-queue'] === 'string' ? { fromQueue: flags['from-queue'] } : {}),
       });

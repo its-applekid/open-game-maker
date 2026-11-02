@@ -25,6 +25,7 @@ const own = [
   'game.fork',
   'job.create',
   'job.cancel',
+  'job.edit',
   'member.invite',
   'game.delist',
   'report.file',
@@ -62,7 +63,16 @@ const ownAllowed = {
   maintainer: ACTIONS,
   admin,
   creator: own,
-  player: ['game.edit', 'game.publish', 'game.play', 'game.fork', 'job.cancel', 'game.delist', 'report.file'],
+  player: [
+    'game.edit',
+    'game.publish',
+    'game.play',
+    'game.fork',
+    'job.cancel',
+    'job.edit',
+    'game.delist',
+    'report.file',
+  ],
 } as const satisfies Record<ActorName, readonly Action[]>;
 
 function resource(actor: Actor, action: Action, scope: Scope): Resource {
@@ -93,6 +103,15 @@ const rows = Object.entries(actors).flatMap(([name, actor]) =>
 );
 
 describe(`authorization matrix (${rows.length} rows)`, () => {
+  it('treats job edits as owner-only controls', () => {
+    expect(authorize(actors.creator, 'job.edit' as Action, resource(actors.creator, 'job.cancel', 'own')).ok).toBe(
+      true,
+    );
+    expect(authorize(actors.creator, 'job.edit' as Action, resource(actors.creator, 'job.cancel', 'other')).ok).toBe(
+      false,
+    );
+  });
+
   for (const row of rows) {
     it(`${row.name} ${row.action} on ${row.scope}`, () => {
       expect(authorize(row.actor, row.action, resource(row.actor, row.action, row.scope)).ok).toBe(row.ok);

@@ -35,6 +35,9 @@ importers:
       '@better-auth/passkey':
         specifier: 1.7.15
         version: 1.7.15(@better-auth/core@1.7.15(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-call@1.4.4(zod@4.6.7))(jose@6.2.14)(kysely@0.29.8)(nanostores@1.5.5))(@better-auth/utils@0.5.1)(@better-fetch/fetch@1.3.3)(better-auth@1.7.15(drizzle-kit@0.31.11)(drizzle-orm@0.45.4(@types/better-sqlite3@9.6.0)(better-sqlite3@13.0.3)(kysely@0.29.8))(react-dom@19.3.1(react@19.3.1))(react@19.3.1)(vitest@5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))))(better-call@1.4.4(zod@4.6.7))(nanostores@1.5.5)
+      '@colyseus/sdk':
+        specifier: 0.18.9
+        version: 0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7)
       '@noriginmedia/norigin-spatial-navigation':
         specifier: 2.3.0
         version: 2.3.0(react@19.3.1)
@@ -44,6 +47,12 @@ importers:
       '@ogm/voice-client':
         specifier: workspace:*
         version: link:../../packages/voice-client
+      '@ogm/design-log':
+        specifier: workspace:*
+        version: link:../../packages/design-log
+      '@ogm/iframe-bridge':
+        specifier: workspace:*
+        version: link:../../packages/iframe-bridge
       '@tanstack/react-query':
         specifier: 5.105.1
         version: 5.105.1(@types/react@19.3.0)(react@19.3.1)
@@ -63,6 +72,15 @@ importers:
         specifier: 5.0.16
         version: 5.0.16(@types/react@19.3.0)(immer@11.2.9)(react@19.3.1)
     devDependencies:
+      '@colyseus/testing':
+        specifier: 0.18.6
+        version: 0.18.6(@colyseus/core@0.18.24)(@colyseus/sdk@0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7))(@colyseus/tools@0.18.11(@colyseus/core@0.18.24)(@colyseus/ws-transport@0.18.4))
+      '@ogm/room-protocol':
+        specifier: workspace:*
+        version: link:../../packages/room-protocol
+      '@ogm/rooms':
+        specifier: workspace:*
+        version: link:../../services/rooms
       '@playwright/test':
         specifier: 1.64.1
         version: 1.64.1
@@ -250,6 +268,15 @@ importers:
 
   packages/gm-cli:
     dependencies:
+      '@gltf-transform/core':
+        specifier: 4.5.1
+        version: 4.5.1
+      '@gltf-transform/extensions':
+        specifier: 4.5.1
+        version: 4.5.1
+      '@gltf-transform/functions':
+        specifier: 4.5.1
+        version: 4.5.1(@types/node@26.6.6)
       '@ogm/asset-cards':
         specifier: workspace:*
         version: link:../asset-cards
@@ -271,6 +298,9 @@ importers:
       adm-zip:
         specifier: 0.6.1
         version: 0.6.1
+      meshoptimizer:
+        specifier: 1.3.0
+        version: 1.3.0
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@26.6.6)
@@ -289,6 +319,9 @@ importers:
       playwright:
         specifier: 1.64.1
         version: 1.64.1
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -347,6 +380,9 @@ importers:
 
   packages/sdk:
     dependencies:
+      '@dimforge/rapier3d-compat':
+        specifier: 0.21.0
+        version: 0.21.0
       '@ogm/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -356,9 +392,15 @@ importers:
       fastnoise-lite:
         specifier: 1.1.1
         version: 1.1.1
+      idb:
+        specifier: 8.0.3
+        version: 8.0.3
       meshoptimizer:
         specifier: 1.3.0
         version: 1.3.0
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
       three:
         specifier: 0.186.1
         version: 0.186.1
@@ -381,6 +423,9 @@ importers:
       esbuild:
         specifier: 0.28.2
         version: 0.28.2
+      fake-indexeddb:
+        specifier: 6.2.5
+        version: 6.2.5
       jsdom:
         specifier: 27.4.0
         version: 27.4.0(@noble/hashes@2.4.0)
@@ -613,6 +658,82 @@ importers:
       tsx:
         specifier: 4.23.15
         version: 4.23.15
+
+  services/voice-host: {}
+
+  skills/gm-genre-platformer:
+    devDependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  templates/game-2d:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      phaser:
+        specifier: 4.2.1
+        version: 4.2.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      vite:
+        specifier: 8.3.5
+        version: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(tsx@4.23.15)(yaml@2.9.1))
+
+  templates/game-3d:
+    dependencies:
+      '@gm/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
+      '@ogm/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      three:
+        specifier: 0.186.1
+        version: 0.186.1
+      zod:
+        specifier: 4.6.7
+        version: 4.6.7
+    devDependencies:
+      '@playwright/test':
+        specifier: 1.64.1
+        version: 1.64.1
+      '@types/node':
+        specifier: 26.6.6
+        version: 26.6.6
+      '@types/three':
+        specifier: 0.186.0
+        version: 0.186.0
+      typescript:
+        specifier: 6.0.3
+        version: 6.0.3
+      vite:
+        specifier: 7.3.7
+        version: 7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1)
+      vitest:
+        specifier: 5.0.5
+        version: 5.0.5(@types/node@26.6.6)(jsdom@27.4.0(@noble/hashes@2.4.0))(vite@7.3.7(@types/node@26.6.6)(lightningcss@1.33.0)(tsx@4.23.15)(yaml@2.9.1))
 
   tools/skills:
     devDependencies:
@@ -956,6 +1077,9 @@ packages:
 
   '@dimforge/rapier3d-compat@0.12.0':
     resolution: {integrity: sha512-uekIGetywIgopfD97oDL5PfeezkFpNhwlzlaEYNOA0N6ghdsOvh/HYjSMek5Q2O1PYvRSDFcqFVJl4r4ZBwOow==}
+
+  '@dimforge/rapier3d-compat@0.21.0':
+    resolution: {integrity: sha512-tCl1HPGwOhn5aCQbgqWbOH+Nx/5fnr3IPAnzQuR7zIhC/raqi2yxC6LhvZqjdI2El5hQgY5RDAwDrAjAi2FdPA==}
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -2952,6 +3076,10 @@ packages:
     resolution: {integrity: sha512-qCqy1xSoaugxOD4IVHb1ZWdkvCF2W3aE2okKouWj8VwJ+ztskSiXoBnCSJqfKT+cVPJhuJqe9YLbY425+Zh00g==}
     engines: {node: '>= 18'}
 
+  fake-indexeddb@6.2.5:
+    resolution: {integrity: sha512-CGnyrvbhPlWYMngksqrSSUT1BAVP49dZocrHuK0SvtR0D5TMs5wP0o3j7jexDJW01KSadjBp1M/71o/KR3nD1w==}
+    engines: {node: '>=18'}
+
   fast-check@4.10.2:
     resolution: {integrity: sha512-iK2f+YrcmoeGqk6fA0ea2bptcu/itMIm4NfEozq6N25+aG6h7s5HZbB/k1aV7b5w5sFLMCbbtRUsTVR+BgC3xw==}
     engines: {node: '>=12.17.0'}
@@ -3088,6 +3216,9 @@ packages:
   iconv-lite@0.7.3:
     resolution: {integrity: sha512-IKXpvIzjnC9XTAUbVBcMfGS0EPaIXtW6v+zr+RRp+hqULEpo0owZax6wyRwPOJbWbzjYspQwusTsfVr0ifh4uQ==}
     engines: {node: '>=0.10.0'}
+
+  idb@8.0.3:
+    resolution: {integrity: sha512-LtwtVyVYO5BqRvcsKuB2iUMnHwPVByPCXFXOpuU96IZPPoPN6xjOGxZQ74pgSVVLQWtUOYgyeL4GE98BY5D3wg==}
 
   ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -4442,6 +4573,8 @@ snapshots:
   '@csstools/css-tokenizer@4.0.2': {}
 
   '@dimforge/rapier3d-compat@0.12.0': {}
+
+  '@dimforge/rapier3d-compat@0.21.0': {}
 
   '@drizzle-team/brocli@0.10.2': {}
 
@@ -6156,6 +6289,8 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
+  fake-indexeddb@6.2.5: {}
+
   fast-check@4.10.2:
     dependencies:
       pure-rand: 8.4.2
@@ -6294,6 +6429,8 @@ snapshots:
   iconv-lite@0.7.3:
     dependencies:
       safer-buffer: 2.1.2
+
+  idb@8.0.3: {}
 
   ignore@5.3.2: {}
 

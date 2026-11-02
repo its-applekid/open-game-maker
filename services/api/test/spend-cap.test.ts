@@ -126,6 +126,69 @@ describe('job spend cap and lifecycle', () => {
     expect(changed).toEqual(['running', 'paused_budget', 'running']);
   });
 
+  it('reclaims a released slot before continuing an out-of-budget job', async () => {
+    const { deps } = seed('paused_budget');
+    deps.db
+      .update(schema.jobs)
+      .set({ releasedAt: NOW.toISOString(), usageMicroUsd: 4_000_000 })
+      .where(eq(schema.jobs.id, 'j_1'))
+      .run();
+    const setSpendCap = vi.fn().mockResolvedValue({ amount: '12.000000', currency: 'USD' });
+
+    await raiseCap(lifecycleDeps(deps), 'j_1', 12_000_000, { setSpendCap });
+
+    expect(deps.db.select().from(schema.jobs).get()).toMatchObject({
+      state: 'running',
+      releasedAt: null,
+      hardCapMicroUsd: 12_000_000,
+    });
+  });
+
+  it('leaves a released job paused when no slot is available', async () => {
+    const { deps } = seed('paused_budget');
+    deps.db.update(schema.jobs).set({ releasedAt: NOW.toISOString() }).where(eq(schema.jobs.id, 'j_1')).run();
+    deps.db
+      .insert(schema.familyBudgetSettings)
+      .values({
+        familyId: 'f_1',
+        resetZone: defaults.resetZone,
+        unitLabel: 'energy',
+        microUsdPerUnit: 100_000,
+        platformCapMicroUsd: 20_000_000,
+        slotsNewGame: 1,
+        slotsEdit: 0,
+        hardCapMultiplier: 1,
+      })
+      .run();
+    const setSpendCap = vi.fn();
+
+    await expect(raiseCap(lifecycleDeps(deps), 'j_1', 12_000_000, { setSpendCap })).rejects.toMatchObject({
+      status: 409,
+      code: 'slot_unavailable',
+    });
+    expect(setSpendCap).not.toHaveBeenCalled();
+    expect(deps.db.select().from(schema.jobs).get()).toMatchObject({
+      state: 'paused_budget',
+      releasedAt: NOW.toISOString(),
+    });
+  });
+
+  it('restores a released slot claim when the upstream cap raise fails', async () => {
+    const { deps } = seed('paused_budget');
+    deps.db.update(schema.jobs).set({ releasedAt: NOW.toISOString() }).where(eq(schema.jobs.id, 'j_1')).run();
+    const setSpendCap = vi.fn().mockRejectedValue(new Error('offline'));
+
+    await expect(raiseCap(lifecycleDeps(deps), 'j_1', 12_000_000, { setSpendCap })).rejects.toMatchObject({
+      status: 502,
+      code: 'spend_cap_failed',
+    });
+    expect(deps.db.select().from(schema.jobs).get()).toMatchObject({
+      state: 'paused_budget',
+      releasedAt: NOW.toISOString(),
+      hardCapMicroUsd: 9_000_000,
+    });
+  });
+
   it('serializes concurrent cap raises against the latest stored cap', async () => {
     const { deps } = seed('running');
     const setSpendCap = vi.fn(async () => {

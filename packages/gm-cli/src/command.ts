@@ -8,6 +8,7 @@ export type GmConfig = {
   jobId?: string;
   aiurIssue?: number;
   aiurRunId?: string;
+  sandbox?: boolean;
   verifySoftwareGl: boolean;
   verifyQueue: boolean;
   runtimeDir?: string;

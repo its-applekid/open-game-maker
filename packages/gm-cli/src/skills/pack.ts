@@ -70,6 +70,18 @@ function walkFiles(root: string, prefix = ''): string[] {
   return files;
 }
 
+function isRuntimeSkillFile(path: string): boolean {
+  const parts = path.split('/');
+  const name = parts.at(-1) ?? '';
+  return (
+    !parts.includes('dist') &&
+    name !== 'package.json' &&
+    !name.startsWith('tsconfig') &&
+    !name.endsWith('.test.ts') &&
+    name !== 'test-support.ts'
+  );
+}
+
 export function gmCliVersion(): string {
   const parsed = JSON.parse(readFileSync(join(PACKAGE_ROOT, 'package.json'), 'utf8')) as { version?: unknown };
   if (typeof parsed.version !== 'string') throw new Error('gm-cli package.json has no version');
@@ -82,11 +94,13 @@ function sourcePack(packDir: string): { files: SourceFile[]; discovery: Discover
     .map((entry) => entry.name)
     .sort();
   const files = roots.flatMap((root) =>
-    walkFiles(packDir, root).map((path) => ({
-      path,
-      source: join(packDir, path),
-      sha256: fileSha256(join(packDir, path)),
-    })),
+    walkFiles(packDir, root)
+      .filter(isRuntimeSkillFile)
+      .map((path) => ({
+        path,
+        source: join(packDir, path),
+        sha256: fileSha256(join(packDir, path)),
+      })),
   );
   const discovery: DiscoverySkill[] = [];
   for (const file of files.filter(({ path }) => path.endsWith('/SKILL.md'))) {

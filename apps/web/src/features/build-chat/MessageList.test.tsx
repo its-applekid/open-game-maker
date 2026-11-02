@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { MessageList } from './MessageList';
 import type { StreamedChatMessage } from './stream';
@@ -10,10 +10,26 @@ const base = {
   actor: 'agent' as const,
 };
 
-afterEach(() => cleanup());
+beforeEach(() => {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(
+      async () =>
+        new Response(JSON.stringify({ used: 1, max: 3 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+    ),
+  );
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
 describe('MessageList', () => {
-  it('renders reserved media, progress, and a read-only checkpoint', () => {
+  it('renders reserved media, progress, and an actionable checkpoint', () => {
     const messages: StreamedChatMessage[] = [
       {
         ...base,
@@ -45,8 +61,53 @@ describe('MessageList', () => {
     expect(screen.getByText('Wiring the door')).toBeInTheDocument();
     expect(screen.getByText('Which door?')).toBeInTheDocument();
     expect(screen.getByText('Wooden')).toBeInTheDocument();
-    expect(screen.queryByText('Recommended')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Wooden' })).not.toBeInTheDocument();
+    expect(screen.getByText("Builder's pick")).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Wooden' })).toBeInTheDocument();
+  });
+
+  it('loads the checkpoint budget and posts the selected option through the row', async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.endsWith('/checkpoints/budget')) {
+        return new Response(JSON.stringify({ used: 1, max: 3 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ status: 'answered', decision_id: 'd_1', option_id: 'wood' }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      });
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const messages: StreamedChatMessage[] = [
+      {
+        ...base,
+        id: 'm_3',
+        kind: 'checkpoint',
+        checkpoint: {
+          decision_id: 'd_1',
+          question: 'Which door?',
+          options: [
+            { id: 'wood', label: 'Wooden' },
+            { id: 'iron', label: 'Iron' },
+          ],
+          status: 'open',
+        },
+      },
+    ];
+
+    render(<MessageList messages={messages} />);
+    expect(await screen.findByText('Checkpoint 1 of 3')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Wooden' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/v1/jobs/j_1/checkpoints/m_3/answer',
+        expect.objectContaining({ method: 'POST', body: JSON.stringify({ option_id: 'wood' }) }),
+      );
+    });
+    expect(screen.getByRole('button', { name: 'Wooden' })).toBeDisabled();
   });
 
   it('falls back to text for an unknown kind', () => {

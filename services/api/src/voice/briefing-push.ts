@@ -1,4 +1,4 @@
-import type { JobState } from '@ogm/contracts';
+import type { BriefingPush, JobState, VoiceTarget } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
 import { and, asc, desc, eq, notInArray } from 'drizzle-orm';
 
@@ -8,20 +8,17 @@ import { getBudgetSettings, type BudgetDefaults } from '../budget/settings.js';
 import { budgetStatus } from '../budget/status.js';
 import { toUnits } from '../budget/units.js';
 
-// T06 §4.
-export type VoiceTarget =
-  | { kind: 'scope'; game_id: string; session_id: string; creator_id: string }
-  | { kind: 'build'; game_id: string; job_id: string; ticket: string; creator_id: string };
+export type { VoiceTarget } from '@ogm/contracts';
 
-export type Briefing = {
+export type Briefing = BriefingPush & {
   target_key: string;
   summary: string;
   current_task: string;
   next_steps: string[];
-  waiting_on: string | null;
+  waiting_on?: string;
   questions: string[];
   extra: { title: string; text: string }[];
-  sections: { id: 'budget' | 'progress'; text: string }[];
+  sections: { id: 'budget' | 'progress' | 'estimate'; text: string }[];
   observed_at: string;
 };
 
@@ -37,36 +34,62 @@ export type PushDeps = BriefingDeps & {
 
 const SIZES = ['small', 'medium', 'large', 'huge'] as const;
 const TERMINAL: JobState[] = ['done', 'failed', 'cancelled'];
-const OFFERS = 'If it does not fit: trim, split, queue for the reset, or ask an admin.';
+const PAUSED = 'Build paused at its reservation: ask an admin to raise it, or trim';
 
 export const targetKey = (target: VoiceTarget) =>
   `${target.kind}:${target.kind === 'scope' ? target.session_id : target.job_id}`;
 
-function localTime(at: string, zone: string): string {
+export function localTime(at: string, zone: string): string {
   try {
-    return new Intl.DateTimeFormat('en-GB', { timeZone: zone, hour: '2-digit', minute: '2-digit' }).format(
-      new Date(at),
-    );
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: zone,
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })
+      .format(new Date(at))
+      .toLowerCase();
   } catch {
-    return new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', hour: '2-digit', minute: '2-digit' }).format(
-      new Date(at),
-    );
+    return localTime(at, 'UTC');
   }
 }
 
-function budgetText(deps: BriefingDeps, familyId: string, userId: string, now: Date): string {
+function unitLabel(label: string, upper: number): string {
+  return upper <= 1 && label.endsWith('s') ? label.slice(0, -1) : label;
+}
+
+function range(lower: number, upper: number): string {
+  return lower === upper ? String(lower) : `${lower}–${upper}`;
+}
+
+function budgetText(
+  deps: BriefingDeps,
+  familyId: string,
+  userId: string,
+  now: Date,
+): { remaining: string; sizes: string } {
   const settings = getBudgetSettings(deps.db, familyId, deps.defaults);
   const status = budgetStatus(deps, { familyId, userId, now });
   const units = (microUsd: number) => toUnits(microUsd, settings).units;
-  const table = SIZES.map((size) => {
-    const row = sizeClassRow(deps.db, 'feature', size);
-    return `${size} ≈ ${units(row.p50MicroUsd)}–${units(row.p80MicroUsd)}`;
-  }).join(', ');
-  return (
-    `${units(status.remainingMicroUsd)} ${settings.unitLabel} left today (${status.remainingPercent}%); ` +
-    `resets ${localTime(status.resetsAt, settings.resetZone)}; ${status.freeSlots.edit} free edit slots; ` +
-    `${status.queued.length} queued. Typical sizes in ${settings.unitLabel}: ${table}.`
-  );
+  const rows = Object.fromEntries(SIZES.map((size) => [size, sizeClassRow(deps.db, 'feature', size)])) as Record<
+    (typeof SIZES)[number],
+    ReturnType<typeof sizeClassRow>
+  >;
+  const small = [units(rows.small.p50MicroUsd), units(rows.small.p80MicroUsd)] as const;
+  const medium = [units(rows.medium.p50MicroUsd), units(rows.medium.p80MicroUsd)] as const;
+  const large = [units(rows.large.p50MicroUsd), units(rows.large.p80MicroUsd)] as const;
+  const huge = units(rows.huge.p50MicroUsd);
+  const remainingUnits = units(status.remainingMicroUsd);
+  const remaining =
+    `Remaining today: ${remainingUnits.toFixed(1)} ${unitLabel(settings.unitLabel, remainingUnits)} ` +
+    `(${status.remainingPercent}%). Resets at ${localTime(status.resetsAt, settings.resetZone)}. ` +
+    `Free slots: ${status.freeSlots.new_game} new game${status.freeSlots.new_game === 1 ? '' : 's'}, ` +
+    `${status.freeSlots.edit} edit${status.freeSlots.edit === 1 ? '' : 's'}. ` +
+    `Queued: ${status.queued.length === 0 ? 'none' : status.queued.length}.`;
+  const sizes =
+    `Rough sizes: small ≈ ${range(...small)} ${unitLabel(settings.unitLabel, small[1])}, ` +
+    `medium ≈ ${range(...medium)}, large ≈ ${range(...large)}, huge ≈ ${huge}+ (low confidence).`;
+  return { remaining, sizes };
 }
 
 function jobFor(db: Db, target: VoiceTarget) {
@@ -106,7 +129,21 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
         .all()
         .map(({ question }) => question)
     : [];
-  const budget = budgetText(deps, familyId, target.creator_id, now);
+  let budget: { remaining: string; sizes: string } | undefined;
+  try {
+    budget = budgetText(deps, familyId, target.creator_id, now);
+  } catch {
+    // A missing budget source is not permission to guess. Progress still reaches the host, which adds a gap.
+  }
+  const paused = job?.state === 'paused_budget';
+  const waitingOn = pendingWaitingOn(target) ?? (paused ? PAUSED : undefined);
+  const budgetSummary = budget ? `${paused ? 'Build paused at its reservation. ' : ''}${budget.remaining}` : undefined;
+  const progress = stage ?? (target.kind === 'scope' ? 'Agreeing the scope' : 'No build running.');
+  const sections: Briefing['sections'] = [{ id: 'progress', text: progress }];
+  if (budgetSummary && budget) {
+    sections.unshift({ id: 'budget', text: `${budgetSummary}\n${budget.sizes}` });
+    sections.push({ id: 'estimate', text: budget.sizes });
+  }
   return {
     target_key: targetKey(target),
     summary:
@@ -115,13 +152,10 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
         : (game?.title ?? 'a new game'),
     current_task: target.kind === 'scope' ? 'Agreeing the scope' : (stage ?? 'No build running'),
     next_steps: target.kind === 'scope' ? ['Confirm the plan', 'Start the build or queue it for the reset'] : [],
-    waiting_on: job?.state === 'paused_budget' ? 'an admin' : null,
+    ...(waitingOn ? { waiting_on: waitingOn } : {}),
     questions,
-    extra: [{ title: 'Budget', text: budget }],
-    sections: [
-      { id: 'budget', text: `${budget} ${OFFERS}` },
-      { id: 'progress', text: stage ?? 'No build running.' },
-    ],
+    extra: budgetSummary ? [{ title: 'Budget', text: budgetSummary }] : [],
+    sections,
     observed_at: now.toISOString(),
   };
 }
@@ -151,7 +185,32 @@ export async function pushBriefing(deps: PushDeps, target: VoiceTarget): Promise
 }
 
 const targets = new Map<string, { target: VoiceTarget; expiresAt: number }>();
-let pusher: { deps: PushDeps; debounceMs: number; timers: Map<string, NodeJS.Timeout> } | null = null;
+const pending = new Map<string, { text: string; expiresAt: number }>();
+let pusher: {
+  deps: PushDeps;
+  debounceMs: number;
+  timers: Map<string, NodeJS.Timeout>;
+} | null = null;
+
+function pendingWaitingOn(target: VoiceTarget): string | undefined {
+  const key = targetKey(target);
+  const entry = pending.get(key);
+  if (!entry) return undefined;
+  if (entry.expiresAt <= Date.now()) {
+    pending.delete(key);
+    return undefined;
+  }
+  return entry.text;
+}
+
+export function setVoiceWaitingOn(target: VoiceTarget, text: string, ttlMs = 10 * 60_000): void {
+  pending.set(targetKey(target), { text, expiresAt: Date.now() + ttlMs });
+  if (pusher) void pushBriefing(pusher.deps, target);
+}
+
+export function clearVoiceWaitingOn(target: VoiceTarget): void {
+  pending.delete(targetKey(target));
+}
 
 export function activeTargetFor(creatorId: string): VoiceTarget | null {
   const entry = targets.get(creatorId);
@@ -182,8 +241,17 @@ export function registerVoiceTarget(target: VoiceTarget, ttlSec = 1800): void {
   if (pusher) void pushBriefing(pusher.deps, target);
 }
 
-export function startBriefingPush(deps: PushDeps & { events: AppEvents; debounceMs?: number }): () => void {
+export function startBriefingPush(
+  deps: PushDeps & { events: AppEvents; debounceMs?: number; intervalMs?: number },
+): () => void {
   const timers = new Map<string, NodeJS.Timeout>();
+  const interval = setInterval(() => {
+    for (const creatorId of targets.keys()) {
+      const target = activeTargetFor(creatorId);
+      if (target) void pushBriefing(deps, target);
+    }
+  }, deps.intervalMs ?? 30_000);
+  interval.unref();
   pusher = { deps, debounceMs: deps.debounceMs ?? 500, timers };
   const offBudget = deps.events.on('budget.changed', ({ userId }) => schedulePush(userId));
   const offJob = deps.events.on('job.changed', ({ jobId }) => {
@@ -197,9 +265,11 @@ export function startBriefingPush(deps: PushDeps & { events: AppEvents; debounce
   return () => {
     offBudget();
     offJob();
+    clearInterval(interval);
     for (const timer of timers.values()) clearTimeout(timer);
     pusher = null;
     targets.clear();
+    pending.clear();
     lastFailureLog.clear();
   };
 }

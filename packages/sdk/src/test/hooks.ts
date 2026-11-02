@@ -102,6 +102,7 @@ export class SdkHooks<D, S> implements RuntimeHooks {
         const replayFrames = this.inputHistory.filter(({ tick }) => tick > keyframe.tick && tick <= targetTick);
         let frameIndex = 0;
         this.replaying = true;
+        this.runtime.setInputReplay(true);
         try {
           while (this.runtime.clock.tick < targetTick) {
             const nextTick = this.runtime.clock.tick + 1;
@@ -112,6 +113,7 @@ export class SdkHooks<D, S> implements RuntimeHooks {
             this.runtime.advance(STEP_MS, false);
           }
         } finally {
+          this.runtime.setInputReplay(false);
           this.replaying = false;
         }
         this.truncateTimeline(targetTick);

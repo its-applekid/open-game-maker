@@ -5,7 +5,7 @@ export type ActivityContext = {
   jobId?: string;
   aiurIssue?: number;
   aiurRunId?: string;
-  source?: 'gm run' | 'skill:gm-verify';
+  source?: 'gm run' | 'gm test' | 'skill:gm-verify';
 };
 
 /** T10 §4 activity event: one JSON line per phase in `$GM_EVENTS_FILE`. */

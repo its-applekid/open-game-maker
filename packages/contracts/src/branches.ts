@@ -11,7 +11,10 @@ export const BranchSchema = z.looseObject({
     .looseObject({
       parentBranchId: StableIdSchema,
       parentRev: RevisionSchema,
-      gitSha: z.string().regex(/^[0-9a-f]{40}$/),
+      gitSha: z
+        .string()
+        .regex(/^[0-9a-f]{40}$/)
+        .nullable(),
     })
     .nullable(),
   headRev: RevisionSchema,
@@ -61,6 +64,13 @@ export const MergePlanSchema = z.looseObject({
   status: z.enum(['planned', 'resolving', 'previewing', 'landed', 'abandoned']),
 });
 export type MergePlan = z.infer<typeof MergePlanSchema>;
+
+/**
+ * Voice merge tools map directly to the merge routes:
+ * - list_conflicts(planId) reads GET .../merges/:planId
+ * - resolve_conflict(planId, conflictId, resolution) posts to .../conflicts/:conflictId
+ * - resolve_all(planId, 'ours' | 'theirs') posts to .../resolve-all
+ */
 
 export const BranchesFamilySchema = z.looseObject({
   branch: BranchSchema,

@@ -3,8 +3,9 @@ import type { Branch, DesignDoc, Transaction } from '@ogm/contracts';
 import { apply } from './apply.js';
 
 export type ReplaySegment = { branch: Branch; txs: readonly Transaction[] };
-export type ReplayInput = { baseDoc: DesignDoc; chain: readonly ReplaySegment[] };
+export type ReplayInput = { baseDoc: DesignDoc; chain: readonly ReplaySegment[]; buildId?: string };
 export type ReplayResult = { doc: DesignDoc; headRev: number };
+export type BuildSwitch = { from: string; to: string };
 
 export class GapError extends Error {
   readonly expected: number;
@@ -50,6 +51,15 @@ function segmentLimit(chain: readonly ReplaySegment[], index: number, upToRev: n
   return upToRev === undefined ? segment.branch.headRev : Math.min(upToRev, segment.branch.headRev);
 }
 
+export function buildSwitchFrom(transaction: Transaction): BuildSwitch | undefined {
+  const command = transaction.commands.find(
+    (candidate) => candidate.op === 'invoke' && candidate.command === 'build.switch',
+  );
+  if (command?.op !== 'invoke' || typeof command.args !== 'object' || command.args === null) return undefined;
+  const args = command.args as Record<string, unknown>;
+  return typeof args.from === 'string' && typeof args.to === 'string' ? { from: args.from, to: args.to } : undefined;
+}
+
 export function replay(input: ReplayInput, upToRev?: number): ReplayResult {
   if (upToRev !== undefined && (!Number.isInteger(upToRev) || upToRev < 0)) {
     throw new InvalidRevisionError(upToRev);
@@ -57,10 +67,15 @@ export function replay(input: ReplayInput, upToRev?: number): ReplayResult {
   if (input.chain.length === 0) return { doc: input.baseDoc, headRev: 0 };
   let doc = input.baseDoc;
   let leafHeadRev = 0;
+  let activeStart: { segment: number; rev: number } | undefined;
+  const prepared = input.chain.map((segment, index) => ({
+    segment,
+    index,
+    limit: segmentLimit(input.chain, index, upToRev),
+    txs: [...segment.txs].sort((left, right) => left.rev - right.rev),
+  }));
 
-  input.chain.forEach((segment, index) => {
-    const limit = segmentLimit(input.chain, index, upToRev);
-    const txs = [...segment.txs].sort((left, right) => left.rev - right.rev);
+  for (const { segment, index, limit, txs } of prepared) {
     let expected = 1;
     for (const tx of txs) {
       if (tx.rev > limit) break;
@@ -68,12 +83,27 @@ export function replay(input: ReplayInput, upToRev?: number): ReplayResult {
         throw new ForkPointError(`transaction ${tx.id} belongs to ${tx.branchId}, not ${segment.branch.id}`);
       }
       if (tx.rev !== expected) throw new GapError(segment.branch.id, expected, tx.rev);
-      doc = apply(doc, tx.patches);
+      if (input.buildId !== undefined && buildSwitchFrom(tx)?.to === input.buildId) {
+        activeStart = { segment: index, rev: tx.rev };
+      }
       expected += 1;
     }
     if (expected <= limit) throw new GapError(segment.branch.id, expected);
     if (index === input.chain.length - 1) leafHeadRev = limit;
-  });
+  }
+
+  for (const { index, limit, txs } of prepared) {
+    for (const tx of txs) {
+      if (tx.rev > limit) break;
+      const afterActiveStart =
+        activeStart === undefined ||
+        index > activeStart.segment ||
+        (index === activeStart.segment && tx.rev >= activeStart.rev);
+      if ((input.buildId === undefined || tx.baseBuildId === input.buildId) && afterActiveStart) {
+        doc = apply(doc, tx.patches);
+      }
+    }
+  }
 
   return { doc, headRev: leafHeadRev };
 }
