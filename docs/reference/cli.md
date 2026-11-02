@@ -136,6 +136,22 @@ gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>]
 `--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
 the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.
 
+## Reference and vendor game assets
+
+```text
+gm assets use <id...> [--vendor]
+gm assets vendor <id...>
+gm assets register <path> --made-by-agent [--from <id>...] --game <id>
+```
+
+`gm assets use` normally records library references in `assets.lock.json` without copying bytes into the game repo.
+Use `gm assets vendor` to materialise an already-locked asset under `assets/`; the command verifies every pinned hash
+and updates the lock source to `vendored`. Only assets whose effective rights allow free redistribution can be
+vendored. The command names each refused id and leaves that entry as a library or blob reference.
+
+`gm assets register` moves an agent-made file into the instance blob store and records a tier-3 reference. Use
+`--from` for every locked source the new file derives from so its effective rights cannot become broader.
+
 ## Export and import asset libraries
 
 ```text

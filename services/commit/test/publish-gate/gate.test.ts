@@ -40,7 +40,7 @@ function dependencies(request: GitHubRequest): { app: GitHubApp; api: BoundaryAp
   };
 }
 
-function treeRequest(lockfile: AssetsLock, includeAsset: boolean): GitHubRequest {
+function treeRequest(lockfile: AssetsLock): GitHubRequest {
   const lockBody = JSON.stringify(lockfile);
   return fakeRequest((call) => {
     if (call.route.endsWith('/git/ref/{ref}')) return { object: { sha: 'main-sha' } };
@@ -48,12 +48,7 @@ function treeRequest(lockfile: AssetsLock, includeAsset: boolean): GitHubRequest
     if (call.route.endsWith('/git/trees/{tree_sha}')) {
       return {
         truncated: false,
-        tree: [
-          { path: 'assets.lock.json', mode: '100644', type: 'blob', sha: 'lock-sha', size: lockBody.length },
-          ...(includeAsset
-            ? [{ path: 'assets/props/barrel.glb', mode: '100644', type: 'blob', sha: 'asset-sha', size: 1 }]
-            : []),
-        ],
+        tree: [{ path: 'assets.lock.json', mode: '100644', type: 'blob', sha: 'lock-sha', size: lockBody.length }],
       };
     }
     if (call.route.endsWith('/git/blobs/{file_sha}')) {
@@ -68,12 +63,13 @@ describe('RealBoundaryGate', () => {
     const asset: LockEntry = {
       id: 't1:synty-polygon-dungeon/barrel@1.0',
       sha256,
-      path: 'assets/props/barrel.glb',
+      path: 'Models/SM_Prop_Barrel.glb',
+      source: 'library',
       license: 'LicenseRef-Synty',
       rights: { uses: ['in-game'], audience: 'private', redistribution: 'in-build', attribution: null },
       added: '2026-11-01',
     };
-    const gate = new RealBoundaryGate(dependencies(treeRequest(lock([asset]), true)));
+    const gate = new RealBoundaryGate(dependencies(treeRequest(lock([asset]))));
 
     const verdict = await gate.evaluate({
       kind: 'set_visibility',
@@ -91,7 +87,7 @@ describe('RealBoundaryGate', () => {
   });
 
   it('allows releasing a clean tree from a public repository', async () => {
-    const gate = new RealBoundaryGate(dependencies(treeRequest(lock(), false)));
+    const gate = new RealBoundaryGate(dependencies(treeRequest(lock())));
 
     await expect(
       gate.evaluate({
@@ -107,12 +103,13 @@ describe('RealBoundaryGate', () => {
     const asset: LockEntry = {
       id: 't1:synty-polygon-dungeon/barrel@1.0',
       sha256,
-      path: 'assets/props/barrel.glb',
+      path: 'Models/SM_Prop_Barrel.glb',
+      source: 'library',
       license: 'LicenseRef-Synty',
       rights: { uses: ['in-game'], audience: 'private', redistribution: 'in-build', attribution: null },
       added: '2026-11-01',
     };
-    const gate = new RealBoundaryGate(dependencies(treeRequest(lock([asset]), true)));
+    const gate = new RealBoundaryGate(dependencies(treeRequest(lock([asset]))));
 
     await expect(
       gate.evaluate({

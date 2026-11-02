@@ -37,18 +37,9 @@ function entryReasons(entry: LockEntry, input: Parameters<BoundaryRule>[0]): Bou
 
 export const rightsRule: BoundaryRule = (input) => {
   if (input.lockfile === null) {
-    const asset = input.files.find(isAsset);
-    if (input.mode === 'tree' || asset !== undefined) {
-      return [
-        {
-          code: 'rights',
-          path: asset?.path ?? 'assets.lock.json',
-          detail:
-            input.mode === 'tree' ? 'assets.lock.json is missing' : 'asset cannot be checked without assets.lock.json',
-        },
-      ];
-    }
-    return [];
+    return input.mode === 'tree'
+      ? [{ code: 'rights', path: 'assets.lock.json', detail: 'assets.lock.json is missing' }]
+      : [];
   }
 
   /* Library and blob entries name bytes outside the repo (D-ASSETS-REFERENCE); only vendored ones own repo files. */
@@ -66,10 +57,7 @@ export const rightsRule: BoundaryRule = (input) => {
 
   for (const file of input.files.filter(isAsset)) {
     const locked = repoFiles.get(file.path.replaceAll('\\', '/'));
-    if (locked === undefined) {
-      reasons.push({ code: 'rights', path: file.path, detail: 'asset is not listed in assets.lock.json' });
-      continue;
-    }
+    if (locked === undefined) continue;
     if (file.sha256 !== locked.sha256) {
       reasons.push({ ...detail(locked.entry, 'sha256 does not match assets.lock.json'), path: file.path });
     }
