@@ -155,23 +155,27 @@ function names(card: ResolvedCard, words: string[]): boolean {
 }
 
 /**
- * Characters the query names outrank props and tiles that share the word: rigged model characters (playable
- * with the shared clip libraries) first, then other characters and creatures. A match on animation or file
- * names alone ("walk") earns no tier, and clip libraries get none: `Ranged_Bow_Draw` would outrank bows.
+ * Characters the query names outrank props and tiles that share the word: animated model characters (their own
+ * clips, or a rig a clip library targets) first, then other characters and creatures. A match on animation or
+ * file names alone ("walk") earns no tier, and clip libraries get none: `Ranged_Bow_Draw` would outrank bows.
  */
-function characterTier(card: ResolvedCard, words: string[]): number {
+function characterTier(card: ResolvedCard, words: string[], animatedRigs: Set<string>): number {
   if (card.card_type !== 'asset' || (card.subkind !== 'character' && card.subkind !== 'creature')) return 0;
   if (!names(card, words)) return 0;
-  return card.kind === 'model' && card.rig ? 2 : 1;
+  const animated = (card.rig?.clips ?? []).length > 0 || rigIdsOf(card).some((id) => animatedRigs.has(id));
+  return card.kind === 'model' && animated ? 2 : 1;
 }
 
 export function search(index: CardIndex, q: SearchQuery): ResolvedCard[] {
   const words = q.words ?? [];
+  const animatedRigs = new Set(
+    index.cards.flatMap((card) => (card.card_type === 'asset' && card.anim ? [card.anim.target_rig_id] : [])),
+  );
   const scored = index.cards
     .filter((card) => passes(index, card, q))
     .map((card) => ({ card, score: words.length > 0 ? score(card, words) : 0 }))
     .filter(({ score: value }) => words.length === 0 || value > 0)
-    .map((row) => ({ ...row, tier: words.length > 0 ? characterTier(row.card, words) : 0 }));
+    .map((row) => ({ ...row, tier: words.length > 0 ? characterTier(row.card, words, animatedRigs) : 0 }));
   scored.sort(
     (a, b) =>
       b.tier - a.tier ||

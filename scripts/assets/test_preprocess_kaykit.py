@@ -143,6 +143,21 @@ class KayKitPreprocessor(unittest.TestCase):
         self.assertEqual(mannequin["rig"]["retarget_rig_id"], "rig:89200673d97d")
         kaykit.validate([mannequin])
 
+        # A later run that does not measure the library (its render failed, or `--only` another pack) must not
+        # strip the retarget, or the mannequin drops out of --rig-id searches until a full run repairs it.
+        card_path = self.root / "packs" / models["mannequin_medium"].pack_id / "cards" / "mannequin_medium.card.json"
+        kaykit.write_cards(self.root, list(models.values()), results, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(json.loads(card_path.read_text())["rig"]["retarget_rig_id"], "rig:89200673d97d")
+        failed = {**results, models["rig_medium_general"].uid: {"ok": False, "error": "render failed"}}
+        kaykit.write_cards(self.root, list(models.values()), failed, "2026-11-02T00:00:00+00:00")
+        self.assertEqual(json.loads(card_path.read_text())["rig"]["retarget_rig_id"], "rig:89200673d97d")
+        # A run that measures the libraries again and finds none the mannequin fits drops it.
+        moved = {**foreign, "rig_id": "rig:89200673d97e"}
+        refit = {**results, models["rig_medium_general"].uid:
+                 {"ok": True, "analysis": {**analyses["rig_medium_general"], "rig": moved}}}
+        kaykit.write_cards(self.root, list(models.values()), refit, "2026-11-03T00:00:00+00:00")
+        self.assertNotIn("retarget_rig_id", json.loads(card_path.read_text())["rig"])
+
     def test_rejects_two_gltfs_that_collapse_to_the_same_canonical_key(self):
         extracted = self.pack / "1.0" / "extracted"
         duplicate = extracted / "Models" / "glTF format" / "Barrel.gltf"

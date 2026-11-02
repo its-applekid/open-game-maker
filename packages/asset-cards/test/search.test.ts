@@ -170,7 +170,11 @@ describe('search', () => {
   it('splits query words on underscores and hyphens like titles, so a file-name query finds the card', () => {
     const base = index.cards.find((card) => card.id === ORC);
     if (!base) throw new Error('fixture model missing');
-    const library = { ...base, id: 't1:kaykit-character-animations/rig_medium_general@1.1', title: 'Rig Medium General' };
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig_medium_general@1.1',
+      title: 'Rig Medium General',
+    };
     const only = { ...index, cards: [library] };
     expect(search(only, { words: ['Rig_Medium'] }).map((card) => card.id)).toEqual([library.id]);
     expect(search(only, { words: ['rig-medium-general'] }).map((card) => card.id)).toEqual([library.id]);
@@ -205,27 +209,62 @@ describe('search', () => {
   });
 
   it('gives no character tier to a character that matches only through a clip or file name', () => {
-    // "walk" asks for walking, not for every character that ships a walk cycle.
+    // "walk" asks for walking, not for every character that ships a walk cycle: the sprite named "Walk" leads
+    // even though the rogue's four walk clips give it more word hits.
     const base = index.cards.find((card) => card.id === ORC);
     if (!base?.rig) throw new Error('fixture rig missing');
+    const walk = { name: 'Walking_A', duration_s: 1, canonical: 'walk' as const, loop: true };
     const walker = {
       ...base,
       id: 't1:kaykit-adventurers/characters/rogue@2.0',
       title: 'Rogue',
       describe: {},
-      rig: { ...base.rig, clips: [{ name: 'Walking_A', duration_s: 1, canonical: 'walk' as const, loop: true }] },
+      rig: { ...base.rig, clips: [walk, walk, walk, walk] },
+    };
+    const named = {
+      ...base,
+      id: 't1:smallscaleint-heroes/characters/hero@1',
+      title: 'Walk',
+      kind: 'sprite' as const,
+      subkind: 'character',
+      rig: undefined,
+      describe: {},
+    };
+    const hits = search({ ...index, cards: [walker, named] }, { words: ['walk'] });
+    expect(hits.map((card) => card.id)).toEqual([named.id, walker.id]);
+  });
+
+  it('ranks a rigged character first only when it has clips or a clip library targets its rig', () => {
+    // A skeleton nothing animates is not playable, so the knight on a library rig beats the bare one even
+    // though the bare one's title repeats the word.
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base?.rig) throw new Error('fixture rig missing');
+    const bare = {
+      ...base,
+      id: 't1:vendor/characters/knight-knight@1',
+      title: 'Knight Knight',
+      describe: {},
+      rig: { ...base.rig, rig_id: 'rig:aaaaaaaaaaaa', clips: [] },
+    };
+    const animated = {
+      ...base,
+      id: 't1:kaykit-adventurers/characters/knight@2.0',
+      title: 'Knight',
+      describe: {},
+      rig: { ...base.rig, rig_id: 'rig:bbbbbbbbbbbb', clips: [] },
     };
     const library = {
       ...base,
-      id: 't1:kaykit-character-animations/rig_medium_movementbasic@1.1',
-      title: 'Rig Medium Walk Basic',
+      id: 't1:kaykit-character-animations/rig_medium_general@1.1',
+      title: 'Rig Medium General',
       kind: 'anim' as const,
       subkind: 'humanoid',
       rig: undefined,
       describe: {},
+      anim: { target_rig_id: 'rig:bbbbbbbbbbbb', clips: [] },
     };
-    const hits = search({ ...index, cards: [walker, library] }, { words: ['walk'] });
-    expect(hits.map((card) => card.id)).toEqual([library.id, walker.id]);
+    const hits = search({ ...index, cards: [bare, animated, library] }, { words: ['knight'] });
+    expect(hits.map((card) => card.id)).toEqual([animated.id, bare.id]);
   });
 
   it('matches a skeleton by the rig it retargets to, for --rig-id and --same-rig-as', () => {
