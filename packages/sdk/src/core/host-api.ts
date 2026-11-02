@@ -17,6 +17,7 @@ export class SdkHostApi implements HostApi {
   private readonly inputListeners = new Map<string, Set<(value: ActionValue) => void>>();
   private readonly settingsListeners = new Set<(settings: PlayerSettings) => void>();
   private readonly viewportListeners = new Set<(viewport: Viewport) => void>();
+  // Checkpoints delegate to the save machine so it can persist before transport.
   private saveHandler: (() => void) | undefined;
 
   constructor(

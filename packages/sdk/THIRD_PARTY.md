@@ -24,7 +24,7 @@ Only pixelfx's reviewed `src/` tree is consumed. The excluded gallery font is no
 
 ## fake-indexeddb
 
-`fake-indexeddb` 6.2.5 is used under the MIT License in save outbox tests only.
+`fake-indexeddb` 6.2.5 is used only by save outbox tests under the MIT License.
 
 ## recast-navigation
 
