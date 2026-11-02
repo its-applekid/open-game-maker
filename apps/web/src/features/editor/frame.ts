@@ -113,6 +113,8 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       onSaveWrite: options.onSaveWrite,
       onEvent: options.onEvent,
       onError: (failure) => {
+        /* The game declined an optional command (a camera mode, selection) and keeps running. */
+        if (failure.code === 'unsupported') return;
         current = { bridgeState: 'error', error: failure.message };
         publish();
       },

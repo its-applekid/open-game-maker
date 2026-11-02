@@ -114,8 +114,13 @@ test('scripts watcher catch-up, phases, and host-left through the fake session',
   await expect(page.getByText('talking to the builder…')).toBeHidden();
   await expect.poll(() => fixtureState(frame).then((state) => state.selected)).toEqual(['e-1']);
 
+  await free.click();
   await roomFake(page, 'setState', { phase: 'playing', phaseAt: Date.now() });
   await expect.poll(() => gameState(page).then((state) => state?.mode), { timeout: 500 }).toBe('play');
+  await expect(free).toBeHidden();
+  /* The game keeps Free through a play round, so the toggle must still show Free when editing resumes. */
+  await roomFake(page, 'setState', { phase: 'editing', phaseAt: Date.now() });
+  await expect(free).toHaveAttribute('aria-pressed', 'true');
   await roomFake(page, 'setState', { phase: 'pausedForHost', phaseAt: Date.now() });
   await expect(page.getByRole('heading', { name: "Kim's connection dropped" })).toBeVisible();
   await roomFake(page, 'emit', { t: 'ended', reason: 'host-left' });

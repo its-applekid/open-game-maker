@@ -33,6 +33,16 @@ describe('editor.camera in the 3D template', () => {
     expect(controller.position('spawn_01K8ZTEMP00000000000000002')).toEqual([3, 0, 0]);
   });
 
+  // A followed player can leave the room; the watcher's camera must fall back to the default player, not the origin.
+  it('follows the default player once the followed target is gone', async () => {
+    const { controller, instance } = await mounted();
+    const saved = instance.serialize();
+    saved.data.players.player_0!.position = [2, 1, -4];
+    instance.restore(saved);
+    expect(controller.followPosition('player_9')).toEqual([2, 1, -4]);
+    expect(controller.followPosition('spawn_01K8ZTEMP00000000000000002')).toEqual([3, 0, 0]);
+  });
+
   it('rejects an unknown target without changing the camera', async () => {
     const { controller, instance } = await mounted();
     instance.setCamera!('free');

@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import type { Presence } from '@ogm/contracts';
 
 type WatcherOverlayProps = {
   branchName: string;
+  camera?: 'follow' | 'free';
   catchingUp?: boolean;
   onCamera?: (mode: 'follow' | 'free') => void;
   onSelection?: (ids: readonly string[]) => void;
@@ -13,6 +14,7 @@ type WatcherOverlayProps = {
 
 export function WatcherOverlay({
   branchName,
+  camera = 'follow',
   catchingUp = false,
   onCamera,
   onSelection,
@@ -22,11 +24,6 @@ export function WatcherOverlay({
   useEffect(() => {
     onSelection?.(presence.privateMode ? [] : presence.selection);
   }, [onSelection, presence.privateMode, presence.selection]);
-  const [camera, setCamera] = useState<'follow' | 'free'>('follow');
-  const chooseCamera = (mode: 'follow' | 'free') => {
-    setCamera(mode);
-    onCamera?.(mode);
-  };
 
   return (
     <aside className="watcher-overlay" aria-label="Room status">
@@ -36,7 +33,7 @@ export function WatcherOverlay({
             className="tap-secondary"
             type="button"
             aria-pressed={camera === 'follow'}
-            onClick={() => chooseCamera('follow')}
+            onClick={() => onCamera('follow')}
           >
             Follow
           </button>
@@ -44,7 +41,7 @@ export function WatcherOverlay({
             className="tap-secondary"
             type="button"
             aria-pressed={camera === 'free'}
-            onClick={() => chooseCamera('free')}
+            onClick={() => onCamera('free')}
           >
             Free
           </button>

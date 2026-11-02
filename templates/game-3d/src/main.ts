@@ -135,7 +135,7 @@ async function start() {
           camera.updateProjectionMatrix();
         }
         editorCamera.follow(
-          command.mode === 'follow' ? { position: () => controller.position(target) ?? [0, 0, 0] } : undefined,
+          command.mode === 'follow' ? { position: () => controller.followPosition(target) } : undefined,
         );
         appliedCamera = key;
       }

@@ -180,6 +180,11 @@ describe('game frame adapter', () => {
       },
     });
 
+    // A game without camera modes answers a watcher's Free with `unsupported`; that must not take the game away.
+    const before = controller.state();
+    frameOptions?.onError?.({ code: 'unsupported', message: 'camera modes are not supported' });
+    expect(controller.state()).toEqual(before);
+
     frameOptions?.onError?.({ code: 'ready-timeout', message: 'game did not become ready in time' });
 
     expect(controller.state()).toMatchObject({

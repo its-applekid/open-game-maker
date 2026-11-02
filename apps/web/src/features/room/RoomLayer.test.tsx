@@ -37,6 +37,7 @@ function renderLayer(snapshot: RoomSessionSnapshot, onMode = vi.fn()) {
       <QueryClientProvider client={client}>
         <RoomLayer
           gameTitle="Goblin Cellar"
+          camera="follow"
           onCamera={vi.fn()}
           onLeave={vi.fn()}
           onMode={onMode}
@@ -58,6 +59,7 @@ it('shows watcher state with a branch-id fallback and follows room phases', asyn
     <QueryClientProvider client={new QueryClient()}>
       <RoomLayer
         gameTitle="Goblin Cellar"
+        camera="follow"
         onCamera={vi.fn()}
         onLeave={vi.fn()}
         onMode={rendered.onMode}

@@ -128,6 +128,7 @@ export function entityPosition(state: SimulationState, id: string): [number, num
 
 /**
  * What the level camera shows now: edit mode obeys `editor.camera`, play mode always follows player 0.
+ * A followed target that is removed later falls back to player 0.
  * `key` changes only when the camera must be re-applied; `undefined` while there is nothing to follow.
  */
 export function cameraView(
@@ -144,7 +145,8 @@ export function cameraView(
     mode,
     position: () => {
       const state = getGameContext().state;
-      if (target !== undefined) return entityPosition(state, target) ?? [0, 0, 0];
+      const followed = target === undefined ? undefined : entityPosition(state, target);
+      if (followed) return followed;
       const player = state.players.get(0);
       return player ? [player.pos.x, player.pos.y, 0] : [0, 0, 0];
     },

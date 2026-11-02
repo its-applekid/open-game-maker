@@ -10,6 +10,7 @@ import { WatcherOverlay } from './WatcherOverlay';
 type BranchLabel = { name: string; version: string };
 
 type RoomLayerProps = {
+  camera: 'follow' | 'free';
   gameTitle: string;
   lastSaveAt?: string;
   onCamera(mode: 'follow' | 'free'): void;
@@ -19,7 +20,16 @@ type RoomLayerProps = {
   snapshot?: RoomSessionSnapshot;
 };
 
-export function RoomLayer({ gameTitle, lastSaveAt, onCamera, onLeave, onMode, onSelection, snapshot }: RoomLayerProps) {
+export function RoomLayer({
+  camera,
+  gameTitle,
+  lastSaveAt,
+  onCamera,
+  onLeave,
+  onMode,
+  onSelection,
+  snapshot,
+}: RoomLayerProps) {
   const watcher = snapshot?.role === 'peer' && snapshot.phase === 'editing';
   const pin = snapshot?.pin;
   const branch = useQuery({
@@ -47,6 +57,7 @@ export function RoomLayer({ gameTitle, lastSaveAt, onCamera, onLeave, onMode, on
       {watcher && snapshot.presence !== undefined && pin !== undefined ? (
         <WatcherOverlay
           branchName={branch.data?.name ?? pin.branchId}
+          camera={camera}
           catchingUp={snapshot.status === 'desynced'}
           onCamera={onCamera}
           onSelection={onSelection}

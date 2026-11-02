@@ -114,6 +114,8 @@ export function createGame(): {
   camera(): { mode: 'follow' | 'free'; target?: string } | undefined;
   /** A player's or spawn's world position; the default player when `id` is absent. */
   position(id?: string): Vec3 | undefined;
+  /** Where `editor.camera` follow looks: `target`, else the default player once it is gone, else the origin. */
+  followPosition(target?: string): Vec3;
 } {
   let design = structuredClone(DEFAULT_DESIGN);
   let state: GameSave = { tick: 0, players: {} };
@@ -331,5 +333,6 @@ export function createGame(): {
     },
     camera: () => (camera ? { ...camera } : undefined),
     position,
+    followPosition: (target) => position(target) ?? position() ?? [0, 0, 0],
   };
 }

@@ -34,6 +34,18 @@ describe('editor.camera in the 2D template', () => {
     instance.dispose();
   });
 
+  // A followed platform can be deleted by the owner's next edit; the watcher's camera must not jump to the origin.
+  it('falls back to player 0 when the followed target is removed', async () => {
+    const { instance, context } = await mounted(true);
+    const platform = context.state.platforms[0]!;
+    instance.setCamera!('follow', platform.id);
+    const view = cameraView(context);
+    context.state.platforms.splice(0, 1);
+    const player = context.state.players.get(0)!;
+    expect(view?.mode === 'follow' && view.position()).toEqual([player.pos.x, player.pos.y, 0]);
+    instance.dispose();
+  });
+
   it('rejects an unknown target without changing the camera', async () => {
     const { instance, context } = await mounted(true);
     instance.setCamera!('free');
