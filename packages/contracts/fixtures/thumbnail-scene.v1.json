@@ -1,0 +1,83 @@
+{
+  "schema": "ogm.thumbnail-scene/1.0",
+  "set_id": "smallscaleint",
+  "target": {
+    "kind": "set",
+    "id": "smallscaleint",
+    "world": "fantasy"
+  },
+  "canvas": {
+    "width": 1024,
+    "height": 1024,
+    "background": "#c8c3b8"
+  },
+  "camera": {
+    "projection": "isometric-2:1",
+    "tile_px": [128, 64],
+    "origin_px": [512, 256],
+    "elevation_px": 32,
+    "pixel_snap": true
+  },
+  "lighting": {
+    "mode": "source-baked",
+    "intensity": 1,
+    "tint": "#ffffff"
+  },
+  "duration_ms": 4000,
+  "fps": 24,
+  "layers": [
+    {
+      "id": "ground",
+      "kind": "ground",
+      "card_id": "t1:smallscaleint-fantasy-tileset-2d-isometric/tiles/grass@1.0",
+      "position": { "grid": [4, 4, 0], "offset_px": [0, 0], "scale": 2 },
+      "selection": { "direction": "S", "frame": 0 },
+      "z_order": 0
+    },
+    {
+      "id": "crate-left",
+      "kind": "prop",
+      "card_id": "t1:smallscaleint-fantasy-tileset-2d-isometric/sequences/crate@1.0",
+      "position": { "grid": [2, 4, 0], "offset_px": [0, 0], "scale": 2 },
+      "selection": { "frame": 0 },
+      "z_order": 10
+    },
+    {
+      "id": "barrel-right",
+      "kind": "prop",
+      "card_id": "t1:smallscaleint-fantasy-tileset-2d-isometric/sequences/barrel@1.0",
+      "position": { "grid": [6, 4, 0], "offset_px": [0, 0], "scale": 2 },
+      "selection": { "frame": 0 },
+      "z_order": 10
+    },
+    {
+      "id": "torch",
+      "kind": "prop",
+      "card_id": "t1:smallscaleint-fantasy-tileset-2d-isometric/sequences/torch@1.0",
+      "position": { "grid": [4, 2, 0], "offset_px": [0, 0], "scale": 2 },
+      "selection": { "action": "burn", "frame": 0 },
+      "playback": { "mode": "loop", "fps": 8, "phase_frames": 0 },
+      "z_order": 20
+    },
+    {
+      "id": "hero",
+      "kind": "character",
+      "role": "hero",
+      "card_id": "t1:smallscaleint-2d-character-knight/characters/knight@1.0",
+      "position": { "grid": [4, 4, 0], "offset_px": [0, 0], "scale": 2 },
+      "selection": { "action": "idle", "direction": "S", "frame": 0 },
+      "playback": { "mode": "loop", "fps": 8, "phase_frames": 0 },
+      "z_order": 30
+    },
+    {
+      "id": "enemy",
+      "kind": "character",
+      "role": "enemy",
+      "card_id": "t1:smallscaleint-2d-orcs-and-goblins-topdown/characters/goblin@1.0",
+      "position": { "grid": [6, 5, 0], "offset_px": [0, 0], "scale": 2 },
+      "selection": { "action": "idle", "direction": "NW", "frame": 0 },
+      "playback": { "mode": "loop", "fps": 8, "phase_frames": 2 },
+      "z_order": 30
+    }
+  ]
+}
