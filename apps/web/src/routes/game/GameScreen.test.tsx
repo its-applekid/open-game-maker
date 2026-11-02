@@ -51,6 +51,8 @@ const host = vi.hoisted(() => {
 });
 
 vi.mock('../../features/editor/api', () => editorApi);
+const branchList = vi.hoisted(() => ({ value: undefined as Array<{ id: string; name: string }> | undefined }));
+vi.mock('../games/useBranches', () => ({ useBranches: () => ({ data: branchList.value }) }));
 vi.mock('../../features/editor/frame', () => host);
 
 import { useDock } from '../../features/build-chat/dock';
@@ -71,6 +73,7 @@ function renderGame(entry = '/g/game') {
 }
 
 beforeEach(() => {
+  branchList.value = undefined;
   editorApi.getGame.mockResolvedValue({ id: 'game', title: 'Goblin Cellar' });
   editorApi.getOptionalPublished.mockResolvedValue({ available: false });
   editorApi.listJobs.mockResolvedValue({ jobs: [] });
@@ -146,6 +149,20 @@ describe('GameScreen', () => {
       view: 'chat',
       draft: { gameId: 'game', branchId: 'main', title: 'Goblin Cellar' },
     });
+  });
+
+  it('asks for the change on main when the editor opened the main branch by its id', async () => {
+    // Admission only accepts the literal 'main'; the games screen opens branches by id.
+    branchList.value = [
+      { id: 'b_main', name: 'main' },
+      { id: 'b_side', name: 'side' },
+    ];
+    renderGame('/g/game?v=b_main');
+    await screen.findByText('Goblin Cellar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+
+    expect(useDock.getState().draft).toMatchObject({ gameId: 'game', branchId: 'main' });
   });
 
   it('reports a denied edit lease as read only', async () => {

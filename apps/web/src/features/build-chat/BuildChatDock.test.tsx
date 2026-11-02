@@ -187,6 +187,73 @@ describe('BuildChatDock', () => {
       json: { start: 'at_reset', plan: { summary: 'Make the door glow' } },
     });
   });
+
+  it('reuses the admission key when the same message is sent again after a lost response', async () => {
+    api
+      .mockRejectedValueOnce(new TypeError('network down'))
+      .mockResolvedValueOnce({ jobId: 'j_new', state: 'admitted' });
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' }));
+    send('Make the door glow');
+    expect(await screen.findByText('Message not sent. Try again.')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(chatListeners.has('j_new')).toBe(true));
+    const keys = api.mock.calls.map(([, init]) => (init as { json: { idempotencyKey: string } }).json.idempotencyKey);
+    expect(keys).toHaveLength(2);
+    expect(keys[1]).toBe(keys[0]);
+  });
+
+  it('starts the refused edit when the admin retry succeeds', async () => {
+    let admitted = false;
+    api.mockImplementation(async (path: string) => {
+      if (path === '/budget/status') {
+        return {
+          remainingMicroUsd: 100,
+          remainingPercent: 1,
+          unitLabel: 'coins',
+          resetsAt: '2026-11-03T07:00:00.000Z',
+          freeSlots: { new_game: 0, edit: 1 },
+          queued: [],
+        };
+      }
+      if (admitted) return { jobId: 'j_retry', state: 'admitted' };
+      admitted = true;
+      throw {
+        status: 402,
+        body: {
+          error: 'allowance_exceeded',
+          remainingMicroUsd: 100,
+          resetsAt: '2026-11-03T07:00:00.000Z',
+          offers: ['ask_admin'],
+        },
+      };
+    });
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' }));
+    send('Make the door glow');
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask an admin' }));
+    await screen.findByText(/remain/);
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(chatListeners.has('j_retry')).toBe(true));
+    expect(screen.queryByRole('button', { name: 'Try again' })).not.toBeInTheDocument();
+  });
+
+  it('leaves the dock closed when an admission finishes after the chat was closed', async () => {
+    let resolve: (value: unknown) => void = () => undefined;
+    api.mockReturnValue(new Promise((done) => (resolve = done)));
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' }));
+    send('Make the door glow');
+    act(() => useDock.getState().close([]));
+    await act(async () => resolve({ jobId: 'j_late', state: 'admitted' }));
+
+    expect(useDock.getState()).toMatchObject({ view: 'collapsed', openJobId: undefined });
+  });
 });
 
 function renderDock() {

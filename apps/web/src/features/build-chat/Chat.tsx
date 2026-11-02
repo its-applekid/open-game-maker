@@ -44,12 +44,22 @@ export function Chat({
   const [submitting, setSubmitting] = useState(false);
   const [admissionError, setAdmissionError] = useState('');
   const since = useRef(0);
+  const admittingRef = useRef(false);
+  const admissionKeyRef = useRef<{ text: string; key: string }>(undefined);
+  const mountedRef = useRef(true);
   const budget = useQuery({
     queryKey: ['build-chat', 'edit-budget', target.gameId],
     queryFn: () => api<BudgetStatus>('/budget/status'),
     enabled: waitingForAdmin,
     refetchInterval: waitingForAdmin ? 30_000 : false,
   });
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (streamId === undefined) return;
@@ -81,20 +91,26 @@ export function Chat({
   );
 
   const admit = async (text: string, start: 'now' | 'at_reset') => {
+    if (admittingRef.current) throw new Error('admission in flight');
+    admittingRef.current = true;
     setSubmitting(true);
     setAdmissionError('');
+    // One key per instruction, so a retry after a lost response finds the job the first request created.
+    if (admissionKeyRef.current?.text !== text) admissionKeyRef.current = { text, key: `edit:${crypto.randomUUID()}` };
     try {
-      const result = await admitJob(editJobRequest(target, text, start, `edit:${crypto.randomUUID()}`));
+      const result = await admitJob(editJobRequest(target, text, start, admissionKeyRef.current.key));
       if (result.kind === 'refused') {
         setPendingText(text);
         setRefusal(result);
         return;
       }
+      admissionKeyRef.current = undefined;
       setRefusal(undefined);
       setWaitingForAdmin(false);
       void queryClient.invalidateQueries({ queryKey: myJobsQueryKey });
-      onAdmitted?.(result.jobId, target);
+      if (mountedRef.current) onAdmitted?.(result.jobId, target);
     } finally {
+      admittingRef.current = false;
       setSubmitting(false);
     }
   };

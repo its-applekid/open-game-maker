@@ -47,4 +47,15 @@ describe('build chat dock state', () => {
     expect(reduceDock(started, { type: 'back' }, [])).toMatchObject({ view: 'collapsed', draft: undefined });
     expect(reduceDock(started, { type: 'back' }, [running])).toMatchObject({ view: 'expanded', draft: undefined });
   });
+
+  it('remounts when the finished job is reopened from a chat that admitted its follow-up', () => {
+    const draft = { gameId: 'g_1', branchId: 'main', title: 'Old build' };
+    const old = reduceDock(initialDock(), { type: 'open-chat', jobId: 'j_old' }, [done]);
+    const admitted = reduceDock(old, { type: 'admitted', jobId: 'j_new', draft }, [done]);
+    const reopened = reduceDock(admitted, { type: 'open-chat', jobId: 'j_old' }, [done]);
+
+    expect(admitted.chatKey).toBe('j_old');
+    expect(reopened.openJobId).toBe('j_old');
+    expect(reopened.chatKey).not.toBe(admitted.chatKey);
+  });
 });

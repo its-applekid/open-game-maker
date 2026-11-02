@@ -52,8 +52,12 @@ export function reduceDock(state: DockSnapshot, action: DockAction, jobs: DockJo
         openJobId: undefined,
         draft: undefined,
       };
-    case 'open-chat':
-      return { ...state, view: 'chat', openJobId: action.jobId, draft: undefined, chatKey: action.jobId };
+    case 'open-chat': {
+      // A chat that admitted a follow-up job keeps the finished job's id as its key; reopening that job needs a fresh one.
+      const reused = state.chatKey === action.jobId && state.openJobId !== action.jobId;
+      const chatKey = reused ? `${action.jobId}:reopened` : action.jobId;
+      return { ...state, view: 'chat', openJobId: action.jobId, draft: undefined, chatKey };
+    }
     case 'start-edit': {
       const chatKey = `edit:${action.draft.gameId}:${action.draft.branchId}`;
       return { ...state, view: 'chat', openJobId: undefined, draft: action.draft, chatKey };
