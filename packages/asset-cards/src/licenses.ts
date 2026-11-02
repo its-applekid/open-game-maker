@@ -104,6 +104,20 @@ export const LICENSES: LicenseRow[] = [
     confirmed: { by: 'kevin', on: '2026-10-27' },
   },
   {
+    id: 'LicenseRef-Sonniss-GDC',
+    aliases: ['sonniss-gdc'],
+    ceiling: {
+      uses: ['in-game', 'placeholder', 'edit-audio', 'vision-input'],
+      audience: 'private',
+      redistribution: 'in-build',
+      attribution: null,
+      forbids: ['derive-audio'],
+    },
+    processing: 'local-only',
+    ref: 'License - GDC Game Audio.pdf',
+    note: 'Sonniss #GameAudioGDC EULA: use and modify in any project, no attribution, no resale as they come, no AI training or usage; derive-audio covers AI conditioning, so it stays forbidden.',
+  },
+  {
     id: 'LicenseRef-synty-personal',
     aliases: ['synty-personal'],
     ceiling: { uses: ALL_USES, audience: 'private', redistribution: 'in-build', attribution: null },

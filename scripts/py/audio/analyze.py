@@ -17,7 +17,7 @@ MUSIC_PACKS = ("sidetrax-*", "kenney-music-*", "abstraction-music-loop-*")
 CLAP_ID = "laion/clap-htsat-unfused"
 CLAP_SR = 48000
 WIN_S = 10  # CLAP's native window; whole windows only, so its random-crop path never runs
-PRIVATE_VENDORS = ("sidetrax-", "synty-", "abstraction-")  # redistribution none/in-build: previews under private/
+PRIVATE_VENDORS = ("sidetrax-", "synty-", "abstraction-", "sonniss-")  # redistribution none/in-build: previews under private/
 
 
 def preview_prefix(pack: str) -> str:

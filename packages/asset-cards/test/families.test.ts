@@ -142,7 +142,7 @@ describe('style-families.json', () => {
     expect(setFor('limezu-modern-interiors')?.packs).toContainEqual(
       expect.objectContaining({ id: 'limezu-modern-interiors' }),
     );
-    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(11);
+    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(12);
   });
 
   it('registers the eleven Abstraction loop bundles as one audio set', () => {
@@ -151,6 +151,14 @@ describe('style-families.json', () => {
     expect(set?.id).toBe('abstraction-music-loop');
     expect(set?.packs).toHaveLength(11);
     expect(set?.packs.every((pack) => pack.compatible_with === undefined)).toBe(true);
+  });
+
+  it('registers the five Sonniss GDC 2026 zips as one sound-effect set in the audio family', () => {
+    expect(familyFor('sonniss-gdc2026-part9-3of5')).toBe('audio');
+    expect(setFor('sonniss-gdc2026-part9-1of5')?.packs.map((pack) => pack.id)).toEqual(
+      [1, 2, 3, 4, 5].map((i) => `sonniss-gdc2026-part9-${i}of5`),
+    );
+    expect(loadFamilies().find((f) => f.id === 'audio')?.coverage.sfx).toBe(true);
   });
 
   it('registers every imported SmallScaleInt pack in one measured isometric set', () => {

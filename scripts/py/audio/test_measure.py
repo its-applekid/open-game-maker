@@ -111,3 +111,13 @@ def test_sound_effect_mode_skips_music_fields(tmp_path):
     """Sound effects must not get a key or tempo: a 2 s door creak has neither, and a guessed one would mislead search."""
     a = m.measure(write(tmp_path, "fx.wav", click_track(120, 4, 3)), music=False)["audio"]
     assert a["tempo_bpm"] is None and "key" not in a and a["loudness_lufs"] is not None
+
+
+def test_envelope_tells_a_hit_from_a_sustained_bed():
+    """Kind words (one-shot, loop, ambience) rest on this: a decaying hit is loud briefly, a noise bed nearly throughout."""
+    t = np.arange(SR * 2) / SR
+    hit = np.sin(2 * np.pi * 440 * t) * np.exp(-t * 12)
+    bed = np.random.default_rng(0).standard_normal(SR * 2) * 0.2
+    h, b = m.envelope_of(hit.astype(np.float32)), m.envelope_of(bed.astype(np.float32))
+    assert h["active_share"] < 0.3 and h["tail_db"] < -40 and h["peak_at_s"] < 0.05
+    assert b["active_share"] > 0.9 and b["tail_db"] > -6

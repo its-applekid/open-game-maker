@@ -22,6 +22,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import labels as L
+import sfx_library
 from import_sidetrax import stem_key
 
 REPO = HERE.parents[2]
@@ -375,6 +376,7 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
             prov = {"*": {"by": "code", "tool": TOOL, "at": NOW, "input": "analyze.py: Essentia + librosa measures, sha256"}}
             flags = []
             proposed = []
+            hints = None
             if d["music"]:
                 subkind = ("music/loop" if "loop" in pid else "music/stinger" if a["duration_s"] < 15 or "jingle" in pid else "music/track")
                 describe, proposed = music_describe(d, lift, sets, a, subkind)
@@ -385,7 +387,8 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
                 prov["describe.description"] = {"by": "code", "tool": TOOL, "at": NOW, "input": "template from CLAP tags + measured audio"}
                 flags += ["low-confidence", "mood-unverified"]
             else:
-                describe, subkind, conf, ev, pev = sfx_describe(d, lift, sets, a, stem, pid)
+                hints = sfx_library.hints_for(packs / pid / d["_ver"], d["file"], a, d["measure"]["sidecar"]) if sfx_library.is_library_pack(pid) else None
+                describe, subkind, conf, ev, pev = sfx_describe(d, lift, sets, a, hints["fx_name"] if hints else stem, pid)
                 prov["describe"] = {"by": "model", "model": CLAP_ID, "tool": TOOL, "at": NOW, "confidence": conf,
                                     "input": f"CLAP vs {len(L.SFX_EVENTS)} sound events (top: {ev} p={pev:.2f}) + {len(L.MATERIALS)} materials"}
                 prov["describe.objects"] = {"by": "filename", "tool": TOOL, "at": NOW, "input": "filename words, plus the top CLAP event noun when p>=0.2"}
@@ -423,6 +426,8 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
             if cc.get("rights"):
                 card["rights"] = copy.deepcopy(cc["rights"])
                 prov["rights"] = {"by": "collection", "tool": TOOL, "at": NOW, "input": "collection card rights"}
+            if hints:
+                sfx_library.apply_hints(card, hints, prov, TOOL, NOW)
             if flags:
                 card["flags"] = flags
             for f in flags:
@@ -430,7 +435,7 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
             out = packs / pid / "cards" / (path_id + ".card.json")
             out.parent.mkdir(parents=True, exist_ok=True)
             out.write_text(json.dumps(card, indent=1) + "\n")
-            counts[pid]["audio/" + subkind] += 1
+            counts[pid]["audio/" + card["subkind"]] += 1
             counts[pid]["audio"] += 1
             written += 1
         info = cc.setdefault("collection_info", {})

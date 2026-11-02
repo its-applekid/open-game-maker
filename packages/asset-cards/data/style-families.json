@@ -515,16 +515,26 @@
           "judgment": "One composer's loop bundles (quarterly sketchbooks, jams, Troubadeck, chiptune); mix freely as one game's score."
         },
         "packs": [{ "id": "abstraction-music-loop-2024-q1" }, { "id": "abstraction-music-loop-2024-q2" }, { "id": "abstraction-music-loop-2024-q3" }, { "id": "abstraction-music-loop-2024-q4" }, { "id": "abstraction-music-loop-2025-q4" }, { "id": "abstraction-music-loop-2026-q1" }, { "id": "abstraction-music-loop-2026-q2" }, { "id": "abstraction-music-loop-2026-q3" }, { "id": "abstraction-music-loop-chiptune" }, { "id": "abstraction-music-loop-pre2023" }, { "id": "abstraction-music-loop-troubadeck" }]
+      },
+      {
+        "id": "sonniss-gdc2026-part9",
+        "label": "Sonniss #GameAudioGDC Bundle Part 9 (2026)",
+        "vendors": ["sonniss"],
+        "traits": {
+          "audio_format": "WAV sound effects, one folder per vendor library; UCS CatID_FXName_Creator_Source names on most files",
+          "judgment": "122 libraries from 17 sound designers (ambiences, foley, creatures, voices, UI, impacts); pick a library first (index/sets), then a file."
+        },
+        "packs": [{ "id": "sonniss-gdc2026-part9-1of5" }, { "id": "sonniss-gdc2026-part9-2of5" }, { "id": "sonniss-gdc2026-part9-3of5" }, { "id": "sonniss-gdc2026-part9-4of5" }, { "id": "sonniss-gdc2026-part9-5of5" }]
       }
     ],
     "views": [],
-    "license_note": "CC0 (Abstraction / Tallbeard Studios); private use, no redistribution",
+    "license_note": "CC0 (Abstraction / Tallbeard Studios); private use, no redistribution. Sonniss GDC EULA: in builds only, no resale as they come, no AI training",
     "coverage": {
       "characters": false,
       "environment": false,
       "props": false,
       "ui": false,
-      "sfx": false,
+      "sfx": true,
       "music": true
     },
     "creation_choice": false

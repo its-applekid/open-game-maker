@@ -155,6 +155,22 @@ def seam_ok(mono, ms=50):
     return bool(level_db < 3 and jump < 4 * max(np.mean(np.abs(np.diff(a))), 1e-4))
 
 
+def envelope_of(mono, frame_s=0.01):
+    """Sound effects: when it peaks, how fast it rises, how loud it ends (dB re peak), and the share of 10 ms frames within
+    20 dB of the peak (high = sustained bed or loop, low = a hit that decays)."""
+    n = max(1, int(SR * frame_s))
+    k = len(mono) // n
+    if k < 2:
+        return {"peak_at_s": 0.0, "attack_s": 0.0, "tail_db": 0.0, "active_share": 1.0}
+    rms = np.sqrt(np.mean(np.asarray(mono[:k * n], dtype=np.float64).reshape(k, n) ** 2, axis=1)) + 1e-9
+    db = 20 * np.log10(rms / rms.max())
+    top = int(np.argmax(rms))
+    start = int(np.argmax(db > -40))
+    tail = db[-max(1, int(0.05 / frame_s)):]
+    return {"peak_at_s": round(top * frame_s, 3), "attack_s": round(max(0, top - start) * frame_s, 3),
+            "tail_db": round(float(np.mean(tail)), 1), "active_share": round(float(np.mean(db > -20)), 3)}
+
+
 def loop_points_of(path):
     from pymusiclooper.core import MusicLooper
     ml = MusicLooper(str(path))
@@ -208,6 +224,8 @@ def measure(path: Path, loop_search=False, music=True):
         audio.update({"tempo_bpm": None, "meter": None})
     audio["spectral_centroid_hz"] = centroid_of(mono)
     audio["loopable"] = seam_ok(mono)
+    if not music:
+        sidecar["envelope"] = envelope_of(mono)
     lap("energy+centroid+seam")
     if loop_search:
         lp = loop_points_of(path)
