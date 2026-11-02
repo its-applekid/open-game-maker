@@ -46,12 +46,11 @@ defmodule OgmVoice.HTTP.Narration do
     voice_id = Map.get(request, "voice_id", "default")
     format = Map.get(request, "format", "pcm_24000")
 
-    with true <- is_binary(text),
-         true <- is_binary(voice_id) and String.trim(voice_id) != "",
-         {:ok, format} <- Map.fetch(@formats, format) do
-      {:ok, text, voice_id, format}
-    else
-      _ -> {:error, :invalid_request}
+    cond do
+      not is_binary(text) -> {:error, :invalid_request}
+      not is_binary(voice_id) or String.trim(voice_id) == "" -> {:error, :invalid_request}
+      not Map.has_key?(@formats, format) -> {:error, %{field: :format, reason: :unsupported}}
+      true -> {:ok, text, voice_id, Map.fetch!(@formats, format)}
     end
   end
 

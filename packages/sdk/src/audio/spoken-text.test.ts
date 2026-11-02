@@ -138,6 +138,28 @@ describe('SpokenText', () => {
     audio.dispose();
   });
 
+  it('ends cleanly when the browser rejects rendered audio', async () => {
+    const context = new FakeAudioContext();
+    context.decodeAudioData = vi.fn().mockRejectedValue(new DOMException('unsupported', 'EncodingError'));
+    const audio = createAudio({
+      rng: () => 0.5,
+      win: asWindow(new FakeWindow()),
+      AudioContextCtor: contextConstructor(context),
+    });
+    await audio.unlock();
+    const spoken = await SpokenText.load({
+      key: 'fixture',
+      audioUrl: '/hello.opus',
+      alignmentUrl: '/hello.alignment.json',
+    });
+    const onEnd = vi.fn();
+    spoken.play({ onEnd });
+
+    await vi.waitFor(() => expect(onEnd).toHaveBeenCalledOnce());
+    expect(context.sources).toHaveLength(1);
+    audio.dispose();
+  });
+
   it('falls back to speechSynthesis one sentence at a time', () => {
     const onSentence = vi.fn();
     const onEnd = vi.fn();

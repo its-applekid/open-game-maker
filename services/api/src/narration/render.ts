@@ -14,6 +14,8 @@ import { narrationKey, type NarrationEngine } from './key.js';
 
 const run = promisify(execFile);
 const signedUrlTtlMs = 60 * 60 * 1_000;
+const hostHealthTimeoutMs = 2_000;
+const renderTimeoutMs = 65_000;
 
 export const NarrationLine = z
   .object({
@@ -87,7 +89,12 @@ export class NarrationRenderer {
         const index = cursor;
         cursor += 1;
         if (index >= lines.length) return;
-        results[index] = await this.renderLine(lines[index]!);
+        const line = lines[index]!;
+        try {
+          results[index] = await this.renderLine(line);
+        } catch {
+          results[index] = { id: line.id, status: 'failed', reason: 'render_failed' };
+        }
       }
     };
     await Promise.all(Array.from({ length: Math.min(this.options.concurrency, lines.length) }, worker));
@@ -134,6 +141,7 @@ export class NarrationRenderer {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'x-ogm-internal': this.options.secret },
         body: JSON.stringify({ text: line.text, voice_id: spec.voice, format: 'pcm_24000' }),
+        signal: AbortSignal.timeout(renderTimeoutMs),
       });
     } catch {
       return { id: line.id, status: 'failed', reason: 'host_unavailable' };
@@ -178,8 +186,7 @@ export class NarrationRenderer {
         return { id: line.id, status: 'failed', reason: 'storage_failed' };
       }
     } finally {
-      await rm(parsed.data.wav_path, { force: true });
-      await rm(temp, { recursive: true, force: true });
+      await Promise.allSettled([rm(parsed.data.wav_path, { force: true }), rm(temp, { recursive: true, force: true })]);
     }
   }
 
@@ -198,7 +205,9 @@ export class NarrationRenderer {
   }
 
   private async discoverEngine(): Promise<NarrationEngine> {
-    const response = await this.#fetch(`${this.#hostUrl}/healthz`);
+    const response = await this.#fetch(`${this.#hostUrl}/healthz`, {
+      signal: AbortSignal.timeout(hostHealthTimeoutMs),
+    });
     if (!response.ok) throw new Error('voice_host_unavailable');
     const { provider } = HealthResponse.parse(await response.json());
     if (provider === 'fake') return 'fake';
@@ -209,21 +218,29 @@ export class NarrationRenderer {
 }
 
 async function transcode(wavPath: string, opusPath: string): Promise<void> {
-  await run('/usr/bin/ffmpeg', [
-    '-hide_banner',
-    '-loglevel',
-    'error',
-    '-y',
-    '-i',
-    wavPath,
-    '-c:a',
-    'libopus',
-    '-b:a',
-    '48k',
-    '-f',
-    'ogg',
-    opusPath,
-  ]);
+  await run(
+    '/usr/bin/ffmpeg',
+    [
+      '-hide_banner',
+      '-loglevel',
+      'error',
+      '-nostdin',
+      '-y',
+      '-i',
+      wavPath,
+      '-c:a',
+      'libopus',
+      '-b:a',
+      '48k',
+      '-f',
+      'ogg',
+      opusPath,
+    ],
+    {
+      timeout: renderTimeoutMs,
+      killSignal: 'SIGKILL',
+    },
+  );
 }
 
 const renderers = new WeakMap<AppDeps, NarrationRenderer>();

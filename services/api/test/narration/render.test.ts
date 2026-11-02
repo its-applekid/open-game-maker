@@ -3,11 +3,12 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FsBlobStore } from '@ogm/blob-store';
+import { FsBlobStore, type BlobHash, type BlobStore } from '@ogm/blob-store';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { NarrationCache } from '../../src/narration/cache.js';
 import { NarrationRenderer } from '../../src/narration/render.js';
+import { narrationKey } from '../../src/narration/key.js';
 import { makeDeps } from '../helpers.js';
 import { silentWav } from './helpers.js';
 
@@ -149,5 +150,66 @@ describe('narration renderer', () => {
       { id: 'intro', status: 'unsupported', reason: 'provider_has_no_render' },
     ]);
     expect(deps.sqlite.prepare("SELECT key FROM app_meta WHERE key LIKE 'narration/%'").pluck().all()).toEqual([]);
+  });
+
+  it('contains unexpected infrastructure failures to the affected line', async () => {
+    const host = await fakeHost();
+    const deps = makeDeps();
+    const blobRoot = await mkdtemp(join(tmpdir(), 'ogm-narration-blobs-'));
+    roots.push(blobRoot);
+    const realStore = new FsBlobStore({
+      root: blobRoot,
+      signingKey: 'narration-test-signing-key-0123456789',
+      publicOrigin: 'https://api.example.test',
+    });
+    const brokenHash = `sha256:${'0'.repeat(64)}` as BlobHash;
+    const store: BlobStore = {
+      put: (bytes, mime) => realStore.put(bytes, mime),
+      head: (hash) =>
+        hash === brokenHash ? Promise.reject(new Error('blob index unavailable')) : realStore.head(hash),
+      signedGet: (hash, expiresAt) => realStore.signedGet(hash, expiresAt),
+      delete: (hash) => realStore.delete(hash),
+      open: (hash) => realStore.open(hash),
+    };
+    const bad = { id: 'bad', text: 'cached but unavailable' };
+    const key = narrationKey({ text: bad.text, voice: 'default', engine: 'fake', version: 1, speed: 1, lang: 'en' });
+    new NarrationCache(deps.sqlite, store).put(key, { audioHash: brokenHash, alignmentHash: brokenHash });
+    const renderer = new NarrationRenderer({
+      sqlite: deps.sqlite,
+      blobStore: store,
+      hostUrl: host.url,
+      secret: 'voice-internal-test-secret',
+      concurrency: 2,
+    });
+
+    await expect(renderer.renderLines([bad, { id: 'good', text: 'render me' }])).resolves.toMatchObject([
+      { id: 'bad', status: 'failed', reason: 'render_failed' },
+      { id: 'good', cached: false },
+    ]);
+  });
+
+  it('sets deadlines on voice-host discovery and rendering', async () => {
+    const signals: AbortSignal[] = [];
+    const { deps, blobStore } = await setup('http://127.0.0.1:40401');
+    const fetch = async (input: string | URL | Request, init?: RequestInit) => {
+      if (init?.signal) signals.push(init.signal);
+      return String(input).endsWith('/healthz')
+        ? Response.json({ ok: true, provider: 'fake' })
+        : Response.json({ error: 'provider_has_no_render' }, { status: 501 });
+    };
+    const timedRenderer = new NarrationRenderer({
+      sqlite: deps.sqlite,
+      blobStore,
+      hostUrl: 'http://127.0.0.1:40401',
+      secret: 'voice-internal-test-secret',
+      concurrency: 2,
+      fetch,
+    });
+
+    await expect(timedRenderer.renderLines([{ id: 'intro', text: 'hello' }])).resolves.toEqual([
+      { id: 'intro', status: 'unsupported', reason: 'provider_has_no_render' },
+    ]);
+    expect(signals).toHaveLength(2);
+    expect(signals.every((signal) => !signal.aborted)).toBe(true);
   });
 });

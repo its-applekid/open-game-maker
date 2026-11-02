@@ -76,6 +76,13 @@ defmodule OgmVoice.NarrationHTTPTest do
     assert File.ls!(dir) == []
   end
 
+  test "reports unsupported output formats", %{render_dir: dir} do
+    conn = post(%{text: "hello", voice_id: "default", format: "mp3"}, opts(dir))
+    assert conn.status == 400
+    assert Jason.decode!(conn.resp_body) == %{"error" => "unsupported_format"}
+    assert File.ls!(dir) == []
+  end
+
   test "maps a missing render credential to provider_auth", %{render_dir: dir} do
     missing =
       opts(dir,

@@ -55,23 +55,28 @@ export class SpokenText {
     let source: AudioBufferSourceNode | undefined;
     const timers: ReturnType<typeof setTimeout>[] = [];
 
-    void runtime.context.decodeAudioData(data.bytes.slice(0)).then((buffer) => {
-      if (cancelled || runtime.status() !== 'on') return;
-      source = runtime.context.createBufferSource();
-      source.buffer = buffer;
-      source.connect(runtime.voice);
-      source.onended = () => {
+    void runtime.context
+      .decodeAudioData(data.bytes.slice(0))
+      .then((buffer) => {
+        if (cancelled || runtime.status() !== 'on') return;
+        source = runtime.context.createBufferSource();
+        source.buffer = buffer;
+        source.connect(runtime.voice);
+        source.onended = () => {
+          if (!cancelled) options.onEnd?.();
+        };
+        for (const [index, sentence] of data.sentences.entries()) {
+          timers.push(
+            setTimeout(() => {
+              if (!cancelled) options.onSentence?.(index, sentence.text);
+            }, sentence.start_ms),
+          );
+        }
+        source.start();
+      })
+      .catch(() => {
         if (!cancelled) options.onEnd?.();
-      };
-      for (const [index, sentence] of data.sentences.entries()) {
-        timers.push(
-          setTimeout(() => {
-            if (!cancelled) options.onSentence?.(index, sentence.text);
-          }, sentence.start_ms),
-        );
-      }
-      source.start();
-    });
+      });
 
     return {
       cancel() {
