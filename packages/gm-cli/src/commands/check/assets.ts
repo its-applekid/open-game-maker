@@ -7,7 +7,8 @@ import type { BoundaryVerdict } from '@ogm/contracts';
 
 import { EXIT, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot } from '../../context.js';
-import { readLock, sha256File } from '../../lock.js';
+import { readLock } from '../../lock.js';
+import { entrySource, resolveEntry } from '../../resolve.js';
 import { refusalsForCheck, rightsForCard, type Refusal } from '../../rules.js';
 
 async function assetFiles(cwd: string): Promise<string[]> {
@@ -77,16 +78,34 @@ export const command: GmCommand = {
     const byId = new Map(index.cards.map((card) => [card.id, card]));
     const publish = flags.publish === true;
     const currentVisibility = await repoVisibility(ctx.cwd, flags['repo-visibility']);
+    /* `gm build assets` resolves files itself so a missing one fails only that asset; it passes `skipFiles`. */
+    const checkFiles = flags.skipFiles !== true;
     const refusals: Refusal[] = [];
     for (const entry of lock.assets) {
-      const absolute = join(ctx.cwd, entry.path);
-      const exists = existsSync(absolute);
       const card = byId.get(entry.id);
+      if (checkFiles) {
+        const resolution = await resolveEntry(entry, {
+          cwd: ctx.cwd,
+          assetsRoot: ctx.assetsRoot,
+          blobRoot: ctx.blobRoot,
+          collections: index.collections,
+        });
+        if (!resolution.ok) {
+          refusals.push({
+            code: 'rights',
+            rule: resolution.rule,
+            id: entry.id,
+            path: entry.path,
+            detail: `${resolution.detail}. Try: ${resolution.fix}`,
+          });
+        }
+      }
       refusals.push(
         ...refusalsForCheck(
           entry,
           card,
-          { exists, ...(exists ? { sha256: await sha256File(absolute) } : {}) },
+          /* The file rules ran above against the entry's source; only the rights rules apply here. */
+          { exists: true, sha256: entry.sha256 },
           {
             publish,
             visibility: currentVisibility,
@@ -95,10 +114,13 @@ export const command: GmCommand = {
         ).map((item) => ({ ...item, path: entry.path })),
       );
     }
-    const lockedPaths = new Set(lock.assets.map((entry) => entry.path));
-    for (const entry of lock.assets) {
-      const card = byId.get(entry.id);
-      for (const source of card?.source?.files ?? []) {
+    const lockedPaths = new Set<string>();
+    for (const entry of lock.assets.filter((candidate) => entrySource(candidate) === 'vendored')) {
+      lockedPaths.add(entry.path);
+      for (const file of entry.files ?? []) lockedPaths.add(file.path);
+      if (entry.files !== undefined) continue;
+      /* Older locks did not list companions; they sit beside the primary under their library basename. */
+      for (const source of byId.get(entry.id)?.source?.files ?? []) {
         if (source.role === 'texture' || source.role === 'companion') {
           lockedPaths.add(join(dirname(entry.path), basename(source.path)).replaceAll(sep, '/'));
         }

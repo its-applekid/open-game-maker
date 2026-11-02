@@ -66,4 +66,22 @@ describe('assets lock contract', () => {
       ]);
     },
   );
+
+  // The build trusts `source` to pick library, blob store or repo; an unknown one must not silently mean "repo".
+  it('accepts library, blob and vendored sources with per-file shas and rejects anything else', () => {
+    for (const source of ['library', 'blob', 'vendored']) {
+      const doc = fixture() as LockFixture & { assets: Array<{ source?: string; files?: unknown }> };
+      doc.assets[0]!.source = source;
+      doc.assets[0]!.files = [{ path: 'Textures/colormap.png', sha256: 'a'.repeat(64) }];
+      expect(AssetsLockSchema.safeParse(doc).success).toBe(true);
+      expect(emittedValidator('assets-lock.v1')(doc)).toBe(true);
+    }
+    const unknown = fixture() as LockFixture & { assets: Array<{ source?: string }> };
+    unknown.assets[0]!.source = 'cdn';
+    expect(AssetsLockSchema.safeParse(unknown).success).toBe(false);
+    expect(emittedValidator('assets-lock.v1')(unknown)).toBe(false);
+    const badFile = fixture() as LockFixture & { assets: Array<{ files?: unknown }> };
+    badFile.assets[0]!.files = [{ path: 'Textures/colormap.png', sha256: 'not-a-sha' }];
+    expect(AssetsLockSchema.safeParse(badFile).success).toBe(false);
+  });
 });

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -9,22 +9,28 @@ import type { AssetsLock } from '@ogm/contracts';
 import { MAP, ORC, SHEET, SHEET_META, SYNTY, WALL, preparedLibrary, useOrc } from './assets-fixture.js';
 import { gm, tempDir } from './helpers.js';
 
+function sha(text: string): string {
+  return createHash('sha256').update(text).digest('hex');
+}
+
 describe('gm assets use', () => {
-  it('copies the primary file and writes a valid lock and deterministic credits', async () => {
+  // D-ASSETS-REFERENCE: a game repo references library bytes by pack path and sha; it never carries them.
+  it('references the library file without copying it and writes a valid lock and deterministic credits', async () => {
     const cwd = tempDir();
     const result = await useOrc(cwd, preparedLibrary());
     expect(result).toEqual({ code: 0, out: [], err: [] });
-    const copied = join(cwd, 'assets/model/kenney-mini-dungeon/character-orc.glb');
-    expect(readFileSync(copied, 'utf8')).toBe('orc-bytes');
+    expect(existsSync(join(cwd, 'assets'))).toBe(false);
     const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
-    expect(lock.assets).toMatchObject([
-      {
+    expect(lock.assets).toEqual([
+      expect.objectContaining({
         id: ORC,
-        path: 'assets/model/kenney-mini-dungeon/character-orc.glb',
-        sha256: createHash('sha256').update('orc-bytes').digest('hex'),
+        source: 'library',
+        path: 'Models/GLB format/character-orc.glb',
+        sha256: sha('orc-bytes'),
         license: 'CC0-1.0',
-      },
+      }),
     ]);
+    expect(lock.assets[0]).not.toHaveProperty('files');
     expect(readFileSync(join(cwd, 'CREDITS.md'), 'utf8')).toContain('CC0 assets from: kenney-mini-dungeon');
   });
 
@@ -61,7 +67,6 @@ describe('gm assets use', () => {
     });
     expect(refused.code).toBe(2);
     expect(() => readFileSync(join(refusedCwd, 'assets.lock.json'))).toThrow();
-    expect(() => readFileSync(join(refusedCwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'))).toThrow();
 
     const cwd = tempDir();
     writeFileSync(join(cwd, 'picks.txt'), `# starter\n${ORC}\n`);
@@ -70,10 +75,11 @@ describe('gm assets use', () => {
       env: { OGM_ASSETS_ROOT: root },
     });
     expect(picked.code).toBe(0);
-    expect(readFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'), 'utf8')).toBe('orc-bytes');
+    const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    expect(lock.assets.map((entry) => entry.id)).toEqual([ORC]);
   });
 
-  it('copies listed texture companions and writes accepted ids with --partial', async () => {
+  it('pins listed texture companions by sha and writes accepted ids with --partial', async () => {
     const root = preparedLibrary();
     const companionCwd = tempDir();
     const companion = await gm(['assets', 'use', WALL, '--family', 'chunky-low-poly', '--pov', 'iso'], {
@@ -81,8 +87,13 @@ describe('gm assets use', () => {
       env: { OGM_ASSETS_ROOT: root },
     });
     expect(companion.code).toBe(0);
-    expect(readFileSync(join(companionCwd, 'assets/model/kenney-mini-dungeon/wall.glb'), 'utf8')).toBe('wall-bytes');
-    expect(readFileSync(join(companionCwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'utf8')).toBe('map-bytes');
+    expect(existsSync(join(companionCwd, 'assets'))).toBe(false);
+    const companionLock = JSON.parse(readFileSync(join(companionCwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    expect(companionLock.assets[0]).toMatchObject({
+      path: 'Models/GLB format/wall.glb',
+      sha256: sha('wall-bytes'),
+      files: [{ path: 'Models/GLB format/Textures/colormap.png', sha256: sha('map-bytes') }],
+    });
 
     const partialCwd = tempDir();
     const partial = await gm(['assets', 'use', ORC, MAP, '--partial', '--family', 'chunky-low-poly', '--pov', 'iso'], {
@@ -90,11 +101,52 @@ describe('gm assets use', () => {
       env: { OGM_ASSETS_ROOT: root },
     });
     expect(partial.code).toBe(2);
-    expect(readFileSync(join(partialCwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'), 'utf8')).toBe(
-      'orc-bytes',
-    );
     const lock = JSON.parse(readFileSync(join(partialCwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
     expect(lock.assets.map((entry) => entry.id)).toEqual([ORC]);
+  });
+
+  it('copies the primary and its companions into the repo only with --vendor', async () => {
+    const cwd = tempDir();
+    const result = await gm(['assets', 'use', WALL, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: preparedLibrary() },
+    });
+    expect(result).toEqual({ code: 0, out: [], err: [] });
+    expect(readFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/wall.glb'), 'utf8')).toBe('wall-bytes');
+    expect(readFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/colormap.png'), 'utf8')).toBe('map-bytes');
+    const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    expect(lock.assets[0]).toMatchObject({
+      source: 'vendored',
+      path: 'assets/model/kenney-mini-dungeon/wall.glb',
+      sha256: sha('wall-bytes'),
+      files: [{ path: 'assets/model/kenney-mini-dungeon/colormap.png', sha256: sha('map-bytes') }],
+    });
+  });
+
+  // Build-only redistribution lets the bytes ship inside a built game, never as files in a repo.
+  it('refuses to vendor an asset whose rights allow redistribution only in a build', async () => {
+    const cwd = tempDir();
+    const result = await gm(['assets', 'use', SYNTY, '--vendor', '--family', 'detailed-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: preparedLibrary() },
+    });
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain(`${SYNTY}  no-redistribution`);
+    expect(existsSync(join(cwd, 'assets'))).toBe(false);
+    expect(existsSync(join(cwd, 'assets.lock.json'))).toBe(false);
+  });
+
+  it('still refuses a non-redistributable id in a public repo even though nothing is copied', async () => {
+    const cwd = tempDir();
+    mkdirSync(join(cwd, '.gm'));
+    writeFileSync(join(cwd, '.gm/game.json'), '{"visibility":"public"}\n');
+    const result = await gm(['assets', 'use', MAP, '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: preparedLibrary() },
+    });
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain(`${MAP}  no-redistribution`);
+    expect(existsSync(join(cwd, 'assets.lock.json'))).toBe(false);
   });
 
   it('refuses destination and registered-file symlinks that leave or disguise repo boundaries', async () => {
@@ -102,12 +154,16 @@ describe('gm assets use', () => {
     const outside = tempDir();
     const useCwd = tempDir();
     symlinkSync(outside, join(useCwd, 'assets'));
-    const used = await useOrc(useCwd, root);
+    const used = await gm(['assets', 'use', ORC, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd: useCwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
     expect(used.code).toBe(2);
     expect(() => readFileSync(join(outside, 'model/kenney-mini-dungeon/character-orc.glb'))).toThrow();
 
     const registerCwd = tempDir();
     await useOrc(registerCwd, root);
+    mkdirSync(join(registerCwd, 'assets/model'), { recursive: true });
     const victim = join(outside, 'victim.glb');
     writeFileSync(victim, 'victim');
     const linked = join(registerCwd, 'assets/model/linked.glb');
@@ -120,7 +176,7 @@ describe('gm assets use', () => {
     expect(readFileSync(victim, 'utf8')).toBe('victim');
   });
 
-  it('requires and records a family exception before copying', async () => {
+  it('requires and records a family exception before writing the lock', async () => {
     const cwd = tempDir();
     const root = preparedLibrary();
     const events = join(cwd, 'events.jsonl');
@@ -161,7 +217,7 @@ describe('gm assets use', () => {
     expect(() => readFileSync(join(cwd, 'assets.lock.json'))).toThrow();
   });
 
-  it('refreshes existing lock rights from a rebuilt index without recopying the file', async () => {
+  it('refreshes existing lock rights from a rebuilt index and keeps the reference', async () => {
     const cwd = tempDir();
     const root = preparedLibrary();
     await useOrc(cwd, root);
@@ -176,8 +232,12 @@ describe('gm assets use', () => {
     const result = await gm(['assets', 'use', '--refresh'], { cwd, env: { OGM_ASSETS_ROOT: root } });
     expect(result.code).toBe(0);
     const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
-    expect(lock.assets[0]?.rights.audience).toBe('private');
-    expect(readFileSync(join(cwd, 'assets/model/kenney-mini-dungeon/character-orc.glb'), 'utf8')).toBe('orc-bytes');
+    expect(lock.assets[0]).toMatchObject({
+      rights: { audience: 'private' },
+      source: 'library',
+      path: 'Models/GLB format/character-orc.glb',
+      sha256: sha('orc-bytes'),
+    });
   });
 });
 

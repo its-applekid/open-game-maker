@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { copyFile, lstat, mkdir, readFile, stat } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
@@ -9,52 +8,36 @@ import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot, resolveContainedPath } from '../../context.js';
 import { renderCredits } from '../../credits.js';
 import { readLock, sha256File, upsertLock, writeGeneratedText, writeLock } from '../../lock.js';
+import { collectionParts, libraryRoot } from '../../resolve.js';
 import { refusalsForUse, rightsForCard, type Refusal } from '../../rules.js';
 
-type CopySource = { source: string; destination: string; primary: boolean; sha256?: string };
+type SourceFile = { path: string; absolute: string; sha256: string };
+type CopySource = { source: string; destination: string; sha256: string };
 
 function safeDestination(cwd: string, value: string): string {
   if (isAbsolute(value))
-    throw new UsageError('--dest must be relative to the game repo', 'gm assets use --dest assets');
+    throw new UsageError('--dest must be relative to the game repo', 'gm assets use --vendor --dest assets');
   const parts = value.replaceAll('\\', '/').split('/');
   if (parts.some((part) => part === '..' || part === '.gm' || part === 'node_modules')) {
     throw new UsageError(
       '--dest must stay inside the game repo and outside .gm and node_modules',
-      'gm assets use --dest assets',
+      'gm assets use --vendor --dest assets',
     );
   }
   const destination = resolve(cwd, value);
   const root = resolve(cwd);
   if (destination !== root && !destination.startsWith(`${root}${sep}`)) {
-    throw new UsageError('--dest escapes the game repo', 'gm assets use --dest assets');
+    throw new UsageError('--dest escapes the game repo', 'gm assets use --vendor --dest assets');
   }
   return destination;
 }
 
-function collectionParts(card: ResolvedCard): { slug: string; version: string } {
-  const match = /^t[123]:([^@]+)@(.+)$/.exec(card.collection ?? '');
-  if (!match) throw new Error(`asset ${card.id} has no versioned collection id`);
-  return { slug: match[1]!, version: match[2]! };
-}
-
-function extractedRoot(assetsRoot: string, card: ResolvedCard, collection: ResolvedCard): string {
-  const { slug, version } = collectionParts(card);
-  const manifest = collection.collection_info?.pack_manifest;
-  const fromManifest = manifest?.replace(/^assets-local\//, '');
-  const candidates = [
-    ...(fromManifest ? [join(assetsRoot, dirname(fromManifest), version, 'extracted')] : []),
-    join(assetsRoot, 'packs', slug, version, 'extracted'),
-    join(assetsRoot, 'inspiration', slug, version, 'extracted'),
-  ];
-  return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!;
-}
-
-async function copySources(
+/** The card's primary file first, then its textures and companions, each located and hashed in the library. */
+async function librarySources(
   assetsRoot: string,
-  destinationRoot: string,
   card: ResolvedCard,
   collection: ResolvedCard,
-): Promise<{ copies: CopySource[]; refusal?: Refusal }> {
+): Promise<{ files: SourceFile[]; refusal?: Refusal }> {
   const sourceFiles = card.source?.files.filter(
     (file) =>
       file.role === undefined || file.role === 'primary' || file.role === 'texture' || file.role === 'companion',
@@ -62,24 +45,23 @@ async function copySources(
   const primary = sourceFiles?.find((file) => file.role === 'primary') ?? sourceFiles?.[0];
   if (!primary || !card.kind) {
     return {
-      copies: [],
+      files: [],
       refusal: { code: 'rights', rule: 'missing-file', id: card.id, detail: 'card has no primary source file' },
     };
   }
-  const { slug } = collectionParts(card);
-  const root = extractedRoot(assetsRoot, card, collection);
-  const copies: CopySource[] = [];
-  for (const sourceFile of sourceFiles ?? []) {
-    const source = resolve(root, sourceFile.path);
-    let realSource: string;
+  const root = libraryRoot(assetsRoot, card.id, collection);
+  const files: SourceFile[] = [];
+  for (const sourceFile of [primary, ...(sourceFiles ?? []).filter((file) => file !== primary)]) {
+    let realSource: string | null;
     try {
-      realSource = (await resolveContainedPath(root, source)) ?? '';
+      realSource = await resolveContainedPath(root, resolve(root, sourceFile.path));
+      if (realSource !== null && !(await stat(realSource)).isFile()) realSource = null;
     } catch {
-      realSource = '';
+      realSource = null;
     }
-    if (realSource === '') {
+    if (realSource === null) {
       return {
-        copies: [],
+        files: [],
         refusal: {
           code: 'rights',
           rule: 'missing-file',
@@ -88,26 +70,18 @@ async function copySources(
         },
       };
     }
-    try {
-      if (!(await stat(realSource)).isFile()) throw new Error('not a file');
-    } catch {
-      return {
-        copies: [],
-        refusal: {
-          code: 'rights',
-          rule: 'missing-file',
-          id: card.id,
-          detail: `source file ${sourceFile.path} is missing`,
-        },
-      };
-    }
-    copies.push({
-      source: realSource,
-      destination: join(destinationRoot, card.kind, slug, basename(sourceFile.path)),
-      primary: sourceFile === primary,
-    });
+    files.push({ path: sourceFile.path, absolute: realSource, sha256: await sha256File(realSource) });
   }
-  return { copies };
+  return { files };
+}
+
+function vendorCopies(destinationRoot: string, card: ResolvedCard, files: SourceFile[]): CopySource[] {
+  const { slug } = collectionParts(card.id);
+  return files.map((file) => ({
+    source: file.absolute,
+    destination: join(destinationRoot, card.kind!, slug, basename(file.path)),
+    sha256: file.sha256,
+  }));
 }
 
 function refusalLine(refusal: Refusal): string {
@@ -138,17 +112,49 @@ async function idsFromArgs(cwd: string, args: string[], picks: unknown): Promise
   return [...new Set(ids)];
 }
 
+/** `--vendor`: copy each file into the repo, verify its sha256, and return repo-relative paths. */
+async function vendorFiles(cwd: string, copies: CopySource[]): Promise<Array<{ path: string; sha256: string }>> {
+  const placed: Array<{ path: string; sha256: string }> = [];
+  for (const copy of copies) {
+    await mkdir(dirname(copy.destination), { recursive: true });
+    const realDestination = await resolveContainedPath(cwd, dirname(copy.destination));
+    if (realDestination === null) {
+      throw new UsageError('asset destination resolves outside the game repo', 'gm assets use --vendor --dest assets');
+    }
+    try {
+      if ((await lstat(copy.destination)).isSymbolicLink()) {
+        throw new UsageError('asset destination is a symbolic link', 'remove the link and retry gm assets use');
+      }
+    } catch (error) {
+      if (error instanceof UsageError) throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    await copyFile(copy.source, copy.destination);
+    const copied = await sha256File(copy.destination);
+    if (copied !== copy.sha256) {
+      throw new Error(`copied asset failed sha256 verification: ${relative(cwd, copy.destination)}`);
+    }
+    placed.push({ path: relative(cwd, copy.destination).replaceAll(sep, '/'), sha256: copied });
+  }
+  return placed;
+}
+
 export const command: GmCommand = {
   name: 'assets use',
-  summary: 'copy library assets into this game and update the rights lock and credits',
-  usage: '<id...> [-f picks.txt] [--dest assets] [--placeholder] [--exception reason] [--refresh]',
+  summary: 'reference library assets from this game and update the rights lock and credits',
+  usage: '<id...> [-f picks.txt] [--placeholder] [--exception reason] [--refresh] [--vendor [--dest assets]]',
   example: 'assets use t1:kenney-mini-dungeon/character-orc@2.0 --family chunky-low-poly --pov iso',
   flags: {
     file: { type: 'string', short: 'f', help: 'read one asset id per line (# comments allowed)' },
-    dest: { type: 'string', default: 'assets', help: 'relative destination directory' },
+    vendor: {
+      type: 'boolean',
+      default: false,
+      help: 'copy the files into the repo (only assets whose rights allow free redistribution)',
+    },
+    dest: { type: 'string', default: 'assets', help: 'relative destination directory for --vendor' },
     placeholder: { type: 'boolean', default: false, help: 'allow placeholder-only rights' },
     exception: { type: 'string', help: 'record why an out-of-family asset is intentional' },
-    partial: { type: 'boolean', default: false, help: 'copy accepted ids even when another id is refused' },
+    partial: { type: 'boolean', default: false, help: 'write accepted ids even when another id is refused' },
     refresh: { type: 'boolean', default: false, help: 'refresh current rights for existing lock entries' },
     family: { type: 'string', help: 'style family when creating a new lock' },
     pov: { type: 'string', help: 'camera point of view when creating a new lock' },
@@ -176,7 +182,8 @@ export const command: GmCommand = {
       lock = { version: 1, family: family.data, pov: pov.data, assets: [] };
     }
 
-    const destinationRoot = safeDestination(ctx.cwd, flags.dest as string);
+    const vendor = flags.vendor === true;
+    const destinationRoot = vendor ? safeDestination(ctx.cwd, flags.dest as string) : null;
     const visibility = await repoVisibility(ctx.cwd);
     const exception = typeof flags.exception === 'string' ? flags.exception.trim() : undefined;
     if (exception === '') {
@@ -185,7 +192,7 @@ export const command: GmCommand = {
     const refusals: Refusal[] = [];
     const accepted: Array<{
       card: ResolvedCard;
-      copies: CopySource[];
+      files: SourceFile[];
       existing?: LockEntry;
       familyException: boolean;
     }> = [];
@@ -201,18 +208,22 @@ export const command: GmCommand = {
         exception,
         visibility,
       });
+      if (vendor && card.resolved.rights.redistribution === 'in-build') {
+        cardRefusals.push({
+          code: 'rights',
+          rule: 'no-redistribution',
+          id,
+          detail: 'rights allow redistribution only inside a build, so the files cannot be vendored into the repo',
+        });
+      }
       if (cardRefusals.length > 0) {
         refusals.push(...cardRefusals);
         continue;
       }
+      const familyException = withoutException.some((item) => item.rule === 'family-mismatch');
       const existing = lock.assets.find((entry) => entry.id === id);
       if (flags.refresh === true && existing) {
-        accepted.push({
-          card,
-          copies: [],
-          existing,
-          familyException: withoutException.some((item) => item.rule === 'family-mismatch'),
-        });
+        accepted.push({ card, files: [], existing, familyException });
         continue;
       }
       const collection = card.collection === undefined ? undefined : index.collections[card.collection];
@@ -225,17 +236,12 @@ export const command: GmCommand = {
         });
         continue;
       }
-      const sources = await copySources(assetsRoot, destinationRoot, card, collection);
+      const sources = await librarySources(assetsRoot, card, collection);
       if (sources.refusal) {
         refusals.push(sources.refusal);
         continue;
       }
-      accepted.push({
-        card,
-        copies: sources.copies,
-        existing,
-        familyException: withoutException.some((item) => item.rule === 'family-mismatch'),
-      });
+      accepted.push({ card, files: sources.files, existing, familyException });
     }
 
     if (refusals.length > 0 && flags.partial !== true) {
@@ -245,35 +251,32 @@ export const command: GmCommand = {
     }
 
     for (const item of accepted) {
-      for (const copy of item.copies) {
-        await mkdir(dirname(copy.destination), { recursive: true });
-        const realDestination = await resolveContainedPath(ctx.cwd, dirname(copy.destination));
-        if (realDestination === null) {
-          throw new UsageError('asset destination resolves outside the game repo', 'gm assets use --dest assets');
-        }
-        try {
-          if ((await lstat(copy.destination)).isSymbolicLink()) {
-            throw new UsageError('asset destination is a symbolic link', 'remove the link and retry gm assets use');
-          }
-        } catch (error) {
-          if (error instanceof UsageError) throw error;
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-        }
-        await copyFile(copy.source, copy.destination);
-        const sourceSha = await sha256File(copy.source);
-        copy.sha256 = await sha256File(copy.destination);
-        if (sourceSha !== copy.sha256) {
-          throw new Error(`copied asset failed sha256 verification: ${relative(ctx.cwd, copy.destination)}`);
-        }
+      let located: Pick<LockEntry, 'path' | 'sha256' | 'source' | 'files'>;
+      if (item.files.length === 0) {
+        const { path, sha256, source, files } = item.existing!;
+        located = {
+          path,
+          sha256,
+          ...(source === undefined ? {} : { source }),
+          ...(files === undefined ? {} : { files }),
+        };
+      } else {
+        const placed =
+          destinationRoot === null
+            ? item.files.map((file) => ({ path: file.path, sha256: file.sha256 }))
+            : await vendorFiles(ctx.cwd, vendorCopies(destinationRoot, item.card, item.files));
+        const [primary, ...companions] = placed;
+        located = {
+          path: primary!.path,
+          sha256: primary!.sha256,
+          source: destinationRoot === null ? 'library' : 'vendored',
+          ...(companions.length === 0 ? {} : { files: companions }),
+        };
       }
-      const primary = item.copies.find((copy) => copy.primary);
-      const path = primary ? relative(ctx.cwd, primary.destination).replaceAll(sep, '/') : item.existing!.path;
-      const sha256 = primary ? primary.sha256! : item.existing!.sha256;
       const meta = metadataFor(item.card);
       lock = upsertLock(lock, {
         id: item.card.id,
-        sha256,
-        path,
+        ...located,
         license: item.card.resolved.license,
         rights: rightsForCard(item.card, index.collections),
         ...(meta === undefined ? {} : { meta }),
