@@ -46,10 +46,23 @@ export type StyleSetPreviews = {
 export type StyleSet = {
   id: string;
   label: string;
+  picker_families?: StyleFamilyId[];
   vendors: string[];
   traits: StyleSetTraits;
   packs: StyleSetPack[];
   previews?: StyleSetPreviews;
+};
+
+export type StyleShowcase = {
+  tileVideoUrl?: string;
+  sheetVideoUrl?: string;
+  stops: {
+    id: string;
+    label: string;
+    startSeconds: number;
+    tileFallbackUrl?: string;
+    sheetFallbackUrl?: string;
+  }[];
 };
 
 export type StyleFamily = {
@@ -78,10 +91,12 @@ export type StyleFamilyApi = {
   sets: {
     id: string;
     label: string;
+    pickerFamilies: StyleFamilyId[];
     vendors: string[];
     traits: StyleSetTraits;
     requiresPrivateRepository: boolean;
     packs: { id: string; name: string; thumbnailUrl: string | null; compatibleWith: string[] }[];
+    showcase?: StyleShowcase;
   }[];
 };
 
@@ -130,6 +145,7 @@ const styleSetPreviewsSchema = z
 const styleSetSchema = z.strictObject({
   id: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/),
   label: z.string().min(1),
+  picker_families: z.array(z.enum(STYLE_FAMILY_IDS)).min(1).optional(),
   vendors: z.array(z.string().min(1)).min(1),
   traits: styleSetTraitsSchema,
   packs: z

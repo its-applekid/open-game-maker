@@ -28,6 +28,7 @@ export {
   type StyleSet,
   type StyleSetPack,
   type StyleSetTraits,
+  type StyleShowcase,
 } from './families.js';
 export { coverageTable, recompute } from './families-coverage.js';
 export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';

@@ -1,4 +1,4 @@
-import { cpSync, mkdtempSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,10 +8,19 @@ import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app/app.js';
 import { catalogRoutes, prefix, setRequiresPrivateRepository, type StyleFamilyApi } from '../src/catalog/routes.js';
-import { makeApp, makeDeps } from './helpers.js';
+import { asUser, installUsers, makeApp, makeDeps } from './helpers.js';
 
 const FIXTURE = fileURLToPath(new URL('../../../packages/asset-cards/test/fixtures/library', import.meta.url));
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47]);
+const CREATOR = {
+  kind: 'user' as const,
+  userId: 'u_catalog_creator',
+  email: 'catalog@example.test',
+  displayName: 'Catalog Creator',
+  familyId: null,
+  platformRole: 'none' as const,
+  capability: 'creator' as const,
+};
 
 /** A writable fixture library; `thumbs` records imported thumb blobs on index entries the way OGM-067 does. */
 async function library(
@@ -43,8 +52,32 @@ async function library(
   return root;
 }
 
+async function libraryWithShowcase(): Promise<string> {
+  const root = await library();
+  const showcase = join(root, 'sets', 'smallscaleint', 'showcase');
+  const media = join(showcase, 'out', 'media');
+  mkdirSync(media, { recursive: true });
+  writeFileSync(
+    join(showcase, 'sequence.json'),
+    JSON.stringify({
+      stops: [
+        { tile: 'fantasy', sheet: 'fantasy', seconds: 7.5 },
+        { tile: 'modern-zombie', sheet: 'modern-zombie', seconds: 4 },
+      ],
+    }),
+  );
+  writeFileSync(join(media, 'showcase.tiles-row.720.mp4'), new Uint8Array([0, 1, 2, 3, 4, 5]));
+  writeFileSync(join(media, 'showcase.sheets.720.mp4'), new Uint8Array([6, 7, 8, 9]));
+  writeFileSync(join(media, '1-fantasy.tile.256.gif'), new Uint8Array([10, 11]));
+  writeFileSync(join(media, '1-fantasy.sheet.256.gif'), new Uint8Array([12, 13]));
+  writeFileSync(join(media, '2-modern-zombie.tile.256.gif'), new Uint8Array([14, 15]));
+  writeFileSync(join(media, '2-modern-zombie.sheet.256.gif'), new Uint8Array([16, 17]));
+  return root;
+}
+
 function appWith(assetsRoot: string | undefined) {
   const deps = makeDeps();
+  installUsers(deps, [CREATOR]);
   const app = createApp(deps);
   app.route(prefix, catalogRoutes({ assetsRoot }));
   return { app, deps };
@@ -131,6 +164,8 @@ describe('GET /api/catalog/style-families', () => {
       .find((family) => family.id === 'isometric-2d')
       ?.sets.find((set) => set.id === 'smallscaleint');
     expect(smallscaleint).toBeDefined();
+    expect(smallscaleint?.pickerFamilies).toEqual(['pixel-art']);
+    expect(smallscaleint?.showcase).toBeUndefined();
     expect(smallscaleint).not.toHaveProperty('previews');
     expect(Object.keys(families[0]).sort()).toEqual(
       ['coverage', 'creationChoice', 'dimension', 'fidelity', 'id', 'label', 'packs', 'sets', 'views'].sort(),
@@ -181,5 +216,70 @@ describe('GET /api/catalog/style-families', () => {
       true,
     );
     expect(families.flatMap((family) => family.sets).every((set) => set.requiresPrivateRepository)).toBe(true);
+  });
+
+  it('discovers pre-rendered showcase tracks and serves authenticated byte ranges', async () => {
+    const { app } = appWith(await libraryWithShowcase());
+    const families = (await (await get(app)).json()) as StyleFamilyApi[];
+    const showcase = families
+      .find((family) => family.id === 'isometric-2d')
+      ?.sets.find((set) => set.id === 'smallscaleint')?.showcase;
+
+    expect(showcase).toEqual({
+      tileVideoUrl: '/api/catalog/style-sets/smallscaleint/showcase/showcase.tiles-row.720.mp4',
+      sheetVideoUrl: '/api/catalog/style-sets/smallscaleint/showcase/showcase.sheets.720.mp4',
+      stops: [
+        {
+          id: 'fantasy',
+          label: 'Fantasy',
+          startSeconds: 0,
+          tileFallbackUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.tile.256.gif',
+          sheetFallbackUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.sheet.256.gif',
+        },
+        {
+          id: 'modern-zombie',
+          label: 'Modern zombie',
+          startSeconds: 7.5,
+          tileFallbackUrl: '/api/catalog/style-sets/smallscaleint/showcase/2-modern-zombie.tile.256.gif',
+          sheetFallbackUrl: '/api/catalog/style-sets/smallscaleint/showcase/2-modern-zombie.sheet.256.gif',
+        },
+      ],
+    });
+
+    const url = showcase!.tileVideoUrl!;
+    expect((await app.request(url)).status).toBe(401);
+    const full = await app.request(url, { headers: asUser(CREATOR.userId) });
+    expect(full.status).toBe(200);
+    expect(full.headers.get('content-type')).toBe('video/mp4');
+    expect(full.headers.get('content-length')).toBe('6');
+    expect(full.headers.get('accept-ranges')).toBe('bytes');
+    expect(full.headers.get('cache-control')).toBe('private, max-age=300');
+    expect(new Uint8Array(await full.arrayBuffer())).toEqual(new Uint8Array([0, 1, 2, 3, 4, 5]));
+
+    const partial = await app.request(url, { headers: { ...asUser(CREATOR.userId), range: 'bytes=2-4' } });
+    expect(partial.status).toBe(206);
+    expect(partial.headers.get('content-range')).toBe('bytes 2-4/6');
+    expect(partial.headers.get('content-length')).toBe('3');
+    expect(new Uint8Array(await partial.arrayBuffer())).toEqual(new Uint8Array([2, 3, 4]));
+
+    const unsatisfiable = await app.request(url, {
+      headers: { ...asUser(CREATOR.userId), range: 'bytes=7-9' },
+    });
+    expect(unsatisfiable.status).toBe(416);
+    expect(unsatisfiable.headers.get('content-range')).toBe('bytes */6');
+  });
+
+  it('refuses malformed ranges and files outside the discovered showcase allowlist', async () => {
+    const { app } = appWith(await libraryWithShowcase());
+    const headers = asUser(CREATOR.userId);
+    const base = '/api/catalog/style-sets/smallscaleint/showcase/';
+
+    expect((await app.request(`${base}sequence.json`, { headers })).status).toBe(404);
+    expect(
+      (await app.request(`${base}showcase.tiles-row.720.mp4`, { headers: { ...headers, range: 'wat' } })).status,
+    ).toBe(416);
+    expect(
+      (await app.request('/api/catalog/style-sets/unknown/showcase/showcase.tiles-row.720.mp4', { headers })).status,
+    ).toBe(404);
   });
 });
