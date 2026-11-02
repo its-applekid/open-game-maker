@@ -17,7 +17,10 @@ describe('merge plan schema', () => {
       readFileSync(new URL('../migrations/meta/20261102054226_snapshot.json', import.meta.url), 'utf8'),
     ) as { prevId: string };
 
-    expect(journal.entries.at(-1)).toMatchObject({ idx: 20, tag: '20261102054226_merge_plans' });
+    expect(journal.entries.find(({ tag }) => tag === '20261102054226_merge_plans')).toMatchObject({
+      idx: 20,
+      tag: '20261102054226_merge_plans',
+    });
     expect(snapshot.prevId).toBe(previous.id);
   });
 

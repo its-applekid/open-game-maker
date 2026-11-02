@@ -135,7 +135,7 @@ describe('scope session routes', () => {
     const read = await app.request(`/api/v1/games/${ids.game}/scope/sessions/${created.sessionId}`, {
       headers: asUser(ids.creator),
     });
-    expect(await read.json()).toMatchObject({ status: 'open', chatJobId: created.jobId, choices });
+    expect(await read.json()).toMatchObject({ status: 'open', revision: 0, chatJobId: created.jobId, choices });
   });
 
   it('refuses a player and abandons an open session with its job', async () => {
@@ -175,6 +175,86 @@ describe('scope session routes', () => {
 
     expect(abandoned.status).toBe(200);
     expect(cancel).toHaveBeenCalledWith('42');
+  });
+
+  it('starts one revision from the latest agreement and rejects stale or mismatched versions', async () => {
+    const deps = setup();
+    const { app } = await makeApp(deps);
+    const created = (await (await create(app)).json()) as { sessionId: string; jobId: string };
+    const scope = {
+      session_id: created.sessionId,
+      revision: 1,
+      title: 'Fox Workshop',
+      summary: 'Build one cozy workshop.',
+      scope: { included: ['workshop'], excluded: ['combat'] },
+      tickets: [
+        {
+          key: 'T1',
+          title: 'Build the workshop',
+          skills: ['gm-core'],
+          dependsOn: [],
+          acceptanceCriteria: ['The player completes one order.'],
+        },
+      ],
+      complexity: 2,
+      open_questions: [],
+      ideas: [],
+    };
+    deps.db
+      .update(schema.scopeSessions)
+      .set({ status: 'agreed', revision: 1, scope: JSON.stringify(scope), scopeHash: 'hash-1' })
+      .where(eq(schema.scopeSessions.id, created.sessionId))
+      .run();
+
+    const revisionUrl = `/api/v1/games/${ids.game}/scope/sessions/${created.sessionId}/revisions`;
+    const first = await app.request(revisionUrl, {
+      method: 'POST',
+      headers: { ...asUser(ids.creator), 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedRevision: 1 }),
+    });
+    expect(first.status).toBe(200);
+    expect(await first.json()).toMatchObject({ status: 'revising', revision: 1, scope });
+
+    const retry = await app.request(revisionUrl, {
+      method: 'POST',
+      headers: { ...asUser(ids.creator), 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedRevision: 1 }),
+    });
+    expect(retry.status).toBe(200);
+
+    const revisionImage = await sharp({
+      create: { width: 1, height: 1, channels: 3, background: { r: 10, g: 80, b: 160 } },
+    })
+      .png()
+      .toBuffer();
+    const uploaded = await app.request(`/api/v1/games/${ids.game}/scope/sessions/${created.sessionId}/images`, {
+      method: 'POST',
+      headers: { ...asUser(ids.creator), 'content-type': 'image/png' },
+      body: revisionImage,
+    });
+    expect(uploaded.status).toBe(201);
+
+    const mismatch = await app.request(revisionUrl, {
+      method: 'POST',
+      headers: { ...asUser(ids.creator), 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedRevision: 2 }),
+    });
+    expect(mismatch.status).toBe(409);
+    expect(await mismatch.json()).toEqual({ error: 'scope_revision_mismatch' });
+
+    const revised = { ...scope, revision: 2, title: 'Smaller Fox Workshop' };
+    deps.db
+      .update(schema.scopeSessions)
+      .set({ status: 'agreed', revision: 2, scope: JSON.stringify(revised), scopeHash: 'hash-2' })
+      .where(eq(schema.scopeSessions.id, created.sessionId))
+      .run();
+    const stale = await app.request(revisionUrl, {
+      method: 'POST',
+      headers: { ...asUser(ids.creator), 'content-type': 'application/json' },
+      body: JSON.stringify({ expectedRevision: 1 }),
+    });
+    expect(stale.status).toBe(409);
+    expect(await stale.json()).toEqual({ error: 'scope_revision_stale' });
   });
 
   it('stores an oriented WebP without EXIF and returns its chat image id', async () => {

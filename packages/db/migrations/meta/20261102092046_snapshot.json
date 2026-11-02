@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "9565c09f-707d-40bd-aedd-9e99c909f054",
+  "id": "c18c5463-528a-472c-ae1a-7af05ac89560",
   "prevId": "3972154b-794a-4c24-9cf4-84da0f344fc8",
   "tables": {
     "app_meta": {
@@ -4894,6 +4894,77 @@
         }
       }
     },
+    "scope_session_revisions": {
+      "name": "scope_session_revisions",
+      "columns": {
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope_hash": {
+          "name": "scope_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agreed_at": {
+          "name": "agreed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "scope_session_revisions_agreed": {
+          "name": "scope_session_revisions_agreed",
+          "columns": ["session_id", "agreed_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "scope_session_revisions_session_id_scope_sessions_id_fk": {
+          "name": "scope_session_revisions_session_id_scope_sessions_id_fk",
+          "tableFrom": "scope_session_revisions",
+          "tableTo": "scope_sessions",
+          "columnsFrom": ["session_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scope_session_revisions_session_id_revision_pk": {
+          "columns": ["session_id", "revision"],
+          "name": "scope_session_revisions_session_id_revision_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "scope_session_revisions_positive": {
+          "name": "scope_session_revisions_positive",
+          "value": "\"scope_session_revisions\".\"revision\" > 0"
+        }
+      }
+    },
     "scope_sessions": {
       "name": "scope_sessions",
       "columns": {
@@ -4939,6 +5010,14 @@
           "notNull": true,
           "autoincrement": false
         },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
         "choices": {
           "name": "choices",
           "type": "text",
@@ -4981,11 +5060,11 @@
           "columns": ["job_id"],
           "isUnique": true
         },
-        "scope_sessions_game_open_unique": {
-          "name": "scope_sessions_game_open_unique",
+        "scope_sessions_game_active_unique": {
+          "name": "scope_sessions_game_active_unique",
           "columns": ["game_id"],
           "isUnique": true,
-          "where": "\"scope_sessions\".\"status\" = 'open'"
+          "where": "\"scope_sessions\".\"status\" IN ('open', 'revising')"
         },
         "scope_sessions_game_created": {
           "name": "scope_sessions_game_created",
@@ -5018,98 +5097,19 @@
       "checkConstraints": {
         "scope_sessions_status": {
           "name": "scope_sessions_status",
-          "value": "\"scope_sessions\".\"status\" IN ('open', 'agreed', 'abandoned')"
+          "value": "\"scope_sessions\".\"status\" IN ('open', 'revising', 'agreed', 'abandoned')"
+        },
+        "scope_sessions_revision": {
+          "name": "scope_sessions_revision",
+          "value": "\"scope_sessions\".\"revision\" >= 0"
         },
         "scope_sessions_agreed_payload": {
           "name": "scope_sessions_agreed_payload",
-          "value": "(\"scope_sessions\".\"status\" = 'agreed' AND \"scope_sessions\".\"scope\" IS NOT NULL AND \"scope_sessions\".\"scope_hash\" IS NOT NULL) OR (\"scope_sessions\".\"status\" != 'agreed')"
-        }
-      }
-    },
-    "game_abuse_flags": {
-      "name": "game_abuse_flags",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
+          "value": "(\"scope_sessions\".\"revision\" = 0 AND \"scope_sessions\".\"scope\" IS NULL AND \"scope_sessions\".\"scope_hash\" IS NULL) OR (\"scope_sessions\".\"revision\" > 0 AND \"scope_sessions\".\"scope\" IS NOT NULL AND \"scope_sessions\".\"scope_hash\" IS NOT NULL)"
         },
-        "game_id": {
-          "name": "game_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "family_id": {
-          "name": "family_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "flagged_by": {
-          "name": "flagged_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "reason": {
-          "name": "reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "game_abuse_flags_family_created": {
-          "name": "game_abuse_flags_family_created",
-          "columns": ["family_id", "created_at"],
-          "isUnique": false
-        },
-        "game_abuse_flags_game_created": {
-          "name": "game_abuse_flags_game_created",
-          "columns": ["game_id", "created_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {
-        "game_abuse_flags_game_id_games_id_fk": {
-          "name": "game_abuse_flags_game_id_games_id_fk",
-          "tableFrom": "game_abuse_flags",
-          "tableTo": "games",
-          "columnsFrom": ["game_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "game_abuse_flags_family_id_families_id_fk": {
-          "name": "game_abuse_flags_family_id_families_id_fk",
-          "tableFrom": "game_abuse_flags",
-          "tableTo": "families",
-          "columnsFrom": ["family_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "game_abuse_flags_reason_check": {
-          "name": "game_abuse_flags_reason_check",
-          "value": "\"game_abuse_flags\".\"reason\" IN ('spam', 'harmful', 'other')"
+        "scope_sessions_state_revision": {
+          "name": "scope_sessions_state_revision",
+          "value": "(\"scope_sessions\".\"status\" = 'open' AND \"scope_sessions\".\"revision\" = 0) OR (\"scope_sessions\".\"status\" IN ('agreed', 'revising') AND \"scope_sessions\".\"revision\" > 0) OR \"scope_sessions\".\"status\" = 'abandoned'"
         }
       }
     }
