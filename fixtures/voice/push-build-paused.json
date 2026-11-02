@@ -1,0 +1,26 @@
+{
+  "target_key": "build:j1",
+  "observed_at": "2026-11-01T05:10:00Z",
+  "summary": "Building",
+  "current_task": "Paused at its reservation",
+  "next_steps": [],
+  "waiting_on": "Build paused at its reservation: ask an admin to raise it, or trim",
+  "questions": [],
+  "extra": [
+    {
+      "title": "Budget",
+      "text": "Build paused at its reservation. Remaining today: 2.0 stars (40%). Resets at 12:00 am. Free slots: 1 new game, 2 edits. Queued: none."
+    }
+  ],
+  "sections": [
+    {
+      "id": "budget",
+      "text": "Build paused at its reservation. Remaining today: 2.0 stars (40%). Resets at 12:00 am. Free slots: 1 new game, 2 edits. Queued: none.\nRough sizes: small ≈ 0.5 star, medium ≈ 1–2, large ≈ 3–5, huge ≈ 6+ (low confidence)."
+    },
+    { "id": "progress", "text": "Paused at its reservation" },
+    {
+      "id": "estimate",
+      "text": "Rough sizes: small ≈ 0.5 star, medium ≈ 1–2, large ≈ 3–5, huge ≈ 6+ (low confidence)."
+    }
+  ]
+}

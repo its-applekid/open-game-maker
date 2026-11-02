@@ -25,6 +25,8 @@ pnpm --filter @ogm/config exec ogm-env-init voice-host
 
 Set `OGM_API_INTERNAL_URL` to the loopback API base URL and `OGM_VOICE_WS_URL` to the public `/ws/voice` URL. The voice host defaults to `OGM_VOICE_PROVIDER=fake`, which needs no provider key. Live adapters read `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` from `voice-host.env` only when used; set `OGM_VOICE_LLM` with either live provider. Keep every env file mode `0600`.
 
+[`roles/creator.md`](roles/creator.md) is the source of truth for the creator agent's role prompt. When enabling a live provider, paste that file into the provider's agent prompt; the host also includes it in every briefing so local and live behavior use the same guidance.
+
 The service binds the conversation socket to `127.0.0.1:40400` and internal HTTP to `127.0.0.1:40401` by default. The internal surface is:
 
 - `GET /healthz`
