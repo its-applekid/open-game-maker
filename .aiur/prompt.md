@@ -24,8 +24,8 @@ or user name or a home path: use placeholders (`<tailnet-host>`, `<user>`); host
 
 ## Browser tests
 
-A package that adds `test:browser` picks a preview/dev port no other package uses (`grep -rn 'port' --include=playwright.config.*`
-first): CI runs every package's browser tests concurrently, so a shared port fails main for everyone (#307 vs templates/game-2d
+A package that adds `test:browser` picks a preview/dev port in the 4317x range that no other package uses (`git grep 4317`
+first) and passes `--strictPort` (vite otherwise falls back to the next port and collides with another package): CI runs every package's browser tests concurrently, so a shared port fails main for everyone (#307 vs templates/game-2d
 on 4174, hotfix #315). Tests that depend on ffmpeg use `it.skipIf(!ffmpegAvailable)`.
 
 ## Database migrations
