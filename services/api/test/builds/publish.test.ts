@@ -119,7 +119,28 @@ describe('publishing a merged build', () => {
   });
 });
 
+describe('publish rollback', () => {
+  it('removes the build and fails the job when the branch switch is refused', async () => {
+    const { deps, app } = world();
+    completeRun(deps);
+    deps.sqlite.prepare("UPDATE branches SET status = 'archived' WHERE id = ?").run(ids.main);
+
+    const response = await upload(app, archiveOf(builtFiles()));
+    expect(response.status).toBe(422);
+    expect(jobState(deps)).toBe('failed');
+    expect(builds(deps)).toEqual([expect.objectContaining({ status: 'failed' })]);
+    expect(readdirSync(join(deps.config.gamesRoot, ids.game))).toEqual([]);
+    expect(latestBuildId(deps)).toBeNull();
+  });
+});
+
 describe('finishRun', () => {
+  it('ends a build job the feed reports cancelled', () => {
+    const { deps } = world();
+    finishRun(deps, ids.job, 'cancelled');
+    expect(jobState(deps)).toBe('cancelled');
+  });
+
   it('keeps a build job open when its run completes before a build arrives', () => {
     const { deps } = world();
     finishRun(deps, ids.job, 'done');
@@ -138,6 +159,8 @@ describe('finishRun', () => {
     finishRun(deps, ids.job, 'done');
     await expect.poll(() => jobState(deps)).toBe('done');
     expect(builds(deps)).toEqual([expect.objectContaining({ jobId: ids.job, status: 'tested' })]);
+    // Let the background publish release its claim before the next test reuses the job id.
+    await expect.poll(() => existsSync(join(deps.config.gamesRoot, '.staging', ids.job))).toBe(false);
   });
 });
 
@@ -146,16 +169,29 @@ describe('sweepBuilds', () => {
 
   it('fails a build job whose merged run never delivered a build within the grace period', async () => {
     const { deps } = world();
-    completeRun(deps, '2026-11-01T20:30:00.000Z');
+    completeRun(deps);
 
-    await sweepBuilds(deps, graceMs, new Date('2026-11-01T20:45:00.000Z'));
+    await sweepBuilds(deps, graceMs, new Date('2026-11-01T21:00:00.000Z'));
+    // Pollers keep refreshing the projection row; the grace must still run from when the completion was seen.
+    completeRun(deps, '2026-11-01T21:29:00.000Z');
+    await sweepBuilds(deps, graceMs, new Date('2026-11-01T21:20:00.000Z'));
     expect(jobState(deps)).toBe('running');
 
-    await sweepBuilds(deps, graceMs, new Date('2026-11-01T21:01:00.000Z'));
+    await sweepBuilds(deps, graceMs, new Date('2026-11-01T21:31:00.000Z'));
     expect(jobState(deps)).toBe('failed');
     expect(deps.lines).toContainEqual(
       expect.objectContaining({ event: 'build_publish_failed', jobId: ids.job, reason: 'build_not_received' }),
     );
+  });
+
+  it('publishes a staged build whose completion the feed handed over before routes were ready', async () => {
+    const { deps, app } = world();
+    expect((await upload(app, archiveOf(builtFiles()))).status).toBe(202);
+    completeRun(deps);
+
+    await sweepBuilds(deps, graceMs);
+    expect(jobState(deps)).toBe('done');
+    expect(builds(deps)).toEqual([expect.objectContaining({ status: 'tested' })]);
   });
 
   it('drops a staged build of a job that ended without a merge', async () => {

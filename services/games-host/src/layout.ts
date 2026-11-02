@@ -3,7 +3,8 @@ import { open, realpath, rename, rm, stat } from 'node:fs/promises';
 import { isAbsolute, join, relative, sep } from 'node:path';
 import { pid } from 'node:process';
 
-export const ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
+// Build ids are stable ids (`build_` + uppercase Crockford), so uppercase is allowed.
+export const ID_RE = /^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$/u;
 
 export class BadId extends Error {
   constructor(id: string) {

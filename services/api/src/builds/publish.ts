@@ -1,12 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { mkdir, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { DesignDocSchema, gameManifestSchema } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { buildDir, markComplete } from '@ogm/games-host/layout';
-import { and, eq, inArray, lt } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 
 import { budgetDefaults } from '../admin/family.js';
 import type { AppDeps } from '../app/types.js';
@@ -27,6 +27,7 @@ const SYSTEM_ACTOR = 'system:builder';
 // `.staging` never matches the games-host id pattern, so nothing under it is ever served.
 const stagingRoot = (deps: AppDeps) => join(deps.config.gamesRoot, '.staging');
 const stagedDir = (deps: AppDeps, jobId: string) => join(stagingRoot(deps), jobId);
+const completedRoot = (deps: AppDeps) => join(deps.config.gamesRoot, '.completed');
 
 function jobRow(deps: AppDeps, jobId: string) {
   return deps.db.select().from(schema.jobs).where(eq(schema.jobs.id, jobId)).get();
@@ -51,6 +52,7 @@ export function runCompleted(deps: AppDeps, jobId: string): boolean {
 export async function stageArtifact(deps: AppDeps, jobId: string, gitSha: string, archive: Buffer): Promise<void> {
   const temporary = join(stagingRoot(deps), `.${jobId}.${randomUUID()}`);
   try {
+    await mkdir(join(temporary, 'build'), { recursive: true });
     await untarGz(archive, join(temporary, 'build'));
     await writeFile(join(temporary, 'git-sha'), gitSha);
     await rm(stagedDir(deps, jobId), { recursive: true, force: true });
@@ -64,15 +66,24 @@ export type PublishOutcome = { state: 'done'; buildId: string } | { state: 'fail
 
 const publishing = new Set<string>();
 
-// Publishes a staged build: register, move into `<gamesRoot>/<gameId>/<buildId>/`, write `.complete` last, mark it
-// tested, switch the job's branch to it, then finish the job. Any failure fails the job and leaves nothing complete.
+// Publishes a staged build: register, move into `<gamesRoot>/<gameId>/<buildId>/`, write `.complete` last, switch
+// the job's branch to it, mark it tested, then finish the job. A failure before the switch removes the build and fails
+// the job; once the switch has committed, the branch points at the build, so it is kept and only the failure is logged.
 export async function publishStaged(deps: AppDeps, jobId: string): Promise<PublishOutcome> {
   if (publishing.has(jobId) || !awaitsBuild(deps, jobId) || !existsSync(stagedDir(deps, jobId))) return null;
+  let release: ReturnType<typeof releaseRuntimeFor>;
+  let design: ReturnType<typeof getDesignRuntime>;
+  try {
+    release = releaseRuntimeFor(deps);
+    design = getDesignRuntime(deps);
+  } catch {
+    return null; // Routes are still being set up at startup; the sweep retries.
+  }
   publishing.add(jobId);
   const job = jobRow(deps, jobId)!;
-  const release = releaseRuntimeFor(deps);
   let buildId: string | undefined;
   let target: string | undefined;
+  let switched = false;
   try {
     const staged = stagedDir(deps, jobId);
     const files = join(staged, 'build');
@@ -101,22 +112,27 @@ export async function publishStaged(deps: AppDeps, jobId: string): Promise<Publi
     await mkdir(join(deps.config.gamesRoot, job.gameId), { recursive: true });
     await rename(files, target);
     await markComplete(target);
-    await updateBuild(deps, release, build.id, 'tested');
-    const design = getDesignRuntime(deps);
-    const switched = await switchBranchBuild(deps.sqlite, design.source, branch, build.id, {
+    const switchTx = await switchBranchBuild(deps.sqlite, design.source, branch, build.id, {
       actor: SYSTEM_ACTOR,
       token: 0,
     });
-    design.stream.publish(branch.id, switched.transaction);
+    switched = true;
+    design.stream.publish(branch.id, switchTx.transaction);
+    await updateBuild(deps, release, build.id, 'tested');
 
-    markTerminal(lifecycle(deps), jobId, 'done', { deferRelease: true });
+    settle(deps, jobId, 'done');
     deps.log({ event: 'build_published', jobId, gameId: job.gameId, buildId: build.id });
     return { state: 'done', buildId: build.id };
   } catch (error) {
     const reason = error instanceof PublishFailure ? error.message : errorName(error);
+    if (switched && buildId) {
+      settle(deps, jobId, 'done');
+      deps.log({ event: 'build_publish_incomplete', jobId, gameId: job.gameId, buildId, reason });
+      return { state: 'done', buildId };
+    }
     if (target) await rm(target, { recursive: true, force: true }).catch(() => undefined);
     if (buildId) await updateBuild(deps, release, buildId, 'failed').catch(() => undefined);
-    markTerminal(lifecycle(deps), jobId, 'failed', { deferRelease: true });
+    settle(deps, jobId, 'failed');
     deps.log({ event: 'build_publish_failed', jobId, gameId: job.gameId, reason });
     return { state: 'failed', reason };
   } finally {
@@ -128,39 +144,54 @@ export async function publishStaged(deps: AppDeps, jobId: string): Promise<Publi
 // The Aiur feed's terminal verdict for a run. A build job is done only once its merged build is playable, so a
 // completed run hands it to the publisher (or leaves it for the upload or the sweep) instead of finishing it.
 export function finishRun(deps: AppDeps, jobId: string, state: 'done' | 'failed' | 'cancelled'): void {
-  if (state === 'done' && awaitsBuild(deps, jobId)) void publishStaged(deps, jobId);
-  else markTerminal(lifecycle(deps), jobId, state, { deferRelease: true });
+  if (state === 'done' && awaitsBuild(deps, jobId)) {
+    publishStaged(deps, jobId).catch((error: unknown) =>
+      deps.log({ event: 'build_publish_failed', jobId, reason: errorName(error) }),
+    );
+  } else markTerminal(lifecycle(deps), jobId, state, { deferRelease: true });
 }
 
-// Fails build jobs whose run completed `graceMs` ago without a build arriving, and drops staged builds of jobs that
-// ended some other way.
+// Fails build jobs whose run completed `graceMs` ago without a build arriving, and drops staging left by jobs that
+// ended some other way. The grace starts when the sweep first sees the completed run (a marker file), because the
+// projection row's `updated_at` keeps moving with every poll.
 export async function sweepBuilds(deps: AppDeps, graceMs: number, now = new Date()): Promise<void> {
-  const cutoff = new Date(now.getTime() - graceMs).toISOString();
-  const overdue = deps.db
+  const completed = deps.db
     .select({ jobId: schema.jobs.id, gameId: schema.jobs.gameId, state: schema.jobs.state })
     .from(schema.jobs)
     .innerJoin(schema.jobProjections, eq(schema.jobProjections.jobId, schema.jobs.id))
-    .where(
-      and(
-        inArray(schema.jobs.kind, [...BUILD_KINDS]),
-        eq(schema.jobProjections.lifecycle, 'completed'),
-        lt(schema.jobProjections.updatedAt, cutoff),
-      ),
-    )
+    .where(and(inArray(schema.jobs.kind, [...BUILD_KINDS]), eq(schema.jobProjections.lifecycle, 'completed')))
     .all();
-  for (const job of overdue) {
-    if (isTerminal(job.state)) continue;
-    if (existsSync(stagedDir(deps, job.jobId))) {
-      await publishStaged(deps, job.jobId);
-      continue;
+  await mkdir(completedRoot(deps), { recursive: true });
+  for (const job of completed) {
+    if (isTerminal(job.state) || publishing.has(job.jobId)) continue;
+    try {
+      if (existsSync(stagedDir(deps, job.jobId))) {
+        await publishStaged(deps, job.jobId);
+        continue;
+      }
+      const marker = join(completedRoot(deps), job.jobId);
+      const seenAt = await readFile(marker, 'utf8').catch(() => null);
+      if (seenAt === null) {
+        await writeFile(marker, now.toISOString());
+        continue;
+      }
+      if (now.getTime() - Date.parse(seenAt) < graceMs) continue;
+      markTerminal(lifecycle(deps), job.jobId, 'failed', { deferRelease: true });
+      deps.log({ event: 'build_publish_failed', jobId: job.jobId, gameId: job.gameId, reason: 'build_not_received' });
+    } catch (error) {
+      deps.log({ event: 'build_sweep_failed', jobId: job.jobId, reason: errorName(error) });
     }
-    markTerminal(lifecycle(deps), job.jobId, 'failed', { deferRelease: true });
-    deps.log({ event: 'build_publish_failed', jobId: job.jobId, gameId: job.gameId, reason: 'build_not_received' });
   }
-  for (const entry of await readdir(stagingRoot(deps)).catch(() => [])) {
-    if (!entry.startsWith('.') && !awaitsBuild(deps, entry) && !publishing.has(entry)) {
-      await rm(stagedDir(deps, entry), { recursive: true, force: true });
-    }
+  for (const [root, entry] of [
+    ...(await readdir(stagingRoot(deps)).catch(() => [])).map((entry) => [stagingRoot(deps), entry] as const),
+    ...(await readdir(completedRoot(deps)).catch(() => [])).map((entry) => [completedRoot(deps), entry] as const),
+  ]) {
+    // `.<jobId>.<uuid>` is an upload being unpacked; one older than the grace was cut off by a crash.
+    const jobId = entry.startsWith('.') ? entry.slice(1).split('.')[0]! : entry;
+    const abandoned = entry.startsWith('.')
+      ? now.getTime() - (await stat(join(root, entry)).catch(() => ({ mtimeMs: now.getTime() }))).mtimeMs > graceMs
+      : !awaitsBuild(deps, jobId) && !publishing.has(jobId);
+    if (abandoned) await rm(join(root, entry), { recursive: true, force: true });
   }
 }
 
@@ -172,6 +203,15 @@ export function startBuildSweep(deps: AppDeps, options: { graceMs: number; inter
   }, options.intervalMs);
   timer.unref();
   return () => clearInterval(timer);
+}
+
+// A job cancelled while its build was publishing has already ended; its terminal state stands.
+function settle(deps: AppDeps, jobId: string, state: 'done' | 'failed'): void {
+  try {
+    markTerminal(lifecycle(deps), jobId, state, { deferRelease: true });
+  } catch (error) {
+    deps.log({ event: 'build_job_not_settled', jobId, state, reason: errorName(error) });
+  }
 }
 
 class PublishFailure extends Error {}

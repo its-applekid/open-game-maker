@@ -115,8 +115,8 @@ describe('games-host server', () => {
   });
 
   it.each([
-    '/g/Demo/b1/',
-    '/g/demo/Demo/',
+    '/g/de.mo/b1/',
+    '/g/demo/.staging/',
     `/g/${'a'.repeat(65)}/b1/`,
     '/g/demo/b1/%2e%2e/index.html',
     '/g/demo/b1/assets/%2e%2e/%2e%2e/index.html',

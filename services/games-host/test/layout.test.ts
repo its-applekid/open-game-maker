@@ -23,8 +23,11 @@ describe('games-host layout', () => {
 
   it('builds paths only from valid ids', () => {
     expect(buildDir(root, 'demo', 'b1')).toBe(join(root, 'demo', 'b1'));
+    expect(buildDir(root, 'demo', 'build_01ARZ3NDEKTSV4RRFFQ69G5FAV')).toBe(
+      join(root, 'demo', 'build_01ARZ3NDEKTSV4RRFFQ69G5FAV'),
+    );
 
-    for (const id of ['Demo', '..', `a${'b'.repeat(64)}`]) {
+    for (const id of ['.staging', '..', 'a.b', `a${'b'.repeat(64)}`]) {
       expect(() => buildDir(root, id, 'b1')).toThrow(BadId);
       expect(() => buildDir(root, 'demo', id)).toThrow(BadId);
     }

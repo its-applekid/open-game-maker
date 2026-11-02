@@ -41,7 +41,7 @@ function workspace() {
   return { dir, sha: git('rev-parse', 'HEAD') };
 }
 
-async function runHook(cwd: string, api: string) {
+async function runHook(cwd: string, api: string, extra: Record<string, string> = {}) {
   const secretFile = join(mkdtempSync(join(tmpdir(), 'ogm-hook-secret-')), 'hook-secret');
   writeFileSync(secretFile, SECRET);
   const child = spawn('bash', ['-c', beforeRemove()], {
@@ -52,6 +52,7 @@ async function runHook(cwd: string, api: string) {
       AIUR_HOOK_TICKET_IDENTIFIER: TICKET,
       OGM_HOOK_SECRET_FILE: secretFile,
       OGM_INTERNAL_URL: api,
+      ...extra,
     },
   });
   let stderr = '';
@@ -113,6 +114,37 @@ describe('before_remove hook to a playable build', () => {
     execFileSync('ln', ['-s', outside, join(dir, 'dist')]);
     try {
       expect((await runHook(dir, api.base)).status).toBe(0);
+      completeRun(deps);
+      expect(await publishStaged(deps, ids.job)).toBeNull();
+      expect(jobState(deps)).toBe('running');
+    } finally {
+      await api.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('leaves out a manifest that links outside the workspace, so the build fails instead of leaking the file', async () => {
+    const { deps, app } = world();
+    const api = await serveApi(app);
+    const { dir } = workspace();
+    rmSync(join(dir, 'manifest.json'));
+    execFileSync('ln', ['-s', join(builtFiles(), 'manifest.json'), join(dir, 'manifest.json')]);
+    try {
+      expect((await runHook(dir, api.base)).status).toBe(0);
+      completeRun(deps);
+      expect(await publishStaged(deps, ids.job)).toEqual({ state: 'failed', reason: 'manifest_invalid' });
+    } finally {
+      await api.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('sends nothing without the daemon hook secret', async () => {
+    const { deps, app } = world();
+    const api = await serveApi(app);
+    const { dir } = workspace();
+    try {
+      expect((await runHook(dir, api.base, { OGM_HOOK_SECRET_FILE: join(dir, 'missing') })).status).toBe(0);
       completeRun(deps);
       expect(await publishStaged(deps, ids.job)).toBeNull();
       expect(jobState(deps)).toBe('running');

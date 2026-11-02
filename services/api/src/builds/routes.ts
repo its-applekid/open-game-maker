@@ -1,6 +1,7 @@
 import { homedir } from 'node:os';
 
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 
 import type { ApiBindings } from '../app/types.js';
 import { hookSecretFiles, type HookDaemonResolver } from '../internal/bundle.js';
@@ -13,7 +14,12 @@ export const prefix = '/internal';
 const SHA = /^[0-9a-f]{40}$/u;
 
 export function buildRoutes(opts: { daemonForSecret: HookDaemonResolver }) {
-  return new Hono<ApiBindings>().post('/jobs/by-ticket/:identifier/build', async (c) => {
+  // Caps the body even when a chunked upload carries no Content-Length.
+  const limit = bodyLimit({
+    maxSize: ARCHIVE_LIMITS.compressedBytes,
+    onError: (c) => c.json({ error: { code: 'archive_too_large' } }, 413),
+  });
+  return new Hono<ApiBindings>().post('/jobs/by-ticket/:identifier/build', limit, async (c) => {
     const deps = c.get('deps');
     const bearer = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '');
     const repo = bearer ? await opts.daemonForSecret(bearer[1]!, deps) : null;
@@ -25,9 +31,6 @@ export function buildRoutes(opts: { daemonForSecret: HookDaemonResolver }) {
 
     const gitSha = c.req.header('x-gm-sha') ?? '';
     if (!SHA.test(gitSha)) return c.json({ error: { code: 'invalid_sha' } }, 400);
-    if (Number(c.req.header('content-length') ?? 0) > ARCHIVE_LIMITS.compressedBytes) {
-      return c.json({ error: { code: 'archive_too_large' } }, 413);
-    }
     try {
       await stageArtifact(deps, job.jobId, gitSha, Buffer.from(await c.req.arrayBuffer()));
     } catch (error) {

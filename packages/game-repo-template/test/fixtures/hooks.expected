@@ -37,9 +37,10 @@ before_remove: |
       fi
     done
     if tar --format=ustar -czf "$stage.tgz" -C "$stage" .; then
-      curl -sS --max-time 120 -o /dev/null -X POST -H "Authorization: Bearer ${secret}" \
-        -H "x-gm-sha: $(git rev-parse HEAD)" -H "content-type: application/gzip" --data-binary @"$stage.tgz" \
-        "${OGM_INTERNAL_URL:-http://127.0.0.1:0}/internal/jobs/by-ticket/${ticket}/build" || true
+      status="$(curl -sS --max-time 120 --retry 3 --retry-connrefused -o /dev/null -w '%{http_code}' -X POST \
+        -H "Authorization: Bearer ${secret}" -H "x-gm-sha: $(git rev-parse HEAD)" -H "content-type: application/gzip" \
+        --data-binary @"$stage.tgz" "${OGM_INTERNAL_URL:-http://127.0.0.1:0}/internal/jobs/by-ticket/${ticket}/build")"
+      echo "build upload: HTTP ${status:-000}" >&2
     fi
     rm -rf "$stage" "$stage.tgz"
   fi
