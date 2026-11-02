@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { c07Stills, SAFE_INSETS } from '../../src/checks/c07-stills.js';
+import { c07Stills, locatePlayers, SAFE_INSETS } from '../../src/checks/c07-stills.js';
 import { fakeContext } from '../fake-session.js';
 
 describe('C7 stills-safe-area', () => {
@@ -19,6 +19,12 @@ describe('C7 stills-safe-area', () => {
   it('fails a player under the top inset', async () => {
     const result = await c07Stills.run(fakeContext({ player: { nx: 0.99, ny: 0.02 } }));
     expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('player p1') });
+  });
+
+  it('fails a player whose centre is safe but whose top cell is under the inset', () => {
+    const hits = [0.02, 0.5, 0.6].map((ny) => ({ id: 'p1', nx: 0.5, ny }));
+    const [player] = locatePlayers(hits, ['p1'], { width: 1280, height: 720 }, SAFE_INSETS);
+    expect(player).toMatchObject({ id: 'p1', inside: false });
   });
 
   it('rescans finer, then fails a player that is not on screen', async () => {

@@ -16,6 +16,16 @@ describe('C4 previous-save-migrates', () => {
     expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('save_unsupported') });
   });
 
+  it('fails when the migrated save disagrees with the restored game', async () => {
+    const result = await c04Migrate.run(fakeContext({ migrationDiverges: true }, { saveFixture: older }));
+    expect(result).toMatchObject({ status: 'fail', detail: 'save v0 migrated to v1 but /score differs from the game' });
+  });
+
+  it('does not take a save written at boot for a migration', async () => {
+    const result = await c04Migrate.run(fakeContext({ bootSave: true, migrateIgnored: true }, { saveFixture: older }));
+    expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('previous save v0 restored with') });
+  });
+
   it('is unchecked without a previous save', async () => {
     expect((await c04Migrate.run(fakeContext())).status).toBe('unchecked');
   });

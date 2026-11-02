@@ -40,8 +40,6 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
   const gameDir = resolve(options.gameDir);
   const outDir = resolve(options.outDir ?? (await mkdtemp(join(tmpdir(), 'gm-sdk-'))));
   await mkdir(join(outDir, '.host'), { recursive: true });
-  /* C3 rewrites it; a stale one from an earlier run in the same --out must not become a later --previous. */
-  await rm(join(outDir, 'save.json'), { force: true });
   const closers: Closer[] = [];
   const slot = await acquireSlot({ runtimeDir: options.runtimeDir });
   closers.push(async () => slot.release());
@@ -49,10 +47,13 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
   let manifestId = 'unknown';
   let checks: CheckResult[];
   try {
+    /* Read before this run rewrites `<out>`: `--previous` may be the same directory as `--out`. */
+    const previous = options.previousDir ? await loadPrevious(resolve(options.previousDir)) : undefined;
+    /* C3 rewrites it; a stale one from an earlier run in the same --out must not become a later --previous. */
+    await rm(join(outDir, 'save.json'), { force: true });
     const game = await loadGame(gameDir, join(outDir, '.host'));
     manifestId = game.manifest.id;
     await writeRunRecord(outDir, game);
-    const previous = options.previousDir ? await loadPrevious(resolve(options.previousDir)) : undefined;
     const saveFixture = await readJsonIfPresent<SaveData<unknown>>(join(gameDir, 'tests/fixtures/save.previous.json'));
 
     const browser: Browser =

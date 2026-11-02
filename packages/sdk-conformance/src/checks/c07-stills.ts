@@ -29,7 +29,7 @@ export function playerIds(text: GameText): string[] {
   return [...ids];
 }
 
-/** The centre of each player's picked cells, and whether it sits inside the safe rect. */
+/** The centre of each player's picked cells, and whether every picked cell sits inside the safe rect. */
 export function locatePlayers(
   hits: TargetHit[],
   players: string[],
@@ -42,11 +42,13 @@ export function locatePlayers(
     if (mine.length === 0) continue;
     const nx = mine.reduce((sum, hit) => sum + hit.nx, 0) / mine.length;
     const ny = mine.reduce((sum, hit) => sum + hit.ny, 0) / mine.length;
-    const inside =
-      nx >= safe.left / size.width &&
-      nx <= 1 - safe.right / size.width &&
-      ny >= safe.top / size.height &&
-      ny <= 1 - safe.bottom / size.height;
+    const inside = mine.every(
+      (hit) =>
+        hit.nx >= safe.left / size.width &&
+        hit.nx <= 1 - safe.right / size.width &&
+        hit.ny >= safe.top / size.height &&
+        hit.ny <= 1 - safe.bottom / size.height,
+    );
     located.push({ id, nx, ny, inside });
   }
   return located;

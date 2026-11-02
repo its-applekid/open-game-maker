@@ -20,6 +20,12 @@ export type FakeScript = {
   restoreDropsScore?: boolean;
   /** C4: an older save fails to migrate. */
   migrateThrows?: boolean;
+  /** C4: the migrated save the game writes disagrees with the state it restored. */
+  migrationDiverges?: boolean;
+  /** C4: an older save is accepted but nothing is migrated or written. */
+  migrateIgnored?: boolean;
+  /** C4: the game writes a current-version save at boot. */
+  bootSave?: boolean;
   /** C5: boot needs this capability. */
   requires?: string;
   /** C6: steps run while paused. */
@@ -97,6 +103,7 @@ export class FakeSession implements Session {
     if (script.requires && !options.capabilities.includes(script.requires)) {
       throw new Error(`boot failed: ${script.requires} is missing`);
     }
+    if (script.bootSave) this.written.push({ saveSchemaVersion: 1, data: structuredClone(this.state) });
   }
 
   async advanceTime(ms: number): Promise<void> {
@@ -128,8 +135,11 @@ export class FakeSession implements Session {
   async restore(save: SaveData<unknown>): Promise<void> {
     if (save.saveSchemaVersion === 0) {
       if (this.script.migrateThrows) throw new Error('save_unsupported');
+      if (this.script.migrateIgnored) return;
       this.state = { x: 0, score: 0, entities: [] };
-      this.written.push({ saveSchemaVersion: 1, data: structuredClone(this.state) });
+      const written = structuredClone(this.state);
+      if (this.script.migrationDiverges) written.score += 1;
+      this.written.push({ saveSchemaVersion: 1, data: written });
       return;
     }
     const data = structuredClone(save.data) as State;

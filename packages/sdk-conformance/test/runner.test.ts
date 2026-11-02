@@ -31,6 +31,13 @@ describe('runChecks', () => {
     ]);
   });
 
+  it('fails a check that never settles instead of holding the run', async () => {
+    const hang: Check = { id: 'C6', name: 'hang', run: () => new Promise(() => undefined) };
+    expect(await runChecks(fakeContext(), [hang], 20)).toEqual([
+      { id: 'C6', name: 'hang', status: 'fail', detail: 'check crashed: timed out after 20 ms' },
+    ]);
+  });
+
   it('reports a boot failure as C0 with every check unchecked', () => {
     const results = bootFailedResults('no ready within 60 s');
     expect(results[0]).toMatchObject({ id: 'C0', status: 'fail', detail: 'no ready within 60 s' });
