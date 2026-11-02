@@ -71,3 +71,13 @@ Filed by the aiur agent (2026-11-01, third batch): slow envelope resume after a 
 - aiur #7433 (aiur-build skill): GitHub publication must create plain titles (plan id only in the body/receipt) and register the feature collection and per-lane epics (`aiur feature create` / `feature add … --epic`), idempotently. Found 2026-11-01 when Kevin saw the whole build as one flat series with "OGM-NNN — " titles; Executor backfilled by hand.
 
 - **D-PROTOTYPE-DESIGN** (Kevin, 2026-11-01): the build keeps the design landed in the prototype — title screen, games selection, creation UI and editor UI are implemented as the studio-v0 / title-town prototype shows them; tickets add logic and wiring, never a redesign. Posted on every open web-lane ticket and in `.aiur/prompt.md`.
+
+## D-ASSETS-REFERENCE — game repos reference assets, never carry them (Kevin, 2026-11-02 08:05)
+
+**Decision.** A game repo holds code, design, `assets.lock.json` and `CREDITS.md`; it never holds asset bytes. `gm assets use` writes lock entries only (id + sha256 + rights), `gm build assets` resolves tier 1/2 entries from the instance's asset library (`OGM_ASSETS_ROOT`) and tier 3 (agent-made or edited) entries from the instance's content-addressed blob store (R56) into the build directory, which is never committed. The commit boundary refuses asset binaries by default. Kevin: "It's fine that the repo is not self-contained."
+
+**Export.** One command zips the assets a clone needs: `gm assets export --used` (every lock entry of the games in scope: one repo, or all games of the instance) and `gm assets export --all` (every asset the instance has access to). The zip carries `CREDITS.md`, the lock(s) and a rights report; entries whose rights forbid redistribution are listed and left out unless `--include-restricted` is given (Kevin's own call when he hands a copy to someone). A clone imports it with `gm assets import <zip>` into its own library and blob store.
+
+**Why.** Keeps gigabytes and mixed licences out of git so any game repo can be open-sourced at any moment by construction; the lock's sha pins keep builds reproducible; the export covers the "give someone a clone" case without re-adding bytes to the repo.
+
+**Supersedes.** OGM-062's "copies the files" step and OGM-063's "the repo copies" source; `gm assets vendor` (explicit, redistributable-only) remains for a self-contained snapshot. Tickets: see the four `feature:asset-pipeline` / `feature:commit-safety` tickets filed 2026-11-02 (reference-only use/build, tier-3 blob store, boundary rule + vendor, export/import).
