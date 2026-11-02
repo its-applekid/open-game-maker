@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
 import { schema } from '@ogm/db';
+import { BriefingPush } from '@ogm/contracts';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -58,6 +59,7 @@ describe('buildBriefing', () => {
   it('puts the worked budget in the friendly unit, without dollars', async () => {
     const deps = worked();
     const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
+    expect(BriefingPush.safeParse(briefing).success).toBe(true);
     const text = briefing.extra[0].text;
     expect(briefing.target_key).toBe('scope:s_1');
     expect(briefing.extra[0].title).toBe('Budget');
@@ -164,17 +166,7 @@ describe('pushBriefing', () => {
     expect(host.received).toHaveLength(1);
     expect(host.received[0].auth).toBe(`Bearer ${SECRET}`);
     expect(Object.keys(host.received[0].body).sort()).toEqual(
-      [
-        'current_task',
-        'extra',
-        'next_steps',
-        'observed_at',
-        'questions',
-        'sections',
-        'summary',
-        'target_key',
-        'waiting_on',
-      ].sort(),
+      ['current_task', 'extra', 'next_steps', 'observed_at', 'questions', 'sections', 'summary', 'target_key'].sort(),
     );
   });
 
@@ -282,6 +274,13 @@ describe('voice host env', () => {
     OGM_BLOB_SIGNING_KEY: 'blob-signing-key-for-tests-with-32-bytes',
     OGM_PUBLIC_ORIGIN: 'https://api.example.test',
     OGM_APP_ORIGIN: 'https://app.example.test',
+    OGM_BUILDER_BOT_TOKEN: 'builder-bot-token-for-tests-0123456789',
+    OGM_BUILDER_BOT_LOGIN: 'ogm-builder-bot',
+    OGM_INTAKE_GITHUB_TOKEN: 'intake-github-token-for-tests-0123456789',
+    OGM_INTAKE_BOT_LOGIN: 'ogm-intake-bot',
+    OGM_ROOMS_INTERNAL_URL: 'http://127.0.0.1:4302',
+    OGM_ROOMS_INTERNAL_SECRET: 'rooms-internal-secret-for-tests',
+    OGM_WS_TOKEN_SECRET: 'room-grant-secret-for-tests-with-32-bytes',
     OGM_COMMIT_INTERNAL_URL: 'http://127.0.0.1:4301',
     OGM_COMMIT_SERVICE_TOKEN: 'commit-service-token-for-tests',
     OGM_VAPID_SUBJECT: 'operator@example.test',

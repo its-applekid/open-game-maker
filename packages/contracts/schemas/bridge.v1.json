@@ -1876,6 +1876,12 @@
                           "items": {
                             "type": "string"
                           }
+                        },
+                        "migrate": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
                         }
                       },
                       "required": [

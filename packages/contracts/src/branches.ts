@@ -11,7 +11,10 @@ export const BranchSchema = z.looseObject({
     .looseObject({
       parentBranchId: StableIdSchema,
       parentRev: RevisionSchema,
-      gitSha: z.string().regex(/^[0-9a-f]{40}$/),
+      gitSha: z
+        .string()
+        .regex(/^[0-9a-f]{40}$/)
+        .nullable(),
     })
     .nullable(),
   headRev: RevisionSchema,

@@ -15,17 +15,26 @@
   },
   "scripts": {
     "build": "tsc -b",
-    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/blob-store --filter @ogm/gm-verify build",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/blob-store --filter @ogm/gm-verify build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/blob-store --filter @ogm/gm-verify build",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/asset-cards --filter @ogm/asset-measure --filter @ogm/blob-store --filter @ogm/gm-verify build",
     "test": "vitest run",
     "lint": "eslint src"
   },
   "dependencies": {
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
     "@ogm/asset-cards": "workspace:*",
+    "@ogm/asset-measure": "workspace:*",
     "@ogm/blob-store": "workspace:*",
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
-    "@ogm/gm-verify": "workspace:*"
+    "@ogm/gm-verify": "workspace:*",
+    "adm-zip": "0.6.1",
+    "meshoptimizer": "1.3.0",
+    "sharp": "0.35.5",
+    "tar": "7.5.22",
+    "ulid": "3.0.2"
   }
 }

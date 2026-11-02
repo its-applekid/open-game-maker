@@ -20,6 +20,7 @@ export const JobPlan = z.object({
   title: z.string().min(1).max(120),
   summary: z.string().max(4000),
   scope: z.object({ included: z.array(z.string()), excluded: z.array(z.string()) }),
+  targetControls: z.array(z.string().min(1)).optional(),
   tickets: z
     .array(
       z.object({

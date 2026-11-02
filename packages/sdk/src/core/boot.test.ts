@@ -131,6 +131,9 @@ describe('boot', () => {
     bridge.onMessage!(message('save.restore', { saveSchemaVersion: 0, data: { counter: 4 } }));
     await vi.waitFor(() => expect(migrated.metrics.restoreCalls).toHaveLength(1));
     expect(migrated.metrics.restoreCalls[0]?.saveSchemaVersion).toBe(1);
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'save.write', payload: expect.objectContaining({ reason: 'migration' }) }),
+    );
 
     bridge.send.mockClear();
     const unsupported = await start({ migrate: false });
@@ -141,6 +144,21 @@ describe('boot', () => {
       ),
     );
     expect(unsupported.metrics.restoreCalls).toHaveLength(0);
+  });
+
+  it('does not call migrate for a save two schemas behind', async () => {
+    const { metrics, runtime } = await start();
+    runtime.instance.serialize = () => ({ saveSchemaVersion: 2, data: { counter: 0, entities: {}, players: [] } });
+    runtime.instance.migrate = vi.fn(runtime.instance.migrate);
+    bridge.onMessage!(message('save.restore', { saveSchemaVersion: 0, data: { counter: 4 } }));
+
+    await vi.waitFor(() =>
+      expect(bridge.send).toHaveBeenCalledWith(
+        expect.objectContaining({ t: 'error', payload: expect.objectContaining({ code: 'save_unsupported' }) }),
+      ),
+    );
+    expect(runtime.instance.migrate).not.toHaveBeenCalled();
+    expect(metrics.restoreCalls).toHaveLength(0);
   });
 
   it('fans input, viewport, settings, lifecycle, and checkpoint saves through the runtime', async () => {

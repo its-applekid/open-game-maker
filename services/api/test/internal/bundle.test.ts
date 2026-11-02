@@ -115,6 +115,75 @@ describe('GET /internal/jobs/by-ticket/:identifier/bundle', () => {
     expect((await (await get('/internal/jobs/by-ticket/12/bundle', SECRET_A)).json()).diagnostics).toEqual(diagnostics);
   });
 
+  it('passes the scope session id through for a scope ticket', async () => {
+    const scopeSessionId = 's_88000000-0000-4000-8000-000000000001';
+    const jobId = 'j_88000000-0000-4000-8000-000000000001';
+    const gameId = 'g_88000000-0000-4000-8000-000000000001';
+    const familyId = 'f_88000000-0000-4000-8000-000000000001';
+    const creatorId = 'u_88000000-0000-4000-8000-000000000001';
+    const { deps, get } = await setup([job({ jobId, gameId, kind: 'scope' })]);
+    deps.db
+      .insert(schema.families)
+      .values({ id: familyId, name: 'Family', ownerUserId: creatorId, createdAt: '2026-11-01T00:00:00.000Z' })
+      .run();
+    deps.db
+      .insert(schema.games)
+      .values({
+        id: gameId,
+        familyId,
+        ownerId: creatorId,
+        title: 'Game',
+        visibility: 'private',
+        repoVisibility: 'private',
+        createdAt: '2026-11-01T00:00:00.000Z',
+      })
+      .run();
+    deps.db
+      .insert(schema.jobs)
+      .values({
+        id: jobId,
+        gameId,
+        branchId: 'main',
+        familyId,
+        creatorId,
+        kind: 'scope',
+        complexity: 1,
+        state: 'filed',
+        start: 'now',
+        slot: 'edit',
+        plan: '{}',
+        reservation: '{}',
+        hardCapMicroUsd: 1,
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+      })
+      .run();
+    deps.db
+      .insert(schema.scopeSessions)
+      .values({
+        id: scopeSessionId,
+        gameId,
+        creatorId,
+        jobId,
+        status: 'open',
+        choices: JSON.stringify({
+          genre: 'platformer',
+          vibe: 'cozy',
+          family: 'chunky-low-poly',
+          world: 'island',
+          players: 'single',
+          pov: 'isometric',
+        }),
+        createdAt: '2026-11-01T00:00:00.000Z',
+        updatedAt: '2026-11-01T00:00:00.000Z',
+      })
+      .run();
+
+    expect((await (await get('/internal/jobs/by-ticket/12/bundle', SECRET_A)).json()).scope_session_id).toBe(
+      scopeSessionId,
+    );
+  });
+
   it('answers 500 rather than serve a token- or email-shaped value', async () => {
     for (const title of ['ghp_abcdefghijkl', 'kevin@example.com']) {
       const { deps, get } = await setup([job({ game: { ...job().game, title } })]);

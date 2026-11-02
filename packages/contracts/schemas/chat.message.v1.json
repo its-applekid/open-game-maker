@@ -112,6 +112,9 @@
         "recommend": {
           "type": "string"
         },
+        "blocking": {
+          "type": "boolean"
+        },
         "status": {
           "type": "string",
           "enum": [
@@ -119,6 +122,9 @@
             "answered",
             "moot"
           ]
+        },
+        "option_id": {
+          "type": "string"
         }
       },
       "required": [

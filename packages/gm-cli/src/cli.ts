@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { loadEnv } from '@ogm/config';
 
-import { EXIT, UsageError, type GmContext } from './command.js';
+import { CommandError, EXIT, UsageError, type GmContext } from './command.js';
 import { findAssetsRoot } from './context.js';
 import { makeEmitter } from './events.js';
 import { parseFlags } from './flags.js';
@@ -12,6 +12,7 @@ import { loadCommands, match } from './registry.js';
 
 export type { FlagSpec, GmCommand, GmContext } from './command.js';
 export { EXIT, UsageError } from './command.js';
+export { postChat, type PostChatOptions } from './commands/chat/post.js';
 export { printJson, requireAssetsRoot } from './context.js';
 export { loadCommands } from './registry.js';
 
@@ -32,6 +33,7 @@ const ENV = {
   GM_JOB: { kind: 'string', required: false },
   AIUR_HOOK_TICKET_IDENTIFIER: { kind: 'int', required: false },
   AIUR_TICKET_BRANCH: { kind: 'string', required: false },
+  OGM_SANDBOX: { kind: 'bool', required: false },
   GM_VERIFY_SOFTWARE_GL: { kind: 'bool', required: false },
   GM_VERIFY_QUEUE: { kind: 'bool', required: false },
   PLAYWRIGHT_BROWSERS_PATH: { kind: 'path', required: false },
@@ -79,6 +81,7 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
         jobId: env.GM_JOB,
         aiurIssue: env.AIUR_HOOK_TICKET_IDENTIFIER,
         aiurRunId: env.AIUR_TICKET_BRANCH,
+        sandbox: env.OGM_SANDBOX === true,
         verifySoftwareGl: env.GM_VERIFY_SOFTWARE_GL === true,
         verifyQueue: env.GM_VERIFY_QUEUE === true,
         runtimeDir: env.XDG_RUNTIME_DIR,
@@ -103,6 +106,10 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
     if (error instanceof UsageError) {
       err(error.message);
       return EXIT.usage;
+    }
+    if (error instanceof CommandError) {
+      err(error.message);
+      return EXIT.failed;
     }
     throw error;
   }

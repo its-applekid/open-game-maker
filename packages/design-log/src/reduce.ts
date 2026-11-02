@@ -13,6 +13,7 @@ export type ReduceInput = {
   branchId: string;
   buildId: string;
   baseDoc: DesignDoc;
+  baseDocs?: Readonly<Record<string, DesignDoc>>;
   txs: readonly Transaction[];
 };
 
@@ -69,6 +70,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+function clearRecord(record: Record<string, unknown>): void {
+  for (const key of Object.keys(record)) delete record[key];
+}
+
 function recordEntityOverride(
   entityOps: Record<string, EntityOverride>,
   tx: Transaction,
@@ -117,9 +122,18 @@ export function reduce(input: ReduceInput): WorkingSet {
     }
     if (tx.rev === previousRevision) throw new InvalidLogError(`duplicate revision ${tx.rev}`);
     previousRevision = tx.rev;
+    const transactionBase = input.baseDocs?.[tx.baseBuildId] ?? input.baseDoc;
     for (const command of tx.commands) {
-      if (command.op === 'invoke') recordEntityOverride(entityOps, tx, command);
-      else recordOverride(entries, input.baseDoc, tx, command);
+      if (command.op === 'invoke') {
+        if (command.command === 'build.switch') {
+          clearRecord(entries);
+          clearRecord(entityOps);
+        } else {
+          recordEntityOverride(entityOps, tx, command);
+        }
+      } else {
+        recordOverride(entries, transactionBase, tx, command);
+      }
     }
   }
 

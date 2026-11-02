@@ -46,6 +46,7 @@ export function chatJob(overrides: Partial<ChatJob> = {}): ChatJob {
     gameId: 'g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e01',
     familyId: FAMILY,
     ownerId: users.owner.userId,
+    kind: 'feature',
     state: 'running',
     aiur: { daemonSlug: 'game-1', ticket: '142' },
     ...overrides,
@@ -64,7 +65,7 @@ export function jobTable(...jobs: ChatJob[]) {
   };
 }
 
-export type FakeAiur = Pick<AiurClient, 'message' | 'progress'>;
+export type FakeAiur = Pick<AiurClient, 'message' | 'progress' | 'decisions' | 'decision' | 'decide'>;
 
 export function makeChatDeps(jobs = jobTable(chatJob()), client?: FakeAiur) {
   const deps = makeDeps();
