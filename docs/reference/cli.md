@@ -90,3 +90,12 @@ Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild 
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
 reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.
+
+## Search the asset library
+
+```text
+gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>] [--pov <id>] [--use <use>]
+```
+
+`--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
+the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.

@@ -12,10 +12,14 @@ from datetime import datetime
 from pathlib import Path, PurePosixPath
 
 NUMBER = re.compile(r"(\d+)")
-MAX_UNITY_MEMBERS = 100_000
+MAX_UNITY_MEMBERS = 250_000
 MAX_UNITY_BYTES = 4 * 1024**3
 MAX_PATHNAME_BYTES = 4096
 MAX_META_BYTES = 4 * 1024**2
+MODERN_PART_ORDER = [
+    "Shadow", "NakedBody", "Legs", "Shoes", "Chest", "Head", "Bag", "Mount",
+    "Shield", "Melee", "Pistol", "Shotgun", "Sniper", "MachineGun", "Special", "GunFire",
+]
 
 
 def safe_member(name: str) -> PurePosixPath:
@@ -94,6 +98,8 @@ def extract_unitypackage(package: Path, destination: Path, world: str = "fantasy
                             "order_source": item["order_source"], "guid": item["guid"]} for index, item in enumerate(ordered)]
         manifest = {"schema": "ogm.smallscaleint-layers/1", "source": package.name, "world": world,
                     "layers": manifest_layers}
+        if world == "modern-zombie":
+            manifest["part_order"] = MODERN_PART_ORDER
         extracted = stage / "1.0" / "extracted"
         for item in ordered:
             target = extracted.joinpath(*PurePosixPath(item["path"]).parts)
