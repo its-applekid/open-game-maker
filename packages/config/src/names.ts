@@ -56,6 +56,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'largest bug-report diagnostic bundle in bytes (default 2097152)',
   },
   {
+    name: 'OGM_BLOB_PUT_MAX_BYTES',
+    unit: 'api',
+    kind: 'int',
+    doc: 'largest blob a game daemon may put in bytes (default 67108864)',
+  },
+  {
     name: 'OGM_NARRATION_CONCURRENCY',
     unit: 'api',
     kind: 'int',
@@ -163,6 +169,8 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_EVAL_CORPUS', unit: 'gm', kind: 'path', doc: 'optional local reference-game corpus for skill evals' },
   { name: 'AIUR_HOOK_TICKET_IDENTIFIER', unit: 'gm', kind: 'int', doc: 'Aiur issue number stamped on gm activity' },
   { name: 'AIUR_TICKET_BRANCH', unit: 'gm', kind: 'string', doc: 'Aiur run branch stamped on gm activity' },
+  { name: 'OGM_INTERNAL_URL', unit: 'gm', kind: 'url', doc: 'loopback API URL a game daemon puts blobs to' },
+  { name: 'OGM_HOOK_SECRET_FILE', unit: 'gm', kind: 'path', doc: "file holding the game daemon's hook secret" },
   {
     name: 'OGM_API_INTERNAL_URL',
     unit: 'shared',

@@ -202,7 +202,7 @@ describe('gm assets register and why', () => {
         '--game',
         'coin-hop',
       ],
-      { cwd, env: { OGM_ASSETS_ROOT: root } },
+      { cwd, env: { OGM_ASSETS_ROOT: root, OGM_BLOB_ROOT: tempDir('gm-blobs-') } },
     );
     expect(result.code).toBe(0);
     const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
@@ -221,7 +221,7 @@ describe('gm assets register and why', () => {
     writeFileSync(generated, 'spark');
     const result = await gm(['assets', 'register', 'assets/model/spark.glb', '--made-by-agent', '--game', 'g_01J'], {
       cwd,
-      env: { OGM_ASSETS_ROOT: root },
+      env: { OGM_ASSETS_ROOT: root, OGM_BLOB_ROOT: tempDir('gm-blobs-') },
     });
     expect(result.code).toBe(0);
     const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;

@@ -42,6 +42,7 @@ export interface AppDeps {
     resetZoneDefault: string;
     intakeDir?: string;
     reportBundleMaxBytes: number;
+    blobPutMaxBytes: number;
   };
   blobStore: BlobStore;
   events: AppEvents;
