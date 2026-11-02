@@ -2,7 +2,7 @@ import { schema } from '@ogm/db';
 import { describe, expect, it, vi } from 'vitest';
 
 import { CommitServiceIssueWriter, StoredIssueWriter } from '../src/reports/issue-writer.js';
-import { REPAIR_ATTEMPTS } from '../src/reports/policy.js';
+import { REPAIR_ATTEMPTS, REPAIR_RESERVATION_FRACTION } from '../src/reports/policy.js';
 import { admitRepair, repairPlan } from '../src/reports/repair.js';
 import { makeDeps } from './helpers.js';
 import { ids, reportsApp } from './reports-helpers.js';
@@ -40,11 +40,46 @@ describe('repair admission', () => {
     expect(p80.p80MicroUsd).toBeLessThan(feature.p80MicroUsd / 2);
   });
 
+  // Until real samples replace them, repair prices are the feature prices scaled by the configured fraction.
+  it('seeds every repair size class at the configured fraction of the feature price', async () => {
+    const { deps } = await reportsApp();
+    const rows = deps.db.select().from(schema.sizeClasses).all();
+    for (const repair of rows.filter((r) => r.kind === 'repair')) {
+      const feature = rows.find((r) => r.kind === 'feature' && r.sizeClass === repair.sizeClass)!;
+      for (const field of ['p50MicroUsd', 'p80MicroUsd'] as const) {
+        expect(Math.abs(repair[field] - feature[field] * REPAIR_RESERVATION_FRACTION)).toBeLessThanOrEqual(
+          feature[field] * 0.001,
+        );
+      }
+    }
+  });
+
   it('returns pendingBudget and spends nothing when the owner has no allowance', async () => {
     const { deps } = await reportsApp({ ownerDaily: 0 });
     expect(await admitRepair({ ...deps, defaults }, input)).toEqual({ pendingBudget: true });
     expect(deps.db.select().from(schema.jobs).all()).toHaveLength(0);
     expect(deps.db.select().from(schema.budgetLedger).all()).toHaveLength(0);
+  });
+
+  // The attempt bound is what stops a crash that keeps coming back from draining the owner's allowance.
+  it(`refuses a repair after ${REPAIR_ATTEMPTS} attempts on one signature, spending nothing`, async () => {
+    const { deps } = await reportsApp();
+    const admission = { ...deps, defaults };
+    const first = await admitRepair(admission, input);
+    const second = await admitRepair(admission, { ...input, previousJobId: first.jobId });
+    expect(second.jobId).toBeDefined();
+    expect(REPAIR_ATTEMPTS).toBe(2);
+    const ledger = deps.db.select().from(schema.budgetLedger).all().length;
+
+    expect(await admitRepair(admission, { ...input, previousJobId: second.jobId })).toEqual({
+      attemptsExhausted: true,
+    });
+    expect(deps.db.select().from(schema.jobs).all()).toHaveLength(2);
+    expect(deps.db.select().from(schema.budgetLedger).all()).toHaveLength(ledger);
+
+    // A retried second admission is still idempotent, and another signature has its own bound.
+    expect(await admitRepair(admission, { ...input, previousJobId: first.jobId })).toEqual({ jobId: second.jobId });
+    expect((await admitRepair(admission, { ...input, signature: 'd'.repeat(64) })).jobId).toBeDefined();
   });
 
   it('builds a plan from redacted metadata only, with the attempt limit in acceptance', () => {
