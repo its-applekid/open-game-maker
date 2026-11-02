@@ -87,7 +87,7 @@ Two browsers join one room and it asserts: welcome within 2 s, the watcher's des
 a private canary never reaches the watcher, the peer is playing within 500 ms of Play, peer input moves the peer's
 avatar in the host's snapshot, host loss pauses then ends the room, and a draft load reaches both clients. Its
 report says `clients: 2` and lists what it could not check (WAN latency, iPhone Safari). It prints `report <path>`
-and exits 0 on pass, 1 otherwise.
+and exits 0 on pass, 1 on a failure and 2 on a usage error.
 
 ## Done
 
