@@ -71,9 +71,7 @@
       "indexes": {
         "families_owner_user_id_unique": {
           "name": "families_owner_user_id_unique",
-          "columns": [
-            "owner_user_id"
-          ],
+          "columns": ["owner_user_id"],
           "isUnique": true
         }
       },
@@ -129,9 +127,7 @@
       "indexes": {
         "family_members_user_id_unique": {
           "name": "family_members_user_id_unique",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": true
         }
       },
@@ -140,22 +136,15 @@
           "name": "family_members_family_id_families_id_fk",
           "tableFrom": "family_members",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "family_members_family_id_user_id_pk": {
-          "columns": [
-            "family_id",
-            "user_id"
-          ],
+          "columns": ["family_id", "user_id"],
           "name": "family_members_family_id_user_id_pk"
         }
       },
@@ -199,9 +188,7 @@
       "indexes": {
         "game_grants_user_index": {
           "name": "game_grants_user_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -210,12 +197,8 @@
           "name": "game_grants_game_id_games_id_fk",
           "tableFrom": "game_grants",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -223,22 +206,15 @@
           "name": "game_grants_source_invite_id_invitations_id_fk",
           "tableFrom": "game_grants",
           "tableTo": "invitations",
-          "columnsFrom": [
-            "source_invite_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_invite_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "game_grants_game_id_user_id_pk": {
-          "columns": [
-            "game_id",
-            "user_id"
-          ],
+          "columns": ["game_id", "user_id"],
           "name": "game_grants_game_id_user_id_pk"
         }
       },
@@ -329,16 +305,12 @@
       "indexes": {
         "games_family_id_index": {
           "name": "games_family_id_index",
-          "columns": [
-            "family_id"
-          ],
+          "columns": ["family_id"],
           "isUnique": false
         },
         "games_owner_id_index": {
           "name": "games_owner_id_index",
-          "columns": [
-            "owner_id"
-          ],
+          "columns": ["owner_id"],
           "isUnique": false
         }
       },
@@ -347,12 +319,8 @@
           "name": "games_family_id_families_id_fk",
           "tableFrom": "games",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -513,25 +481,17 @@
       "indexes": {
         "invitations_token_hash_unique": {
           "name": "invitations_token_hash_unique",
-          "columns": [
-            "token_hash"
-          ],
+          "columns": ["token_hash"],
           "isUnique": true
         },
         "invitations_family_email_index": {
           "name": "invitations_family_email_index",
-          "columns": [
-            "family_id",
-            "email"
-          ],
+          "columns": ["family_id", "email"],
           "isUnique": false
         },
         "invitations_inviter_created_index": {
           "name": "invitations_inviter_created_index",
-          "columns": [
-            "inviter_id",
-            "created_at"
-          ],
+          "columns": ["inviter_id", "created_at"],
           "isUnique": false
         }
       },
@@ -540,12 +500,8 @@
           "name": "invitations_family_id_families_id_fk",
           "tableFrom": "invitations",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -553,12 +509,8 @@
           "name": "invitations_game_id_games_id_fk",
           "tableFrom": "invitations",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -679,16 +631,12 @@
       "indexes": {
         "game_daemons_repo_unique": {
           "name": "game_daemons_repo_unique",
-          "columns": [
-            "repo"
-          ],
+          "columns": ["repo"],
           "isUnique": true
         },
         "game_daemons_port_unique": {
           "name": "game_daemons_port_unique",
-          "columns": [
-            "port"
-          ],
+          "columns": ["port"],
           "isUnique": true
         }
       },
@@ -800,20 +748,14 @@
       "indexes": {
         "aiur_events_job_seq": {
           "name": "aiur_events_job_seq",
-          "columns": [
-            "job_id",
-            "seq"
-          ],
+          "columns": ["job_id", "seq"],
           "isUnique": false
         }
       },
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "aiur_events_daemon_slug_seq_pk": {
-          "columns": [
-            "daemon_slug",
-            "seq"
-          ],
+          "columns": ["daemon_slug", "seq"],
           "name": "aiur_events_daemon_slug_seq_pk"
         }
       },
@@ -897,9 +839,7 @@
       "indexes": {
         "checkpoints_job": {
           "name": "checkpoints_job",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
@@ -1121,9 +1061,7 @@
       "indexes": {
         "account_user_id_idx": {
           "name": "account_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -1132,12 +1070,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1289,16 +1223,12 @@
       "indexes": {
         "passkey_user_id_idx": {
           "name": "passkey_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         },
         "passkey_credential_id_idx": {
           "name": "passkey_credential_id_idx",
-          "columns": [
-            "credential_id"
-          ],
+          "columns": ["credential_id"],
           "isUnique": false
         }
       },
@@ -1307,12 +1237,8 @@
           "name": "passkey_user_id_user_id_fk",
           "tableFrom": "passkey",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1384,16 +1310,12 @@
       "indexes": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": [
-            "token"
-          ],
+          "columns": ["token"],
           "isUnique": true
         },
         "session_user_id_idx": {
           "name": "session_user_id_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -1402,12 +1324,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1486,9 +1404,7 @@
       "indexes": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": [
-            "email"
-          ],
+          "columns": ["email"],
           "isUnique": true
         }
       },
@@ -1546,9 +1462,7 @@
       "indexes": {
         "verification_identifier_idx": {
           "name": "verification_identifier_idx",
-          "columns": [
-            "identifier"
-          ],
+          "columns": ["identifier"],
           "isUnique": false
         }
       },
@@ -1627,18 +1541,12 @@
       "indexes": {
         "notifications_user_created_idx": {
           "name": "notifications_user_created_idx",
-          "columns": [
-            "user_id",
-            "created_at"
-          ],
+          "columns": ["user_id", "created_at"],
           "isUnique": false
         },
         "notifications_user_read_idx": {
           "name": "notifications_user_read_idx",
-          "columns": [
-            "user_id",
-            "read_at"
-          ],
+          "columns": ["user_id", "read_at"],
           "isUnique": false
         }
       },
@@ -1718,16 +1626,12 @@
       "indexes": {
         "push_subscriptions_endpoint_unique": {
           "name": "push_subscriptions_endpoint_unique",
-          "columns": [
-            "endpoint"
-          ],
+          "columns": ["endpoint"],
           "isUnique": true
         },
         "push_subscriptions_user_idx": {
           "name": "push_subscriptions_user_idx",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -1853,26 +1757,17 @@
       "indexes": {
         "activity_events_job_ts_idx": {
           "name": "activity_events_job_ts_idx",
-          "columns": [
-            "job_id",
-            "ts"
-          ],
+          "columns": ["job_id", "ts"],
           "isUnique": false
         },
         "activity_events_game_ts_idx": {
           "name": "activity_events_game_ts_idx",
-          "columns": [
-            "game_id",
-            "ts"
-          ],
+          "columns": ["game_id", "ts"],
           "isUnique": false
         },
         "activity_events_family_ts_idx": {
           "name": "activity_events_family_ts_idx",
-          "columns": [
-            "family_id",
-            "ts"
-          ],
+          "columns": ["family_id", "ts"],
           "isUnique": false
         }
       },
@@ -1944,11 +1839,7 @@
       "indexes": {
         "aiur_phase_events_job_phase_at_idx": {
           "name": "aiur_phase_events_job_phase_at_idx",
-          "columns": [
-            "job_id",
-            "phase",
-            "at"
-          ],
+          "columns": ["job_id", "phase", "at"],
           "isUnique": true
         }
       },
@@ -2058,17 +1949,12 @@
       "indexes": {
         "branches_game_name_unique": {
           "name": "branches_game_name_unique",
-          "columns": [
-            "game_id",
-            "name"
-          ],
+          "columns": ["game_id", "name"],
           "isUnique": true
         },
         "branches_game_id_index": {
           "name": "branches_game_id_index",
-          "columns": [
-            "game_id"
-          ],
+          "columns": ["game_id"],
           "isUnique": false
         }
       },
@@ -2077,12 +1963,8 @@
           "name": "branches_game_id_games_id_fk",
           "tableFrom": "branches",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2209,18 +2091,12 @@
       "indexes": {
         "design_transactions_branch_rev_unique": {
           "name": "design_transactions_branch_rev_unique",
-          "columns": [
-            "branch_id",
-            "rev"
-          ],
+          "columns": ["branch_id", "rev"],
           "isUnique": true
         },
         "design_transactions_game_branch_index": {
           "name": "design_transactions_game_branch_index",
-          "columns": [
-            "game_id",
-            "branch_id"
-          ],
+          "columns": ["game_id", "branch_id"],
           "isUnique": false
         }
       },
@@ -2229,12 +2105,8 @@
           "name": "design_transactions_game_id_games_id_fk",
           "tableFrom": "design_transactions",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2242,12 +2114,8 @@
           "name": "design_transactions_branch_id_branches_id_fk",
           "tableFrom": "design_transactions",
           "tableTo": "branches",
-          "columnsFrom": [
-            "branch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2325,12 +2193,8 @@
           "name": "edit_leases_game_id_games_id_fk",
           "tableFrom": "edit_leases",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2338,22 +2202,15 @@
           "name": "edit_leases_branch_id_branches_id_fk",
           "tableFrom": "edit_leases",
           "tableTo": "branches",
-          "columnsFrom": [
-            "branch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "edit_leases_game_id_branch_id_pk": {
-          "columns": [
-            "game_id",
-            "branch_id"
-          ],
+          "columns": ["game_id", "branch_id"],
           "name": "edit_leases_game_id_branch_id_pk"
         }
       },
@@ -2534,34 +2391,22 @@
       "indexes": {
         "jobs_family_state": {
           "name": "jobs_family_state",
-          "columns": [
-            "family_id",
-            "state"
-          ],
+          "columns": ["family_id", "state"],
           "isUnique": false
         },
         "jobs_game_created": {
           "name": "jobs_game_created",
-          "columns": [
-            "game_id",
-            "created_at"
-          ],
+          "columns": ["game_id", "created_at"],
           "isUnique": false
         },
         "jobs_aiur_ticket": {
           "name": "jobs_aiur_ticket",
-          "columns": [
-            "aiur_repo",
-            "aiur_issue_number"
-          ],
+          "columns": ["aiur_repo", "aiur_issue_number"],
           "isUnique": true
         },
         "jobs_creator_idempotency": {
           "name": "jobs_creator_idempotency",
-          "columns": [
-            "creator_id",
-            "idempotency_key"
-          ],
+          "columns": ["creator_id", "idempotency_key"],
           "isUnique": true
         }
       },
@@ -2570,12 +2415,8 @@
           "name": "jobs_game_id_games_id_fk",
           "tableFrom": "jobs",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2583,12 +2424,8 @@
           "name": "jobs_family_id_families_id_fk",
           "tableFrom": "jobs",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2657,22 +2494,15 @@
           "name": "allowances_family_id_families_id_fk",
           "tableFrom": "allowances",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "allowances_family_id_user_id_pk": {
-          "columns": [
-            "family_id",
-            "user_id"
-          ],
+          "columns": ["family_id", "user_id"],
           "name": "allowances_family_id_user_id_pk"
         }
       },
@@ -2761,26 +2591,17 @@
       "indexes": {
         "budget_ledger_family_day": {
           "name": "budget_ledger_family_day",
-          "columns": [
-            "family_id",
-            "day_key"
-          ],
+          "columns": ["family_id", "day_key"],
           "isUnique": false
         },
         "budget_ledger_user_day": {
           "name": "budget_ledger_user_day",
-          "columns": [
-            "family_id",
-            "user_id",
-            "day_key"
-          ],
+          "columns": ["family_id", "user_id", "day_key"],
           "isUnique": false
         },
         "budget_ledger_job": {
           "name": "budget_ledger_job",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
@@ -2789,12 +2610,8 @@
           "name": "budget_ledger_family_id_families_id_fk",
           "tableFrom": "budget_ledger",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -2802,12 +2619,8 @@
           "name": "budget_ledger_job_id_jobs_id_fk",
           "tableFrom": "budget_ledger",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2891,12 +2704,8 @@
           "name": "family_budget_settings_family_id_families_id_fk",
           "tableFrom": "family_budget_settings",
           "tableTo": "families",
-          "columnsFrom": [
-            "family_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["family_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2958,10 +2767,7 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {
         "size_classes_kind_size_class_pk": {
-          "columns": [
-            "kind",
-            "size_class"
-          ],
+          "columns": ["kind", "size_class"],
           "name": "size_classes_kind_size_class_pk"
         }
       },
@@ -3107,25 +2913,17 @@
       "indexes": {
         "build_chat_messages_id_unique": {
           "name": "build_chat_messages_id_unique",
-          "columns": [
-            "id"
-          ],
+          "columns": ["id"],
           "isUnique": true
         },
         "build_chat_messages_job_event_unique": {
           "name": "build_chat_messages_job_event_unique",
-          "columns": [
-            "job_id",
-            "aiur_event_id"
-          ],
+          "columns": ["job_id", "aiur_event_id"],
           "isUnique": true
         },
         "build_chat_messages_job_seq": {
           "name": "build_chat_messages_job_seq",
-          "columns": [
-            "job_id",
-            "seq"
-          ],
+          "columns": ["job_id", "seq"],
           "isUnique": false
         }
       },
@@ -3202,9 +3000,7 @@
       "indexes": {
         "build_chat_workspaces_job": {
           "name": "build_chat_workspaces_job",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
@@ -3276,10 +3072,7 @@
       "indexes": {
         "job_tickets_repo_issue": {
           "name": "job_tickets_repo_issue",
-          "columns": [
-            "repo",
-            "issue_number"
-          ],
+          "columns": ["repo", "issue_number"],
           "isUnique": true
         }
       },
@@ -3288,22 +3081,15 @@
           "name": "job_tickets_job_id_jobs_id_fk",
           "tableFrom": "job_tickets",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "job_tickets_job_id_key_pk": {
-          "columns": [
-            "job_id",
-            "key"
-          ],
+          "columns": ["job_id", "key"],
           "name": "job_tickets_job_id_key_pk"
         }
       },
@@ -3371,10 +3157,7 @@
       "indexes": {
         "platform_issue_queue_status": {
           "name": "platform_issue_queue_status",
-          "columns": [
-            "status",
-            "created_at"
-          ],
+          "columns": ["status", "created_at"],
           "isUnique": false
         }
       },
@@ -3462,12 +3245,8 @@
           "name": "report_signatures_game_id_games_id_fk",
           "tableFrom": "report_signatures",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3594,24 +3373,17 @@
       "indexes": {
         "reports_game_created": {
           "name": "reports_game_created",
-          "columns": [
-            "game_id",
-            "created_at"
-          ],
+          "columns": ["game_id", "created_at"],
           "isUnique": false
         },
         "reports_signature": {
           "name": "reports_signature",
-          "columns": [
-            "signature"
-          ],
+          "columns": ["signature"],
           "isUnique": false
         },
         "reports_platform_signature": {
           "name": "reports_platform_signature",
-          "columns": [
-            "platform_signature"
-          ],
+          "columns": ["platform_signature"],
           "isUnique": false
         }
       },
@@ -3620,12 +3392,8 @@
           "name": "reports_game_id_games_id_fk",
           "tableFrom": "reports",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3689,9 +3457,7 @@
       "indexes": {
         "room_members_user_id_index": {
           "name": "room_members_user_id_index",
-          "columns": [
-            "user_id"
-          ],
+          "columns": ["user_id"],
           "isUnique": false
         }
       },
@@ -3700,12 +3466,8 @@
           "name": "room_members_room_id_rooms_id_fk",
           "tableFrom": "room_members",
           "tableTo": "rooms",
-          "columnsFrom": [
-            "room_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["room_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3713,22 +3475,15 @@
           "name": "room_members_invitation_id_invitations_id_fk",
           "tableFrom": "room_members",
           "tableTo": "invitations",
-          "columnsFrom": [
-            "invitation_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invitation_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "room_members_room_id_user_id_pk": {
-          "columns": [
-            "room_id",
-            "user_id"
-          ],
+          "columns": ["room_id", "user_id"],
           "name": "room_members_room_id_user_id_pk"
         }
       },
@@ -3806,18 +3561,12 @@
       "indexes": {
         "rooms_game_branch_open_index": {
           "name": "rooms_game_branch_open_index",
-          "columns": [
-            "game_id",
-            "branch_id",
-            "ended_at"
-          ],
+          "columns": ["game_id", "branch_id", "ended_at"],
           "isUnique": false
         },
         "rooms_owner_id_index": {
           "name": "rooms_owner_id_index",
-          "columns": [
-            "owner_id"
-          ],
+          "columns": ["owner_id"],
           "isUnique": false
         }
       },
@@ -3826,12 +3575,8 @@
           "name": "rooms_game_id_games_id_fk",
           "tableFrom": "rooms",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -3892,12 +3637,8 @@
           "name": "reapply_reports_game_id_games_id_fk",
           "tableFrom": "reapply_reports",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -3905,22 +3646,15 @@
           "name": "reapply_reports_branch_id_branches_id_fk",
           "tableFrom": "reapply_reports",
           "tableTo": "branches",
-          "columnsFrom": [
-            "branch_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["branch_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "reapply_reports_branch_id_to_build_id_pk": {
-          "columns": [
-            "branch_id",
-            "to_build_id"
-          ],
+          "columns": ["branch_id", "to_build_id"],
           "name": "reapply_reports_branch_id_to_build_id_pk"
         }
       },
@@ -3986,12 +3720,8 @@
           "name": "achievement_audit_game_id_games_id_fk",
           "tableFrom": "achievement_audit",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4057,23 +3787,15 @@
           "name": "achievement_awards_game_id_games_id_fk",
           "tableFrom": "achievement_awards",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "achievement_awards_user_id_game_id_key_pk": {
-          "columns": [
-            "user_id",
-            "game_id",
-            "key"
-          ],
+          "columns": ["user_id", "game_id", "key"],
           "name": "achievement_awards_user_id_game_id_key_pk"
         }
       },
@@ -4123,22 +3845,15 @@
           "name": "achievement_catalogs_game_id_games_id_fk",
           "tableFrom": "achievement_catalogs",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "achievement_catalogs_game_id_release_id_pk": {
-          "columns": [
-            "game_id",
-            "release_id"
-          ],
+          "columns": ["game_id", "release_id"],
           "name": "achievement_catalogs_game_id_release_id_pk"
         }
       },
@@ -4218,22 +3933,15 @@
           "name": "achievement_defs_game_id_games_id_fk",
           "tableFrom": "achievement_defs",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "achievement_defs_game_id_key_pk": {
-          "columns": [
-            "game_id",
-            "key"
-          ],
+          "columns": ["game_id", "key"],
           "name": "achievement_defs_game_id_key_pk"
         }
       },
@@ -4287,23 +3995,15 @@
           "name": "achievement_progress_game_id_games_id_fk",
           "tableFrom": "achievement_progress",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "achievement_progress_user_id_game_id_key_pk": {
-          "columns": [
-            "user_id",
-            "game_id",
-            "key"
-          ],
+          "columns": ["user_id", "game_id", "key"],
           "name": "achievement_progress_user_id_game_id_key_pk"
         }
       },
@@ -4343,18 +4043,12 @@
       "indexes": {
         "analytics_salts_game_salt_unique": {
           "name": "analytics_salts_game_salt_unique",
-          "columns": [
-            "game_id",
-            "salt"
-          ],
+          "columns": ["game_id", "salt"],
           "isUnique": true
         },
         "analytics_salts_game_rotated_idx": {
           "name": "analytics_salts_game_rotated_idx",
-          "columns": [
-            "game_id",
-            "rotated_at"
-          ],
+          "columns": ["game_id", "rotated_at"],
           "isUnique": false
         }
       },
@@ -4363,22 +4057,15 @@
           "name": "analytics_salts_game_id_games_id_fk",
           "tableFrom": "analytics_salts",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "analytics_salts_game_id_rotated_at_pk": {
-          "columns": [
-            "game_id",
-            "rotated_at"
-          ],
+          "columns": ["game_id", "rotated_at"],
           "name": "analytics_salts_game_id_rotated_at_pk"
         }
       },
@@ -4441,10 +4128,7 @@
       "indexes": {
         "creator_analytics_daily_game_day_idx": {
           "name": "creator_analytics_daily_game_day_idx",
-          "columns": [
-            "game_id",
-            "day"
-          ],
+          "columns": ["game_id", "day"],
           "isUnique": false
         }
       },
@@ -4453,25 +4137,15 @@
           "name": "creator_analytics_daily_game_id_games_id_fk",
           "tableFrom": "creator_analytics_daily",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "creator_analytics_daily_game_id_day_release_id_metric_scope_pk": {
-          "columns": [
-            "game_id",
-            "day",
-            "release_id",
-            "metric",
-            "scope"
-          ],
+          "columns": ["game_id", "day", "release_id", "metric", "scope"],
           "name": "creator_analytics_daily_game_id_day_release_id_metric_scope_pk"
         }
       },
@@ -4586,27 +4260,17 @@
       "indexes": {
         "creator_analytics_events_game_ts_idx": {
           "name": "creator_analytics_events_game_ts_idx",
-          "columns": [
-            "game_id",
-            "ts"
-          ],
+          "columns": ["game_id", "ts"],
           "isUnique": false
         },
         "creator_analytics_events_game_env_release_idx": {
           "name": "creator_analytics_events_game_env_release_idx",
-          "columns": [
-            "game_id",
-            "env",
-            "release_id"
-          ],
+          "columns": ["game_id", "env", "release_id"],
           "isUnique": false
         },
         "creator_analytics_events_game_pseudo_idx": {
           "name": "creator_analytics_events_game_pseudo_idx",
-          "columns": [
-            "game_id",
-            "pseudo_user_id"
-          ],
+          "columns": ["game_id", "pseudo_user_id"],
           "isUnique": false
         }
       },
@@ -4615,12 +4279,8 @@
           "name": "creator_analytics_events_game_id_games_id_fk",
           "tableFrom": "creator_analytics_events",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -4688,9 +4348,7 @@
       "indexes": {
         "play_leases_expiry_index": {
           "name": "play_leases_expiry_index",
-          "columns": [
-            "expires_at"
-          ],
+          "columns": ["expires_at"],
           "isUnique": false
         }
       },
@@ -4699,22 +4357,15 @@
           "name": "play_leases_game_id_games_id_fk",
           "tableFrom": "play_leases",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "play_leases_user_id_game_id_pk": {
-          "columns": [
-            "user_id",
-            "game_id"
-          ],
+          "columns": ["user_id", "game_id"],
           "name": "play_leases_user_id_game_id_pk"
         }
       },
@@ -4833,23 +4484,12 @@
       "indexes": {
         "save_revisions_idempotency_unique": {
           "name": "save_revisions_idempotency_unique",
-          "columns": [
-            "user_id",
-            "game_id",
-            "slot_id",
-            "device_id",
-            "client_seq"
-          ],
+          "columns": ["user_id", "game_id", "slot_id", "device_id", "client_seq"],
           "isUnique": true
         },
         "save_revisions_slot_created_index": {
           "name": "save_revisions_slot_created_index",
-          "columns": [
-            "user_id",
-            "game_id",
-            "slot_id",
-            "revision"
-          ],
+          "columns": ["user_id", "game_id", "slot_id", "revision"],
           "isUnique": false
         }
       },
@@ -4858,12 +4498,8 @@
           "name": "save_revisions_game_id_games_id_fk",
           "tableFrom": "save_revisions",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -4871,28 +4507,15 @@
           "name": "save_revisions_user_id_game_id_slot_id_save_slots_user_id_game_id_slot_id_fk",
           "tableFrom": "save_revisions",
           "tableTo": "save_slots",
-          "columnsFrom": [
-            "user_id",
-            "game_id",
-            "slot_id"
-          ],
-          "columnsTo": [
-            "user_id",
-            "game_id",
-            "slot_id"
-          ],
+          "columnsFrom": ["user_id", "game_id", "slot_id"],
+          "columnsTo": ["user_id", "game_id", "slot_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "save_revisions_user_id_game_id_slot_id_revision_pk": {
-          "columns": [
-            "user_id",
-            "game_id",
-            "slot_id",
-            "revision"
-          ],
+          "columns": ["user_id", "game_id", "slot_id", "revision"],
           "name": "save_revisions_user_id_game_id_slot_id_revision_pk"
         }
       },
@@ -4966,10 +4589,7 @@
       "indexes": {
         "save_slots_game_user_index": {
           "name": "save_slots_game_user_index",
-          "columns": [
-            "game_id",
-            "user_id"
-          ],
+          "columns": ["game_id", "user_id"],
           "isUnique": false
         }
       },
@@ -4978,23 +4598,15 @@
           "name": "save_slots_game_id_games_id_fk",
           "tableFrom": "save_slots",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "save_slots_user_id_game_id_slot_id_pk": {
-          "columns": [
-            "user_id",
-            "game_id",
-            "slot_id"
-          ],
+          "columns": ["user_id", "game_id", "slot_id"],
           "name": "save_slots_user_id_game_id_slot_id_pk"
         }
       },
@@ -5098,25 +4710,18 @@
       "indexes": {
         "scope_sessions_job_unique": {
           "name": "scope_sessions_job_unique",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": true
         },
         "scope_sessions_game_open_unique": {
           "name": "scope_sessions_game_open_unique",
-          "columns": [
-            "game_id"
-          ],
+          "columns": ["game_id"],
           "isUnique": true,
           "where": "\"scope_sessions\".\"status\" = 'open'"
         },
         "scope_sessions_game_created": {
           "name": "scope_sessions_game_created",
-          "columns": [
-            "game_id",
-            "created_at"
-          ],
+          "columns": ["game_id", "created_at"],
           "isUnique": false
         }
       },
@@ -5125,12 +4730,8 @@
           "name": "scope_sessions_game_id_games_id_fk",
           "tableFrom": "scope_sessions",
           "tableTo": "games",
-          "columnsFrom": [
-            "game_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -5138,12 +4739,8 @@
           "name": "scope_sessions_job_id_jobs_id_fk",
           "tableFrom": "scope_sessions",
           "tableTo": "jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
