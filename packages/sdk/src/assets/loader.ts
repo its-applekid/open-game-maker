@@ -20,6 +20,7 @@ export interface ResolvedAsset {
   file: string;
   mesh?: string;
   bounds?: [number, number, number];
+  meta?: AssetEntry['meta'];
   license: AssetEntry['license'];
 }
 
@@ -107,6 +108,7 @@ export class AssetLoader {
       file,
       ...(entry.mesh ? { mesh: entry.mesh } : {}),
       ...(entry.bounds ? { bounds: entry.bounds } : {}),
+      ...(entry.meta ? { meta: entry.meta } : {}),
       license: entry.license,
     };
   }

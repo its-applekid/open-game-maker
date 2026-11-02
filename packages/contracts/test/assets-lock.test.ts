@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { AssetsLockSchema } from '../src/assets.js';
+import { AssetsLockSchema, type AssetMetadata } from '../src/assets.js';
 import { loadJson } from './helpers.js';
 import { emittedValidator } from './json-schema.js';
 
@@ -9,6 +9,7 @@ type LockFixture = {
     id: string;
     path: string;
     rights: { redistribution: string };
+    meta?: AssetMetadata;
   }>;
 };
 
@@ -21,6 +22,7 @@ describe('assets lock contract', () => {
     const doc = fixture();
     expect(AssetsLockSchema.safeParse(doc).success).toBe(true);
     expect(emittedValidator('assets-lock.v1')(doc)).toBe(true);
+    expect(doc.assets[0]?.meta).toBeDefined();
   });
 
   it('rejects rights that prohibit redistribution', () => {

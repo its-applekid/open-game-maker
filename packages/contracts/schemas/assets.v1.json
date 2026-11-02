@@ -6,6 +6,11 @@
       "type": "number",
       "const": 1
     },
+    "minor": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
+    },
     "built": {
       "type": "string",
       "format": "date-time",
@@ -129,6 +134,660 @@
               "path"
             ],
             "additionalProperties": {}
+          },
+          "meta": {
+            "type": "object",
+            "properties": {
+              "sprite": {
+                "type": "object",
+                "properties": {
+                  "drawn_view": {
+                    "type": "string",
+                    "enum": [
+                      "topdown",
+                      "side",
+                      "iso",
+                      "front",
+                      "three-quarter",
+                      "none"
+                    ]
+                  },
+                  "tile_px": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "sheet": {
+                    "type": "object",
+                    "properties": {
+                      "frame_w": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "frame_h": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "cols": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "rows": {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      "spacing_px": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "margin_px": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      }
+                    },
+                    "required": [
+                      "frame_w",
+                      "frame_h",
+                      "cols",
+                      "rows"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "sheet_index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991,
+                    "description": "Position in the collection's packed tilesheet, when one exists."
+                  },
+                  "animations": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "frames": {
+                          "type": "array",
+                          "items": {
+                            "type": "integer",
+                            "minimum": -9007199254740991,
+                            "maximum": 9007199254740991
+                          }
+                        },
+                        "fps": {
+                          "type": "number"
+                        },
+                        "directions": {
+                          "uniqueItems": true,
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "enum": [
+                              "E",
+                              "N",
+                              "NE",
+                              "NW",
+                              "S",
+                              "SE",
+                              "SW",
+                              "W"
+                            ]
+                          }
+                        },
+                        "sheets": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "path": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              },
+                              "variant": {
+                                "type": "string",
+                                "enum": [
+                                  "shadowless",
+                                  "shadow"
+                                ]
+                              },
+                              "frame_w": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              "frame_h": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              "cols": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              },
+                              "rows": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 9007199254740991
+                              }
+                            },
+                            "required": [
+                              "path",
+                              "frame_w",
+                              "frame_h",
+                              "cols",
+                              "rows"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "files": {
+                          "minItems": 1,
+                          "type": "array",
+                          "items": {
+                            "type": "string",
+                            "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                            "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                          }
+                        },
+                        "direction_files": {
+                          "minProperties": 1,
+                          "type": "object",
+                          "properties": {
+                            "E": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "N": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "NE": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "NW": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "S": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "SE": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "SW": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            },
+                            "W": {
+                              "minItems": 1,
+                              "type": "array",
+                              "items": {
+                                "type": "string",
+                                "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                                "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                              }
+                            }
+                          },
+                          "additionalProperties": false
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "frames"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "facings": {
+                    "minProperties": 1,
+                    "type": "object",
+                    "properties": {
+                      "E": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "N": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "NE": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "NW": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "S": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "SE": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "SW": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      },
+                      "W": {
+                        "type": "string",
+                        "pattern": "^(?!\\/)(?!\\.\\.(?:\\/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$",
+                        "description": "Relative path inside the collection; traversal and backslashes are forbidden."
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "tile": {
+                    "type": "object",
+                    "properties": {
+                      "layer": {
+                        "type": "string",
+                        "enum": [
+                          "ground",
+                          "wall",
+                          "decor",
+                          "overlay",
+                          "entity"
+                        ]
+                      },
+                      "autotile": {
+                        "type": "string",
+                        "enum": [
+                          "none",
+                          "blob-47",
+                          "wang-16",
+                          "edge-9"
+                        ]
+                      },
+                      "walkable": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "nine_slice": {
+                    "minItems": 4,
+                    "maxItems": 4,
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "description": "UI panels: left, top, right, bottom insets in px."
+                  }
+                },
+                "required": [
+                  "drawn_view"
+                ],
+                "additionalProperties": false
+              },
+              "rig": {
+                "type": "object",
+                "properties": {
+                  "rig_type": {
+                    "type": "string",
+                    "enum": [
+                      "humanoid",
+                      "quadruped",
+                      "creature",
+                      "vehicle",
+                      "custom"
+                    ]
+                  },
+                  "rig_id": {
+                    "type": "string",
+                    "pattern": "^rig:[0-9a-f]{12}$",
+                    "description": "Hash of the sorted joint names plus parent links. Same rig_id = animations transfer. 'Shares a rig with' is an index query on this field, not stored on the card."
+                  },
+                  "joint_count": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991
+                  },
+                  "attach_points": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "slot": {
+                          "type": "string",
+                          "enum": [
+                            "hand-right",
+                            "hand-left",
+                            "head",
+                            "back",
+                            "hip",
+                            "root"
+                          ]
+                        },
+                        "joint": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "slot",
+                        "joint"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "clips": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "duration_s": {
+                          "type": "number",
+                          "minimum": 0
+                        },
+                        "canonical": {
+                          "type": "string",
+                          "enum": [
+                            "idle",
+                            "walk",
+                            "run",
+                            "sprint",
+                            "jump",
+                            "fall",
+                            "land",
+                            "crouch",
+                            "sit",
+                            "attack-melee",
+                            "attack-ranged",
+                            "attack-kick",
+                            "cast",
+                            "block",
+                            "hit",
+                            "die",
+                            "pick-up",
+                            "interact",
+                            "emote",
+                            "hold",
+                            "drive",
+                            "swim",
+                            "climb",
+                            "other"
+                          ],
+                          "description": "Mapped by code from the name (synonym table), so agents can ask for 'die' whatever the vendor calls it."
+                        },
+                        "loop": {
+                          "type": "boolean"
+                        },
+                        "root_motion": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "duration_s"
+                      ],
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "required": [
+                  "rig_type",
+                  "rig_id",
+                  "joint_count"
+                ],
+                "additionalProperties": false
+              },
+              "kit": {
+                "type": "object",
+                "properties": {
+                  "piece": {
+                    "type": "string",
+                    "enum": [
+                      "floor",
+                      "floor-detail",
+                      "wall",
+                      "wall-half",
+                      "wall-narrow",
+                      "wall-corner",
+                      "wall-opening",
+                      "wall-end",
+                      "door",
+                      "gate",
+                      "stairs",
+                      "column",
+                      "ceiling",
+                      "roof",
+                      "road",
+                      "road-corner",
+                      "road-junction",
+                      "fence",
+                      "bridge",
+                      "support",
+                      "other"
+                    ]
+                  },
+                  "grid_m": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "height_m": {
+                    "type": "number",
+                    "minimum": 0
+                  },
+                  "open_edges": {
+                    "uniqueItems": true,
+                    "description": "Edges a neighbour piece can attach to.",
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "n",
+                        "e",
+                        "s",
+                        "w",
+                        "top",
+                        "bottom"
+                      ]
+                    }
+                  },
+                  "connects_to": {
+                    "uniqueItems": true,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "floor",
+                        "floor-detail",
+                        "wall",
+                        "wall-half",
+                        "wall-narrow",
+                        "wall-corner",
+                        "wall-opening",
+                        "wall-end",
+                        "door",
+                        "gate",
+                        "stairs",
+                        "column",
+                        "ceiling",
+                        "roof",
+                        "road",
+                        "road-corner",
+                        "road-junction",
+                        "fence",
+                        "bridge",
+                        "support",
+                        "other"
+                      ]
+                    }
+                  }
+                },
+                "required": [
+                  "piece",
+                  "grid_m"
+                ],
+                "additionalProperties": false
+              },
+              "geometry": {
+                "type": "object",
+                "properties": {
+                  "bounds_m": {
+                    "type": "object",
+                    "properties": {
+                      "min": {
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      },
+                      "max": {
+                        "minItems": 3,
+                        "maxItems": 3,
+                        "type": "array",
+                        "items": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "required": [
+                      "min",
+                      "max"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "footprint_cells": {
+                    "type": "object",
+                    "properties": {
+                      "w": {
+                        "type": "number"
+                      },
+                      "d": {
+                        "type": "number"
+                      },
+                      "cell_m": {
+                        "type": "number",
+                        "exclusiveMinimum": 0
+                      }
+                    },
+                    "required": [
+                      "w",
+                      "d",
+                      "cell_m"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "pivot": {
+                    "type": "string",
+                    "enum": [
+                      "base-center",
+                      "center",
+                      "base-corner",
+                      "other"
+                    ]
+                  },
+                  "triangles": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "vertices": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "materials": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "texture_keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards."
+                  },
+                  "has_collision_mesh": {
+                    "type": "boolean"
+                  },
+                  "lod_count": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "normalized": {
+                    "type": "boolean",
+                    "description": "False until B11 normalization ran; bounds are then in source units."
+                  }
+                },
+                "required": [
+                  "bounds_m",
+                  "triangles",
+                  "normalized"
+                ],
+                "additionalProperties": false,
+                "description": "3D facts, measured by code after B11 normalization (1 unit = 1 m, Y-up, origin at base)."
+              }
+            },
+            "additionalProperties": false
           },
           "license": {
             "type": "object",

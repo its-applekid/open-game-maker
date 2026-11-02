@@ -1,7 +1,16 @@
 import { z } from 'zod';
 
+import { assetCardMetaDefs, type AssetCard } from './card.generated.js';
+
 export const tierSchema = z.enum(['desktop', 'mobile', 'low']);
 export type Tier = z.infer<typeof tierSchema>;
+
+/**
+ * Additive revision within `version: 1` for both the lock and the manifest; readers accept any minor.
+ * 1: entries may carry `meta` (card sprite/rig/kit/geometry blocks).
+ */
+export const ASSETS_SCHEMA_MINOR = 1;
+const minorSchema = z.number().int().min(0).optional();
 
 const fileEntrySchema = z.looseObject({
   bytes: z.number().int().min(0),
@@ -10,12 +19,49 @@ const fileEntrySchema = z.looseObject({
   decoders: z.array(z.enum(['meshopt', 'draco', 'ktx2'])),
 });
 
+type CardMetadataBlock = 'sprite' | 'rig' | 'kit' | 'geometry';
+
+/** Re-uses the asset-card `$defs` block (generated from asset-card.schema.json), never a local copy. */
+function cardMetadataBlock<K extends CardMetadataBlock>(block: K): z.ZodType<NonNullable<AssetCard[K]>> {
+  const $defs = assetCardMetaDefs as Record<string, z.core.JSONSchema.JSONSchema>;
+  return z.fromJSONSchema({ $defs, $ref: `#/$defs/${block}` }) as z.ZodType<NonNullable<AssetCard[K]>>;
+}
+
+/** Strings in `meta` reach the public manifest: no absolute, home-relative or parent-escaping paths. */
+function unsafeMetaString(value: string): boolean {
+  if (/^(?:[/\\~]|[A-Za-z]:[\\/])/.test(value)) return true;
+  return value.split(/[/\\]/).includes('..');
+}
+
+function checkMetaStrings(value: unknown, path: PropertyKey[], ctx: z.RefinementCtx): void {
+  if (typeof value === 'string') {
+    if (unsafeMetaString(value)) {
+      ctx.addIssue({ code: 'custom', path, message: 'meta paths must be relative and stay inside the asset' });
+    }
+  } else if (Array.isArray(value)) {
+    value.forEach((item, index) => checkMetaStrings(item, [...path, index], ctx));
+  } else if (value !== null && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) checkMetaStrings(item, [...path, key], ctx);
+  }
+}
+
+export const assetMetadataSchema = z
+  .strictObject({
+    sprite: cardMetadataBlock('sprite').optional(),
+    rig: cardMetadataBlock('rig').optional(),
+    kit: cardMetadataBlock('kit').optional(),
+    geometry: cardMetadataBlock('geometry').optional(),
+  })
+  .superRefine((meta, ctx) => checkMetaStrings(meta, [], ctx));
+export type AssetMetadata = z.infer<typeof assetMetadataSchema>;
+
 const assetEntrySchema = z.looseObject({
   /** Per-tier file names (or `*` for every tier); the loader never derives names. */
   file: z.partialRecord(z.enum([...tierSchema.options, '*']), z.string().min(1)),
   mesh: z.string().optional(),
   bounds: z.tuple([z.number(), z.number(), z.number()]).optional(),
   source: z.looseObject({ pack: z.string(), version: z.string(), path: z.string() }).optional(),
+  meta: assetMetadataSchema.optional(),
   license: z.looseObject({
     id: z.string().min(1),
     attribution: z.string().optional(),
@@ -27,6 +73,7 @@ const assetEntrySchema = z.looseObject({
 export const assetManifestSchema = z
   .looseObject({
     version: z.literal(1),
+    minor: minorSchema,
     built: z.iso.datetime().optional(),
     tiers: z.array(tierSchema).min(1),
     files: z.record(z.string().min(1), fileEntrySchema),
@@ -104,6 +151,7 @@ const lockEntrySchema = z.looseObject({
     redistribution: z.enum(['none', 'in-build', 'free']),
     attribution: z.string().nullable(),
   }),
+  meta: assetMetadataSchema.optional(),
   derived_from: z.array(lockAssetIdSchema).optional(),
   added: z.iso.date(),
 });
@@ -118,6 +166,7 @@ function safeRepoPath(path: string): boolean {
 export const AssetsLockSchema = z
   .looseObject({
     version: z.literal(1),
+    minor: minorSchema,
     family: styleFamilyIdSchema,
     pov: povIdSchema,
     assets: z.array(lockEntrySchema),
