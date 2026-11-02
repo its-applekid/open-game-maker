@@ -5,7 +5,10 @@ import { z } from 'zod';
 
 import type { CardIndex, ResolvedCard } from './types.js';
 
-/** C3 §4 `style_family` ids that are families (`photoreal` and `any` never are). */
+/**
+ * C3 §4 `style_family` ids that are families (`photoreal` and `any` never are), plus `audio`: the registry of music
+ * and sound sets. Audio cards keep `style_family: any`; the audio family is never a creation choice.
+ */
 export const STYLE_FAMILY_IDS = [
   'chunky-low-poly',
   'detailed-low-poly',
@@ -14,6 +17,7 @@ export const STYLE_FAMILY_IDS = [
   'flat-cartoon',
   'isometric-2d',
   'sketch',
+  'audio',
 ] as const;
 export type StyleFamilyId = (typeof STYLE_FAMILY_IDS)[number];
 
@@ -35,6 +39,8 @@ export type StyleSetTraits = {
   polycount_band?: string;
   texture_style?: string;
   scale?: string;
+  audio_format?: string;
+  tempo_range?: string;
   judgment: string;
 };
 export type StyleSetPreviews = {
@@ -54,7 +60,7 @@ export type StyleSet = {
 export type StyleFamily = {
   id: StyleFamilyId;
   label: string;
-  dimension: '2d' | '3d';
+  dimension: '2d' | '3d' | 'audio';
   fidelity: string;
   packs: { primary: string[]; extras: string[] };
   sets: StyleSet[];
@@ -68,7 +74,7 @@ export type StyleFamily = {
 export type StyleFamilyApi = {
   id: StyleFamilyId;
   label: string;
-  dimension: '2d' | '3d';
+  dimension: '2d' | '3d' | 'audio';
   fidelity: string;
   views: PovId[];
   creationChoice: boolean;
@@ -98,6 +104,8 @@ const styleSetTraitsSchema = z
     polycount_band: z.string().min(1).optional(),
     texture_style: z.string().min(1).optional(),
     scale: z.string().min(1).optional(),
+    audio_format: z.string().min(1).optional(),
+    tempo_range: z.string().min(1).optional(),
     judgment: z.string().min(1),
   })
   .refine((traits) => Object.keys(traits).some((key) => key !== 'judgment'), {
@@ -146,21 +154,34 @@ export const StyleFamilySchema = z
   .strictObject({
     id: z.enum(STYLE_FAMILY_IDS),
     label: z.string().min(1),
-    dimension: z.enum(['2d', '3d']),
+    dimension: z.enum(['2d', '3d', 'audio']),
     fidelity: z.string().min(1),
     packs: z.strictObject({ primary: z.array(z.string().min(1)), extras: z.array(z.string().min(1)) }),
     sets: z.array(styleSetSchema),
-    views: z.array(z.enum(POV_IDS)).min(1),
+    views: z.array(z.enum(POV_IDS)),
     license_note: z.string().min(1),
     coverage: coverageSchema,
     creation_choice: z.boolean(),
   })
+  .refine((f) => f.dimension === 'audio' || f.views.length > 0, {
+    message: 'a visual family needs at least one view',
+    path: ['views'],
+  })
+  .refine(
+    (f) =>
+      (f.id === 'audio') === (f.dimension === 'audio') &&
+      (f.id !== 'audio' || (f.views.length === 0 && !f.creation_choice)),
+    {
+      message: 'only the audio family is audio, with no views and never a creation choice',
+      path: ['dimension'],
+    },
+  )
   .refine((f) => !f.creation_choice || (f.coverage.characters && f.coverage.environment && f.coverage.props), {
     message: 'creation_choice needs coverage.characters, environment and props',
     path: ['creation_choice'],
   });
 
-/** The file: exactly the seven families, each once, and every pack in at most one family. */
+/** The file: exactly the eight families (seven visual plus audio), each once, and every pack in at most one family. */
 export const StyleFamiliesSchema = z.array(StyleFamilySchema).superRefine((families, ctx) => {
   const ids = families.map((f) => f.id);
   for (const id of STYLE_FAMILY_IDS) {
@@ -184,7 +205,9 @@ export const StyleFamiliesSchema = z.array(StyleFamilySchema).superRefine((famil
       const measuredKeys =
         f.dimension === '2d'
           ? (['pixel_size', 'tile_grid', 'palette', 'outline_style', 'perspective'] as const)
-          : (['polycount_band', 'texture_style', 'scale'] as const);
+          : f.dimension === '3d'
+            ? (['polycount_band', 'texture_style', 'scale'] as const)
+            : (['audio_format', 'tempo_range'] as const);
       if (!measuredKeys.some((key) => set.traits[key]))
         ctx.addIssue({ code: 'custom', message: `set ${set.id} needs a measured ${f.dimension} trait` });
     }

@@ -112,3 +112,69 @@ def test_voice_lines_have_no_material():
     """'We need wood' is a spoken line, not a wooden sound."""
     desc, *_ = _sfx("we_need_wood", "kenney-synth-voice-2")
     assert "materials" not in desc
+
+
+def test_piece_key_joins_layers_but_not_separate_tracks():
+    """Abstraction ships a piece as layers (_L01, _L02) and intensities (BASE, MELODY 2, _CUTE); those are variants of one
+    piece, while numbered jam tracks (Ludum Dare 28 01, 02) are different pieces."""
+    assert b.piece_key("Sketchbook 2024-02-14_L01") == b.piece_key("Sketchbook 2024-02-14_L03")
+    assert b.piece_key("Week 10 - Mischief MELODY 2") == b.piece_key("Week 10 - Mischief BASE")
+    assert b.piece_key("Interior Birdecorator Explore_CUTE") == b.piece_key("Interior Birdecorator Explore_FESTIVE")
+    assert b.piece_key("Ludum Dare 28 01") != b.piece_key("Ludum Dare 28 02")
+
+
+def test_tempo_band_keywords_let_search_find_near_tempos():
+    """'calm loop 90 bpm' must find a 92 BPM loop: search matches whole words, so the band word carries 90."""
+    assert b.music_keywords({"tempo_bpm": 92.4, "loopable": True}) == ["bpm-90", "moderate", "seamless"]
+    assert b.music_keywords({"tempo_bpm": 70.0, "loopable": False}) == ["bpm-70", "slow"]
+    assert b.music_keywords({"tempo_bpm": None}) == []
+
+
+def _music(mode, strength=0.8):
+    sets = b.prompts()
+    names = sets["moods"][0]
+    p = {k: np.full(len(sets[k][0]), 1 / len(sets[k][0])) for k in ("moods", "genre", "instruments", "game_fit", "environments", "vocals")}
+    p["vocals"] = np.array([0.5, 0.5])
+    lift = {k: np.ones(len(v)) for k, v in p.items()}
+    lift["moods"][names.index("calm")] = 1.4
+    lift["moods"][names.index("tense")] = 1.35  # calm and tense are opposed: only the stronger survives
+    d = {"_p": p, "_eq": 0.5, "_pack": "abstraction-music-loop-2024-q1"}
+    a = {"duration_s": 30.0, "tempo_bpm": 92.0, "key": "A", "mode": mode, "key_strength": strength, "loopable": True}
+    return b.music_describe(d, lift, sets, a, "music/loop")[0]
+
+
+def test_key_is_a_weak_mood_prior():
+    """A strong minor key tips a near-tie towards the darker mood; a major key or an unsure key leaves CLAP's pick."""
+    assert _music("major")["moods"][0] == "calm"
+    assert _music("minor")["moods"][0] == "tense"
+    assert _music("minor", strength=0.3)["moods"][0] == "calm"
+
+
+def test_cards_carry_the_collection_rights_set_and_piece_variants(tmp_path):
+    """Every Abstraction card must state its rights and set itself, and layers of one piece link to each other."""
+    import json
+    pid = "abstraction-music-loop-2024-q1"
+    rights = {"uses": ["in-game"], "audience": "private", "redistribution": "none", "processing": "local-only",
+              "basis": [{"type": "license", "license": "CC0-1.0"}]}
+    (tmp_path / pid).mkdir()
+    (tmp_path / pid / "collection.card.json").write_text(json.dumps({"id": f"t1:{pid}@2026-11-02", "rights": rights}))
+    sets = b.prompts()
+    rows = []
+    for i, stem in enumerate(["Sketchbook 2024-02-14_L01", "Sketchbook 2024-02-14_L02", "Sketchbook 2024-03-06_01"]):
+        sc = tmp_path / pid / "2026-11-02" / "analysis" / f"{stem}.analysis.json"
+        p = {k: np.full(len(sets[k][0]), 1 / len(sets[k][0])) for k in ("moods", "genre", "instruments", "game_fit", "environments")}
+        p["vocals"] = np.array([0.5, 0.5])
+        rows.append({"file": f"{stem}.ogg", "sha256": f"{i:064x}", "bytes": 1, "music": True, "_p": p, "_eq": 0.5, "_sidecar": sc,
+                     "_pack": pid, "_ver": "2026-11-02", "preview": {"waveform": f"private/previews/00/{i:016x}-waveform.png"},
+                     "measure": {"audio": {"duration_s": 30.0, "sample_rate": 44100, "channels": 2, "peak_dbfs": -1.0,
+                                           "tempo_bpm": 92.0, "loopable": True}}})
+    means = {(True, k): np.ones(len(v)) / len(v) for k, v in rows[0]["_p"].items()}
+    n, _ = b.build(rows, sets, means, tmp_path, style_sets={pid: "abstraction-music-loop"})
+    assert n == 3
+    cards = [json.loads(f.read_text()) for f in (tmp_path / pid / "cards").glob("*.card.json")]
+    first = next(c for c in cards if c["source"]["files"][0]["path"].endswith("_L01.ogg"))
+    assert first["rights"] == rights and first["describe"]["set"] == "abstraction-music-loop"
+    assert first["subkind"] == "music/loop" and "bpm-90" in first["describe"]["keywords"]
+    assert [r["id"] for r in first["related"]] == [f"t1:{pid}/sketchbook-2024-02-14-l02@2026-11-02"]
+    other = next(c for c in cards if "03-06" in c["source"]["files"][0]["path"])
+    assert "related" not in other

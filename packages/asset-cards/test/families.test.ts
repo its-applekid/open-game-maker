@@ -66,7 +66,7 @@ beforeAll(async () => {
 });
 
 describe('style-families.json', () => {
-  it('holds exactly the seven C2 families, Synty ones not offered at creation', () => {
+  it('holds the seven C2 families plus audio, Synty ones and audio not offered at creation', () => {
     expect(loadFamilies().map((f) => f.id)).toEqual([
       'chunky-low-poly',
       'detailed-low-poly',
@@ -75,7 +75,9 @@ describe('style-families.json', () => {
       'flat-cartoon',
       'isometric-2d',
       'sketch',
+      'audio',
     ]);
+    expect(isCreationChoice('audio')).toBe(false);
     expect(isCreationChoice('detailed-low-poly')).toBe(false);
     expect(isCreationChoice('simple-low-poly')).toBe(false);
     expect(isCreationChoice('chunky-low-poly')).toBe(true);
@@ -140,7 +142,15 @@ describe('style-families.json', () => {
     expect(setFor('limezu-modern-interiors')?.packs).toContainEqual(
       expect.objectContaining({ id: 'limezu-modern-interiors' }),
     );
-    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(10);
+    expect(loadFamilies().flatMap((f) => f.sets)).toHaveLength(11);
+  });
+
+  it('registers the eleven Abstraction loop bundles as one audio set', () => {
+    expect(familyFor('abstraction-music-loop-troubadeck')).toBe('audio');
+    const set = setFor('abstraction-music-loop-2024-q1');
+    expect(set?.id).toBe('abstraction-music-loop');
+    expect(set?.packs).toHaveLength(11);
+    expect(set?.packs.every((pack) => pack.compatible_with === undefined)).toBe(true);
   });
 
   it('registers every imported SmallScaleInt pack in one measured isometric set', () => {
@@ -186,6 +196,15 @@ describe('StyleFamilySchema', () => {
     const coverage = { characters: true, environment: true, props: false, ui: true, sfx: true, music: true };
     expect(StyleFamilySchema.safeParse(family({ coverage, creation_choice: true })).success).toBe(false);
     expect(StyleFamilySchema.safeParse(family({ coverage, creation_choice: false })).success).toBe(true);
+  });
+
+  it('keeps audio apart: no views or creation choice for audio, views required for visual families', () => {
+    const audio = loadFamilies().find((f) => f.id === 'audio')!;
+    expect(StyleFamilySchema.safeParse(audio).success).toBe(true);
+    expect(StyleFamilySchema.safeParse({ ...audio, views: ['side'] }).success).toBe(false);
+    expect(StyleFamilySchema.safeParse({ ...audio, dimension: '2d' }).success).toBe(false);
+    expect(StyleFamilySchema.safeParse(family({ dimension: 'audio' })).success).toBe(false);
+    expect(StyleFamilySchema.safeParse(family({ views: [] })).success).toBe(false);
   });
 
   it('refuses a pack listed in two families and a missing family', () => {

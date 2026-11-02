@@ -6,7 +6,8 @@ data/collection_tags.jsonl, written by Claude from each pack's title, folder nam
 at). A pack with no tags row gets a draft card whose description is its title. Sidetrax packs keep their importer's
 describe, collection info and Kevin's interpretation. Existing interpretation and decision entries, locked provenance
 fields and audio counts (build_audio_cards.py) survive; a card equal to the one on disk apart from `provenance.*.at` is
-left untouched. Every card is validated before it is written; a failing card is not written and is listed.
+left untouched. An audio pack's confirmed pack.json usage_rights become admin interpretation and decision entries
+(audio_pack_basis), so its cards carry exactly the rights Kevin confirmed at intake. Every card is validated before it is written; a failing card is not written and is listed.
 Run: python3 -I scripts/assets/build_collection_cards.py [--root DIR] [--only GLOB] [--dry-run] [--report]
 """
 import argparse
@@ -91,6 +92,36 @@ def basis_from_row(row: dict, ref: str, day: str) -> list:
     return [lic] if row.get("confirmed") else [lic, default]
 
 
+# pack.json usage_rights words -> C3 uses (C3 §5 vocab): "derive" on an audio pack is editing and deriving audio, and
+# "audio-input" is model analysis, which C3 folds into vision-input.
+AUDIO_PACK_USES = {"in-game": ["in-game"], "placeholder": ["placeholder"], "derive": ["edit-audio", "derive-audio"],
+                   "vision-input": ["vision-input"], "audio-input": ["vision-input"],
+                   "edit-audio": ["edit-audio"], "derive-audio": ["derive-audio"]}
+PACK_RIGHTS_REF = "pack.json usage_rights"
+
+
+def audio_pack_basis(m: dict, ceiling: list) -> list:
+    """An audio pack's confirmed pack.json usage_rights as admin entries: an interpretation adding the audio uses the
+    licence table's ceiling lacks (never one it forbids), and a decision narrowing to exactly the confirmed rights."""
+    v = m["versions"][m["current"]]
+    ur = v.get("usage_rights")
+    if m.get("category") != "audio" or not ur or not ur.get("confirmed_by"):
+        return []
+    uses = list(dict.fromkeys(u for w in ur["uses"] for u in AUDIO_PACK_USES.get(w, [w])))
+    lic = next((b for b in ceiling if b["type"] == "license"), {})
+    extra = [u for u in uses if u not in lic.get("uses", []) and u not in lic.get("forbids", [])]
+    who = {"role": "admin", "name": ur["confirmed_by"].split()[0]}
+    day = ur.get("confirmed_on") or ur.get("date") or v.get("added") or TODAY
+    note = f"{ur['confirmed_by']}; attribution: {ur.get('attribution') or 'none'}"[:300]
+    out = []
+    if extra:
+        out.append({"type": "interpretation", "ref": PACK_RIGHTS_REF, "uses": extra, "audience": ur["audience"],
+                    "redistribution": ur["redistribution"], "set_by": who, "date": day, "note": note})
+    out.append({"type": "decision", "ref": PACK_RIGHTS_REF, "uses": uses, "audience": ur["audience"],
+                "redistribution": ur["redistribution"], "set_by": who, "date": day, "note": note})
+    return out
+
+
 def effective(basis: list) -> dict:
     """Python mirror of effectiveRights in packages/contracts/src/rights.ts."""
     ceiling = next((b for b in basis if b["type"] == "license" and b.get("confirmed_by")), None) or \
@@ -173,8 +204,10 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
     # Decisions only narrow, so they always survive; an interpretation belongs to the licence it was made for.
     same_licence = old is not None and table.get(str(old.get("license", "")).lower(), {}).get("id") == row["id"]
     kept = [b for b in (old or {}).get("rights", {}).get("basis", [])
-            if b["type"] == "decision" or (b["type"] == "interpretation" and same_licence)]
-    basis = basis_from_row(row, ref, day) + kept
+            if (b["type"] == "decision" or (b["type"] == "interpretation" and same_licence)) and b.get("ref") != PACK_RIGHTS_REF]
+    basis = basis_from_row(row, ref, day)
+    from_pack = audio_pack_basis(m, basis)
+    basis += kept + from_pack
     t = tags.get(pid)
     # An importer's card (Sidetrax) keeps its describe and collection info; a tags row or this tool's own card is rebuilt.
     keep_old = old is not None and t is None and not old["provenance"]["*"].get("tool", "").startswith("build_collection_cards")
@@ -205,7 +238,7 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
         if t:
             info["family_coverage"] = {name: letter in t.get("fc", "") for letter, name in FAMILY_COVERAGE.items()}
     if compatibility := STYLE_COMPATIBILITY_BY_PACK.get(pid):
-        describe["style_family"] = compatibility["family"]
+        describe["style_family"] = "any" if compatibility["family"] == "audio" else compatibility["family"]  # audio is style-neutral
         describe["set"] = compatibility["set"]
         prov["describe.style_family"] = {"by": "code", "tool": TOOL, "at": NOW,
                                          "input": "packages/asset-cards/data/style-families.json"}
@@ -239,7 +272,10 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
 
     restore_locks()
     out["status"] = status_for(out["describe"])  # derived from the content actually written, locks included
-    out["rights"] = {**effective(basis), "processing": processing_for(row, out["status"]), "basis": basis}
+    if from_pack:
+        out["provenance"]["rights"]["input"] += " + pack.json usage_rights"
+    local = bool(from_pack) and m["versions"][ver]["usage_rights"].get("processing") == "local-only"
+    out["rights"] = {**effective(basis), "processing": "local-only" if local else processing_for(row, out["status"]), "basis": basis}
     restore_locks()  # a locked status or rights block stays as it was
     return old if old and without_at(old) == without_at(out) else out  # equal content keeps the old timestamps
 

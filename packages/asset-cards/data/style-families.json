@@ -497,5 +497,36 @@
       "music": true
     },
     "creation_choice": true
+  },
+  {
+    "id": "audio",
+    "label": "Audio",
+    "dimension": "audio",
+    "fidelity": "music and sound sets; cards stay style_family any",
+    "packs": { "primary": [], "extras": [] },
+    "sets": [
+      {
+        "id": "abstraction-music-loop",
+        "label": "Abstraction Music Loop Bundle",
+        "vendors": ["abstraction"],
+        "traits": {
+          "audio_format": "OGG Vorbis loops that wrap seamlessly (first/last 50 ms seam test)",
+          "tempo_range": "TEMPO",
+          "judgment": "One composer's loop bundles (quarterly sketchbooks, jams, Troubadeck, chiptune); mix freely as one game's score."
+        },
+        "packs": [{ "id": "abstraction-music-loop-2024-q1" }, { "id": "abstraction-music-loop-2024-q2" }, { "id": "abstraction-music-loop-2024-q3" }, { "id": "abstraction-music-loop-2024-q4" }, { "id": "abstraction-music-loop-2025-q4" }, { "id": "abstraction-music-loop-2026-q1" }, { "id": "abstraction-music-loop-2026-q2" }, { "id": "abstraction-music-loop-2026-q3" }, { "id": "abstraction-music-loop-chiptune" }, { "id": "abstraction-music-loop-pre2023" }, { "id": "abstraction-music-loop-troubadeck" }]
+      }
+    ],
+    "views": [],
+    "license_note": "CC0 (Abstraction / Tallbeard Studios); private use, no redistribution",
+    "coverage": {
+      "characters": false,
+      "environment": false,
+      "props": false,
+      "ui": false,
+      "sfx": false,
+      "music": true
+    },
+    "creation_choice": false
   }
 ]

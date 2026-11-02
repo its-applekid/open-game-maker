@@ -13,11 +13,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2] / "assets-local"
 AUDIO_EXT = {".wav", ".ogg", ".mp3", ".flac", ".m4a", ".aif", ".aiff"}
-MUSIC_PACKS = ("sidetrax-*", "kenney-music-*")
+MUSIC_PACKS = ("sidetrax-*", "kenney-music-*", "abstraction-music-loop-*")
 CLAP_ID = "laion/clap-htsat-unfused"
 CLAP_SR = 48000
 WIN_S = 10  # CLAP's native window; whole windows only, so its random-crop path never runs
-PRIVATE_VENDORS = ("sidetrax-", "synty-")  # redistribution none/in-build: previews under private/
+PRIVATE_VENDORS = ("sidetrax-", "synty-", "abstraction-")  # redistribution none/in-build: previews under private/
 
 
 def is_music(pack: str) -> bool:

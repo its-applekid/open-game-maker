@@ -1,6 +1,6 @@
 """Turn analysis sidecars into C3 sound cards (plan U5): score CLAP labels, rank them against the library, write and validate.
 
-usage: .venv/bin/python -I build_audio_cards.py [--packs DIR] [--no-validate]
+usage: .venv/bin/python -I build_audio_cards.py [--packs DIR] [--only PACK_GLOB] [--no-validate]
 reads  packs/<id>/<ver>/analysis/**/*.analysis.json (from analyze.py) and packs/<id>/collection.card.json
 writes packs/<id>/cards/<path>.card.json, updates each audio collection card's counts, prints a summary.
 
@@ -8,8 +8,11 @@ Ranking: CLAP's raw softmax favours some labels on every track ("sunrise", "oute
 lift = p(label | track) / mean p(label) over the library (music and sound effects separately). A tag is kept only when its
 lift is high. game_fit keeps at most two situations, each needing high lift AND agreement from the measured tempo, energy and
 key (fits); a track may suit none. Music settings are not tagged: CLAP cannot hear steampunk or pirate (it spread all 11
-evenly over the library). Genre comes from the pack name when the vendor named one (Orchestral Music 02)."""
-import argparse, json, re, subprocess, sys
+evenly over the library). Genre comes from the pack name when the vendor named one (Orchestral Music 02).
+--only writes the cards of matching packs; labels are still ranked against the whole library.
+Each card copies its collection's rights and style set (packages/asset-cards/data/style-families.json). Music carries search
+keywords for its tempo band (bpm-90, slow) and seamless wrap; the measured key nudges moods as a weak prior."""
+import argparse, copy, fnmatch, json, re, subprocess, sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -24,6 +27,7 @@ from import_sidetrax import stem_key
 REPO = HERE.parents[2]
 ROOT = REPO / "assets-local"
 VALIDATOR = REPO / "packages/contracts/bin/validate-cards.mjs"
+FAMILIES = REPO / "packages/asset-cards/data/style-families.json"
 VOCAB = "2026-10-27"
 TOOL = "build_audio_cards@0.1"
 CLAP_ID = "laion/clap-htsat-unfused"
@@ -51,6 +55,10 @@ FIT_LIFT = 1.6  # tuned on Kevin's first review: rejected situations kept fell f
 PACK_GENRES = {"orchestral": ["orchestral", "cinematic"], "ambient": ["ambient"], "acoustic": ["acoustic"], "pop": ["pop"],
                "rock": ["rock"], "country": ["country"], "electronic": ["electronic"], "piano": ["piano"], "jazz": ["jazz"],
                "blues": ["blues"], "metal": ["metal"], "folk": ["folk"], "chiptune": ["chiptune"]}
+KEY_PRIOR = 1.1  # weak: a minor key lifts darker moods, a major key brighter ones, by 10%
+MINOR_MOODS = {"dark", "tense", "eerie", "mysterious", "sad"}
+MAJOR_MOODS = {"calm", "cozy", "cheerful", "playful", "triumphant"}
+VARIANT_PACKS = ("abstraction-music-loop-",)  # one composer's bundles: a piece's layers and intensities share a title
 MUSIC_CONF = 0.5  # uncalibrated until Kevin's sample review (plan U6); below 0.6 the card carries low-confidence
 
 
@@ -103,6 +111,30 @@ def title_of(stem):
 def pick(lift, p, names, min_lift, k):
     order = sorted(range(len(names)), key=lambda i: -lift[i])
     return [(names[i], float(lift[i]), float(p[i])) for i in order[:k] if lift[i] >= min_lift]
+
+
+def piece_key(stem):
+    """A piece's title without its layer or intensity suffix: `Sketchbook 2024-02-14_L02`, `Week 10 - Mischief MELODY 2`,
+    `Interior Birdecorator Explore_CUTE` -> the shared title."""
+    s = re.sub(r"_L\d+$", "", stem)
+    s = re.sub(r"(_[A-Z]+|( [A-Z]{2,})+( \d+)?)$", "", s)
+    return re.sub(r"[\s_-]+", " ", s).strip().lower()
+
+
+def sets_by_pack(path=FAMILIES):
+    """Pack id -> style set id, from the curated family file."""
+    return {p["id"]: st["id"] for f in json.loads(path.read_text()) for st in f.get("sets", []) for p in st["packs"]}
+
+
+def music_keywords(a):
+    """Search words the description cannot hold: the tempo band, rounded to 10 BPM, and a seamless wrap."""
+    kw = []
+    bpm = a.get("tempo_bpm")
+    if bpm:
+        kw += [f"bpm-{int(round(bpm / 10) * 10)}", "slow" if bpm < 90 else "fast" if bpm >= 130 else "moderate"]
+    if a.get("loopable"):
+        kw.append("seamless")
+    return kw
 
 
 def album_no(album):
@@ -183,7 +215,13 @@ def music_describe(d, lift, sets, a, subkind):
     names = lambda k: sets[k][0]
     proposed = []
     moods = []
-    for name, lf, p in pick(lift["moods"], d["_p"]["moods"], names("moods"), 1.3, 6):
+    mood_lift = np.array(lift["moods"], dtype=float)
+    if a.get("key_strength", 0) >= 0.5 and a.get("mode") in ("major", "minor"):
+        favoured = MINOR_MOODS if a["mode"] == "minor" else MAJOR_MOODS
+        for i, n in enumerate(names("moods")):
+            if (n if n in L.MOODS else L.EXTRA_MOODS[n]) in favoured:
+                mood_lift[i] *= KEY_PRIOR
+    for name, lf, p in pick(mood_lift, d["_p"]["moods"], names("moods"), 1.3, 6):
         if name in L.MOODS:
             target = name
         else:
@@ -194,7 +232,7 @@ def music_describe(d, lift, sets, a, subkind):
         if target not in moods and not any(frozenset((target, m)) in OPPOSED for m in moods):
             moods.append(target)
     if not moods:
-        i = int(np.argmax(lift["moods"]))
+        i = int(np.argmax(mood_lift))
         n = names("moods")[i]
         moods = [n if n in L.MOODS else L.EXTRA_MOODS[n]]
     moods = moods[:3]
@@ -217,6 +255,8 @@ def music_describe(d, lift, sets, a, subkind):
         desc["environments"] = envs
     if pv > 0.75 or pv < 0.25:
         desc["has_vocals"] = pv > 0.75
+    if music_keywords(a):
+        desc["keywords"] = music_keywords(a)
     kind_word = {"music/loop": "loop", "music/stinger": "stinger"}.get(subkind, "track")
     dur = a["duration_s"]
     facts = []
@@ -285,7 +325,8 @@ def sfx_describe(d, lift, sets, a, stem, pid):
     return desc, subkind, conf, events[top], float(p[top])
 
 
-def build(rows, sets, means, packs: Path):
+def build(rows, sets, means, packs: Path, only="*", style_sets=None):
+    style_sets = sets_by_pack() if style_sets is None else style_sets
     by_pack = defaultdict(list)
     for d in rows:
         by_pack[d["_pack"]].append(d)
@@ -293,8 +334,14 @@ def build(rows, sets, means, packs: Path):
     for d in rows:
         if d["_pack"].startswith("sidetrax-"):
             same_name[stem_key(Path(d["file"]).stem)].append(d)
+    pieces = defaultdict(list)  # layers and intensities of one piece, within and across a composer's bundles
+    for d in rows:
+        if d["_pack"].startswith(VARIANT_PACKS):
+            pieces[piece_key(Path(d["file"]).stem)].append(d)
     written, flags_count, counts = 0, defaultdict(int), defaultdict(lambda: defaultdict(int))
     for pid, items in by_pack.items():
+        if not fnmatch.fnmatch(pid, only):
+            continue
         cc = json.loads((packs / pid / "collection.card.json").read_text())
         coll = cc["id"]
         ver = coll.rsplit("@", 1)[1]
@@ -330,7 +377,9 @@ def build(rows, sets, means, packs: Path):
                 subkind = ("music/loop" if "loop" in pid else "music/stinger" if a["duration_s"] < 15 or "jingle" in pid else "music/track")
                 describe, proposed = music_describe(d, lift, sets, a, subkind)
                 prov["describe"] = {"by": "model", "model": CLAP_ID, "tool": TOOL, "at": NOW, "confidence": MUSIC_CONF,
-                                    "input": "CLAP embeddings of two 30 s excerpts vs label prompts, lift vs library; key/tempo not shown"}
+                                    "input": "CLAP embeddings of two 30 s excerpts vs label prompts, lift vs library; measured key a weak mood prior"}
+                if describe.get("keywords"):
+                    prov["describe.keywords"] = {"by": "code", "tool": TOOL, "at": NOW, "input": "measured tempo band and seam test"}
                 prov["describe.description"] = {"by": "code", "tool": TOOL, "at": NOW, "input": "template from CLAP tags + measured audio"}
                 flags += ["low-confidence", "mood-unverified"]
             else:
@@ -359,10 +408,18 @@ def build(rows, sets, means, packs: Path):
                                           "duration_s": x["measure"]["audio"]["duration_s"], "loudness_lufs": x["measure"]["audio"].get("loudness_lufs"),
                                           "peak_dbfs": x["measure"]["audio"]["peak_dbfs"]} for x in g[1:]]
             rel_ids = [o for o in same_name.get(stem_key(stem), []) if o["_pack"] != pid]
+            if pid.startswith(VARIANT_PACKS):
+                rel_ids = [o for o in pieces[piece_key(stem)] if o not in g]
             if rel_ids:
                 card["related"] = [{"rel": "same-set", "id": f"t1:{o['_pack']}/{kebab(Path(o['file']).with_suffix('').as_posix())}@{o['_ver']}"} for o in rel_ids][:10]
             if proposed:
                 card["proposed_tags"] = proposed[:12]
+            if style_sets.get(pid):
+                card["describe"]["set"] = style_sets[pid]
+                prov["describe.set"] = {"by": "code", "tool": TOOL, "at": NOW, "input": "packages/asset-cards/data/style-families.json"}
+            if cc.get("rights"):
+                card["rights"] = copy.deepcopy(cc["rights"])
+                prov["rights"] = {"by": "collection", "tool": TOOL, "at": NOW, "input": "collection card rights"}
             if flags:
                 card["flags"] = flags
             for f in flags:
@@ -379,9 +436,9 @@ def build(rows, sets, means, packs: Path):
     return written, dict(flags_count)
 
 
-def validate(packs: Path):
-    cards = sorted(str(p) for p in packs.glob("*/cards/**/*.card.json"))
-    colls = sorted(str(p) for p in packs.glob("*/collection.card.json"))
+def validate(packs: Path, only="*"):
+    cards = sorted(str(p) for p in packs.glob(f"{only}/cards/**/*.card.json"))
+    colls = sorted(str(p) for p in packs.glob(f"{only}/collection.card.json"))
     r = subprocess.run(["node", str(VALIDATOR), *colls, *cards], capture_output=True, text=True)
     fails = [l for l in r.stdout.splitlines() if l.startswith("FAIL")]
     return r.returncode, len(cards), fails, r.stdout
@@ -390,6 +447,7 @@ def validate(packs: Path):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
+    ap.add_argument("--only", default="*")
     ap.add_argument("--no-validate", action="store_true")
     a = ap.parse_args()
     rows = load(a.packs)
@@ -398,10 +456,10 @@ def main():
     score_all(rows, emb, scale, sets)
     means = library_means(rows)
     energy_ranks(rows)
-    n, flags = build(rows, sets, means, a.packs)
+    n, flags = build(rows, sets, means, a.packs, a.only)
     print(json.dumps({"sidecars": len(rows), "music": sum(d["music"] for d in rows), "cards": n, "flags": flags}))
     if not a.no_validate:
-        rc, nc, fails, out = validate(a.packs)
+        rc, nc, fails, out = validate(a.packs, a.only)
         print(json.dumps({"validated": nc, "fail_lines": len(fails), "rc": rc}))
         for l in fails[:30]:
             print(l)

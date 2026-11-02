@@ -302,6 +302,28 @@ class Library(unittest.TestCase):
         self.assertIn("acme-mystery", bcc.run(self.root)["failures"])
         self.assertFalse((self.root / "packs" / "acme-mystery" / "collection.card.json").exists())
 
+    def test_audio_pack_takes_its_confirmed_pack_rights_and_stays_style_neutral(self):
+        """CC0's table ceiling is public/free without audio edits; Kevin confirmed the Abstraction loops private, no
+        redistribution, editable, local-only. The card must say exactly that, and say it once after a rebuild."""
+        pid = "abstraction-music-loop-2024-q1"
+        d = add_pack(self.root, pid, "abstraction", "CC0-1.0", {"Loop.ogg": b"OggS"}, ver="2026-11-02")
+        m = json.loads((d / "pack.json").read_text())
+        m["category"] = "audio"
+        m["versions"]["2026-11-02"]["usage_rights"] = {
+            "uses": ["in-game", "derive", "vision-input", "audio-input"], "audience": "private", "redistribution": "none",
+            "attribution": "optional: credit \"Abstraction\"", "confirmed_by": "kevin (standing rule)", "confirmed_on": "2026-11-02",
+            "processing": "local-only"}
+        (d / "pack.json").write_text(json.dumps(m))
+        for _ in range(2):
+            self.assertEqual(bcc.run(self.root, only=pid)["failures"], {})
+        card = card_of(self.root, pid)
+        rights = card["rights"]
+        self.assertEqual(sorted(rights["uses"]), ["derive-audio", "edit-audio", "in-game", "vision-input"])
+        self.assertEqual((rights["audience"], rights["redistribution"], rights["processing"]), ("private", "none", "local-only"))
+        self.assertEqual([b["type"] for b in rights["basis"]], ["license", "interpretation", "decision"])
+        self.assertEqual((card["describe"]["style_family"], card["describe"]["set"]), ("any", "abstraction-music-loop"))
+        self.assertTrue(validator_ok(d / "collection.card.json"))
+
     def test_dry_run_writes_nothing(self):
         bcc.run(self.root, dry_run=True)
         self.assertFalse((self.root / "packs" / KENNEY / "collection.card.json").exists())
