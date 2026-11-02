@@ -140,9 +140,12 @@ export const conventions = {
     } as const,
     'Farmer_Generator_Pieces/Character Pieces/*/<px>: 80 sheets per scale, 56 x 11 frames of px x 2px ' +
       '(Body_1 at 16 px is twice as wide). Layer order bottom to top: overlapping pixels counted per pair ' +
-      '(hair/accessory 43,812, body/eyes 287, eyes/hair 5); the order itself is the generator folder order, ' +
-      'not yet confirmed against a still. Tools/<px> sheets have their own grid (Tool_Axe 1920x144 at 16 px) ' +
-      "and draw over the character at the caller's offset",
+      '(hair/accessory 43,812, body/eyes 287, eyes/hair 5), then checked on stills composed by composeLayers at ' +
+      '32 px (idle row, frames 0, 6, 12, 18) from Body_1, Eyes_Blue, Outfit_Dungarees_Green / Outfit_Vest_Yellow, ' +
+      'Hairstyle_Balding_Blue / Hairstyle_Long_Blonde_Ash, Accessory_Straw_Hat_Cyan / Accessory_Gas_Mask / none ' +
+      'and Tool_Axe: hat over hair, long hair over the vest, eyes on the face, axe in the hand over the outfit, ' +
+      'nothing hidden. Tools/<px> sheets have their own grid of 3 x 3 tile frames (Tool_Axe 1920x144 at 16 px) ' +
+      'with the character frame one tile from the left and flush with the top (ANIMATIONS_GUIDE_TOOLS.png)',
   ),
   battlerVariants: fact(
     { colour: '', alternate: 'b', greyscale: 'bw', silhouette: 's' } as const,
