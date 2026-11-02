@@ -45,7 +45,8 @@ function addSmallScaleCard(root: string, pack: string, title: string, action?: s
     collection: `t1:${pack}@1.0`,
     describe: {
       ...fixture.describe,
-      objects: [title.toLowerCase()],
+      description: 'Vendor sprite character action sheet.',
+      objects: ['sprite'],
       style_family: 'isometric-2d',
       set: 'smallscaleint',
     },
@@ -98,13 +99,19 @@ describe('gm assets search in a game repo (R55 family default)', () => {
 
   it('finds SmallScaleInt actions without a lock and sibling packs with the set lock', async () => {
     const root = library();
-    const knight = addSmallScaleCard(root, 'smallscaleint-2d-character-knight', 'Knight', 'attack');
+    const knight = addSmallScaleCard(root, 'smallscaleint-2d-character-knight', '1Knight', 'attack');
     const zombie = addSmallScaleCard(root, 'smallscaleint-2d-hd-zombie-pack-1', 'Zombie');
     const cwd = tempDir('gm-smallscaleint-');
     const events = join(cwd, 'events.jsonl');
     const env = { OGM_ASSETS_ROOT: root, GM_EVENTS_FILE: events };
 
     expect(rows((await gm(['assets', 'search', 'knight', 'attack'], { cwd, env })).out)).toContain(knight);
+    expect(rows((await gm(['assets', 'search', 'knight', '--set', 'smallscaleint'], { cwd, env })).out)).toContain(
+      knight,
+    );
+    expect(rows((await gm(['assets', 'search', 'knight', '--set', 'kenney-tiny'], { cwd, env })).out)).not.toContain(
+      knight,
+    );
     expect(rows((await gm(['assets', 'search', 'zombie'], { cwd, env })).out)).toContain(zombie);
 
     writeFileSync(
@@ -112,6 +119,9 @@ describe('gm assets search in a game repo (R55 family default)', () => {
       JSON.stringify({ version: 1, family: 'isometric-2d', assets: [{ id: knight }] }),
     );
     expect(rows((await gm(['assets', 'search', 'zombie'], { cwd, env })).out)).toContain(zombie);
+    expect(rows((await gm(['assets', 'search', 'knight', '--set', 'smallscaleint'], { cwd, env })).out)).toContain(
+      knight,
+    );
   });
 
   it("does not let an asset from another family's set narrow the game's default search", async () => {

@@ -45,6 +45,8 @@ function normalize(word: string): string {
 
 function tokens(text: string | undefined): string[] {
   return (text ?? '')
+    .replace(/([a-zA-Z])([0-9])/g, '$1 $2')
+    .replace(/([0-9])([a-zA-Z])/g, '$1 $2')
     .split(/[^a-zA-Z0-9]+/)
     .filter(Boolean)
     .map(normalize);
@@ -110,10 +112,14 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
   if (q.subkind && card.card_type === 'asset' && card.subkind !== q.subkind) return false;
 
   if (q.family && card.resolved.style_family !== q.family) return false;
+  const needsSet = q.set !== undefined || Boolean(q.gameSets?.length);
+  const pack = needsSet ? packOf(card.id) : undefined;
+  const set = pack ? setFor(pack)?.id : undefined;
+  if (q.set !== undefined) {
+    if (set !== q.set) return false;
+  }
   if (q.gameFamily && !inFamily(card, q.gameFamily)) return false;
   if (q.gameSets?.length && card.resolved.style_family !== 'any') {
-    const pack = packOf(card.id);
-    const set = pack ? setFor(pack)?.id : undefined;
     if ((!set || !q.gameSets.includes(set)) && (!pack || !q.gamePacks?.includes(pack))) return false;
   }
   if (q.pov && !(card.resolved.pov_fit ?? []).includes(q.pov)) return false;
