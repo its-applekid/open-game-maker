@@ -1,15 +1,7 @@
-import {
-  SDK_PROTOCOL,
-  hostToGameSchema,
-  type ActionFrame,
-  type Envelope,
-  type GameModule,
-  type HostToGame,
-  type PlayerSettings,
-  type SaveData,
-  type Viewport,
-} from '@ogm/contracts';
-import { openGameBridge, type Bridge } from '@ogm/iframe-bridge';
+import { SDK_PROTOCOL, hostToGameSchema, type Envelope, type HostToGame } from '@ogm/contracts/bridge';
+import type { GameModule, PlayerSettings, SaveData, Viewport } from '@ogm/contracts/game';
+import type { ActionFrame } from '@ogm/contracts/input';
+import { openGameBridge } from '@ogm/iframe-bridge';
 
 import { EventRing } from './events.js';
 import { SdkHostApi, type SendEnvelope } from './host-api.js';
@@ -80,7 +72,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
     else dispatchRuntime(envelope);
   };
 
-  const bridge: Bridge = openGameBridge({
+  const bridge = openGameBridge({
     hostOrigin,
     validate: (raw) => {
       const parsed = hostToGameSchema.safeParse(raw);

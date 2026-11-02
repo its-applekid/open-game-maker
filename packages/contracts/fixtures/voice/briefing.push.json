@@ -1,0 +1,14 @@
+{
+  "target_key": "build:j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f",
+  "observed_at": "2026-11-01T05:25:00Z",
+  "summary": "Building the castle level",
+  "current_task": "Adding the drawbridge",
+  "next_steps": ["Paint the door red"],
+  "waiting_on": "",
+  "questions": [],
+  "extra": [{ "title": "Budget", "text": "About 3 more changes fit today." }],
+  "sections": [
+    { "id": "budget", "text": "About 3 more changes fit today." },
+    { "id": "progress", "text": "Drawbridge done; door next." }
+  ]
+}

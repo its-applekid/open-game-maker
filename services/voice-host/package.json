@@ -1,0 +1,11 @@
+{
+  "name": "@ogm/voice-host",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "if command -v mise >/dev/null 2>&1; then mise exec -- mix compile --warnings-as-errors; else echo 'skipping @ogm/voice-host build (mise unavailable)'; fi",
+    "typecheck": "if command -v mise >/dev/null 2>&1; then mise exec -- mix compile --warnings-as-errors; else echo 'skipping @ogm/voice-host typecheck (mise unavailable)'; fi",
+    "test": "if command -v mise >/dev/null 2>&1; then mise exec -- mix test; else echo 'skipping @ogm/voice-host test (mise unavailable)'; fi",
+    "lint": "if command -v mise >/dev/null 2>&1; then mise exec -- mix format --check-formatted; else echo 'skipping @ogm/voice-host lint (mise unavailable)'; fi"
+  }
+}

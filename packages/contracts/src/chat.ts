@@ -22,7 +22,9 @@ export const ChatCheckpoint = z.object({
   question: z.string(),
   options: z.array(z.object({ id: z.string(), label: z.string(), media_id: z.string().optional() })),
   recommend: z.string().optional(),
+  blocking: z.boolean().optional(),
   status: z.enum(['open', 'answered', 'moot']),
+  option_id: z.string().optional(),
 });
 
 export const BuildChatMessage = z.object({
@@ -50,6 +52,35 @@ export const AgentOutboxLine = z.object({
   payload: z.record(z.string(), z.unknown()),
 });
 
+export const CheckpointOpenPayload = z
+  .object({
+    checkpoint_id: z.string().regex(/^cp_[0-7][0-9A-HJKMNP-TV-Z]{25}$/),
+    question: z.string().trim().min(1).max(8000),
+    options: z
+      .array(
+        z.object({
+          id: z.string().regex(/^[a-z0-9_-]{1,32}$/),
+          label: z.string().trim().min(1).max(200),
+          media_id: ChatMessageId.optional(),
+        }),
+      )
+      .min(2)
+      .max(5),
+    recommend: z
+      .string()
+      .regex(/^[a-z0-9_-]{1,32}$/)
+      .optional(),
+    blocking: z.boolean(),
+  })
+  .strict()
+  .superRefine((payload, ctx) => {
+    const ids = payload.options.map(({ id }) => id);
+    if (new Set(ids).size !== ids.length) ctx.addIssue({ code: 'custom', message: 'option ids must be unique' });
+    if (payload.recommend !== undefined && !ids.includes(payload.recommend)) {
+      ctx.addIssue({ code: 'custom', path: ['recommend'], message: 'recommend must name an option' });
+    }
+  });
+
 // `file` and `poster` are workspace-relative paths inside `.gm/outbox/media/`.
 export const ChatPostPayload = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('text'), text: z.string().min(1).max(8000) }),
@@ -76,6 +107,7 @@ export type BuildChatMessage = z.infer<typeof BuildChatMessage>;
 export type ChatMedia = z.infer<typeof ChatMedia>;
 export type ChatCheckpoint = z.infer<typeof ChatCheckpoint>;
 export type AgentOutboxLine = z.infer<typeof AgentOutboxLine>;
+export type CheckpointOpenPayload = z.infer<typeof CheckpointOpenPayload>;
 export type ChatPostPayload = z.infer<typeof ChatPostPayload>;
 export type ChatPostBody = z.infer<typeof ChatPostBody>;
 export type ChatMessagesPage = z.infer<typeof ChatMessagesPage>;
@@ -83,6 +115,7 @@ export type ChatMessagesPage = z.infer<typeof ChatMessagesPage>;
 export const chatSchemas = {
   'chat.message.v1': BuildChatMessage,
   'chat.outbox-line.v1': AgentOutboxLine,
+  'chat.checkpoint-open-payload.v1': CheckpointOpenPayload,
   'chat.post-payload.v1': ChatPostPayload,
   'chat.post.v1': ChatPostBody,
   'chat.messages.v1': ChatMessagesPage,

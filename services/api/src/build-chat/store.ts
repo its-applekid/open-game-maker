@@ -38,9 +38,14 @@ export type NewChatRow = {
   kind: ChatKind;
   text?: string;
   media?: StoredMedia;
-  checkpoint?: ChatCheckpoint;
+  checkpoint?: StoredCheckpoint;
   aiur?: { ticket: string; eventId?: number; topic?: string };
   mirrorState?: MirrorState;
+};
+
+export type StoredCheckpoint = ChatCheckpoint & {
+  checkpoint_id?: string;
+  version?: number;
 };
 
 // Mints a short-lived URL for a blob hash (the blob store's signed GET).
@@ -94,6 +99,27 @@ export function getChatRow(sqlite: Sqlite, id: string): ChatRow | null {
   return (sqlite.prepare(`SELECT ${columns} FROM build_chat_messages WHERE id = ?`).get(id) as ChatRow) ?? null;
 }
 
+export function parseCheckpoint(row: ChatRow): StoredCheckpoint | null {
+  return row.checkpointJson === null ? null : (JSON.parse(row.checkpointJson) as StoredCheckpoint);
+}
+
+export function listCheckpoints(sqlite: Sqlite, jobId: string): ChatRow[] {
+  return sqlite
+    .prepare(`SELECT ${columns} FROM build_chat_messages WHERE job_id = ? AND kind = 'checkpoint' ORDER BY seq ASC`)
+    .all(jobId) as ChatRow[];
+}
+
+export function findCheckpoint(sqlite: Sqlite, jobId: string, identifier: string): ChatRow | null {
+  return (
+    listCheckpoints(sqlite, jobId).find((row) => {
+      const checkpoint = parseCheckpoint(row);
+      return (
+        row.id === identifier || checkpoint?.checkpoint_id === identifier || checkpoint?.decision_id === identifier
+      );
+    }) ?? null
+  );
+}
+
 export function listSince(sqlite: Sqlite, jobId: string, since: number, limit = 200): ChatRow[] {
   return sqlite
     .prepare(`SELECT ${columns} FROM build_chat_messages WHERE job_id = ? AND seq > ? ORDER BY seq ASC LIMIT ?`)
@@ -120,15 +146,11 @@ export function lastPhase(sqlite: Sqlite, jobId: string): string | null {
 
 // OGM-082 correlates and answers checkpoints. The row moves to the end of the job's sequence so `since` readers and
 // the stream deliver it again; clients replace a row whose id they already hold.
-export function updateCheckpoint(
-  sqlite: Sqlite,
-  id: string,
-  patch: Partial<Pick<ChatCheckpoint, 'decision_id' | 'status'>>,
-): ChatRow | null {
+export function updateCheckpoint(sqlite: Sqlite, id: string, patch: Partial<StoredCheckpoint>): ChatRow | null {
   return sqlite.transaction(() => {
     const row = getChatRow(sqlite, id);
     if (row?.checkpointJson == null) return null;
-    const checkpoint = { ...(JSON.parse(row.checkpointJson) as ChatCheckpoint), ...patch };
+    const checkpoint = { ...(JSON.parse(row.checkpointJson) as StoredCheckpoint), ...patch };
     const { next } = sqlite.prepare('SELECT max(seq) + 1 AS next FROM build_chat_messages').get() as { next: number };
     sqlite
       .prepare('UPDATE build_chat_messages SET checkpoint_json = ?, seq = ? WHERE id = ?')
