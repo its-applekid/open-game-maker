@@ -1,8 +1,9 @@
 // @vitest-environment node
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
@@ -76,5 +77,20 @@ describe('deploy games origin', () => {
     const missing = runCli(await envDir());
     expect([missing.status, missing.stdout]).toEqual([1, '']);
     expect(missing.stderr).toMatch(/^deploy: VITE_GAMES_ORIGIN is not set/);
+  });
+
+  // The guard only helps if deploy.sh calls it before building and hands its output to the build.
+  it('stops deploy.sh before the build and bakes the origin into it', async () => {
+    const script = fileURLToPath(new URL('../tools/deploy.sh', import.meta.url));
+    const run = spawnSync('bash', [script, '--dry-run'], {
+      encoding: 'utf8',
+      env: { PATH: `${dirname(process.execPath)}:/usr/bin:/bin`, OGM_ENV_DIR: await envDir() },
+    });
+
+    expect([run.status, run.stdout]).toEqual([1, '']);
+    expect(run.stderr).toMatch(/^deploy: VITE_GAMES_ORIGIN is not set/);
+    expect(readFileSync(script, 'utf8')).toContain(
+      'VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build',
+    );
   });
 });
