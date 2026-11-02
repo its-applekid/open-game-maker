@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 
 import type { ResolvedCard } from '@ogm/asset-cards';
 import { blobPath } from '@ogm/blob-store';
@@ -43,6 +43,19 @@ export function libraryRoot(assetsRoot: string, id: string, collection?: Resolve
     join(assetsRoot, 'inspiration', slug, version, 'extracted'),
   ];
   return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!;
+}
+
+/**
+ * Repo files a lock entry owns: none for library and blob entries; the primary and `files[]` for vendored ones.
+ * Older locks did not list companions; those sit beside the primary under their library basename.
+ */
+export function repoPaths(entry: LockEntry, card?: ResolvedCard): string[] {
+  if (entrySource(entry) !== 'vendored') return [];
+  if (entry.files !== undefined) return [entry.path, ...entry.files.map((file) => file.path)];
+  const companions = (card?.source?.files ?? [])
+    .filter((file) => file.role === 'texture' || file.role === 'companion')
+    .map((file) => join(dirname(entry.path), basename(file.path)).replaceAll(sep, '/'));
+  return [entry.path, ...companions];
 }
 
 function fixFor(entry: LockEntry, source: EntrySource): string {

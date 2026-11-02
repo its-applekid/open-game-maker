@@ -12,6 +12,7 @@ export type RefusalRule =
   | 'stale-rights'
   | 'missing-file'
   | 'sha-mismatch'
+  | 'name-collision'
   | 'unknown-id';
 
 export type Refusal = { code: 'rights'; rule: RefusalRule; id: string; detail: string; path?: string };

@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
-import { basename, dirname, join, relative, sep } from 'node:path';
+import { join, relative, sep } from 'node:path';
 
 import { loadIndex } from '@ogm/asset-cards';
 import type { BoundaryVerdict } from '@ogm/contracts';
@@ -8,7 +8,7 @@ import type { BoundaryVerdict } from '@ogm/contracts';
 import { EXIT, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot } from '../../context.js';
 import { readLock } from '../../lock.js';
-import { entrySource, resolveEntry } from '../../resolve.js';
+import { repoPaths, resolveEntry } from '../../resolve.js';
 import { refusalsForCheck, rightsForCard, type Refusal } from '../../rules.js';
 
 async function assetFiles(cwd: string): Promise<string[]> {
@@ -114,18 +114,7 @@ export const command: GmCommand = {
         ).map((item) => ({ ...item, path: entry.path })),
       );
     }
-    const lockedPaths = new Set<string>();
-    for (const entry of lock.assets.filter((candidate) => entrySource(candidate) === 'vendored')) {
-      lockedPaths.add(entry.path);
-      for (const file of entry.files ?? []) lockedPaths.add(file.path);
-      if (entry.files !== undefined) continue;
-      /* Older locks did not list companions; they sit beside the primary under their library basename. */
-      for (const source of byId.get(entry.id)?.source?.files ?? []) {
-        if (source.role === 'texture' || source.role === 'companion') {
-          lockedPaths.add(join(dirname(entry.path), basename(source.path)).replaceAll(sep, '/'));
-        }
-      }
-    }
+    const lockedPaths = new Set(lock.assets.flatMap((entry) => repoPaths(entry, byId.get(entry.id))));
     for (const path of files.filter((file) => !lockedPaths.has(file))) {
       refusals.push({
         code: 'rights',

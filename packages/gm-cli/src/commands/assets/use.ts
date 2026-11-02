@@ -1,14 +1,14 @@
-import { copyFile, lstat, mkdir, readFile, stat } from 'node:fs/promises';
+import { copyFile, lstat, mkdir, readFile, stat, unlink } from 'node:fs/promises';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { loadIndex, type ResolvedCard } from '@ogm/asset-cards';
-import { povIdSchema, styleFamilyIdSchema, type AssetMetadata, type LockEntry } from '@ogm/contracts';
+import { povIdSchema, styleFamilyIdSchema, type AssetMetadata, type AssetsLock, type LockEntry } from '@ogm/contracts';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot, resolveContainedPath } from '../../context.js';
 import { renderCredits } from '../../credits.js';
 import { readLock, sha256File, upsertLock, writeGeneratedText, writeLock } from '../../lock.js';
-import { collectionParts, libraryRoot } from '../../resolve.js';
+import { collectionParts, libraryRoot, repoPaths } from '../../resolve.js';
 import { refusalsForUse, rightsForCard, type Refusal } from '../../rules.js';
 
 type SourceFile = { path: string; absolute: string; sha256: string };
@@ -110,6 +110,31 @@ async function idsFromArgs(cwd: string, args: string[], picks: unknown): Promise
     );
   }
   return [...new Set(ids)];
+}
+
+/**
+ * An id that was vendored (or copied by an older `gm assets use`) and is now a library reference leaves its repo
+ * copies behind; delete the ones no remaining lock entry owns so the repo carries no unlocked bytes.
+ */
+async function removeReplacedCopies(
+  cwd: string,
+  lock: AssetsLock,
+  accepted: Array<{ card: ResolvedCard; existing?: LockEntry }>,
+  byId: Map<string, ResolvedCard>,
+): Promise<void> {
+  const owned = new Set(lock.assets.flatMap((entry) => repoPaths(entry, byId.get(entry.id))));
+  for (const { card, existing } of accepted) {
+    if (existing === undefined) continue;
+    for (const path of repoPaths(existing, card).filter((candidate) => !owned.has(candidate))) {
+      const absolute = resolve(cwd, path);
+      try {
+        if ((await lstat(absolute)).isSymbolicLink() || (await resolveContainedPath(cwd, absolute)) === null) continue;
+        await unlink(absolute);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    }
+  }
 }
 
 /** `--vendor`: copy each file into the repo, verify its sha256, and return repo-relative paths. */
@@ -241,6 +266,19 @@ export const command: GmCommand = {
         refusals.push(sources.refusal);
         continue;
       }
+      if (destinationRoot !== null) {
+        const destinations = vendorCopies(destinationRoot, card, sources.files).map((copy) => copy.destination);
+        const clash = destinations.find((destination, at) => destinations.indexOf(destination) !== at);
+        if (clash !== undefined) {
+          refusals.push({
+            code: 'rights',
+            rule: 'name-collision',
+            id,
+            detail: `two source files would both be vendored as ${relative(ctx.cwd, clash).replaceAll(sep, '/')}`,
+          });
+          continue;
+        }
+      }
       accepted.push({ card, files: sources.files, existing, familyException });
     }
 
@@ -289,6 +327,7 @@ export const command: GmCommand = {
     if (accepted.length > 0) {
       await writeLock(ctx.cwd, lock);
       await writeGeneratedText(join(ctx.cwd, 'CREDITS.md'), renderCredits(lock));
+      await removeReplacedCopies(ctx.cwd, lock, accepted, byId);
     }
     refusals.forEach((item) => ctx.err(refusalLine(item)));
     ctx.emit('assets.use', { ids, refused: refusals.length });

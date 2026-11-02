@@ -123,6 +123,42 @@ describe('gm assets use', () => {
     });
   });
 
+  it('deletes the repo copies of a vendored id when it becomes a library reference', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    await gm(['assets', 'use', WALL, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
+    const referenced = await gm(['assets', 'use', WALL], { cwd, env: { OGM_ASSETS_ROOT: root } });
+    expect(referenced.code).toBe(0);
+    expect(existsSync(join(cwd, 'assets/model/kenney-mini-dungeon/wall.glb'))).toBe(false);
+    expect(existsSync(join(cwd, 'assets/model/kenney-mini-dungeon/colormap.png'))).toBe(false);
+    expect((await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } })).code).toBe(0);
+  });
+
+  // Vendoring flattens files into one folder; two files with one name would leave a lock pinning bytes it lost.
+  it('refuses to vendor a card whose files share a name without copying anything', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    const cardPath = join(root, 'packs/kenney-mini-dungeon/cards/wall.card.json');
+    const card = JSON.parse(readFileSync(cardPath, 'utf8')) as { source: { files: Array<Record<string, unknown>> } };
+    card.source.files.push({ ...card.source.files[1], path: 'Models/OBJ format/Textures/colormap.png' });
+    writeFileSync(cardPath, `${JSON.stringify(card, null, 2)}\n`);
+    mkdirSync(join(root, 'packs/kenney-mini-dungeon/2.0/extracted/Models/OBJ format/Textures'), { recursive: true });
+    writeFileSync(join(root, 'packs/kenney-mini-dungeon/2.0/extracted/Models/OBJ format/Textures/colormap.png'), 'obj');
+    rmSync(join(root, 'index'), { recursive: true, force: true });
+
+    const result = await gm(['assets', 'use', WALL, '--vendor', '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: root },
+    });
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain(`${WALL}  name-collision`);
+    expect(existsSync(join(cwd, 'assets'))).toBe(false);
+    expect(existsSync(join(cwd, 'assets.lock.json'))).toBe(false);
+  });
+
   // Build-only redistribution lets the bytes ship inside a built game, never as files in a repo.
   it('refuses to vendor an asset whose rights allow redistribution only in a build', async () => {
     const cwd = tempDir();
