@@ -9,13 +9,17 @@ const editorApi = vi.hoisted(() => ({
   acquireLease: vi.fn(),
   getDesignSnapshot: vi.fn(),
   getGame: vi.fn(),
+  getOptionalPublished: vi.fn(),
+  getOptionalReapply: vi.fn(),
   getOptionalSaves: vi.fn(),
   getSave: vi.fn(),
   heartbeatLease: vi.fn(),
+  listJobs: vi.fn(),
   openTransactionStream: vi.fn(),
   postTransaction: vi.fn(),
   putSave: vi.fn(),
   releaseLease: vi.fn(),
+  submitReapply: vi.fn(),
 }));
 
 const host = vi.hoisted(() => {
@@ -64,6 +68,7 @@ function renderGame(entry = '/g/game') {
 
 beforeEach(() => {
   editorApi.getGame.mockResolvedValue({ id: 'game', title: 'Goblin Cellar' });
+  editorApi.listJobs.mockResolvedValue({ jobs: [] });
   editorApi.getDesignSnapshot.mockResolvedValue({
     rev: 4,
     buildId: 'build',

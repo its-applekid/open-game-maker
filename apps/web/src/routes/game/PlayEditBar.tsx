@@ -1,13 +1,18 @@
+import { EDITOR_FOCUS_ZONES } from '../../features/editor/focus';
+import { FocusZone } from '../../lib/input';
+
 type PlayEditBarProps = {
   title: string;
   mode: 'play' | 'edit';
   saved?: string;
+  build: 'draft' | 'published';
+  buildStatus?: string;
   onBack(): void;
   onMode(mode: 'play' | 'edit'): void;
   onAsk(): void;
 };
 
-export function PlayEditBar({ title, mode, saved, onBack, onMode, onAsk }: PlayEditBarProps) {
+export function PlayEditBar({ title, mode, saved, build, buildStatus, onBack, onMode, onAsk }: PlayEditBarProps) {
   return (
     <FocusZone id={EDITOR_FOCUS_ZONES.bar} className="play-bar">
       <button className="back tap-primary" type="button" onClick={onBack}>
@@ -15,6 +20,8 @@ export function PlayEditBar({ title, mode, saved, onBack, onMode, onAsk }: PlayE
       </button>
       <span className="play-title">{title}</span>
       {saved ? <output className="saved-state">{saved}</output> : null}
+      <span className="build-badge">{build === 'draft' ? 'Draft' : 'Published'}</span>
+      {buildStatus ? <output className="build-state">{buildStatus}</output> : null}
       <div className="mode-segment" role="group" aria-label="Mode">
         <button
           className="tap-primary"
@@ -41,5 +48,3 @@ export function PlayEditBar({ title, mode, saved, onBack, onMode, onAsk }: PlayE
     </FocusZone>
   );
 }
-import { FocusZone } from '../../lib/input';
-import { EDITOR_FOCUS_ZONES } from '../../features/editor/focus';

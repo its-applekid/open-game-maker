@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DesignDoc } from '@ogm/contracts';
 
-import { getOptionalSaves, postTransaction, putSave, type TransactionBody } from './api';
+import { getOptionalPublished, getOptionalSaves, postTransaction, putSave, type TransactionBody } from './api';
 
 const gameId = 'g_00000000-0000-4000-8000-000000000001';
 const buildId = 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ';
@@ -80,6 +80,23 @@ describe('editor API classifications', () => {
     expect(path).toBe(`/api/v1/games/${gameId}/saves/2`);
     expect(new Headers(init.headers).get('if-match')).toBe('"7"');
     expect(JSON.parse(String(init.body))).toEqual({ saveSchemaVersion: 1, data: { room: 'crypt' } });
+  });
+
+  it('uses a conditional published request and preserves the ETag on 304', async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(undefined, {
+        status: 304,
+        headers: { etag: '"release-2"' },
+      }),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(getOptionalPublished(gameId, '"release-2"')).resolves.toEqual({
+      available: true,
+      modified: false,
+      etag: '"release-2"',
+    });
+    expect(new Headers((fetch.mock.calls[0]?.[1] as RequestInit).headers).get('if-none-match')).toBe('"release-2"');
   });
 
   it('refuses an over-cap transaction before calling fetch', async () => {

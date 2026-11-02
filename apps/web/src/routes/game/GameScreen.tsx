@@ -3,26 +3,35 @@ import { useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 
+import type { ReapplyReport } from '@ogm/contracts';
+
 import type { OgmHost } from '../../app/testHook';
 import {
   acquireLease,
   getDesignSnapshot,
   getGame,
+  getOptionalReapply,
   heartbeatLease,
+  listJobs,
   postTransaction,
   releaseLease,
+  submitReapply,
   type DesignSnapshot,
 } from '../../features/editor/api';
+import { activeBuildStatus, inspectBuildChange } from '../../features/editor/builds';
 import { EditorChrome } from '../../features/editor/EditorChrome';
 import { GizmoOverlay } from '../../features/editor/GizmoOverlay';
 import { mountGameFrame, type GameFrameController, type GameFrameState } from '../../features/editor/frame';
 import { LeaseController } from '../../features/editor/lease';
+import { ReapplyCard } from '../../features/editor/ReapplyCard';
 import { createEditorSession, type EditorSessionState } from '../../features/editor/session';
 import type { SnapPrefs } from '../../features/editor/SnapPrefs';
 import { connectTransactionStream } from '../../features/editor/stream';
 import { createIntent } from '../../features/editor/transactions';
+import { pushToast } from '../../lib/notify/slice';
 import { PlayEditBar } from './PlayEditBar';
 import { PlatformHud } from './PlatformHud';
+import { UpdateIndicator } from './UpdateIndicator';
 import './game.css';
 
 const initialFrameState: GameFrameState = { bridgeState: 'connecting', dropped: 0 };
@@ -52,6 +61,12 @@ export function GameScreen() {
     queryFn: () => getDesignSnapshot(gameId, branch),
     enabled: gameId !== '',
   });
+  const jobs = useQuery({
+    queryKey: ['game-jobs', gameId],
+    queryFn: () => listJobs(gameId),
+    enabled: gameId !== '',
+    refetchInterval: 5_000,
+  });
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<GameFrameController | undefined>(undefined);
   const [frameState, setFrameState] = useState(initialFrameState);
@@ -59,10 +74,45 @@ export function GameScreen() {
   const [sessionStore, setSessionStore] = useState<StoreApi<EditorSessionState>>();
   const [sessionView, setSessionView] = useState<EditorSessionState>();
   const [canvasOptions, setCanvasOptions] = useState<{ prefab?: string; snap: SnapPrefs }>();
+  const [adopted, setAdopted] = useState<{ gameId: string; branch: string; snapshot: DesignSnapshot }>();
+  const [pendingBuild, setPendingBuild] = useState<{ snapshot: DesignSnapshot; report: ReapplyReport }>();
+  const inspectedBuildRef = useRef<string | undefined>(undefined);
+  const activeSnapshot = adopted?.gameId === gameId && adopted.branch === branch ? adopted.snapshot : design.data;
+
+  useEffect(() => {
+    inspectedBuildRef.current = undefined;
+    setPendingBuild(undefined);
+  }, [branch, gameId]);
+
+  useEffect(() => {
+    const ready = jobs.data?.jobs.some((job) => job.stage === 'ready' || job.state === 'done') ?? false;
+    if (!ready || activeSnapshot === undefined || gameId === '') return;
+    let active = true;
+    void getDesignSnapshot(gameId, branch)
+      .then(async (next) => {
+        if (!active || next.buildId === activeSnapshot.buildId || inspectedBuildRef.current === next.buildId) return;
+        inspectedBuildRef.current = next.buildId;
+        const change = await inspectBuildChange(activeSnapshot, next, () =>
+          getOptionalReapply(gameId, branch, activeSnapshot.buildId, next.buildId),
+        );
+        if (!active) return;
+        if (change.kind === 'switch') {
+          setAdopted({ gameId, branch, snapshot: change.snapshot });
+        } else if (change.kind === 'review') {
+          setPendingBuild({ snapshot: change.snapshot, report: change.report });
+        }
+      })
+      .catch(() => {
+        inspectedBuildRef.current = undefined;
+      });
+    return () => {
+      active = false;
+    };
+  }, [activeSnapshot, branch, gameId, jobs.data?.jobs]);
 
   useEffect(() => {
     const container = containerRef.current;
-    const snapshot = design.data;
+    const snapshot = activeSnapshot;
     if (container === null || snapshot === undefined || gameId === '') return;
     setFrameState(initialFrameState);
     const controller = mountGameFrame({
@@ -79,18 +129,18 @@ export function GameScreen() {
       controller.dispose();
       if (frameRef.current === controller) frameRef.current = undefined;
     };
-  }, [branch, design.data, frameAttempt, gameId, gamesOrigin]);
+  }, [activeSnapshot, branch, frameAttempt, gameId, gamesOrigin]);
 
   useEffect(() => {
     frameRef.current?.setMode(mode);
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== 'edit' || design.data === undefined || gameId === '') {
+    if (mode !== 'edit' || activeSnapshot === undefined || gameId === '') {
       setSessionStore(undefined);
       return;
     }
-    const snapshot = design.data;
+    const snapshot = activeSnapshot;
     const sessionId = globalThis.crypto.randomUUID();
     let active = true;
     let stream: ReturnType<typeof connectTransactionStream> | undefined;
@@ -126,7 +176,7 @@ export function GameScreen() {
       void lease.stop();
       setSessionStore(undefined);
     };
-  }, [branch, design.data, gameId, mode]);
+  }, [activeSnapshot, branch, gameId, mode]);
 
   useEffect(() => {
     if (sessionStore === undefined) {
@@ -139,7 +189,7 @@ export function GameScreen() {
 
   const testState: GameTestState = {
     bridgeState: frameState.bridgeState,
-    revision: sessionView?.headRev ?? design.data?.rev ?? 0,
+    revision: sessionView?.headRev ?? activeSnapshot?.rev ?? 0,
     saved: sessionView?.saved ?? 'saved',
     mode,
     selection: sessionView?.selection ?? [],
@@ -173,6 +223,8 @@ export function GameScreen() {
         title={game.data?.title ?? ''}
         mode={mode}
         saved={mode === 'edit' ? savedLabel(sessionView?.saved) : undefined}
+        build="draft"
+        buildStatus={activeBuildStatus(jobs.data?.jobs ?? [])}
         onBack={back}
         onMode={setMode}
         onAsk={() => setMode('edit')}
@@ -193,7 +245,16 @@ export function GameScreen() {
           />
         ) : null}
         {mode === 'play' && frameRef.current !== undefined && frameState.manifest !== undefined ? (
-          <PlatformHud build="draft" frame={frameRef.current} gameId={gameId} saves={frameState.manifest.saves} />
+          <>
+            <PlatformHud build="draft" frame={frameRef.current} gameId={gameId} saves={frameState.manifest.saves} />
+            {activeSnapshot ? (
+              <UpdateIndicator
+                currentBuildId={activeSnapshot.buildId}
+                gameId={gameId}
+                onUpdate={() => window.location.reload()}
+              />
+            ) : null}
+          </>
         ) : null}
       </div>
       {mode === 'edit' &&
@@ -222,6 +283,19 @@ export function GameScreen() {
             Try again
           </button>
         </div>
+      ) : null}
+      {pendingBuild ? (
+        <ReapplyCard
+          report={pendingBuild.report}
+          onConfirm={(choices) => {
+            void submitReapply(gameId, branch, choices)
+              .then(() => {
+                setAdopted({ gameId, branch, snapshot: pendingBuild.snapshot });
+                setPendingBuild(undefined);
+              })
+              .catch(() => pushToast('Update failed'));
+          }}
+        />
       ) : null}
       <Outlet />
     </section>

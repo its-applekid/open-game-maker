@@ -11,7 +11,7 @@ import type {
 } from '@ogm/contracts';
 import { PatchTooLargeError, validatePatches } from '@ogm/design-log';
 
-import { api, ApiError, sse } from '../../lib/api/client';
+import { api, ApiError, apiFetch, sse } from '../../lib/api/client';
 
 export type GameMetadata = {
   id: string;
@@ -51,6 +51,10 @@ export type LeaseResult =
   | { ok: false; kind: 'failure'; status: number; message: string };
 
 export type OptionalCapability<T> = { available: true; value: T } | { available: false };
+export type PublishedCapability =
+  | { available: false }
+  | { available: true; modified: false; etag?: string }
+  | { available: true; modified: true; etag?: string; value: Release };
 
 export function getGame(gameId: string): Promise<GameMetadata> {
   return api(`/games/${segment(gameId)}`);
@@ -151,11 +155,15 @@ export function putSave(
   });
 }
 
-export function getOptionalPublished(gameId: string, etag?: string): Promise<OptionalCapability<Release>> {
-  return optionalApi(
-    `/games/${segment(gameId)}/published`,
-    etag === undefined ? undefined : { headers: { 'if-none-match': etag } },
-  );
+export async function getOptionalPublished(gameId: string, etag?: string): Promise<PublishedCapability> {
+  const response = await apiFetch(`/games/${segment(gameId)}/published`, {
+    headers: etag === undefined ? undefined : { 'if-none-match': etag },
+  });
+  const nextEtag = response.headers.get('etag') ?? undefined;
+  if (response.status === 304) return { available: true, modified: false, etag: nextEtag ?? etag };
+  if (response.status === 404) return { available: false };
+  if (!response.ok) throw new ApiError(response.status, undefined);
+  return { available: true, modified: true, etag: nextEtag, value: (await response.json()) as Release };
 }
 
 export function getOptionalReapply(
