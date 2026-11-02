@@ -1,13 +1,14 @@
 import type { CameraRig } from '@ogm/contracts';
-import { cameraPresets } from '@gm/sdk/phaser';
+import { createRig, RigSet } from '@gm/sdk/camera';
 import Phaser from 'phaser';
 
-import { getGameContext, type TemplateContext } from '../game.js';
+import { game, getGameContext, type TemplateContext } from '../game.js';
 import { GROUND_Y, PLAYER_HEIGHT, PLAYER_WIDTH } from '../state.js';
 
 export class Level extends Phaser.Scene {
   private readonly playerViews = new Map<number, Phaser.GameObjects.Rectangle>();
   private cameraRig: CameraRig | undefined;
+  private cameraRigs: RigSet | undefined;
 
   constructor() {
     super('level');
@@ -25,7 +26,10 @@ export class Level extends Phaser.Scene {
     }
 
     this.syncViews(context);
-    this.cameraRig = cameraPresets.side(this, this.cameras.main);
+    this.cameraRigs?.dispose();
+    this.cameraRigs = new RigSet(() =>
+      createRig(game.manifest.view, '2d', { phaser: { scene: this, camera: this.cameras.main } }),
+    );
     context.view = {
       screenToWorld: (nx, ny) => {
         const point = this.cameras.main.getWorldPoint(nx * this.cameras.main.width, ny * this.cameras.main.height);
@@ -35,27 +39,26 @@ export class Level extends Phaser.Scene {
     };
     const followed = context.state.players.get(0);
     if (followed) {
-      this.cameraRig.attach(
-        {
-          position: () => {
-            const player = getGameContext().state.players.get(0);
-            return player ? [player.pos.x, player.pos.y, 0] : [0, 0, 0];
-          },
+      this.cameraRig = this.cameraRigs.attach(0, {
+        position: () => {
+          const player = getGameContext().state.players.get(0);
+          return player ? [player.pos.x, player.pos.y, 0] : [0, 0, 0];
         },
-        0,
-      );
+      });
     }
   }
 
   update(_time: number, delta: number): void {
     const context = getGameContext();
     this.syncViews(context);
-    this.cameraRig?.update(delta / 1000, {
-      playerIndex: 0,
-      tick: context.state.tick,
-      source: 'keyboard',
-      actions: {},
-    });
+    this.cameraRigs?.update(delta / 1000, [
+      {
+        playerIndex: 0,
+        tick: context.state.tick,
+        source: 'keyboard',
+        actions: {},
+      },
+    ]);
   }
 
   private syncViews(context: TemplateContext): void {

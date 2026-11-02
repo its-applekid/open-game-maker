@@ -1,4 +1,5 @@
 import { boot, type BuildKind } from '@gm/sdk/core';
+import { defaultInputMapping } from '@gm/sdk/camera';
 
 import { connectPhaserLifecycle, game, getGameContext } from './game.js';
 import { installStandaloneHost } from './standalone.js';
@@ -29,6 +30,10 @@ async function main(): Promise<void> {
     presentation: game.manifest.presentation,
     scenes: [Boot, Level],
     test: build === 'test',
+  });
+  runtime.attachInput({
+    canvas: wrapper.game.canvas,
+    mapping: defaultInputMapping(game.manifest.view),
   });
   connectPhaserLifecycle(bindLifecycle(runtime, wrapper.game, 'level'));
   runtime.setRenderInfoProvider(wrapper.info);
