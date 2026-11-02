@@ -141,6 +141,10 @@ async function routeRepair(
     return { jobId: outcome.jobId };
   }
   setReportRoute(deps.db, report.id, 'stored');
+  if (outcome.attemptsExhausted) {
+    deps.log({ event: 'report-repair-attempts-exhausted', reportId: report.id, signature: sig.signature });
+    return { route: 'stored' };
+  }
   return { route: 'stored', pendingBudget: true };
 }
 

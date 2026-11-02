@@ -1,4 +1,7 @@
 import type { TriageClaim } from '@ogm/contracts';
+import type { ReplayOptions } from '@ogm/gm-verify';
+import { existsSync } from 'node:fs';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { createWorker, type RepairApi } from '../src/worker.js';
@@ -99,23 +102,28 @@ describe('repair worker', () => {
       errors: [{ message: 'TypeError: planted crash' }],
       probes: { alive: true },
     };
+    const runReplay = vi.fn(async (_bundle: unknown, options: ReplayOptions) => ({
+      class: 'reproduces_with_error' as const,
+      errorsSeen: ['TypeError: planted crash'],
+      finalState: { save: 'PRIVATE_STATE', alive: false },
+      finalProbes: { alive: false },
+      scriptPath: `${options.outDir}/replay.json`,
+      durationMs: 22,
+    }));
     const worker = createWorker({
       api: current,
       config: { attempts: 2, reservationFraction: 0.333, wallClockMinutes: 10, pollMs: 5000 },
       gamesRoot: '/games',
       fetch: vi.fn(async () => new Response(JSON.stringify(bundle))),
-      replay: vi.fn(async () => ({
-        class: 'reproduces_with_error',
-        errorsSeen: ['TypeError: planted crash'],
-        finalState: { save: 'PRIVATE_STATE', alive: false },
-        finalProbes: { alive: false },
-        scriptPath: '/private/replay.json',
-        durationMs: 22,
-      })),
+      replay: runReplay,
       log: vi.fn(),
     });
 
     await expect(worker.runOnce()).resolves.toBe(true);
+    // Replay files hold the creator's keyframe; none may outlive the claim on the worker host.
+    const outDir = vi.mocked(runReplay).mock.calls[0]?.[1].outDir;
+    expect(outDir).toEqual(expect.any(String));
+    expect(existsSync(outDir!)).toBe(false);
     const diagnostics = vi.mocked(current.uploadDiagnostics).mock.calls[0]?.[1];
     expect(diagnostics).toMatchObject({
       finalState: { save: 'PRIVATE_STATE', alive: false },

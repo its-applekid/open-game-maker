@@ -10,12 +10,17 @@
     "pretest": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/gm-verify build",
     "test": "vitest run",
     "lint": "eslint src",
-    "start": "node dist/index.js"
+    "start": "node dist/index.js",
+    "test:browser": "vitest run --config vitest.browser.config.ts",
+    "pretest:browser": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/gm-verify --filter @gm/sdk build"
   },
   "dependencies": {
     "@ogm/config": "workspace:*",
     "@ogm/contracts": "workspace:*",
     "@ogm/gm-verify": "workspace:*",
     "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@gm/sdk": "workspace:*"
   }
 }
