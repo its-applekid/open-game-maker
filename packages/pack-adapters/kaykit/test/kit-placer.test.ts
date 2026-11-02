@@ -39,6 +39,8 @@ describe('createKitPlacer', () => {
     // east (+X) turns to south (+Z): the wall runs along Z with its thickness on +X
     expect(kit.footprint('wall', 1)).toEqual({ min: [0, -2], max: [0.5, 2] });
     expect(kit.footprint('wall', 2)).toEqual({ min: [-2, 0], max: [2, 0.5] });
+    expect(kit.footprint('wall', 3)).toEqual({ min: [-0.5, -2], max: [0, 2] });
+    expect(kit.footprint('wall', -1)).toEqual(kit.footprint('wall', 3));
   });
 
   it('gives walls a cuboid from their turned bounds', async () => {

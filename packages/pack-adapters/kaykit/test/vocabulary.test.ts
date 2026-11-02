@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { canonicalClip, clipLoops } from '../src/conventions.js';
+import { canonicalClip, clipLoops, conventions } from '../src/conventions.js';
 import { roleOf, vocabulary } from '../src/vocabulary.js';
 
 /** Clip names of the KayKit libraries (asset-qa/kaykit.md, GLB card pass), so a typo in the vocabulary fails here. */
@@ -82,5 +82,21 @@ describe('ported clip table', () => {
       ['attack-ranged', false],
       ['other', false],
     ]);
+  });
+});
+
+describe('clip table parity', () => {
+  it('matches CLIP_WORDS and LOOP_CLIPS in the card pipeline it was ported from', async () => {
+    const { readFileSync } = await import('node:fs');
+    const python = readFileSync(new URL('../../../../scripts/assets/preprocess_kaykit.py', import.meta.url), 'utf8');
+    const words = python.match(/^CLIP_WORDS = \(\n([\s\S]*?)\n\)/m)![1]!;
+    const rows = [...words.matchAll(/\("([^"]+)", \(([^)]*)\)\)/g)].map(([, canonical, list]) => [
+      canonical,
+      [...list!.matchAll(/"([^"]+)"/g)].map((match) => match[1]),
+    ]);
+    const loops = [...python.match(/^LOOP_CLIPS = \{([^}]*)\}/m)![1]!.matchAll(/"([^"]+)"/g)].map((match) => match[1]);
+
+    expect(rows).toEqual(conventions.clipWords.value.map(([canonical, list]) => [canonical, [...list]]));
+    expect(loops.sort()).toEqual([...conventions.loopClips.value].sort());
   });
 });

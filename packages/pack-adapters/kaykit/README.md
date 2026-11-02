@@ -12,8 +12,9 @@ Adapter for the KayKit 3D set (three + Rapier). It reads rig, kit and geometry f
   `contactFrame(action)` answers once a still has verified the frame.
 - `createKitPlacer(loader)`: `snap` to the piece's `kit.grid_m` in 90° steps, `footprint`, and `colliderFor` (a
   cuboid from `geometry.bounds_m` for solid pieces, `null` for floors and props unless the game asks).
-- `parseKitMap` / `writeKitMap`: the Tiled JSON subset kits are authored in (orthogonal, `asset` tile property,
-  rotate flags or object `rotation` as turns, `z` property as height); `kitPalette(manifest)` lists what may be placed.
+- `parseKitMap` / `writeKitMap`: the Tiled JSON subset kits are authored in (orthogonal, a `grid_m` map property,
+  `asset` tile property, rotate flags or object `rotation` as turns, `z` property as height); `kitPalette(manifest)`
+  lists what may be placed.
 - `conventions`: the pack facts, each with how it was verified; `vocabulary`: the shared roles to KayKit clip names.
 
 ## Leaves to the game

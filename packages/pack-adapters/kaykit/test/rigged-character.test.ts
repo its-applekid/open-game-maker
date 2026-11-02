@@ -12,6 +12,7 @@ const rigMeta = (rig_id = SHARED) => ({ rig: { rig_type: 'humanoid', rig_id, joi
 const CLIPS = [
   { name: 'Idle_A', duration: 2, angle: 0.8 },
   { name: 'Hit_A', duration: 1, angle: -0.6 },
+  { name: 'Walking_A', duration: 2, angle: -0.8 },
 ];
 
 /** Spine angle about Z, read off the posed character. */
@@ -20,7 +21,9 @@ function spine(character: RiggedCharacter): number {
   return 2 * Math.atan2(bone.quaternion.z, bone.quaternion.w);
 }
 
-async function setup(options: { characterJoints?: string[]; libraryBody?: string; rigId?: string } = {}) {
+async function setup(
+  options: { characterJoints?: string[]; libraryBody?: string; rigId?: string; crossFade?: number } = {},
+) {
   const files = {
     'hero.glb': await toGlb(makeRig({ joints: options.characterJoints })),
     'lib.glb': await toGlb(makeRig({ body: options.libraryBody, clips: CLIPS })),
@@ -30,7 +33,11 @@ async function setup(options: { characterJoints?: string[]; libraryBody?: string
     files,
   );
   const gltf = createGltf();
-  const make = () => createRiggedCharacter(loader, gltf, 'hero', { clipLibraryIds: ['lib'], crossFade: 0.2 });
+  const make = () =>
+    createRiggedCharacter(loader, gltf, 'hero', {
+      clipLibraryIds: ['lib'],
+      crossFade: options.crossFade ?? 0.2,
+    });
   return { make, fetch };
 }
 
@@ -39,7 +46,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe('createRiggedCharacter', () => {
   it('plays a library clip on a character whose joints share its names', async () => {
     const character = await (await setup()).make();
-    expect(character.clips).toEqual(['Idle_A', 'Hit_A']);
+    expect(character.clips).toEqual(['Idle_A', 'Hit_A', 'Walking_A']);
 
     character.sync({ pos: [1, 0, 2], yaw: Math.PI / 2, action: 'idle', t: 1 });
     expect(spine(character)).toBeCloseTo(0.4);
@@ -67,6 +74,22 @@ describe('createRiggedCharacter', () => {
     expect(spine(character)).toBeCloseTo((0.44 - 0.06) / 2, 2);
     character.sync({ pos: [0, 0, 0], yaw: 0, action: 'hit', t: 0.5 });
     expect(spine(character)).toBeCloseTo(-0.3);
+  });
+
+  it('cuts straight to the new action when the cross-fade is 0', async () => {
+    const character = await (await setup({ crossFade: 0 })).make();
+    character.sync({ pos: [0, 0, 0], yaw: 0, action: 'idle', t: 1 });
+    character.sync({ pos: [0, 0, 0], yaw: 0, action: 'hit', t: 0.5 });
+    expect(spine(character)).toBeCloseTo(-0.3);
+  });
+
+  it('keeps fading out the clip that showed more when a fade is interrupted', async () => {
+    const character = await (await setup()).make();
+    character.sync({ pos: [0, 0, 0], yaw: 0, action: 'idle', t: 1 });
+    character.sync({ pos: [0, 0, 0], yaw: 0, action: 'hit', t: 0.05 });
+    // idle still weighs 0.75 here, so the walk fades in over idle (1.05 s → 0.42), not over the barely-shown hit
+    character.sync({ pos: [0, 0, 0], yaw: 0, action: 'walk', t: 0 });
+    expect(spine(character)).toBeCloseTo(0.42);
   });
 
   it('refuses a library whose clips drive a joint the character lacks, naming it', async () => {

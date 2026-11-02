@@ -3,8 +3,9 @@ import { z } from 'zod';
 import type { Turns } from './kit-placer.js';
 
 /**
- * One kit piece on the map. `cell` is the piece origin in grid cells (Tiled pixels ÷ tile size); the game multiplies
- * by the piece's `grid_m` and hands the result to `KitPlacer.snap`. `z` is the height of the origin in metres.
+ * One kit piece on the map. `cell` is the piece origin in grid cells: a tile-layer tile at column c, row r, or a tile
+ * object whose bottom-left corner (Tiled's anchor) sits on that cell's top-left. The game multiplies by the map's
+ * `gridM` and hands the result to `KitPlacer.snap`. `z` is the height of the origin in metres.
  */
 export interface KitPlacement {
   asset: string;
@@ -14,6 +15,8 @@ export interface KitPlacement {
 }
 
 export interface KitMap {
+  /** Metres per cell, from the map's `grid_m` property: one grid for the whole map, whatever each piece snaps to. */
+  gridM: number;
   width: number;
   height: number;
   placements: KitPlacement[];
@@ -38,6 +41,7 @@ const tiledSchema = z.looseObject({
   height: z.number().int().positive(),
   tilewidth: z.number().positive(),
   tileheight: z.number().positive(),
+  properties: propertiesSchema,
   tilesets: z.array(
     z.looseObject({
       firstgid: z.number().int().positive(),
@@ -48,7 +52,8 @@ const tiledSchema = z.looseObject({
     z.discriminatedUnion('type', [
       z.looseObject({
         type: z.literal('tilelayer'),
-        width: z.number().int(),
+        width: z.number().int().positive(),
+        height: z.number().int().positive(),
         data: z.array(z.number()),
         properties: propertiesSchema,
       }),
@@ -83,12 +88,17 @@ function height(properties: Properties, fallback: number): number {
   return value;
 }
 
-/** Reads the Tiled JSON subset kits are authored in: orthogonal, square tiles, embedded tilesets whose tiles carry an `asset` property. */
+/**
+ * Reads the Tiled JSON subset kits are authored in: orthogonal, square tiles, a numeric `grid_m` map property, flat
+ * tile and object layers (no groups), embedded tilesets whose tiles carry an `asset` property.
+ */
 export function parseKitMap(json: unknown): KitMap {
   const map = tiledSchema.parse(json);
   if (map.tilewidth !== map.tileheight)
     throw new Error(`Kit maps need square tiles, got ${map.tilewidth}x${map.tileheight}`);
   const size = map.tilewidth;
+  const gridM = property(map.properties, 'grid_m');
+  if (typeof gridM !== 'number' || !(gridM > 0)) throw new Error('Kit maps need a positive grid_m map property');
 
   const assets = new Map<number, string>();
   for (const tileset of map.tilesets) {
@@ -110,11 +120,16 @@ export function parseKitMap(json: unknown): KitMap {
   const placements: KitPlacement[] = [];
   for (const layer of map.layers) {
     if (layer.type === 'tilelayer') {
+      if (layer.data.length !== layer.width * layer.height) {
+        throw new Error(`Tile layer holds ${layer.data.length} tiles, not ${layer.width}x${layer.height}`);
+      }
       const z = height(layer.properties, 0);
       layer.data.forEach((raw, index) => {
         if (raw === 0) return;
         placements.push({ ...decode(raw), cell: [index % layer.width, Math.floor(index / layer.width)], z });
       });
+    } else if (layer.type === 'group') {
+      throw new Error('Group layers are not read: their pieces would be lost; ungroup them in Tiled');
     } else if (layer.type === 'objectgroup') {
       const layerZ = height(layer.properties, 0);
       for (const object of layer.objects) {
@@ -124,14 +139,14 @@ export function parseKitMap(json: unknown): KitMap {
         const { asset, turns } = decode(object.gid);
         placements.push({
           asset,
-          cell: [object.x / size, object.y / size],
+          cell: [object.x / size, object.y / size - 1],
           z: height(object.properties, layerZ),
           turns: (((turns + rotation / 90) % 4) + 4) % 4,
         });
       }
     }
   }
-  return { width: map.width, height: map.height, placements };
+  return { gridM, width: map.width, height: map.height, placements };
 }
 
 /** Writes placements as one Tiled object layer over an embedded tileset with one tile per asset. */
@@ -146,6 +161,7 @@ export function writeKitMap(map: KitMap, tileSize: number): object {
     tilewidth: tileSize,
     tileheight: tileSize,
     infinite: false,
+    properties: [{ name: 'grid_m', type: 'float', value: map.gridM }],
     tilesets: [
       {
         firstgid: 1,
@@ -162,7 +178,7 @@ export function writeKitMap(map: KitMap, tileSize: number): object {
           id: index + 1,
           gid: assets.indexOf(placement.asset) + 1,
           x: placement.cell[0] * tileSize,
-          y: placement.cell[1] * tileSize,
+          y: (placement.cell[1] + 1) * tileSize,
           rotation: placement.turns * 90,
           properties: [{ name: 'z', type: 'float', value: placement.z }],
         })),

@@ -146,6 +146,7 @@ export async function createRiggedCharacter(
 
   let current: AnimationClip | undefined;
   let lastT = 0;
+  let lastWeight = 1;
   let fading: { clip: AnimationClip; t: number } | undefined;
 
   return {
@@ -154,12 +155,18 @@ export async function createRiggedCharacter(
     sync({ pos, yaw, action, t }) {
       const clip = lookup(action);
       if (clip !== current) {
-        fading = current ? { clip: current, t: lastT } : undefined;
+        /* An interrupted fade keeps fading out whichever clip showed more, so the pose does not jump. */
+        const outgoing =
+          fading && lastWeight < 0.5
+            ? { clip: fading.clip, t: fading.t + lastT }
+            : current && { clip: current, t: lastT };
+        fading = outgoing?.clip === clip ? { clip: current!, t: lastT } : outgoing;
         current = clip;
       }
       lastT = t;
 
       const weight = fading && options.crossFade > 0 ? Math.min(Math.max(t / options.crossFade, 0), 1) : 1;
+      lastWeight = weight;
       if (weight >= 1) fading = undefined;
       for (const other of actions.values()) other.setEffectiveWeight(0);
       const next = actionFor(clip);
