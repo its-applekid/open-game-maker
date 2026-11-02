@@ -119,10 +119,21 @@ export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket:
 }
 
 export function activeJobsForRepo(db: Db, repo: string): { kind: 'new_game' | 'feature' | 'repair' }[] {
+  const match = /^([^/]+)\/([^/]+)$/.exec(repo.toLowerCase());
+  if (!match) return [];
+  const owner = match[1]!;
+  const name = match[2]!;
   return db
     .select({ kind: schema.jobs.kind })
     .from(schema.jobs)
-    .where(and(eq(schema.jobs.aiurRepo, repo), inArray(schema.jobs.state, SLOT_STATES)))
+    .innerJoin(schema.games, eq(schema.jobs.gameId, schema.games.id))
+    .where(
+      and(
+        eq(sql`lower(${schema.games.githubOwner})`, owner),
+        eq(sql`lower(${schema.games.githubRepo})`, name),
+        inArray(schema.jobs.state, SLOT_STATES),
+      ),
+    )
     .all()
     .map(({ kind }) => ({ kind: kind === 'scope' ? ('feature' as const) : kind }));
 }

@@ -493,6 +493,9 @@ importers:
 
   services/builder:
     dependencies:
+      '@octokit/request':
+        specifier: 10.0.16
+        version: 10.0.16
       '@ogm/aiur-client':
         specifier: workspace:*
         version: link:../../packages/aiur-client

@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { serve } from '@hono/node-server';
 
 import { FsBlobStore } from '@ogm/blob-store';
-import { startFeedConsumers } from '@ogm/builder';
+import { createDbDaemonStore, createFleet, createIntake, createIssuesClient, startFeedConsumers } from '@ogm/builder';
 import { migrate, openDb } from '@ogm/db';
+import { skillPack } from '@ogm/game-repo-template';
 
 import { createApp } from './app/app.js';
 import { API_HOST, loadApiEnv } from './app/env.js';
@@ -18,7 +19,7 @@ import { startAnalyticsRetention } from './analytics/retention.js';
 import { startEstimateRefinement } from './budget/estimate.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
-import { activeJobs, byTicket } from './jobs/repo.js';
+import { activeJobs, activeJobsForRepo, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { markPaused, markRunning, markTerminal } from './jobs/spend-cap.js';
@@ -29,7 +30,21 @@ const log = (line: LogLine) => console.log(JSON.stringify({ service: 'api', ...l
 const env = loadApiEnv();
 const { sqlite, db } = openDb(join(env.OGM_DATA_DIR, 'ogm.sqlite3'));
 log({ event: 'migrated', ...migrate({ sqlite }) });
-const daemonDirectory = createDaemonDirectory(db, homedir());
+const home = homedir();
+const daemonDirectory = createDaemonDirectory(db, home);
+const fleet = createFleet({
+  store: createDbDaemonStore(db),
+  activeJobs: async (repo) => activeJobsForRepo(db, repo),
+  env: {
+    home,
+    builderBotToken: env.OGM_BUILDER_BOT_TOKEN,
+    builderBotLogin: env.OGM_BUILDER_BOT_LOGIN,
+    intakeLogin: env.OGM_INTAKE_BOT_LOGIN,
+    assetsLocalDir: join(home, 'games', 'open-game-maker-2000', 'assets-local'),
+    apiPort: env.OGM_API_PORT,
+  },
+  alert: (message) => log({ event: 'daemon_alert', message }),
+});
 
 const deps: AppDeps = {
   db,
@@ -90,11 +105,33 @@ const projectionDeps = {
   },
 };
 
+const intake = createIntake({
+  db,
+  fleet,
+  issues: createIssuesClient({ token: env.OGM_INTAKE_GITHUB_TOKEN }),
+  async aiurForRepo(repo) {
+    const running = await fleet.daemonFor(repo);
+    if (!running) throw new Error(`Aiur daemon is unavailable for ${repo}`);
+    return running.client;
+  },
+  shippedSkills: skillPack().discovery.map(({ name }) => name),
+  failJob: (jobId) => void markTerminal(lifecycleDeps, jobId, 'failed'),
+  subscribeAdmitted(listener) {
+    return deps.events.on('job.changed', ({ jobId, state }) => {
+      if (state === 'admitted') listener(jobId);
+    });
+  },
+  onJobChanged: (event) => deps.events.emit('job.changed', event),
+  alert: (event) => log({ event: 'job_intake_alert', ...event }),
+  sweepMs: env.OGM_INTAKE_SWEEP_SECONDS * 1000,
+});
+
 const stopAnalyticsRetention = startAnalyticsRetention({
   sqlite,
   retentionDays: deps.config.analyticsRetentionDays,
   log,
 });
+intake.start();
 const stopScheduler = startScheduler({ ...lifecycleDeps, log });
 const stopEstimateRefinement = startEstimateRefinement({ db, events: deps.events, log });
 const stopBriefingPush =
@@ -109,7 +146,7 @@ const stopBriefingPush =
       })
     : () => {};
 const feed = startFeedConsumers({
-  fleet: daemonDirectory.fleet,
+  fleet,
   db,
   activeJobs: (daemonSlug) => activeJobs(db, daemonSlug),
   apply: {
@@ -126,6 +163,7 @@ for (const { prefix, file } of (await scanRoutes(app, { deps })).mounted) log({ 
 const server = serve({ fetch: app.fetch, hostname: API_HOST, port: env.OGM_API_PORT });
 server.once('listening', () => log({ event: 'listening', host: API_HOST, port: env.OGM_API_PORT }));
 process.once('SIGTERM', () => {
+  intake.stop();
   stopAnalyticsRetention();
   stopScheduler();
   stopEstimateRefinement();
