@@ -90,7 +90,8 @@ export const command: GmCommand = {
       help: 'also export assets whose rights forbid redistribution',
     },
   },
-  async run(ctx, _args, flags) {
+  async run(ctx, args, flags) {
+    if (args.length > 0) throw new UsageError('assets export takes no positional arguments', USAGE);
     if ((flags.used === true) === (flags.all === true))
       throw new UsageError('pick exactly one of --used and --all', USAGE);
     if (flags.game !== undefined && flags['all-games'] === true) {

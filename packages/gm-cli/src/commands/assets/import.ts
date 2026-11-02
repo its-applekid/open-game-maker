@@ -1,46 +1,135 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
-import { link, mkdir, rm } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { link, lstat, mkdir, realpath, rm } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve, sep } from 'node:path';
 import { pipeline } from 'node:stream/promises';
 import { Transform } from 'node:stream';
 
-import { FsBlobStore } from '@ogm/blob-store';
+import { blobPath, FsBlobStore } from '@ogm/blob-store';
 
 import { ZipReader, type ZipEntry } from '../../assets-export/zip-read.js';
 import { CommandError, EXIT, UsageError, type GmCommand } from '../../command.js';
 import { requireAssetsRoot } from '../../context.js';
 import { sha256File } from '../../lock.js';
 
-type Expected = { sha256: string; mime?: string };
+type Expected = { sha256: string; bytes: number; mime?: string };
+
+const MAX_REPORT_BYTES = 16 * 1024 * 1024;
 
 async function readText(zip: ZipReader, entry: ZipEntry): Promise<string> {
+  if (entry.size > MAX_REPORT_BYTES) throw new CommandError('rights-report.json is too large');
   const chunks: Buffer[] = [];
-  for await (const chunk of await zip.stream(entry)) chunks.push(chunk as Buffer);
+  let bytes = 0;
+  for await (const chunk of await zip.stream(entry)) {
+    bytes += chunk.byteLength;
+    if (bytes > MAX_REPORT_BYTES) throw new CommandError('rights-report.json expands past the size limit');
+    chunks.push(chunk as Buffer);
+  }
   return Buffer.concat(chunks).toString('utf8');
 }
 
 /** Stream one entry to `temporary`, returning the sha256 of the bytes written. */
-async function stage(zip: ZipReader, entry: ZipEntry, temporary: string): Promise<string> {
-  await mkdir(dirname(temporary), { recursive: true });
+async function stage(zip: ZipReader, entry: ZipEntry, temporary: string, expectedBytes: number): Promise<string> {
   const hash = createHash('sha256');
+  let bytes = 0;
   const tap = new Transform({
     transform(chunk: Buffer, _encoding, done) {
+      bytes += chunk.byteLength;
+      if (bytes > expectedBytes) {
+        done(new CommandError(`zip entry ${entry.name} expands beyond its reported ${expectedBytes} bytes`));
+        return;
+      }
       hash.update(chunk);
       done(null, chunk);
     },
   });
-  await pipeline(await zip.stream(entry), tap, createWriteStream(temporary, { flags: 'wx' }));
+  try {
+    await pipeline(await zip.stream(entry), tap, createWriteStream(temporary, { flags: 'wx' }));
+  } catch (error) {
+    if (error instanceof CommandError) throw error;
+    throw new CommandError(`zip entry ${entry.name} is unreadable: ${(error as Error).message}`);
+  }
+  if (bytes !== expectedBytes) {
+    throw new CommandError(`zip entry ${entry.name} contains ${bytes}, not ${expectedBytes}, bytes`);
+  }
   return hash.digest('hex');
 }
 
 async function shaOrNull(path: string): Promise<string | null> {
   try {
+    const info = await lstat(path);
+    if (info.isSymbolicLink()) throw new CommandError(`refusing symbolic-link import destination ${path}`);
+    if (!info.isFile()) throw new CommandError(`refusing non-file import destination ${path}`);
     return await sha256File(path);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw error;
   }
+}
+
+function expectedFiles(value: unknown): Map<string, Expected> {
+  const included =
+    typeof value === 'object' && value !== null && Array.isArray((value as { included?: unknown }).included)
+      ? (value as { included: unknown[] }).included
+      : null;
+  if (included === null) throw new CommandError('rights-report.json has no included file list');
+  const result = new Map<string, Expected>();
+  for (const item of included) {
+    const value = item as Record<string, unknown>;
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      typeof value.path !== 'string' ||
+      typeof value.sha256 !== 'string' ||
+      !/^[0-9a-f]{64}$/.test(value.sha256) ||
+      typeof value.bytes !== 'number' ||
+      !Number.isSafeInteger(value.bytes) ||
+      value.bytes < 0 ||
+      (value.mime !== undefined &&
+        (typeof value.mime !== 'string' || value.mime.length === 0 || /[\r\n]/.test(value.mime)))
+    ) {
+      throw new CommandError('rights-report.json has an invalid included file');
+    }
+    const expected = value as { path: string } & Expected;
+    if (result.has(expected.path)) throw new CommandError(`rights-report.json lists ${expected.path} more than once`);
+    result.set(expected.path, expected);
+  }
+  return result;
+}
+
+/** Make a library destination without following a symlink in any parent component. */
+async function libraryDestination(root: string, entryName: string): Promise<string> {
+  await mkdir(root, { recursive: true });
+  const realRoot = await realpath(root);
+  let current = realRoot;
+  const parts = ['packs', ...entryName.split('/').slice(1)];
+  for (const part of parts.slice(0, -1)) {
+    const next = join(current, part);
+    try {
+      const info = await lstat(next);
+      if (info.isSymbolicLink() || !info.isDirectory()) {
+        throw new CommandError(`refusing unsafe import directory ${next}`);
+      }
+    } catch (error) {
+      if (error instanceof CommandError) throw error;
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      try {
+        await mkdir(next);
+      } catch (mkdirError) {
+        if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError;
+      }
+      const info = await lstat(next);
+      if (info.isSymbolicLink() || !info.isDirectory()) {
+        throw new CommandError(`refusing unsafe import directory ${next}`);
+      }
+    }
+    current = await realpath(next);
+    const local = relative(realRoot, current);
+    if (local === '..' || local.startsWith(`..${sep}`)) {
+      throw new CommandError(`refusing import directory outside ${root}`);
+    }
+  }
+  return join(current, basename(parts.at(-1)!));
 }
 
 function scratch(dir: string): string {
@@ -65,8 +154,14 @@ export const command: GmCommand = {
       const reportEntry = zip.entries.find((entry) => entry.name === 'rights-report.json');
       if (!reportEntry)
         throw new CommandError('the zip has no rights-report.json; it was not made by gm assets export');
-      const report = JSON.parse(await readText(zip, reportEntry)) as { included?: Array<{ path: string } & Expected> };
-      const expected = new Map((report.included ?? []).map((item) => [item.path, item]));
+      let report: unknown;
+      try {
+        report = JSON.parse(await readText(zip, reportEntry));
+      } catch (error) {
+        if (error instanceof CommandError) throw error;
+        throw new CommandError(`rights-report.json is invalid: ${(error as Error).message}`);
+      }
+      const expected = expectedFiles(report);
 
       const payload = zip.entries.filter(
         (entry) => entry.name.startsWith('library/') || entry.name.startsWith('blobs/'),
@@ -104,18 +199,37 @@ export const command: GmCommand = {
             failed.push(`${entry.name}: blob name and reported sha256 disagree; skipped`);
             continue;
           }
-          if (await store!.head(`sha256:${sha}`)) {
+          if (entry.size !== want.bytes) {
+            failed.push(`${entry.name}: zip size ${entry.size} disagrees with reported ${want.bytes}; skipped`);
+            continue;
+          }
+          const destination = blobPath(ctx.blobRoot!, `sha256:${sha}`);
+          const existing = await shaOrNull(destination);
+          if (existing !== null) {
+            if (existing !== sha) {
+              failed.push(`${entry.name}: a different blob is already at ${destination}; kept it`);
+              continue;
+            }
+            if (!(await store!.head(`sha256:${sha}`))) {
+              await store!.put(createReadStream(destination), want.mime ?? 'application/octet-stream');
+            }
             present += 1;
             continue;
           }
+          await mkdir(join(ctx.blobRoot!, 'tmp'), { recursive: true });
           const temporary = scratch(join(ctx.blobRoot!, 'tmp'));
           try {
-            const actual = await stage(zip, entry, temporary);
+            const actual = await stage(zip, entry, temporary, want.bytes);
             if (actual !== sha) {
               failed.push(`${entry.name}: bytes hash to ${actual}; skipped`);
               continue;
             }
             await store!.put(createReadStream(temporary), want.mime ?? 'application/octet-stream');
+            const stored = await shaOrNull(destination);
+            if (stored !== sha) {
+              failed.push(`${entry.name}: the blob store kept different bytes at ${destination}`);
+              continue;
+            }
             added.push(entry.name);
           } finally {
             await rm(temporary, { force: true });
@@ -123,7 +237,11 @@ export const command: GmCommand = {
           continue;
         }
 
-        const destination = join(assetsRoot!, 'packs', ...entry.name.split('/').slice(1));
+        if (entry.size !== want.bytes) {
+          failed.push(`${entry.name}: zip size ${entry.size} disagrees with reported ${want.bytes}; skipped`);
+          continue;
+        }
+        const destination = await libraryDestination(assetsRoot!, entry.name);
         const existing = await shaOrNull(destination);
         if (existing === want.sha256) {
           present += 1;
@@ -135,7 +253,7 @@ export const command: GmCommand = {
         }
         const temporary = scratch(dirname(destination));
         try {
-          const actual = await stage(zip, entry, temporary);
+          const actual = await stage(zip, entry, temporary, want.bytes);
           if (actual !== want.sha256) {
             failed.push(`${entry.name}: bytes hash to ${actual}, the report says ${want.sha256}; skipped`);
             continue;

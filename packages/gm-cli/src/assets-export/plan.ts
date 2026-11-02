@@ -1,12 +1,14 @@
 import { existsSync } from 'node:fs';
-import { readdir, readFile, stat } from 'node:fs/promises';
+import { readdir, readFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, sep } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 
 import type { CardIndex, ResolvedCard } from '@ogm/asset-cards';
 import { blobPath } from '@ogm/blob-store';
 import type { AssetsLock, LockEntry } from '@ogm/contracts';
 
 import { readLock } from '../lock.js';
+import { collectionParts, entrySource, libraryRoot, resolveEntry } from '../resolve.js';
 import { rightsForCard, type LockRights } from '../rules.js';
 
 export type Game = { id: string; dir: string; lock: AssetsLock };
@@ -60,82 +62,75 @@ function slash(path: string): string {
   return path.split(sep).join('/');
 }
 
-function collectionParts(id: string): { slug: string; version: string } | null {
+function collectionCardParts(id: string): { slug: string; version: string } | null {
   const match = /^t[12]:([a-z0-9][a-z0-9-]*)(?:\/[^@]*)?@([A-Za-z0-9._-]+)$/.exec(id);
   return match ? { slug: match[1]!, version: match[2]! } : null;
 }
 
-async function isFile(path: string): Promise<boolean> {
-  try {
-    return (await stat(path)).isFile();
-  } catch {
-    return false;
-  }
+function lockFacts(entry: LockEntry): object {
+  return {
+    sha256: entry.sha256,
+    files: (entry.files ?? []).map((file) => file.sha256).sort(),
+    license: entry.license,
+    rights: entry.rights,
+  };
 }
 
 async function blobMime(file: string): Promise<string | undefined> {
   try {
-    return (JSON.parse(await readFile(`${file}.json`, 'utf8')) as { mime?: string }).mime;
+    const mime = (JSON.parse(await readFile(`${file}.json`, 'utf8')) as { mime?: unknown }).mime;
+    return typeof mime === 'string' ? mime : undefined;
   } catch {
     return undefined;
   }
 }
 
 /**
- * The files one lock entry needs. Tier 3 entries resolve from the blob store by sha; tier 1/2 entries resolve
- * from the pack's extracted directory, taking the card's primary, texture and companion files.
- * TODO(#298): replace with the shared `resolve.ts` once the reference-only lock (per-file shas) lands.
+ * The files one lock entry needs. Shared resolution verifies every pinned file before this maps library and blob
+ * locations into the portable export layout. Vendored files stay in the game repository and need no export copy.
  */
 async function entryFiles(
   entry: LockEntry,
   game: Game,
   assetsRoot: string | null,
   blobRoot: string | null,
-  cards: Map<string, ResolvedCard>,
-): Promise<{ files: ExportFile[] } | { inRepo: true } | { missing: string }> {
+  collections: Record<string, ResolvedCard>,
+): Promise<{ files: ExportFile[]; pack?: { dir: string; slug: string } } | { inRepo: true } | { missing: string }> {
   const base = { ids: [entry.id], license: entry.license, rights: entry.rights };
-  if (entry.id.startsWith('t3:')) {
-    const file = blobRoot === null ? null : blobPath(blobRoot, `sha256:${entry.sha256}`);
-    if (file !== null && (await isFile(file))) {
+  const resolution = await resolveEntry(entry, { cwd: game.dir, assetsRoot, blobRoot, collections });
+  if (!resolution.ok) return { missing: `${entry.id}: ${resolution.detail}` };
+
+  const source = entrySource(entry);
+  if (source === 'vendored') return { inRepo: true };
+  const pinned = [{ path: entry.path, sha256: entry.sha256 }, ...(entry.files ?? [])];
+  if (source === 'blob') {
+    const files: ExportFile[] = [];
+    for (const item of pinned) {
+      const file = blobPath(blobRoot!, `sha256:${item.sha256}`);
       const mime = await blobMime(file);
-      return {
-        files: [{ ...base, path: `blobs/${entry.sha256}`, file, sha256: entry.sha256, ...(mime ? { mime } : {}) }],
-      };
+      files.push({
+        ...base,
+        path: `blobs/${item.sha256}`,
+        file,
+        sha256: item.sha256,
+        ...(mime ? { mime } : {}),
+      });
     }
-    if (await isFile(join(game.dir, entry.path))) return { inRepo: true };
-    return {
-      missing: `${entry.id}: blob ${entry.sha256} is not in ${blobRoot ?? 'the blob store (OGM_BLOB_ROOT unset)'}`,
-    };
+    return { files };
   }
 
   const parts = collectionParts(entry.id);
-  const card = cards.get(entry.id);
-  if (assetsRoot === null || parts === null || card === undefined) {
-    return { missing: `${entry.id}: no card for it in ${assetsRoot ?? 'the asset library (OGM_ASSETS_ROOT unset)'}` };
-  }
-  const versionDir = join(assetsRoot, 'packs', parts.slug, parts.version);
-  const extracted = join(versionDir, 'extracted');
-  const sources = (card.source?.files ?? []).filter((file) => file.role !== 'metadata');
-  const primary = sources.find((file) => file.role === 'primary') ?? sources[0];
-  const files: ExportFile[] = [];
-  for (const source of sources) {
-    const file = join(extracted, source.path);
-    if (
-      !slash(relative(extracted, file))
-        .split('/')
-        .every((part) => part !== '..') ||
-      !(await isFile(file))
-    ) {
-      return { missing: `${entry.id}: ${source.path} is not in ${slash(relative(assetsRoot, extracted))}` };
-    }
-    files.push({
+  const collectionId = entry.id.replace(/\/.*@/, '@');
+  const extracted = libraryRoot(assetsRoot!, entry.id, collections[collectionId]);
+  return {
+    files: pinned.map((item) => ({
       ...base,
-      path: `library/${parts.slug}/${parts.version}/extracted/${slash(source.path)}`,
-      file,
-      ...(source === primary ? { sha256: entry.sha256 } : {}),
-    });
-  }
-  return files.length === 0 ? { missing: `${entry.id}: its card lists no source file` } : { files };
+      path: `library/${parts.slug}/${parts.version}/extracted/${slash(item.path)}`,
+      file: join(extracted, item.path),
+      sha256: item.sha256,
+    })),
+    pack: { dir: dirname(dirname(extracted)), slug: parts.slug },
+  };
 }
 
 /** Merge files that several entries (or games) share into one zip entry; keep zip order by path. */
@@ -147,6 +142,11 @@ function merge(files: ExportFile[]): ExportFile[] {
     else {
       existing.ids = [...new Set([...existing.ids, ...file.ids])].sort();
       existing.sha256 ??= file.sha256;
+      if (file.restricted) {
+        existing.license = file.license;
+        existing.rights = file.rights;
+        existing.restricted = true;
+      }
     }
   }
   return [...byPath.values()].sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
@@ -169,26 +169,27 @@ export async function planUsed(
   const restricted: Excluded[] = [];
   const restrictedPaths = new Set<string>();
   const missing: string[] = [];
-  const packs = new Set<string>();
+  const packs = new Map<string, string>();
   const seen = new Map<string, { game: string; entry: LockEntry }>();
   for (const game of games) {
     for (const entry of game.lock.assets) {
       const first = seen.get(entry.id);
       if (first) {
-        if (JSON.stringify([first.entry.sha256, first.entry.rights]) !== JSON.stringify([entry.sha256, entry.rights])) {
+        if (!isDeepStrictEqual(lockFacts(first.entry), lockFacts(entry))) {
           missing.push(
-            `${entry.id}: ${first.game} and ${game.id} lock it with different bytes or rights; refresh one lock`,
+            `${entry.id}: ${first.game} and ${game.id} lock it with different bytes, companion files, or rights metadata; refresh one lock`,
           );
+          continue;
         }
-        continue;
+      } else {
+        seen.set(entry.id, { game: game.id, entry });
       }
-      seen.set(entry.id, { game: game.id, entry });
       const card = cards.get(entry.id);
       const current = card && index ? rightsForCard(card, index.collections) : undefined;
       const lockReason = restrictedReason(entry.rights);
       const cardReason = current ? restrictedReason(current) : null;
       const reason = lockReason ?? (cardReason === null ? null : `its current card says ${cardReason}`);
-      const resolved = await entryFiles(entry, game, assetsRoot, blobRoot, cards);
+      const resolved = await entryFiles(entry, game, assetsRoot, blobRoot, index?.collections ?? {});
       if (reason !== null) {
         restricted.push({
           ids: [entry.id],
@@ -201,13 +202,14 @@ export async function planUsed(
       }
       if ('missing' in resolved) missing.push(resolved.missing);
       else if ('files' in resolved) {
-        files.push(...resolved.files);
-        const parts = collectionParts(entry.id);
-        if (parts && assetsRoot) packs.add(parts.slug);
+        files.push(...resolved.files.map((file) => (reason === null ? file : { ...file, restricted: true })));
+        if (resolved.pack) packs.set(resolved.pack.slug, resolved.pack.dir);
       }
     }
   }
-  for (const pack of packs) files.push(...(await packMetadataFiles(join(assetsRoot!, 'packs', pack), pack)));
+  for (const [pack, dir] of [...packs].sort(([left], [right]) => left.localeCompare(right))) {
+    files.push(...(await packMetadataFiles(dir, pack)));
+  }
   const kept = merge(files)
     .filter((file) => includeRestricted || !restrictedPaths.has(file.path))
     .map((file) => (restrictedPaths.has(file.path) ? { ...file, restricted: true } : file));
@@ -249,12 +251,18 @@ export async function planAll(
 ): Promise<ExportPlan> {
   const files: ExportFile[] = [];
   const restricted: Excluded[] = [];
-  const packsDir = join(assetsRoot, 'packs');
-  const packs = existsSync(packsDir)
-    ? (await readdir(packsDir, { withFileTypes: true })).filter((d) => d.isDirectory())
-    : [];
-  for (const pack of packs.map((item) => item.name).sort()) {
-    const packDir = join(packsDir, pack);
+  const collections: Array<{ pack: string; packDir: string }> = [];
+  for (const top of ['packs', 'inspiration']) {
+    const topDir = join(assetsRoot, top);
+    if (!existsSync(topDir)) continue;
+    for (const item of (await readdir(topDir, { withFileTypes: true })).filter((entry) => entry.isDirectory())) {
+      collections.push({ pack: item.name, packDir: join(topDir, item.name) });
+    }
+  }
+  collections.sort((left, right) =>
+    left.pack === right.pack ? left.packDir.localeCompare(right.packDir) : left.pack.localeCompare(right.pack),
+  );
+  for (const { pack, packDir } of collections) {
     let packIncluded = false;
     for (const version of (await readdir(packDir, { withFileTypes: true }))
       .filter((item) => item.isDirectory() && item.name !== 'cards')
@@ -263,7 +271,7 @@ export async function planAll(
       const extracted = join(packDir, version, 'extracted');
       if (!existsSync(extracted)) continue;
       const collection = Object.values(index.collections).find((card) => {
-        const parts = collectionParts(card.id);
+        const parts = collectionCardParts(card.id);
         return parts?.slug === pack && parts.version === version;
       });
       const rights = collection ? rightsForCard(collection, index.collections) : undefined;
@@ -320,7 +328,11 @@ export async function planAll(
   if (blobRoot !== null) {
     const pinned = new Map<string, LockEntry[]>();
     for (const game of games) {
-      for (const entry of game.lock.assets) pinned.set(entry.sha256, [...(pinned.get(entry.sha256) ?? []), entry]);
+      for (const entry of game.lock.assets) {
+        for (const sha of new Set([entry.sha256, ...(entry.files ?? []).map((file) => file.sha256)])) {
+          pinned.set(sha, [...(pinned.get(sha) ?? []), entry]);
+        }
+      }
     }
     const dir = dirname(blobPath(blobRoot, `sha256:${'0'.repeat(64)}`));
     const hashes = existsSync(dir) ? (await readdir(dir)).filter((name) => /^[0-9a-f]{64}$/.test(name)).sort() : [];
@@ -330,7 +342,7 @@ export async function planAll(
       const reasons = entries.map((entry) => restrictedReason(entry.rights));
       const reason =
         entries.length === 0 ? restrictedReason(undefined) : (reasons.find((item) => item !== null) ?? null);
-      const first = entries[0];
+      const first = entries.find((entry) => restrictedReason(entry.rights) !== null) ?? entries[0];
       const facts = first ? { license: first.license, rights: first.rights } : {};
       if (reason !== null) {
         restricted.push({ path: `blobs/${sha}`, ids, ...facts, reason });
