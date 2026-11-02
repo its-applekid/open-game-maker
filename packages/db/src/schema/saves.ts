@@ -1,5 +1,15 @@
 import { sql } from 'drizzle-orm';
-import { blob, check, index, integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import {
+  blob,
+  check,
+  foreignKey,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core';
 
 import { games } from './accounts.js';
 
@@ -49,6 +59,10 @@ export const saveRevisions = sqliteTable(
   },
   (table) => [
     primaryKey({ columns: [table.userId, table.gameId, table.slotId, table.revision] }),
+    foreignKey({
+      columns: [table.userId, table.gameId, table.slotId],
+      foreignColumns: [saveSlots.userId, saveSlots.gameId, saveSlots.slotId],
+    }).onDelete('cascade'),
     uniqueIndex('save_revisions_idempotency_unique').on(
       table.userId,
       table.gameId,
