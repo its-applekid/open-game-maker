@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build:deps": "pnpm --filter @ogm/contracts --filter @ogm/voice-client --filter @ogm/design-log --filter @ogm/iframe-bridge --filter @ogm/rooms build",
+    "build:deps": "pnpm --filter @ogm/contracts --filter @ogm/voice-client --filter @ogm/design-log --filter @ogm/iframe-bridge --filter @ogm/rooms --filter @gm/host build",
     "prebuild": "pnpm run build:deps",
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
@@ -19,6 +19,7 @@
   "dependencies": {
     "@colyseus/sdk": "0.18.9",
     "@better-auth/passkey": "1.7.15",
+    "@gm/host": "workspace:*",
     "@noriginmedia/norigin-spatial-navigation": "2.3.0",
     "@ogm/contracts": "workspace:*",
     "@ogm/voice-client": "workspace:*",

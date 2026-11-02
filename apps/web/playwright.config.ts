@@ -11,11 +11,20 @@ export default defineConfig({
     launchOptions: { args: launchArgs() },
     trace: 'retain-on-failure',
   },
-  webServer: {
-    command: 'pnpm exec vite preview --host 127.0.0.1 --port 43170',
-    url: 'http://127.0.0.1:43170',
-    reuseExistingServer: false,
-  },
+  webServer: [
+    {
+      command:
+        'VITE_GAMES_ORIGIN=http://127.0.0.1:10001 pnpm build && pnpm exec vite preview --host 127.0.0.1 --port 43170',
+      url: 'http://127.0.0.1:43170',
+      reuseExistingServer: false,
+      timeout: 180_000,
+    },
+    {
+      command: 'node e2e/support/serve-bridge-game.ts',
+      url: 'http://127.0.0.1:10001/health',
+      reuseExistingServer: false,
+    },
+  ],
   projects: [
     {
       name: 'desktop',

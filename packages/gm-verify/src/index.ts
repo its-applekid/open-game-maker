@@ -11,3 +11,4 @@ export * from './server.js';
 export * from './events.js';
 export * from './run.js';
 export * from './queue.js';
+export * from './gates/index.js';

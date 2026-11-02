@@ -11,6 +11,7 @@ import time
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
@@ -107,7 +108,79 @@ class Library(unittest.TestCase):
         item = json.loads(cards[0].read_text())
         self.assertEqual((item["subkind"], [a["name"] for a in item["sprite"]["animations"]]),
                          ("character", ["attack"]))
+        self.assertRegex(item["previews"]["thumb"], r"^private/previews/[0-9a-f]{2}/[0-9a-f]{16}-thumb\.webp$")
+        self.assertTrue((self.root / item["previews"]["thumb"]).is_file())
         self.assertTrue(validator_ok(self.root / "packs" / pack / "collection.card.json", cards[0]))
+
+    def test_smallscaleint_sheet_thumbnail_crops_the_measured_south_row(self):
+        pack = "smallscaleint-2d-character-knight"
+        pack_dir = self.root / "packs" / pack
+        collection = bcc.card(pack_dir / "pack.json", {}, bcc.load_table(), None)
+        cards = bcc.smallscaleint.build_cards(pack_dir, collection)
+        jobs = bcc.smallscaleint_thumbnails.thumbnail_jobs(self.root, {pack: cards})
+        self.assertEqual(jobs[0]["extract"], {"left": 0, "top": 128, "width": 64, "height": 64})
+
+    def test_thumbnail_failure_writes_neither_collection_nor_item_cards(self):
+        pack = "smallscaleint-2d-character-knight"
+        with mock.patch.object(
+            bcc.smallscaleint_thumbnails,
+            "render_thumbnails",
+            side_effect=ValueError("thumbnail renderer failed"),
+        ):
+            rep = bcc.run(self.root, only=pack)
+        self.assertIn("thumbnail renderer failed", " ".join(rep["failures"][pack]))
+        self.assertFalse((self.root / "packs" / pack / "collection.card.json").exists())
+        self.assertFalse((self.root / "packs" / pack / "cards").exists())
+
+    def test_thumbnail_renderer_rejects_escapes_and_cleans_failed_output(self):
+        source = "packs/smallscaleint-2d-character-knight/1.0/extracted/Spritesheets/With shadow/Knight/Attack.png"
+        with tempfile.TemporaryDirectory() as outside_tmp:
+            outside = Path(outside_tmp)
+            outside_image = outside / "outside.png"
+            outside_image.write_bytes(png(64, 64))
+
+            with self.subTest("input traversal"):
+                relative_outside = f"../{outside.name}/outside.png"
+                with self.assertRaisesRegex(ValueError, "thumbnail input escapes asset root"):
+                    bcc.smallscaleint_thumbnails.render_thumbnails(
+                        self.root,
+                        [{"input": relative_outside, "output": "private/previews/input-escape.webp"}],
+                    )
+
+            with self.subTest("output traversal"):
+                escaped_output = outside / "escaped.webp"
+                with self.assertRaisesRegex(ValueError, "thumbnail output escapes asset root"):
+                    bcc.smallscaleint_thumbnails.render_thumbnails(
+                        self.root,
+                        [{"input": source, "output": f"../{outside.name}/escaped.webp"}],
+                    )
+                self.assertFalse(escaped_output.exists())
+
+            with self.subTest("existing output symlink"):
+                output = self.root / "private" / "previews" / "linked.webp"
+                output.parent.mkdir(parents=True, exist_ok=True)
+                target = outside / "target.webp"
+                target.write_bytes(b"outside")
+                output.symlink_to(target)
+                with self.assertRaisesRegex(ValueError, "thumbnail output is a symlink"):
+                    bcc.smallscaleint_thumbnails.render_thumbnails(
+                        self.root,
+                        [{"input": source, "output": "private/previews/linked.webp"}],
+                    )
+
+            with self.subTest("failed crop cleanup"):
+                failed = self.root / "private" / "previews" / "failed.webp"
+                with self.assertRaisesRegex(ValueError, "thumbnail renderer failed"):
+                    bcc.smallscaleint_thumbnails.render_thumbnails(
+                        self.root,
+                        [{
+                            "input": source,
+                            "output": "private/previews/failed.webp",
+                            "extract": {"left": 10_000, "top": 0, "width": 64, "height": 64},
+                        }],
+                    )
+                self.assertFalse(failed.exists())
+                self.assertEqual(list(failed.parent.glob("failed.webp.*.tmp.webp")), [])
 
     def test_smallscaleint_layout_failure_replaces_neither_collection_nor_item_cards(self):
         pack = "smallscaleint-2d-character-knight"
@@ -255,6 +328,30 @@ class ItchInstaller(unittest.TestCase):
             rep = bcc.run(root)
             self.assertEqual(rep["failures"], {})
             self.assertEqual(card_of(root, "acme-ufo")["rights"], rights)
+
+    def test_smallscaleint_default_licence_and_unknown_override_fail_before_install(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            src = tmp / "dl"
+            src.mkdir()
+            (src / "sources.json").write_text(json.dumps({"page": "https://smallscaleint.itch.io/example"}))
+            with zipfile.ZipFile(src / "pack.zip", "w") as archive:
+                archive.writestr("pack/Walk.png", png(64, 512))
+            root = tmp / "library"
+            install_itch_pack.main([
+                str(src), "smallscaleint-example", "Example", "SmallScaleInt licence", "--extract", "pack",
+                "--root", str(root),
+            ])
+            manifest = json.loads((root / "packs" / "smallscaleint-example" / "pack.json").read_text())
+            self.assertEqual(manifest["license"], "LicenseRef-smallscaleint-itch")
+
+            rejected_root = tmp / "rejected-library"
+            with self.assertRaises(KeyError):
+                install_itch_pack.main([
+                    str(src), "smallscaleint-rejected", "Rejected", "Unknown", "--extract", "pack",
+                    "--license-id", "LicenseRef-not-real", "--root", str(rejected_root),
+                ])
+            self.assertFalse(rejected_root.exists())
 
 
 def load_tests(loader, tests, pattern):

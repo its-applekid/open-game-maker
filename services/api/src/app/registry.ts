@@ -55,6 +55,9 @@ export type UserDirectory = {
   emailForUser(userId: string): Promise<string | null>;
   userIdForEmail(email: string): Promise<string | null>;
 };
+export interface IssueStateWriter {
+  setStateLabel(repo: string, issue: number, state: 'cancelled'): Promise<void>;
+}
 
 // Seams filled by contexts from `setup(deps)`: auth adds session, user-directory and mail
 // providers; accounts/games add repository provisioning and game lookup; jobs adds the ticket/chat directories;
@@ -68,6 +71,7 @@ export interface Registry {
   ticketJobResolver: TicketJobResolver | null;
   chatJobs: ChatJobDirectory | null;
   aiurClientFor: AiurClientResolver | null;
+  issueStateWriter: IssueStateWriter | null;
 }
 
 export function createRegistry(): Registry {
@@ -80,6 +84,7 @@ export function createRegistry(): Registry {
     ticketJobResolver: null,
     chatJobs: null,
     aiurClientFor: null,
+    issueStateWriter: null,
   };
 }
 

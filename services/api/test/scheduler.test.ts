@@ -1,4 +1,5 @@
 import { schema } from '@ogm/db';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { tick } from '../src/jobs/scheduler.js';
@@ -105,5 +106,31 @@ describe('job scheduler', () => {
       ['j_old', 'admitted'],
       ['j_new', 'queued'],
     ]);
+  });
+
+  it('promotes queued work after an active job releases its slot', () => {
+    const { deps } = setup();
+    deps.db
+      .insert(schema.familyBudgetSettings)
+      .values({
+        familyId: 'f_1',
+        resetZone: defaults.resetZone,
+        unitLabel: 'energy',
+        microUsdPerUnit: 100_000,
+        platformCapMicroUsd: 50_000_000,
+        slotsNewGame: 1,
+        slotsEdit: 1,
+        hardCapMultiplier: 1,
+      })
+      .run();
+    queued(deps, 'j_released', '2026-11-01T00:00:00.000Z');
+    deps.db
+      .update(schema.jobs)
+      .set({ state: 'running', releasedAt: RESET.toISOString() })
+      .where(eq(schema.jobs.id, 'j_released'))
+      .run();
+    queued(deps, 'j_waiting', '2026-11-01T01:00:00.000Z');
+
+    expect(tick({ db: deps.db, sqlite: deps.sqlite, events: deps.events, defaults }, RESET)).toEqual(['j_waiting']);
   });
 });

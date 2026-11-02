@@ -16,12 +16,41 @@ packages or add game entities. Install afterward with `pnpm install --offline --
 `--family` must name a family id from `packages/asset-cards/data/style-families.json`, the registry `gm assets search`
 reads. A set id (for example `limezu-modern`) is refused with its family named; sets stay nested under their family.
 
+## Verify a game
+
+```text
+gm check [--json]
+gm check static [--json]
+gm check hooks [--json]
+gm test [--inputs <script.json>] [--ticks <count>] [--serve <dir>] [--out <dir>] [--json]
+```
+
+`gm check` runs TypeScript, deterministic simulation-source, test-hook, and registered asset gates. Use `static` or
+`hooks` to select only that gate group. Failures name `file:line` where available and exit 1; `--json` emits the L0
+gate result.
+
+`gm test` serves the built game from `dist/` on `127.0.0.1`, advances 3,600 fixed ticks by default, applies an optional
+logical-input script, checks a save-state round trip, writes a HUD still, runs `promises/*.spec.ts`, and writes
+`shots/test/report.json`. A failed or unavailable check exits 1. `--serve`, `--ticks`, and `--out` override the defaults;
+`--json` emits the L1 gate result and report path.
+
 ## Refresh the skill pack
 
 ```text
 gm skills sync [--check] [--force]
 gm skills list
 ```
+
+## Read a mechanic pattern card
+
+```text
+gm docs pattern <topic> [--engine phaser|three] [--max 1..3]
+gm docs pattern --list [--engine phaser|three]
+```
+
+The command reads the installed skills' `references/cards/` directories and prints matching cards verbatim. Topic,
+alias, and substring matches are ranked in that order. `--list` shows each topic, engine, aliases, and optional set;
+an unknown topic exits 2 with a list hint. Pattern retrieval is offline and never summarizes or rewrites a card.
 
 ## Build chat and checkpoints
 
@@ -36,7 +65,8 @@ gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
 the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
 the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
 
-`sync` installs every platform `gm-*` skill and the vendored engine references under `.claude/skills/`. Relative
+`sync` installs every platform `gm-*` runtime skill and the vendored engine references under `.claude/skills/`.
+Workspace-only package metadata, TypeScript config, and card tests stay in the platform repository. Relative
 links in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without
 symlink support receive copies and record `"linkMode": "copy"` in `skills.lock`.
 
@@ -72,3 +102,12 @@ Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild 
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
 reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.
+
+## Search the asset library
+
+```text
+gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>] [--pov <id>] [--use <use>]
+```
+
+`--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
+the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.

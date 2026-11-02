@@ -1,5 +1,5 @@
 import { schema, type Db, type Sqlite } from '@ogm/db';
-import { and, asc, eq, inArray, lte, or, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, lte, or, sql } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 import { getBudgetSettings, type BudgetDefaults } from '../budget/settings.js';
@@ -44,6 +44,7 @@ export function tick(deps: SchedulerDeps, now = (deps.now ?? (() => new Date()))
               eq(schema.jobs.familyId, row.familyId),
               eq(schema.jobs.slot, row.slot),
               inArray(schema.jobs.state, SLOT_STATES),
+              isNull(schema.jobs.releasedAt),
             ),
           )
           .all().length;
