@@ -10,7 +10,7 @@ export function renderScopeTicket(input: ScopeTicketInput): {
   sig: string;
   labels: string[];
 } {
-  const title = `Scope: ${plain(input.choices.vibe)} ${plain(input.choices.genre)} game`.slice(0, 120);
+  const title = `Scope: ${plain(input.choices.genre)} ${plain(input.choices.vibe)} game`.slice(0, 80);
   const choices = [
     `- Genre: ${plain(input.choices.genre)}`,
     `- Vibe: ${plain(input.choices.vibe)}`,
@@ -23,7 +23,7 @@ export function renderScopeTicket(input: ScopeTicketInput): {
   const file = `.gm/scope/${input.sessionId}.json`;
   const unsigned = [
     `Talk through a small game scope using these creation choices:\n\n${choices}`,
-    '## Scope\n\nUse the build chat to clarify the choices, propose a right-sized plan, and agree the included and excluded work with the creator.',
+    '## Scope\n\nUse the build chat to ask at most five questions, propose 2-3 right-sized scopes from the pack catalog, and agree one with the creator.',
     `## Acceptance\n\n- \`${file}\` written with \`gm scope done\` and committed in this pull request\n- Run \`gm scope done --file ${file}\` after writing it\n- The agreed scope contains build tickets and does not implement game code`,
     '## Load skills\n- gm-scope-options',
   ].join('\n\n');

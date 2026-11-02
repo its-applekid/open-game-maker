@@ -143,19 +143,29 @@ const routes = new Hono<ApiBindings>()
     requireOwner(deps, session, principal);
     if (session.status !== 'open') throw new HttpError(409, 'scope_session_not_open');
 
+    const abandoned = scopeSessions.abandon(deps.db, session.id);
+    if (abandoned === null) throw new HttpError(409, 'scope_session_not_open');
     const job = findJobRow(deps.db, session.job_id);
     if (!['done', 'failed', 'cancelled'].includes(job.state)) {
-      if (job.aiurRepo !== null && job.aiurIssueNumber !== null) {
-        const aiur = await deps.aiurClientForRepo(job.aiurRepo);
-        await aiur.cancel(String(job.aiurIssueNumber));
-      }
       markTerminal(
         { db: deps.db, sqlite: deps.sqlite, events: deps.events, defaults: defaults(deps) },
         job.id,
         'cancelled',
       );
+      if (job.aiurRepo !== null && job.aiurIssueNumber !== null) {
+        try {
+          const aiur = await deps.aiurClientForRepo(job.aiurRepo);
+          await aiur.cancel(String(job.aiurIssueNumber));
+        } catch (error) {
+          deps.log({
+            event: 'scope-cancel-upstream-failed',
+            jobId: job.id,
+            error: error instanceof Error ? error.name : 'unknown',
+          });
+        }
+      }
     }
-    return c.json(response(scopeSessions.abandon(deps.db, session.id)!));
+    return c.json(response(abandoned));
   });
 
 export default routes;

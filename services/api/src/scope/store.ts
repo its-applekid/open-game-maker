@@ -69,12 +69,13 @@ export const scopeSessions = {
   },
 
   abandon(db: Db, id: string, at = new Date().toISOString()): ScopeSession | null {
-    db.update(schema.scopeSessions)
+    const result = db
+      .update(schema.scopeSessions)
       .set({ status: 'abandoned', updatedAt: at })
       .where(and(eq(schema.scopeSessions.id, id), eq(schema.scopeSessions.status, 'open')))
       .run();
-    const row = rowById(db, id);
-    return row === null ? null : toSession(row);
+    if (result.changes === 0) return null;
+    return toSession(rowById(db, id)!);
   },
 
   agree(db: Db, id: string, scope: AgreedScope, hash: string, at: string): boolean {

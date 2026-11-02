@@ -1,6 +1,7 @@
 import { schema } from '@ogm/db';
+import type { AiurClient } from '@ogm/aiur-client';
 import { eq } from 'drizzle-orm';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { asUser, installUsers, makeApp, makeDeps } from '../helpers.js';
 
@@ -119,5 +120,29 @@ describe('scope session routes', () => {
     expect(abandoned.status).toBe(200);
     expect(await abandoned.json()).toMatchObject({ status: 'abandoned', chatJobId: created.jobId });
     expect(deps.db.select().from(schema.jobs).where(eq(schema.jobs.id, created.jobId)).get()?.state).toBe('cancelled');
+  });
+
+  it('claims a filed session before cancelling its upstream ticket', async () => {
+    const deps = setup();
+    const { app } = await makeApp(deps);
+    const created = (await (await create(app)).json()) as { sessionId: string; jobId: string };
+    deps.db
+      .update(schema.jobs)
+      .set({ state: 'filed', aiurRepo: 'owner/game', aiurIssueNumber: 42 })
+      .where(eq(schema.jobs.id, created.jobId))
+      .run();
+    const cancel = vi.fn(async () => {
+      expect(deps.db.select().from(schema.scopeSessions).get()?.status).toBe('abandoned');
+      expect(deps.db.select().from(schema.jobs).get()?.state).toBe('cancelled');
+    });
+    deps.aiurClientForRepo = async () => ({ cancel }) as unknown as AiurClient;
+
+    const abandoned = await app.request(`/api/v1/games/${ids.game}/scope/sessions/${created.sessionId}/abandon`, {
+      method: 'POST',
+      headers: asUser(ids.creator),
+    });
+
+    expect(abandoned.status).toBe(200);
+    expect(cancel).toHaveBeenCalledWith('42');
   });
 });

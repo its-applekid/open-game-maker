@@ -17,11 +17,14 @@ describe('scope ticket template', () => {
       choices,
     });
 
-    expect(issue.title.length).toBeLessThanOrEqual(120);
+    expect(issue.title).toBe('Scope: platformer cozy game');
+    expect(issue.title.length).toBeLessThanOrEqual(80);
     expect(issue.body).toContain('gm-job:j_88000000-0000-4000-8000-000000000001');
     expect(issue.body).toContain('gm-ticket:scope');
     expect(issue.body).toContain('gm-scope:s_88000000-0000-4000-8000-000000000001');
     expect(issue.body).toContain('## Load skills\n- gm-scope-options');
+    expect(issue.body).toContain('ask at most five questions');
+    expect(issue.body).toContain('propose 2-3 right-sized scopes from the pack catalog');
     expect(issue.body).toContain(
       '`.gm/scope/s_88000000-0000-4000-8000-000000000001.json` written with `gm scope done`',
     );
