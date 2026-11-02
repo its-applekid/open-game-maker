@@ -1,0 +1,194 @@
+import type { ActionFrame } from '@ogm/contracts';
+
+import spawnPoints from '../design/spawns.json' with { type: 'json' };
+import type { PlatformDesign } from './game.js';
+
+export const PLAYER_WIDTH = 28;
+export const PLAYER_HEIGHT = 40;
+export const GROUND_Y = 440;
+const GRAVITY = 900;
+const JUMP_SPEED = 420;
+
+export interface Platform {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface SpawnPoint {
+  id: string;
+  x: number;
+  y: number;
+}
+
+/** One avatar. `p` is the position the SDK interpolates on peers (`entities[id].p`). */
+export interface PlayerState {
+  id: string;
+  playerIndex: number;
+  p: [number, number];
+  v: [number, number];
+  onGround: boolean;
+}
+
+interface PlayerInput {
+  move: number;
+  jumpQueued: boolean;
+}
+
+export interface SimulationState {
+  tick: number;
+  players: Map<number, PlayerState>;
+  platforms: Platform[];
+  inputs: Map<number, PlayerInput>;
+}
+
+/** Snapshot and save shape: every visible avatar keyed by its host-minted id. */
+export interface SerializedSimulation {
+  tick: number;
+  entities: Record<string, PlayerState>;
+}
+
+export const spawns: readonly SpawnPoint[] = spawnPoints;
+
+/** The SDK's host-minted player id (`p<index>`), also used for the host's own avatar. */
+export function playerId(playerIndex: number): string {
+  return `p${playerIndex}`;
+}
+
+export function platformsFromDesign(design: PlatformDesign): Platform[] {
+  return Object.values(design.entities)
+    .filter((entity) => entity.prefab === 'platform')
+    .map((entity) => ({
+      id: entity.id,
+      x: entity.props.x,
+      y: entity.props.y,
+      width: entity.props.w ?? 160,
+      height: entity.props.h ?? 24,
+    }));
+}
+
+export function addPlayer(state: SimulationState, playerIndex: number, id: string): void {
+  const spawn = spawns[playerIndex % spawns.length] ?? { x: 96, y: GROUND_Y - PLAYER_HEIGHT };
+  state.players.set(playerIndex, {
+    id,
+    playerIndex,
+    p: [spawn.x, spawn.y],
+    v: [0, 0],
+    onGround: spawn.y + PLAYER_HEIGHT === GROUND_Y,
+  });
+  state.inputs.set(playerIndex, { move: 0, jumpQueued: false });
+}
+
+export function removePlayer(state: SimulationState, id: string): void {
+  for (const player of state.players.values()) {
+    if (player.id !== id) continue;
+    state.players.delete(player.playerIndex);
+    state.inputs.delete(player.playerIndex);
+    return;
+  }
+}
+
+export function createSimulation(design: PlatformDesign, localPlayerIndex = 0): SimulationState {
+  const state: SimulationState = {
+    tick: 0,
+    players: new Map(),
+    platforms: platformsFromDesign(design),
+    inputs: new Map(),
+  };
+  addPlayer(state, localPlayerIndex, playerId(localPlayerIndex));
+  return state;
+}
+
+/** The only place input touches the world: it is stored here and consumed by the fixed step. */
+export function applyInput(state: SimulationState, playerIndex: number, frame: ActionFrame): void {
+  if (!state.players.has(playerIndex)) return;
+  const input = state.inputs.get(playerIndex) ?? { move: 0, jumpQueued: false };
+  const move = frame.actions.move;
+  if (typeof move === 'number') input.move = Math.max(-1, Math.min(1, move));
+  else if (move && typeof move === 'object') input.move = Math.max(-1, Math.min(1, move.x));
+  if (frame.actions.jump === true) input.jumpQueued = true;
+  state.inputs.set(playerIndex, input);
+}
+
+function landingY(player: PlayerState, state: SimulationState, nextY: number): number | undefined {
+  const previousBottom = player.p[1] + PLAYER_HEIGHT;
+  const nextBottom = nextY + PLAYER_HEIGHT;
+  let surface = nextBottom >= GROUND_Y ? GROUND_Y : undefined;
+
+  for (const platform of state.platforms) {
+    const withinX =
+      player.p[0] + PLAYER_WIDTH / 2 > platform.x - platform.width / 2 &&
+      player.p[0] - PLAYER_WIDTH / 2 < platform.x + platform.width / 2;
+    if (withinX && previousBottom <= platform.y && nextBottom >= platform.y) {
+      surface = surface === undefined ? platform.y : Math.min(surface, platform.y);
+    }
+  }
+  return surface;
+}
+
+export function stepSimulation(state: SimulationState, design: PlatformDesign, dt: number): void {
+  const speed = design.globals['player.speed'];
+  const levelWidth = design.globals['level.width'];
+
+  for (const player of state.players.values()) {
+    const input = state.inputs.get(player.playerIndex) ?? { move: 0, jumpQueued: false };
+    player.v[0] = input.move * speed;
+    player.p[0] = Math.max(PLAYER_WIDTH / 2, Math.min(levelWidth - PLAYER_WIDTH / 2, player.p[0] + player.v[0] * dt));
+
+    if (input.jumpQueued && player.onGround) {
+      player.v[1] = -JUMP_SPEED;
+      player.onGround = false;
+    }
+    input.jumpQueued = false;
+    player.v[1] += GRAVITY * dt;
+    const nextY = player.p[1] + player.v[1] * dt;
+    const surface = player.v[1] >= 0 ? landingY(player, state, nextY) : undefined;
+    if (surface === undefined) {
+      player.p[1] = nextY;
+      player.onGround = false;
+    } else {
+      player.p[1] = surface - PLAYER_HEIGHT;
+      player.v[1] = 0;
+      player.onGround = true;
+    }
+  }
+  state.tick += 1;
+}
+
+export function serializeSimulation(state: SimulationState): SerializedSimulation {
+  const entities: Record<string, PlayerState> = {};
+  for (const player of [...state.players.values()].sort((left, right) => left.playerIndex - right.playerIndex)) {
+    entities[player.id] = structuredClone(player);
+  }
+  return { tick: state.tick, entities };
+}
+
+export function restoreSimulation(design: PlatformDesign, saved: SerializedSimulation): SimulationState {
+  const state: SimulationState = {
+    tick: saved.tick,
+    players: new Map(),
+    platforms: platformsFromDesign(design),
+    inputs: new Map(),
+  };
+  for (const player of Object.values(saved.entities)) {
+    state.players.set(player.playerIndex, structuredClone(player));
+    state.inputs.set(player.playerIndex, { move: 0, jumpQueued: false });
+  }
+  return state;
+}
+
+/** Peers render the host's snapshot; inputs they already queued stay in place. */
+export function applySnapshotState(state: SimulationState, saved: SerializedSimulation): void {
+  state.tick = saved.tick;
+  const seen = new Set<number>();
+  for (const player of Object.values(saved.entities)) {
+    seen.add(player.playerIndex);
+    state.players.set(player.playerIndex, structuredClone(player));
+    if (!state.inputs.has(player.playerIndex)) state.inputs.set(player.playerIndex, { move: 0, jumpQueued: false });
+  }
+  for (const playerIndex of [...state.players.keys()]) {
+    if (!seen.has(playerIndex)) state.players.delete(playerIndex);
+  }
+}

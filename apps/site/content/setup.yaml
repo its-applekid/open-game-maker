@@ -47,11 +47,12 @@ steps:
     agent_prompt: *agent_prompt
     substeps:
       - kind: run
-        text: Install Node 24 and pnpm 10.33.0, then install and build the workspace.
+        text: Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
         command: |-
           corepack enable
           pnpm install --frozen-lockfile
           pnpm build
+          systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
         writes: [node_modules, apps/*/dist, packages/*/dist, services/*/dist]
         check: pnpm build
         cites: [.github/workflows/ci.yml, package.json]
@@ -354,16 +355,32 @@ steps:
         check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
         cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
       - kind: hand
-        text: Create the free Netlify app site, record its site id, replace the two host literals, build the town, and approve the manual deployment.
+        text: Create the free Netlify app site, record its site id, replace the two host literals, set the app and games origin pair, build the town, and approve the manual deployment.
         command: |-
           # Write the Netlify site id to apps/web/.netlify-site-id.
           # Replace the host on both lines of apps/web/public/_redirects (_headers names no host).
+          pnpm --filter @ogm/config exec ogm-env-init web
+          # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
+          # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
           apps/web/tools/town.sh --public
           apps/web/tools/deploy.sh --dry-run
           apps/web/tools/deploy.sh
-        writes: [apps/web/.netlify-site-id, apps/web/public/_redirects]
-        check: <app-origin> loads the title town and <app-origin>/api/healthz answers
-        cites: [docs/ops/self-host.md, apps/web/tools/town.sh, apps/web/tools/deploy.sh, apps/web/public/_redirects]
+        writes:
+          [
+            apps/web/.netlify-site-id,
+            apps/web/public/_redirects,
+            ~/.config/ogm/env/web.env,
+            ~/.config/ogm/env/games.env,
+          ]
+        check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
+        cites:
+          [
+            docs/ops/self-host.md,
+            apps/web/tools/town.sh,
+            apps/web/tools/deploy.sh,
+            apps/web/tools/games-origin.mjs,
+            apps/web/public/_redirects,
+          ]
       - kind: hand
         text: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
         command: |-

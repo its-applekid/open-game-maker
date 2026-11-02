@@ -25,10 +25,14 @@ placeholder_once() {
   exit 0
 }
 
+# The entry is whatever the package's start script runs; a package that names none fails the unit.
 run_node_service() {
   local service=$1
-  local entrypoint=$2
+  local dir=$OGM_REPO/services/$2
+  local entrypoint
 
+  [[ -f $dir/package.json ]] || placeholder "$service"
+  entrypoint=$("$(dirname -- "${BASH_SOURCE[0]}")/ogm-entry" "$dir") || exit 1
   [[ -f $entrypoint ]] || placeholder "$service"
   exec node "$entrypoint"
 }
@@ -41,16 +45,16 @@ shift
 
 case "$name" in
   api)
-    run_node_service api "$OGM_REPO/services/api/dist/index.js"
+    run_node_service api api
     ;;
   rooms)
-    run_node_service rooms "$OGM_REPO/services/rooms/dist/index.js"
+    run_node_service rooms rooms
     ;;
   games)
-    run_node_service games "$OGM_REPO/services/games-host/dist/index.js"
+    run_node_service games games-host
     ;;
   commit)
-    run_node_service commit "$OGM_REPO/services/commit/dist/index.js"
+    run_node_service commit commit
     ;;
   voice-host)
     mise=$HOME/.local/bin/mise
@@ -59,7 +63,7 @@ case "$name" in
     exec "$mise" exec -- "$release" start
     ;;
   intake)
-    run_node_service intake "$OGM_REPO/services/intake/dist/index.js"
+    run_node_service intake intake
     ;;
   drive-sync)
     worker_dir=

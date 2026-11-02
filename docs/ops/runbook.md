@@ -40,7 +40,7 @@ canonical is open (setup-site plan, open question 3) until Kevin answers.
 ```
 ops/bin/ogm-status            # units, placeholders, listeners, disk, sizes, backup, ingress
 ops/bin/ogm-status --json
-ops/bin/ogm-status --check    # exit 1 on a failed unit, a STRAY listener, or a backup older than 48 h
+ops/bin/ogm-status --check    # exit 1 on a failed unit, a STRAY listener, a missing service build, or a backup over 48 h
 ```
 
 It prints names and sizes only, never env values. A listener is `STRAY` when an OGM process (any process in an `ogm`
@@ -50,7 +50,8 @@ not killed: stop the process that owns the pid.
 ## Placeholders
 
 `PLACEHOLDER <service>` in the journal means `ops/bin/ogm-run` found no build (or no setup) for that unit and is
-idling. It clears when the service's build lands and the unit restarts. drive-sync waits for the Drive setup steps in
+idling. Node units run the file their package's `start` script names; `ogm-status --check` reports a missing one, and a
+unit still idling after its build lands. It clears when the unit restarts. drive-sync waits for the Drive setup steps in
 `~/remind.md`. `ogm-aiur@<slug>` has no placeholder: a failing preflight keeps it from starting, and the reasons
 are on its `game_daemons` row.
 

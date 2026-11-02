@@ -8,7 +8,7 @@ import { Chat } from './Chat';
 import { useDock, visibleJobs } from './dock';
 import { Fab } from './Fab';
 import { JobList } from './JobList';
-import { useBudgetUnitLabel, useMyJobs } from './jobs';
+import { isTerminal, useBudgetUnitLabel, useMyJobs } from './jobs';
 import type { StreamedChatMessage } from './stream';
 import './dock.css';
 import './chat.css';
@@ -25,7 +25,12 @@ export function BuildChatDock() {
   const unitLabel = useBudgetUnitLabel();
   const dock = useDock();
   const shownJobs = visibleJobs(jobs, dock);
-  const selected = jobs.find(({ id }) => id === dock.openJobId);
+  const { draft } = dock;
+  const selected =
+    dock.openJobId !== undefined
+      ? jobs.find(({ id }) => id === dock.openJobId)
+      : draft &&
+        jobs.find((job) => job.gameId === draft.gameId && job.branchId === draft.branchId && !isTerminal(job.state));
 
   useEffect(() => dock.sync(jobs), [dock.sync, jobs]);
 
@@ -56,7 +61,7 @@ export function BuildChatDock() {
     testState.messagesByJob[jobId] = messages;
   }, []);
 
-  if (shownJobs.length === 0) return null;
+  if (shownJobs.length === 0 && !draft) return null;
 
   const openJob = (job: Job) => dock.openChat(job.id, jobs);
   return (
@@ -64,12 +69,20 @@ export function BuildChatDock() {
       {dock.view === 'collapsed' ? <Fab jobs={shownJobs} fresh={dock.fresh} onOpen={() => dock.open(jobs)} /> : null}
       {dock.view !== 'collapsed' ? (
         <div className="build-chat-panel">
-          {dock.view === 'chat' && selected ? (
+          {dock.view === 'chat' && (selected || draft) ? (
             <div className="build-chat-chat-layout">
               <div className="build-chat-landscape-list">
                 <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} />
               </div>
-              <Chat key={selected.id} job={selected} onBack={() => dock.back(jobs)} onMessages={recordMessages} />
+              <Chat
+                key={dock.chatKey}
+                jobId={dock.openJobId ?? selected?.id}
+                job={selected}
+                draft={draft}
+                onBack={() => dock.back(jobs)}
+                onAdmitted={dock.admitted}
+                onMessages={recordMessages}
+              />
             </div>
           ) : (
             <>

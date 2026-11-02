@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 
-import { StableIdSchema, type Principal } from '@ogm/contracts';
+import { SAVES_ROUTE, StableIdSchema, type Principal } from '@ogm/contracts';
 import { authorize } from '@ogm/policy';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
@@ -9,6 +9,7 @@ import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings } from '../app/types.js';
 import { parseBody, parseQuery } from '../app/validate.js';
+import { resolveBranch } from '../design/store.js';
 import { findGameForFamily, hasGameGrant } from '../games/games.js';
 import { LeaseHeld, LeaseMismatch, acquirePlayLease, heartbeatPlayLease } from './lease.js';
 import { deriveSaveStatus } from './status.js';
@@ -27,8 +28,9 @@ export const prefix = '/api/v1';
 const MAX_SAVE_BYTES = 512 * 1024;
 const slotSchema = z.enum(['auto', '1', '2', '3']);
 const reasonSchema = z.enum(['pause', 'checkpoint', 'interval', 'hidden', 'manual', 'migration', 'update']);
+/** The web player lists without `schema` (it learns the game's save schema only when the game saves). */
 const listQuery = z.object({
-  schema: z.coerce.number().int().nonnegative(),
+  schema: z.coerce.number().int().nonnegative().optional(),
   migratesFrom: z.coerce.number().int().nonnegative().optional(),
 });
 const revisionQuery = z.object({ revision: z.coerce.number().int().positive().optional() });
@@ -87,6 +89,12 @@ function stableHeader(c: Parameters<typeof requirePrincipal>[0], name: string): 
   return value;
 }
 
+/** The SDK sends a branch id; the web player knows only `main` by name, as in its design routes. */
+function branchHeader(c: Parameters<typeof requirePrincipal>[0], gameId: string): string {
+  if (c.req.header('x-save-branch')?.trim() === 'main') return resolveBranch(c.get('deps').sqlite, gameId, 'main').id;
+  return stableHeader(c, 'x-save-branch');
+}
+
 function optionalStableHeader(c: Parameters<typeof requirePrincipal>[0], name: string): string | undefined {
   const value = c.req.header(name)?.trim();
   if (!value) return undefined;
@@ -111,20 +119,23 @@ function idempotencyKey(c: Parameters<typeof requirePrincipal>[0]): { deviceId: 
   return { deviceId, clientSeq };
 }
 
-const routes = new Hono<ApiBindings>();
+const saves = new Hono<ApiBindings>();
 
-routes.get('/saves/:gameId', (c) => {
+saves.get('/', (c) => {
   const { principal, gameId } = playableGame(c);
   const query = parseQuery(c, listQuery);
-  const slots = listSaveSlots(c.get('deps').sqlite, principal.userId, gameId).map(({ headSchema, ...slot }) => ({
-    ...slot,
-    status: deriveSaveStatus(headSchema, query.schema, query.migratesFrom),
-    olderCompatible: listCompatibleRevisions(c.get('deps').sqlite, principal.userId, gameId, slot.slotId, query.schema),
-  }));
+  const slots = listSaveSlots(c.get('deps').sqlite, principal.userId, gameId).map(({ headSchema, ...slot }) => {
+    const schema = query.schema ?? headSchema;
+    return {
+      ...slot,
+      status: deriveSaveStatus(headSchema, schema, query.migratesFrom),
+      olderCompatible: listCompatibleRevisions(c.get('deps').sqlite, principal.userId, gameId, slot.slotId, schema),
+    };
+  });
   return c.json({ slots });
 });
 
-routes.get('/saves/:gameId/:slotId', (c) => {
+saves.get('/:slotId', (c) => {
   const { principal, gameId } = playableGame(c);
   const query = parseQuery(c, revisionQuery);
   try {
@@ -150,7 +161,7 @@ routes.get('/saves/:gameId/:slotId', (c) => {
   }
 });
 
-routes.put('/saves/:gameId/:slotId', async (c) => {
+saves.put('/:slotId', async (c) => {
   const { principal, gameId } = playableGame(c);
   const slotId = slotParam(c);
   const length = c.req.header('content-length');
@@ -180,7 +191,7 @@ routes.put('/saves/:gameId/:slotId', async (c) => {
       slotId,
       ifMatch: nonnegativeHeader(c, 'if-match'),
       payload,
-      branchId: stableHeader(c, 'x-save-branch'),
+      branchId: branchHeader(c, gameId),
       buildId: stableHeader(c, 'x-save-build'),
       releaseId: optionalStableHeader(c, 'x-save-release'),
       saveSchemaVersion: nonnegativeHeader(c, 'x-save-schema'),
@@ -198,7 +209,7 @@ routes.put('/saves/:gameId/:slotId', async (c) => {
   }
 });
 
-routes.post('/saves/:gameId/lease', async (c) => {
+saves.post('/lease', async (c) => {
   const { principal, gameId } = playableGame(c);
   const body = await parseBody(c, leaseBody);
   try {
@@ -215,7 +226,7 @@ routes.post('/saves/:gameId/lease', async (c) => {
   }
 });
 
-routes.post('/saves/:gameId/lease/heartbeat', async (c) => {
+saves.post('/lease/heartbeat', async (c) => {
   const { principal, gameId } = playableGame(c);
   const body = await parseBody(c, heartbeatBody);
   try {
@@ -225,5 +236,10 @@ routes.post('/saves/:gameId/lease/heartbeat', async (c) => {
     throw error;
   }
 });
+
+const routes = new Hono<ApiBindings>();
+routes.route(SAVES_ROUTE, saves);
+/** Pre-#281 path that released game builds still call; remove after one release. */
+routes.route('/saves/:gameId', saves);
 
 export default routes;

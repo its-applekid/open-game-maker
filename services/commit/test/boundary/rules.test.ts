@@ -219,4 +219,41 @@ describe('rights rule', () => {
       }),
     );
   });
+
+  // D-ASSETS-REFERENCE: `gm assets use` writes library references whose bytes never enter the repo.
+  it('accepts a library reference with no repo file but still applies its rights', () => {
+    const referenced = { ...asset, path: 'FBX/Props/barrel.fbx', source: 'library' as const };
+    expect(evaluateTree(input({ draft: false, files: [], lockfile: lock([referenced]) }))).toEqual({
+      allowed: true,
+      reasons: [],
+    });
+    const publicVerdict = evaluateTree(
+      input({ draft: false, visibility: 'public', files: [], lockfile: lock([referenced]) }),
+    );
+    expect(publicVerdict.reasons).toContainEqual(
+      expect.objectContaining({ code: 'rights', detail: expect.stringContaining('private-audience') }),
+    );
+  });
+
+  it('treats vendored companions as locked repo files and reports a missing one', () => {
+    const companion = { path: 'assets/props/colormap.png', sha256: cleanSha };
+    const vendored = { ...asset, source: 'vendored' as const, files: [companion] };
+    expect(
+      evaluateTree(
+        input({ draft: false, files: [file(asset.path), file(companion.path)], lockfile: lock([vendored]) }),
+      ),
+    ).toEqual({ allowed: true, reasons: [] });
+    const changedCompanion = [file(asset.path), file(companion.path, { sha256: 'f'.repeat(64) })];
+    expect(evaluateDiff(input({ files: changedCompanion, lockfile: lock([vendored]) })).reasons).toEqual([
+      expect.objectContaining({ path: companion.path, detail: expect.stringContaining('sha256') }),
+    ]);
+    expect(
+      evaluateTree(input({ draft: false, files: [file(asset.path)], lockfile: lock([vendored]) })).reasons,
+    ).toEqual([
+      expect.objectContaining({
+        path: companion.path,
+        detail: expect.stringContaining('locked asset file is missing'),
+      }),
+    ]);
+  });
 });

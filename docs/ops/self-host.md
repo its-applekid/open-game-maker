@@ -19,10 +19,11 @@ everything else comes from env files ([runbook.md](runbook.md) "Per-unit values"
 | `services/voice-host/README.md` (build command) | `OGM_AIUR_GIT=` followed by the current owner's checkout path | `OGM_AIUR_GIT=$HOME/github/aiur`, the aiur checkout from setup step 3 |
 
 The games frame's origin is baked into the web build: `apps/web/src/routes/game/GameScreen.tsx` reads
-`VITE_GAMES_ORIGIN` and falls back to `http://127.0.0.1:10000`. Set it when you build or deploy the app:
+`VITE_GAMES_ORIGIN` and falls back to `http://127.0.0.1:10000`. `apps/web/tools/deploy.sh` reads it from
+`~/.config/ogm/env/web.env` (`ogm-env-init web`) and refuses to deploy without it:
 
 ```
-VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 apps/web/tools/deploy.sh
+VITE_GAMES_ORIGIN=https://<tailnet-host>:10000
 ```
 
 The commit unit needs no edit: `ops/systemd/ogm-commit.service` uses `@REPO@` like every other unit, and
