@@ -98,9 +98,11 @@ export default new Hono().get('/seen', (c) => c.text(seen));
     const { mounted } = await makeApp();
     expect(mounted.map(({ prefix }) => prefix)).toEqual([
       '/api/v1',
+      '/api/v1/admin',
       '/api/v1/analytics',
       '/auth',
       '/blobs',
+      '/api/v1/budget',
       '/api/v1/jobs',
       '/api/catalog',
       '/api/v1',
@@ -109,6 +111,8 @@ export default new Hono().get('/seen', (c) => c.text(seen));
       '/internal',
       '/api/v1',
       '/api/v1',
+      '/',
+      '/api/v1/reports',
       '/',
       '/api/v1',
     ]);

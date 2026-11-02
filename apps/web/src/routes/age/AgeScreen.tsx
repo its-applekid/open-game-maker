@@ -26,6 +26,7 @@ export function AgeScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'), '/signin');
+  const attestationRequired = params.get('attest') === '1';
   const { data: session, isPending: sessionPending } = useSession();
   const now = new Date();
   const [birthMonth, setBirthMonth] = useState(now.getMonth() + 1);
@@ -38,8 +39,8 @@ export function AgeScreen() {
   }, []);
 
   useEffect(() => {
-    if (!sessionPending && session) navigate(next, { replace: true });
-  }, [navigate, next, session, sessionPending]);
+    if (!sessionPending && session && !attestationRequired) navigate(next, { replace: true });
+  }, [attestationRequired, navigate, next, session, sessionPending]);
 
   useEffect(
     () => () => {
@@ -48,7 +49,7 @@ export function AgeScreen() {
     [],
   );
 
-  if (sessionPending || session) return null;
+  if (sessionPending || (session && !attestationRequired)) return null;
   if (state === 'refused') {
     return (
       <main className="auth-screen age-screen">

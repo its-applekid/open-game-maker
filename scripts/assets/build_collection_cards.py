@@ -20,6 +20,11 @@ from collections import Counter, defaultdict
 from datetime import date, datetime
 from pathlib import Path
 
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+
+import smallscaleint
+
 REPO = Path(__file__).resolve().parents[2]
 TAGS = Path(__file__).parent / "data" / "collection_tags.jsonl"
 LICENSES_JSON = REPO / "packages" / "asset-cards" / "data" / "licenses.json"
@@ -39,17 +44,17 @@ FAMILY_COVERAGE = {"c": "characters", "e": "environment", "p": "props", "u": "ui
 SKIP_NAMES = {"preview.png", "sample.png", "license.txt", "icon.png"}
 
 
-def load_style_sets(path: Path = STYLE_FAMILIES_JSON) -> dict[str, str]:
-    """Curated pack id -> compatibility set id; membership is written during intake step 7b."""
+def load_style_compatibility(path: Path = STYLE_FAMILIES_JSON) -> dict[str, dict[str, str]]:
+    """Curated pack id -> family and compatibility set; membership is written during intake step 7b."""
     return {
-        pack["id"]: style_set["id"]
+        pack["id"]: {"family": family["id"], "set": style_set["id"]}
         for family in json.loads(path.read_text())
         for style_set in family.get("sets", [])
         for pack in style_set["packs"]
     }
 
 
-STYLE_SET_BY_PACK = load_style_sets()
+STYLE_COMPATIBILITY_BY_PACK = load_style_compatibility()
 
 
 def load_table(path: Path = LICENSES_JSON) -> dict:
@@ -198,8 +203,11 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
                 "creation_choice": False, "pack_manifest": f"assets-local/packs/{pid}/pack.json", "files_total": v.get("extracted_files", 0)}
         if t:
             info["family_coverage"] = {name: letter in t.get("fc", "") for letter, name in FAMILY_COVERAGE.items()}
-    if set_id := STYLE_SET_BY_PACK.get(pid):
-        describe["set"] = set_id
+    if compatibility := STYLE_COMPATIBILITY_BY_PACK.get(pid):
+        describe["style_family"] = compatibility["family"]
+        describe["set"] = compatibility["set"]
+        prov["describe.style_family"] = {"by": "code", "tool": TOOL, "at": NOW,
+                                         "input": "packages/asset-cards/data/style-families.json"}
         prov["describe.set"] = {"by": "code", "tool": TOOL, "at": NOW,
                                 "input": "packages/asset-cards/data/style-families.json"}
     else:
@@ -220,6 +228,7 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
         out["previews"] = {"thumb": f"packs/{pid}/icon.png"}
     else:
         out["flags"] = ["missing-preview"]
+    smallscaleint.decorate_collection(out, pid)
     locks = {path: entry for path, entry in (old or {}).get("provenance", {}).items() if entry.get("locked") and path != "*"}
 
     def restore_locks():  # locked fields are never overwritten
@@ -259,7 +268,7 @@ def dump(pid: str, c: dict) -> str:
 def run(root: Path, only: str = "*", dry_run: bool = False, table: dict | None = None) -> dict:
     table = table or load_table()
     tags = {d["id"]: d for d in map(json.loads, TAGS.read_text().splitlines())}
-    built, vendor_of, errors = {}, {}, {}
+    built, items, vendor_of, errors = {}, {}, {}, {}
     for pj in sorted((root / "packs").glob("*/pack.json")):
         pid = pj.parent.name
         if not fnmatch.fnmatch(pid, only):
@@ -268,10 +277,16 @@ def run(root: Path, only: str = "*", dry_run: bool = False, table: dict | None =
         vendor_of[pid] = json.loads(pj.read_text())["vendor"]
         try:
             built[pid] = card(pj, tags, table, json.loads(cc.read_text()) if cc.exists() else None)
-        except KeyError as e:
+            if pid in smallscaleint.PACKS:
+                items[pid] = smallscaleint.build_cards(pj.parent, built[pid])
+        except (KeyError, OSError, ValueError, json.JSONDecodeError) as e:
             errors[pid] = [str(e).strip('"')]
-    errors.update(validate(built) if built else {})
-    report = defaultdict(lambda: {"written": 0, "unchanged": 0, "draft": 0, "tagged": 0, "failed": 0})
+    documents = dict(built)
+    documents.update({f"{pid}::{index}": item for pid, cards in items.items() for index, item in enumerate(cards)})
+    for label, failures in validate(documents).items() if documents else ():
+        errors.setdefault(label.split("::", 1)[0], []).extend(failures)
+    report = defaultdict(lambda: {"written": 0, "unchanged": 0, "draft": 0, "tagged": 0, "failed": 0, "item_cards": 0})
+    sheet_collections, sheet_cards = {}, {}
     for pid, vendor in vendor_of.items():
         r = report[vendor]
         if pid in errors:
@@ -281,12 +296,23 @@ def run(root: Path, only: str = "*", dry_run: bool = False, table: dict | None =
         r[c["status"]] = r.get(c["status"], 0) + 1
         cc = root / "packs" / pid / "collection.card.json"
         text = dump(pid, c)
+        r["item_cards"] += len(items.get(pid, []))
+        if pid in items:
+            smallscaleint.write_cards(cc.parent, items[pid], dry_run)
+            sheet_collections[pid], sheet_cards[pid] = c, items[pid]
         if cc.exists() and json.loads(cc.read_text()) == c:
             r["unchanged"] += 1
             continue
         if not dry_run:
             cc.write_text(text)
         r["written"] += 1
+    installed_smallscaleint = {
+        path.parent.name
+        for path in (root / "packs").glob("*/pack.json")
+        if path.parent.name in smallscaleint.PACKS
+    }
+    if sheet_cards and set(sheet_cards) == installed_smallscaleint and not dry_run:
+        smallscaleint.write_contact_sheets(root, sheet_collections, sheet_cards)
     return {"vendors": dict(sorted(report.items())), "failures": {k: errors[k] for k in sorted(errors)}}
 
 

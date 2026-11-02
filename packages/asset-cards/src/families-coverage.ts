@@ -6,7 +6,14 @@ import { parseArgs } from 'node:util';
 import { loadEnv } from '@ogm/config';
 
 import { loadIndex } from './build.js';
-import { COVERAGE_KEYS, FAMILIES_PATH, StyleFamiliesSchema, computeCoverage, type StyleFamily } from './families.js';
+import {
+  COVERAGE_KEYS,
+  FAMILIES_PATH,
+  StyleFamiliesSchema,
+  computeCoverage,
+  writeFamilies,
+  type StyleFamily,
+} from './families.js';
 import type { CardIndex } from './types.js';
 
 export const CATALOG_IDS_PATH = fileURLToPath(new URL('../test/fixtures/catalog-ids.json', import.meta.url));
@@ -24,7 +31,7 @@ export function recompute(index: CardIndex, families: StyleFamily[]): { families
   return { families: next, failures };
 }
 
-function table(families: StyleFamily[]): string[] {
+export function coverageTable(families: StyleFamily[]): string[] {
   return [
     ['family', ...COVERAGE_KEYS, 'creation_choice'].join('  '),
     ...families.map((f) =>
@@ -58,13 +65,13 @@ async function main(argv: string[]): Promise<number> {
 
   const families = JSON.parse(readFileSync(FAMILIES_PATH, 'utf8')) as StyleFamily[];
   const { families: next, failures } = recompute(await loadIndex(root), families);
-  for (const line of table(next)) console.log(line);
+  for (const line of coverageTable(next)) console.log(line);
   for (const failure of failures) console.error(failure);
   if (failures.length > 0) {
     console.error(`${FAMILIES_PATH} left unchanged: fix the packs or set creation_choice false, then re-run`);
     return 1;
   }
-  writeFileSync(FAMILIES_PATH, `${JSON.stringify(next, null, 2)}\n`);
+  writeFamilies(next);
   return 0;
 }
 

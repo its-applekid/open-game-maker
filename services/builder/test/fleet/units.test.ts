@@ -1,5 +1,6 @@
-import { readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
+import { chmod, mkdir, mkdtemp, readFile, readdir, rm, stat } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { parse, stringify } from 'yaml';
@@ -13,6 +14,68 @@ import { assertTransition, slugFor } from '../../src/fleet/types.js';
 import { cleanupHomes, fakeRunner, fleetEnv, liveRow, systemctlCalls, tempHome } from './helpers.js';
 
 afterEach(cleanupHomes);
+
+async function withTempHomeFixture(run: (fixture: string) => Promise<void>): Promise<void> {
+  const fixture = await mkdtemp(join(tmpdir(), 'ogm-temp-home-test-'));
+  try {
+    await run(fixture);
+  } finally {
+    vi.unstubAllEnvs();
+    await cleanupHomes();
+    await rm(fixture, { recursive: true, force: true });
+  }
+}
+
+describe('tempHome', () => {
+  it('uses OGM_TEST_HOME without writing to HOME or TMPDIR', async () => {
+    await withTempHomeFixture(async (fixture) => {
+      const scratch = join(fixture, 'scratch');
+      const home = join(fixture, 'home');
+      const temporary = join(fixture, 'tmp');
+      await Promise.all([mkdir(home), mkdir(temporary)]);
+      vi.stubEnv('OGM_TEST_HOME', scratch);
+      vi.stubEnv('HOME', home);
+      vi.stubEnv('TMPDIR', temporary);
+      const created = await tempHome();
+
+      expect(dirname(created)).toBe(resolve(scratch));
+      expect(await readdir(home)).toEqual([]);
+      expect(await readdir(temporary)).toEqual([]);
+      expect((await stat(created)).mode & 0o777).toBe(0o700);
+      expect((await stat(join(created, '.config/ogm/codex-gamebuilder/auth.json'))).mode & 0o777).toBe(0o600);
+    });
+  });
+
+  it('uses writable TMPDIR when OGM_TEST_HOME is unset', async () => {
+    await withTempHomeFixture(async (fixture) => {
+      const home = join(fixture, 'home');
+      const temporary = join(fixture, 'tmp');
+      await Promise.all([mkdir(home), mkdir(temporary)]);
+      vi.stubEnv('HOME', home);
+      vi.stubEnv('TMPDIR', temporary);
+      vi.stubEnv('OGM_TEST_HOME', undefined);
+      const created = await tempHome();
+
+      expect(dirname(created)).toBe(resolve(temporary));
+      expect(await readdir(home)).toEqual([]);
+    });
+  });
+
+  it('falls back to the home cache when TMPDIR is not writable', async () => {
+    await withTempHomeFixture(async (fixture) => {
+      const home = join(fixture, 'home');
+      const unwritable = join(fixture, 'unwritable');
+      await Promise.all([mkdir(home), mkdir(unwritable)]);
+      await chmod(unwritable, 0o500);
+      vi.stubEnv('HOME', home);
+      vi.stubEnv('TMPDIR', unwritable);
+      vi.stubEnv('OGM_TEST_HOME', undefined);
+      const created = await tempHome();
+
+      expect(dirname(created)).toBe(resolve(home, '.cache'));
+    });
+  });
+});
 
 describe('slugFor', () => {
   it('lower-cases owner and name into [a-z0-9-]', () => {

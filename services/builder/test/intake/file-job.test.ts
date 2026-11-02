@@ -1,0 +1,279 @@
+import { AiurHttpError, type AiurClient } from '@ogm/aiur-client';
+import { migrate, openDb, schema, type Db } from '@ogm/db';
+import { eq } from 'drizzle-orm';
+import { describe, expect, it, vi } from 'vitest';
+
+import { OutcomeUnknownError, type IssuesClient } from '../../src/github/issues.js';
+import { createIntake } from '../../src/intake/file-job.js';
+
+const NOW = new Date('2026-11-01T18:00:00.000Z');
+
+function plan(twoTickets = false) {
+  return {
+    title: 'Goblin camp',
+    summary: 'Add the camp without including a transcript.',
+    scope: { included: ['camp'], excluded: ['wall jump'] },
+    tickets: [
+      { key: 'T1', skills: ['gm-core'], dependsOn: [], acceptanceCriteria: ['loads'] },
+      ...(twoTickets ? [{ key: 'T2', skills: ['gm-core'], dependsOn: ['T1'], acceptanceCriteria: ['saves'] }] : []),
+    ],
+  };
+}
+
+function seed(db: Db, twoTickets = false) {
+  db.insert(schema.families)
+    .values({ id: 'f_1', name: 'Family', ownerUserId: 'u_1', createdAt: NOW.toISOString() })
+    .run();
+  db.insert(schema.games)
+    .values({
+      id: 'g_1',
+      familyId: 'f_1',
+      ownerId: 'u_1',
+      title: 'Game',
+      visibility: 'private',
+      githubOwner: 'owner',
+      githubRepo: 'game',
+      repoVisibility: 'private',
+      repoUrl: 'https://github.com/owner/game',
+      createdAt: NOW.toISOString(),
+    })
+    .run();
+  db.insert(schema.jobs)
+    .values({
+      id: 'j_1',
+      gameId: 'g_1',
+      branchId: 'main',
+      familyId: 'f_1',
+      creatorId: 'u_1',
+      kind: 'feature',
+      complexity: 3,
+      state: 'admitted',
+      start: 'now',
+      slot: 'edit',
+      plan: JSON.stringify(plan(twoTickets)),
+      reservation: JSON.stringify({ amountMicroUsd: 9_000_001, sizeClass: 'large', confidence: 'low' }),
+      hardCapMicroUsd: 12_000_000,
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
+    })
+    .run();
+}
+
+type Harness = ReturnType<typeof harness>;
+
+function harness(twoTickets = false) {
+  const { sqlite, db } = openDb(':memory:');
+  migrate({ sqlite });
+  seed(db, twoTickets);
+  const calls: string[] = [];
+  let issueNumber = 0;
+  const issues: IssuesClient = {
+    ensureLabel: vi.fn(async () => {
+      calls.push('ensure-feature');
+    }),
+    findByMarkers: vi.fn(async () => null),
+    create: vi.fn(async (_repo, issue) => {
+      issueNumber += 1;
+      calls.push(`create:${issueNumber}`);
+      expect(issue.labels).toEqual(['complexity:3', 'feature:gm-j_1']);
+      return { number: issueNumber, url: `https://github.com/owner/game/issues/${issueNumber}` };
+    }),
+    labels: vi.fn(async () => ['complexity:3', 'feature:gm-j_1']),
+    addLabel: vi.fn(async (_repo, number, label) => {
+      calls.push(`label:${number}:${label}`);
+    }),
+    removeLabel: vi.fn(async () => undefined),
+    setStateLabel: vi.fn(async () => undefined),
+  };
+  const aiur: Pick<AiurClient, 'setSpendCap' | 'nudgeTodo'> = {
+    setSpendCap: vi.fn(async (id, usd) => {
+      calls.push(`cap:${id}:${usd}`);
+      return { amount: usd, currency: 'USD' };
+    }),
+    nudgeTodo: vi.fn(async (ids) => {
+      calls.push(`nudge:${ids.join(',')}`);
+    }),
+  };
+  const alerts: unknown[] = [];
+  const failJob = vi.fn((jobId: string) => {
+    db.update(schema.jobs)
+      .set({ state: 'failed', terminalAt: NOW.toISOString(), updatedAt: NOW.toISOString() })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
+  });
+  const fleet = {
+    ensureDaemon: vi.fn(async () => ({
+      status: 'running' as const,
+      daemon: {
+        repo: 'owner/game',
+        checkoutPath: '/srv/ogm/owner-game',
+        unit: 'ogm-aiur@owner-game.service',
+        envFile: '/srv/ogm/owner-game.env',
+        port: 4101,
+        clientToken: 'token',
+        status: 'running' as const,
+      },
+    })),
+  };
+  const intake = createIntake({
+    db,
+    fleet,
+    issues,
+    aiurForRepo: async () => aiur,
+    shippedSkills: ['gm-core', 'gm-verify'],
+    failJob,
+    now: () => NOW,
+    sleep: async () => undefined,
+    alert: (event) => alerts.push(event),
+  });
+  return { sqlite, db, calls, issues, aiur, fleet, intake, alerts, failJob };
+}
+
+function close(input: Harness) {
+  input.intake.stop();
+  input.sqlite.close();
+}
+
+describe('fileJob', () => {
+  it('files every ticket with spend caps before todo, then nudges once and marks the job filed', async () => {
+    const input = harness(true);
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [1, 2] });
+
+    expect(input.calls).toEqual([
+      'ensure-feature',
+      'create:1',
+      'create:2',
+      'cap:1:9.000001',
+      'label:1:agent:todo',
+      'cap:2:9.000001',
+      'label:2:agent:todo',
+      'nudge:1,2',
+    ]);
+    expect(input.db.select().from(schema.jobs).where(eq(schema.jobs.id, 'j_1')).get()).toMatchObject({
+      state: 'filed',
+      aiurRepo: 'owner/game',
+      aiurIssueNumber: 1,
+      aiurSpendCapMicroUsd: 9_000_001,
+    });
+    expect(input.db.select().from(schema.jobTickets).all()).toHaveLength(2);
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ skipped: 'state:filed' });
+    expect(input.issues.create).toHaveBeenCalledTimes(2);
+    close(input);
+  });
+
+  it('resumes from a durable issue row with cap, todo, and nudge only', async () => {
+    const input = harness();
+    input.db
+      .insert(schema.jobTickets)
+      .values({ jobId: 'j_1', key: 'T1', issueNumber: 7, repo: 'owner/game', sig: 'sig' })
+      .run();
+
+    await input.intake.fileJob('j_1');
+
+    expect(input.issues.create).not.toHaveBeenCalled();
+    expect(input.calls).toEqual(['ensure-feature', 'cap:7:9.000001', 'label:7:agent:todo', 'nudge:7']);
+    expect(input.db.select().from(schema.jobTickets).get()).toMatchObject({
+      issueNumber: 7,
+      capSetAt: NOW.toISOString(),
+      todoAt: NOW.toISOString(),
+      filedAt: NOW.toISOString(),
+    });
+    close(input);
+  });
+
+  it('reconciles an outcome-unknown create by marker before continuing', async () => {
+    const input = harness();
+    vi.mocked(input.issues.findByMarkers)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ number: 12, url: 'https://github.com/owner/game/issues/12', labels: [] });
+    vi.mocked(input.issues.create).mockRejectedValueOnce(new OutcomeUnknownError('owner/game', 'j_1', 'T1'));
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [12] });
+    expect(input.calls).toEqual(['ensure-feature', 'cap:12:9.000001', 'label:12:agent:todo', 'nudge:12']);
+    close(input);
+  });
+
+  it('leaves the job admitted when the daemon has not observed the new ticket after three cap attempts', async () => {
+    const input = harness();
+    vi.mocked(input.aiur.setSpendCap).mockRejectedValue(
+      new AiurHttpError(404, 'ticket_not_found', 'not found', 'http://127.0.0.1:4101'),
+    );
+
+    await input.intake.fileJob('j_1');
+
+    expect(input.aiur.setSpendCap).toHaveBeenCalledTimes(3);
+    expect(input.issues.addLabel).not.toHaveBeenCalled();
+    expect(input.db.select().from(schema.jobs).get()?.state).toBe('admitted');
+    expect(input.alerts).toEqual([expect.objectContaining({ code: 'spend_cap_failed', jobId: 'j_1' })]);
+    close(input);
+  });
+
+  it('pauses the job when a reused ticket has exhausted its spend cap', async () => {
+    const input = harness();
+    vi.mocked(input.aiur.setSpendCap).mockRejectedValueOnce(
+      new AiurHttpError(409, 'spend_cap_exhausted', 'spent', 'http://127.0.0.1:4101'),
+    );
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ deferred: 'aiur' });
+
+    expect(input.issues.addLabel).not.toHaveBeenCalled();
+    expect(input.db.select().from(schema.jobs).get()).toMatchObject({
+      state: 'paused_budget',
+      pausedReason: 'budget_exhausted',
+    });
+    close(input);
+  });
+
+  it('recovers an admitted job older than the sweep threshold', async () => {
+    const input = harness();
+    input.db.update(schema.jobs).set({ updatedAt: '2026-11-01T17:58:59.000Z' }).where(eq(schema.jobs.id, 'j_1')).run();
+
+    await input.intake.sweep();
+
+    expect(input.db.select().from(schema.jobs).get()?.state).toBe('filed');
+    expect(input.calls).toContain('nudge:1');
+    close(input);
+  });
+
+  it('files nothing while waiting for capacity', async () => {
+    const input = harness();
+    input.fleet.ensureDaemon.mockResolvedValueOnce({ status: 'waiting_capacity', live: 4 });
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ deferred: 'capacity' });
+    expect(input.issues.ensureLabel).not.toHaveBeenCalled();
+    expect(input.db.select().from(schema.jobs).get()?.state).toBe('admitted');
+    close(input);
+  });
+
+  it('marks a stopped preflight failed with its reasons and files nothing', async () => {
+    const input = harness();
+    input.fleet.ensureDaemon.mockResolvedValueOnce({
+      status: 'stopped',
+      reasons: ['config drift: tracker.github.allowed_users'],
+    });
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({
+      failed: 'preflight',
+      reasons: ['config drift: tracker.github.allowed_users'],
+    });
+    expect(input.db.select().from(schema.jobs).get()?.state).toBe('failed');
+    expect(input.failJob).toHaveBeenCalledWith('j_1');
+    expect(input.issues.ensureLabel).not.toHaveBeenCalled();
+    expect(input.alerts).toEqual([
+      expect.objectContaining({ code: 'preflight_failed', reasons: ['config drift: tracker.github.allowed_users'] }),
+    ]);
+    close(input);
+  });
+
+  it('marks the job filed when the best-effort nudge fails', async () => {
+    const input = harness();
+    vi.mocked(input.aiur.nudgeTodo).mockRejectedValueOnce(new Error('offline'));
+
+    await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [1] });
+    expect(input.db.select().from(schema.jobs).get()?.state).toBe('filed');
+    expect(input.alerts).toEqual([expect.objectContaining({ code: 'nudge_failed', jobId: 'j_1' })]);
+    close(input);
+  });
+});

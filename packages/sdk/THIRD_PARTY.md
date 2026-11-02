@@ -29,3 +29,11 @@ Only pixelfx's reviewed `src/` tree is consumed. The excluded gallery font is no
 ## recast-navigation
 
 `recast-navigation` 0.43.1 is an optional peer dependency used under the MIT License. Its project star-rule exception remains pending; games without the approved `nav.navmesh` capability do not load it.
+
+## Tone.js
+
+`tone` 15.1.22 is an optional peer dependency used under the MIT License. It is loaded only when a game calls the song player.
+
+## ZzFX
+
+`zzfx` 1.4.0 is used under the MIT License. Its recorded dependency exception covers the package's sub-1,000-star repository.

@@ -24,6 +24,13 @@ set +a
 node services/api/dist/index.js
 ```
 
+The intake poller uses its own unit file and the shared asset root:
+
+```sh
+pnpm --filter @ogm/config exec ogm-env-init intake
+# set OGM_ASSETS_ROOT and OGM_STATE_DIR in ~/.config/ogm/env/intake.env
+```
+
 ## Adding a name
 
 Append one row to `src/names.ts`, add the matching commented empty line to the root `.env.example`, and run this package's tests. Do not commit real values or another `.env` file.
