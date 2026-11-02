@@ -74,6 +74,7 @@ function renderGame(entry = '/g/game') {
 
 beforeEach(() => {
   branchList.value = undefined;
+  useDock.getState().reset();
   editorApi.getGame.mockResolvedValue({ id: 'game', title: 'Goblin Cellar' });
   editorApi.getOptionalPublished.mockResolvedValue({ available: false });
   editorApi.listJobs.mockResolvedValue({ jobs: [] });
@@ -217,6 +218,45 @@ describe('GameScreen', () => {
       }),
     );
   });
+
+  it('does not let a room watcher ask for a change', async () => {
+    window.__ogmHost = {
+      version: 1,
+      route: () => '/g/game',
+      navigate: vi.fn(),
+      register: vi.fn(),
+      get: vi.fn(),
+      snapshot: () => ({ route: '/g/game', registered: [] }),
+    };
+    renderGame('/g/game?test');
+    const room = await waitFor(() => {
+      const current = (window.__ogmHost as OgmHost & { room?: { fake: { emit(message: unknown): void } } }).room;
+      expect(current).toBeDefined();
+      return current!;
+    });
+    room.fake.emit({
+      t: 'welcome',
+      you: { userId: 'watcher', playerIndex: 1, sessionId: 'watcher-session' },
+      state: {
+        protocol: 1,
+        pin: { gameId: 'game', branchId: 'main', buildId: 'build' },
+        ownerId: 'owner',
+        editorSessionId: 'owner-session',
+        phase: 'editing',
+        phaseAt: 1_000,
+        playRev: 5,
+        lastRev: 5,
+        maxPlayers: 4,
+        members: {},
+        presence: { selection: [], privateMode: false },
+      },
+    });
+    await waitFor(() => expect((window.__ogmHost as OgmHost & { game?: { mode: string } }).game?.mode).toBe('edit'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+
+    expect(useDock.getState().draft).toBeUndefined();
+  }, 10_000);
 
   it('drives watcher revisions and modes through the fake room hook', async () => {
     const baseHost: OgmHost = {

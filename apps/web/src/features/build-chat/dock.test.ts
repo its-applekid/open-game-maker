@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { initialDock, reduceDock, visibleJobs, type DockJob } from './dock';
+import { initialDock, reduceDock, useDock, visibleJobs, type DockJob } from './dock';
 
 const running: DockJob = { id: 'j_1', state: 'running' };
 const done: DockJob = { id: 'j_1', state: 'done' };
@@ -57,5 +57,12 @@ describe('build chat dock state', () => {
     expect(admitted.chatKey).toBe('j_old');
     expect(reopened.openJobId).toBe('j_old');
     expect(reopened.chatKey).not.toBe(admitted.chatKey);
+  });
+
+  it('reset clears an open edit draft', () => {
+    useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' });
+    useDock.getState().reset();
+
+    expect(useDock.getState()).toMatchObject({ view: 'collapsed', draft: undefined, chatKey: undefined });
   });
 });

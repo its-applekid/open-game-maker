@@ -114,6 +114,6 @@ export const useDock = create<DockStore>()((set) => {
     startEdit: (draft) => apply({ type: 'start-edit', draft }, []),
     admitted: (jobId, draft) => apply({ type: 'admitted', jobId, draft }, []),
     back: (jobs) => apply({ type: 'back' }, jobs),
-    reset: () => set(initialDock()),
+    reset: () => set({ ...initialDock(), openJobId: undefined, draft: undefined, chatKey: undefined }),
   };
 });
