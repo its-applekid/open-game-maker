@@ -14,6 +14,18 @@ describe('healthResponse', () => {
     expect(healthResponse({ service: 'api', version: 'v', startedAtMs: 5_000, nowMs: 1_000 }).uptimeSec).toBe(0);
   });
 
+  it('includes optional service details', () => {
+    expect(
+      healthResponse({
+        service: 'api',
+        version: 'v',
+        startedAtMs: 0,
+        nowMs: 1000,
+        details: { checkpoint_decisions: { ok: false } },
+      }).details,
+    ).toEqual({ checkpoint_decisions: { ok: false } });
+  });
+
   it('refuses an empty service name', () => {
     expect(() => healthResponse({ service: '', version: 'v', startedAtMs: 0, nowMs: 0 })).toThrow();
   });

@@ -131,6 +131,9 @@ describe('boot', () => {
     bridge.onMessage!(message('save.restore', { saveSchemaVersion: 0, data: { counter: 4 } }));
     await vi.waitFor(() => expect(migrated.metrics.restoreCalls).toHaveLength(1));
     expect(migrated.metrics.restoreCalls[0]?.saveSchemaVersion).toBe(1);
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'save.write', payload: expect.objectContaining({ reason: 'migration' }) }),
+    );
 
     bridge.send.mockClear();
     const unsupported = await start({ migrate: false });
@@ -141,6 +144,21 @@ describe('boot', () => {
       ),
     );
     expect(unsupported.metrics.restoreCalls).toHaveLength(0);
+  });
+
+  it('does not call migrate for a save two schemas behind', async () => {
+    const { metrics, runtime } = await start();
+    runtime.instance.serialize = () => ({ saveSchemaVersion: 2, data: { counter: 0, entities: {}, players: [] } });
+    runtime.instance.migrate = vi.fn(runtime.instance.migrate);
+    bridge.onMessage!(message('save.restore', { saveSchemaVersion: 0, data: { counter: 4 } }));
+
+    await vi.waitFor(() =>
+      expect(bridge.send).toHaveBeenCalledWith(
+        expect.objectContaining({ t: 'error', payload: expect.objectContaining({ code: 'save_unsupported' }) }),
+      ),
+    );
+    expect(runtime.instance.migrate).not.toHaveBeenCalled();
+    expect(metrics.restoreCalls).toHaveLength(0);
   });
 
   it('fans input, viewport, settings, lifecycle, and checkpoint saves through the runtime', async () => {
@@ -174,6 +192,55 @@ describe('boot', () => {
     runtime.host.events.emit('checkpoint', { reason: 'test' });
     expect(bridge.send).toHaveBeenCalledWith(expect.objectContaining({ t: 'event' }));
     expect(bridge.send).toHaveBeenCalledWith(expect.objectContaining({ t: 'save.write' }));
+  });
+
+  it('samples held canvas input on each fixed step and forwards raw host hotkeys', async () => {
+    const { runtime } = await start();
+    const canvas = document.createElement('canvas');
+    runtime.attachInput({
+      canvas,
+      mapping: {
+        keyboard: { KeyG: 'go', Escape: 'host.pause' },
+        touch: 'stick',
+        gamepad: {},
+        pointerLock: false,
+      },
+    });
+
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG' }));
+    runtime.hooks.advanceTime(34);
+    expect(runtime.instance.serialize().data.counter).toBe(2);
+
+    canvas.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyG' }));
+    runtime.hooks.advanceTime(17);
+    expect(runtime.instance.serialize().data.counter).toBe(2);
+
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'input.rawKey', payload: { code: 'Escape', down: true } }),
+    );
+  });
+
+  it('replays recorded merged frames without current held input leaking into history', async () => {
+    const { runtime } = await start();
+    const canvas = document.createElement('canvas');
+    runtime.attachInput({
+      canvas,
+      mapping: {
+        keyboard: { KeyG: 'go' },
+        touch: 'stick',
+        gamepad: {},
+        pointerLock: false,
+      },
+    });
+
+    runtime.hooks.advanceTime(17);
+    canvas.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyG' }));
+    runtime.hooks.advanceTime(17);
+    expect(runtime.instance.serialize().data.counter).toBe(1);
+
+    runtime.hooks.renderAt(17);
+    expect(runtime.instance.serialize().data.counter).toBe(0);
   });
 
   it('refuses a published build forced into test mode by the URL', async () => {

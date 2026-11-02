@@ -4,8 +4,9 @@ import { join } from 'node:path';
 import { serve } from '@hono/node-server';
 
 import { FsBlobStore } from '@ogm/blob-store';
-import { startFeedConsumers } from '@ogm/builder';
+import { createDbDaemonStore, createFleet, createIntake, createIssuesClient, startFeedConsumers } from '@ogm/builder';
 import { migrate, openDb } from '@ogm/db';
+import { skillPack } from '@ogm/game-repo-template';
 
 import { createApp } from './app/app.js';
 import { API_HOST, loadApiEnv } from './app/env.js';
@@ -15,19 +16,37 @@ import { scanRoutes } from './app/routes-scan.js';
 import type { AppDeps, LogLine } from './app/types.js';
 import { readGitVersion } from './app/version.js';
 import { startAnalyticsRetention } from './analytics/retention.js';
+import { startEstimateRefinement } from './budget/estimate.js';
+import { createApplyUsage, startUsageReconciler } from './budget/aiur-usage.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
-import { activeJobs, byTicket } from './jobs/repo.js';
+import { activeJobs, activeJobsForRepo, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { markPaused, markRunning, markTerminal } from './jobs/spend-cap.js';
+import { startBriefingPush } from './voice/briefing-push.js';
 
 const log = (line: LogLine) => console.log(JSON.stringify({ service: 'api', ...line }));
 
 const env = loadApiEnv();
 const { sqlite, db } = openDb(join(env.OGM_DATA_DIR, 'ogm.sqlite3'));
 log({ event: 'migrated', ...migrate({ sqlite }) });
-const daemonDirectory = createDaemonDirectory(db, homedir());
+const home = homedir();
+const daemonDirectory = createDaemonDirectory(db, home);
+const fleet = createFleet({
+  store: createDbDaemonStore(db),
+  activeJobs: async (repo) => activeJobsForRepo(db, repo),
+  env: {
+    home,
+    builderBotToken: env.OGM_BUILDER_BOT_TOKEN,
+    builderBotLogin: env.OGM_BUILDER_BOT_LOGIN,
+    intakeLogin: env.OGM_INTAKE_BOT_LOGIN,
+    assetsLocalDir: join(home, 'games', 'open-game-maker-2000', 'assets-local'),
+    apiPort: env.OGM_API_PORT,
+  },
+  alert: (message) => log({ event: 'daemon_alert', message }),
+});
+const issues = createIssuesClient({ token: env.OGM_INTAKE_GITHUB_TOKEN });
 
 const deps: AppDeps = {
   db,
@@ -37,6 +56,10 @@ const deps: AppDeps = {
     jobTokenSecret: env.OGM_JOB_TOKEN_SECRET,
     blobSigningKey: env.OGM_BLOB_SIGNING_KEY,
     appOrigin: env.OGM_APP_ORIGIN,
+    publicOrigin: env.OGM_PUBLIC_ORIGIN,
+    roomsInternalUrl: env.OGM_ROOMS_INTERNAL_URL,
+    roomsInternalSecret: env.OGM_ROOMS_INTERNAL_SECRET,
+    roomGrantSecret: env.OGM_WS_TOKEN_SECRET,
     commitInternalUrl: env.OGM_COMMIT_INTERNAL_URL,
     commitServiceToken: env.OGM_COMMIT_SERVICE_TOKEN,
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,
@@ -45,9 +68,14 @@ const deps: AppDeps = {
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,
     builderWorkspacesRoot: env.OGM_BUILDER_WORKSPACES_ROOT,
     chatPollMs: env.OGM_CHAT_POLL_MS,
+    checkpointPollMs: env.OGM_CHECKPOINT_POLL_MS,
     analyticsRetentionDays: env.OGM_ANALYTICS_RETENTION_DAYS,
+    voiceTokenSecret: env.OGM_VOICE_TOKEN_SECRET,
+    voiceWsUrl: env.OGM_VOICE_WS_URL,
+    voiceInternalSecret: env.OGM_VOICE_INTERNAL_SECRET,
     defaultDailyAllowanceMicroUsd: env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD,
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
+    intakeDir: env.OGM_INTAKE_DIR,
     reportBundleMaxBytes: env.OGM_REPORT_BUNDLE_MAX_BYTES,
   },
   blobStore: new FsBlobStore({
@@ -64,6 +92,7 @@ const deps: AppDeps = {
 };
 deps.registry.chatJobs = createChatJobDirectory(db);
 deps.registry.aiurClientFor = daemonDirectory.clientForSlug;
+deps.registry.issueStateWriter = issues;
 
 const budgetDefaults = {
   dailyAllowanceMicroUsd: deps.config.defaultDailyAllowanceMicroUsd,
@@ -79,18 +108,58 @@ const projectionDeps = {
     markPaused: (jobId: string, reason: 'over_reservation' | 'budget_exhausted' | 'admin') =>
       void markPaused(lifecycleDeps, jobId, reason),
     markTerminal: (jobId: string, state: 'done' | 'failed' | 'cancelled') =>
-      void markTerminal(lifecycleDeps, jobId, state),
+      void markTerminal(lifecycleDeps, jobId, state, { deferRelease: true }),
   },
 };
+
+const intake = createIntake({
+  db,
+  fleet,
+  issues,
+  async aiurForRepo(repo) {
+    const running = await fleet.daemonFor(repo);
+    if (!running) throw new Error(`Aiur daemon is unavailable for ${repo}`);
+    return running.client;
+  },
+  shippedSkills: skillPack().discovery.map(({ name }) => name),
+  failJob: (jobId) => void markTerminal(lifecycleDeps, jobId, 'failed'),
+  subscribeAdmitted(listener) {
+    return deps.events.on('job.changed', ({ jobId, state }) => {
+      if (state === 'admitted') listener(jobId);
+    });
+  },
+  onJobChanged: (event) => deps.events.emit('job.changed', event),
+  alert: (event) => log({ event: 'job_intake_alert', ...event }),
+  sweepMs: env.OGM_INTAKE_SWEEP_SECONDS * 1000,
+});
 
 const stopAnalyticsRetention = startAnalyticsRetention({
   sqlite,
   retentionDays: deps.config.analyticsRetentionDays,
   log,
 });
+intake.start();
 const stopScheduler = startScheduler({ ...lifecycleDeps, log });
+const stopEstimateRefinement = startEstimateRefinement({ db, events: deps.events, log });
+const stopBriefingPush =
+  env.OGM_VOICE_HOST_INTERNAL_URL && env.OGM_VOICE_INTERNAL_SECRET
+    ? startBriefingPush({
+        db,
+        events: deps.events,
+        defaults: budgetDefaults,
+        url: env.OGM_VOICE_HOST_INTERNAL_URL,
+        secret: env.OGM_VOICE_INTERNAL_SECRET,
+        log,
+      })
+    : () => {};
+const usageReconciler = startUsageReconciler({
+  ...lifecycleDeps,
+  daemonFor: async (repo) => (await daemonDirectory.fleet.daemonFor(repo))?.client ?? null,
+  applyUsage: createApplyUsage(lifecycleDeps),
+  log,
+});
 const feed = startFeedConsumers({
-  fleet: daemonDirectory.fleet,
+  fleet,
   db,
   activeJobs: (daemonSlug) => activeJobs(db, daemonSlug),
   apply: {
@@ -107,7 +176,11 @@ for (const { prefix, file } of (await scanRoutes(app, { deps })).mounted) log({ 
 const server = serve({ fetch: app.fetch, hostname: API_HOST, port: env.OGM_API_PORT });
 server.once('listening', () => log({ event: 'listening', host: API_HOST, port: env.OGM_API_PORT }));
 process.once('SIGTERM', () => {
+  intake.stop();
   stopAnalyticsRetention();
   stopScheduler();
-  void feed.stop().finally(() => server.close(() => sqlite.close()));
+  stopEstimateRefinement();
+  stopBriefingPush();
+  usageReconciler.stop();
+  void Promise.all([feed.stop(), usageReconciler.idle()]).finally(() => server.close(() => sqlite.close()));
 });

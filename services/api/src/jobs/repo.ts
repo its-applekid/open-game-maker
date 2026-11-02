@@ -1,6 +1,6 @@
 import { JobPlan, Reservation, type CreateJobAccepted, type Job, type JobState } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, sql } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
 import { SLOT_STATES } from './state.js';
@@ -111,7 +111,13 @@ export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket:
     .select({ jobId: schema.jobs.id, issueNumber: schema.jobs.aiurIssueNumber })
     .from(schema.gameDaemons)
     .innerJoin(schema.jobs, eq(schema.jobs.aiurRepo, schema.gameDaemons.repo))
-    .where(and(eq(schema.gameDaemons.slug, daemonSlug), inArray(schema.jobs.state, NON_TERMINAL_STATES)))
+    .where(
+      and(
+        eq(schema.gameDaemons.slug, daemonSlug),
+        inArray(schema.jobs.state, NON_TERMINAL_STATES),
+        isNull(schema.jobs.releasedAt),
+      ),
+    )
     .orderBy(asc(schema.jobs.aiurIssueNumber), asc(schema.jobs.id))
     .all()
     .filter((row): row is { jobId: string; issueNumber: number } => row.issueNumber !== null)
@@ -119,10 +125,22 @@ export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket:
 }
 
 export function activeJobsForRepo(db: Db, repo: string): { kind: 'new_game' | 'feature' | 'repair' }[] {
+  const match = /^([^/]+)\/([^/]+)$/.exec(repo.toLowerCase());
+  if (!match) return [];
+  const owner = match[1]!;
+  const name = match[2]!;
   return db
     .select({ kind: schema.jobs.kind })
     .from(schema.jobs)
-    .where(and(eq(schema.jobs.aiurRepo, repo), inArray(schema.jobs.state, SLOT_STATES)))
+    .innerJoin(schema.games, eq(schema.jobs.gameId, schema.games.id))
+    .where(
+      and(
+        eq(sql`lower(${schema.games.githubOwner})`, owner),
+        eq(sql`lower(${schema.games.githubRepo})`, name),
+        inArray(schema.jobs.state, SLOT_STATES),
+        isNull(schema.jobs.releasedAt),
+      ),
+    )
     .all()
     .map(({ kind }) => ({ kind: kind === 'scope' ? ('feature' as const) : kind }));
 }

@@ -1,0 +1,35 @@
+{
+  "gameId": "g_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "branchId": "b_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "fromBuildId": "build_01ARZ3NDEKTSV4RRFFQ69G5FAV",
+  "toBuildId": "build_01BX5ZZKBKACTAV9WEVGEMMVRZ",
+  "carried": [
+    "tuning.value0@global",
+    "tuning.value10@global",
+    "tuning.value11@global",
+    "tuning.value12@global",
+    "tuning.value13@global",
+    "tuning.value14@global",
+    "tuning.value15@global",
+    "tuning.value16@global",
+    "tuning.value17@global",
+    "tuning.value18@global",
+    "tuning.value19@global",
+    "tuning.value1@global",
+    "tuning.value2@global",
+    "tuning.value3@global",
+    "tuning.value4@global",
+    "tuning.value5@global",
+    "tuning.value6@global",
+    "tuning.value7@global",
+    "tuning.value8@global",
+    "tuning.value9@global"
+  ],
+  "renamed": [{ "from": "enemy.tint@global", "to": "enemy.color@global" }],
+  "needsChoice": [],
+  "conflicts": [],
+  "dropped": [
+    { "key": "bat.wingflaps@global", "reason": "control_removed" },
+    { "key": "door.removed@global", "reason": "control_removed" }
+  ]
+}

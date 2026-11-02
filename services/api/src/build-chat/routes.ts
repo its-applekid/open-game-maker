@@ -1,16 +1,12 @@
-import type { Context } from 'hono';
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
 import { ChatPostBody, ChatSinceQuery, type ChatMessagesPage } from '@ogm/contracts';
-import { authorize, type Action } from '@ogm/policy';
-
-import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
 import { HttpError } from '../app/errors.js';
-import { requirePrincipal } from '../app/principal.js';
 import type { ChatJob } from '../app/registry.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody, parseQuery } from '../app/validate.js';
+import { authorizedChatJob } from './authorization.js';
 import { createMirror, type Mirror } from './aiur-mirror.js';
 import { mediaSigner } from './media.js';
 import { loadOutboxHandlers } from './outbox-handlers.js';
@@ -70,30 +66,16 @@ export function setup(deps: AppDeps): void {
         context: (jobId, workspaceRoot) => ({
           jobId,
           workspaceRoot,
+          db: deps.db,
           sqlite: deps.sqlite,
           blobStore: deps.blobStore,
           publish,
+          notify: (trigger) => deps.events.emit('notify', trigger),
           log: deps.log,
         }),
       }).start();
     })
     .catch((error: unknown) => deps.log({ event: 'outbox-relay-error', stack: (error as Error).stack }));
-}
-
-// Reading needs the owner (`game.edit`; players never read a build chat); posting needs `job.create` on the job's game.
-async function authorizedJob(c: Context<ApiBindings>, action: Action, ownerOnly = false): Promise<ChatJob> {
-  const principal = requirePrincipal(c, ['user']);
-  const job = await c.get('deps').registry.chatJobs?.get(c.req.param('jobId') ?? '');
-  if (!job) throw new HttpError(404, 'job_not_found');
-  requireAuthorization(
-    authorize(actorFromPrincipal(principal), action, {
-      gameId: job.gameId,
-      familyId: job.familyId,
-      ownerId: job.ownerId,
-    }),
-  );
-  if (ownerOnly && principal.userId !== job.ownerId) throw new HttpError(403, 'job_owner_required');
-  return job;
 }
 
 // `?since=` wins; otherwise a reconnecting EventSource's Last-Event-ID.
@@ -162,11 +144,11 @@ function chatStream(c: Context<ApiBindings>, job: ChatJob, since: number) {
 
 export default new Hono<ApiBindings>()
   .get('/:jobId/chat', async (c) => {
-    const job = await authorizedJob(c, 'game.edit');
+    const job = await authorizedChatJob(c, 'game.edit');
     return chatStream(c, job, sinceOf(c));
   })
   .get('/:jobId/chat/messages', async (c) => {
-    const job = await authorizedJob(c, 'game.edit');
+    const job = await authorizedChatJob(c, 'game.edit');
     const since = sinceOf(c);
     const { sign } = getChatRuntime(c.get('deps'));
     const rows = listSince(c.get('deps').sqlite, job.jobId, since);
@@ -177,7 +159,7 @@ export default new Hono<ApiBindings>()
     return c.json(page);
   })
   .post('/:jobId/chat', async (c) => {
-    const job = await authorizedJob(c, 'job.create', true);
+    const job = await authorizedChatJob(c, 'job.create', true);
     const body = await parseBody(c, ChatPostBody);
     const deps = c.get('deps');
     const runtime = getChatRuntime(deps);

@@ -1,4 +1,5 @@
 import { GitHubRequestError } from '../github-request.js';
+import { mapConcurrent } from '../concurrency.js';
 import { repositoryName } from '../paths.js';
 import { refused } from '../result.js';
 import type { CommitResult, GitHubRequest, Repository } from '../types.js';
@@ -20,21 +21,6 @@ export const MAX_FORK_BYTES = 100 * 1024 * 1024;
 
 function excluded(path: string): boolean {
   return path === '.gm' || path.startsWith('.gm/') || path === 'saves' || path.startsWith('saves/');
-}
-
-async function mapConcurrent<T, U>(items: T[], limit: number, transform: (item: T) => Promise<U>): Promise<U[]> {
-  const output = new Array<U>(items.length);
-  let next = 0;
-  async function work(): Promise<void> {
-    while (next < items.length) {
-      const index = next;
-      next += 1;
-      const item = items[index];
-      if (item !== undefined) output[index] = await transform(item);
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, work));
-  return output;
 }
 
 async function completedForkSha(
@@ -62,11 +48,20 @@ async function completedForkSha(
 
 async function finishFork(
   op: ExtractCommitOp<'fork'>,
+  context: OperationContext,
   request: GitHubRequest,
   destination: Repository,
   sha: string,
 ): Promise<CommitResult> {
   if (op.visibility === 'public') {
+    const verdict = await context.gate.evaluate({
+      kind: 'set_visibility',
+      gameId: op.newGameId,
+      repository: destination,
+      targetVisibility: 'public',
+      sha,
+    });
+    if (!verdict.allowed) return { ok: false, verdict };
     await request('PATCH /repos/{owner}/{repo}', {
       ...destination,
       private: false,
@@ -78,15 +73,6 @@ async function finishFork(
 export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContext): Promise<CommitResult> {
   const name = repositoryName(op.newGameId);
   const destination: Repository = { owner: op.owner, name, visibility: 'private' };
-  if (op.visibility === 'public') {
-    const verdict = await context.gate.evaluate({
-      kind: 'set_visibility',
-      repository: destination,
-      targetVisibility: 'public',
-    });
-    if (!verdict.allowed) return { ok: false, verdict };
-  }
-
   const source = await context.repos.resolve(op.sourceGameId);
   const sourceGitHub = await context.app.forOwner(source.owner);
   const sourceCommit = await sourceGitHub.request<{ tree: { sha: string } }>(
@@ -132,7 +118,7 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
   if (repositoryState === 'existing') {
     const existingSha = await completedForkSha(destinationGitHub.request, destination, trailer);
     if (existingSha === null) return refused('denylist', 'fork destination already contains another main branch');
-    if (existingSha !== undefined) return finishFork(op, destinationGitHub.request, destination, existingSha);
+    if (existingSha !== undefined) return finishFork(op, context, destinationGitHub.request, destination, existingSha);
   }
 
   const tree = await mapConcurrent(blobs, 8, async (item) => {
@@ -163,5 +149,5 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
     ref: 'refs/heads/main',
     sha,
   });
-  return finishFork(op, destinationGitHub.request, destination, sha);
+  return finishFork(op, context, destinationGitHub.request, destination, sha);
 }

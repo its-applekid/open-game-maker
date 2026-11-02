@@ -1,0 +1,149 @@
+import { mkdirSync } from 'node:fs';
+import { join } from 'node:path';
+
+import { describe, expect, it, vi } from 'vitest';
+
+import type { GmContext } from '../src/command.js';
+import { command as perfCommand } from '../src/commands/perf/index.js';
+import { finish } from '../src/commands/run/index.js';
+import type { VerifyReport } from '@ogm/gm-verify';
+import { gm, tempDir } from './helpers.js';
+
+const perfState = vi.hoisted(() => ({ events: [] as string[], budgetError: false }));
+
+vi.mock('@ogm/gm-verify', () => ({
+  acquireSlot: async () => {
+    perfState.events.push('acquire');
+    return { release: () => perfState.events.push('release') };
+  },
+  launch: async () => {
+    perfState.events.push('launch');
+    return { close: async () => perfState.events.push('close') };
+  },
+  measureLoad: async () => {
+    perfState.events.push('measure');
+    return {
+      device: 'iPhone 13',
+      cpu: 4,
+      firstMs: 10,
+      cachedMs: 5,
+      fromNetwork: 1,
+      fromCache: 0,
+      bytesByType: { code: { n: 1, bytes: 100 } },
+    };
+  },
+  totalBytes: () => 100,
+  measureBudgets: () => ({
+    downloadBytes: [100, 1000, 'ok'],
+    drawCalls: [0, 1000, 'unknown'],
+    triangles: [0, 1000, 'unknown'],
+    textureBytes: [0, 1000, 'unknown'],
+  }),
+  readBudgetOverrides: () => {
+    if (perfState.budgetError) throw new Error('invalid calibration');
+    return {};
+  },
+  readInputScript: () => [],
+}));
+
+const unknownBudgets = (): VerifyReport['budgets'] => ({
+  downloadBytes: [0, 0, 'unknown'],
+  drawCalls: [0, 0, 'unknown'],
+  triangles: [0, 0, 'unknown'],
+  textureBytes: [0, 0, 'unknown'],
+});
+
+describe('gm run', () => {
+  it('refuses a non-loopback URL before launching a browser', async () => {
+    const result = await gm(['run', '--url', 'http://0.0.0.0:8000/']);
+    expect(result.code).toBe(2);
+    expect(result.err).toEqual([expect.stringMatching(/loopback only.*Try:/)]);
+  });
+
+  it('refuses malformed frame and timeline lists before launching a browser', async () => {
+    expect((await gm(['run', '--frames', '0,nope'])).err[0]).toMatch(/--frames/);
+    expect((await gm(['run', '--frames', '0,,2'])).err[0]).toMatch(/--frames/);
+    expect((await gm(['run', '--timeline', '0:10:0'])).err[0]).toMatch(/--timeline/);
+    expect((await gm(['run', '--timeline', '0::1'])).err[0]).toMatch(/--timeline/);
+  });
+
+  it('turns a queued ffmpeg refusal into the install-hint usage error', () => {
+    const now = new Date().toISOString();
+    const report: VerifyReport = {
+      runId: 'queued',
+      renderer: 'unknown',
+      software: false,
+      viewport: 'phone',
+      tier: 'mobile',
+      frames: [],
+      console: [],
+      budgets: unknownBudgets(),
+      probes: {},
+      clients: 1,
+      unchecked: ['iPhone Safari', 'sound'],
+      verdict: 'error',
+      error: 'ffmpeg not found on PATH',
+      startedAt: now,
+      endedAt: now,
+      gmVerifyVersion: 'test',
+    };
+    const ctx = { cwd: '/', json: false, out: () => {}, err: () => {} } as GmContext;
+    expect(() => finish(ctx, report, '/shots/report.json')).toThrow(/sudo apt install ffmpeg/);
+  });
+
+  it('refuses an invalid calibration file before launching a browser', async () => {
+    perfState.budgetError = true;
+    try {
+      const result = await gm(['run', '--budgets', 'budgets.json']);
+      expect(result.code).toBe(2);
+      expect(result.err[0]).toMatch(/--budgets could not be read/);
+    } finally {
+      perfState.budgetError = false;
+    }
+  });
+});
+
+describe('gm shot', () => {
+  it('refuses a sheet directory with no still frames', async () => {
+    const dir = tempDir();
+    mkdirSync(join(dir, 'phone'));
+    const result = await gm(['shot', '--sheet', dir]);
+    expect(result.code).toBe(2);
+    expect(result.err).toEqual([expect.stringMatching(/no t\*\.png stills.*Try:/)]);
+  });
+});
+
+describe('gm perf', () => {
+  it('refuses non-loopback URLs and a zero CPU throttle before launching a browser', async () => {
+    expect((await gm(['perf', '--url', 'https://example.com/'])).err[0]).toMatch(/loopback only/);
+    expect((await gm(['perf', '--cpu', '0'])).err[0]).toMatch(/--cpu must be at least 1/);
+  });
+
+  it('holds a host slot from before launch until after browser close', async () => {
+    perfState.events.length = 0;
+    const ctx = {
+      cwd: process.cwd(),
+      config: { verifySoftwareGl: false, verifyQueue: false },
+      json: false,
+      out: () => {},
+      err: () => {},
+    } as GmContext;
+    const code = await perfCommand.run(ctx, [], {
+      url: 'http://127.0.0.1:8000/',
+      device: 'iphone13',
+      cpu: 4,
+      tier: 'mobile',
+    });
+    expect(code).toBe(0);
+    expect(perfState.events).toEqual(['acquire', 'launch', 'measure', 'close', 'release']);
+  });
+});
+
+describe('gm verify serve', () => {
+  it('refuses a poll interval that would spin the host runner', async () => {
+    const cwd = tempDir();
+    const result = await gm(['verify', 'serve', '--workspaces', '.', '--once', '--poll', '0'], { cwd });
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toMatch(/--poll must be at least 100 milliseconds/);
+  });
+});

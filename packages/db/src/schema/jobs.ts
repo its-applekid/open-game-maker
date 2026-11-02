@@ -28,6 +28,8 @@ export const jobs = sqliteTable(
     reservation: text('reservation').notNull(),
     hardCapMicroUsd: integer('hard_cap_micro_usd').notNull(),
     usageMicroUsd: integer('usage_micro_usd').notNull().default(0),
+    usageCoverage: text('usage_coverage'),
+    aiurRunId: text('aiur_run_id'),
     aiurRepo: text('aiur_repo'),
     aiurIssueNumber: integer('aiur_issue_number'),
     aiurSpendCapMicroUsd: integer('aiur_spend_cap_micro_usd'),
@@ -35,6 +37,7 @@ export const jobs = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
     terminalAt: text('terminal_at'),
+    releasedAt: text('released_at'),
   },
   (table) => [
     index('jobs_family_state').on(table.familyId, table.state),

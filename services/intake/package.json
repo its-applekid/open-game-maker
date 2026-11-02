@@ -1,0 +1,18 @@
+{
+  "name": "@ogm/intake",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/asset-cards --filter @ogm/config build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/asset-cards --filter @ogm/config build",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@ogm/asset-cards": "workspace:*",
+    "@ogm/config": "workspace:*"
+  }
+}

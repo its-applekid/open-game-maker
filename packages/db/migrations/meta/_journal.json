@@ -78,6 +78,69 @@
       "when": 1793562523954,
       "tag": "20261101194843_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1793565873659,
+      "tag": "20261101204433_rooms",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1793576208334,
+      "tag": "20261101233648_job_tickets",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "6",
+      "when": 1793582411658,
+      "tag": "20261102012011_reapply_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1793585790308,
+      "tag": "20261102021630_achievements",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793585807169,
+      "tag": "20261102021647_creator_analytics",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "6",
+      "when": 1793586884310,
+      "tag": "20261102023444_nullable_branch_fork_sha",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1793587102015,
+      "tag": "20261102023822_saves",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793590719082,
+      "tag": "20261102033839_scope_sessions",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793596146366,
+      "tag": "20261102050906_usage_samples",
+      "breakpoints": true
     }
   ]
 }

@@ -172,6 +172,22 @@ describe('applyAiurEvent', () => {
     expect(calls).toEqual([`run:${JOB}`, `pause:${JOB}:budget_exhausted`, `run:${JOB}`, `terminal:${JOB}:done`]);
     expect(projection()[0]).toMatchObject({ stage: 'done', stageText: 'Done', lastEventSeq: 4 });
   });
+
+  it('projects a creator pause without turning it into a budget pause', () => {
+    const calls: string[] = [];
+    const { deps, projection } = setup(undefined, {
+      markRunning() {},
+      markPaused(jobId, reason) {
+        calls.push(`pause:${jobId}:${reason}`);
+      },
+      markTerminal() {},
+    });
+
+    applyAiurEvent(deps, DAEMON, event(1, 'ticket.142.lifecycle.changed', { lifecycle: 'paused', reason: 'admin' }));
+
+    expect(calls).toEqual([]);
+    expect(projection()[0]).toMatchObject({ stage: 'paused', stageText: 'Paused' });
+  });
 });
 
 describe('applyIssueSnapshot', () => {

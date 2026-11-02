@@ -9,6 +9,7 @@ export async function setVisibility(
   const repository = await context.repos.resolve(op.gameId);
   const verdict = await context.gate.evaluate({
     kind: op.kind,
+    gameId: op.gameId,
     repository,
     targetVisibility: op.visibility,
   });
