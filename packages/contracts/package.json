@@ -5,7 +5,11 @@
   "type": "module",
   "types": "./dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "browser": "./dist/browser.js",
+      "default": "./dist/index.js"
+    },
     "./assets": "./dist/assets.js",
     "./bridge": "./dist/bridge.js",
     "./game": "./dist/game.js",
