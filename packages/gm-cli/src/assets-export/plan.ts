@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { readdir, readFile, stat } from 'node:fs/promises';
-import { basename, join, relative, sep } from 'node:path';
+import { basename, dirname, join, relative, sep } from 'node:path';
 
 import type { CardIndex, ResolvedCard } from '@ogm/asset-cards';
 import { blobPath } from '@ogm/blob-store';
@@ -152,6 +152,11 @@ function merge(files: ExportFile[]): ExportFile[] {
   return [...byPath.values()].sort((left, right) => (left.path < right.path ? -1 : left.path > right.path ? 1 : 0));
 }
 
+/**
+ * Every file the locks of `games` need. An entry is restricted when its lock rights or its current card's rights
+ * (a lock may predate a narrowed card) do not allow free redistribution; a file any restricted entry pins is
+ * restricted even when a free entry pins it too. Two games locking one id with different bytes or rights abort.
+ */
 export async function planUsed(
   games: Game[],
   assetsRoot: string | null,
@@ -162,30 +167,51 @@ export async function planUsed(
   const cards = new Map((index?.cards ?? []).map((card) => [card.id, card]));
   const files: ExportFile[] = [];
   const restricted: Excluded[] = [];
+  const restrictedPaths = new Set<string>();
   const missing: string[] = [];
-  const seen = new Set<string>();
+  const packs = new Set<string>();
+  const seen = new Map<string, { game: string; entry: LockEntry }>();
   for (const game of games) {
     for (const entry of game.lock.assets) {
-      if (seen.has(entry.id)) continue;
-      seen.add(entry.id);
-      const reason = restrictedReason(entry.rights);
+      const first = seen.get(entry.id);
+      if (first) {
+        if (JSON.stringify([first.entry.sha256, first.entry.rights]) !== JSON.stringify([entry.sha256, entry.rights])) {
+          missing.push(
+            `${entry.id}: ${first.game} and ${game.id} lock it with different bytes or rights; refresh one lock`,
+          );
+        }
+        continue;
+      }
+      seen.set(entry.id, { game: game.id, entry });
+      const card = cards.get(entry.id);
+      const current = card && index ? rightsForCard(card, index.collections) : undefined;
+      const lockReason = restrictedReason(entry.rights);
+      const cardReason = current ? restrictedReason(current) : null;
+      const reason = lockReason ?? (cardReason === null ? null : `its current card says ${cardReason}`);
+      const resolved = await entryFiles(entry, game, assetsRoot, blobRoot, cards);
       if (reason !== null) {
-        restricted.push({ ids: [entry.id], license: entry.license, rights: entry.rights, reason });
+        restricted.push({
+          ids: [entry.id],
+          license: entry.license,
+          rights: lockReason ? entry.rights : current!,
+          reason,
+        });
+        if ('files' in resolved) resolved.files.forEach((file) => restrictedPaths.add(file.path));
         if (!includeRestricted) continue;
       }
-      const resolved = await entryFiles(entry, game, assetsRoot, blobRoot, cards);
       if ('missing' in resolved) missing.push(resolved.missing);
       else if ('files' in resolved) {
-        files.push(...resolved.files.map((file) => (reason === null ? file : { ...file, restricted: true })));
+        files.push(...resolved.files);
+        const parts = collectionParts(entry.id);
+        if (parts && assetsRoot) packs.add(parts.slug);
       }
     }
   }
-  return {
-    files: merge(files),
-    excluded: includeRestricted ? [] : restricted,
-    restricted,
-    missing,
-  };
+  for (const pack of packs) files.push(...(await packMetadataFiles(join(assetsRoot!, 'packs', pack), pack)));
+  const kept = merge(files)
+    .filter((file) => includeRestricted || !restrictedPaths.has(file.path))
+    .map((file) => (restrictedPaths.has(file.path) ? { ...file, restricted: true } : file));
+  return { files: kept, excluded: includeRestricted ? [] : restricted, restricted, missing };
 }
 
 async function walk(dir: string): Promise<string[]> {
@@ -199,10 +225,14 @@ async function walk(dir: string): Promise<string[]> {
   return result;
 }
 
-/** Pack-level files a library needs to index the pack: its manifest, collection card and asset cards. */
-async function packMetadata(packDir: string): Promise<string[]> {
-  const files = [join(packDir, 'pack.json'), join(packDir, 'collection.card.json')].filter((file) => existsSync(file));
-  return [...files, ...(await walk(join(packDir, 'cards')))];
+/**
+ * The cards a library needs to index a pack (collection card and asset cards). `pack.json` stays behind: it holds
+ * intake paths and Drive ids that are not the recipient's business.
+ */
+async function packMetadataFiles(packDir: string, pack: string): Promise<ExportFile[]> {
+  const collection = join(packDir, 'collection.card.json');
+  const files = [...(existsSync(collection) ? [collection] : []), ...(await walk(join(packDir, 'cards')))];
+  return files.map((file) => ({ path: `library/${pack}/${slash(relative(packDir, file))}`, file, ids: [] }));
 }
 
 /**
@@ -226,7 +256,6 @@ export async function planAll(
   for (const pack of packs.map((item) => item.name).sort()) {
     const packDir = join(packsDir, pack);
     let packIncluded = false;
-    let packLicense: string | undefined;
     for (const version of (await readdir(packDir, { withFileTypes: true }))
       .filter((item) => item.isDirectory() && item.name !== 'cards')
       .map((item) => item.name)
@@ -253,46 +282,39 @@ export async function planAll(
         if (!includeRestricted) continue;
       }
       packIncluded = true;
-      packLicense = license;
-      const narrower = new Set<string>();
+      const narrower = new Map<string, { ids: string[]; license: string; rights: LockRights }>();
       if (reason === null && collection) {
         for (const card of index.cards) {
           if (card.collection !== collection.id || card.card_type !== 'asset') continue;
-          const cardReason = restrictedReason(rightsForCard(card, index.collections));
+          const cardRights = rightsForCard(card, index.collections);
+          const cardReason = restrictedReason(cardRights);
           if (cardReason === null) continue;
+          const facts = { ids: [card.id], license: card.resolved.license, rights: cardRights };
           const paths = (card.source?.files ?? []).map((file) => slash(file.path));
-          paths.forEach((path) => narrower.add(path));
+          paths.forEach((path) => narrower.set(path, facts));
           restricted.push({
             path: `library/${pack}/${version}/extracted/${paths[0] ?? ''}`,
-            ids: [card.id],
-            license: card.resolved.license,
-            rights: rightsForCard(card, index.collections),
+            ...facts,
             reason: cardReason,
           });
         }
       }
       for (const file of await walk(extracted)) {
         const local = slash(relative(extracted, file));
-        if (narrower.has(local) && !includeRestricted) continue;
+        const card = narrower.get(local);
+        if (card && !includeRestricted) continue;
         files.push({
           path: `library/${pack}/${version}/extracted/${local}`,
           file,
           ids,
           ...(license ? { license } : {}),
           ...(rights ? { rights } : {}),
-          ...(reason === null && !narrower.has(local) ? {} : { restricted: true }),
+          ...card,
+          ...(reason === null && !card ? {} : { restricted: true }),
         });
       }
     }
-    if (!packIncluded) continue;
-    for (const file of await packMetadata(packDir)) {
-      files.push({
-        path: `library/${pack}/${slash(relative(packDir, file))}`,
-        file,
-        ids: [],
-        ...(packLicense ? { license: packLicense } : {}),
-      });
-    }
+    if (packIncluded) files.push(...(await packMetadataFiles(packDir, pack)));
   }
 
   if (blobRoot !== null) {
@@ -300,7 +322,7 @@ export async function planAll(
     for (const game of games) {
       for (const entry of game.lock.assets) pinned.set(entry.sha256, [...(pinned.get(entry.sha256) ?? []), entry]);
     }
-    const dir = join(blobRoot, 'blobs', 'sha256');
+    const dir = dirname(blobPath(blobRoot, `sha256:${'0'.repeat(64)}`));
     const hashes = existsSync(dir) ? (await readdir(dir)).filter((name) => /^[0-9a-f]{64}$/.test(name)).sort() : [];
     for (const sha of hashes) {
       const entries = pinned.get(sha) ?? [];

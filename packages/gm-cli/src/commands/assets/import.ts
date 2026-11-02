@@ -55,7 +55,12 @@ export const command: GmCommand = {
   flags: {},
   async run(ctx, args) {
     if (args.length !== 1) throw new UsageError('give exactly one zip', 'gm assets import <zip>');
-    const zip = await ZipReader.open(resolve(ctx.cwd, args[0]!));
+    let zip: ZipReader;
+    try {
+      zip = await ZipReader.open(resolve(ctx.cwd, args[0]!));
+    } catch (error) {
+      throw new CommandError(`${args[0]} is not a usable assets export: ${(error as Error).message}`);
+    }
     try {
       const reportEntry = zip.entries.find((entry) => entry.name === 'rights-report.json');
       if (!reportEntry)
@@ -145,6 +150,13 @@ export const command: GmCommand = {
           added.push(entry.name);
         } finally {
           await rm(temporary, { force: true });
+        }
+      }
+
+      const inZip = new Set(payload.map((entry) => entry.name));
+      for (const path of expected.keys()) {
+        if (!inZip.has(path) && (path.startsWith('library/') || path.startsWith('blobs/'))) {
+          failed.push(`${path}: listed in rights-report.json but missing from the zip`);
         }
       }
 

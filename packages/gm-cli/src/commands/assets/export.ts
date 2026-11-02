@@ -56,6 +56,7 @@ function report(
       ...(file.restricted ? { restricted: true } : {}),
     })),
     excluded: plan.excluded,
+    restricted: plan.restricted,
   };
 }
 

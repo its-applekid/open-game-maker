@@ -19,6 +19,14 @@ const LOOP = 't1:kenney-music-loops/loops/infinite-descent@1.1';
 const LOOP_FILE = 'packs/kenney-music-loops/1.1/extracted/Loops/Infinite Descent.ogg';
 const ORC_ZIP = 'library/kenney-mini-dungeon/2.0/extracted/Models/GLB format/character-orc.glb';
 const LOOP_ZIP = 'library/kenney-music-loops/1.1/extracted/Loops/Infinite Descent.ogg';
+const KENNEY_CARDS = [
+  'library/kenney-mini-dungeon/cards/broken-no-source.card.json',
+  'library/kenney-mini-dungeon/cards/broken-status.card.json',
+  'library/kenney-mini-dungeon/cards/character-orc.card.json',
+  'library/kenney-mini-dungeon/cards/character-sheet.card.json',
+  'library/kenney-mini-dungeon/cards/wall.card.json',
+  'library/kenney-mini-dungeon/collection.card.json',
+];
 const SYNTY_ZIP = 'library/synty-polygon-goblin-war-camp/v3/extracted/FBX/Buildings/SM_Bld_Prop_Torch_01.fbx';
 const FREE = {
   uses: ['in-game' as const],
@@ -105,6 +113,7 @@ describe('gm assets export --used', () => {
     expect(await names(out)).toEqual([
       `blobs/${world.made}`,
       ORC_ZIP,
+      ...KENNEY_CARDS,
       'CREDITS.md',
       'locks/game-a/assets.lock.json',
       'rights-report.json',
@@ -133,7 +142,9 @@ describe('gm assets export --used', () => {
     expect(result.code).toBe(0);
     const listed = await names(out);
     expect(listed).toContain(LOOP_ZIP);
-    expect(listed.filter((name) => name.startsWith('library/') || name.startsWith('blobs/'))).toEqual([LOOP_ZIP]);
+    expect(listed.filter((name) => name.includes('/extracted/') || name.startsWith('blobs/'))).toEqual([LOOP_ZIP]);
+    expect(listed).toContain('library/kenney-music-loops/collection.card.json');
+    expect(listed.some((name) => name.startsWith('library/kenney-mini-dungeon/'))).toBe(false);
 
     const both = join(tempDir(), 'both.zip');
     await gm(['assets', 'export', '--used', '--all-games', '--out', both], { cwd: world.gamesDir, env: world.env });
@@ -240,12 +251,12 @@ describe('gm assets import', () => {
     const fresh = { OGM_ASSETS_ROOT: tempDir('gm-fresh-lib-'), OGM_BLOB_ROOT: tempDir('gm-fresh-blobs-') };
     const first = await gm(['assets', 'import', out], { env: fresh });
     expect(first.code).toBe(0);
-    expect(first.out).toEqual([
-      `added blobs/${world.made}`,
-      `added ${ORC_ZIP}`,
-      `added ${LOOP_ZIP}`,
-      'imported 3 files; 0 already present; 0 failed',
-    ]);
+    expect(first.out).toEqual(
+      expect.arrayContaining([`added blobs/${world.made}`, `added ${ORC_ZIP}`, `added ${LOOP_ZIP}`]),
+    );
+    expect(first.out.at(-1)).toBe('imported 12 files; 0 already present; 0 failed');
+    const index = await gm(['assets', 'info', ORC, '--json'], { env: fresh });
+    expect(index.code).toBe(0);
     expect(
       readFileSync(
         join(fresh.OGM_ASSETS_ROOT, 'packs/kenney-mini-dungeon/2.0/extracted/Models/GLB format/character-orc.glb'),
@@ -260,7 +271,7 @@ describe('gm assets import', () => {
     expect(await store.head(`sha256:${world.made}`)).toMatchObject({ bytes: 10, mime: 'image/png' });
 
     const again = await gm(['assets', 'import', out], { env: fresh });
-    expect(again).toMatchObject({ code: 0, out: ['imported 0 files; 3 already present; 0 failed'] });
+    expect(again).toMatchObject({ code: 0, out: ['imported 0 files; 12 already present; 0 failed'] });
   });
 
   it('never overwrites a different file already in the library and reports it', async () => {
@@ -345,5 +356,151 @@ describe('zip writer and reader', () => {
     const zip = await ZipWriter.create(join(tempDir(), 'bad.zip'));
     await expect(zip.addBuffer('library/../../etc/passwd', Buffer.from('x'))).rejects.toThrow('unsafe zip entry name');
     await zip.abort();
+  });
+});
+
+describe('export rights edge cases', () => {
+  it('leaves out an asset whose current card is restricted even when an older lock says free', async () => {
+    const world = await instance();
+    const stale = await game(join(world.gamesDir, 'c'), 'game-c', [entry(SYNTY, 'torch-bytes')]);
+    const out = join(tempDir(), 'c.zip');
+    const result = await gm(['assets', 'export', '--used', '--out', out], { cwd: stale, env: world.env });
+
+    expect(result.code).toBe(0);
+    expect(result.err).toEqual([
+      `left out ${SYNTY} (its current card says redistribution is in-build); add --include-restricted to export it`,
+    ]);
+    expect(await names(out)).not.toContain(SYNTY_ZIP);
+  });
+
+  it('refuses to merge two games that lock one id with different bytes', async () => {
+    const world = await instance();
+    await game(join(world.gamesDir, 'c'), 'game-c', [entry(ORC, 'other-orc-bytes')]);
+    const out = join(tempDir(), 'all.zip');
+    const result = await gm(['assets', 'export', '--used', '--all-games', '--out', out], {
+      cwd: world.gamesDir,
+      env: world.env,
+    });
+
+    expect(result.code).toBe(1);
+    expect(result.err).toContain(`${ORC}: game-a and game-c lock it with different bytes or rights; refresh one lock`);
+    expect(existsSync(out)).toBe(false);
+  });
+
+  it('keeps a blob out when any lock entry that pins it is restricted', async () => {
+    const world = await instance();
+    const shared = await game(join(world.gamesDir, 'c'), 'game-c', [
+      entry('t3:game-c/free-copy', 'made-bytes'),
+      entry('t3:game-c/private-copy', 'made-bytes', { audience: 'private', redistribution: 'in-build' }),
+    ]);
+    const out = join(tempDir(), 'c.zip');
+    const result = await gm(['assets', 'export', '--used', '--out', out], { cwd: shared, env: world.env });
+
+    expect(result.code).toBe(0);
+    expect(await names(out)).not.toContain(`blobs/${world.made}`);
+  });
+
+  it('applies an asset card narrower than its free pack under --all, with the card rights in the report', async () => {
+    const world = await instance();
+    const wallCard = join(world.assetsRoot, 'packs/kenney-mini-dungeon/cards/wall.card.json');
+    const synty = JSON.parse(
+      readFileSync(join(world.assetsRoot, 'packs/synty-polygon-goblin-war-camp/collection.card.json'), 'utf8'),
+    ) as { license: string; rights: unknown };
+    writeFileSync(
+      wallCard,
+      JSON.stringify({ ...JSON.parse(readFileSync(wallCard, 'utf8')), license: synty.license, rights: synty.rights }),
+    );
+    const wallZip = 'library/kenney-mini-dungeon/2.0/extracted/Models/GLB format/wall.glb';
+    const args = ['assets', 'export', '--all', '--games-dir', world.gamesDir];
+
+    const out = join(tempDir(), 'all.zip');
+    const left = await gm([...args, '--out', out], { cwd: world.gamesDir, env: world.env });
+    expect(left.code).toBe(0);
+    expect(await names(out)).not.toContain(wallZip);
+    expect(await names(out)).toContain(ORC_ZIP);
+    expect(left.err).toContain(
+      'left out t1:kenney-mini-dungeon/wall@2.0 (redistribution is in-build); add --include-restricted to export it',
+    );
+
+    const withRestricted = join(tempDir(), 'all-r.zip');
+    await gm([...args, '--include-restricted', '--out', withRestricted], { cwd: world.gamesDir, env: world.env });
+    expect(report(withRestricted).included.find((item) => item.path === wallZip)).toMatchObject({
+      ids: ['t1:kenney-mini-dungeon/wall@2.0'],
+      rights: { redistribution: 'in-build' },
+      restricted: true,
+    });
+  });
+});
+
+describe('gm assets import refusals', () => {
+  async function exported() {
+    const world = await instance();
+    const out = join(tempDir(), 'a.zip');
+    await gm(['assets', 'export', '--used', '--out', out], { cwd: world.gameA, env: world.env });
+    const fresh = { OGM_ASSETS_ROOT: tempDir('gm-fresh-lib-'), OGM_BLOB_ROOT: tempDir('gm-fresh-blobs-') };
+    return { world, out, fresh };
+  }
+
+  it('refuses a zip whose entry names climb out of the library', async () => {
+    const { fresh } = await exported();
+    const hostile = new AdmZip();
+    hostile.addFile('rights-report.json', Buffer.from(JSON.stringify({ included: [] })));
+    hostile.addFile('library/x/1/extracted/ok.txt', Buffer.from('ok'));
+    const out = join(tempDir(), 'hostile.zip');
+    hostile.writeZip(out);
+    /* adm-zip normalises names on add, so plant a same-length traversal name in the written bytes. */
+    const planted = 'library/../../../ooooooo.txt';
+    const bytes = readFileSync(out);
+    writeFileSync(
+      out,
+      Buffer.from(bytes.toString('latin1').replaceAll('library/x/1/extracted/ok.txt', planted), 'latin1'),
+    );
+
+    const result = await gm(['assets', 'import', out], { env: fresh });
+    expect(result.code).toBe(1);
+    expect(result.err[0]).toContain(`unsafe zip entry name: ${planted}`);
+    expect(existsSync(join(fresh.OGM_ASSETS_ROOT, '..', 'ooooooo.txt'))).toBe(false);
+  });
+
+  it('skips a tampered blob and stores nothing under its sha', async () => {
+    const { world, out, fresh } = await exported();
+    const zip = new AdmZip(out);
+    zip.updateFile(`blobs/${world.made}`, Buffer.from('evil-bytes'));
+    zip.writeZip(out);
+
+    const result = await gm(['assets', 'import', out], { env: fresh });
+    expect(result.code).toBe(1);
+    expect(result.err).toEqual([`blobs/${world.made}: bytes hash to ${sha('evil-bytes')}; skipped`]);
+    const store = new FsBlobStore({
+      root: fresh.OGM_BLOB_ROOT,
+      signingKey: 'unused',
+      publicOrigin: 'http://127.0.0.1',
+    });
+    expect(await store.head(`sha256:${world.made}`)).toBeNull();
+  });
+
+  it('fails when a reported file is missing from the zip or the report is absent', async () => {
+    const { out, fresh } = await exported();
+    const zip = new AdmZip(out);
+    zip.deleteFile(ORC_ZIP);
+    zip.writeZip(out);
+    const missing = await gm(['assets', 'import', out], { env: fresh });
+    expect(missing.code).toBe(1);
+    expect(missing.err).toContain(`${ORC_ZIP}: listed in rights-report.json but missing from the zip`);
+
+    zip.deleteFile('rights-report.json');
+    zip.writeZip(out);
+    const noReport = await gm(['assets', 'import', out], { env: fresh });
+    expect(noReport).toMatchObject({
+      code: 1,
+      err: ['the zip has no rights-report.json; it was not made by gm assets export'],
+    });
+  });
+
+  it('refuses blobs without a blob store', async () => {
+    const { out, fresh } = await exported();
+    const result = await gm(['assets', 'import', out], { env: { OGM_ASSETS_ROOT: fresh.OGM_ASSETS_ROOT } });
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toContain('the zip holds blobs but OGM_BLOB_ROOT is unset');
   });
 });
