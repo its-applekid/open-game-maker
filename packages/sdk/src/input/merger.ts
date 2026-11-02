@@ -1,4 +1,4 @@
-import { MAX_PLAYERS, type ActionFrame, type ActionValue, type RigInputMapping } from '@ogm/contracts';
+import { MAX_PLAYERS, type ActionFrame, type ActionValue, type RigInputMapping } from '@ogm/contracts/input';
 
 import { KeyboardInput, type RawKey } from './keyboard.js';
 import { PointerInput } from './pointer.js';
