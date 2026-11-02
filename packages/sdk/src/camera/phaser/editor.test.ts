@@ -23,8 +23,17 @@ function setup() {
     }),
   };
   const canvas = document.createElement('canvas');
+  const capturedPointers = new Set<number>();
+  const setPointerCapture = vi.fn((pointerId: number) => capturedPointers.add(pointerId));
+  const hasPointerCapture = vi.fn((pointerId: number) => capturedPointers.has(pointerId));
+  const releasePointerCapture = vi.fn((pointerId: number) => capturedPointers.delete(pointerId));
+  Object.defineProperties(canvas, {
+    setPointerCapture: { configurable: true, value: setPointerCapture },
+    hasPointerCapture: { configurable: true, value: hasPointerCapture },
+    releasePointerCapture: { configurable: true, value: releasePointerCapture },
+  });
   const editor = new PhaserEditorCamera(camera as unknown as Phaser.Cameras.Scene2D.Camera, canvas);
-  return { camera, canvas, editor };
+  return { camera, canvas, editor, setPointerCapture, releasePointerCapture };
 }
 
 describe('PhaserEditorCamera', () => {
@@ -61,5 +70,23 @@ describe('PhaserEditorCamera', () => {
     editor.disable();
     expect(camera.zoom).toBe(2);
     expect(editor.active).toBe(false);
+  });
+
+  it('clears captured drags when capture is lost or the camera is disabled', () => {
+    const { camera, canvas, editor, setPointerCapture, releasePointerCapture } = setup();
+    editor.enable();
+
+    canvas.dispatchEvent(pointer('pointerdown', { id: 3, x: 0, y: 0, button: 1 }));
+    expect(setPointerCapture).toHaveBeenCalledWith(3);
+    canvas.dispatchEvent(pointer('pointermove', { id: 3, x: 20, y: 0, button: 1 }));
+    expect(camera.scrollX).toBe(90);
+
+    canvas.dispatchEvent(pointer('lostpointercapture', { id: 3, x: 20, y: 0, button: 1 }));
+    canvas.dispatchEvent(pointer('pointermove', { id: 3, x: 40, y: 0 }));
+    expect(camera.scrollX).toBe(90);
+
+    canvas.dispatchEvent(pointer('pointerdown', { id: 4, x: 0, y: 0, button: 2 }));
+    editor.disable();
+    expect(releasePointerCapture).toHaveBeenCalledWith(4);
   });
 });

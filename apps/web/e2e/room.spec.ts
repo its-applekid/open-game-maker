@@ -68,13 +68,16 @@ test('scripts watcher catch-up, phases, and host-left through the fake session',
   const follow = page.getByRole('button', { name: 'Follow' });
   const free = page.getByRole('button', { name: 'Free' });
   await expect(follow).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => fixtureState(frame).then((state) => state.cameras)).toEqual([{ mode: 'follow' }]);
   await free.click();
   await expect(free).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(() => fixtureState(frame).then((state) => state.cameras)).toEqual([{ mode: 'free' }]);
+  await expect
+    .poll(() => fixtureState(frame).then((state) => state.cameras))
+    .toEqual([{ mode: 'follow' }, { mode: 'free' }]);
   await follow.click();
   await expect
     .poll(() => fixtureState(frame).then((state) => state.cameras))
-    .toEqual([{ mode: 'free' }, { mode: 'follow' }]);
+    .toEqual([{ mode: 'follow' }, { mode: 'free' }, { mode: 'follow' }]);
   if (testInfo.project.name === 'phone') {
     const box = await free.boundingBox();
     expect(box?.height).toBeGreaterThanOrEqual(44);

@@ -169,6 +169,11 @@ export function GameScreen() {
   }, [mode]);
 
   useEffect(() => {
+    if (mode !== 'edit' || room.snapshot?.role !== 'peer' || room.snapshot.phase !== 'editing') return;
+    frameController?.camera(watcherCamera);
+  }, [frameController, mode, room.snapshot?.phase, room.snapshot?.role, watcherCamera]);
+
+  useEffect(() => {
     if (mode !== 'edit' || room.snapshot?.role === 'peer' || activeSnapshot === undefined || gameId === '') {
       setSessionStore(undefined);
       setEditStartup(undefined);
@@ -364,7 +369,6 @@ export function GameScreen() {
           camera={watcherCamera}
           onCamera={(cameraMode) => {
             setWatcherCamera(cameraMode);
-            frameRef.current?.camera(cameraMode);
           }}
           onLeave={() => void leaveRoom()}
           onMode={setMode}

@@ -28,18 +28,20 @@ export class PhaserEditorCamera {
     this.canvas.addEventListener('pointermove', this.onPointerMove);
     this.canvas.addEventListener('pointerup', this.onPointerUp);
     this.canvas.addEventListener('pointercancel', this.onPointerUp);
+    this.canvas.addEventListener('lostpointercapture', this.onLostPointerCapture);
   }
 
   disable(): void {
     if (!this.enabled) return;
     this.enabled = false;
-    this.drag = undefined;
+    this.releaseDrag();
     this.camera.setZoom(this.baseZoom);
     this.canvas.removeEventListener('wheel', this.onWheel);
     this.canvas.removeEventListener('pointerdown', this.onPointerDown);
     this.canvas.removeEventListener('pointermove', this.onPointerMove);
     this.canvas.removeEventListener('pointerup', this.onPointerUp);
     this.canvas.removeEventListener('pointercancel', this.onPointerUp);
+    this.canvas.removeEventListener('lostpointercapture', this.onLostPointerCapture);
   }
 
   private readonly onWheel = (event: WheelEvent) => {
@@ -51,6 +53,7 @@ export class PhaserEditorCamera {
   private readonly onPointerDown = (event: PointerEvent) => {
     if (this.drag) return;
     if (event.pointerType !== 'touch' && event.button !== 1 && event.button !== 2) return;
+    this.canvas.setPointerCapture?.(event.pointerId);
     this.drag = { id: event.pointerId, x: event.clientX, y: event.clientY };
   };
 
@@ -62,6 +65,18 @@ export class PhaserEditorCamera {
   };
 
   private readonly onPointerUp = (event: PointerEvent) => {
+    if (this.drag?.id === event.pointerId) this.releaseDrag();
+  };
+
+  private readonly onLostPointerCapture = (event: PointerEvent) => {
     if (this.drag?.id === event.pointerId) this.drag = undefined;
   };
+
+  private releaseDrag(): void {
+    const pointerId = this.drag?.id;
+    this.drag = undefined;
+    if (pointerId !== undefined && this.canvas.hasPointerCapture?.(pointerId)) {
+      this.canvas.releasePointerCapture(pointerId);
+    }
+  }
 }
