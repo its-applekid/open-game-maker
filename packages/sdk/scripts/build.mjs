@@ -17,6 +17,7 @@ await build({
     'nav/index': 'src/nav/index.ts',
     'phaser/index': 'src/phaser/index.ts',
     'proc/index': 'src/proc/index.ts',
+    'saves/index': 'src/saves/index.ts',
     'test/index': 'src/test/index.ts',
     'three/index': 'src/three/index.ts',
   },

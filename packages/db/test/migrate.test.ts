@@ -41,6 +41,7 @@ describe('migrate', () => {
         '20261102021630_achievements.sql',
         '20261102021647_creator_analytics.sql',
         '20261102023444_nullable_branch_fork_sha.sql',
+        '20261102023822_saves.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -68,6 +69,7 @@ describe('migrate', () => {
       'migration:20261102021630_achievements.sql',
       'migration:20261102021647_creator_analytics.sql',
       'migration:20261102023444_nullable_branch_fork_sha.sql',
+      'migration:20261102023822_saves.sql',
     ]);
     sqlite.close();
   });
