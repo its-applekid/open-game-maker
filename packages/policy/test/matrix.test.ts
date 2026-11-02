@@ -37,6 +37,7 @@ const admin = [
   'admin.members.manage',
   'admin.settings.set',
   'admin.analytics.read',
+  'game.flag_abuse',
   'report.view',
 ] as const satisfies readonly Action[];
 
@@ -52,6 +53,7 @@ const sameFamilyOther = {
     'admin.settings.set',
     'admin.analytics.read',
     'game.delist',
+    'game.flag_abuse',
     'report.file',
     'report.view',
   ],
@@ -103,6 +105,15 @@ const rows = Object.entries(actors).flatMap(([name, actor]) =>
 );
 
 describe(`authorization matrix (${rows.length} rows)`, () => {
+  it('exposes abuse flags as an admin-only family action', () => {
+    const action = 'game.flag_abuse' as Action;
+    expect(ACTIONS).toContain(action);
+    expect(authorize(actors.maintainer, action, resource(actors.maintainer, action, 'other')).ok).toBe(true);
+    expect(authorize(actors.admin, action, resource(actors.admin, action, 'other')).ok).toBe(true);
+    expect(authorize(actors.creator, action, resource(actors.creator, action, 'own')).ok).toBe(false);
+    expect(authorize(actors.admin, action, resource(actors.admin, action, 'other-family')).ok).toBe(false);
+  });
+
   it('treats job edits as owner-only controls', () => {
     expect(authorize(actors.creator, 'job.edit' as Action, resource(actors.creator, 'job.cancel', 'own')).ok).toBe(
       true,
