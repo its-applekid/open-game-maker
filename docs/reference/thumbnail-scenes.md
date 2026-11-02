@@ -12,6 +12,22 @@ Style-picker illustrations are generated from asset cards. They are private-libr
 
 Prefer a generated diorama. A fetched store screenshot or GIF is a local `vendor-metadata` fallback only; it is not game-shippable content.
 
+## Set showcase contract
+
+A set showcase is pre-rendered media only. Its authoring pipeline may composite an oversized isometric world from
+private asset cards, but the style-picker client receives finished files and never runs that compositor, a game
+engine, or canvas rendering. The camera is square, follows a naturally walking hero, and stays full-bleed as it
+crosses diamond seams between regions.
+
+Each region and each companion sheet track ships as an H.264 `yuv420p` MP4 with fast-start metadata, a looping GIF,
+and a poster image. The MP4 is suitable for muted, inline, looping playback on iPhone Safari. The GIF and poster are
+ordered fallbacks; they are not permission to expose private source media or storage keys.
+
+Scene data gives every actor a stable id and records each story beat's actor, action, target, start, contact, and end
+timing. Combat actions play once, targets react at contact, and terminal poses hold. The validator checks those
+references, pack coverage, region/sheet non-duplication, seam coverage, square dimensions, codec and pixel format,
+fast-start atom order, GIF looping, and poster presence before any output is delivered.
+
 ## Output layout
 
 Set outputs use these keys relative to the asset-library root:
