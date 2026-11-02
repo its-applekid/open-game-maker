@@ -64,6 +64,10 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       jobTokenSecret: JOB_SECRET,
       blobSigningKey: BLOB_KEY,
       appOrigin: 'https://app.example.test',
+      publicOrigin: 'https://api.example.test:8443',
+      roomsInternalUrl: 'http://127.0.0.1:4302',
+      roomsInternalSecret: 'rooms-internal-secret-for-tests',
+      roomGrantSecret: 'room-grant-secret-for-tests-with-32-bytes',
       commitInternalUrl: 'http://127.0.0.1:4301',
       commitServiceToken: 'commit-service-token-for-tests',
       gameTemplateRef: 'game-2d@1',
@@ -73,6 +77,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       analyticsRetentionDays: 90,
       defaultDailyAllowanceMicroUsd: 5_000_000,
       resetZoneDefault: 'America/Los_Angeles',
+      reportBundleMaxBytes: 2 * 1024 * 1024,
     },
     blobStore: new FsBlobStore({
       root: mkdtempSync(join(tmpdir(), 'ogm-api-blobs-')),

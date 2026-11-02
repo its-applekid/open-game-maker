@@ -1,7 +1,7 @@
 import type { Context } from 'hono';
 
 import type { AiurClient } from '@ogm/aiur-client';
-import type { JobState, Principal } from '@ogm/contracts';
+import type { JobKind, JobState, Principal } from '@ogm/contracts';
 
 import type { ApiBindings } from './types.js';
 
@@ -36,6 +36,7 @@ export type ChatJob = {
   gameId: string;
   familyId: string;
   ownerId: string;
+  kind: JobKind;
   state: JobState;
   aiur: { daemonSlug: string; ticket: string } | null;
 };
@@ -46,7 +47,10 @@ export interface ChatJobDirectory {
 }
 export type AiurClientResolver = (
   daemonSlug: string,
-) => Pick<AiurClient, 'message' | 'progress'> | null | Promise<Pick<AiurClient, 'message' | 'progress'> | null>;
+) =>
+  | Pick<AiurClient, 'message' | 'progress' | 'decisions' | 'decision' | 'decide'>
+  | null
+  | Promise<Pick<AiurClient, 'message' | 'progress' | 'decisions' | 'decision' | 'decide'> | null>;
 export type UserDirectory = {
   emailForUser(userId: string): Promise<string | null>;
   userIdForEmail(email: string): Promise<string | null>;

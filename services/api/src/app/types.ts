@@ -16,6 +16,10 @@ export interface AppDeps {
     jobTokenSecret: string;
     blobSigningKey: string;
     appOrigin: string;
+    publicOrigin: string;
+    roomsInternalUrl: string;
+    roomsInternalSecret: string;
+    roomGrantSecret: string;
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
@@ -25,9 +29,12 @@ export interface AppDeps {
     // Build chat: the relay starts only with a workspaces root; the progress poller only with a period.
     builderWorkspacesRoot?: string;
     chatPollMs?: number;
+    checkpointPollMs?: number;
     analyticsRetentionDays: number;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
+    intakeDir?: string;
+    reportBundleMaxBytes: number;
   };
   blobStore: BlobStore;
   events: AppEvents;

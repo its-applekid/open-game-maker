@@ -9,6 +9,7 @@ await build({
   entryPoints: {
     index: 'src/index.ts',
     'assets/index': 'src/assets/index.ts',
+    'audio/index': 'src/audio/index.ts',
     'fx/index': 'src/fx/index.ts',
     'nav/index': 'src/nav/index.ts',
     'proc/index': 'src/proc/index.ts',
