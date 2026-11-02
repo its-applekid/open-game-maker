@@ -250,6 +250,15 @@ importers:
 
   packages/gm-cli:
     dependencies:
+      '@gltf-transform/core':
+        specifier: 4.5.1
+        version: 4.5.1
+      '@gltf-transform/extensions':
+        specifier: 4.5.1
+        version: 4.5.1
+      '@gltf-transform/functions':
+        specifier: 4.5.1
+        version: 4.5.1(@types/node@26.6.6)
       '@ogm/asset-cards':
         specifier: workspace:*
         version: link:../asset-cards
@@ -271,6 +280,9 @@ importers:
       adm-zip:
         specifier: 0.6.1
         version: 0.6.1
+      meshoptimizer:
+        specifier: 1.3.0
+        version: 1.3.0
       sharp:
         specifier: 0.35.5
         version: 0.35.5(@types/node@26.6.6)
