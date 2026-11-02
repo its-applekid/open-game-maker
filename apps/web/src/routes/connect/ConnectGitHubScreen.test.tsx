@@ -93,6 +93,15 @@ describe('ConnectGitHubScreen', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fgames');
   });
 
+  it('keeps next when an org install comes back awaiting approval', async () => {
+    auth.readGitHubInstallState.mockReturnValue('/g/1');
+    renderConnect('/connect/github?setup_action=request&state=nonce%3A%2Fg%2F1');
+
+    expect(await screen.findByRole('button', { name: 'Connect GitHub' })).toBeVisible();
+    expect(auth.connectGitHubInstallation).not.toHaveBeenCalled();
+    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fg%2F1');
+  });
+
   it('shows a refused installation and lets the creator start again', async () => {
     auth.connectGitHubInstallation.mockRejectedValueOnce(new Error('api 409'));
     renderConnect('/connect/github?installation_id=4242&state=nonce%3A%2Fgames');

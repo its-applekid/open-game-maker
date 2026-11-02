@@ -57,11 +57,12 @@ export function ConnectGitHubScreen() {
     mounted.current = true;
     if (!started.current) {
       started.current = true;
-      if (callback.installationId) {
+      if (callback.state !== null) {
+        // GitHub came back (an org install awaiting approval brings no installation_id). Drop the one-shot
+        // callback parameters so a reload never replays them.
         const returnedNext = readGitHubInstallState(callback.state);
-        // Drop the one-shot callback parameters so a reload never replays them.
         navigate(`/connect/github?next=${encodeURIComponent(safeNext(returnedNext, '/games'))}`, { replace: true });
-        void (returnedNext === null ? loadStatus() : finishInstall(callback.installationId));
+        void (callback.installationId && returnedNext !== null ? finishInstall(callback.installationId) : loadStatus());
       } else {
         void loadStatus();
       }
