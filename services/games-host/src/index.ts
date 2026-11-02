@@ -12,6 +12,7 @@ export function main(environment: NodeJS.ProcessEnv = env): ServerType {
     appOrigin: config.appOrigin,
     root: config.root,
     version: readGitVersion(),
+    workerScript: config.workerScript,
   });
   const server = serve({
     fetch: app.fetch,

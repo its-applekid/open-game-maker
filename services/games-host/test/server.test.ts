@@ -1,3 +1,4 @@
+import { brotliCompressSync, brotliDecompressSync, gunzipSync } from 'node:zlib';
 import { mkdtemp, mkdir, rm, unlink, writeFile } from 'node:fs/promises';
 import { createServer } from 'node:http';
 import { once } from 'node:events';
@@ -10,16 +11,23 @@ import { markComplete } from '../src/layout.js';
 import { createApp } from '../src/server.js';
 
 describe('games-host server', () => {
+  const blobSha = 'a'.repeat(64);
   let root: string;
   let build: string;
+  let workerScript: string;
 
   beforeEach(async () => {
     root = await mkdtemp(join(tmpdir(), 'ogm-games-server-'));
     build = join(root, 'demo', 'b1');
     await mkdir(join(build, 'assets'), { recursive: true });
     await writeFile(join(build, 'index.html'), '<h1>demo</h1>');
+    await writeFile(join(build, 'game.js'), 'globalThis.demo = "compress me";\n'.repeat(20));
     await writeFile(join(build, 'assets', 'x.webp'), 'webp');
     await writeFile(join(build, 'assets', 'payload.bin'), 'opaque');
+    await mkdir(join(root, '_a'));
+    await writeFile(join(root, '_a', `${blobSha}.webp`), 'shared-webp');
+    workerScript = join(root, 'game-cache.js');
+    await writeFile(workerScript, 'self.addEventListener("fetch", () => undefined);\n');
     await markComplete(build);
   });
 
@@ -33,6 +41,7 @@ describe('games-host server', () => {
       appOrigin: 'https://ogm2000.netlify.app',
       version: '0123456789abcdef0123456789abcdef01234567',
       uptimeSec: () => 12.9,
+      workerScript,
     });
   }
 
@@ -77,6 +86,76 @@ describe('games-host server', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('content-length')).toBe(String(Buffer.byteLength('<h1>demo</h1>')));
     expect(await response.text()).toBe('');
+  });
+
+  it('serves a shared blob with immutable headers and its sha ETag', async () => {
+    const response = await app().request(`/a/${blobSha}.webp`);
+    const headResponse = await app().request(`/a/${blobSha}.webp`, { method: 'HEAD' });
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
+    expect(response.headers.get('content-type')).toBe('image/webp');
+    expect(response.headers.get('etag')).toBe(`"${blobSha}"`);
+    expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
+    expect(await response.text()).toBe('shared-webp');
+    expect(headResponse.status).toBe(200);
+    expect(headResponse.headers.get('etag')).toBe(`"${blobSha}"`);
+    expect(await headResponse.text()).toBe('');
+  });
+
+  it.each([`${'a'.repeat(63)}.webp`, `${'A'.repeat(64)}.webp`, `${'a'.repeat(64)}.svg`, `../${blobSha}.webp`])(
+    'returns no-store 404 for invalid blob name %s',
+    async (file) => {
+      const response = await app().request(`/a/${file}`);
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get('cache-control')).toBe('no-store');
+    },
+  );
+
+  it('serves the cache worker without caching it', async () => {
+    const response = await app().request('/game-cache.js');
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toBe('no-cache');
+    expect(response.headers.get('content-type')).toBe('text/javascript; charset=utf-8');
+    expect(response.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(response.headers.get('service-worker-allowed')).toBe('/g/');
+    expect(await response.text()).toContain('addEventListener');
+  });
+
+  it('compresses text with Brotli while leaving media uncompressed', async () => {
+    const script = await app().request('/g/demo/b1/game.js', { headers: { 'Accept-Encoding': 'br' } });
+    const image = await app().request('/g/demo/b1/assets/x.webp', { headers: { 'Accept-Encoding': 'br' } });
+
+    expect(script.headers.get('content-encoding')).toBe('br');
+    expect(script.headers.get('vary')).toBe('Accept-Encoding');
+    expect(brotliDecompressSync(Buffer.from(await script.arrayBuffer())).toString()).toBe(
+      'globalThis.demo = "compress me";\n'.repeat(20),
+    );
+    expect(image.headers.has('content-encoding')).toBe(false);
+    expect(image.headers.has('vary')).toBe(false);
+    expect(await image.text()).toBe('webp');
+  });
+
+  it('serves a precompressed Brotli file when one is present', async () => {
+    const encoded = brotliCompressSync('precompressed body');
+    await writeFile(join(build, 'pre.js'), 'uncompressed body');
+    await writeFile(join(build, 'pre.js.br'), encoded);
+
+    const response = await app().request('/g/demo/b1/pre.js', { headers: { 'Accept-Encoding': 'br' } });
+
+    expect(response.headers.get('content-encoding')).toBe('br');
+    expect(Buffer.from(await response.arrayBuffer())).toEqual(encoded);
+  });
+
+  it('compresses text with gzip when Brotli is unavailable to the client', async () => {
+    const response = await app().request('/g/demo/b1/game.js', { headers: { 'Accept-Encoding': 'gzip' } });
+
+    expect(response.headers.get('content-encoding')).toBe('gzip');
+    expect(gunzipSync(Buffer.from(await response.arrayBuffer())).toString()).toBe(
+      'globalThis.demo = "compress me";\n'.repeat(20),
+    );
   });
 
   it('does not set cookies when the request carries one', async () => {

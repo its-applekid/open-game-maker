@@ -1,9 +1,26 @@
-import { mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, symlink, unlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { BadId, buildDir, isComplete, markComplete, resolveFile } from '../src/layout.js';
+const { linkMock } = vi.hoisted(() => ({ linkMock: vi.fn() }));
+
+vi.mock('node:fs/promises', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>();
+  linkMock.mockImplementation(actual.link);
+  return { ...actual, link: linkMock };
+});
+
+import {
+  BadBlobName,
+  BadId,
+  blobPath,
+  buildDir,
+  isComplete,
+  markComplete,
+  putBlob,
+  resolveFile,
+} from '../src/layout.js';
 
 describe('games-host layout', () => {
   let root: string;
@@ -77,5 +94,49 @@ describe('games-host layout', () => {
     await expect(isComplete(build)).resolves.toBe(true);
     const marker = await readFile(join(build, '.complete'), 'utf8');
     expect(Number.isNaN(Date.parse(marker.trim()))).toBe(false);
+  });
+
+  it('builds shared blob paths only from full lowercase content hashes', () => {
+    const file = `${'a'.repeat(64)}.webp`;
+
+    expect(blobPath(root, file)).toBe(join(root, '_a', file));
+    for (const invalid of [
+      `${'a'.repeat(63)}.webp`,
+      `${'A'.repeat(64)}.webp`,
+      `${'a'.repeat(64)}.svg`,
+      `../${file}`,
+      `_a/${file}`,
+    ]) {
+      expect(() => blobPath(root, invalid)).toThrow(BadBlobName);
+    }
+  });
+
+  it('puts a blob durably and treats a second put as a no-op', async () => {
+    const file = `${'b'.repeat(64)}.webp`;
+    const staging = join(root, 'staging');
+    const source = join(staging, file);
+    await mkdir(staging);
+    await writeFile(source, 'shared-image');
+
+    const destination = await putBlob(root, source);
+    expect(destination).toBe(join(root, '_a', file));
+    await expect(readFile(destination, 'utf8')).resolves.toBe('shared-image');
+
+    await unlink(source);
+    await expect(putBlob(root, source)).resolves.toBe(destination);
+    await expect(readFile(destination, 'utf8')).resolves.toBe('shared-image');
+  });
+
+  it('copies a blob when a cross-device hard link is unavailable', async () => {
+    const file = `${'c'.repeat(64)}.webp`;
+    const staging = join(root, 'staging');
+    const source = join(staging, file);
+    await mkdir(staging);
+    await writeFile(source, 'cross-device-image');
+    linkMock.mockRejectedValueOnce(Object.assign(new Error('cross-device link'), { code: 'EXDEV' }));
+
+    const destination = await putBlob(root, source);
+
+    await expect(readFile(destination, 'utf8')).resolves.toBe('cross-device-image');
   });
 });
