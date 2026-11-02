@@ -358,10 +358,24 @@ describe('branch routes', () => {
 });
 
 describe('version counts', () => {
-  it('counts only transactions after the latest build switch', async () => {
+  it('counts only transactions after the latest registered build switch', async () => {
     const { deps, main } = await setup();
     systemTransaction(deps.sqlite, main, 1, 'before one');
     systemTransaction(deps.sqlite, main, 2, 'before two');
+    deps.sqlite.exec(`
+      CREATE TABLE builds (
+        id TEXT PRIMARY KEY NOT NULL,
+        game_id TEXT NOT NULL,
+        branch_id TEXT NOT NULL,
+        git_sha TEXT NOT NULL,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      )
+    `);
+    deps.sqlite
+      .prepare('INSERT INTO builds (id, game_id, branch_id, git_sha, status, created_at) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(ids.build, ids.game, main.id, 'a'.repeat(40), 'tested', new Date(new Date(now).getTime() + 3).toISOString());
+    deps.sqlite.prepare('UPDATE branches SET latest_build_id = ? WHERE id = ?').run(ids.build, main.id);
     systemTransaction(deps.sqlite, main, 3, 'switch', [{ op: 'invoke', command: 'build.switch', args: {} }]);
     systemTransaction(deps.sqlite, main, 4, 'after one');
     systemTransaction(deps.sqlite, main, 5, 'after two');

@@ -1,8 +1,8 @@
-CREATE TABLE `branches_20261101190000` AS SELECT * FROM `branches`;
+CREATE TABLE `branches_20261102014839` AS SELECT * FROM `branches`;
 --> statement-breakpoint
-CREATE TABLE `design_transactions_20261101190000` AS SELECT * FROM `design_transactions`;
+CREATE TABLE `design_transactions_20261102014839` AS SELECT * FROM `design_transactions`;
 --> statement-breakpoint
-CREATE TABLE `edit_leases_20261101190000` AS SELECT * FROM `edit_leases`;
+CREATE TABLE `edit_leases_20261102014839` AS SELECT * FROM `edit_leases`;
 --> statement-breakpoint
 DROP TRIGGER `design_transactions_no_update`;
 --> statement-breakpoint
@@ -37,7 +37,7 @@ INSERT INTO `branches`
   (`id`, `game_id`, `name`, `git_ref`, `fork_parent_branch_id`, `fork_parent_rev`, `fork_git_sha`, `head_rev`, `latest_build_id`, `status`, `created_by`, `created_at`)
 SELECT
   `id`, `game_id`, `name`, `git_ref`, `fork_parent_branch_id`, `fork_parent_rev`, `fork_git_sha`, `head_rev`, `latest_build_id`, `status`, `created_by`, `created_at`
-FROM `branches_20261101190000`;
+FROM `branches_20261102014839`;
 --> statement-breakpoint
 CREATE UNIQUE INDEX `branches_game_name_unique` ON `branches` (`game_id`,`name`);
 --> statement-breakpoint
@@ -70,7 +70,7 @@ INSERT INTO `design_transactions`
   (`id`, `game_id`, `branch_id`, `rev`, `base_rev`, `lease_token`, `actor`, `kind`, `label`, `base_build_id`, `commands_json`, `patches_json`, `inverse_json`, `created_at`)
 SELECT
   `id`, `game_id`, `branch_id`, `rev`, `base_rev`, `lease_token`, `actor`, `kind`, `label`, `base_build_id`, `commands_json`, `patches_json`, `inverse_json`, `created_at`
-FROM `design_transactions_20261101190000`;
+FROM `design_transactions_20261102014839`;
 --> statement-breakpoint
 CREATE UNIQUE INDEX `design_transactions_branch_rev_unique` ON `design_transactions` (`branch_id`,`rev`);
 --> statement-breakpoint
@@ -93,7 +93,7 @@ INSERT INTO `edit_leases`
   (`game_id`, `branch_id`, `holder_user_id`, `session_id`, `token`, `expires_at`)
 SELECT
   `game_id`, `branch_id`, `holder_user_id`, `session_id`, `token`, `expires_at`
-FROM `edit_leases_20261101190000`;
+FROM `edit_leases_20261102014839`;
 --> statement-breakpoint
 CREATE TRIGGER `design_transactions_no_update`
 BEFORE UPDATE ON `design_transactions`
@@ -107,8 +107,8 @@ BEGIN
 	SELECT RAISE(ABORT, 'design_transactions is append-only');
 END;
 --> statement-breakpoint
-DROP TABLE `branches_20261101190000`;
+DROP TABLE `branches_20261102014839`;
 --> statement-breakpoint
-DROP TABLE `design_transactions_20261101190000`;
+DROP TABLE `design_transactions_20261102014839`;
 --> statement-breakpoint
-DROP TABLE `edit_leases_20261101190000`;
+DROP TABLE `edit_leases_20261102014839`;
