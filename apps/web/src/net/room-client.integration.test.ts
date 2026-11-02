@@ -1,0 +1,132 @@
+// @vitest-environment node
+
+import { createServer } from 'node:net';
+
+import { ColyseusTestServer } from '@colyseus/testing';
+import type { DesignDoc, Patch } from '@ogm/design-log';
+import { apply } from '@ogm/design-log';
+import type { DesignTx, RoomPin } from '@ogm/contracts';
+import { signGrant } from '@ogm/room-protocol';
+import { createRoomsServer } from '@ogm/rooms';
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { RoomClient } from './room-client';
+import { createRoomStore } from './room-store';
+import { WatcherSync } from './watcher-sync';
+
+const grantSecret = 'rooms-integration-grant-secret-32-bytes';
+const pin: RoomPin = { gameId: 'game-integration', branchId: 'main', buildId: 'build-1' };
+const initialDoc: DesignDoc = { schemaVersion: 1, globals: { gravity: 1 }, entities: {} };
+let testServer: ColyseusTestServer | undefined;
+
+afterEach(async () => {
+  await testServer?.shutdown();
+  testServer = undefined;
+});
+
+describe('RoomClient with GameRoom', () => {
+  it('keeps a watcher document equal to the host document at every relayed revision', async () => {
+    const port = await availablePort();
+    const bundle = createRoomsServer({
+      port,
+      grantSecret,
+      internalSecret: 'rooms-integration-internal-secret-32-bytes',
+      apiInternalUrl: 'http://127.0.0.1:1',
+      gamesOrigin: 'https://games.example.test',
+      version: 'test',
+      timings: {
+        ownerReconnectSec: 0.2,
+        playerReconnectSec: 0.2,
+        idleDisposeSec: 1,
+        callbackTimeoutMs: 50,
+        callbackRetryMs: [1, 2, 3],
+      },
+      endedFetch: async () => new Response(null, { status: 204 }),
+    });
+    await bundle.gameServer.listen(port, '127.0.0.1');
+    testServer = new ColyseusTestServer(bundle.gameServer);
+    const room = await testServer.createRoom('game', {
+      ...pin,
+      ownerId: 'owner-1',
+      maxPlayers: 4,
+    });
+    const ownerGrant = await grant(room.roomId, 'owner-1', 'owner');
+    const watcherGrant = await grant(room.roomId, 'watcher-1', 'player');
+
+    const ownerStore = createRoomStore();
+    const watcherStore = createRoomStore();
+    const owner = new RoomClient({
+      roomsUrl: `ws://127.0.0.1:${port}`,
+      store: ownerStore,
+      clientFactory: () => testServer!.sdk,
+    });
+    const watcher = new RoomClient({
+      roomsUrl: `ws://127.0.0.1:${port}`,
+      store: watcherStore,
+      clientFactory: () => testServer!.sdk,
+    });
+    const sync = new WatcherSync({
+      bridge: { send: () => undefined },
+      fetchSnapshot: async () => ({ rev: 0, doc: initialDoc }),
+      store: watcherStore,
+    });
+    watcher.subscribe((message) => {
+      if (message.t === 'welcome') void sync.onWelcome(message.state);
+      if (message.t === 'design.tx') sync.onTransaction(message.tx);
+      if (message.t === 'resync') void sync.onResync(message.fromRev);
+    });
+
+    await Promise.all([
+      owner.join({ roomId: room.roomId, grant: ownerGrant, pin, expiresAt: Date.now() + 600_000 }),
+      watcher.join({ roomId: room.roomId, grant: watcherGrant, pin, expiresAt: Date.now() + 600_000 }),
+    ]);
+    await waitFor(() => ownerStore.getState().status === 'connected' && watcherStore.getState().status === 'connected');
+    await waitFor(() => sync.appliedRev === 0);
+
+    let hostDoc = initialDoc;
+    for (let rev = 1; rev <= 3; rev += 1) {
+      const patches: Patch[] = [{ op: 'replace', path: ['globals', 'gravity'], value: rev + 1 }];
+      hostDoc = apply(hostDoc, patches);
+      ownerStore.getState().publishTransaction(transaction(rev, patches));
+      await waitFor(() => sync.appliedRev === rev);
+      expect(sync.doc).toEqual(hostDoc);
+    }
+
+    await Promise.all([watcher.leave(), owner.leave()]);
+  }, 25_000);
+});
+
+async function grant(roomId: string, userId: string, role: 'owner' | 'player'): Promise<string> {
+  return signGrant({ sub: userId, roomId, gameId: pin.gameId, role, name: userId }, grantSecret);
+}
+
+function transaction(rev: number, patches: Patch[]): DesignTx {
+  return {
+    branchId: pin.branchId,
+    rev,
+    baseRev: rev - 1,
+    actor: 'owner-1',
+    kind: 'manual',
+    patches,
+  };
+}
+
+async function waitFor(condition: () => boolean, timeoutMs = 8_000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition()) {
+    if (Date.now() >= deadline) throw new Error('timed out waiting for room state');
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+async function availablePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', resolve);
+  });
+  const address = server.address();
+  if (address === null || typeof address === 'string') throw new Error('test server did not bind a TCP port');
+  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  return address.port;
+}

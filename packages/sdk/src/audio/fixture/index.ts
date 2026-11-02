@@ -9,7 +9,7 @@ declare global {
 
 window.__audio = createAudio({
   rng: () => 0.5,
-  resolveUrl: (id) => `/${id}.mp3`,
+  resolveUrl: (id) => `/audio/${id}.mp3`,
 });
 
 window.__playNarration = async () => {

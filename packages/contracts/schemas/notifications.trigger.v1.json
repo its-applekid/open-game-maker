@@ -78,6 +78,43 @@
       "properties": {
         "kind": {
           "type": "string",
+          "const": "scope.agreed"
+        },
+        "userIds": {
+          "minItems": 1,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+          }
+        },
+        "gameId": {
+          "type": "string",
+          "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+        },
+        "jobId": {
+          "type": "string",
+          "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+        },
+        "sessionId": {
+          "type": "string",
+          "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+        }
+      },
+      "required": [
+        "kind",
+        "userIds",
+        "gameId",
+        "jobId",
+        "sessionId"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
           "const": "intake.report"
         },
         "userIds": {

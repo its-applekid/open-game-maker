@@ -2,8 +2,8 @@ import { existsSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import type { BlobStore } from '@ogm/blob-store';
-import type { AgentOutboxLine } from '@ogm/contracts';
-import type { Sqlite } from '@ogm/db';
+import type { AgentOutboxLine, NotificationTrigger } from '@ogm/contracts';
+import type { Db, Sqlite } from '@ogm/db';
 
 import type { LogLine } from '../app/types.js';
 import type { NarrationLineInput, NarrationResult } from '../narration/render.js';
@@ -12,10 +12,12 @@ import type { NarrationLineInput, NarrationResult } from '../narration/render.js
 export interface OutboxContext {
   jobId: string;
   workspaceRoot: string;
+  db: Db;
   sqlite: Sqlite;
   blobStore: BlobStore;
   renderNarration?: (lines: readonly NarrationLineInput[]) => Promise<NarrationResult[]>;
   publish: (jobId: string) => void;
+  notify: (trigger: NotificationTrigger) => void;
   log: (line: LogLine) => void;
 }
 

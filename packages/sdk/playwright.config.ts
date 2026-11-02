@@ -6,8 +6,8 @@ const port = Number(env.SDK_AUDIO_TEST_PORT ?? 4181);
 const baseURL = `http://127.0.0.1:${port}`;
 
 export default defineConfig({
-  testDir: './src/audio',
-  testMatch: 'browser.spec.ts',
+  testDir: './src',
+  testMatch: '**/browser.spec.ts',
   fullyParallel: false,
   workers: 1,
   use: {

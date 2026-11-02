@@ -68,10 +68,12 @@ export function setup(deps: AppDeps): void {
         context: (jobId, workspaceRoot) => ({
           jobId,
           workspaceRoot,
+          db: deps.db,
           sqlite: deps.sqlite,
           blobStore: deps.blobStore,
           ...(narration ? { renderNarration: (lines) => narration.renderLines(lines) } : {}),
           publish,
+          notify: (trigger) => deps.events.emit('notify', trigger),
           log: deps.log,
         }),
       }).start();

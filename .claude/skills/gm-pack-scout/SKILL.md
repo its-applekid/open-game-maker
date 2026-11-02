@@ -10,6 +10,7 @@ effects, Kevin likes them): check them first and never suggest buying an effects
 
 1. **Search wide.** Large bundles over single sprites; CC0 or explicit commercial-use licences. itch.io (also its
    bundles and sale pages), OpenGameArt, Kenney, Poly Pizza. Check Kevin's owned stores before suggesting a purchase.
+   List approved pinned free mirrors with `gm packs sync --list`; only run a real sync after Kevin picks one.
 2. **Preview, don't download.** Build one page from the store pages, every candidate with why it fits, price and licence:
    `python3 -I scripts/assets/pack_previews.py <out.html> "Title" <url>="why it fits" ...`
    Publish it as an artifact and say which you'd pick. **Download nothing until Kevin says which.**
