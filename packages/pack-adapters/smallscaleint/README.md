@@ -6,7 +6,7 @@ through `@gm/sdk/assets`, never from pack files, and ships no asset bytes.
 ## Binds
 
 - `createSpriteActor(scene, loader, id, { variant })`: one texture per action sheet of the variant (`shadow` or
-  `shadowless`), one Phaser animation per action and direction, and `sync({ x, y, facing, action, t })`, which sets
+  `shadowless`, else the action's untagged sheet), one Phaser animation per action and direction, and `sync({ x, y, facing, action, t })`, which sets
   position, frame and depth (`y`). `action` is a role from `vocabulary` or a set action name; loop roles repeat, the
   rest play once and hold their last frame. Sheets are fetched beside the asset's file, as `gm assets use` copies them.
 - `facing8(vx, vy, hold?)`: the nearest of 8 facings for a screen velocity, with hysteresis on sector edges.

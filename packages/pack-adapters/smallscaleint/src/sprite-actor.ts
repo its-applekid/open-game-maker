@@ -24,49 +24,54 @@ export interface SpriteActor {
   sync(state: SpriteActorState): void;
 }
 
-const { cols, rows } = conventions.sheetGrid.value;
-const frameSizes = Object.values(conventions.frameSizes.value).map((size) => size.frame);
-
 const sheetSchema = z.object({
   path: z.string(),
   variant: z.enum(conventions.variants.value).optional(),
-  frame_w: z.number().refine((w) => frameSizes.includes(w), { message: `frame_w must be one of ${frameSizes}` }),
-  frame_h: z.number(),
-  cols: z.literal(cols),
-  rows: z.literal(rows),
+  frame_w: z.number().int().positive(),
+  frame_h: z.number().int().positive(),
+  cols: z.number().int().positive(),
+  rows: z.literal(conventions.sheetGrid.value.rows),
 });
 
 const spriteSchema = z.object({
   animations: z
-    .array(z.object({ name: z.string(), fps: z.number().positive(), sheets: z.array(sheetSchema).min(1) }))
+    .array(z.object({ name: z.string(), fps: z.number().positive(), sheets: z.array(sheetSchema).optional() }))
     .min(1),
 });
 
-type Animation = z.infer<typeof spriteSchema>['animations'][number];
+interface Action {
+  texture: string;
+  fps: number;
+  /** Frames per direction row. */
+  cols: number;
+}
 
 function basename(path: string): string {
   return path.slice(path.lastIndexOf('/') + 1);
 }
 
-function loadAll(scene: Phaser.Scene): Promise<void> {
+/** Waits for this actor's queued sheets only; other files failing in the same batch are not its concern. */
+function loadSheets(scene: Phaser.Scene, keys: string[]): Promise<void> {
+  if (keys.length === 0) return Promise.resolve();
   return new Promise((resolve, reject) => {
+    const failed: string[] = [];
     const onError = (file: { key: string; src?: string }) => {
-      scene.load.off('complete', onComplete);
-      reject(new Error(`Failed to load sprite sheet ${file.key} (${file.src ?? 'no url'})`));
+      if (keys.includes(file.key)) failed.push(`${file.key} (${file.src ?? 'no url'})`);
     };
-    const onComplete = () => {
+    scene.load.on('loaderror', onError);
+    scene.load.once('complete', () => {
       scene.load.off('loaderror', onError);
-      resolve();
-    };
-    scene.load.once('loaderror', onError);
-    scene.load.once('complete', onComplete);
+      if (failed.length > 0) reject(new Error(`Failed to load sprite sheets: ${failed.join(', ')}`));
+      else resolve();
+    });
     scene.load.start();
   });
 }
 
 /**
- * Binds one SmallScaleInt character: one texture per action sheet of `variant`, one animation per action and
- * direction. Sheets are fetched beside the asset's file (the layout `gm assets use` copies them into).
+ * Binds one SmallScaleInt character: one texture per action sheet of `variant` (or the action's only, untagged
+ * sheet), one animation per action and direction. Sheets are fetched beside the asset's file (the layout
+ * `gm assets use` copies them into); actions that have only per-frame files are skipped.
  */
 export async function createSpriteActor(
   scene: Phaser.Scene,
@@ -80,21 +85,26 @@ export async function createSpriteActor(
     throw new Error(`Asset ${id} has no SmallScaleInt sheet metadata: ${z.prettifyError(sprite.error)}`);
   }
 
-  const actions = new Map<string, { texture: string; animation: Animation }>();
+  const actions = new Map<string, Action>();
+  const queued: string[] = [];
   for (const animation of sprite.data.animations) {
-    const sheet = animation.sheets.find((candidate) => candidate.variant === options.variant);
+    const sheets = animation.sheets ?? [];
+    const sheet =
+      sheets.find((candidate) => candidate.variant === options.variant) ??
+      sheets.find((candidate) => candidate.variant === undefined);
     if (!sheet) continue;
     const texture = `${id}:${animation.name}:${options.variant}`;
-    actions.set(animation.name.toLowerCase(), { texture, animation });
+    actions.set(animation.name.toLowerCase(), { texture, fps: animation.fps, cols: sheet.cols });
     if (!scene.textures.exists(texture)) {
       const url = new URL(basename(sheet.path), resolved.url).toString();
       scene.load.spritesheet(texture, url, { frameWidth: sheet.frame_w, frameHeight: sheet.frame_h });
+      queued.push(texture);
     }
   }
   if (actions.size === 0) throw new Error(`Asset ${id} has no ${options.variant} sheets`);
-  await loadAll(scene);
+  await loadSheets(scene, queued);
 
-  const lookup = (action: string) => {
+  const lookup = (action: string): Action => {
     const names: readonly string[] = isRole(action) ? vocabulary[action] : [action];
     for (const name of names) {
       const found = actions.get(name.toLowerCase());
@@ -106,7 +116,7 @@ export async function createSpriteActor(
   const rowOf = (facing: Direction) => conventions.sheetRowOrder.value.indexOf(facing);
   const animationKey = (action: string, facing: Direction) => `${lookup(action).texture}:${facing}`;
 
-  for (const [name, { texture, animation }] of actions) {
+  for (const [name, { texture, fps, cols }] of actions) {
     for (const facing of DIRECTIONS) {
       const key = `${texture}:${facing}`;
       if (scene.anims.exists(key)) continue;
@@ -114,7 +124,7 @@ export async function createSpriteActor(
       scene.anims.create({
         key,
         frames: scene.anims.generateFrameNumbers(texture, { start, end: start + cols - 1 }),
-        frameRate: animation.fps,
+        frameRate: fps,
         repeat: loops(name) ? -1 : 0,
       });
     }
@@ -127,8 +137,8 @@ export async function createSpriteActor(
     sprite: object,
     animationKey,
     sync({ x, y, facing, action, t }) {
-      const { texture, animation } = lookup(action);
-      const step = Math.max(0, Math.floor(t * animation.fps));
+      const { texture, fps, cols } = lookup(action);
+      const step = Math.max(0, Math.floor(t * fps));
       const frame = loops(action) ? step % cols : Math.min(step, cols - 1);
       object.setTexture(texture, rowOf(facing) * cols + frame);
       object.setPosition(x, y);

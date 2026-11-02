@@ -8,8 +8,8 @@ export interface SyntheticSheet {
   pixels: Int32Array;
 }
 
-export function drawSheet(frame: number): SyntheticSheet {
-  const width = 15 * frame;
+export function drawSheet(frame: number, cols = 15): SyntheticSheet {
+  const width = cols * frame;
   const height = 8 * frame;
   const pixels = new Int32Array(width * height);
   for (let y = 0; y < height; y += 1) {
@@ -29,7 +29,12 @@ export function fakeScene(sheets: Map<string, SyntheticSheet>) {
   const loaded = new Map<string, Loaded>();
   const pending: [string, Loaded][] = [];
   const animations = new Map<string, { frames: number[]; frameRate: number; repeat: number }>();
-  const listeners = new Map<string, (arg?: unknown) => void>();
+  const listeners = new Map<string, ((arg?: unknown) => void)[]>();
+  const emit = (event: string, arg?: unknown) => {
+    for (const listener of listeners.get(event) ?? []) listener(arg);
+  };
+  /** Files queued by someone else in the same loader batch, as `[key, url]`. */
+  const foreign: [string, string][] = [];
   const sprite = {
     texture: '',
     frame: -1,
@@ -57,18 +62,29 @@ export function fakeScene(sheets: Map<string, SyntheticSheet>) {
       spritesheet(key: string, url: string, config: { frameWidth: number; frameHeight: number }) {
         pending.push([key, { url, ...config }]);
       },
-      once(event: string, callback: (arg?: unknown) => void) {
-        listeners.set(event, callback);
+      on(event: string, callback: (arg?: unknown) => void) {
+        listeners.set(event, [...(listeners.get(event) ?? []), callback]);
       },
-      off(event: string) {
-        listeners.delete(event);
+      once(event: string, callback: (arg?: unknown) => void) {
+        const once = (arg?: unknown) => {
+          scene.load.off(event, once);
+          callback(arg);
+        };
+        scene.load.on(event, once);
+      },
+      off(event: string, callback: (arg?: unknown) => void) {
+        listeners.set(
+          event,
+          (listeners.get(event) ?? []).filter((listener) => listener !== callback),
+        );
       },
       start() {
+        for (const [key, url] of foreign.splice(0)) emit('loaderror', { key, src: url });
         for (const [key, file] of pending.splice(0)) {
-          if (!sheets.has(file.url)) return listeners.get('loaderror')?.({ key, src: file.url });
-          loaded.set(key, file);
+          if (sheets.has(file.url)) loaded.set(key, file);
+          else emit('loaderror', { key, src: file.url });
         }
-        listeners.get('complete')?.();
+        emit('complete');
       },
     },
     textures: { exists: (key: string) => loaded.has(key) },
@@ -102,7 +118,7 @@ export function fakeScene(sheets: Map<string, SyntheticSheet>) {
     return { url: file.url, row: Math.floor(drawn / 100), col: drawn % 100 };
   }
 
-  return { scene: scene as unknown as Phaser.Scene, sprite, loaded, animations, cell };
+  return { scene: scene as unknown as Phaser.Scene, sprite, loaded, animations, foreign, cell };
 }
 
 export function fakeLoader(resolved: Partial<ResolvedAsset>): AssetLoader {

@@ -97,6 +97,70 @@ describe('createSpriteActor', () => {
   });
 });
 
+describe('createSpriteActor on real card shapes', () => {
+  const geometry = (frame: number, cols = 15) => ({ frame_w: frame, frame_h: frame, cols, rows: 8 });
+  const loaderFor = (animations: unknown[]) =>
+    fakeLoader({ meta: { sprite: { drawn_view: 'iso', animations } } as never });
+
+  it('binds an untagged sheet for either variant and skips actions that only have frame files', async () => {
+    const fake = fakeScene(new Map([[`${BASE}Attack1.png`, drawSheet(128, 14)]]));
+    const loader = loaderFor([
+      { name: 'walk', frames: [0], fps: FPS, direction_files: { E: ['Walk/E/Walk_0_001.png'] } },
+      {
+        name: 'attack1',
+        frames: [0],
+        fps: FPS,
+        sheets: [{ path: 'Characters/Thug3/Attack1.png', ...geometry(128, 14) }],
+      },
+    ]);
+    const bound = await createSpriteActor(fake.scene, loader, 'hero', { variant: 'shadowless' });
+    for (let f = 0; f < 14; f += 1) {
+      bound.sync({ x: 0, y: 0, facing: 'NW', action: 'attack.melee.1', t: (f + 0.5) / FPS });
+      expect(fake.cell(fake.sprite.texture, fake.sprite.frame)).toEqual({ url: `${BASE}Attack1.png`, row: 5, col: f });
+    }
+    bound.sync({ x: 0, y: 0, facing: 'NW', action: 'attack.melee.1', t: 40 });
+    expect(fake.cell(fake.sprite.texture, fake.sprite.frame).col).toBe(13);
+    expect(() => bound.sync({ x: 0, y: 0, facing: 'E', action: 'walk', t: 0 })).toThrow(
+      /no shadowless sheet for action walk/,
+    );
+  });
+
+  it('rejects when one of its sheets is missing beside the asset file', async () => {
+    const fake = fakeScene(new Map());
+    const loader = loaderFor([
+      { name: 'walk', frames: [0], fps: FPS, sheets: [{ path: 'S/Walk.png', ...geometry(64) }] },
+    ]);
+    await expect(createSpriteActor(fake.scene, loader, 'hero', { variant: 'shadow' })).rejects.toThrow(
+      `Failed to load sprite sheets: hero:walk:shadow (${BASE}Walk.png)`,
+    );
+  });
+
+  it('ignores another file failing in the same loader batch', async () => {
+    const fake = fakeScene(new Map([[`${BASE}Walk.png`, drawSheet(64)]]));
+    fake.foreign.push(['music', `${BASE}missing.ogg`]);
+    const loader = loaderFor([
+      { name: 'walk', frames: [0], fps: FPS, sheets: [{ path: 'S/Walk.png', ...geometry(64) }] },
+    ]);
+    await expect(createSpriteActor(fake.scene, loader, 'hero', { variant: 'shadow' })).resolves.toBeDefined();
+  });
+
+  it('refuses a card with no sheet for the variant and a sheet that is not 8 direction rows', async () => {
+    const { scene } = fakeScene(new Map());
+    const tagged = [{ path: 'S/Walk.png', variant: 'shadow', ...geometry(64) }];
+    await expect(
+      createSpriteActor(scene, loaderFor([{ name: 'walk', frames: [0], fps: FPS, sheets: tagged }]), 'hero', {
+        variant: 'shadowless',
+      }),
+    ).rejects.toThrow(/has no shadowless sheets/);
+    const fourRows = [{ path: 'S/Walk.png', ...geometry(64), rows: 4 }];
+    await expect(
+      createSpriteActor(scene, loaderFor([{ name: 'walk', frames: [0], fps: FPS, sheets: fourRows }]), 'hero', {
+        variant: 'shadow',
+      }),
+    ).rejects.toThrow(/no SmallScaleInt sheet metadata/);
+  });
+});
+
 describe('facing8', () => {
   const at = (degrees: number): [number, number] => [
     Math.cos((degrees * Math.PI) / 180),

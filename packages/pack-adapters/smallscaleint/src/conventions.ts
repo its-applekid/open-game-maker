@@ -36,7 +36,9 @@ const framesPerAction: Fact<number> = {
 
 const frameSizes: Fact<Record<'hd' | 'bit16', { frame: number; sheet: [number, number] }>> = {
   value: { hd: { frame: 128, sheet: [1920, 1024] }, bit16: { frame: 64, sheet: [960, 512] } },
-  verified: 'PNG headers of HD and 16-bit sheets (1920x1024 and 960x512)',
+  verified:
+    'PNG headers of HD and 16-bit sheets (1920x1024 and 960x512); cards also carry 74-192 px and 14- or 8-column ' +
+    'sheets, so the actor reads geometry from the card',
 };
 
 const variants: Fact<readonly ['shadow', 'shadowless']> = {
