@@ -87,6 +87,16 @@ describe('POST /internal/voice/instruct', () => {
     expect(jobs).toHaveLength(1);
     expect(jobs[0]).toMatchObject({ start: 'at_reset', state: 'queued' });
     expect(JSON.parse(jobs[0].plan)).toMatchObject({ title: 'Add lanterns', summary: 'Add lanterns' });
+    const reservation = JSON.parse(jobs[0].reservation) as { amountMicroUsd: number; sizeClass: string };
+    expect(reservation).toMatchObject({ amountMicroUsd: 4_000_000, sizeClass: 'medium' });
+    expect(deps.db.select().from(schema.budgetLedger).where(eq(schema.budgetLedger.jobId, jobs[0].id)).all()).toEqual([
+      expect.objectContaining({
+        userId: ids.creator,
+        kind: 'reservation',
+        amountMicroUsd: reservation.amountMicroUsd,
+        dayKey: expect.any(String),
+      }),
+    ]);
   });
 
   it('keeps a refused scope draft pending with the four next choices', async () => {
