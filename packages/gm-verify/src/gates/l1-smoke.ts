@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, relative, resolve, sep } from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 
@@ -8,6 +9,13 @@ import type { Browser } from 'playwright';
 import { launch, openGame, type OpenedGame } from '../browser.js';
 import { playtesting, type ActivityContext } from '../events.js';
 import { toFrame, type InputScript } from '../inputs.js';
+import {
+  replay as replayBrowser,
+  replayPromiseKey,
+  type ReplayBundle,
+  type ReplayOptions,
+  type ReplayResult,
+} from '../replay.js';
 import { ALWAYS_UNCHECKED, GM_VERIFY_VERSION, unknownBudgets, writeReport, type VerifyReport } from '../report.js';
 import { acquireSlot, type SemaphoreOptions } from '../semaphore.js';
 import { isLoopbackUrl, serveStatic } from '../server.js';
@@ -50,7 +58,26 @@ function promiseFiles(root: string): string[] {
   return files.sort();
 }
 
-export function runPromiseSpecs(root: string): GateCheck {
+type SpawnResult = { status: number | null; stdout: string; stderr: string; error?: Error };
+type PromiseRunnerOptions = {
+  replay?: (bundle: ReplayBundle, options: ReplayOptions) => Promise<ReplayResult>;
+  spawn?: (command: string, args: string[], options: { cwd: string; encoding: 'utf8'; timeout: number }) => SpawnResult;
+  software?: boolean;
+  wallClockMs?: number;
+};
+
+type PromiseReplay = {
+  seed: number;
+  keyframe: { tick: number; state: unknown };
+  actions: { tick: number; action: string; phase: 'down' | 'up' }[];
+  expectedError?: string;
+};
+
+function replayFile(spec: string): string {
+  return `${spec.slice(0, -'.spec.ts'.length)}.replay.json`;
+}
+
+export async function runPromiseSpecs(root: string, options: PromiseRunnerOptions = {}): Promise<GateCheck> {
   let files: string[];
   try {
     files = promiseFiles(root);
@@ -59,29 +86,72 @@ export function runPromiseSpecs(root: string): GateCheck {
   }
   if (files.length === 0) return { id: 'promises', ok: true, detail: 'no promise specs' };
   const relativeFiles = files.map((file) => slash(relative(root, file)));
-  const result = spawnSync('pnpm', ['exec', 'vitest', 'run', ...relativeFiles], {
-    cwd: root,
-    encoding: 'utf8',
-    timeout: 5 * 60_000,
-  });
-  if (result.error)
+  const privateDir = mkdtempSync(join(tmpdir(), 'gm-promise-results-'));
+  const results: Record<string, Pick<ReplayResult, 'class' | 'errorsSeen'>> = {};
+  try {
+    for (const file of files) {
+      const jsonPath = replayFile(file);
+      if (!existsSync(jsonPath)) continue;
+      let promise: PromiseReplay;
+      try {
+        promise = JSON.parse(readFileSync(jsonPath, 'utf8')) as PromiseReplay;
+      } catch (error) {
+        return {
+          id: 'promises',
+          ok: false,
+          detail: `invalid replay JSON: ${error instanceof Error ? error.message : String(error)}`,
+          file: slash(relative(root, jsonPath)),
+        };
+      }
+      const result = await (options.replay ?? replayBrowser)(
+        { ...promise, errors: promise.expectedError ? [{ message: promise.expectedError }] : [], probes: {} },
+        {
+          serveDir: join(root, 'dist'),
+          outDir: join(privateDir, replayPromiseKey(promise)),
+          software: options.software,
+          wallClockMs: options.wallClockMs,
+        },
+      );
+      results[replayPromiseKey(promise)] = { class: result.class, errorsSeen: result.errorsSeen };
+    }
+
+    const setupPath = join(privateDir, 'setup.mjs');
+    const configPath = join(privateDir, 'vitest.config.mjs');
+    writeFileSync(setupPath, `globalThis.__GM_PROMISE_RESULTS__ = ${JSON.stringify(results)};\n`);
+    writeFileSync(
+      configPath,
+      `export default { test: { root: ${JSON.stringify(root)}, setupFiles: [${JSON.stringify(setupPath)}], fileParallelism: false } };\n`,
+    );
+    const result = (options.spawn ?? spawnSync)(
+      'pnpm',
+      ['exec', 'vitest', 'run', '--config', configPath, ...relativeFiles],
+      {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 5 * 60_000,
+      },
+    );
+    if (result.error)
+      return {
+        id: 'promises',
+        ok: false,
+        detail: `unavailable: ${result.error.message}`,
+        file: relativeFiles[0],
+      };
+    if (result.status === 0) return { id: 'promises', ok: true, detail: `${files.length} promise spec(s)` };
+    const detail = `${result.stdout}\n${result.stderr}`
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .find((line) => /(?:FAIL|Error|failed)/i.test(line));
     return {
       id: 'promises',
       ok: false,
-      detail: `unavailable: ${result.error.message}`,
+      detail: detail || `promise specs exited ${result.status ?? 1}`,
       file: relativeFiles[0],
     };
-  if (result.status === 0) return { id: 'promises', ok: true, detail: `${files.length} promise spec(s)` };
-  const detail = `${result.stdout}\n${result.stderr}`
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .find((line) => /(?:FAIL|Error|failed)/i.test(line));
-  return {
-    id: 'promises',
-    ok: false,
-    detail: detail || `promise specs exited ${result.status ?? 1}`,
-    file: relativeFiles[0],
-  };
+  } finally {
+    rmSync(privateDir, { recursive: true, force: true });
+  }
 }
 
 async function openWithRetry(
@@ -229,7 +299,7 @@ export async function runL1(root: string, options: RunL1Options = {}): Promise<G
     slot?.release();
     await server?.close().catch(() => {});
 
-    checks.push(runPromiseSpecs(root));
+    checks.push(await runPromiseSpecs(root, { software: options.software }));
     if (browser) {
       const ok = checks.every((check) => check.ok);
       const report: VerifyReport = {

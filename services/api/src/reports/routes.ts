@@ -3,7 +3,9 @@ import { z } from 'zod';
 
 import {
   CreateReport,
+  CompleteTriage,
   Id,
+  IsoTime,
   type CreateReportResponse,
   type IssueWriter,
   type ReportError,
@@ -26,6 +28,8 @@ import { admitRepair } from './repair.js';
 import { frameKey, normaliseMessage } from './signature.js';
 import {
   claimPlatformFiling,
+  claimTriage,
+  findOpenTriage,
   findReport,
   jobState,
   listPlatformQueue,
@@ -38,6 +42,7 @@ import {
   setReportRoute,
   type Intake,
 } from './store.js';
+import { completeTriage, DIAGNOSTICS_MAX_BYTES, storeDiagnostics } from './triage.js';
 
 const BUNDLE_TYPES = new Set(['application/octet-stream', 'application/json', 'application/gzip']);
 const BUNDLE_URL_TTL_MS = 5 * 60 * 1000;
@@ -165,6 +170,13 @@ async function readBundle(request: Request, max: number): Promise<Uint8Array> {
 }
 
 const listQuery = z.object({ gameId: Id }).strict();
+const claimBody = z.strictObject({ now: IsoTime, staleBefore: IsoTime });
+const dedupeQuery = z.strictObject({ signature: z.string().regex(/^[0-9a-f]{64}$/), exclude: Id.optional() });
+
+function requireRepairService(c: Parameters<typeof requirePrincipal>[0]): void {
+  const principal = requirePrincipal(c, ['service']);
+  if (principal.service !== 'repair') throw new HttpError(403, 'forbidden');
+}
 
 const routes = new Hono<ApiBindings>()
   .post('/', async (c) => {
@@ -223,6 +235,48 @@ const routes = new Hono<ApiBindings>()
     const principal = requirePrincipal(c, ['user']);
     requireAuthorization(authorize(actorFromPrincipal(principal), 'report.view'));
     return c.json({ issues: listPlatformQueue(c.get('deps').db) });
+  })
+  .post('/triage/claim', async (c) => {
+    requireRepairService(c);
+    const deps = c.get('deps');
+    const body = await parseBody(c, claimBody);
+    if (body.staleBefore > body.now) throw new HttpError(400, 'invalid_stale_before');
+    const report = claimTriage(deps, body);
+    if (!report) return c.json({ report: null });
+    const { url } = await deps.blobStore.signedGet(
+      report.bundleKey as Parameters<AppDeps['blobStore']['signedGet']>[0],
+      new Date(Date.parse(body.now) + BUNDLE_URL_TTL_MS),
+    );
+    return c.json({
+      reportId: report.id,
+      gameId: report.gameId,
+      ...(report.releaseId ? { releaseId: report.releaseId } : {}),
+      buildHash: report.buildHash,
+      route: report.route,
+      ...(report.jobId ? { jobId: report.jobId } : {}),
+      ...(report.text ? { text: report.text } : {}),
+      ...(report.errorJson ? { error: JSON.parse(report.errorJson) as ReportError } : {}),
+      bundleUrl: url,
+    });
+  })
+  .get('/triage/dedupe', (c) => {
+    requireRepairService(c);
+    const query = parseQuery(c, dedupeQuery);
+    const report = findOpenTriage(c.get('deps').db, query.signature, query.exclude);
+    return c.json({ jobId: report?.jobId ?? null });
+  })
+  .post('/triage/:id/diagnostics', async (c) => {
+    requireRepairService(c);
+    const declared = Number(c.req.header('content-length') ?? '0');
+    if (declared > DIAGNOSTICS_MAX_BYTES) throw new HttpError(413, 'diagnostics_too_large');
+    const bytes = await readBundle(c.req.raw, DIAGNOSTICS_MAX_BYTES);
+    const diagnosticsKey = await storeDiagnostics(c.get('deps'), c.req.param('id'), bytes);
+    return c.json({ diagnosticsKey }, 201);
+  })
+  .post('/triage/:id/complete', async (c) => {
+    requireRepairService(c);
+    const completion = await parseBody(c, CompleteTriage);
+    return c.json(completeTriage(c.get('deps'), c.req.param('id'), completion));
   })
   .post('/:id/bundle', async (c) => {
     const principal = requirePrincipal(c, ['user']);

@@ -60,6 +60,7 @@
     setSeed() {},
     inject(f) {
       lastAction = Object.keys(f.actions)[0];
+      if (f.actions.crash) throw new TypeError("Cannot read properties of undefined (reading 'speed')");
     },
     restore(save) {
       const state = save && 'data' in save ? save.data : save;

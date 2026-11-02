@@ -44,6 +44,7 @@ describe('migrate', () => {
         '20261102023822_saves.sql',
         '20261102033839_scope_sessions.sql',
         '20261102050906_usage_samples.sql',
+        '20261102063927_report_triage.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -74,6 +75,7 @@ describe('migrate', () => {
       'migration:20261102023822_saves.sql',
       'migration:20261102033839_scope_sessions.sql',
       'migration:20261102050906_usage_samples.sql',
+      'migration:20261102063927_report_triage.sql',
     ]);
     sqlite.close();
   });

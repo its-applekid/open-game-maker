@@ -6,6 +6,7 @@ export const OGM_ENV_UNITS = [
   'games',
   'commit',
   'voice-host',
+  'repair',
   'intake',
   'drive-sync',
   'aiur',
@@ -63,7 +64,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_APP_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://ogm2000.netlify.app (frame-ancestors, CORS)' },
   { name: 'OGM_DATA_DIR', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/data (SQLite, state)' },
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
-  { name: 'OGM_GAMES_ROOT', unit: 'games', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
+  { name: 'OGM_GAMES_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
   { name: 'OGM_BLOB_SIGNING_KEY', unit: 'api', kind: 'secret', doc: 'HMAC key for signed blob URLs' },
   {
     name: 'OGM_VAPID_KEY_FILE',
@@ -159,7 +160,7 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     name: 'OGM_API_INTERNAL_URL',
     unit: 'shared',
     kind: 'url',
-    doc: 'loopback URL of the internal API (commit, voice-host)',
+    doc: 'loopback URL of the internal API (commit, voice-host, repair)',
   },
   {
     name: 'OGM_BUILDER_WORKSPACES_ROOT',

@@ -101,7 +101,8 @@
   },
   "peerDependencies": {
     "recast-navigation": "0.43.1",
-    "tone": "15.1.22"
+    "tone": "15.1.22",
+    "vitest": "5.0.5"
   },
   "peerDependenciesMeta": {
     "recast-navigation": {
