@@ -51,6 +51,8 @@ function setup(input: { usage?: () => Promise<TicketUsage>; applyUsage?: ApplyUs
       ownerId: 'u_1',
       title: 'Game',
       visibility: 'private',
+      githubOwner: 'owner',
+      githubRepo: 'game',
       repoVisibility: 'private',
       createdAt: NOW.toISOString(),
     })

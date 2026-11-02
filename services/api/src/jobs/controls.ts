@@ -11,6 +11,7 @@ import { actorFromPrincipal, requireAuthorization } from '../accounts/families.j
 import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
+import type { IssueStateWriter } from '../app/registry.js';
 import { parseBody } from '../app/validate.js';
 import { findJob, findJobRow, type JobRow } from './repo.js';
 import { markTerminal } from './spend-cap.js';
@@ -32,13 +33,9 @@ const decideBody = z
     message: 'exactly one of option or response is required',
   });
 
-export interface IssueStateWriter {
-  setStateLabel(repo: string, issue: number, state: 'cancelled'): Promise<void>;
-}
-
 export type ControlsServices = {
   daemonFor: (deps: AppDeps, repo: string) => Promise<AiurClient | null>;
-  issues: IssueStateWriter;
+  issues: (deps: AppDeps) => IssueStateWriter | null;
   sleep?: (ms: number) => Promise<void>;
   now?: () => Date;
 };
@@ -94,7 +91,7 @@ function cancelled(deps: AppDeps, row: JobRow, now: () => Date) {
           { db: deps.db, sqlite: deps.sqlite, events: deps.events, defaults: defaults(deps), now },
           row.id,
           'cancelled',
-          { deferRelease: true },
+          row.aiurIssueNumber === null ? {} : { deferRelease: true },
         );
   return { ...job, stage: 'cancelled' as const, stageText: JOB_STAGE_WORDS.cancelled };
 }
@@ -134,7 +131,9 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       const client = await services.daemonFor(deps, filed.repo);
       const labelFallback = async () => {
         try {
-          await services.issues.setStateLabel(filed.repo, filed.issue, 'cancelled');
+          const issues = services.issues(deps);
+          if (issues === null) throw new Error('issue state writer unavailable');
+          await issues.setStateLabel(filed.repo, filed.issue, 'cancelled');
         } catch (error) {
           deps.log({
             event: 'admin-alert',

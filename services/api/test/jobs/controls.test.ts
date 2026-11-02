@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createApp } from '../../src/app/app.js';
-import { createControlsRoutes, type IssueStateWriter } from '../../src/jobs/controls.js';
+import type { IssueStateWriter } from '../../src/app/registry.js';
+import { createControlsRoutes } from '../../src/jobs/controls.js';
 import { asUser, installUsers, makeDeps } from '../helpers.js';
 
 const NOW = new Date('2026-11-01T22:00:00.000Z');
@@ -102,7 +103,7 @@ function appWith(
     '/api/v1/jobs',
     createControlsRoutes({
       daemonFor: async () => (input.client === null ? null : (input.client as AiurClient)),
-      issues,
+      issues: () => issues,
       sleep: input.sleep ?? (async () => undefined),
       now: () => NOW,
     }),

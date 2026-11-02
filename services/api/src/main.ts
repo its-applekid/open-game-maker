@@ -46,6 +46,7 @@ const fleet = createFleet({
   },
   alert: (message) => log({ event: 'daemon_alert', message }),
 });
+const issues = createIssuesClient({ token: env.OGM_INTAKE_GITHUB_TOKEN });
 
 const deps: AppDeps = {
   db,
@@ -87,6 +88,7 @@ const deps: AppDeps = {
 };
 deps.registry.chatJobs = createChatJobDirectory(db);
 deps.registry.aiurClientFor = daemonDirectory.clientForSlug;
+deps.registry.issueStateWriter = issues;
 
 const budgetDefaults = {
   dailyAllowanceMicroUsd: deps.config.defaultDailyAllowanceMicroUsd,
@@ -109,7 +111,7 @@ const projectionDeps = {
 const intake = createIntake({
   db,
   fleet,
-  issues: createIssuesClient({ token: env.OGM_INTAKE_GITHUB_TOKEN }),
+  issues,
   async aiurForRepo(repo) {
     const running = await fleet.daemonFor(repo);
     if (!running) throw new Error(`Aiur daemon is unavailable for ${repo}`);
