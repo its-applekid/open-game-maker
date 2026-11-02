@@ -25,11 +25,15 @@ export function renderRepoTemplate(ref: string, ctx: TemplateCtx, root: string =
   const engine = parseTemplateRef(ref);
   const values = { gameId: ctx.gameId };
   const pack = skillPack(root);
+  const scaffoldFiles = scaffold(engine, root, values);
+  const scaffoldPaths = new Set(scaffoldFiles.map((file) => file.path));
 
   const files: TemplateFile[] = [
     { path: '.github/workflows/ci.yml', content: readTemplate('ci.yml') },
     { path: 'AGENTS.md', content: fill(readTemplate('AGENTS.md'), values) },
-    { path: 'README.md', content: fill(readTemplate('README.md'), values) },
+    ...(!scaffoldPaths.has('README.md')
+      ? [{ path: 'README.md', content: fill(readTemplate('README.md'), values) }]
+      : []),
     { path: '.gitignore', content: readTemplate('gitignore') },
     { path: 'skills.lock', content: pack.lock },
     ...pack.files.map((file) => ({ path: `.claude/skills/${file.path}`, content: file.content })),
@@ -37,7 +41,7 @@ export function renderRepoTemplate(ref: string, ctx: TemplateCtx, root: string =
       { path: `.codex/skills/${name}`, content: `../../.claude/skills/${target}`, mode: '120000' as const },
       { path: `.agents/skills/${name}`, content: `../../.claude/skills/${target}`, mode: '120000' as const },
     ]),
-    ...scaffold(engine, root, values),
+    ...scaffoldFiles,
   ];
 
   const seen = new Set<string>();

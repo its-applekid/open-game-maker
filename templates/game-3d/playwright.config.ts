@@ -1,0 +1,23 @@
+import { defineConfig } from '@playwright/test';
+
+const software = process.env.GM_VERIFY_SOFTWARE_GL === '1';
+
+export default defineConfig({
+  testDir: './tests',
+  testMatch: '**/*.spec.ts',
+  use: {
+    baseURL: 'http://127.0.0.1:43173',
+    launchOptions: {
+      args: software
+        ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+        : ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'],
+    },
+    trace: 'retain-on-failure',
+  },
+  webServer: {
+    command: 'pnpm build && pnpm preview',
+    url: 'http://127.0.0.1:43173',
+    reuseExistingServer: false,
+    timeout: 300_000,
+  },
+});
