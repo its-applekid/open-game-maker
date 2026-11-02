@@ -16,6 +16,12 @@ Rules that hold on every ticket:
 ## Design is fixed
 The web screens (title town, games selection, creation, editor, chat panel) keep the design landed in the studio-v0 / title-town prototype (`apps/web/title-town`, archived `prototypes/`): same layout, flow, motion and copy. Implement the logic behind it; never redesign, restyle or add chrome (no new nav, panels, labels or helper text). Where a ticket and the prototype differ in look or flow, the prototype wins; say so in the PR.
 
+## Browser tests
+
+A package that adds `test:browser` picks a preview/dev port no other package uses (`grep -rn 'port' --include=playwright.config.*`
+first): CI runs every package's browser tests concurrently, so a shared port fails main for everyone (#307 vs templates/game-2d
+on 4174, hotfix #315). Tests that depend on ffmpeg use `it.skipIf(!ffmpegAvailable)`.
+
 ## Database migrations
 
 Before opening or un-drafting a PR that adds a migration under `packages/db`: merge main first, then re-timestamp your
