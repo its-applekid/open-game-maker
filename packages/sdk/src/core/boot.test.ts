@@ -273,6 +273,39 @@ describe('boot', () => {
     expect(bridge.send.mock.calls.some(([envelope]) => envelope.t === 'net.snapshot')).toBe(false);
   });
 
+  // Templates and three/physics drive gameplay through Runtime.onStep; its signature and host/solo
+  // behavior must stay what it was when it delegated to clock.onStep. Only peers skip it (no local sim).
+  it('keeps Runtime.onStep firing with merged frames on solo/host and only silences it on peers', async () => {
+    const { runtime } = await start();
+    const step = vi.fn();
+    const stop = runtime.onStep(step);
+
+    runtime.hooks.inject({ playerIndex: 0, tick: 1, source: 'keyboard', actions: { go: true } });
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(1);
+    expect(step).toHaveBeenCalledWith(1 / 60, [expect.objectContaining({ actions: { go: true } })]);
+
+    bridge.onMessage!(
+      message('net.players', {
+        local: 1,
+        players: [
+          { playerIndex: 0, name: 'Host', connected: true },
+          { playerIndex: 1, name: 'Peer', connected: true },
+        ],
+      }),
+    );
+    bridge.onMessage!(message('net.role', { role: 'peer' }));
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(1);
+
+    bridge.onMessage!(message('net.role', { role: 'host' }));
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(2);
+    stop();
+    runtime.hooks.advanceTime(17);
+    expect(step).toHaveBeenCalledTimes(2);
+  });
+
   it('keeps default single-player net traffic-free over six hundred ticks', async () => {
     const { runtime } = await start();
     bridge.send.mockClear();
