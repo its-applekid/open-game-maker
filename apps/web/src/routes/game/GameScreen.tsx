@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Outlet, useNavigate, useParams, useSearchParams } from 'react-router';
 import type { StoreApi } from 'zustand/vanilla';
 
@@ -35,6 +35,9 @@ import {
   deleteEntityIntent,
 } from '../../features/editor/transactions';
 import { pushToast } from '../../lib/notify/slice';
+import { RoomLayer } from '../../features/room/RoomLayer';
+import { useRoomRuntime } from '../../features/room/useRoomRuntime';
+import { clearRoomGrant, storeRoomGrant } from '../join/grant-store';
 import { PlayEditBar } from './PlayEditBar';
 import { PlatformHud } from './PlatformHud';
 import { UpdateIndicator } from './UpdateIndicator';
@@ -46,6 +49,7 @@ const initialFrameState: GameFrameState = { bridgeState: 'connecting', dropped: 
 type GameTestState = {
   bridgeState: GameFrameState['bridgeState'];
   headRev: number;
+  lastSaveAt?: string;
   saved: string;
   mode: 'play' | 'edit';
   selection: string[];
@@ -60,6 +64,7 @@ export function GameScreen() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const branch = searchParams.get('v')?.trim() || 'main';
+  const roomId = searchParams.get('room')?.trim() || undefined;
   const mode: 'play' | 'edit' = searchParams.get('mode') === 'edit' ? 'edit' : 'play';
   const gamesOrigin = import.meta.env.VITE_GAMES_ORIGIN ?? 'http://127.0.0.1:10000';
   const game = useQuery({ queryKey: ['game', gameId], queryFn: () => getGame(gameId), enabled: gameId !== '' });
@@ -76,6 +81,7 @@ export function GameScreen() {
   });
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<GameFrameController | undefined>(undefined);
+  const [frameController, setFrameController] = useState<GameFrameController>();
   const [frameState, setFrameState] = useState(initialFrameState);
   const [frameAttempt, setFrameAttempt] = useState(0);
   const [sessionStore, setSessionStore] = useState<StoreApi<EditorSessionState>>();
@@ -85,15 +91,18 @@ export function GameScreen() {
   const [adopted, setAdopted] = useState<{ gameId: string; branch: string; snapshot: DesignSnapshot }>();
   const [pendingBuild, setPendingBuild] = useState<{ snapshot: DesignSnapshot; report: ReapplyReport }>();
   const [publishedBuildId, setPublishedBuildId] = useState<string>();
+  const [lastSaveAt, setLastSaveAt] = useState<string>();
   const inspectedBuildRef = useRef<string | undefined>(undefined);
   const inspectedJobRef = useRef<string | undefined>(undefined);
   const activeSnapshot = adopted?.gameId === gameId && adopted.branch === branch ? adopted.snapshot : design.data;
   const build = publishedBuildId !== undefined && publishedBuildId === activeSnapshot?.buildId ? 'published' : 'draft';
+  const room = useRoomRuntime({ frame: frameController, roomId, testMode: searchParams.has('test') });
 
   useEffect(() => {
     inspectedBuildRef.current = undefined;
     inspectedJobRef.current = undefined;
     setPendingBuild(undefined);
+    setLastSaveAt(undefined);
   }, [branch, gameId]);
 
   useEffect(() => {
@@ -140,20 +149,24 @@ export function GameScreen() {
       design: snapshot,
       build,
       onState: setFrameState,
+      onSaveWrite: () => setLastSaveAt(new Date().toISOString()),
+      onRoomMessage: room.handleGameMessage,
     });
     frameRef.current = controller;
+    setFrameController(controller);
     return () => {
       controller.dispose();
       if (frameRef.current === controller) frameRef.current = undefined;
+      setFrameController((current) => (current === controller ? undefined : current));
     };
-  }, [activeSnapshot, branch, build, frameAttempt, gameId, gamesOrigin]);
+  }, [activeSnapshot, branch, build, frameAttempt, gameId, gamesOrigin, room.handleGameMessage]);
 
   useEffect(() => {
     frameRef.current?.setMode(mode);
   }, [mode]);
 
   useEffect(() => {
-    if (mode !== 'edit' || activeSnapshot === undefined || gameId === '') {
+    if (mode !== 'edit' || room.snapshot?.role === 'peer' || activeSnapshot === undefined || gameId === '') {
       setSessionStore(undefined);
       setEditStartup(undefined);
       return;
@@ -209,7 +222,7 @@ export function GameScreen() {
       void lease.stop();
       setSessionStore(undefined);
     };
-  }, [activeSnapshot, branch, gameId, mode]);
+  }, [activeSnapshot, branch, gameId, mode, room.snapshot?.role]);
 
   useEffect(() => {
     if (sessionStore === undefined) {
@@ -222,7 +235,8 @@ export function GameScreen() {
 
   const testState: GameTestState = {
     bridgeState: frameState.bridgeState,
-    headRev: sessionView?.headRev ?? activeSnapshot?.rev ?? 0,
+    headRev: room.snapshot?.lastRev ?? sessionView?.headRev ?? activeSnapshot?.rev ?? 0,
+    lastSaveAt,
     saved: sessionView?.saved ?? 'saved',
     mode,
     selection: sessionView?.selection ?? [],
@@ -240,14 +254,52 @@ export function GameScreen() {
     };
   }, [searchParams]);
 
-  const setMode = (nextMode: 'play' | 'edit') => {
-    const next = new URLSearchParams(searchParams);
-    next.set('mode', nextMode);
-    setSearchParams(next, { replace: true });
+  const setMode = useCallback(
+    (nextMode: 'play' | 'edit') => {
+      if (mode === nextMode) return;
+      const next = new URLSearchParams(searchParams);
+      next.set('mode', nextMode);
+      setSearchParams(next, { replace: true });
+    },
+    [mode, searchParams, setSearchParams],
+  );
+  const requestMode = (nextMode: 'play' | 'edit') => {
+    if (room.snapshot?.role === 'peer') return;
+    if (room.snapshot?.role === 'host') {
+      room.session?.send({ t: 'phase', to: nextMode === 'play' ? 'playing' : 'editing' });
+    }
+    setMode(nextMode);
   };
-  const back = () => {
-    frameRef.current?.dispose();
-    void navigate('/games');
+  const leaveRoom = useCallback(async () => {
+    try {
+      await room.session?.leave();
+    } catch {
+      pushToast('Could not close room cleanly');
+    } finally {
+      clearRoomGrant();
+      frameRef.current?.dispose();
+      void navigate('/games');
+    }
+  }, [navigate, room.session]);
+  const activateRoom = useCallback(
+    (created: Parameters<typeof storeRoomGrant>[0]) => {
+      storeRoomGrant(created);
+      const next = new URLSearchParams(searchParams);
+      next.set('v', created.pin.branchId);
+      next.set('room', created.roomId);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+  const extraProps: GameExtraProps = {
+    gameId,
+    branchId: branch,
+    buildId: activeSnapshot?.buildId,
+    mode,
+    onRoomCreated: activateRoom,
+    onRoomLeave: leaveRoom,
+    roomSession: room.session,
+    roomSnapshot: room.snapshot,
   };
 
   return (
@@ -259,11 +311,11 @@ export function GameScreen() {
         build={build}
         buildStatus={activeBuildStatus(jobs.data?.jobs ?? [])}
         playLabel={frameState.manifest?.playLabel}
-        onBack={back}
-        onMode={setMode}
-        onAsk={() => setMode('edit')}
+        onBack={() => void leaveRoom()}
+        onMode={requestMode}
+        onAsk={() => requestMode('edit')}
       >
-        <GameExtras placement="topbar" gameId={gameId} branchId={branch} mode={mode} />
+        <GameExtras placement="topbar" {...extraProps} />
       </PlayEditBar>
       <div className="game-stage">
         <div className="game-frame" ref={containerRef} />
@@ -287,11 +339,11 @@ export function GameScreen() {
               frame={frameRef.current}
               gameId={gameId}
               saves={frameState.manifest.saves}
-              onLeave={back}
+              onLeave={() => void leaveRoom()}
             />
           </>
         ) : null}
-        <GameExtras placement="hud" gameId={gameId} branchId={branch} mode={mode} />
+        <GameExtras placement="hud" {...extraProps} />
         {activeSnapshot ? (
           <UpdateIndicator
             key={gameId}
@@ -302,7 +354,15 @@ export function GameScreen() {
             onUpdate={() => window.location.reload()}
           />
         ) : null}
-        <GameExtras placement="overlay" gameId={gameId} branchId={branch} mode={mode} />
+        <GameExtras placement="overlay" {...extraProps} />
+        <RoomLayer
+          gameTitle={game.data?.title ?? ''}
+          lastSaveAt={lastSaveAt}
+          onLeave={() => void leaveRoom()}
+          onMode={setMode}
+          onSelection={(ids) => frameRef.current?.select(ids)}
+          snapshot={room.snapshot}
+        />
       </div>
       {mode === 'edit' &&
       frameState.manifest !== undefined &&
