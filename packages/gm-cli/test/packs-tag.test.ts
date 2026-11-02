@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { discoverTagTargets, reconcileCounts } from '../src/packs/tag.js';
+import { discoverTagTargets, reconcileCounts, snapshotTargets, validateWorkerCards } from '../src/packs/tag.js';
 import type { RunJsonWorkerOptions, WorkerRecord } from '../src/packs/workers.js';
 import { gm, library, tempDir } from './helpers.js';
 
@@ -203,6 +203,28 @@ describe('gm packs tag', () => {
       'model/character': 1,
       'model/kit': 2,
     });
+  });
+
+  it('accepts a pre-existing card the sheet worker tags even when gm did not render it', async () => {
+    // tag_sheets.py also tags non-GLB models that already have a thumb; only the card's rights may refuse it.
+    const assetsRoot = library();
+    const cards = join(assetsRoot, 'packs/kenney-mini-dungeon/cards');
+    const fbx = JSON.parse(await readFile(join(cards, 'wall.card.json'), 'utf8')) as Record<string, unknown>;
+    fbx.id = 't1:kenney-mini-dungeon/fbx-only@2.0';
+    const source = fbx.source as { files: Array<Record<string, unknown>> };
+    source.files[0] = { ...source.files[0], path: 'Models/FBX/fbx-only.fbx', format: 'fbx' };
+    await writeFile(join(cards, 'fbx-only.card.json'), `${JSON.stringify(fbx, null, 2)}\n`);
+    const { targets } = await discoverTagTargets(assetsRoot, 'model', 'kenney-mini-dungeon');
+    const snapshot = await snapshotTargets(targets);
+
+    const count = await validateWorkerCards(
+      assetsRoot,
+      targets,
+      [{ card: 'packs/kenney-mini-dungeon/cards/fbx-only.card.json', status: String(fbx.status), flags: [] }],
+      snapshot,
+    );
+
+    expect(count).toBe(1);
   });
 
   it.each([

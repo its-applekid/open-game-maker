@@ -176,11 +176,11 @@ export async function validateWorkerCards(
   const roots = await Promise.all(
     targets.map(async (target) => ({ target, root: await realpath(join(target.root, 'cards')) })),
   );
-  const canonicalOf = (path: string) => realpath(path).catch(() => resolve(path));
-  const eligible = new Set(
-    await Promise.all(targets.flatMap((target) => target.cards.map(({ path }) => canonicalOf(path)))),
+  const prior = new Map(
+    await Promise.all(
+      [...snapshot.files].map(async ([path, contents]) => [await realpath(path).catch(() => path), contents] as const),
+    ),
   );
-  const existing = new Set(await Promise.all([...snapshot.files.keys()].map(canonicalOf)));
   const seen = new Set<string>();
   let count = 0;
   for (const record of records) {
@@ -191,8 +191,12 @@ export async function validateWorkerCards(
     const canonical = await realpath(lexical);
     const owner = roots.find(({ root }) => inside(root, canonical))?.target;
     if (!owner) throw new Error(`worker card is outside selected collections: ${record.card}`);
-    if (existing.has(canonical) && !eligible.has(canonical)) {
-      throw new Error(`worker card's rights exclude local vision tagging: ${record.card}`);
+    const before = prior.get(canonical);
+    if (before) {
+      const previous = validateCard(JSON.parse(before.toString('utf8')) as unknown);
+      if (previous.ok && !allowsLocalVision(previous.card, owner.collection)) {
+        throw new Error(`worker card's rights exclude local vision tagging: ${record.card}`);
+      }
     }
     if (seen.has(canonical)) throw new Error(`worker reported a card more than once: ${record.card}`);
     seen.add(canonical);
