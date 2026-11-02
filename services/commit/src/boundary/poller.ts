@@ -1,4 +1,5 @@
 import type { GitHubApp, Repository } from '../types.js';
+import { mapConcurrent } from '../concurrency.js';
 import type { ActiveRepository, BoundaryApi } from './api-client.js';
 import type { PullSnapshot } from './inputs.js';
 
@@ -11,6 +12,7 @@ export type BoundaryCheckRequest = {
 export type BoundaryCheck = (request: BoundaryCheckRequest) => Promise<void>;
 type Log = (line: Record<string, unknown>) => void;
 type Pull = { number: number; draft: boolean; head: { sha: string } };
+const POLL_CONCURRENCY = 4;
 
 async function openPulls(app: GitHubApp, repository: Repository): Promise<Pull[]> {
   const github = await app.forOwner(repository.owner);
@@ -38,16 +40,17 @@ export async function runBoundaryPoll(options: {
   log: Log;
 }): Promise<void> {
   const repositories = await options.api.activeRepositories();
-  for (const active of repositories) {
+  await mapConcurrent(repositories, POLL_CONCURRENCY, async (active) => {
     const repository = repositoryOf(active);
     try {
-      for (const pull of await openPulls(options.app, repository)) {
-        await options.check({
+      const pulls = await openPulls(options.app, repository);
+      await mapConcurrent(pulls, POLL_CONCURRENCY, async (pull) =>
+        options.check({
           gameId: active.gameId,
           repository,
           pull: { number: pull.number, draft: pull.draft, headSha: pull.head.sha },
-        });
-      }
+        }),
+      );
     } catch (error) {
       options.log({
         event: 'boundary-poll-error',
@@ -55,7 +58,7 @@ export async function runBoundaryPoll(options: {
         error: error instanceof Error ? error.name : 'UnknownError',
       });
     }
-  }
+  });
 }
 
 export function startBoundaryPoller(options: {

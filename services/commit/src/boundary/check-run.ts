@@ -3,7 +3,10 @@ import type { BoundaryVerdict } from '@ogm/contracts';
 import type { GitHubRequest, Repository } from '../types.js';
 
 type Delay = (milliseconds: number) => Promise<void>;
-type CheckRuns = { total_count: number; check_runs: { name: string }[] };
+type CheckRuns = {
+  total_count: number;
+  check_runs: { name: string; status: string; conclusion: string | null }[];
+};
 
 const defaultDelay: Delay = async (milliseconds) => {
   await new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
@@ -53,7 +56,10 @@ export class BoundaryCheckPoster {
       check_name: 'ogm/boundary',
       per_page: 1,
     });
-    const exists = response.data.check_runs.some(({ name }) => name === 'ogm/boundary');
+    const exists = response.data.check_runs.some(
+      ({ name, status, conclusion }) =>
+        name === 'ogm/boundary' && status === 'completed' && (conclusion === 'success' || conclusion === 'failure'),
+    );
     if (exists) this.#remember(key);
     return exists;
   }

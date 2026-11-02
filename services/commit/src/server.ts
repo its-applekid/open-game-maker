@@ -26,6 +26,7 @@ type ServerDependencies = {
     secret: string | undefined;
     resolveRepository(owner: string, name: string): Promise<ActiveRepository | undefined>;
     run: BoundaryCheck;
+    onError?(error: unknown): void;
   };
 };
 

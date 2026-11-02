@@ -1,4 +1,5 @@
 import type { Visibility } from '../types.js';
+import { fetchWithTimeout } from '../fetch-timeout.js';
 
 export type ActiveRepository = {
   gameId: string;
@@ -24,21 +25,25 @@ export class BoundaryApiClient implements BoundaryApi {
   readonly #token: string;
   readonly #fetch: typeof fetch;
 
-  constructor(options: { baseUrl: string; token: string; fetch?: typeof fetch }) {
+  constructor(options: { baseUrl: string; token: string; fetch?: typeof fetch; timeoutMs?: number }) {
     this.#baseUrl = options.baseUrl.replace(/\/$/u, '');
     this.#token = options.token;
-    this.#fetch = options.fetch ?? fetch;
+    this.#fetch = fetchWithTimeout(options.fetch ?? fetch, options.timeoutMs);
   }
 
   async #json(path: string): Promise<unknown> {
-    const response = await this.#fetch(`${this.#baseUrl}${path}`, {
-      headers: {
-        authorization: `Bearer ${this.#token}`,
-        'x-ogm-service': 'commit',
-      },
-    });
-    if (!response.ok) throw new BoundaryApiError();
-    return response.json();
+    try {
+      const response = await this.#fetch(`${this.#baseUrl}${path}`, {
+        headers: {
+          authorization: `Bearer ${this.#token}`,
+          'x-ogm-service': 'commit',
+        },
+      });
+      if (!response.ok) throw new BoundaryApiError();
+      return await response.json();
+    } catch {
+      throw new BoundaryApiError();
+    }
   }
 
   async activeRepositories(): Promise<ActiveRepository[]> {
@@ -46,7 +51,8 @@ export class BoundaryApiClient implements BoundaryApi {
     if (typeof body !== 'object' || body === null || !('repositories' in body) || !Array.isArray(body.repositories)) {
       throw new BoundaryApiError();
     }
-    return body.repositories as ActiveRepository[];
+    if (!body.repositories.every(isActiveRepository)) throw new BoundaryApiError();
+    return body.repositories;
   }
 
   async piiTerms(gameId: string): Promise<string[]> {
@@ -56,4 +62,15 @@ export class BoundaryApiClient implements BoundaryApi {
     }
     return body.terms.filter((term): term is string => typeof term === 'string');
   }
+}
+
+function isActiveRepository(value: unknown): value is ActiveRepository {
+  if (typeof value !== 'object' || value === null) return false;
+  const repository = value as Record<string, unknown>;
+  return (
+    typeof repository.gameId === 'string' &&
+    typeof repository.owner === 'string' &&
+    typeof repository.name === 'string' &&
+    (repository.visibility === 'private' || repository.visibility === 'public')
+  );
 }

@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import type { AssetsLock, LockEntry } from '@ogm/contracts';
@@ -9,7 +11,7 @@ import type { GitHubApp, GitHubRequest, Repository } from '../../src/types.js';
 import { contextWith, fakeRequest } from '../helpers.js';
 
 const repository: Repository = { owner: 'alice', name: 'gm-game-1', visibility: 'private' };
-const sha256 = '0'.repeat(64);
+const sha256 = createHash('sha256').update('x').digest('hex');
 
 function lock(assets: LockEntry[] = []): AssetsLock {
   return { version: 1, family: 'any', pov: 'iso', assets };
@@ -101,6 +103,50 @@ describe('RealBoundaryGate', () => {
     ).resolves.toEqual({ allowed: true, reasons: [] });
   });
 
+  it('checks an inline public template before its repository exists', async () => {
+    const gate = new RealBoundaryGate({
+      ...dependencies(fakeRequest(() => ({})).request),
+      app: {
+        async forOwner() {
+          throw new Error('repository must not be read');
+        },
+        async identity() {
+          throw new Error('unused');
+        },
+      },
+    });
+
+    await expect(
+      gate.evaluate({
+        kind: 'set_visibility',
+        gameId: 'game-1',
+        repository,
+        targetVisibility: 'public',
+        files: [
+          { path: 'assets.lock.json', content: JSON.stringify(lock()) },
+          { path: '.github/workflows/ci.yml', content: 'name: ci\n' },
+        ],
+      }),
+    ).resolves.toEqual({ allowed: true, reasons: [] });
+  });
+
+  it('refuses a merge when the evaluated pull head differs from the pinned head', async () => {
+    const request = fakeRequest((call) => {
+      if (call.route.endsWith('/pulls/{pull_number}')) return { head: { sha: 'new-head' }, draft: false };
+      if (call.route.endsWith('/pulls/{pull_number}/files')) return [];
+      if (call.route.endsWith('/contents/{path}')) return encoded(JSON.stringify(lock()));
+      throw new Error(`unexpected route ${call.route}`);
+    }).request;
+    const gate = new RealBoundaryGate(dependencies(request));
+
+    await expect(
+      gate.evaluate({ kind: 'merge', gameId: 'game-1', repository, prNumber: 7, sha: 'old-head' }),
+    ).resolves.toMatchObject({
+      allowed: false,
+      reasons: [expect.objectContaining({ code: 'denylist', detail: expect.stringContaining('head changed') })],
+    });
+  });
+
   it('checks inline fold content against the diff rules', async () => {
     const request = fakeRequest((call) => {
       if (call.route.endsWith('/contents/{path}')) return encoded(JSON.stringify(lock()));
@@ -113,9 +159,7 @@ describe('RealBoundaryGate', () => {
       gameId: 'game-1',
       repository,
       sha: 'base-sha',
-      files: [
-        { path: 'design/secrets.ts', bytes: 40, content: 'const token = "ghp_abcdefghijklmnopqrstuvwxyz123456";' },
-      ],
+      files: [{ path: 'design/secrets.ts', content: 'const token = "ghp_abcdefghijklmnopqrstuvwxyz123456";' }],
     });
 
     expect(verdict).toMatchObject({ allowed: false, reasons: [expect.objectContaining({ code: 'secret' })] });

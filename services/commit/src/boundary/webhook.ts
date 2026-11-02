@@ -11,6 +11,31 @@ type Payload = {
   pull_request?: { number?: number; draft?: boolean; head?: { sha?: string } };
 };
 
+const MAX_WEBHOOK_BYTES = 1024 * 1024;
+
+class WebhookBodyTooLarge extends Error {}
+
+async function readBody(request: Request): Promise<Uint8Array> {
+  const declaredLength = Number(request.headers.get('content-length'));
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_WEBHOOK_BYTES) throw new WebhookBodyTooLarge();
+  if (request.body === null) return new Uint8Array();
+
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > MAX_WEBHOOK_BYTES) {
+      await reader.cancel();
+      throw new WebhookBodyTooLarge();
+    }
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks, total);
+}
+
 function validSignature(body: Uint8Array, secret: string, signature: string | undefined): boolean {
   if (signature === undefined) return false;
   const expected = Buffer.from(`sha256=${createHmac('sha256', secret).update(body).digest('hex')}`);
@@ -34,11 +59,18 @@ export function registerBoundaryWebhook(
     secret: string | undefined;
     resolveRepository(owner: string, name: string): Promise<ActiveRepository | undefined>;
     run: BoundaryCheck;
+    onError?(error: unknown): void;
   },
 ): void {
   app.post('/internal/github/webhook', async (c) => {
     if (options.secret === undefined) return c.json({ error: 'webhook unavailable' }, 503);
-    const raw = new Uint8Array(await c.req.raw.arrayBuffer());
+    let raw: Uint8Array;
+    try {
+      raw = await readBody(c.req.raw);
+    } catch (error) {
+      if (error instanceof WebhookBodyTooLarge) return c.json({ error: 'payload too large' }, 413);
+      throw error;
+    }
     if (!validSignature(raw, options.secret, c.req.header('x-hub-signature-256'))) {
       return c.json({ error: 'invalid signature' }, 401);
     }
@@ -57,7 +89,7 @@ export function registerBoundaryWebhook(
     if (active === undefined) return c.body(null, 202);
     const request = requestOf(payload, active);
     if (request === undefined) return c.json({ error: 'invalid payload' }, 422);
-    await options.run(request);
+    void options.run(request).catch((error: unknown) => options.onError?.(error));
     return c.body(null, 202);
   });
 }

@@ -27,19 +27,19 @@ export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: Op
   }
 
   const repository = await context.repos.resolve(op.gameId);
-  const verdict = await context.gate.evaluate({
-    kind: op.kind,
-    gameId: op.gameId,
-    repository,
-    files: op.files.map((file) => ({ path: file.path, content: file.content })),
-    sha: op.base,
-  });
-  if (!verdict.allowed) return { ok: false, verdict };
-
   const github = await context.app.forOwner(repository.owner);
   const identity = await context.app.identity();
   let base = op.base;
   for (let attempt = 0; attempt < 3; attempt += 1) {
+    const verdict = await context.gate.evaluate({
+      kind: op.kind,
+      gameId: op.gameId,
+      repository,
+      files: op.files.map((file) => ({ path: file.path, content: file.content })),
+      sha: base,
+    });
+    if (!verdict.allowed) return { ok: false, verdict };
+
     try {
       const parent = await github.request<CommitData>('GET /repos/{owner}/{repo}/git/commits/{commit_sha}', {
         ...repository,

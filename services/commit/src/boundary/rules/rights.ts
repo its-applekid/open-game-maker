@@ -62,6 +62,7 @@ export const rightsRule: BoundaryRule = (input) => {
       continue;
     }
     checked.add(normalized);
+    if (file.sha256 !== entry.sha256) reasons.push(detail(entry, 'sha256 does not match assets.lock.json'));
     reasons.push(...entryReasons(entry, input));
   }
 

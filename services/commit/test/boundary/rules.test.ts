@@ -188,6 +188,15 @@ describe('rights rule', () => {
     });
   });
 
+  it('requires changed asset bytes to match the lock hash', () => {
+    const verdict = evaluateDiff(
+      input({ files: [file(asset.path, { sha256: 'f'.repeat(64) })], lockfile: lock([asset]) }),
+    );
+    expect(verdict.reasons).toContainEqual(
+      expect.objectContaining({ code: 'rights', path: asset.path, detail: expect.stringContaining('sha256') }),
+    );
+  });
+
   it('allows placeholders only on draft diffs', () => {
     const placeholder = { ...asset, rights: { ...asset.rights, uses: ['placeholder' as const] } };
     const files = [file(asset.path)];

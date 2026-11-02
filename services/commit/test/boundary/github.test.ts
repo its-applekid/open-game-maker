@@ -127,6 +127,20 @@ describe('boundary check run', () => {
 
     expect(posts).toBe(3);
   });
+
+  it('replaces a pending same-name run with a terminal verdict', async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.startsWith('GET')) {
+        return { total_count: 1, check_runs: [{ name: 'ogm/boundary', status: 'in_progress', conclusion: null }] };
+      }
+      return { id: 3 };
+    });
+    const poster = new BoundaryCheckPoster({ delay: async () => {} });
+
+    await poster.post(request, repository, 'head-pending', { allowed: true, reasons: [] });
+
+    expect(calls.filter(({ route }) => route.startsWith('POST'))).toHaveLength(1);
+  });
 });
 
 describe('boundary poller', () => {
@@ -151,6 +165,33 @@ describe('boundary poller', () => {
       repository,
       pull: { number: 7, draft: false, headSha: 'head-7' },
     });
+  });
+
+  it('scans active repositories concurrently', async () => {
+    let active = 0;
+    let maxActive = 0;
+    const { request } = fakeRequest(async (call) => {
+      if (!call.route.endsWith('/pulls')) throw new Error(`unexpected route ${call.route}`);
+      active += 1;
+      maxActive = Math.max(maxActive, active);
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      active -= 1;
+      return [];
+    });
+
+    await runBoundaryPoll({
+      api: {
+        activeRepositories: async () => [
+          { gameId: 'game-1', ...repository },
+          { gameId: 'game-2', ...repository, name: 'gm-game-2' },
+        ],
+      },
+      app: appWith(request),
+      check: vi.fn(async () => {}),
+      log: vi.fn(),
+    });
+
+    expect(maxActive).toBe(2);
   });
 });
 
@@ -190,5 +231,48 @@ describe('boundary webhook', () => {
       repository,
       pull: { number: 7, draft: false, headSha: 'head-7' },
     });
+  });
+
+  it('acknowledges a valid webhook before its boundary check completes', async () => {
+    const app = new Hono();
+    let finish!: () => void;
+    const run = vi.fn(() => new Promise<void>((resolve) => (finish = resolve)));
+    const payload = JSON.stringify({
+      action: 'opened',
+      repository: { name: repository.name, owner: { login: repository.owner } },
+      pull_request: { number: 8, draft: false, head: { sha: 'head-8' } },
+    });
+    const secret = 'webhook-secret-for-tests';
+    registerBoundaryWebhook(app, {
+      secret,
+      resolveRepository: async () => ({ gameId: 'game-1', ...repository }),
+      run,
+    });
+
+    const response = await app.request('/internal/github/webhook', {
+      method: 'POST',
+      headers: {
+        'x-github-event': 'pull_request',
+        'x-hub-signature-256': `sha256=${createHmac('sha256', secret).update(payload).digest('hex')}`,
+      },
+      body: payload,
+    });
+    expect(response.status).toBe(202);
+    finish();
+  });
+
+  it('rejects an oversized webhook before signature verification', async () => {
+    const app = new Hono();
+    const run = vi.fn(async () => {});
+    registerBoundaryWebhook(app, { secret: 'secret', resolveRepository: async () => undefined, run });
+
+    const response = await app.request('/internal/github/webhook', {
+      method: 'POST',
+      headers: { 'x-github-event': 'pull_request', 'x-hub-signature-256': 'sha256=invalid' },
+      body: 'x'.repeat(1024 * 1024 + 1),
+    });
+
+    expect(response.status).toBe(413);
+    expect(run).not.toHaveBeenCalled();
   });
 });

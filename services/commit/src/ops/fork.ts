@@ -48,11 +48,20 @@ async function completedForkSha(
 
 async function finishFork(
   op: ExtractCommitOp<'fork'>,
+  context: OperationContext,
   request: GitHubRequest,
   destination: Repository,
   sha: string,
 ): Promise<CommitResult> {
   if (op.visibility === 'public') {
+    const verdict = await context.gate.evaluate({
+      kind: 'set_visibility',
+      gameId: op.newGameId,
+      repository: destination,
+      targetVisibility: 'public',
+      sha,
+    });
+    if (!verdict.allowed) return { ok: false, verdict };
     await request('PATCH /repos/{owner}/{repo}', {
       ...destination,
       private: false,
@@ -64,16 +73,6 @@ async function finishFork(
 export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContext): Promise<CommitResult> {
   const name = repositoryName(op.newGameId);
   const destination: Repository = { owner: op.owner, name, visibility: 'private' };
-  if (op.visibility === 'public') {
-    const verdict = await context.gate.evaluate({
-      kind: 'set_visibility',
-      gameId: op.newGameId,
-      repository: destination,
-      targetVisibility: 'public',
-    });
-    if (!verdict.allowed) return { ok: false, verdict };
-  }
-
   const source = await context.repos.resolve(op.sourceGameId);
   const sourceGitHub = await context.app.forOwner(source.owner);
   const sourceCommit = await sourceGitHub.request<{ tree: { sha: string } }>(
@@ -119,7 +118,7 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
   if (repositoryState === 'existing') {
     const existingSha = await completedForkSha(destinationGitHub.request, destination, trailer);
     if (existingSha === null) return refused('denylist', 'fork destination already contains another main branch');
-    if (existingSha !== undefined) return finishFork(op, destinationGitHub.request, destination, existingSha);
+    if (existingSha !== undefined) return finishFork(op, context, destinationGitHub.request, destination, existingSha);
   }
 
   const tree = await mapConcurrent(blobs, 8, async (item) => {
@@ -150,5 +149,5 @@ export async function fork(op: ExtractCommitOp<'fork'>, context: OperationContex
     ref: 'refs/heads/main',
     sha,
   });
-  return finishFork(op, destinationGitHub.request, destination, sha);
+  return finishFork(op, context, destinationGitHub.request, destination, sha);
 }

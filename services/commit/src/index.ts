@@ -50,6 +50,9 @@ async function main(): Promise<void> {
         );
       },
       run: runBoundaryCheck,
+      onError(error) {
+        log({ event: 'boundary-webhook-error', error: error instanceof Error ? error.name : 'UnknownError' });
+      },
     },
   });
   const poller = startBoundaryPoller({ api, app: github, check: runBoundaryCheck, log });

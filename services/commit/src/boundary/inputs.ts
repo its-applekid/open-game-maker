@@ -217,19 +217,12 @@ export async function buildInlineDiffInput(options: {
   request: GitHubRequest;
   repository: Repository;
   baseSha: string;
-  files: { path: string; content: string }[];
+  files: { path: string; content: string; mode?: string }[];
   actor?: BoundaryActor;
   blocklist: ReadonlySet<string> | null;
   profileNames: string[];
 }): Promise<BoundaryInput> {
-  const files = options.files.map(({ path, content }): BoundaryFile => ({
-    path,
-    status: 'modified',
-    bytes: Buffer.byteLength(content),
-    sha256: createHash('sha256').update(content).digest('hex'),
-    binary: content.includes('\0'),
-    ...(!content.includes('\0') ? { content } : {}),
-  }));
+  const files = inlineFiles(options.files);
   return baseInput({
     actor: options.actor,
     blocklist: options.blocklist,
@@ -239,6 +232,49 @@ export async function buildInlineDiffInput(options: {
     profileNames: options.profileNames,
     visibility: options.repository.visibility,
     mode: 'diff',
+  });
+}
+
+function inlineFiles(source: { path: string; content: string; mode?: string }[]): BoundaryFile[] {
+  return source.map(({ path, content, mode }): BoundaryFile => {
+    const raw = Buffer.from(content);
+    const binary = binaryFile(path, raw);
+    return {
+      path,
+      status: 'modified',
+      bytes: raw.byteLength,
+      sha256: createHash('sha256').update(raw).digest('hex'),
+      binary,
+      ...(binary ? {} : { content }),
+      ...(mode === undefined ? {} : { mode }),
+    };
+  });
+}
+
+export function buildInlineTreeInput(options: {
+  files: { path: string; content: string; mode?: string }[];
+  actor?: BoundaryActor;
+  blocklist: ReadonlySet<string> | null;
+  profileNames: string[];
+  visibility: Visibility;
+}): BoundaryInput {
+  const files = inlineFiles(options.files).map((file) => ({ ...file, status: 'added' as const }));
+  const lockFile = files.find(({ path }) => path === 'assets.lock.json');
+  let lockfile: AssetsLock | null = null;
+  if (lockFile?.content !== undefined) {
+    const parsed = AssetsLockSchema.safeParse(JSON.parse(lockFile.content));
+    if (!parsed.success) throw new BoundaryInputError('assets.lock.json is invalid');
+    lockfile = parsed.data;
+  }
+  return baseInput({
+    actor: options.actor,
+    blocklist: options.blocklist,
+    draft: false,
+    files,
+    lockfile,
+    profileNames: options.profileNames,
+    visibility: options.visibility,
+    mode: 'tree',
   });
 }
 
