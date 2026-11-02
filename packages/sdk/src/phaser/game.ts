@@ -9,6 +9,7 @@ export interface PhaserGameOptions {
   presentation: GameManifest['presentation'];
   scenes: Phaser.Types.Scenes.SceneType[];
   test?: boolean;
+  renderer?: 'auto' | 'canvas' | 'webgl';
 }
 
 export interface PhaserGameHandle {
@@ -33,8 +34,10 @@ export async function createPhaserGame<D, S>(
   options: PhaserGameOptions,
 ): Promise<PhaserGameHandle> {
   const { minLogical, fit } = options.presentation;
+  const renderer =
+    options.renderer === 'canvas' ? Phaser.CANVAS : options.renderer === 'webgl' ? Phaser.WEBGL : Phaser.AUTO;
   const game = new Phaser.Game({
-    type: Phaser.AUTO,
+    type: renderer,
     parent: options.parent,
     width: minLogical.w,
     height: minLogical.h,

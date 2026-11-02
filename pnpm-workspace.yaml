@@ -6,6 +6,7 @@ packages:
   - 'skills/*'
   - 'templates/*'
   - 'tools/*'
+  - 'games/samplers/*'
 
 onlyBuiltDependencies:
   - better-sqlite3
