@@ -15,8 +15,8 @@ export function Cover({ game }: { game: GameSummary }) {
   );
 }
 
-function familyHue(familyId: string): string {
+function familyHue(familyId: string | undefined): string {
   let hue = 0;
-  for (const char of familyId) hue = (hue * 31 + char.charCodeAt(0)) % 360;
+  for (const char of familyId ?? '') hue = (hue * 31 + char.charCodeAt(0)) % 360;
   return String(hue);
 }
