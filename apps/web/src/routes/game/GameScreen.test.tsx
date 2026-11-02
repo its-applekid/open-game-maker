@@ -9,9 +9,12 @@ const editorApi = vi.hoisted(() => ({
   acquireLease: vi.fn(),
   getDesignSnapshot: vi.fn(),
   getGame: vi.fn(),
+  getOptionalSaves: vi.fn(),
+  getSave: vi.fn(),
   heartbeatLease: vi.fn(),
   openTransactionStream: vi.fn(),
   postTransaction: vi.fn(),
+  putSave: vi.fn(),
   releaseLease: vi.fn(),
 }));
 

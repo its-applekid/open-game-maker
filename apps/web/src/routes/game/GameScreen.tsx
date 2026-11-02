@@ -22,6 +22,7 @@ import type { SnapPrefs } from '../../features/editor/SnapPrefs';
 import { connectTransactionStream } from '../../features/editor/stream';
 import { createIntent } from '../../features/editor/transactions';
 import { PlayEditBar } from './PlayEditBar';
+import { PlatformHud } from './PlatformHud';
 import './game.css';
 
 const initialFrameState: GameFrameState = { bridgeState: 'connecting', dropped: 0 };
@@ -190,6 +191,9 @@ export function GameScreen() {
             session={sessionStore}
             snap={canvasOptions.snap}
           />
+        ) : null}
+        {mode === 'play' && frameRef.current !== undefined && frameState.manifest !== undefined ? (
+          <PlatformHud build="draft" frame={frameRef.current} gameId={gameId} saves={frameState.manifest.saves} />
         ) : null}
       </div>
       {mode === 'edit' &&

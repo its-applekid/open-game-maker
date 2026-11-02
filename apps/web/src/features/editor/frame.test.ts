@@ -64,11 +64,20 @@ describe('game frame adapter', () => {
     controller.pick(0.25, 0.75);
     controller.select(['e_01BX5ZZKBKACTAV9WEVGEMMVRZ']);
     controller.validatePlacement('skeleton', { position: [2, 0, 3] });
+    controller.pause();
+    controller.resume();
+    controller.restoreSave({ saveSchemaVersion: 1, data: { room: 'crypt' } });
     expect(frame.send).toHaveBeenCalledWith('editor.pick', { x: 0.25, y: 0.75 });
     expect(frame.send).toHaveBeenCalledWith('editor.select', { ids: ['e_01BX5ZZKBKACTAV9WEVGEMMVRZ'] });
     expect(frame.send).toHaveBeenCalledWith('editor.validatePlacement', {
       prefab: 'skeleton',
       pose: { position: [2, 0, 3] },
+    });
+    expect(frame.send).toHaveBeenCalledWith('lifecycle.pause', {});
+    expect(frame.send).toHaveBeenCalledWith('lifecycle.resume', {});
+    expect(frame.send).toHaveBeenCalledWith('save.restore', {
+      saveSchemaVersion: 1,
+      data: { room: 'crypt' },
     });
 
     controller.dispose();

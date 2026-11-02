@@ -114,6 +114,73 @@
   height: 100%;
 }
 
+.platform-hud,
+.platform-pause-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.platform-pause {
+  position: absolute;
+  top: max(8px, var(--safe-t));
+  right: max(8px, var(--safe-r));
+  z-index: 3;
+  min-width: 64px;
+  min-height: 64px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper-2);
+  color: var(--ink);
+  box-shadow: var(--pop-sm);
+  pointer-events: auto;
+}
+
+.platform-pause-shade {
+  z-index: 7;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--night) 72%, transparent);
+  pointer-events: auto;
+}
+
+.platform-pause-dialog {
+  width: min(420px, calc(100vw - 32px));
+  max-height: calc(100svh - 32px);
+  overflow: auto;
+  display: grid;
+  gap: 12px;
+  padding: 20px;
+  border: 3px solid var(--ink);
+  border-radius: 22px;
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--pop);
+}
+
+.platform-pause-dialog h2 {
+  margin: 0;
+  font-family: var(--display);
+}
+
+.save-slots,
+.platform-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.save-slots button[aria-pressed='true'] {
+  background: var(--yellow-b);
+  color: var(--dark);
+}
+
+.platform-settings label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .frame-error {
   position: absolute;
   inset: 64px 0 0;

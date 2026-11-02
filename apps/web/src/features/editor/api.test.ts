@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { DesignDoc } from '@ogm/contracts';
 
-import { getOptionalSaves, postTransaction, type TransactionBody } from './api';
+import { getOptionalSaves, postTransaction, putSave, type TransactionBody } from './api';
 
 const gameId = 'g_00000000-0000-4000-8000-000000000001';
 const buildId = 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ';
@@ -68,6 +68,18 @@ describe('editor API classifications', () => {
 
     await expect(getOptionalSaves(gameId)).resolves.toEqual({ available: false });
     await expect(getOptionalSaves(gameId)).rejects.toMatchObject({ status: 500 });
+  });
+
+  it('writes an identity-free save with the selected slot concurrency revision', async () => {
+    const fetch = vi.fn().mockResolvedValue(response(204));
+    vi.stubGlobal('fetch', fetch);
+
+    await putSave(gameId, '2', { saveSchemaVersion: 1, data: { room: 'crypt' } }, 7);
+
+    const [path, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe(`/api/v1/games/${gameId}/saves/2`);
+    expect(new Headers(init.headers).get('if-match')).toBe('"7"');
+    expect(JSON.parse(String(init.body))).toEqual({ saveSchemaVersion: 1, data: { room: 'crypt' } });
   });
 
   it('refuses an over-cap transaction before calling fetch', async () => {

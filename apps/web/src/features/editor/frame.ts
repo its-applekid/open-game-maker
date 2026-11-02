@@ -1,5 +1,14 @@
 import { createGameFrame, type GameFrame, type GameFrameOptions } from '@gm/host';
-import type { DesignDoc, GameManifest, Patch, PlacementResult, PlayerSettings, Pose, TargetRef } from '@ogm/contracts';
+import type {
+  DesignDoc,
+  GameManifest,
+  Patch,
+  PlacementResult,
+  PlayerSettings,
+  Pose,
+  SaveData,
+  TargetRef,
+} from '@ogm/contracts';
 
 type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSettings'> & {
   bridge: Pick<GameFrame['bridge'], 'dropped'>;
@@ -25,6 +34,11 @@ export type GameFrameController = {
   onScreen(
     callback: (position: { id: string; x: number; y: number } | { id: string; offscreen: true }) => void,
   ): () => void;
+  pause(): void;
+  resume(): void;
+  restoreSave(save: SaveData<unknown>): void;
+  onSaveWrite(callback: (save: SaveData<unknown>) => void): () => void;
+  onEvent(callback: (kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown) => void): () => void;
   dispose(): void;
 };
 
@@ -106,6 +120,17 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     onPicked: (callback) => frame.on('editor.picked', ({ targets }) => callback(targets)),
     onPlacement: (callback) => frame.on('editor.placement', callback),
     onScreen: (callback) => frame.on('editor.screen', callback),
+    pause: () => {
+      frame.send('lifecycle.pause', {});
+    },
+    resume: () => {
+      frame.send('lifecycle.resume', {});
+    },
+    restoreSave: (save) => {
+      frame.send('save.restore', save);
+    },
+    onSaveWrite: (callback) => frame.on('save.write', callback),
+    onEvent: (callback) => frame.on('event', ({ kind, payload }) => callback(kind, payload)),
     dispose: () => {
       if (disposed) return;
       disposed = true;

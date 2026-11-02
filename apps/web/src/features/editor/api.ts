@@ -5,6 +5,7 @@ import type {
   Patch,
   ReapplyReport,
   Release,
+  SaveData,
   SaveSlot,
   Transaction,
 } from '@ogm/contracts';
@@ -131,6 +132,23 @@ export function listJobs(gameId: string): Promise<{ jobs: Job[] }> {
 
 export function getOptionalSaves(gameId: string): Promise<OptionalCapability<{ slots: SaveSlot[] }>> {
   return optionalApi(`/games/${segment(gameId)}/saves`);
+}
+
+export function getSave(gameId: string, slotId: SaveSlot['slotId']): Promise<SaveData<unknown>> {
+  return api(`/games/${segment(gameId)}/saves/${segment(slotId)}`);
+}
+
+export function putSave(
+  gameId: string,
+  slotId: SaveSlot['slotId'],
+  payload: SaveData<unknown>,
+  headRevision?: number,
+): Promise<unknown> {
+  return api(`/games/${segment(gameId)}/saves/${segment(slotId)}`, {
+    method: 'PUT',
+    headers: { 'if-match': headRevision === undefined ? '*' : `"${headRevision}"` },
+    json: payload,
+  });
 }
 
 export function getOptionalPublished(gameId: string, etag?: string): Promise<OptionalCapability<Release>> {
