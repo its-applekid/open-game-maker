@@ -24,10 +24,6 @@
       "types": "./dist/audio/index.d.ts",
       "import": "./dist/audio/index.js"
     },
-    "./core": {
-      "types": "./dist/core/index.d.ts",
-      "import": "./dist/core/index.js"
-    },
     "./fx": {
       "types": "./dist/fx/index.d.ts",
       "import": "./dist/fx/index.js"
