@@ -144,13 +144,24 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
   return true;
 }
 
+/** Whether every query word is in the card's name (title, objects, roles or id), not only its files or clips. */
+function names(card: ResolvedCard, words: string[]): boolean {
+  const describe = card.describe ?? {};
+  const name = new Set(
+    [card.title, card.id, ...(describe.objects ?? []), ...(describe.roles ?? [])].flatMap((value) => tokens(value)),
+  );
+  const queryTokens = words.flatMap(tokens);
+  return queryTokens.length > 0 && queryTokens.every((token) => name.has(token));
+}
+
 /**
- * Text matches that name a character outrank props and tiles that share the word: rigged model characters
- * (playable with the shared clip libraries) first, then other characters and creatures. Clip libraries get no
- * boost: their clip names (`Ranged_Bow_Draw`) would outrank the weapons a word like "bow" asks for.
+ * Characters the query names outrank props and tiles that share the word: rigged model characters (playable
+ * with the shared clip libraries) first, then other characters and creatures. A match on animation or file
+ * names alone ("walk") earns no tier, and clip libraries get none: `Ranged_Bow_Draw` would outrank bows.
  */
-function characterTier(card: ResolvedCard): number {
+function characterTier(card: ResolvedCard, words: string[]): number {
   if (card.card_type !== 'asset' || (card.subkind !== 'character' && card.subkind !== 'creature')) return 0;
+  if (!names(card, words)) return 0;
   return card.kind === 'model' && card.rig ? 2 : 1;
 }
 
@@ -160,7 +171,7 @@ export function search(index: CardIndex, q: SearchQuery): ResolvedCard[] {
     .filter((card) => passes(index, card, q))
     .map((card) => ({ card, score: words.length > 0 ? score(card, words) : 0 }))
     .filter(({ score: value }) => words.length === 0 || value > 0)
-    .map((row) => ({ ...row, tier: words.length > 0 ? characterTier(row.card) : 0 }));
+    .map((row) => ({ ...row, tier: words.length > 0 ? characterTier(row.card, words) : 0 }));
   scored.sort(
     (a, b) =>
       b.tier - a.tier ||

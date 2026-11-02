@@ -204,6 +204,30 @@ describe('search', () => {
     expect(hits.map((card) => card.id)).toEqual([rigged.id, sprite.id, token.id]);
   });
 
+  it('gives no character tier to a character that matches only through a clip or file name', () => {
+    // "walk" asks for walking, not for every character that ships a walk cycle.
+    const base = index.cards.find((card) => card.id === ORC);
+    if (!base?.rig) throw new Error('fixture rig missing');
+    const walker = {
+      ...base,
+      id: 't1:kaykit-adventurers/characters/rogue@2.0',
+      title: 'Rogue',
+      describe: {},
+      rig: { ...base.rig, clips: [{ name: 'Walking_A', duration_s: 1, canonical: 'walk' as const, loop: true }] },
+    };
+    const library = {
+      ...base,
+      id: 't1:kaykit-character-animations/rig_medium_movementbasic@1.1',
+      title: 'Rig Medium Walk Basic',
+      kind: 'anim' as const,
+      subkind: 'humanoid',
+      rig: undefined,
+      describe: {},
+    };
+    const hits = search({ ...index, cards: [walker, library] }, { words: ['walk'] });
+    expect(hits.map((card) => card.id)).toEqual([library.id, walker.id]);
+  });
+
   it('matches a skeleton by the rig it retargets to, for --rig-id and --same-rig-as', () => {
     const base = index.cards.find((card) => card.id === ORC);
     if (!base?.rig) throw new Error('fixture rig missing');
