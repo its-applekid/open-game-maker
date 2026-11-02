@@ -6,7 +6,7 @@ import type { EnsureResult, Fleet } from '../fleet/fleet.js';
 
 export type FileResult =
   | { filed: true; issues: number[] }
-  | { deferred: 'capacity' | 'github' | 'aiur' }
+  | { deferred: 'capacity' | 'github' | 'aiur' | 'triage' }
   | { skipped: string }
   | { failed: 'preflight'; reasons: string[] };
 

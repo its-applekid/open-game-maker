@@ -20,6 +20,7 @@ export interface AppDeps {
     roomsInternalUrl: string;
     roomsInternalSecret: string;
     roomGrantSecret: string;
+    gamesOrigin: string;
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;

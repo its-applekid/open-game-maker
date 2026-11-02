@@ -60,6 +60,20 @@ export class HookDriver {
     await this.page.evaluate((f) => (window as unknown as GmWindow).__gm.inject(f), frame);
   }
 
+  async setSeed(seed: number): Promise<void> {
+    await this.page.evaluate((value) => (window as unknown as GmWindow).__gm.setSeed(value), seed);
+  }
+
+  async restore(state: unknown): Promise<void> {
+    const restored = await this.page.evaluate((value) => {
+      const gm = (window as unknown as { __gm?: { restore?: (save: unknown) => void } }).__gm;
+      if (typeof gm?.restore !== 'function') return false;
+      gm.restore({ saveSchemaVersion: 1, data: value });
+      return true;
+    }, state);
+    if (!restored) throw new Error('page exposes no window.__gm.restore hook');
+  }
+
   async text(): Promise<GameText | null> {
     return this.page.evaluate(() => {
       const gm = (window as unknown as Partial<GmWindow>).__gm;
