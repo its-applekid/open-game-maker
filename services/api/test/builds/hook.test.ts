@@ -135,7 +135,10 @@ describe('before_remove hook to a playable build', () => {
   it('uploads nothing when the build fails, even with an earlier dist/ in the workspace', async () => {
     const { deps, app } = world();
     const api = await serveApi(app);
-    const { dir } = workspace('process.exit(1);\n');
+    // The build writes part of dist/ before failing; neither that nor the earlier dist/ may leave.
+    const { dir } = workspace(
+      "import { mkdirSync, writeFileSync } from 'node:fs';\nmkdirSync('dist');\nwriteFileSync('dist/index.html', 'partial');\nprocess.exit(1);\n",
+    );
     mkdirSync(join(dir, 'dist'));
     writeFileSync(join(dir, 'dist', 'index.html'), '<!doctype html><title>Stale</title>\n');
     try {

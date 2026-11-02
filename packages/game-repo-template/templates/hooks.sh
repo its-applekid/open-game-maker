@@ -39,7 +39,7 @@ before_remove: |
   # Build what the workspace holds now; a stale dist/ from an earlier run never leaves it.
   if [ -n "$ticket" ] && [ -n "$secret" ]; then
     rm -rf dist
-    pnpm run build >&2 || echo "build failed: nothing uploaded" >&2
+    pnpm run build >&2 || { rm -rf dist; echo "build failed: nothing uploaded" >&2; }
   fi
   # Only paths that resolve inside the workspace leave it; links inside dist/ are kept as links and refused upstream.
   if [ -n "$ticket" ] && [ -n "$secret" ] && [ -d dist ] && [ "$(realpath dist)" = "$root/dist" ]; then
