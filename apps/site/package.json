@@ -1,0 +1,18 @@
+{
+  "name": "@ogm/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b && node tools/build.mts",
+    "check": "tsc -b && node tools/build.mts --check",
+    "pretest": "pnpm run check",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "yaml": "2.9.1",
+    "zod": "4.6.7"
+  }
+}

@@ -29,6 +29,7 @@ export const AgreedScopeTicket = z
 export const AgreedScope = z
   .object({
     session_id: Id,
+    revision: z.number().int().positive().default(1),
     title: z.string().trim().min(1).max(120),
     summary: z.string().trim().min(1).max(2000),
     scope: z
@@ -44,6 +45,12 @@ export const AgreedScope = z
   })
   .strict();
 
+export const ScopeRevisionRequest = z
+  .object({
+    expectedRevision: z.number().int().positive(),
+  })
+  .strict();
+
 export const ScopeSession = z
   .object({
     id: Id,
@@ -51,7 +58,8 @@ export const ScopeSession = z
     creator_id: Id,
     job_id: Id,
     ticket: z.string().regex(/^\d+$/).optional(),
-    status: z.enum(['open', 'agreed', 'abandoned']),
+    status: z.enum(['open', 'revising', 'agreed', 'abandoned']),
+    revision: z.number().int().nonnegative(),
     choices: ScopeChoices,
     scope: AgreedScope.optional(),
     at: IsoTime,
@@ -61,10 +69,12 @@ export const ScopeSession = z
 export type ScopeChoices = z.infer<typeof ScopeChoices>;
 export type AgreedScope = z.infer<typeof AgreedScope>;
 export type AgreedScopeTicket = z.infer<typeof AgreedScopeTicket>;
+export type ScopeRevisionRequest = z.infer<typeof ScopeRevisionRequest>;
 export type ScopeSession = z.infer<typeof ScopeSession>;
 
 export const scopeSchemas = {
   'scope.choices.v1': ScopeChoices,
   'scope.agreed.v1': AgreedScope,
+  'scope.revision-request.v1': ScopeRevisionRequest,
   'scope.session.v1': ScopeSession,
 } satisfies Record<string, z.ZodType>;

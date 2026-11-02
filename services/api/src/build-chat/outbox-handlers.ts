@@ -6,6 +6,7 @@ import type { AgentOutboxLine, NotificationTrigger } from '@ogm/contracts';
 import type { Db, Sqlite } from '@ogm/db';
 
 import type { LogLine } from '../app/types.js';
+import type { NarrationLineInput, NarrationResult } from '../narration/render.js';
 
 // What a handler gets for one outbox line. `workspaceRoot` is host-side only: never put it in a row or a response.
 export interface OutboxContext {
@@ -14,6 +15,7 @@ export interface OutboxContext {
   db: Db;
   sqlite: Sqlite;
   blobStore: BlobStore;
+  renderNarration?: (lines: readonly NarrationLineInput[]) => Promise<NarrationResult[]>;
   publish: (jobId: string) => void;
   notify: (trigger: NotificationTrigger) => void;
   log: (line: LogLine) => void;

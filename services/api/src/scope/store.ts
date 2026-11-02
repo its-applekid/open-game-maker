@@ -1,7 +1,7 @@
 import type { AgreedScope, ScopeChoices, ScopeSession } from '@ogm/contracts';
-import { ScopeSession as ScopeSessionSchema } from '@ogm/contracts';
+import { AgreedScope as AgreedScopeSchema, ScopeSession as ScopeSessionSchema } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, eq } from 'drizzle-orm';
+import { and, asc, eq, inArray } from 'drizzle-orm';
 
 type SessionRow = typeof schema.scopeSessions.$inferSelect;
 
@@ -13,6 +13,7 @@ function toSession(row: SessionRow): ScopeSession {
     job_id: row.jobId,
     ...(row.ticket === null ? {} : { ticket: row.ticket }),
     status: row.status,
+    revision: row.revision,
     choices: JSON.parse(row.choices) as unknown,
     ...(row.scope === null ? {} : { scope: JSON.parse(row.scope) as unknown }),
     at: row.createdAt,
@@ -40,11 +41,11 @@ export const scopeSessions = {
 
   rowByJob,
 
-  findOpen(db: Db, gameId: string): ScopeSession | null {
+  findActive(db: Db, gameId: string): ScopeSession | null {
     const row = db
       .select()
       .from(schema.scopeSessions)
-      .where(and(eq(schema.scopeSessions.gameId, gameId), eq(schema.scopeSessions.status, 'open')))
+      .where(and(eq(schema.scopeSessions.gameId, gameId), inArray(schema.scopeSessions.status, ['open', 'revising'])))
       .get();
     return row === undefined ? null : toSession(row);
   },
@@ -72,19 +73,68 @@ export const scopeSessions = {
     const result = db
       .update(schema.scopeSessions)
       .set({ status: 'abandoned', updatedAt: at })
-      .where(and(eq(schema.scopeSessions.id, id), eq(schema.scopeSessions.status, 'open')))
+      .where(and(eq(schema.scopeSessions.id, id), inArray(schema.scopeSessions.status, ['open', 'revising'])))
       .run();
     if (result.changes === 0) return null;
     return toSession(rowById(db, id)!);
   },
 
   agree(db: Db, id: string, scope: AgreedScope, hash: string, at: string): boolean {
-    return (
-      db
-        .update(schema.scopeSessions)
-        .set({ status: 'agreed', scope: JSON.stringify(scope), scopeHash: hash, updatedAt: at })
-        .where(and(eq(schema.scopeSessions.id, id), eq(schema.scopeSessions.status, 'open')))
-        .run().changes > 0
-    );
+    const previousRevision = scope.revision - 1;
+    const changed = db
+      .update(schema.scopeSessions)
+      .set({
+        status: 'agreed',
+        revision: scope.revision,
+        scope: JSON.stringify(scope),
+        scopeHash: hash,
+        updatedAt: at,
+      })
+      .where(
+        and(
+          eq(schema.scopeSessions.id, id),
+          eq(schema.scopeSessions.revision, previousRevision),
+          inArray(schema.scopeSessions.status, ['open', 'revising']),
+        ),
+      )
+      .run().changes;
+    if (changed === 0) return false;
+    db.insert(schema.scopeSessionRevisions)
+      .values({ sessionId: id, revision: scope.revision, scope: JSON.stringify(scope), scopeHash: hash, agreedAt: at })
+      .run();
+    return true;
+  },
+
+  beginRevision(db: Db, id: string, expectedRevision: number, at = new Date().toISOString()): ScopeSession | null {
+    const changed = db
+      .update(schema.scopeSessions)
+      .set({ status: 'revising', updatedAt: at })
+      .where(
+        and(
+          eq(schema.scopeSessions.id, id),
+          eq(schema.scopeSessions.status, 'agreed'),
+          eq(schema.scopeSessions.revision, expectedRevision),
+        ),
+      )
+      .run().changes;
+    const row = rowById(db, id);
+    const session = row === null ? null : toSession(row);
+    if (changed > 0) return session;
+    return session?.status === 'revising' && session.revision === expectedRevision ? session : null;
+  },
+
+  revisions(db: Db, id: string) {
+    return db
+      .select()
+      .from(schema.scopeSessionRevisions)
+      .where(eq(schema.scopeSessionRevisions.sessionId, id))
+      .orderBy(asc(schema.scopeSessionRevisions.revision))
+      .all()
+      .map((row) => ({
+        revision: row.revision,
+        scope: AgreedScopeSchema.parse(JSON.parse(row.scope) as unknown),
+        hash: row.scopeHash,
+        at: row.agreedAt,
+      }));
   },
 };

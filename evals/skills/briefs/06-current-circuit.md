@@ -1,0 +1,1 @@
+Build a calm grid puzzle on a rain-soaked pier. The player can rotate tiles so every wire segment forms one continuous path from the generator to the harbor lamp. The board should be readable at a glance and use no timer, score, lives, or moving character. The player wins when they connect the circuit and power the dock.

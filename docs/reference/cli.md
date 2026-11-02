@@ -23,7 +23,7 @@ gm check [--json]
 gm check static [--json]
 gm check hooks [--json]
 gm test [--inputs <script.json>] [--ticks <count>] [--serve <dir>] [--out <dir>] [--json]
-gm run [--url <loopback-url>] [--viewport <desktop|phone|both>] [--frames <seconds>] [--timeline <from:to:step>] [--record <duration>] [--record-fps <1..60>] [--record-native] [--out <dir>]
+gm run [--inputs <script.json>] [--frames <seconds,...>] [--timeline <from:to:step>] [--out <dir>]
 ```
 
 `gm check` runs TypeScript, deterministic simulation-source, test-hook, and registered asset gates. Use `static` or
@@ -35,11 +35,11 @@ logical-input script, checks a save-state round trip, writes a HUD still, runs `
 `shots/test/report.json`. A failed or unavailable check exits 1. `--serve`, `--ticks`, and `--out` override the defaults;
 `--json` emits the L1 gate result and report path.
 
-`gm run` captures deterministic stills, timelines, and H.264 clips from a built game or loopback URL. Clips default to
-30 fps and a phone-safe 960-pixel width. `--record-fps` selects up to 60 fps. `--record-native` records the game canvas
-itself at its pixel size, scaled up only by a whole-number factor to fill the viewport, for pixel art that rescaling
-would soften; it renders every frame through the game's deterministic hook, so a clip holds exactly duration x fps
-frames. Both flags require `--record`, and the shared verifier queue carries them.
+`gm run` captures deterministic stills, timelines, clips, and browser budgets. It writes `report.json` plus
+`state.json` containing the final `renderGameToText()` value when that hook is available; sameness evals use the state
+keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags. `--record-native`
+records the game canvas at its pixel size, scaled up only by a whole-number factor, rendering every frame through the
+game's deterministic hook so a clip holds exactly duration x fps frames.
 
 ## Refresh the skill pack
 

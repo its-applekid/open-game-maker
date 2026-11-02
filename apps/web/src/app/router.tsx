@@ -5,6 +5,7 @@ import { BugButton } from '../features/bug-report';
 import { BuildChatDock } from '../features/build-chat/BuildChatDock';
 import { useSession } from '../lib/api/session';
 import { Toasts, useNotificationFeed } from '../lib/notify';
+import { ScreenErrorBoundary } from './ScreenErrorBoundary';
 import type { ScreenRoute } from './screen';
 
 type ScreenModule = { route?: ScreenRoute };
@@ -34,7 +35,11 @@ export function collectScreenRoutes(routeModules: Record<string, ScreenModule>):
       let element = screen.element;
 
       if (screen.chrome === 'app') {
-        element = <AppChrome>{element}</AppChrome>;
+        element = (
+          <AppChrome>
+            <ScreenErrorBoundary>{element}</ScreenErrorBoundary>
+          </AppChrome>
+        );
       }
       if (screen.auth === 'required') {
         element = <RequireSession>{element}</RequireSession>;

@@ -9,10 +9,11 @@ import {
   type DictationTranscript,
   type VoiceClientOptions,
 } from '@ogm/voice-client';
+import type { VoiceTarget } from '@ogm/contracts';
 
 import { Icon } from '../../components/Icon';
 import type { StreamedChatMessage } from './stream';
-import { probeVoice as defaultProbeVoice, type BuildVoiceTarget, type VoiceAvailability } from './voice';
+import { probeVoice as defaultProbeVoice, type VoiceAvailability } from './voice';
 
 export type DictationPort = {
   pressStart(): void;
@@ -35,10 +36,10 @@ export function Composer({
   onFailed,
 }: {
   jobId: string;
-  voiceTarget?: BuildVoiceTarget;
+  voiceTarget?: VoiceTarget;
   dictation?: DictationPort;
   postText: PostText;
-  probeVoice?: (target: BuildVoiceTarget) => Promise<VoiceAvailability>;
+  probeVoice?: (target: VoiceTarget) => Promise<VoiceAvailability>;
   createVoiceClient?: (options: VoiceClientOptions) => VoiceClient;
   onOptimistic?: (message: StreamedChatMessage) => void;
   onPosted?: (message: StreamedChatMessage) => void;

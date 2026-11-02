@@ -14,6 +14,7 @@ import { createOutboxRelay } from './outbox-relay.js';
 import { createProgressPoller } from './progress-poller.js';
 import { insertChatRow, listSince, toMessage, type MediaSigner } from './store.js';
 import { createChatHub, formatChatFrame, type ChatHub } from './stream.js';
+import { getNarrationRenderer } from '../narration/render.js';
 
 export const prefix = '/api/v1/jobs';
 
@@ -32,11 +33,12 @@ export function getChatRuntime(deps: AppDeps): ChatRuntime {
 export function setup(deps: AppDeps): void {
   if (runtimes.has(deps)) return;
   const hub = createChatHub();
+  const sign = mediaSigner(deps.blobStore);
   const publish = (jobId: string) => hub.publish(jobId);
   const jobs = () => deps.registry.chatJobs;
   const clientFor = () => deps.registry.aiurClientFor;
-  const mirror = createMirror({ sqlite: deps.sqlite, jobs, clientFor, publish, log: deps.log });
-  runtimes.set(deps, { hub, mirror, sign: mediaSigner(deps.blobStore), posts: new Map() });
+  const mirror = createMirror({ sqlite: deps.sqlite, jobs, clientFor, sign, publish, log: deps.log });
+  runtimes.set(deps, { hub, mirror, sign, posts: new Map() });
 
   const flush = (jobId: string) =>
     mirror.flushPending(jobId).catch((error: unknown) => {
@@ -57,6 +59,7 @@ export function setup(deps: AppDeps): void {
   }
   void loadOutboxHandlers()
     .then((handlers) => {
+      const narration = getNarrationRenderer(deps);
       createOutboxRelay({
         root,
         sqlite: deps.sqlite,
@@ -69,6 +72,7 @@ export function setup(deps: AppDeps): void {
           db: deps.db,
           sqlite: deps.sqlite,
           blobStore: deps.blobStore,
+          ...(narration ? { renderNarration: (lines) => narration.renderLines(lines) } : {}),
           publish,
           notify: (trigger) => deps.events.emit('notify', trigger),
           log: deps.log,
