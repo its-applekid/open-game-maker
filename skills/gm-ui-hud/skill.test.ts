@@ -45,6 +45,7 @@ const sdkExports = {
     worldToScreen: 1,
     validatePlacement: 1,
     setSelection: 1,
+    setCamera: 1,
     net: 1,
   } satisfies Record<keyof GameInstance<unknown, unknown>, 1>,
 };
