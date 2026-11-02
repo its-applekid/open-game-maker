@@ -28,7 +28,7 @@ export const branches = sqliteTable(
     check('branches_status_check', sql`${table.status} IN ('active', 'archived', 'merged')`),
     check(
       'branches_fork_point_check',
-      sql`(${table.forkParentBranchId} IS NULL AND ${table.forkParentRev} IS NULL AND ${table.forkGitSha} IS NULL) OR (${table.forkParentBranchId} IS NOT NULL AND ${table.forkParentRev} >= 0 AND ${table.forkGitSha} IS NOT NULL)`,
+      sql`(${table.forkParentBranchId} IS NULL AND ${table.forkParentRev} IS NULL AND ${table.forkGitSha} IS NULL) OR (${table.forkParentBranchId} IS NOT NULL AND ${table.forkParentRev} >= 0)`,
     ),
   ],
 );

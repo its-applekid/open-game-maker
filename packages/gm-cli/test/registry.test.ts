@@ -43,6 +43,7 @@ describe('command registry', () => {
       'assets sheet',
       'assets use',
       'assets why',
+      'build assets',
       'chat post',
       'check',
       'check assets',

@@ -65,3 +65,19 @@ recorded in the lock.
 
 The optional `GM_SKILLS_DIR` path selects a platform skill-pack root. Normal installed use locates the pack beside
 `gm-cli`; tests and source checkouts can use the override without network access.
+
+## Build game assets
+
+```text
+gm build assets [--tier desktop,mobile,low] [--budget mobile] [--out public/assets] [--ktx2] [--no-cache] [--strict]
+```
+
+The command validates `assets.lock.json`, builds content-hashed GLB, WebP, MP3, and font files, then writes
+`public/assets/manifest.json` and `public/assets/budget.json`. Models receive tiered geometry and texture limits;
+small prop collections that share an embedded texture are combined into a single kit GLB. Sprite and pixel-art
+images keep their source dimensions and use lossless WebP encoding.
+
+Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild without reading or updating that
+cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
+`--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
+reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.

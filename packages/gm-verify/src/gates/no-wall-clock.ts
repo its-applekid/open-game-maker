@@ -28,9 +28,7 @@ function excluded(path: string): boolean {
 }
 
 export function scanFile(file: string, text: string): WallClockFinding[] {
-  const optedOut = text
-    .split(/\r?\n/, 3)
-    .some((line) => /^\s*\/\/\s*gm: nondeterministic ok\b/.test(line));
+  const optedOut = text.split(/\r?\n/, 3).some((line) => /^\s*\/\/\s*gm: nondeterministic ok\b/.test(line));
   if (excluded(file) || optedOut) return [];
 
   const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);

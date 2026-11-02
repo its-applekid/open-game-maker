@@ -23,8 +23,7 @@ function sourceFiles(dir: string): string[] {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (entry.name !== 'node_modules') files.push(...sourceFiles(path));
-    }
-    else if (entry.isFile() && /\.(?:mts|cts|tsx?)$/.test(entry.name) && !/\.(?:spec|test)\.[^.]+$/.test(entry.name))
+    } else if (entry.isFile() && /\.(?:mts|cts|tsx?)$/.test(entry.name) && !/\.(?:spec|test)\.[^.]+$/.test(entry.name))
       files.push(path);
   }
   return files;
@@ -88,7 +87,10 @@ export function checkHookPresence(root: string): GateCheck {
     const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true);
     const bootNames = new Set<string>();
     for (const statement of source.statements) {
-      if (!ts.isImportDeclaration(statement) || statement.moduleSpecifier.getText(source).slice(1, -1) !== '@gm/sdk/core')
+      if (
+        !ts.isImportDeclaration(statement) ||
+        statement.moduleSpecifier.getText(source).slice(1, -1) !== '@gm/sdk/core'
+      )
         continue;
       const bindings = statement.importClause?.namedBindings;
       if (!bindings || !ts.isNamedImports(bindings)) continue;
