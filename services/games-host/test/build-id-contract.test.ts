@@ -28,19 +28,29 @@ describe('build id contract between the API and the games host', () => {
     await rm(root, { recursive: true, force: true });
   });
 
-  it('serves a build under the same ULID ids the API accepts', async () => {
-    expect(StableIdSchema.safeParse(GAME_ID).success).toBe(true);
-    expect(StableIdSchema.safeParse(BUILD_ID).success).toBe(true);
-
-    const app = createApp({
+  function app() {
+    return createApp({
       root,
       appOrigin: 'https://ogm2000.netlify.app',
       version: '0123456789abcdef0123456789abcdef01234567',
       uptimeSec: () => 0,
     });
-    const response = await app.request(`/g/${GAME_ID}/${BUILD_ID}/`);
+  }
+
+  it('serves a build under the same ULID ids the API accepts', async () => {
+    expect(StableIdSchema.safeParse(GAME_ID).success).toBe(true);
+    expect(StableIdSchema.safeParse(BUILD_ID).success).toBe(true);
+
+    const response = await app().request(`/g/${GAME_ID}/${BUILD_ID}/`);
 
     expect(response.status).toBe(200);
     expect(await response.text()).toBe('<h1>switched</h1>');
   });
+
+  it.each([`/g/%2e%2e/${BUILD_ID}/`, `/g/${GAME_ID}/%2e%2e/`, `/g/${GAME_ID}/B_01BX5ZZKBKACTAV9WEVGEMMVRZ/`])(
+    'still refuses ids outside both shapes: %s',
+    async (path) => {
+      expect((await app().request(path)).status).toBe(404);
+    },
+  );
 });

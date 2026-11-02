@@ -26,6 +26,9 @@ describe('games-host layout', () => {
     expect(buildDir(root, 'g_01ARZ3NDEKTSV4RRFFQ69G5FAV', 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ')).toBe(
       join(root, 'g_01ARZ3NDEKTSV4RRFFQ69G5FAV', 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ'),
     );
+    expect(buildDir(root, 'game2_01ARZ3NDEKTSV4RRFFQ69G5FAV', '01BX5ZZKBKACTAV9WEVGEMMVRZ')).toBe(
+      join(root, 'game2_01ARZ3NDEKTSV4RRFFQ69G5FAV', '01BX5ZZKBKACTAV9WEVGEMMVRZ'),
+    );
 
     /* Uppercase is allowed only in the exact ULID shape: no ULID past 7ZZZ…, no uppercase prefix. */
     for (const id of [
