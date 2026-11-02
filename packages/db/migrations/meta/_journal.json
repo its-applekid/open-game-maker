@@ -148,6 +148,13 @@
       "when": 1793598146077,
       "tag": "20261102054226_merge_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793611247002,
+      "tag": "20261102092046_scope_session_revisions",
+      "breakpoints": true
     }
   ]
 }

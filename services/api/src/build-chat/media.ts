@@ -134,6 +134,23 @@ export async function probeClip(bytes: Buffer, options: MediaOptions = {}): Prom
 
 export type PutMediaResult = { hash: BlobHash; width: number; height: number; durationMs?: number };
 
+// Creator uploads are re-encoded rather than copied so source EXIF, XMP, ICC and other metadata never reach storage.
+export async function putCreatorImage(blobStore: BlobStore, bytes: Uint8Array): Promise<PutMediaResult> {
+  let sanitized: Buffer;
+  let width: number;
+  let height: number;
+  try {
+    const output = await sharp(bytes).rotate().webp({ quality: 90 }).toBuffer({ resolveWithObject: true });
+    sanitized = output.data;
+    width = output.info.width;
+    height = output.info.height;
+  } catch {
+    throw new MediaError('media_unreadable');
+  }
+  const { hash } = await blobStore.put(sanitized, 'image/webp');
+  return { hash, width, height };
+}
+
 // Copies one outbox file into the blob store after it passes the path, size and format checks.
 export async function putMedia(
   blobStore: BlobStore,

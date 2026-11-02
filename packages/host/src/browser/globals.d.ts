@@ -1,5 +1,6 @@
 interface Window {
   __host: {
+    errors: unknown[];
     ready: { id: string }[];
     relays: unknown[];
     forge(): void;

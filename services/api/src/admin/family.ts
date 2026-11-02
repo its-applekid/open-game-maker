@@ -39,7 +39,7 @@ export function requireMayManage(deps: AppDeps, actor: Actor, target: Member): v
   if (family?.ownerUserId !== actor.userId) throw new HttpError(403, 'owner_only');
 }
 
-async function emailsFor(deps: AppDeps, userIds: string[]): Promise<Map<string, string | null>> {
+export async function emailsFor(deps: AppDeps, userIds: string[]): Promise<Map<string, string | null>> {
   const directory = deps.registry.userDirectory;
   if (!directory) throw new HttpError(503, 'user_directory_unavailable');
   const emails = await Promise.all(userIds.map(async (id) => [id, await directory.emailForUser(id)] as const));

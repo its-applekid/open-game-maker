@@ -24,6 +24,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
 import smallscaleint
+import smallscaleint_thumbnails
 
 REPO = Path(__file__).resolve().parents[2]
 TAGS = Path(__file__).parent / "data" / "collection_tags.jsonl"
@@ -228,7 +229,7 @@ def card(pj: Path, tags: dict, table: dict, old: dict | None) -> dict:
         out["previews"] = {"thumb": f"packs/{pid}/icon.png"}
     else:
         out["flags"] = ["missing-preview"]
-    smallscaleint.decorate_collection(out, pid)
+    smallscaleint.decorate_collection(out, pid, pj.parent)
     locks = {path: entry for path, entry in (old or {}).get("provenance", {}).items() if entry.get("locked") and path != "*"}
 
     def restore_locks():  # locked fields are never overwritten
@@ -281,6 +282,14 @@ def run(root: Path, only: str = "*", dry_run: bool = False, table: dict | None =
                 items[pid] = smallscaleint.build_cards(pj.parent, built[pid])
         except (KeyError, OSError, ValueError, json.JSONDecodeError) as e:
             errors[pid] = [str(e).strip('"')]
+    if items:
+        try:
+            thumbnail_jobs = smallscaleint_thumbnails.thumbnail_jobs(root, items)
+            if not dry_run:
+                smallscaleint_thumbnails.render_thumbnails(root, thumbnail_jobs)
+        except (OSError, ValueError, json.JSONDecodeError) as e:
+            for pid in items:
+                errors.setdefault(pid, []).append(str(e).strip('"'))
     documents = dict(built)
     documents.update({f"{pid}::{index}": item for pid, cards in items.items() for index, item in enumerate(cards)})
     for label, failures in validate(documents).items() if documents else ():

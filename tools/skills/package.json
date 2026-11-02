@@ -3,17 +3,26 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "dependencies": {
+    "@ogm/config": "workspace:*"
+  },
   "scripts": {
     "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/config build",
     "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/config build",
     "test": "vitest run --exclude 'dist/**'",
     "lint": "eslint .",
-    "check-api-names": "tsx check-api-names.ts ../../skills/vendor"
+    "check-api-names": "tsx check-api-names.ts ../../skills/vendor",
+    "preeval": "pnpm --filter @gm/sdk build && pnpm --filter @ogm/gm-cli build",
+    "eval": "tsx eval.ts"
   },
   "devDependencies": {
+    "jscpd": "5.4.2",
     "phaser": "4.2.1",
     "three": "0.186.1",
     "tsx": "4.23.15",
+    "typescript": "6.0.3",
     "vitest": "5.0.5"
   }
 }

@@ -1,6 +1,7 @@
 defmodule OgmVoice.HTTP.Router do
   @moduledoc """
-  Loopback-only internal HTTP: `GET /healthz` and `POST /internal/briefing` (requires
+  Loopback-only internal HTTP: `GET /healthz`, `POST /internal/briefing`, and
+  `POST /internal/narration` (requires
   `Authorization: Bearer <OGM_VOICE_INTERNAL_SECRET>` or the legacy `X-OGM-Internal`
   form). Everything else is 404.
   """
@@ -24,6 +25,19 @@ defmodule OgmVoice.HTTP.Router do
          {:ok, push} <- decode(body),
          :ok <- OgmVoice.Cache.put(push) do
       send_resp(conn, 204, "")
+    else
+      :unauthorized -> json(conn, 401, %{error: "unauthorized"})
+      {:more, _partial, conn} -> json(conn, 413, %{error: "too_large"})
+      {:error, reason} when is_atom(reason) -> json(conn, 400, %{error: Atom.to_string(reason)})
+    end
+  end
+
+  def call(%{method: "POST", path_info: ["internal", "narration"]} = conn, opts) do
+    with :ok <- authorize(conn, opts[:secret]),
+         {:ok, body, conn} <- read_body(conn, length: @max_body_bytes),
+         {:ok, request} <- decode(body),
+         {status, response} <- OgmVoice.HTTP.Narration.render(request, opts[:narration]) do
+      json(conn, status, response)
     else
       :unauthorized -> json(conn, 401, %{error: "unauthorized"})
       {:more, _partial, conn} -> json(conn, 413, %{error: "too_large"})

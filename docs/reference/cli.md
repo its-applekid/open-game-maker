@@ -23,6 +23,7 @@ gm check [--json]
 gm check static [--json]
 gm check hooks [--json]
 gm test [--inputs <script.json>] [--ticks <count>] [--serve <dir>] [--out <dir>] [--json]
+gm run [--inputs <script.json>] [--frames <seconds,...>] [--timeline <from:to:step>] [--out <dir>]
 ```
 
 `gm check` runs TypeScript, deterministic simulation-source, test-hook, and registered asset gates. Use `static` or
@@ -33,6 +34,10 @@ gate result.
 logical-input script, checks a save-state round trip, writes a HUD still, runs `promises/*.spec.ts`, and writes
 `shots/test/report.json`. A failed or unavailable check exits 1. `--serve`, `--ticks`, and `--out` override the defaults;
 `--json` emits the L1 gate result and report path.
+
+`gm run` captures deterministic stills, timelines, clips, and browser budgets. It writes `report.json` plus
+`state.json` containing the final `renderGameToText()` value when that hook is available; sameness evals use the state
+keys without exposing values. Use `gm help run` for viewport, recording, rig, and asset-tier flags.
 
 ## Refresh the skill pack
 
@@ -102,3 +107,12 @@ Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild 
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
 reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.
+
+## Search the asset library
+
+```text
+gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>] [--pov <id>] [--use <use>]
+```
+
+`--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
+the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.

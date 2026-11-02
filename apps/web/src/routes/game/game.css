@@ -386,23 +386,6 @@
   margin-block: 6px;
 }
 
-.frame-error {
-  position: absolute;
-  inset: 64px 0 0;
-  display: grid;
-  place-items: center;
-  background: var(--night);
-}
-
-.frame-error button {
-  border: 3px solid var(--ink);
-  border-radius: 999px;
-  background: var(--yellow-b);
-  color: var(--dark);
-  padding-inline: 24px;
-  font-weight: 700;
-}
-
 @media (max-width: 600px) {
   .game-screen .play-bar {
     padding-right: max(12px, var(--safe-r));

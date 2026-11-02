@@ -1,0 +1,619 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ogm.thumbnail-scene/1.0"
+    },
+    "set_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "set",
+            "pack"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "world": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      },
+      "required": [
+        "kind",
+        "id",
+        "world"
+      ],
+      "additionalProperties": false
+    },
+    "canvas": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "const": 1024
+        },
+        "height": {
+          "type": "number",
+          "const": 1024
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "background"
+      ],
+      "additionalProperties": false
+    },
+    "camera": {
+      "type": "object",
+      "properties": {
+        "projection": {
+          "type": "string",
+          "const": "isometric-2:1"
+        },
+        "tile_px": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "const": 128
+            },
+            {
+              "type": "number",
+              "const": 64
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "origin_px": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "const": 512
+            },
+            {
+              "type": "number",
+              "const": 256
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "elevation_px": {
+          "type": "number",
+          "const": 32
+        },
+        "pixel_snap": {
+          "type": "boolean",
+          "const": true
+        }
+      },
+      "required": [
+        "projection",
+        "tile_px",
+        "origin_px",
+        "elevation_px",
+        "pixel_snap"
+      ],
+      "additionalProperties": false
+    },
+    "lighting": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "source-baked"
+        },
+        "intensity": {
+          "type": "number",
+          "const": 1
+        },
+        "tint": {
+          "type": "string",
+          "const": "#ffffff"
+        }
+      },
+      "required": [
+        "mode",
+        "intensity",
+        "tint"
+      ],
+      "additionalProperties": false
+    },
+    "duration_ms": {
+      "type": "number",
+      "const": 4000
+    },
+    "fps": {
+      "type": "number",
+      "const": 24
+    },
+    "layers": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "ground",
+                  "prop",
+                  "character",
+                  "effect"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "hero",
+                  "enemy",
+                  "companion"
+                ]
+              },
+              "card_id": {
+                "type": "string",
+                "pattern": "^t[1-3]:[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "grid": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "offset_px": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "scale": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  }
+                },
+                "required": [
+                  "grid",
+                  "offset_px",
+                  "scale"
+                ],
+                "additionalProperties": false
+              },
+              "z_order": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "selection": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "E",
+                      "N",
+                      "NE",
+                      "NW",
+                      "S",
+                      "SE",
+                      "SW",
+                      "W"
+                    ]
+                  },
+                  "frame": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "variant": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  }
+                },
+                "required": [
+                  "frame"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "card_id",
+              "position",
+              "z_order",
+              "selection"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "ground",
+                  "prop",
+                  "character",
+                  "effect"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "enum": [
+                  "hero",
+                  "enemy",
+                  "companion"
+                ]
+              },
+              "card_id": {
+                "type": "string",
+                "pattern": "^t[1-3]:[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$"
+              },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "grid": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      },
+                      {
+                        "type": "number"
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 3,
+                    "maxItems": 3
+                  },
+                  "offset_px": {
+                    "type": "array",
+                    "prefixItems": [
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      },
+                      {
+                        "type": "integer",
+                        "minimum": -9007199254740991,
+                        "maximum": 9007199254740991
+                      }
+                    ],
+                    "items": false,
+                    "minItems": 2,
+                    "maxItems": 2
+                  },
+                  "scale": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 16
+                  }
+                },
+                "required": [
+                  "grid",
+                  "offset_px",
+                  "scale"
+                ],
+                "additionalProperties": false
+              },
+              "z_order": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "selection": {
+                "type": "object",
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  },
+                  "direction": {
+                    "type": "string",
+                    "enum": [
+                      "E",
+                      "N",
+                      "NE",
+                      "NW",
+                      "S",
+                      "SE",
+                      "SW",
+                      "W"
+                    ]
+                  },
+                  "frame": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  },
+                  "variant": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+                  }
+                },
+                "required": [
+                  "action",
+                  "frame"
+                ],
+                "additionalProperties": false
+              },
+              "playback": {
+                "type": "object",
+                "properties": {
+                  "mode": {
+                    "type": "string",
+                    "const": "loop"
+                  },
+                  "fps": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 60
+                  },
+                  "phase_frames": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "mode",
+                  "fps",
+                  "phase_frames"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "card_id",
+              "position",
+              "z_order",
+              "selection",
+              "playback"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "set_id",
+    "target",
+    "canvas",
+    "camera",
+    "lighting",
+    "duration_ms",
+    "fps",
+    "layers"
+  ],
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "ground"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "prop"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 3,
+          "maxContains": 6
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "const": "character"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "minContains": 2,
+          "maxContains": 3
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "hero"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "contains": {
+            "type": "object",
+            "properties": {
+              "role": {
+                "const": "enemy"
+              }
+            },
+            "required": [
+              "role"
+            ]
+          },
+          "minContains": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "allOf": [
+              {
+                "if": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "character"
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ]
+                },
+                "then": {
+                  "type": "object",
+                  "properties": {
+                    "role": {}
+                  },
+                  "required": [
+                    "role"
+                  ]
+                }
+              },
+              {
+                "if": {
+                  "type": "object",
+                  "properties": {
+                    "role": {}
+                  },
+                  "required": [
+                    "role"
+                  ]
+                },
+                "then": {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "const": "character"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$id": "https://open-game-maker-2000.local/schemas/thumbnail-scene.v1.json"
+}

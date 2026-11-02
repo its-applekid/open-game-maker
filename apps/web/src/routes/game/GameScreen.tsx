@@ -401,7 +401,7 @@ export function GameScreen() {
         />
       ) : null}
       {frameState.bridgeState === 'error' ? (
-        <div className="frame-error" role="alert">
+        <div className="screen-error" role="alert">
           <button className="tap-primary" type="button" onClick={() => setFrameAttempt((attempt) => attempt + 1)}>
             Try again
           </button>

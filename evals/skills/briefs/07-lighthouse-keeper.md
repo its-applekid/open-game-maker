@@ -1,0 +1,1 @@
+Build a lighthouse-keeper puzzle about interpreting a storm at sea. The player can redirect light with three mirrors and read signal flags to learn which channel is safe. Keep it deliberate and atmospheric, with no avatar combat, timer, score, health, or collectibles. The player wins when the correct beam sequence can guide the ship into harbor.
