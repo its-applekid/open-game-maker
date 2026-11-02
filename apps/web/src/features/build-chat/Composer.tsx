@@ -33,12 +33,15 @@ export type DictationPort = {
 
 // `attachmentIds` is passed only when the message carries files.
 type PostText = (jobId: string, text: string, attachmentIds?: string[]) => Promise<unknown>;
+// Starts a job from the text and resolves its id, or undefined when admission was refused.
+type StartJob = (text: string) => Promise<string | undefined>;
 
 export function Composer({
   jobId,
   voiceTarget,
   dictation: providedDictation,
   postText,
+  startJob,
   uploadAttachment = uploadChatAttachment,
   probeVoice = defaultProbeVoice,
   createVoiceClient = (options) => new VoiceClient(options),
@@ -50,6 +53,7 @@ export function Composer({
   voiceTarget?: VoiceTarget;
   dictation?: DictationPort;
   postText: PostText;
+  startJob?: StartJob;
   uploadAttachment?: UploadAttachment;
   probeVoice?: (target: VoiceTarget) => Promise<VoiceAvailability>;
   createVoiceClient?: (options: VoiceClientOptions) => VoiceClient;
@@ -111,39 +115,44 @@ export function Composer({
   const submit = async () => {
     const value = text.trim();
     const files = attachments;
-    if ((!value && files.length === 0) || submittingRef.current) return;
+    if ((startJob ? !value : !value && files.length === 0) || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
-    const optimistic: StreamedChatMessage = {
-      id: `optimistic-${Date.now()}`,
-      job_id: jobId,
-      at: new Date().toISOString(),
-      actor: 'creator',
-      kind: 'text',
-      ...(value ? { text: value } : {}),
-      ...(files.length === 0
-        ? {}
-        : {
-            attachments: files.map(({ key, file, type }) => ({
-              id: key,
-              kind: type.startsWith('image/') ? ('image' as const) : ('text' as const),
-              name: file.name,
-              mime: type.startsWith('image/') ? ('image/webp' as const) : (type as 'text/plain'),
-              bytes: file.size,
-            })),
-          }),
-      optimistic: true,
-    };
-    onOptimistic?.(optimistic);
     setText('');
     setAttachments([]);
     try {
+      if (!startJob) return await post(jobId, value, files);
+      // With no job yet, the text starts one; files can only be uploaded to a job, so they follow into the new job.
+      const instruction = optimisticMessage(jobId, value, []);
+      onOptimistic?.(instruction);
+      let started: string | undefined;
+      try {
+        started = await startJob(value);
+      } catch {
+        onFailed?.(instruction.id);
+        setText(value);
+        setAttachments(files);
+        setNotice('Message not sent. Try again.');
+        return;
+      }
+      if (started === undefined) setAttachments(files);
+      else if (files.length > 0) await post(started, '', files);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
+  };
+
+  const post = async (target: string, value: string, files: PendingAttachment[]) => {
+    const optimistic = optimisticMessage(target, value, files);
+    onOptimistic?.(optimistic);
+    try {
       const posted = await (files.length === 0
-        ? postText(jobId, value)
+        ? postText(target, value)
         : postText(
-            jobId,
+            target,
             value,
-            (await uploadAll(jobId, files, uploadAttachment)).map(({ id }) => id),
+            (await uploadAll(target, files, uploadAttachment)).map(({ id }) => id),
           ));
       if (posted && typeof posted === 'object' && 'id' in posted) onPosted?.(posted as StreamedChatMessage);
     } catch (error) {
@@ -153,9 +162,6 @@ export function Composer({
       setText(value);
       setAttachments(files);
       setNotice('Message not sent. Try again.');
-    } finally {
-      submittingRef.current = false;
-      setSubmitting(false);
     }
   };
 
@@ -300,7 +306,7 @@ export function Composer({
         <button
           className="build-chat-send tap-primary"
           type="button"
-          disabled={submitting || (!text.trim() && attachments.length === 0)}
+          disabled={submitting || (!text.trim() && (startJob !== undefined || attachments.length === 0))}
           onClick={() => void submit()}
         >
           Send
@@ -323,3 +329,28 @@ function VoiceSide({ label, lines }: { label: string; lines: string[] }) {
     </section>
   );
 }
+
+function optimisticMessage(jobId: string, value: string, files: PendingAttachment[]): StreamedChatMessage {
+  return {
+    id: `optimistic-${Date.now()}-${(optimisticCount += 1)}`,
+    job_id: jobId,
+    at: new Date().toISOString(),
+    actor: 'creator',
+    kind: 'text',
+    ...(value ? { text: value } : {}),
+    ...(files.length === 0
+      ? {}
+      : {
+          attachments: files.map(({ key, file, type }) => ({
+            id: key,
+            kind: type.startsWith('image/') ? ('image' as const) : ('text' as const),
+            name: file.name,
+            mime: type.startsWith('image/') ? ('image/webp' as const) : (type as 'text/plain'),
+            bytes: file.size,
+          })),
+        }),
+    optimistic: true,
+  };
+}
+
+let optimisticCount = 0;
