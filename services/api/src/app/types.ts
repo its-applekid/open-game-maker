@@ -31,6 +31,9 @@ export interface AppDeps {
     chatPollMs?: number;
     checkpointPollMs?: number;
     analyticsRetentionDays: number;
+    // Both unset until the voice host is configured; the token route answers 503 meanwhile.
+    voiceTokenSecret?: string;
+    voiceWsUrl?: string;
     defaultDailyAllowanceMicroUsd: number;
     resetZoneDefault: string;
     intakeDir?: string;

@@ -34,6 +34,8 @@ export const apiEnvSpec = {
   OGM_INTAKE_SWEEP_SECONDS: { kind: 'int', default: '60' },
   OGM_VAPID_KEY_FILE: { kind: 'path', default: join(homedir(), '.config', 'ogm', 'env', 'ogm-api.vapid.json') },
   OGM_VAPID_SUBJECT: { kind: 'string' },
+  OGM_VOICE_TOKEN_SECRET: { kind: 'secret', required: false },
+  OGM_VOICE_WS_URL: { kind: 'string', required: false },
   OGM_VOICE_HOST_INTERNAL_URL: { kind: 'url', required: false },
   OGM_VOICE_INTERNAL_SECRET: { kind: 'secret', required: false },
   OGM_BUILDER_WORKSPACES_ROOT: { kind: 'path', required: false },
@@ -45,6 +47,18 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
   const env = loadEnv('api', apiEnvSpec, source);
   if (env.OGM_ANALYTICS_RETENTION_DAYS <= 0) {
     throw new ConfigError('api', [], [{ name: 'OGM_ANALYTICS_RETENTION_DAYS', reason: 'must be a positive integer' }]);
+  }
+  // The voice host's HMAC issuer refuses a shorter key, so tokens minted with one would never verify.
+  if (env.OGM_VOICE_TOKEN_SECRET !== undefined && Buffer.byteLength(env.OGM_VOICE_TOKEN_SECRET) < 32) {
+    throw new ConfigError('api', [], [{ name: 'OGM_VOICE_TOKEN_SECRET', reason: 'shorter than 32 bytes' }]);
+  }
+  if (env.OGM_VOICE_WS_URL !== undefined) {
+    try {
+      const protocol = new URL(env.OGM_VOICE_WS_URL).protocol;
+      if (protocol !== 'ws:' && protocol !== 'wss:') throw new Error('wrong protocol');
+    } catch {
+      throw new ConfigError('api', [], [{ name: 'OGM_VOICE_WS_URL', reason: 'must be a ws or wss URL' }]);
+    }
   }
   if (env.OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD <= 0) {
     throw new ConfigError(
