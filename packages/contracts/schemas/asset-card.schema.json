@@ -97,7 +97,7 @@
     "layoutSpecId": { "type": "string", "pattern": "^layout:[a-z0-9][a-z0-9-]*/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+#[0-9]+$" },
     "sha256": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
     "spdxExpression": { "type": "string", "pattern": "^(?:[A-Za-z0-9.+-]+|LicenseRef-[A-Za-z0-9.-]+|NOASSERTION)(?: (?:AND|OR|WITH) (?:[A-Za-z0-9.+-]+|LicenseRef-[A-Za-z0-9.-]+))*$", "description": "SPDX license expression. Vendor licenses use LicenseRef-<vendor>-<name>, e.g. LicenseRef-synty-personal. NOASSERTION = not known yet (card must then be quarantined)." },
-    "bucketKey": { "type": "string", "pattern": "^(?!/)(?!\\.\\.(?:/|$))(?!.*/\\.\\.(?:/|$))[a-z0-9][a-z0-9/._-]*$", "description": "Content-addressed key in the instance bucket. Never a URL with credentials or a traversing path." },
+    "bucketKey": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/._-]*$", "description": "Content-addressed key in the instance bucket. Never a URL with credentials." },
     "assetPath": { "type": "string", "pattern": "^(?!/)(?!\\.\\.(?:/|$))(?!.*\\/\\.\\.(?:\\/|$))[^\\\\]+$", "description": "Relative path inside the collection; traversal and backslashes are forbidden." },
     "assetPathList": { "type": "array", "minItems": 1, "items": { "$ref": "#/$defs/assetPath" } },
     "vec3": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3 },
