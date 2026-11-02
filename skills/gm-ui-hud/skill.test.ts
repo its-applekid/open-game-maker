@@ -6,6 +6,7 @@ import { COMMANDS_DIR, checkSkill, loadCommands } from '@ogm/gm-cli';
 import {
   hudModelSchema,
   type GameInstance,
+  type HostApi,
   type MultiplayerHooks,
   type PlayerSettings,
   type Viewport,
@@ -24,6 +25,14 @@ const sdkExports = {
     keyof MultiplayerHooks,
     1
   >,
+  HostApi: {
+    capabilities: 1,
+    input: 1,
+    viewport: { current: 1, onChange: 1 } satisfies Record<keyof HostApi['viewport'], 1>,
+    events: 1,
+    settings: { onChange: 1 } satisfies Record<keyof HostApi['settings'], 1>,
+    test: 1,
+  } satisfies Record<keyof HostApi, unknown>,
   GameInstance: {
     pause: 1,
     resume: 1,
@@ -50,6 +59,7 @@ describe('gm-ui-hud skill', () => {
     expect(text).toContain('MultiplayerHooks.hud');
     expect(text).toContain('`safe` insets');
     expect(text).toContain('at most 25% of the screen');
+    expect(text).toMatch(/Pause button sits in the\s+top-right corner/);
     expect(text).toContain('at least 16 CSS px');
     expect(text).toMatch(/title, play, paused, won, and lost/);
     expect(checkSkill(SKILL, { commands, sdkExports })).toEqual({ commands: [], sdk: [] });

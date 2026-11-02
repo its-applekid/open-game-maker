@@ -14,40 +14,48 @@ stops the clock and calls `GameInstance.pause`, then `GameInstance.resume`; the 
 
 ## One model per player
 
-Derive the HUD from game state as a `HudModel` per player: a flat record of strings, numbers, and booleans. In
-multiplayer, `MultiplayerHooks.hud` returns that player's model and never includes another player's private fields.
-Render from the model on change, not from scattered gameplay calls, so the same model drives the screen, tests, and
-spectators. Keep HUD text in the design doc's strings, not in render code.
+Derive the HUD from game state as a `HudModel` per player: a flat record of strings, numbers, and booleans. Every
+game implements `MultiplayerHooks.hud`; a single-player game returns player 0's model, and in multiplayer each model
+leaves out every other player's private fields. Render the HUD from that model each frame, not from scattered
+gameplay calls, so the same model drives the screen, tests, and spectators. Keep HUD text in the design doc's strings.
 
 ## Layout
 
-Read the `Viewport` from `host.viewport.current()` and follow `host.viewport.onChange`; it carries size, `dpr`,
-orientation, and `safe` insets. Keep every HUD element inside the safe insets. Lay out against the manifest's
-`presentation.minLogical` reference size and scale uniformly from it; anchor elements to corners and edges, never to
-absolute pixels of one device. Re-layout on every viewport change, including rotation.
+Read the `Viewport` from `HostApi.viewport.current()` on the `host` that `mount` receives, and follow
+`HostApi.viewport.onChange`; it carries size, `dpr`, orientation, and `safe` insets. Keep every HUD element inside the
+safe insets. Lay out against the manifest's `presentation.minLogical` reference size and scale uniformly from it;
+anchor elements to corners and edges, never to absolute pixels of one device. Re-layout on every viewport change,
+including rotation.
 
-Budget the HUD to at most 25% of the screen and keep the centre clear for play. Prefer corners: status top-left,
-score top-right, prompts near the bottom edge clear of the touch overlay. Hide what does not matter in the current
-state.
+Budget the HUD to at most 25% of the screen and keep the centre clear for play. The host's Pause button sits in the
+top-right corner inside the safe insets (64 px plus margin), and on touch screens the host's overlay fills the
+lower-left and lower-right corners. Put status top-left, score top-centre, and prompts bottom-centre. Hide what does
+not matter in the current state.
 
 ## Readable by default
 
 - Text is at least 16 CSS px on a phone after scaling; multiply by `PlayerSettings.textScale` from
-  `host.settings.onChange`.
+  `HostApi.settings.onChange`.
 - Keep strong contrast against moving backgrounds: a solid or blurred plate behind text, not a thin outline alone.
 - If the game draws its own button, primary targets are at least 64 px and secondary targets at least 44 px.
 - Honour `reduceMotion`: no shaking, flashing, or sliding HUD; change values in place.
 - Pair numbers with an icon or word, and keep a message on screen long enough to read aloud.
-- Spoken lines show their caption before the audio starts and follow sentence by sentence: play them through
-  `SpokenText` from `@gm/sdk/audio`, whose sentence callback drives the caption, so the text never depends on hearing.
+- Captions never depend on hearing. Show the first of `sentences()` before calling `play()`, then let the `onSentence`
+  callback move the caption. A rendered line plays nothing and fires no callbacks while audio is muted or locked, so
+  keep its caption up and advance on a tap or a timer. Spoken lines play through `SpokenText` from `@gm/sdk/audio`.
 
 ## State inventory
 
 List the game's screens before building them: title, play, paused, won, and lost. Paused is the host's dialog over a
-frozen game; the others are the game's. Each needs a clear way forward (start, retry, next) reachable by every
-declared input. Write one input script per state and capture a still of each with
-`gm run --viewport both --inputs inputs.json --frames 0,2,5`. Look at the stills: no clipped text, nothing under a
-notch, the platform HUD uncovered, the centre clear.
+frozen game; the others are the game's, and each needs a clear way forward (start, retry, next) reachable by every
+declared input.
+
+- Title and play: `gm run --viewport both --frames 0,2,5`. Its stills come from a fresh run; inputs do not reach them.
+- Won and lost: write one input script that reaches each, then `gm test --inputs won.json --ticks 900` replays it and
+  saves `hud.png` on the phone viewport at that tick. Choose ticks past the script's last step.
+
+Look at every still: no clipped text, nothing under a notch, the centre clear, and the top-right corner and lower
+corners empty. The stills show the game alone, without the host's HUD, so an empty corner is the check.
 
 ## Reference
 
