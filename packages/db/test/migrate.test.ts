@@ -1,10 +1,10 @@
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { migrate } from '../src/migrate.js';
+import { MIGRATIONS_DIR, migrate } from '../src/migrate.js';
 import { openDb } from '../src/open.js';
 import { appMeta } from '../src/schema/index.js';
 
@@ -34,6 +34,7 @@ describe('migrate', () => {
         '20261101170027_design_log.sql',
         '20261101172625_jobs_budget.sql',
         '20261101183204_build_chat.sql',
+        '20261101190000_nullable_branch_fork_sha.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -54,6 +55,7 @@ describe('migrate', () => {
       'migration:20261101170027_design_log.sql',
       'migration:20261101172625_jobs_budget.sql',
       'migration:20261101183204_build_chat.sql',
+      'migration:20261101190000_nullable_branch_fork_sha.sql',
     ]);
     sqlite.close();
   });
@@ -71,6 +73,52 @@ describe('migrate', () => {
     );
     insert.run();
     expect(insert.run().changes).toBe(0);
+    sqlite.close();
+  });
+
+  it('preserves branch history and leases while loosening the fork SHA constraint', () => {
+    const dir = tempDir();
+    const migration = '20261101190000_nullable_branch_fork_sha.sql';
+    for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file !== migration)) {
+      copyFileSync(join(MIGRATIONS_DIR, file), join(dir, file));
+    }
+    const { sqlite } = openDb(':memory:');
+    migrate({ sqlite, dir });
+    sqlite.exec(`
+      INSERT INTO families (id, name, owner_user_id, created_at)
+      VALUES ('f_1', 'Family', 'u_1', '2026-11-01T16:00:00.000Z');
+      INSERT INTO games (id, family_id, owner_id, title, visibility, repo_visibility, created_at)
+      VALUES ('g_1', 'f_1', 'u_1', 'Game', 'private', 'private', '2026-11-01T16:00:00.000Z');
+      INSERT INTO branches (id, game_id, name, git_ref, head_rev, status, created_by, created_at)
+      VALUES ('b_1', 'g_1', 'main', 'refs/heads/main', 1, 'active', 'u_1', '2026-11-01T16:00:00.000Z');
+      INSERT INTO design_transactions
+        (id, game_id, branch_id, rev, base_rev, lease_token, actor, kind, label,
+         base_build_id, commands_json, patches_json, inverse_json, created_at)
+      VALUES
+        ('tx_1', 'g_1', 'b_1', 1, 0, 0, 'u_1', 'system', 'seed',
+         'build_1', '[]', '[]', '[]', '2026-11-01T16:00:00.000Z');
+      INSERT INTO edit_leases (game_id, branch_id, holder_user_id, session_id, token, expires_at)
+      VALUES ('g_1', 'b_1', 'u_1', 'session', 1, '2026-11-01T16:02:00.000Z');
+    `);
+
+    copyFileSync(join(MIGRATIONS_DIR, migration), join(dir, migration));
+    expect(migrate({ sqlite, dir }).applied).toEqual([migration]);
+    expect(sqlite.prepare('SELECT COUNT(*) FROM branches').pluck().get()).toBe(1);
+    expect(sqlite.prepare('SELECT COUNT(*) FROM design_transactions').pluck().get()).toBe(1);
+    expect(sqlite.prepare('SELECT COUNT(*) FROM edit_leases').pluck().get()).toBe(1);
+    expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
+    expect(() => sqlite.prepare("UPDATE design_transactions SET label = 'changed'").run()).toThrow(/append-only/);
+    expect(() =>
+      sqlite
+        .prepare(
+          `INSERT INTO branches
+             (id, game_id, name, git_ref, fork_parent_branch_id, fork_parent_rev, fork_git_sha,
+              head_rev, status, created_by, created_at)
+           VALUES ('b_2', 'g_1', 'child', 'branch/b_2', 'b_1', 1, NULL,
+                   0, 'active', 'u_1', '2026-11-01T16:01:00.000Z')`,
+        )
+        .run(),
+    ).not.toThrow();
     sqlite.close();
   });
 
