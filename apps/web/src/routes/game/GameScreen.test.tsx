@@ -53,6 +53,7 @@ const host = vi.hoisted(() => {
 vi.mock('../../features/editor/api', () => editorApi);
 vi.mock('../../features/editor/frame', () => host);
 
+import { useDock } from '../../features/build-chat/dock';
 import { GameScreen } from './GameScreen';
 
 function renderGame(entry = '/g/game') {
@@ -133,6 +134,18 @@ describe('GameScreen', () => {
 
     await waitFor(() => expect(editorApi.acquireLease).toHaveBeenCalledWith('game', 'main', expect.any(String)));
     expect(host.controller.setMode).toHaveBeenCalledWith('edit');
+  });
+
+  it('asks for a change in the build chat for this game and branch', async () => {
+    renderGame();
+    await screen.findByText('Goblin Cellar');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Ask for a change' }));
+
+    expect(useDock.getState()).toMatchObject({
+      view: 'chat',
+      draft: { gameId: 'game', branchId: 'main', title: 'Goblin Cellar' },
+    });
   });
 
   it('reports a denied edit lease as read only', async () => {

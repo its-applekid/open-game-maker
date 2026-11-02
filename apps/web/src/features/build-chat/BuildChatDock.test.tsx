@@ -1,4 +1,5 @@
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -7,12 +8,19 @@ import { useDock } from './dock';
 import { buildChatJob } from './test-fixtures';
 
 const jobState = vi.hoisted(() => ({ jobs: [] as unknown[] }));
+const api = vi.hoisted(() => vi.fn());
 const chatListeners = vi.hoisted(() => new Map<string, (message: Record<string, unknown>, sequence: number) => void>());
 
-vi.mock('./jobs', () => ({
+vi.mock('./jobs', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./jobs')>()),
   cancelJob: vi.fn(),
   useBudgetUnitLabel: () => 'coins',
   useMyJobs: () => ({ jobs: jobState.jobs }),
+}));
+
+vi.mock('../../lib/api/client', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../lib/api/client')>()),
+  api,
 }));
 
 vi.mock('./stream', async (importOriginal) => {
@@ -30,6 +38,8 @@ vi.mock('./stream', async (importOriginal) => {
 
 beforeEach(() => {
   useDock.getState().reset();
+  api.mockReset();
+  jobState.jobs = [];
   chatListeners.clear();
 });
 
@@ -40,11 +50,7 @@ describe('BuildChatDock', () => {
     const first = buildChatJob({ id: 'j_first' });
     const second = buildChatJob({ id: 'j_second', plan: { ...first.plan, title: 'Second build' } });
     jobState.jobs = [first, second];
-    render(
-      <MemoryRouter>
-        <BuildChatDock />
-      </MemoryRouter>,
-    );
+    renderDock();
 
     act(() => useDock.getState().openChat(first.id, [first, second]));
     await waitFor(() => expect(chatListeners.has(first.id)).toBe(true));
@@ -68,4 +74,132 @@ describe('BuildChatDock', () => {
     expect(screen.queryByText('Old job message')).not.toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Second build' })).toBeInTheDocument();
   });
+
+  it('starts an edit job from a draft chat when no job is running, then streams it', async () => {
+    api.mockResolvedValue({ jobId: 'j_new', state: 'admitted' });
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'v2', title: 'Goblin Cellar' }));
+    expect(screen.getByRole('heading', { name: 'Goblin Cellar' })).toBeInTheDocument();
+    send('Make the door glow');
+
+    await waitFor(() => expect(chatListeners.has('j_new')).toBe(true));
+    expect(api).toHaveBeenCalledTimes(1);
+    expect(api).toHaveBeenCalledWith('/jobs', {
+      method: 'POST',
+      json: expect.objectContaining({ gameId: 'g_1', branchId: 'v2', kind: 'feature', start: 'now' }),
+    });
+    // The instruction stays on screen while the new job streams into the same chat.
+    expect(screen.getByText('Make the door glow')).toBeInTheDocument();
+    expect(useDock.getState()).toMatchObject({ view: 'chat', openJobId: 'j_new' });
+
+    send('And make it creak');
+    await waitFor(() =>
+      expect(api).toHaveBeenLastCalledWith('/jobs/j_new/chat', { method: 'POST', json: { text: 'And make it creak' } }),
+    );
+  });
+
+  it('posts into the running job instead of starting another one', async () => {
+    const running = buildChatJob({ gameId: 'g_1', branchId: 'main' });
+    jobState.jobs = [running];
+    api.mockResolvedValue({ id: 'm_1', job_id: running.id, at: '', actor: 'creator', kind: 'text', text: 'Hi' });
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' }));
+    send('Hi');
+
+    await waitFor(() => expect(api).toHaveBeenCalledWith(`/jobs/${running.id}/chat`, expect.anything()));
+    expect(api).not.toHaveBeenCalledWith('/jobs', expect.anything());
+  });
+
+  it('starts an edit job from the chat of a finished build', async () => {
+    const finished = buildChatJob({ id: 'j_old', state: 'done' });
+    jobState.jobs = [finished];
+    api.mockResolvedValue({ jobId: 'j_new', state: 'queued' });
+    renderDock();
+
+    act(() => useDock.getState().openChat(finished.id, [finished]));
+    send('Add a second door');
+
+    await waitFor(() => expect(chatListeners.has('j_new')).toBe(true));
+    expect(api).toHaveBeenCalledWith(
+      '/jobs',
+      expect.objectContaining({ json: expect.objectContaining({ gameId: finished.gameId, kind: 'feature' }) }),
+    );
+  });
+
+  it('offers the scope chat over-budget actions and an admin retry for the edit slot', async () => {
+    const refused = Object.assign(new Error('refused'), {
+      status: 402,
+      body: {
+        error: 'allowance_exceeded',
+        remainingMicroUsd: 100,
+        resetsAt: '2026-11-03T07:00:00.000Z',
+        offers: ['trim', 'queue', 'ask_admin'],
+      },
+    });
+    api.mockImplementation(async (path: string, init?: { json?: { start?: string } }) => {
+      if (path === '/budget/status') {
+        return {
+          remainingMicroUsd: 100,
+          remainingPercent: 1,
+          unitLabel: 'coins',
+          resetsAt: '2026-11-03T07:00:00.000Z',
+          freeSlots: { new_game: 0, edit: 1 },
+          queued: [],
+        };
+      }
+      if (init?.json?.start === 'at_reset') return { jobId: 'j_queued', state: 'queued' };
+      throw refused;
+    });
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' }));
+    send('Make the door glow');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Ask an admin' }));
+    expect(await screen.findByText(/remain/)).toBeInTheDocument();
+    // Enabled only because the edit slot (not the new-game slot) has room.
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
+    expect(api).toHaveBeenCalledWith('/budget/status');
+  });
+
+  it('queues the refused message for the allowance reset', async () => {
+    api
+      .mockRejectedValueOnce({
+        status: 402,
+        body: {
+          error: 'allowance_exceeded',
+          remainingMicroUsd: 0,
+          resetsAt: '2026-11-03T07:00:00.000Z',
+          offers: ['queue'],
+        },
+      })
+      .mockResolvedValueOnce({ jobId: 'j_queued', state: 'queued' });
+    renderDock();
+
+    act(() => useDock.getState().startEdit({ gameId: 'g_1', branchId: 'main', title: 'Goblin Cellar' }));
+    send('Make the door glow');
+    fireEvent.click(await screen.findByRole('button', { name: 'Queue for the reset' }));
+
+    await waitFor(() => expect(chatListeners.has('j_queued')).toBe(true));
+    expect(api.mock.calls[1]![1]).toMatchObject({
+      json: { start: 'at_reset', plan: { summary: 'Make the door glow' } },
+    });
+  });
 });
+
+function renderDock() {
+  return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <MemoryRouter>
+        <BuildChatDock />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
+
+function send(text: string) {
+  fireEvent.change(screen.getByRole('textbox', { name: 'Message the builder' }), { target: { value: text } });
+  fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+}

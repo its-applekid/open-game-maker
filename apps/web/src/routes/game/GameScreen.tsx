@@ -6,6 +6,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { Entity, ReapplyReport } from '@ogm/contracts/browser';
 
 import type { OgmHost } from '../../app/testHook';
+import { useDock } from '../../features/build-chat/dock';
 import {
   acquireLease,
   getDesignSnapshot,
@@ -313,7 +314,11 @@ export function GameScreen() {
         playLabel={frameState.manifest?.playLabel}
         onBack={() => void leaveRoom()}
         onMode={requestMode}
-        onAsk={() => requestMode('edit')}
+        onAsk={() => {
+          if (room.snapshot?.role === 'peer') return;
+          requestMode('edit');
+          useDock.getState().startEdit({ gameId, branchId: branch, title: game.data?.title ?? '' });
+        }}
       >
         <GameExtras placement="topbar" {...extraProps} />
       </PlayEditBar>

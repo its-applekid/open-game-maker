@@ -2,10 +2,13 @@ import { create } from 'zustand';
 
 export type DockView = 'collapsed' | 'open' | 'expanded' | 'chat';
 export type DockJob = { id: string; state: string };
+export type EditDraft = { gameId: string; branchId: string; title: string };
 
 export type DockSnapshot = {
   view: DockView;
   openJobId?: string;
+  draft?: EditDraft;
+  chatKey?: string;
   seen: string[];
   fresh: boolean;
   knownStates: Record<string, string>;
@@ -17,6 +20,8 @@ export type DockAction =
   | { type: 'close' }
   | { type: 'toggle-list' }
   | { type: 'open-chat'; jobId: string }
+  | { type: 'start-edit'; draft: EditDraft }
+  | { type: 'admitted'; jobId: string; draft: EditDraft }
   | { type: 'back' };
 
 export function initialDock(): DockSnapshot {
@@ -36,16 +41,30 @@ export function reduceDock(state: DockSnapshot, action: DockAction, jobs: DockJo
     case 'open': {
       const seen = new Set(state.seen);
       for (const job of jobs) if (job.state === 'done') seen.add(job.id);
-      return { ...state, view: 'open', openJobId: undefined, fresh: false, seen: [...seen] };
+      return { ...state, view: 'open', openJobId: undefined, draft: undefined, fresh: false, seen: [...seen] };
     }
     case 'close':
-      return { ...state, view: 'collapsed', openJobId: undefined };
+      return { ...state, view: 'collapsed', openJobId: undefined, draft: undefined };
     case 'toggle-list':
-      return { ...state, view: state.view === 'expanded' ? 'open' : 'expanded', openJobId: undefined };
+      return {
+        ...state,
+        view: state.view === 'expanded' ? 'open' : 'expanded',
+        openJobId: undefined,
+        draft: undefined,
+      };
     case 'open-chat':
-      return { ...state, view: 'chat', openJobId: action.jobId };
+      return { ...state, view: 'chat', openJobId: action.jobId, draft: undefined, chatKey: action.jobId };
+    case 'start-edit': {
+      const chatKey = `edit:${action.draft.gameId}:${action.draft.branchId}`;
+      return { ...state, view: 'chat', openJobId: undefined, draft: action.draft, chatKey };
+    }
+    case 'admitted':
+      // Keeps chatKey so the open chat (and the instruction just sent) stays mounted while it streams the new job.
+      return { ...state, view: 'chat', openJobId: action.jobId, draft: action.draft };
     case 'back':
-      return { ...state, view: state.view === 'chat' ? 'expanded' : 'open', openJobId: undefined };
+      if (state.draft && jobs.length === 0)
+        return { ...state, view: 'collapsed', openJobId: undefined, draft: undefined };
+      return { ...state, view: state.view === 'chat' ? 'expanded' : 'open', openJobId: undefined, draft: undefined };
   }
 }
 
@@ -61,6 +80,8 @@ type DockStore = DockSnapshot & {
   close(jobs: DockJob[]): void;
   toggleList(jobs: DockJob[]): void;
   openChat(jobId: string, jobs: DockJob[]): void;
+  startEdit(draft: EditDraft): void;
+  admitted(jobId: string, draft: EditDraft): void;
   back(jobs: DockJob[]): void;
   reset(): void;
 };
@@ -68,6 +89,8 @@ type DockStore = DockSnapshot & {
 const snapshot = (state: DockStore): DockSnapshot => ({
   view: state.view,
   openJobId: state.openJobId,
+  draft: state.draft,
+  chatKey: state.chatKey,
   seen: state.seen,
   fresh: state.fresh,
   knownStates: state.knownStates,
@@ -84,6 +107,8 @@ export const useDock = create<DockStore>()((set) => {
     close: (jobs) => apply({ type: 'close' }, jobs),
     toggleList: (jobs) => apply({ type: 'toggle-list' }, jobs),
     openChat: (jobId, jobs) => apply({ type: 'open-chat', jobId }, jobs),
+    startEdit: (draft) => apply({ type: 'start-edit', draft }, []),
+    admitted: (jobId, draft) => apply({ type: 'admitted', jobId, draft }, []),
     back: (jobs) => apply({ type: 'back' }, jobs),
     reset: () => set(initialDock()),
   };
