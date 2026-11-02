@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
@@ -92,5 +93,22 @@ describe('splash media URLs', () => {
       expect(rendered).toContain(`"${path}?v=test"`);
       expect(rendered).not.toContain(`"${path}"`);
     }
+  });
+});
+
+describe('built splash (dist/index.html, written by the pretest build)', () => {
+  const distDir = fileURLToPath(new URL('../dist', import.meta.url));
+  const built = readFileSync(`${distDir}/index.html`, 'utf8');
+
+  it('ships every media file and keys its URL to the file bytes, so a re-recorded clip escapes the immutable cache', () => {
+    const urls = [...built.matchAll(/(?:src|poster|srcset)="(\/(?:hero|captures)\/[^"?]+)\?v=([0-9a-f]{10})"/g)];
+    expect(urls).toHaveLength(9);
+    for (const [, path, version] of urls) {
+      const bytes = readFileSync(`${distDir}${path!}`);
+      expect(bytes.equals(readFileSync(`${publicDir}${path!}`))).toBe(true);
+      expect(version).toBe(createHash('sha256').update(bytes).digest('hex').slice(0, 10));
+    }
+    expect(existsSync(`${distDir}/_headers`)).toBe(true);
+    expect(built).not.toMatch(/applekid|orangekid/);
   });
 });

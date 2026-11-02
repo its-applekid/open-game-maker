@@ -5,7 +5,7 @@
 //   node apps/site/tools/capture.mjs [creation|build|play ...]
 import { execFileSync, spawn } from 'node:child_process';
 import { createServer } from 'node:http';
-import { mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, readdir, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { extname, join } from 'node:path';
@@ -232,6 +232,14 @@ for (const name of names)
 
 sh('pnpm', ['--filter', '@ogm/web', 'build'], { VITE_GAMES_ORIGIN: `http://127.0.0.1:${GAMES_PORT}` });
 if (names.includes('play')) sh('pnpm', ['--filter', '@gm/template-game-2d', 'build']);
+/* a server left on the port (an earlier run that died) would answer the readiness check with a stale build */
+if (
+  await fetch(APP).then(
+    () => true,
+    () => false,
+  )
+)
+  throw new Error(`port ${APP_PORT} is already serving; stop it first`);
 const preview = spawn(
   'pnpm',
   ['exec', 'vite', 'preview', '--host', '127.0.0.1', '--port', String(APP_PORT), '--strictPort'],
@@ -241,21 +249,25 @@ const preview = spawn(
     detached: true,
   },
 );
+let previewExit = null;
+preview.on('exit', (code) => (previewExit = code));
 const games = gamesServer().listen(GAMES_PORT, '127.0.0.1');
 const work = await mkdtemp(join(tmpdir(), 'ogm-capture-'));
-const browser = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
+let browser;
 try {
-  for (let i = 0; i < 60; i++) {
-    if (
-      await fetch(APP).then(
-        (r) => r.ok,
-        () => false,
-      )
-    )
-      break;
-    await pause(500);
+  browser = await chromium.launch({ args: ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'] });
+  let ready = false;
+  for (let i = 0; i < 60 && !ready && previewExit === null; i++) {
+    ready = await fetch(APP).then(
+      (r) => r.ok,
+      () => false,
+    );
+    if (!ready) await pause(500);
   }
-  await mkdir(OUT, { recursive: true });
+  if (!ready) throw new Error(`vite preview did not start on ${APP} (exit ${previewExit})`);
+  /* every clip and poster is written to the work dir and copied into public/captures only once all scenes succeed,
+     so a failed run never leaves a new clip beside an old poster */
+  const written = [];
   for (const name of names) {
     const { run, viewport, poster } = SCENES[name];
     const dir = join(work, name);
@@ -279,7 +291,7 @@ try {
     });
     await context.close();
     const [webm] = (await readdir(dir)).filter((file) => file.endsWith('.webm'));
-    const video = join(OUT, `${name}.mp4`);
+    const video = join(work, `${name}.mp4`);
     // start each clip where its scene is ready, not on the blank page while the app boots
     const start = Math.max(0, (readyAt - openedAt) / 1000 - 0.3).toFixed(2);
     sh('ffmpeg', [
@@ -322,13 +334,17 @@ try {
       'libwebp',
       '-quality',
       '70',
-      join(OUT, `${name}.webp`),
+      join(work, `${name}.webp`),
     ]);
-    console.log(`wrote public/captures/${name}.mp4 (${seconds.toFixed(1)} s) and ${name}.webp`);
+    written.push(`${name}.mp4`, `${name}.webp`);
+    console.log(`recorded ${name} (${seconds.toFixed(1)} s)`);
   }
+  await mkdir(OUT, { recursive: true });
+  for (const file of written) await copyFile(join(work, file), join(OUT, file));
+  console.log(`wrote public/captures/${written.join(', ')}`);
 } finally {
-  await browser.close();
+  await browser?.close();
   games.close();
-  process.kill(-preview.pid);
+  if (previewExit === null) process.kill(-preview.pid);
   await rm(work, { recursive: true, force: true });
 }
