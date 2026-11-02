@@ -1,19 +1,83 @@
+import { readFileSync } from 'node:fs';
+
 import { describe, expect, it } from 'vitest';
 
 import { canonicalClip, clipLoops, conventions } from '../src/conventions.js';
 import { roleOf, vocabulary } from '../src/vocabulary.js';
 
-/** Clip names of the KayKit libraries (asset-qa/kaykit.md, GLB card pass), so a typo in the vocabulary fails here. */
-const LIBRARY_CLIPS = new Set(
-  [
-    'Melee_1H_Slash Melee_1H_Stab Melee_2H_Attack Melee_Block Melee_Blocking Dodge_Forward Death_A Hit_A Idle_A',
-    'Idle_B Running_A Walking_A Melee_1H_Attack_Chop Melee_1H_Attack_Slice_Diagonal Melee_1H_Attack_Stab',
-    'Ranged_Magic_Shoot Ranged_Magic_Spellcasting Death_B Hit_B Crouching Running_Strafe_Left Running_Strafe_Right',
-    'Sneaking Running_B Walking_B Walking_C Skeletons_Taunt Jump_Start Interact T-Pose',
-  ]
-    .join(' ')
-    .split(' '),
-);
+interface ClipCard {
+  id: string;
+  anim: { target_rig_id: string; clips: { name: string; canonical: string; loop: boolean }[] };
+}
+
+/**
+ * The KayKit clip-library cards (asset-qa/kaykit.md GLB card pass: 36 libraries, 374 clips), trimmed to their clips,
+ * so the tables are checked against every clip the packs ship rather than a hand-typed list.
+ *
+ * Regenerate (byte-identical) from the repo root after a catalog rebuild:
+ *   jq '{source: "anim cards of the KayKit packs in the asset catalog (index/cards.index.json, kind anim), trimmed to id, rig and clips",
+ *     cards: [.cards[] | select(.kind == "anim" and (.id | startswith("t1:kaykit-")))
+ *       | {id, anim: {target_rig_id: .anim.target_rig_id, clips: [.anim.clips[] | {name, canonical, loop}]}}]}' \
+ *     assets-local/index/cards.index.json > packages/pack-adapters/kaykit/test/fixtures/clip-cards.json
+ */
+const { cards } = JSON.parse(readFileSync(new URL('./fixtures/clip-cards.json', import.meta.url), 'utf8')) as {
+  cards: ClipCard[];
+};
+const CATALOG_CLIPS = cards.flatMap((card) => card.anim.clips);
+const LIBRARY_CLIPS = new Set(CATALOG_CLIPS.map((clip) => clip.name));
+
+/** Catalog clips with neither a canonical word nor a role, each group with why it stays unmapped. */
+const UNMAPPED: Record<string, readonly string[]> = {
+  'bind pose every library ships, not an action': ['T-Pose'],
+  'tool and work loops; the game names what they do': [
+    'Chop',
+    'Chopping',
+    'Dig',
+    'Digging',
+    'Hammer',
+    'Hammering',
+    'Lockpick',
+    'Lockpicking',
+    'Pickaxe',
+    'Pickaxing',
+    'Saw',
+    'Sawing',
+    'Work_A',
+    'Work_B',
+    'Work_C',
+    'Working_A',
+    'Working_B',
+    'Working_C',
+  ],
+  'fishing beats with no shared role': [
+    'Fishing_Bite',
+    'Fishing_Catch',
+    'Fishing_Reeling',
+    'Fishing_Struggling',
+    'Fishing_Tug',
+  ],
+  'dodge directions besides forward; the roles have one dodge': [
+    'Dodge_Backward',
+    'Dodge_Backwards',
+    'Dodge_Left',
+    'Dodge_Right',
+  ],
+  'spawn and skeleton story beats a game triggers by name': [
+    'Spawn_Air',
+    'Spawn_Ground',
+    'Skeletons_Awaken_Floor',
+    'Skeletons_Awaken_Floor_Long',
+    'Skeletons_Awaken_Standing',
+    'Skeletons_Inactive_Floor_Pose',
+    'Skeletons_Inactive_Standing_Pose',
+    'Skeletons_Spawn_Ground',
+    'Skeletons_Taunt_Longer',
+  ],
+  'marked experimental by KayKit': ['EXPERIMENTAL_Large_Transform', 'EXPERIMENTAL_Medium_Transform'],
+  'emotes and exercises CLIP_WORDS has no word for (it matches wave, not Waving)': ['Flexing', 'Push_Ups', 'Waving'],
+  'ground moves with no word: lying and crawling': ['Crawling', 'Lie_Down', 'Lie_StandUp'],
+  'a throw; CLIP_WORDS has no throw word': ['Throw'],
+};
 
 /** The SmallScaleInt adapter's role keys (#183): both sets answer the same roles. */
 const SHARED_ROLES = [
@@ -51,6 +115,13 @@ describe('vocabulary', () => {
     expect(named.filter((clip) => !LIBRARY_CLIPS.has(clip))).toEqual([]);
   });
 
+  it('maps every catalog clip to a canonical word or a role, or names why not', () => {
+    const allowed = new Set(Object.values(UNMAPPED).flat());
+    const unmapped = [...LIBRARY_CLIPS].filter((clip) => canonicalClip(clip) === 'other' && roleOf(clip) === undefined);
+    expect(unmapped.filter((clip) => !allowed.has(clip))).toEqual([]);
+    expect([...allowed].filter((clip) => !unmapped.includes(clip))).toEqual([]);
+  });
+
   it('maps a clip name back to its role', () => {
     expect(roleOf('Melee_1H_Stab')).toBe('attack.melee.3');
     expect(roleOf('Jump_Start')).toBeUndefined();
@@ -58,6 +129,17 @@ describe('vocabulary', () => {
 });
 
 describe('ported clip table', () => {
+  it('reads the 36 libraries and 374 clips the card pass counted', () => {
+    expect([cards.length, CATALOG_CLIPS.length]).toEqual([36, 374]);
+  });
+
+  it('classes every catalog clip the way its card does', () => {
+    const differs = CATALOG_CLIPS.filter(
+      (clip) => canonicalClip(clip.name) !== clip.canonical || clipLoops(clip.name) !== clip.loop,
+    );
+    expect(differs).toEqual([]);
+  });
+
   it('classes clips the way the card pipeline did', () => {
     expect(
       [
@@ -87,7 +169,6 @@ describe('ported clip table', () => {
 
 describe('clip table parity', () => {
   it('matches CLIP_WORDS and LOOP_CLIPS in the card pipeline it was ported from', async () => {
-    const { readFileSync } = await import('node:fs');
     const python = readFileSync(new URL('../../../../scripts/assets/preprocess_kaykit.py', import.meta.url), 'utf8');
     const words = python.match(/^CLIP_WORDS = \(\n([\s\S]*?)\n\)/m)![1]!;
     const rows = [...words.matchAll(/\("([^"]+)", \(([^)]*)\)\)/g)].map(([, canonical, list]) => [
