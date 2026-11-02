@@ -11,10 +11,6 @@ const IMAGE = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif']);
 const AUDIO = new Set(['.wav', '.mp3', '.ogg', '.flac', '.m4a', '.aac']);
 const FONT = new Set(['.ttf', '.otf', '.woff', '.woff2']);
 
-function entryMeta(entry: AssetsLock['assets'][number]): unknown {
-  return (entry as AssetsLock['assets'][number] & { meta?: unknown }).meta;
-}
-
 function recipe(kind: BuildJob['kind'], tiers: Tier[], items: BuildItem[]): Record<string, unknown> {
   return {
     version: 1,
@@ -43,7 +39,7 @@ export async function planBuild(
   for (const entry of lock.assets) {
     const source = resolve(cwd, entry.path);
     const extension = extname(entry.path).toLowerCase();
-    const meta = entryMeta(entry);
+    const meta = entry.meta;
     const item: BuildItem = { entry, source, ...(meta === undefined ? {} : { meta }) };
     if (MODEL.has(extension)) {
       try {
@@ -59,12 +55,14 @@ export async function planBuild(
       failures.push({ id: entry.id, message: `unsupported asset format ${extension || '(none)'}` });
       continue;
     }
+    const pixelArt = kind === 'image' && lock.family === 'pixel-art';
     jobs.push({
       kind,
       slug: slugFromId(entry.id),
       items: [item],
       tiers,
-      recipe: recipe(kind, tiers, [item]),
+      recipe: { ...recipe(kind, tiers, [item]), ...(pixelArt ? { pixel_art: true } : {}) },
+      ...(pixelArt ? { pixelArt } : {}),
     });
   }
 

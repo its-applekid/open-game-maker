@@ -85,7 +85,7 @@ describe('gm assets facets, info, sheet, list', () => {
     const env = { OGM_ASSETS_ROOT: library() };
     const ok = await gm(['assets', 'info', ORC], { env });
     expect(ok.out).toEqual([
-      `${ORC}  model/character  0.78x0.78x0.33m  374tris  rig:2ca4677e40f4  CC0-1.0  derive-layout,in-game,placeholder,style-reference,vision-input`,
+      `${ORC}  model/character  0.78x0.78x0.33m  374tris  rig:2ca4677e40f4  meta=rig,geometry  CC0-1.0  derive-layout,in-game,placeholder,style-reference,vision-input`,
     ]);
     const missing = await gm(['assets', 'info', ORC, 'nope'], { env });
     expect(missing.code).toBe(2);
