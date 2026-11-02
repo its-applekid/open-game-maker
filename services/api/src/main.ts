@@ -80,6 +80,7 @@ const deps: AppDeps = {
     resetZoneDefault: env.OGM_RESET_ZONE_DEFAULT,
     intakeDir: env.OGM_INTAKE_DIR,
     reportBundleMaxBytes: env.OGM_REPORT_BUNDLE_MAX_BYTES,
+    blobPutMaxBytes: env.OGM_BLOB_PUT_MAX_BYTES,
   },
   blobStore: new FsBlobStore({
     root: env.OGM_BLOB_ROOT,

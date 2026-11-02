@@ -145,7 +145,8 @@ Each run writes, under `<target path>/ogm-backups/`:
 - `db-<STAMP>.sqlite`: a `VACUUM INTO` snapshot of `$OGM_DATA_DIR/ogm.db`, safe while the API writes. Skipped (with
   `no database yet`) until the database exists.
 - `blobs-<STAMP>.tar.zst`: every blob and sidecar changed since the last verified run (the first run takes them all).
-  Blobs never change, so this is an exact delta.
+  Blobs never change, so this is an exact delta. The blob store also holds every game's tier-3 assets (agent-made or
+  edited; game repos keep only their sha in `assets.lock.json`), so this backup is their only copy off the host.
 - `manifest-<STAMP>.json`: the previous stamp, each file's size and sha256, the blob count, the host, the repo commit and
   the env file names (never their values).
 

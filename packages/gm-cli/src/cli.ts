@@ -46,6 +46,8 @@ const ENV = {
   PLAYWRIGHT_BROWSERS_PATH: { kind: 'path', required: false },
   XDG_RUNTIME_DIR: { kind: 'path', required: false },
   OGM_BLOB_ROOT: { kind: 'path', required: false },
+  OGM_INTERNAL_URL: { kind: 'url', required: false },
+  OGM_HOOK_SECRET_FILE: { kind: 'path', required: false },
   OGM_BLOCKLIST_FILE: { kind: 'path', required: false },
 } as const;
 
@@ -106,6 +108,10 @@ export async function run(argv: string[], options: RunOptions = {}): Promise<num
       err,
       emit: makeEmitter(env.GM_EVENTS_FILE, env.GM_JOB),
       blobRoot: env.OGM_BLOB_ROOT ? resolve(cwd, env.OGM_BLOB_ROOT) : null,
+      blobApi:
+        env.OGM_INTERNAL_URL && env.OGM_HOOK_SECRET_FILE
+          ? { url: env.OGM_INTERNAL_URL, secretFile: env.OGM_HOOK_SECRET_FILE }
+          : null,
       blocklistFile: env.OGM_BLOCKLIST_FILE ? resolve(cwd, env.OGM_BLOCKLIST_FILE) : null,
     };
     return await command.run(ctx, args, flags);

@@ -79,6 +79,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       defaultDailyAllowanceMicroUsd: 5_000_000,
       resetZoneDefault: 'America/Los_Angeles',
       reportBundleMaxBytes: 2 * 1024 * 1024,
+      blobPutMaxBytes: 1024,
       narrationConcurrency: 2,
     },
     blobStore: new FsBlobStore({
