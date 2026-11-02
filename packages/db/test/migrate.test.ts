@@ -42,6 +42,7 @@ describe('migrate', () => {
         '20261102021647_creator_analytics.sql',
         '20261102023444_nullable_branch_fork_sha.sql',
         '20261102023822_saves.sql',
+        '20261102041645_merge_plans.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -70,6 +71,7 @@ describe('migrate', () => {
       'migration:20261102021647_creator_analytics.sql',
       'migration:20261102023444_nullable_branch_fork_sha.sql',
       'migration:20261102023822_saves.sql',
+      'migration:20261102041645_merge_plans.sql',
     ]);
     sqlite.close();
   });
@@ -93,7 +95,7 @@ describe('migrate', () => {
   it('preserves branch history and leases while loosening the fork SHA constraint', () => {
     const dir = tempDir();
     const migration = '20261102023444_nullable_branch_fork_sha.sql';
-    for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file !== migration)) {
+    for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file < migration)) {
       copyFileSync(join(MIGRATIONS_DIR, file), join(dir, file));
     }
     const { sqlite } = openDb(':memory:');
