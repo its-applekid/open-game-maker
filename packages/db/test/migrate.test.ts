@@ -38,7 +38,9 @@ describe('migrate', () => {
         '20261101204433_rooms.sql',
         '20261101233648_job_tickets.sql',
         '20261102012011_reapply_reports.sql',
-        '20261102021306_nullable_branch_fork_sha.sql',
+        '20261102021630_achievements.sql',
+        '20261102021647_creator_analytics.sql',
+        '20261102023444_nullable_branch_fork_sha.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -63,7 +65,9 @@ describe('migrate', () => {
       'migration:20261101204433_rooms.sql',
       'migration:20261101233648_job_tickets.sql',
       'migration:20261102012011_reapply_reports.sql',
-      'migration:20261102021306_nullable_branch_fork_sha.sql',
+      'migration:20261102021630_achievements.sql',
+      'migration:20261102021647_creator_analytics.sql',
+      'migration:20261102023444_nullable_branch_fork_sha.sql',
     ]);
     sqlite.close();
   });
@@ -86,7 +90,7 @@ describe('migrate', () => {
 
   it('preserves branch history and leases while loosening the fork SHA constraint', () => {
     const dir = tempDir();
-    const migration = '20261102021306_nullable_branch_fork_sha.sql';
+    const migration = '20261102023444_nullable_branch_fork_sha.sql';
     for (const file of readdirSync(MIGRATIONS_DIR).filter((file) => file.endsWith('.sql') && file !== migration)) {
       copyFileSync(join(MIGRATIONS_DIR, file), join(dir, file));
     }
