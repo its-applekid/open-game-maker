@@ -66,6 +66,8 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
     card.id,
     ...(card.source?.files ?? []).map((file) => file.path),
     ...(card.sprite?.animations ?? []).map((animation) => animation.name),
+    ...(card.rig?.clips ?? []).flatMap((clip) => [clip.name, clip.canonical]),
+    ...(card.anim?.clips ?? []).flatMap((clip) => [clip.name, clip.canonical]),
   ];
   return [
     [3, tokens(card.title)],
