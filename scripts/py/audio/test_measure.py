@@ -109,8 +109,10 @@ def test_48k_file_is_resampled_for_loudness(tmp_path):
 
 def test_sound_effect_mode_skips_music_fields(tmp_path):
     """Sound effects must not get a key or tempo: a 2 s door creak has neither, and a guessed one would mislead search."""
-    a = m.measure(write(tmp_path, "fx.wav", click_track(120, 4, 3)), music=False)["audio"]
+    r = m.measure(write(tmp_path, "fx.wav", click_track(120, 4, 3)), music=False)
+    a = r["audio"]
     assert a["tempo_bpm"] is None and "key" not in a and a["loudness_lufs"] is not None
+    assert set(r["sidecar"]["envelope"]) == {"peak_at_s", "attack_s", "tail_db", "active_share"}  # the kind words need it
 
 
 def test_envelope_tells_a_hit_from_a_sustained_bed():

@@ -38,4 +38,5 @@ def test_abstraction_loops_are_music_with_private_previews():
     waveforms stay under private/ like Sidetrax's; Kenney's CC0 previews stay shareable."""
     assert a.is_music("abstraction-music-loop-2024-q1")
     assert a.preview_prefix("abstraction-music-loop-troubadeck") == "private/previews"
+    assert a.preview_prefix("sonniss-gdc2026-part9-1of5") == "private/previews"  # Sonniss: in builds only, never shared
     assert a.preview_prefix("kenney-music-loops") == "previews"

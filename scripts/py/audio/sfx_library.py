@@ -3,7 +3,7 @@
 A bundle file is named `CatID_FX Name_Vendor_Library.wav` (the Universal Category System pattern, C3 §11) or plainly
 (`Interface Accept Glassy Snap.wav`), inside a `Vendor - Library` folder. The bundle's Filelist.xlsx lists every file with
 its library and supplier; it is read with the standard library (an .xlsx is a zip of XML), so no extra package is needed.
-build_audio_cards.py asks `describe_hints` for each file of a `sonniss-*` pack; sfx_listing.py writes the listings."""
+build_audio_cards.py calls `hints_for` and `apply_hints` for each file of a `sonniss-*` pack; sfx_listing.py writes the listings."""
 import functools
 import re
 import xml.etree.ElementTree as ET
@@ -13,6 +13,8 @@ from pathlib import Path
 LIBRARY_PACKS = ("sonniss-",)
 XLSX_NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main"}
 UCS_CAT = re.compile(r"^([A-Z]{3,5}[A-Z][a-z]+)$")  # the card schema's audio.ucs_cat_id pattern
+CAT_SHAPE = re.compile(r"^[A-Z]{2,5}[A-Z][a-z]+$")  # any CatID (UIAlert too); an all-caps head counts only as a known category
+MAX_KEYWORDS = 12  # the card schema's describe.keywords maxItems
 
 # UCS category prefix -> (search word, subkind). Prefixes only; the CatID's subcategory refines below.
 UCS = {
@@ -52,7 +54,7 @@ WORD_SUBKINDS = [
     ({"sword", "swords", "gun", "guns", "gunshot", "weapon", "weapons", "arrow", "bow"}, "sfx/weapon"),
     ({"impact", "impacts", "hit", "hits", "punch", "crash"}, "sfx/impact"),
     ({"coin", "coins", "pickup", "collect"}, "sfx/pickup"),
-    ({"voice", "voices", "vocal", "character"}, "voice"),
+    ({"voice", "voices", "vocal"}, "voice"),
     ({"creature", "creatures", "monster", "monsters", "dinosaur", "dinosaurs", "dog", "animal"}, "sfx/creature"),
     ({"car", "engine", "vehicle", "tram", "train", "motorbike"}, "sfx/vehicle"),
 ]
@@ -63,8 +65,8 @@ AMBIENCE_S, SUSTAINED = 20.0, 0.7  # an ambience bed: at least 20 s and loud for
 
 def words(text):
     """Lower-case search words from a name: camel case split, digits and filler dropped."""
-    text = re.sub(r"([a-z])([A-Z])", r"\1 \2", text or "")
-    return [w for w in re.findall(r"[a-z][a-z'-]*", text.lower()) if len(w) > 1 and w not in FILLER]
+    text = re.sub(r"([a-z])([A-Z])", r"\1 \2", text or "").replace("'", "").replace("\u2019", "")
+    return [w for w in re.findall(r"[a-z][a-z-]*", text.lower()) if len(w) > 1 and w not in FILLER]
 
 
 def is_library_pack(pid: str) -> bool:
@@ -109,7 +111,7 @@ def parse(rel: str, filelist: dict | None = None) -> dict:
     row = (filelist or {}).get(p.name, {})
     vendor, library = row.get("supplier") or vendor.strip(), row.get("library") or library.strip() or folder
     parts = p.stem.split("_")
-    head = parts[0] if len(parts) >= 3 and re.fullmatch(r"[A-Z]{2,}[A-Za-z]*", parts[0]) and ucs_prefix(parts[0]) else None
+    head = parts[0] if len(parts) >= 3 and (CAT_SHAPE.match(parts[0]) or parts[0] in UCS) else None
     fx = parts[1] if head else p.stem
     # UIAlert and STORM name a category the schema's CatID pattern cannot hold: kept for the kind, not as ucs_cat_id
     return {"vendor": vendor, "library": library, "ucs_category": head,
@@ -154,7 +156,7 @@ def classify(info: dict, audio: dict, env: dict | None) -> dict:
     shape = envelope_shape(env, dur)
     if subkind == "ambience" and dur < AMBIENCE_S and shape != "sustained":
         subkind = "sfx/other"  # a crowd cheer or a single thunder clap, not a bed
-    elif subkind not in ("ambience", "voice", "sfx/ui") and (prefix in ELEMENTAL or prefix is None) and dur >= AMBIENCE_S and shape == "sustained":
+    elif (subkind is None or prefix in ELEMENTAL) and subkind not in ("ambience", "voice", "sfx/ui") and dur >= AMBIENCE_S and shape == "sustained":
         subkind, by = "ambience", by or "envelope"
     named_loop = "loop" in fx_words or "loop" in lib_words
     if subkind == "ambience":
@@ -169,7 +171,7 @@ def classify(info: dict, audio: dict, env: dict | None) -> dict:
     if prefix:
         kw.append(UCS[prefix][0])
     kw += [w for w in lib_words if w not in kw]
-    return {"subkind": subkind, "subkind_by": by, "shape": kind_word, "keywords": kw[:16]}
+    return {"subkind": subkind, "subkind_by": by, "shape": kind_word, "keywords": kw[:MAX_KEYWORDS]}
 
 
 @functools.cache
@@ -203,7 +205,7 @@ def apply_hints(card: dict, h: dict, prov: dict, tool: str, now: str) -> None:
     if h["ucs_cat_id"]:
         a["ucs_cat_id"] = h["ucs_cat_id"]
         prov["audio.ucs_cat_id"] = {"by": "filename", "tool": tool, "at": now, "input": "CatID_FXName_Creator_Source file name"}
-    d["keywords"] = list(dict.fromkeys(h["keywords"] + d.get("keywords", [])))[:16]
+    d["keywords"] = list(dict.fromkeys(h["keywords"] + d.get("keywords", [])))[:MAX_KEYWORDS]
     prov["describe.keywords"] = {"by": "code", "tool": tool, "at": now,
                                  "input": "vendor and library names (folder, Filelist.xlsx), UCS category, measured envelope and seam test"}
     noun = NOUNS.get(card["subkind"], card["subkind"].split("/")[-1] + " sound")

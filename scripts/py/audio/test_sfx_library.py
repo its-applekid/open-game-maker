@@ -1,5 +1,6 @@
 """Sound-effect library cards: each test is a promise an agent relies on when it searches 347 bundle files by word."""
 import json
+import re
 import sys
 import zipfile
 from pathlib import Path
@@ -123,3 +124,48 @@ def test_listing_is_one_line_per_library_and_the_index_counts_kinds(tmp_path):
     assert [(r["vendor"], r["library"], r["files"]) for r in libs] == [("344 Audio", "Antique Clocks", 2), ("Epic Stock Media", "Rain", 1)]
     assert libs[1]["kinds"] == {"ambience": 1}
     assert json.loads((index / "sets" / "sfx.json").read_text())["libraries"][0]["minutes"] == 1.2
+
+
+def test_filelist_reads_shared_string_cells(tmp_path):
+    """Excel usually stores text in sharedStrings.xml (t="s"); the reader must resolve those indexes, not return numbers."""
+    strings = ["FILENAME", "LIBRARY NAME", "SUPPLIER", "a.wav", "Rain", "Epic Stock Media"]
+    sst = "".join(f"<si><t>{v}</t></si>" for v in strings)
+    rows = "".join(f'<row r="{r}">' + "".join(f'<c r="{c}{r}" t="s"><v>{i}</v></c>' for c, i in zip("ABC", idx)) + "</row>"
+                   for r, idx in ((1, (0, 1, 2)), (2, (3, 4, 5))))
+    x = tmp_path / "Filelist.xlsx"
+    with zipfile.ZipFile(x, "w") as z:
+        z.writestr("xl/sharedStrings.xml", f"<sst {NS}>{sst}</sst>")
+        z.writestr("xl/worksheets/sheet1.xml", f"<worksheet {NS}><sheetData>{rows}</sheetData></worksheet>")
+    assert s.read_filelist(x) == {"a.wav": {"library": "Rain", "supplier": "Epic Stock Media"}}
+
+
+def test_filelist_row_names_the_library_over_the_folder(tmp_path):
+    """The Filelist is the vendor's own record ("Anime Fight Voices Vol. 2"); it wins over a shortened folder name."""
+    vdir = tmp_path / "v"
+    (vdir / "extracted").mkdir(parents=True)
+    _xlsx(vdir / "extracted" / "Bundle Filelist.xlsx", [("FILENAME", "LIBRARY NAME", "SUPPLIER"),
+                                                       ("VOXFem_Yell 2_344 Audio_AFV.wav", "Anime Fight Voices Vol. 2", "344 Audio")])
+    h = s.hints_for(vdir, "344 - AFV/VOXFem_Yell 2_344 Audio_AFV.wav", {"duration_s": 1.0}, {"envelope": {"active_share": 0.3}})
+    assert (h["vendor"], h["library"], h["subkind"]) == ("344 Audio", "Anime Fight Voices Vol. 2", "voice")
+
+
+def test_long_sustained_sound_keeps_the_kind_its_name_gives():
+    """A 45 s engine hum named as a vehicle is still a vehicle sound (and a loop), not an ambience bed."""
+    c = s.classify(s.parse("V - Ships/Spaceship Engine Hum.wav"), {"duration_s": 45.0, "loopable": True}, {"active_share": 0.95})
+    assert c["subkind"] == "sfx/vehicle" and c["shape"] == "loop"
+
+
+def test_all_caps_plain_name_is_not_a_category_but_unknown_catid_still_splits():
+    """AMBULANCE_Siren_Passby is a plain name (not ambience, title kept whole); DESTCrsh_ is a real CatID our table lacks."""
+    plain = s.parse("V - Sirens/AMBULANCE_Siren_Passby_01.wav")
+    assert plain["ucs_category"] is None and plain["fx_name"] == "AMBULANCE_Siren_Passby_01"
+    dest = s.parse("V - Debris/DESTCrsh_Wall Collapse_V_Debris.wav")
+    assert (dest["ucs_cat_id"], dest["fx_name"]) == ("DESTCrsh", "Wall Collapse")
+
+
+def test_keywords_fit_the_card_schema():
+    """describe.keywords: at most 12 tags matching ^[a-z][a-z0-9-]*$; a vendor named "Mike's" must not break the card."""
+    info = {"vendor": "Mike's Sound Lab", "library": "Children's Toys Bells Whistles Rattles Drums Horns Spinners Tops Blocks",
+            "ucs_category": "TOONMisc", "ucs_cat_id": "TOONMisc", "fx_name": "Squeak"}
+    kw = s.classify(info, {"duration_s": 0.5, "loopable": True}, {"active_share": 0.1})["keywords"]
+    assert len(kw) <= 12 and all(re.fullmatch(r"[a-z][a-z0-9-]*", k) for k in kw) and "mikes" in kw
