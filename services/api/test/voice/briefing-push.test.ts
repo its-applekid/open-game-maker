@@ -369,5 +369,7 @@ describe('voice host env', () => {
       /OGM_VOICE_INTERNAL_SECRET/,
     );
     expect(loadApiEnv(baseEnv).OGM_VOICE_HOST_INTERNAL_URL).toBeUndefined();
+    expect(loadApiEnv(baseEnv).OGM_NARRATION_CONCURRENCY).toBe(2);
+    expect(() => loadApiEnv({ ...baseEnv, OGM_NARRATION_CONCURRENCY: '0' })).toThrow(/OGM_NARRATION_CONCURRENCY/);
   });
 });

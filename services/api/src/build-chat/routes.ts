@@ -14,6 +14,7 @@ import { createOutboxRelay } from './outbox-relay.js';
 import { createProgressPoller } from './progress-poller.js';
 import { insertChatRow, listSince, toMessage, type MediaSigner } from './store.js';
 import { createChatHub, formatChatFrame, type ChatHub } from './stream.js';
+import { getNarrationRenderer } from '../narration/render.js';
 
 export const prefix = '/api/v1/jobs';
 
@@ -58,6 +59,7 @@ export function setup(deps: AppDeps): void {
   }
   void loadOutboxHandlers()
     .then((handlers) => {
+      const narration = getNarrationRenderer(deps);
       createOutboxRelay({
         root,
         sqlite: deps.sqlite,
@@ -70,6 +72,7 @@ export function setup(deps: AppDeps): void {
           db: deps.db,
           sqlite: deps.sqlite,
           blobStore: deps.blobStore,
+          ...(narration ? { renderNarration: (lines) => narration.renderLines(lines) } : {}),
           publish,
           notify: (trigger) => deps.events.emit('notify', trigger),
           log: deps.log,

@@ -1,4 +1,4 @@
-import type { AssetManifest } from '@ogm/contracts';
+import type { AssetManifest, AssetMetadata } from '@ogm/contracts';
 import type { WebGLRenderer } from 'three';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -60,6 +60,14 @@ vi.mock('three/addons/loaders/KTX2Loader.js', () => ({
 
 const fileBytes = new Uint8Array([1, 2, 3, 4]).buffer;
 const mesh = { isMesh: true, name: 'castle/tower-base' };
+const metadata = {
+  kit: { piece: 'wall', grid_m: 1 },
+  geometry: {
+    bounds_m: { min: [0, 0, 0], max: [1, 1, 1] },
+    triangles: 12,
+    normalized: true,
+  },
+} satisfies AssetMetadata;
 
 const manifest: AssetManifest = {
   version: 1,
@@ -77,6 +85,7 @@ const manifest: AssetManifest = {
       file: { '*': 'kit-castle.3f9a1c.glb' },
       mesh: 'castle/tower-base',
       bounds: [1, 1.31, 1],
+      meta: metadata,
       license: { id: 'CC0-1.0', attribution: 'Kenney', use: 'any' },
     },
     'castle/tower-alt': {
@@ -145,6 +154,7 @@ describe('AssetLoader', () => {
       url: 'https://game.test/assets/monster-yeti.mobile.a81e.glb',
     });
     expect(loader.resolve('castle/tower-base').file).toBe('kit-castle.3f9a1c.glb');
+    expect(loader.resolve('castle/tower-base').meta).toEqual(metadata);
   });
 
   it('fetches a shared file once when ids preload in parallel', async () => {

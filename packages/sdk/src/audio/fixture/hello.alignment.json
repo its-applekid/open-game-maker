@@ -1,0 +1,15 @@
+{
+  "key": "fixture",
+  "text": "hello there little fox.",
+  "voice": "default",
+  "engine": "fake",
+  "lang": "en",
+  "duration_ms": 1000,
+  "format": "opus",
+  "alignment": [
+    { "text": "hello", "start_ms": 0, "end_ms": 250 },
+    { "text": "there", "start_ms": 250, "end_ms": 500 },
+    { "text": "little", "start_ms": 500, "end_ms": 750 },
+    { "text": "fox.", "start_ms": 750, "end_ms": 1000 }
+  ]
+}

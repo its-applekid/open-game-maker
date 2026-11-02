@@ -5,10 +5,13 @@ import { CueRenderer, type CueMetrics, type RenderOptions } from './render.js';
 import { AudioRelay, type AudioBridge } from './relay.js';
 import { SampleBank, SamplePlayer, type AudioHandle, type AudioLoader, type PlayOptions } from './samples.js';
 import { SongPlayer, type SongHandle, type ToneLoader } from './song.js';
+import { attachSpokenTextRuntime } from './spoken-text.js';
 import { AudioUnlock, type AudioStatus } from './unlock.js';
 import { ZzfxPlayer, type ZzfxOptions } from './zzfx.js';
 
 export { songSchema, type Song } from './song.schema.js';
+export { SpokenText, type SpokenTextEntry, type SpokenTextHandle, type SpokenTextOptions } from './spoken-text.js';
+export { groupSentences, splitSentences, type AlignmentSegment, type TimedSentence } from './sentences.js';
 export type {
   AudioBridge,
   AudioBuses,
@@ -109,6 +112,7 @@ export function createAudio(options: CreateAudioOptions): GmAudio {
     },
   });
   let disposed = false;
+  let detachSpokenText = () => {};
 
   const stopLocal = () => {
     samples.stopAll();
@@ -126,7 +130,7 @@ export function createAudio(options: CreateAudioOptions): GmAudio {
     return samples.play(id, playOptions);
   };
 
-  return {
+  const audio: GmAudio = {
     context: graph.context,
     buses: graph.buses,
     unlock: unlock.unlock,
@@ -166,12 +170,19 @@ export function createAudio(options: CreateAudioOptions): GmAudio {
     dispose: () => {
       if (disposed) return;
       disposed = true;
+      detachSpokenText();
       relay.music(null, 0);
       stopLocal();
       unlock.dispose();
       void graph.context.close();
     },
   };
+  detachSpokenText = attachSpokenTextRuntime({
+    context: graph.context,
+    voice: graph.buses.voice,
+    status: () => unlock.status(),
+  });
+  return audio;
 }
 
 function normalizeSettings(settings: AudioSettings): AudioSettings {
