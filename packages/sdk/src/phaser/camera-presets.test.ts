@@ -18,6 +18,7 @@ function setup() {
     setDeadzone: vi.fn(),
     setBounds: vi.fn(),
     setZoom: vi.fn(),
+    centerOn: vi.fn(),
   };
   const values = new Map<string, unknown>([
     ['camera.zoom', 1.5],
@@ -55,7 +56,7 @@ describe('cameraPresets', () => {
 
     rig.attach({ position: () => [16, 24, 0] }, 0);
 
-    expect(camera.setDeadzone).toHaveBeenCalledWith(160, 120);
+    expect(camera.setDeadzone).toHaveBeenCalledWith(192, 216);
     expect(camera.setBounds).toHaveBeenCalledWith(0, 0, 1280, 720);
     expect(rig.inputMapping.touch).toBe('stick');
   });
@@ -71,6 +72,7 @@ describe('cameraPresets', () => {
 
     expect(camera.startFollow).not.toHaveBeenCalled();
     expect(camera.setBounds).toHaveBeenCalledWith(0, 0, 640, 360);
+    expect(camera.centerOn).toHaveBeenCalledWith(320, 180);
     expect(rig.inputMapping.touch).toBe('tap');
   });
 
