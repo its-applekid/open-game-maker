@@ -329,6 +329,37 @@ describe('planMerge', () => {
       }),
     );
   });
+
+  it('produces the same merged document when non-conflicting sides are swapped', () => {
+    fc.assert(
+      fc.property(fc.boolean(), fc.boolean(), (oursValue, theirsValue) => {
+        const doc = baseDoc();
+        const oursPatches: Patch[] = [{ op: 'add', path: ['globals', 'ours.flag'], value: oursValue }];
+        const theirsPatches: Patch[] = [{ op: 'add', path: ['globals', 'theirs.flag'], value: theirsValue }];
+        const ours = sideDelta(doc, [transaction(1, [], oursPatches)]);
+        const theirs = sideDelta(doc, [transaction(1, [], theirsPatches, ids.branchB)]);
+        const emptyManifest = manifest([]);
+        const forward = planMerge({
+          baseDoc: doc,
+          ours,
+          theirs,
+          oursManifest: emptyManifest,
+          theirsManifest: emptyManifest,
+        });
+        const reverse = planMerge({
+          baseDoc: doc,
+          ours: theirs,
+          theirs: ours,
+          oursManifest: emptyManifest,
+          theirsManifest: emptyManifest,
+        });
+
+        const forwardDoc = apply(apply(doc, theirsPatches), forward.auto);
+        const reverseDoc = apply(apply(doc, oursPatches), reverse.auto);
+        expect(forwardDoc).toEqual(reverseDoc);
+      }),
+    );
+  });
 });
 
 describe('applyResolutions', () => {
