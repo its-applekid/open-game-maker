@@ -12,7 +12,19 @@ export type SkillReferenceMisses = {
 
 type InlineSpan = { value: string; index: number; end: number };
 
-const NAMESPACED_COMMANDS = new Set(['assets', 'packs', 'maps', 'docs', 'checkpoint', 'chat', 'skills', 'check']);
+const NAMESPACED_COMMANDS = new Set([
+  'assets',
+  'build',
+  'packs',
+  'maps',
+  'docs',
+  'checkpoint',
+  'chat',
+  'scope',
+  'skills',
+  'check',
+  'verify',
+]);
 
 function inlineSpans(markdown: string): InlineSpan[] {
   return [...markdown.matchAll(/(?<!`)`([^`\r\n]+)`(?!`)/g)].map((match) => ({
@@ -36,7 +48,8 @@ export function extractCommands(markdown: string): string[] {
     inlineCode(markdown).flatMap((value) => {
       if (!/^gm\s+\S/.test(value)) return [];
       const words = value.split(/\s+/);
-      const length = NAMESPACED_COMMANDS.has(words[1]) ? 3 : 2;
+      const hasSubcommand = NAMESPACED_COMMANDS.has(words[1]) && words[2] !== undefined && !words[2].startsWith('-');
+      const length = hasSubcommand ? 3 : 2;
       return [words.slice(0, length).join(' ')];
     }),
   );

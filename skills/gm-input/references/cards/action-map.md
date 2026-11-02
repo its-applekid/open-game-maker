@@ -7,7 +7,7 @@ tunables:
   - { name: deadzone, range: [0.15, 0.30], unit: ratio, from: "precise vs forgiving" }
   - { name: repeatDelayMs, range: [150, 300], unit: ms, from: "quick vs deliberate menus" }
 license: Apache-2.0
-source: gamedev-skills/awesome-gamedev-agent-skills@184b72b input-systems (ideas; action maps and deadzones)
+source: gamedev-skills/awesome-gamedev-agent-skills@184b72be02884f782a0058f2eeae2ce4277453e4 input-systems (ideas; action maps and deadzones)
 ---
 
 # Action map

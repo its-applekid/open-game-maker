@@ -1,5 +1,5 @@
 {
-  "name": "@ogm/skill-gm-input",
+  "name": "@ogm/gm-input",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -13,6 +13,8 @@
   },
   "devDependencies": {
     "@ogm/gm-cli": "workspace:*",
-    "@ogm/contracts": "workspace:*"
+    "@ogm/contracts": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
   }
 }

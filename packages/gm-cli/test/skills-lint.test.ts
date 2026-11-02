@@ -10,10 +10,11 @@ describe('skill reference lint', () => {
   it('extracts inline gm invocations and sdk paths without duplicates', () => {
     const markdown = [
       'Run `gm run --inputs inputs.json`, then call `sdk.audio.unlock` with an `ActionFrame`.',
-      'Run `gm run --inputs other.json`; from `@gm/sdk/audio`, call `play()`.',
+      'Run `gm run --inputs other.json`, `gm check --json`, and `gm scope done`.',
+      'From `@gm/sdk/audio`, call `play()`.',
     ].join('\n');
 
-    expect(extractCommands(markdown)).toEqual(['gm run']);
+    expect(extractCommands(markdown)).toEqual(['gm run', 'gm check', 'gm scope done']);
     expect(extractSdkNames(markdown)).toEqual(['audio.unlock', 'ActionFrame', 'audio.play']);
   });
 
