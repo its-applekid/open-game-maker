@@ -31,3 +31,11 @@ def test_long_music_gets_typical_and_loudest_without_overlap():
 def test_sound_effects_keep_one_whole_file_excerpt():
     """Short SFX are embedded whole; splitting a 0.3 s click would only add noise."""
     assert a.excerpts([], 0.3, music=False) == [("whole", 0.0, 0.3)]
+
+
+def test_abstraction_loops_are_music_with_private_previews():
+    """The Abstraction loops are music (two excerpts, key and tempo), and Kevin may not redistribute them, so their
+    waveforms stay under private/ like Sidetrax's; Kenney's CC0 previews stay shareable."""
+    assert a.is_music("abstraction-music-loop-2024-q1")
+    assert a.preview_prefix("abstraction-music-loop-troubadeck") == "private/previews"
+    assert a.preview_prefix("kenney-music-loops") == "previews"

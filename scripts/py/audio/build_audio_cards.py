@@ -115,9 +115,9 @@ def pick(lift, p, names, min_lift, k):
 
 def piece_key(stem):
     """A piece's title without its layer or intensity suffix: `Sketchbook 2024-02-14_L02`, `Week 10 - Mischief MELODY 2`,
-    `Interior Birdecorator Explore_CUTE` -> the shared title."""
+    `Week 21 - Freefall WHAT A VIEW`, `Sketchbook 2025-12-11_PIANO BREAK` -> the shared title."""
     s = re.sub(r"_L\d+$", "", stem)
-    s = re.sub(r"(_[A-Z]+|( [A-Z]{2,})+( \d+)?)$", "", s)
+    s = re.sub(r"[_ ][A-Z]{2,}(?:[ _](?:[A-Z]+|\d+))*$", "", s)
     return re.sub(r"[\s_-]+", " ", s).strip().lower()
 
 
@@ -338,6 +338,8 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
     for d in rows:
         if d["_pack"].startswith(VARIANT_PACKS):
             pieces[piece_key(Path(d["file"]).stem)].append(d)
+    if not any(fnmatch.fnmatch(pid, only) for pid in by_pack):
+        raise SystemExit(f"--only {only!r} matches no analysed pack")
     written, flags_count, counts = 0, defaultdict(int), defaultdict(lambda: defaultdict(int))
     for pid, items in by_pack.items():
         if not fnmatch.fnmatch(pid, only):
@@ -407,9 +409,10 @@ def build(rows, sets, means, packs: Path, only="*", style_sets=None):
                 card["audio"]["cuts"] = [{"path": x["file"], "role": "loop" if "loop" in x["file"].lower() else "alt-mix",
                                           "duration_s": x["measure"]["audio"]["duration_s"], "loudness_lufs": x["measure"]["audio"].get("loudness_lufs"),
                                           "peak_dbfs": x["measure"]["audio"]["peak_dbfs"]} for x in g[1:]]
-            rel_ids = [o for o in same_name.get(stem_key(stem), []) if o["_pack"] != pid]
             if pid.startswith(VARIANT_PACKS):
                 rel_ids = [o for o in pieces[piece_key(stem)] if o not in g]
+            else:
+                rel_ids = [o for o in same_name.get(stem_key(stem), []) if o["_pack"] != pid]
             if rel_ids:
                 card["related"] = [{"rel": "same-set", "id": f"t1:{o['_pack']}/{kebab(Path(o['file']).with_suffix('').as_posix())}@{o['_ver']}"} for o in rel_ids][:10]
             if proposed:
@@ -465,7 +468,9 @@ def main():
             print(l)
         if rc and not fails:
             print(out[-3000:])
+        return 1 if rc else 0
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -121,6 +121,9 @@ def test_piece_key_joins_layers_but_not_separate_tracks():
     assert b.piece_key("Week 10 - Mischief MELODY 2") == b.piece_key("Week 10 - Mischief BASE")
     assert b.piece_key("Interior Birdecorator Explore_CUTE") == b.piece_key("Interior Birdecorator Explore_FESTIVE")
     assert b.piece_key("Ludum Dare 28 01") != b.piece_key("Ludum Dare 28 02")
+    assert b.piece_key("Week 21 - Freefall WHAT A VIEW") == b.piece_key("Week 21 - Freefall GLIDE")
+    assert b.piece_key("Week 4 - Cloak of Darkness STAGE 2 TRANS") == b.piece_key("Week 4 - Cloak of Darkness STAGE 1")
+    assert b.piece_key("Sketchbook 2025-12-11_PIANO BREAK") == b.piece_key("Sketchbook 2025-12-11_INTRO")
 
 
 def test_tempo_band_keywords_let_search_find_near_tempos():
@@ -150,25 +153,44 @@ def test_key_is_a_weak_mood_prior():
     assert _music("minor", strength=0.3)["moods"][0] == "calm"
 
 
+def _library(tmp_path, pids):
+    """Analysed rows for three loops in each pack, with a collection card carrying rights."""
+    import json
+    rights = {"uses": ["in-game"], "audience": "private", "redistribution": "none", "processing": "local-only",
+              "basis": [{"type": "license", "license": "CC0-1.0"}]}
+    sets = b.prompts()
+    rows = []
+    for pid in pids:
+        (tmp_path / pid).mkdir()
+        (tmp_path / pid / "collection.card.json").write_text(json.dumps({"id": f"t1:{pid}@2026-11-02", "rights": rights}))
+        for i, stem in enumerate(["Sketchbook 2024-02-14_L01", "Sketchbook 2024-02-14_L02", "Sketchbook 2024-03-06_01"]):
+            sc = tmp_path / pid / "2026-11-02" / "analysis" / f"{stem}.analysis.json"
+            p = {k: np.full(len(sets[k][0]), 1 / len(sets[k][0])) for k in ("moods", "genre", "instruments", "game_fit", "environments")}
+            p["vocals"] = np.array([0.5, 0.5])
+            rows.append({"file": f"{stem}.ogg", "sha256": f"{len(rows):064x}", "bytes": 1, "music": True, "_p": p, "_eq": 0.5,
+                         "_sidecar": sc, "_pack": pid, "_ver": "2026-11-02",
+                         "preview": {"waveform": f"private/previews/00/{len(rows):016x}-waveform.png"},
+                         "measure": {"audio": {"duration_s": 30.0, "sample_rate": 44100, "channels": 2, "peak_dbfs": -1.0,
+                                               "tempo_bpm": 92.0, "loopable": True}}})
+    means = {(True, k): np.ones(len(v)) / len(v) for k, v in rows[0]["_p"].items()}
+    return rows, sets, means, rights
+
+
+def test_only_writes_the_named_packs_and_refuses_a_typo(tmp_path):
+    """A scoped run must leave every other pack's cards alone, and a mistyped --only must fail rather than write nothing."""
+    import pytest
+    rows, sets, means, _ = _library(tmp_path, ["abstraction-music-loop-2024-q1", "kenney-music-loops"])
+    n, _ = b.build(rows, sets, means, tmp_path, only="abstraction-*", style_sets={})
+    assert n == 3 and not (tmp_path / "kenney-music-loops" / "cards").exists()
+    with pytest.raises(SystemExit):
+        b.build(rows, sets, means, tmp_path, only="abstracton-*", style_sets={})
+
+
 def test_cards_carry_the_collection_rights_set_and_piece_variants(tmp_path):
     """Every Abstraction card must state its rights and set itself, and layers of one piece link to each other."""
     import json
     pid = "abstraction-music-loop-2024-q1"
-    rights = {"uses": ["in-game"], "audience": "private", "redistribution": "none", "processing": "local-only",
-              "basis": [{"type": "license", "license": "CC0-1.0"}]}
-    (tmp_path / pid).mkdir()
-    (tmp_path / pid / "collection.card.json").write_text(json.dumps({"id": f"t1:{pid}@2026-11-02", "rights": rights}))
-    sets = b.prompts()
-    rows = []
-    for i, stem in enumerate(["Sketchbook 2024-02-14_L01", "Sketchbook 2024-02-14_L02", "Sketchbook 2024-03-06_01"]):
-        sc = tmp_path / pid / "2026-11-02" / "analysis" / f"{stem}.analysis.json"
-        p = {k: np.full(len(sets[k][0]), 1 / len(sets[k][0])) for k in ("moods", "genre", "instruments", "game_fit", "environments")}
-        p["vocals"] = np.array([0.5, 0.5])
-        rows.append({"file": f"{stem}.ogg", "sha256": f"{i:064x}", "bytes": 1, "music": True, "_p": p, "_eq": 0.5, "_sidecar": sc,
-                     "_pack": pid, "_ver": "2026-11-02", "preview": {"waveform": f"private/previews/00/{i:016x}-waveform.png"},
-                     "measure": {"audio": {"duration_s": 30.0, "sample_rate": 44100, "channels": 2, "peak_dbfs": -1.0,
-                                           "tempo_bpm": 92.0, "loopable": True}}})
-    means = {(True, k): np.ones(len(v)) / len(v) for k, v in rows[0]["_p"].items()}
+    rows, sets, means, rights = _library(tmp_path, [pid])
     n, _ = b.build(rows, sets, means, tmp_path, style_sets={pid: "abstraction-music-loop"})
     assert n == 3
     cards = [json.loads(f.read_text()) for f in (tmp_path / pid / "cards").glob("*.card.json")]

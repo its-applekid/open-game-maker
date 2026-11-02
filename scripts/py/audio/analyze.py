@@ -20,6 +20,11 @@ WIN_S = 10  # CLAP's native window; whole windows only, so its random-crop path 
 PRIVATE_VENDORS = ("sidetrax-", "synty-", "abstraction-")  # redistribution none/in-build: previews under private/
 
 
+def preview_prefix(pack: str) -> str:
+    """Packs Kevin may not redistribute keep their waveform previews out of the shareable previews/ tree."""
+    return "private/previews" if pack.startswith(PRIVATE_VENDORS) else "previews"
+
+
 def is_music(pack: str) -> bool:
     return any(fnmatch.fnmatch(pack, g) for g in MUSIC_PACKS)
 
@@ -172,8 +177,7 @@ def analyse(job):
         dur = meas["audio"]["duration_s"]
         y, _ = librosa.load(str(f), sr=CLAP_SR, mono=True)
         spans = excerpts(meas["sidecar"].get("loudness_short_term_1hz", []), dur, music)
-        prefix = "private/previews" if pid.startswith(PRIVATE_VENDORS) else "previews"
-        key = f"{prefix}/{h[:2]}/{h[:16]}-waveform.png"
+        key = f"{preview_prefix(pid)}/{h[:2]}/{h[:16]}-waveform.png"
         waveform_png(y, ROOT / key)
         res = {"file": f.relative_to(vdir / "extracted").as_posix(), "pack": pid, "sha256": h, "bytes": f.stat().st_size, "music": music,
                "measure": meas, "vendor": vendor_tags(f), "clap": {"model": CLAP_ID, "excerpts": embed(y, spans)},

@@ -202,6 +202,8 @@ describe('StyleFamilySchema', () => {
     const audio = loadFamilies().find((f) => f.id === 'audio')!;
     expect(StyleFamilySchema.safeParse(audio).success).toBe(true);
     expect(StyleFamilySchema.safeParse({ ...audio, views: ['side'] }).success).toBe(false);
+    const covered = { characters: true, environment: true, props: true, ui: true, sfx: true, music: true };
+    expect(StyleFamilySchema.safeParse({ ...audio, coverage: covered, creation_choice: true }).success).toBe(false);
     expect(StyleFamilySchema.safeParse({ ...audio, dimension: '2d' }).success).toBe(false);
     expect(StyleFamilySchema.safeParse(family({ dimension: 'audio' })).success).toBe(false);
     expect(StyleFamilySchema.safeParse(family({ views: [] })).success).toBe(false);
