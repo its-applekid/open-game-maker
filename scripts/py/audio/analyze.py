@@ -13,11 +13,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[2] / "assets-local"
 AUDIO_EXT = {".wav", ".ogg", ".mp3", ".flac", ".m4a", ".aif", ".aiff"}
-MUSIC_PACKS = ("sidetrax-*", "kenney-music-*")
 CLAP_ID = "laion/clap-htsat-unfused"
 CLAP_SR = 48000
 WIN_S = 10  # CLAP's native window; whole windows only, so its random-crop path never runs
-PRIVATE_VENDORS = ("sidetrax-", "synty-")  # redistribution none/in-build: previews under private/
+
+sys.path.insert(0, str(HERE))
+import previews as P
 
 
 def emit(record: dict, json_mode: bool = False, summary: bool = False):
@@ -26,8 +27,17 @@ def emit(record: dict, json_mode: bool = False, summary: bool = False):
     print(json.dumps(record), file=stream, flush=True)
 
 
-def is_music(pack: str) -> bool:
-    return any(fnmatch.fnmatch(pack, g) for g in MUSIC_PACKS)
+def _card_subkinds(pack: Path) -> dict[str, str]:
+    result = {}
+    for path in sorted((pack / "cards").rglob("*.card.json")):
+        try:
+            card = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        for source in card.get("source", {}).get("files", []):
+            if source.get("role") == "primary" and isinstance(source.get("path"), str):
+                result[source["path"]] = card.get("subkind", "")
+    return result
 
 
 def audio_files(packs: Path, only: str):
@@ -37,8 +47,15 @@ def audio_files(packs: Path, only: str):
         pid = pj.parent.name
         if not fnmatch.fnmatch(pid, only):
             continue
-        cur = json.loads(pj.read_text())["current"]
+        manifest = json.loads(pj.read_text())
+        cur = manifest["current"]
         ext = pj.parent / cur / "extracted"
+        hints = P.normalize_hints(manifest.get("hints"))
+        try:
+            rights = json.loads((pj.parent / "collection.card.json").read_text()).get("rights")
+        except (OSError, json.JSONDecodeError):
+            rights = None
+        subkinds = _card_subkinds(pj.parent)
         seen = {}
         for f in sorted(ext.rglob("*")):
             if f.suffix.lower() in AUDIO_EXT and f.is_file() and not f.name.startswith("._"):
@@ -46,7 +63,19 @@ def audio_files(packs: Path, only: str):
                 rank = [".ogg", ".wav", ".flac", ".aiff", ".aif", ".mp3", ".m4a"].index(f.suffix.lower())
                 if key not in seen or rank < seen[key][0]:
                     seen[key] = (rank, f)
-        out += [(pid, pj.parent / cur, f) for _, f in sorted(seen.values(), key=lambda x: str(x[1]))]
+        prefix = P.preview_prefix(rights)
+        for _, f in sorted(seen.values(), key=lambda x: str(x[1])):
+            rel = f.relative_to(ext).as_posix()
+            out.append(
+                {
+                    "pack": pid,
+                    "version_dir": pj.parent / cur,
+                    "file": f,
+                    "music": P.music_evidence(subkinds.get(rel), hints),
+                    "preview_prefix": prefix,
+                    "hints": hints,
+                }
+            )
     return out
 
 
@@ -61,6 +90,39 @@ def sha256(f: Path) -> str:
         for b in iter(lambda: r.read(1 << 20), b""):
             h.update(b)
     return h.hexdigest()
+
+
+def analysis_current(
+    data: dict,
+    source_hash: str,
+    version_dir: Path,
+    expected_music: bool,
+    expected_preview_prefix: str,
+    expected_hints: list[str],
+    assets_root: Path = ROOT,
+) -> bool:
+    if (
+        data.get("sha256") != source_hash
+        or data.get("music") is not expected_music
+        or data.get("hints") != expected_hints
+    ):
+        return False
+    waveform = data.get("preview", {}).get("waveform")
+    if not isinstance(waveform, str) or not waveform.startswith(expected_preview_prefix + "/"):
+        return False
+    if not (assets_root / waveform).is_file():
+        return False
+    if not expected_music:
+        return True
+    clip = data.get("preview", {}).get("clip")
+    tile = data.get("preview_tile")
+    return (
+        isinstance(clip, str)
+        and clip.startswith(expected_preview_prefix + "/")
+        and isinstance(tile, str)
+        and (assets_root / clip).is_file()
+        and (version_dir / tile).is_file()
+    )
 
 
 def vendor_tags(f: Path) -> dict:
@@ -159,31 +221,48 @@ def waveform_png(y, out: Path):
 
 
 def analyse(job):
-    pid, vdir, f = job
+    pid, vdir, f = job["pack"], job["version_dir"], job["file"]
     sc = sidecar_path(vdir, f)
     h = sha256(f)
     if sc.exists():
         try:
-            if json.loads(sc.read_text()).get("sha256") == h:
+            if analysis_current(
+                json.loads(sc.read_text()),
+                h,
+                vdir,
+                job["music"],
+                job["preview_prefix"],
+                job["hints"],
+            ):
                 return {"file": str(f), "status": "skip"}
         except json.JSONDecodeError:
             pass
     t0 = time.time()
     try:
         import librosa
-        sys.path.insert(0, str(HERE))
         import measure
-        music = is_music(pid)
+        music = job["music"]
         meas = measure.measure(f, loop_search=music and pid.startswith("sidetrax-"), music=music)
         dur = meas["audio"]["duration_s"]
         y, _ = librosa.load(str(f), sr=CLAP_SR, mono=True)
         spans = excerpts(meas["sidecar"].get("loudness_short_term_1hz", []), dur, music)
-        prefix = "private/previews" if pid.startswith(PRIVATE_VENDORS) else "previews"
+        prefix = job["preview_prefix"]
         key = f"{prefix}/{h[:2]}/{h[:16]}-waveform.png"
         waveform_png(y, ROOT / key)
+        preview = {"waveform": key}
+        tile = None
+        if music:
+            start, length = P.preview_bounds(meas["sidecar"], dur)
+            clip_key = P.derivative_key(prefix, h, "clip", "ogg", start_s=start, duration_s=length)
+            P.make_clip(f, ROOT / clip_key, start, length)
+            preview["clip"] = clip_key
+            tile = sc.with_name(sc.name.removesuffix(".analysis.json") + ".preview.png")
+            P.render_tile(y, f.stem, tile)
         res = {"file": f.relative_to(vdir / "extracted").as_posix(), "pack": pid, "sha256": h, "bytes": f.stat().st_size, "music": music,
                "measure": meas, "vendor": vendor_tags(f), "clap": {"model": CLAP_ID, "excerpts": embed(y, spans)},
-               "preview": {"waveform": key}, "analysed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "secs": round(time.time() - t0, 1)}
+               "preview": preview, "hints": job["hints"],
+               **({"preview_tile": tile.relative_to(vdir).as_posix()} if tile else {}),
+               "analysed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "secs": round(time.time() - t0, 1)}
     except Exception as e:  # one bad file must not stop the batch; reported, retried on the next run
         return {"file": str(f), "status": "fail", "error": f"{type(e).__name__}: {e}"[:300]}
     sc.parent.mkdir(parents=True, exist_ok=True)

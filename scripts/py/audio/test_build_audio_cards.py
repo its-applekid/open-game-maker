@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent))
 import build_audio_cards as b
@@ -125,6 +126,65 @@ def test_staged_card_preserves_previous_file_until_promotion(tmp_path):
     assert staged.name.endswith(".part")
     b.promote(staged, out)
     assert '"status": "tagged"' in out.read_text()
+
+
+def test_manifest_hints_supply_genre_without_pack_id_heuristics():
+    assert b.hint_genres(["Dark retro", "Chiptune", "Action-adventure / RPG"]) == ["chiptune"]
+    assert b.hint_genres(["Dark impacts"]) == []
+
+
+def test_locked_human_set_and_hints_survive_a_generated_card_merge():
+    previous = {
+        "describe": {"set": "kevin-set", "hints": ["hand-picked"]},
+        "provenance": {
+            "describe.set": {"by": "human", "at": "2026-11-01T00:00:00Z", "locked": True},
+            "describe.hints": {"by": "human", "at": "2026-11-01T00:00:00Z", "locked": True},
+        },
+    }
+    generated = {
+        "describe": {"set": "model-set", "hints": ["manifest"]},
+        "provenance": {"describe.set": {"by": "model"}, "describe.hints": {"by": "collection"}},
+    }
+    merged = b.preserve_locked(previous, generated)
+    assert merged["describe"]["set"] == "kevin-set"
+    assert merged["describe"]["hints"] == ["hand-picked"]
+    assert merged["provenance"]["describe.set"]["locked"] is True
+
+
+def test_pack_derivatives_write_private_sheet_and_medley_to_collection(tmp_path, monkeypatch):
+    pid = "drive-barbarian-chiptune"
+    pack = tmp_path / "packs" / pid
+    for name in ("01", "02"):
+        (pack / "v1" / "extracted").mkdir(parents=True, exist_ok=True)
+        (pack / "v1" / "extracted" / f"{name}.wav").write_bytes(b"wav")
+        tile = pack / "v1" / "analysis" / f"{name}.preview.png"
+        tile.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (b.P.TILE_WIDTH, b.P.TILE_HEIGHT), "black").save(tile)
+    items = [
+        {
+            "file": f"{name}.wav",
+            "music": True,
+            "sha256": name * 32,
+            "_ver": "v1",
+            "preview_tile": f"analysis/{name}.preview.png",
+            "measure": {"audio": {"duration_s": 10.0}, "sidecar": {"downbeats_s": [0.0]}},
+        }
+        for name in ("01", "02")
+    ]
+    collection = {"rights": {"redistribution": "none"}}
+    medley_entries = []
+
+    def fake_medley(entries, out):
+        medley_entries.extend(entries)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_bytes(b"ogg")
+
+    monkeypatch.setattr(b, "ROOT", tmp_path)
+    monkeypatch.setattr(b.P, "make_medley", fake_medley)
+    assert b.build_pack_derivatives(pid, items, collection, tmp_path / "packs")
+    assert collection["previews"]["sheet"].startswith("private/previews/")
+    assert collection["previews"]["clip"].startswith("private/previews/")
+    assert len(medley_entries) == 2
 
 
 def test_voice_lines_have_no_material():
