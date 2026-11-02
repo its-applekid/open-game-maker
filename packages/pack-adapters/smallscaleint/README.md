@@ -10,6 +10,14 @@ through `@gm/sdk/assets`, never from pack files, and ships no asset bytes.
   position, frame and depth (`y`). `action` is a role from `vocabulary` or a set action name; loop roles repeat, the
   rest play once and hold their last frame. Sheets are fetched beside the asset's file, as `gm assets use` copies them.
 - `facing8(vx, vy, hold?)`: the nearest of 8 facings for a screen velocity, with hysteresis on sector edges.
+- `IsoMap(json)`: the finite Tiled isometric subset (256×128 tiles; `floor`, `wall`, `decor`, `roof`, and `spawns`).
+  `render(scene, loader)` draws the floor with Phaser's isometric Tilemap orientation and taller pieces as
+  depth-sorted facing sprites. `sync()` accepts game-owned `solid` and `visible` overrides; `collisionGrid()` and
+  `roofTilesAbove()` expose simulation and cutaway inputs without implementing either policy.
+- `isoToWorld` / `worldToIso`: origin-free projection helpers for the set's 2:1 diamond.
+- `paletteFrom(cards)`: four-facing placeable cards grouped by measured environment category, with one-cell
+  footprints and cell/edge placement metadata. `validatePlacement(prefab, pose, map)` checks floor cells and wall
+  edges with the `GameInstance.validatePlacement` result shape.
 - `conventions`: the pack facts, each with how it was verified (sheet row order E, SE, S, SW, W, NW, N, NE, measured
   pixel by pixel against the angle-named frame files), and `layerForCategory` for tileset pieces.
 - `vocabulary`: canonical roles to this set's action names, and the loop set.
@@ -19,9 +27,11 @@ through `@gm/sdk/assets`, never from pack files, and ships no asset bytes.
 - Which sheet is the player, and which role a button plays.
 - Movement, speeds and the hysteresis width.
 - Combat, hit boxes and damage; doors, chests, inventory, dialogue and HUD.
-- Maps, collision and the editor palette (a later version of this package).
+- Door, destructible and roof-cutaway policy; the adapter only consumes generic visibility/solidity state.
+- Physics, movement, pathfinding and a map-painter UI.
 
 ## Verified
 
-`pnpm --filter @gm/pack-smallscaleint test` draws numbered synthetic 128 px and 64 px sheets and checks every
-action, direction and frame lands on its cell.
+`pnpm --filter @gm/pack-smallscaleint test` draws numbered synthetic 128 px and 64 px sheets, checks every action,
+direction and frame lands on its cell, and exercises a generated 4×4 map and synthetic palette cards. The package's
+Playwright test renders that map through Phaser WebGL and verifies the four facing textures in the captured still.
