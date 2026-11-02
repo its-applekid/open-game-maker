@@ -7,9 +7,14 @@ defmodule OgmVoice.Ports.BriefingSource do
 
   alias OgmVoice.{Cache, Target}
 
+  @role_path Path.expand("../../../roles/creator.md", __DIR__)
+  @external_resource @role_path
+  @role File.read!(@role_path) |> String.trim()
+
   @sections [
     %{id: "budget", description: "Today's allowance and what fits"},
-    %{id: "progress", description: "What the builder is doing"}
+    %{id: "progress", description: "What the builder is doing"},
+    %{id: "estimate", description: "Rough change-size estimates"}
   ]
 
   @impl true
@@ -21,7 +26,16 @@ defmodule OgmVoice.Ports.BriefingSource do
 
   @impl true
   def brief(target) do
-    with {:ok, entry} <- entry(target), do: {:ok, entry.briefing}
+    with {:ok, entry} <- entry(target) do
+      role = %{title: "How to talk about budget", text: @role, observed_at: entry.observed_at}
+
+      gaps =
+        if Map.has_key?(entry.sections, "budget"),
+          do: entry.briefing.gaps,
+          else: ["Budget unavailable" | entry.briefing.gaps]
+
+      {:ok, %{entry.briefing | extra: [role | entry.briefing.extra], gaps: gaps}}
+    end
   end
 
   @impl true
