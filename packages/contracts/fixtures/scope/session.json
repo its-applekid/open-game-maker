@@ -5,6 +5,7 @@
   "job_id": "j_88000000-0000-4000-8000-000000000001",
   "ticket": "142",
   "status": "agreed",
+  "revision": 1,
   "choices": {
     "genre": "platformer",
     "vibe": "cozy",
@@ -16,6 +17,7 @@
   },
   "scope": {
     "session_id": "s_88000000-0000-4000-8000-000000000001",
+    "revision": 1,
     "title": "Fox Workshop",
     "summary": "Build a cozy isometric workshop on one floating island.",
     "scope": {

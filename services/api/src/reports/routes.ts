@@ -20,6 +20,7 @@ import { createRateLimiter } from '../auth/rate-limit.js';
 import { findGame, hasGameGrant } from '../games/games.js';
 import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
+import { readBoundedBody } from '../app/read-body.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody, parseQuery } from '../app/validate.js';
 import { StoredIssueWriter } from './issue-writer.js';
@@ -148,31 +149,6 @@ async function routeRepair(
   return { route: 'stored', pendingBudget: true };
 }
 
-// Reads at most `max` bytes, also when the client sends no (or a false) Content-Length.
-async function readBundle(request: Request, max: number): Promise<Uint8Array> {
-  const reader = request.body?.getReader();
-  if (!reader) return new Uint8Array();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > max) {
-      await reader.cancel();
-      throw new HttpError(413, 'bundle_too_large');
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
-
 const listQuery = z.object({ gameId: Id }).strict();
 const claimBody = z.strictObject({ now: IsoTime, staleBefore: IsoTime });
 const dedupeQuery = z.strictObject({ signature: z.string().regex(/^[0-9a-f]{64}$/), exclude: Id });
@@ -275,7 +251,7 @@ const routes = new Hono<ApiBindings>()
     requireRepairService(c);
     const declared = Number(c.req.header('content-length') ?? '0');
     if (declared > DIAGNOSTICS_MAX_BYTES) throw new HttpError(413, 'diagnostics_too_large');
-    const bytes = await readBundle(c.req.raw, DIAGNOSTICS_MAX_BYTES);
+    const bytes = await readBoundedBody(c.req.raw, DIAGNOSTICS_MAX_BYTES, 'bundle_too_large');
     const diagnosticsKey = await storeDiagnostics(c.get('deps'), c.req.param('id'), bytes);
     return c.json({ diagnosticsKey }, 201);
   })
@@ -295,7 +271,7 @@ const routes = new Hono<ApiBindings>()
     const max = deps.config.reportBundleMaxBytes;
     const declared = Number(c.req.header('content-length') ?? '0');
     if (declared > max) throw new HttpError(413, 'bundle_too_large');
-    const bytes = await readBundle(c.req.raw, max);
+    const bytes = await readBoundedBody(c.req.raw, max, 'bundle_too_large');
     if (bytes.byteLength === 0) throw new HttpError(400, 'empty_bundle');
 
     try {

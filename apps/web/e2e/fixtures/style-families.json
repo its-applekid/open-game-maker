@@ -1,0 +1,23 @@
+[
+  {
+    "id": "isometric-2d",
+    "label": "Isometric 2D",
+    "dimension": "2d",
+    "fidelity": "pixel art",
+    "views": ["iso", "follow"],
+    "creationChoice": true,
+    "coverage": { "characters": true, "environment": true, "props": true, "ui": false, "sfx": false, "music": false },
+    "packs": [],
+    "sets": [
+      {
+        "id": "smallscaleint",
+        "label": "SmallScaleInt",
+        "vendors": ["smallscaleint"],
+        "traits": { "perspective": "isometric 2:1", "judgment": "one set" },
+        "packs": [
+          { "id": "smallscaleint-knight", "name": "Knight", "thumbnailUrl": "/e2e/knight.svg", "compatibleWith": [] }
+        ]
+      }
+    ]
+  }
+]

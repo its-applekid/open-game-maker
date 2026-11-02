@@ -64,6 +64,7 @@ function setup() {
       creatorId: ids.creator,
       jobId: ids.job,
       status: 'open',
+      revision: 0,
       choices: JSON.stringify({
         genre: 'platformer',
         vibe: 'cozy',
@@ -104,6 +105,7 @@ describe('scope.agreed outbox handler', () => {
     await handle(line('01ARZ3NDEKTSV4RRFFQ69G5FAW'), input.context);
 
     expect(input.db.select().from(schema.scopeSessions).get()).toMatchObject({ status: 'agreed' });
+    expect(input.db.select().from(schema.scopeSessionRevisions).all()).toHaveLength(1);
     expect(input.sqlite.prepare('SELECT actor, text FROM build_chat_messages').all()).toEqual([
       { actor: 'system', text: 'Scope agreed' },
     ]);
@@ -126,5 +128,49 @@ describe('scope.agreed outbox handler', () => {
       expect.objectContaining({ event: 'scope-agreed-rejected', reason: 'session_mismatch' }),
     );
     expect(input.db.select().from(schema.scopeSessions).get()?.status).toBe('open');
+  });
+
+  it('accepts the expected replacement while preserving the prior agreement', async () => {
+    const input = setup();
+    await handle(line(), input.context);
+    expect(input.db.update(schema.scopeSessions).set({ status: 'revising' }).run().changes).toBe(1);
+
+    await handle(line('01ARZ3NDEKTSV4RRFFQ69G5FAX'), input.context);
+    const revised = { ...agreed, revision: 2, title: 'Smaller Fox Workshop' };
+    await handle(line('01ARZ3NDEKTSV4RRFFQ69G5FAY', revised), input.context);
+
+    expect(input.db.select().from(schema.scopeSessions).get()).toMatchObject({
+      status: 'agreed',
+      revision: 2,
+    });
+    expect(input.db.select().from(schema.scopeSessionRevisions).all()).toMatchObject([
+      { revision: 1 },
+      { revision: 2 },
+    ]);
+    expect(input.sqlite.prepare('SELECT text FROM build_chat_messages ORDER BY seq').all()).toEqual([
+      { text: 'Scope agreed' },
+      { text: 'Scope revised' },
+    ]);
+    expect(input.publish).toHaveBeenCalledTimes(2);
+    expect(input.notify).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects stale content and skipped revisions', async () => {
+    const input = setup();
+    await handle(line(), input.context);
+
+    await expect(handle(line('01ARZ3NDEKTSV4RRFFQ69G5FAZ', { ...agreed, revision: 2 }), input.context)).rejects.toThrow(
+      'scope_revision_not_started',
+    );
+    input.db.update(schema.scopeSessions).set({ status: 'revising' }).run();
+
+    await expect(
+      handle(line('01ARZ3NDEKTSV4RRFFQ69G5FB0', { ...agreed, title: 'Conflicting old scope' }), input.context),
+    ).rejects.toThrow('scope_revision_stale');
+    await expect(handle(line('01ARZ3NDEKTSV4RRFFQ69G5FB1', { ...agreed, revision: 3 }), input.context)).rejects.toThrow(
+      'scope_revision_mismatch',
+    );
+    expect(input.db.select().from(schema.scopeSessions).get()).toMatchObject({ status: 'revising', revision: 1 });
+    expect(input.db.select().from(schema.scopeSessionRevisions).all()).toHaveLength(1);
   });
 });
