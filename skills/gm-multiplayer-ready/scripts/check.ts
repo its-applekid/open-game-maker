@@ -125,6 +125,21 @@ function usesApplyInput(node: ts.Node): boolean {
   );
 }
 
+/** `n++` or `++n` as the whole key: a bare counter. `e${n++}` is a host counter turned into a string id. */
+function isBareIncrement(node: ts.Expression): boolean {
+  return (
+    (ts.isPostfixUnaryExpression(node) || ts.isPrefixUnaryExpression(node)) &&
+    (node.operator === ts.SyntaxKind.PlusPlusToken || node.operator === ts.SyntaxKind.MinusMinusToken)
+  );
+}
+
+/** A hook whose body has no statements (`snapshot() {}`) sends or applies nothing. */
+function hasEmptyBody(node: ts.Node): boolean {
+  const fn = ts.isPropertyAssignment(node) ? node.initializer : node;
+  if (!ts.isMethodDeclaration(fn) && !ts.isFunctionExpression(fn) && !ts.isArrowFunction(fn)) return false;
+  return fn.body !== undefined && ts.isBlock(fn.body) && fn.body.statements.length === 0;
+}
+
 function isEntitiesTarget(node: ts.Expression): boolean {
   const text = ts.isPropertyAccessExpression(node) ? node.name.text : ts.isIdentifier(node) ? node.text : '';
   return text === 'entities';
@@ -165,6 +180,7 @@ export function checkGame(dir: string): CheckResult {
   let applyInputCalled = false;
   /* Hook names per holder name; rule 6 passes when `net` (or the variable `net:` points at) has both. */
   const hooksByHolder = new Map<string, Set<string>>();
+  const emptyHooks: { holder: string; name: string; file: string; line: number }[] = [];
   const netHolders = new Set(['net']);
   const huds: { file: string; line: number; readsPlayer: boolean }[] = [];
 
@@ -199,6 +215,7 @@ export function checkGame(dir: string): CheckResult {
       if ((name === 'snapshot' || name === 'applySnapshot') && ts.isObjectLiteralExpression(node.parent)) {
         const holder = holderName(node.parent);
         if (holder) hooksByHolder.set(holder, (hooksByHolder.get(holder) ?? new Set()).add(name));
+        if (holder && hasEmptyBody(node)) emptyHooks.push({ holder, name, file, line: lineOf(node) });
       }
       if (name === 'hud') {
         huds.push({ file, line: lineOf(node), readsPlayer: bodyCallsPlayersGet(node) });
@@ -206,12 +223,19 @@ export function checkGame(dir: string): CheckResult {
 
       if (ts.isElementAccessExpression(node) && isEntitiesTarget(node.expression)) {
         const argument = node.argumentExpression;
-        if (ts.isNumericLiteral(argument) || containsIncrement(argument)) {
+        if (ts.isNumericLiteral(argument) || isBareIncrement(argument)) {
           findings.push({
             rule: 3,
             file,
             line: lineOf(node),
             message: 'entity id from an array position or counter; use a host-minted string id',
+          });
+        } else if (containsIncrement(argument)) {
+          notes.push({
+            rule: 3,
+            file,
+            line: lineOf(node),
+            message: 'entity id built from a counter; make sure only the host mints it',
           });
         }
       }
@@ -263,6 +287,14 @@ export function checkGame(dir: string): CheckResult {
       rule: 6,
       file: 'src',
       message: 'the net hooks must define snapshot() and applySnapshot() and cover everything visible',
+    });
+  }
+  for (const hook of emptyHooks.filter((entry) => netHolders.has(entry.holder))) {
+    findings.push({
+      rule: 6,
+      file: hook.file,
+      line: hook.line,
+      message: `${hook.name}() is empty; it must carry everything visible`,
     });
   }
   if (huds.length === 0) {

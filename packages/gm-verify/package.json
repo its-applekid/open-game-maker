@@ -34,7 +34,7 @@
     "pretest:browser": "pnpm --filter @ogm/contracts build",
     "test:browser": "vitest run --config vitest.browser.config.ts",
     "lint": "eslint src scenarios",
-    "scenario": "pnpm build && pnpm --filter @ogm/rooms build && node scenarios/scenario.ts"
+    "scenario": "pnpm --filter @ogm/contracts --filter @ogm/config --filter @ogm/room-protocol --filter @ogm/iframe-bridge --filter @gm/host --filter @ogm/design-log --filter @gm/sdk --filter @ogm/rooms build && pnpm build && node scenarios/scenario.ts"
   },
   "dependencies": {
     "@ogm/contracts": "workspace:*",

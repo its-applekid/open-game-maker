@@ -69,7 +69,7 @@ node .claude/skills/gm-multiplayer-ready/scripts/check.ts .
 
 It prints `rule N file:line message` and exits 1 on: no `applyInput(...)` call (1), a module-scope `player` singleton
 (2), entity ids from array positions or counters (3), fewer spawns than `maxPlayers` (4), `snapshot`/`applySnapshot`
-missing from the `net` hooks (6), and a HUD that never reads `players.get(...)` (7). Exit 0 is a pass; exit 2 is a
+missing or empty in the `net` hooks (6), and a HUD that never reads `players.get(...)` (7). Exit 0 is a pass; exit 2 is a
 usage error or no `gm.manifest.json`. Ambiguous shapes print as notes; read them. Rules 5 and 8 need two running
 clients. It needs `typescript` installed in the game (the template has it).
 

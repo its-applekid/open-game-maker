@@ -130,10 +130,10 @@ describe('gm-multiplayer-ready checker', () => {
   });
 
   it.each([
-    ['satisfies', 'export const mod = { net: { snapshot() {}, applySnapshot() {} } satisfies object };'],
-    ['variable', 'const hooks = { snapshot() {}, applySnapshot() {} };\nexport const mod = { net: hooks };'],
-    ['class field', 'export class Mod {\n  net = { snapshot() {}, applySnapshot() {} };\n}'],
-    ['assignment', 'export const mod: { net?: object } = {};\nmod.net = { snapshot() {}, applySnapshot() {} };'],
+    ['satisfies', 'export const mod = { net: { snapshot() { return {}; }, applySnapshot(s: unknown) { void s; } } satisfies object };'],
+    ['variable', 'const hooks = { snapshot() { return {}; }, applySnapshot(s: unknown) { void s; } };\nexport const mod = { net: hooks };'],
+    ['class field', 'export class Mod {\n  net = { snapshot() { return {}; }, applySnapshot(s: unknown) { void s; } };\n}'],
+    ['assignment', 'export const mod: { net?: object } = {};\nmod.net = { snapshot() { return {}; }, applySnapshot(s: unknown) { void s; } };'],
   ])('passes net hooks written as a %s', (name, hooks) => {
     /* The template's own hooks are renamed away, so only the shape under test can satisfy rule 6. */
     const dir = fixture(`good-net-${name.replace(' ', '-')}`, (root) => {
@@ -167,6 +167,46 @@ describe('gm-multiplayer-ready checker', () => {
     expect(rulesOf(dir)).toEqual([3]);
   });
 
+  it('fails an entity read by array position with rule 3 (bad-ids-index)', () => {
+    const dir = fixture('bad-ids-index', (root) =>
+      replaceIn(
+        root,
+        'src/state.ts',
+        /^export const spawns/m,
+        'const entities: unknown[] = [];\nexport function first(): unknown {\n  return entities[0];\n}\nexport const spawns',
+      ),
+    );
+
+    expect(rulesOf(dir)).toEqual([3]);
+  });
+
+  it('notes, but passes, a host counter turned into a string id (good-counter-string-id)', () => {
+    /* The conversion recipe allows a host counter minted as `e<n>`; only a bare counter key fails. */
+    const dir = fixture('good-counter-string-id', (root) =>
+      replaceIn(
+        root,
+        'src/state.ts',
+        /^export const spawns/m,
+        'const entities: Record<string, unknown> = {};\nlet nextId = 0;\nexport function mint(value: unknown): void {\n  entities[`e${nextId++}`] = value;\n}\nexport const spawns',
+      ),
+    );
+    const result = checkGame(dir);
+
+    expect(result.findings).toEqual([]);
+    expect(result.notes.map((note) => note.rule)).toEqual([3]);
+  });
+
+  it('fails an empty applySnapshot in the net hooks with rule 6, naming its line (bad-empty-hook)', () => {
+    const dir = fixture('bad-empty-hook', (root) =>
+      replaceIn(root, 'src/game.ts', /^\s*applySnapshotState\(context\.state, snapshot\.state as SerializedSimulation\);\n/m, ''),
+    );
+    const [finding, ...rest] = checkGame(dir).findings;
+
+    expect(rest).toEqual([]);
+    expect(finding).toMatchObject({ rule: 6, file: 'src/game.ts' });
+    expect(finding!.message).toContain('applySnapshot() is empty');
+  });
+
   it('fails a missing spawns.json and a non-positive maxPlayers with rule 4', () => {
     const missing = fixture('bad-no-spawns', (root) => rmSync(join(root, 'design/spawns.json')));
     const zero = fixture('bad-max-players', (root) =>
@@ -190,6 +230,17 @@ describe('gm-multiplayer-ready checker', () => {
     );
 
     expect(rulesOf(dir)).toEqual([7]);
+  });
+
+  it('fails a game with no hud at all with rule 7 (bad-no-hud)', () => {
+    const dir = fixture('bad-no-hud', (root) => {
+      replaceIn(root, 'src/hud.ts', /\bhud\b/g, 'panel');
+      replaceIn(root, 'src/game.ts', /\bhud\b/g, 'panel');
+    });
+    const findings = checkGame(dir).findings;
+
+    expect(findings.map((finding) => finding.rule)).toEqual([7]);
+    expect(findings[0]!.line).toBeUndefined();
   });
 
   it('throws a clear error for a directory without gm.manifest.json', () => {
