@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "bae9ed29-c33f-4cca-a0f3-92fe52407d46",
-  "prevId": "063b2ffd-27f5-454c-a5ce-281cfc39afed",
+  "id": "6e0bca03-cc9f-4d21-89a2-2c2e552abdce",
+  "prevId": "eefc9345-ddea-4b74-a251-483f7889bc52",
   "tables": {
     "app_meta": {
       "name": "app_meta",
@@ -3660,6 +3660,651 @@
       },
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "achievement_audit": {
+      "name": "achievement_audit",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "by_user_id": {
+          "name": "by_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "at": {
+          "name": "at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_audit_game_id_games_id_fk": {
+          "name": "achievement_audit_game_id_games_id_fk",
+          "tableFrom": "achievement_audit",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_audit_action_check": {
+          "name": "achievement_audit_action_check",
+          "value": "\"achievement_audit\".\"action\" = 'revoke'"
+        }
+      }
+    },
+    "achievement_awards": {
+      "name": "achievement_awards",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "awarded_at": {
+          "name": "awarded_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_awards_game_id_games_id_fk": {
+          "name": "achievement_awards_game_id_games_id_fk",
+          "tableFrom": "achievement_awards",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_awards_user_id_game_id_key_pk": {
+          "columns": ["user_id", "game_id", "key"],
+          "name": "achievement_awards_user_id_game_id_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_awards_source_check": {
+          "name": "achievement_awards_source_check",
+          "value": "\"achievement_awards\".\"source\" IN ('client', 'room', 'admin')"
+        }
+      }
+    },
+    "achievement_catalogs": {
+      "name": "achievement_catalogs",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "defs_json": {
+          "name": "defs_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "registered_at": {
+          "name": "registered_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_catalogs_game_id_games_id_fk": {
+          "name": "achievement_catalogs_game_id_games_id_fk",
+          "tableFrom": "achievement_catalogs",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_catalogs_game_id_release_id_pk": {
+          "columns": ["game_id", "release_id"],
+          "name": "achievement_catalogs_game_id_release_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "achievement_defs": {
+      "name": "achievement_defs",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon_path": {
+          "name": "icon_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "hidden": {
+          "name": "hidden",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target": {
+          "name": "target",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "first_release_id": {
+          "name": "first_release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "retired_release_id": {
+          "name": "retired_release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_defs_game_id_games_id_fk": {
+          "name": "achievement_defs_game_id_games_id_fk",
+          "tableFrom": "achievement_defs",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_defs_game_id_key_pk": {
+          "columns": ["game_id", "key"],
+          "name": "achievement_defs_game_id_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_defs_hidden_check": {
+          "name": "achievement_defs_hidden_check",
+          "value": "\"achievement_defs\".\"hidden\" IN (0, 1)"
+        },
+        "achievement_defs_target_check": {
+          "name": "achievement_defs_target_check",
+          "value": "\"achievement_defs\".\"target\" IS NULL OR \"achievement_defs\".\"target\" > 0"
+        }
+      }
+    },
+    "achievement_progress": {
+      "name": "achievement_progress",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "value": {
+          "name": "value",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "achievement_progress_game_id_games_id_fk": {
+          "name": "achievement_progress_game_id_games_id_fk",
+          "tableFrom": "achievement_progress",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "achievement_progress_user_id_game_id_key_pk": {
+          "columns": ["user_id", "game_id", "key"],
+          "name": "achievement_progress_user_id_game_id_key_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "achievement_progress_value_check": {
+          "name": "achievement_progress_value_check",
+          "value": "\"achievement_progress\".\"value\" >= 0"
+        }
+      }
+    },
+    "analytics_salts": {
+      "name": "analytics_salts",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "salt": {
+          "name": "salt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "rotated_at": {
+          "name": "rotated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "analytics_salts_game_salt_unique": {
+          "name": "analytics_salts_game_salt_unique",
+          "columns": ["game_id", "salt"],
+          "isUnique": true
+        },
+        "analytics_salts_game_rotated_idx": {
+          "name": "analytics_salts_game_rotated_idx",
+          "columns": ["game_id", "rotated_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "analytics_salts_game_id_games_id_fk": {
+          "name": "analytics_salts_game_id_games_id_fk",
+          "tableFrom": "analytics_salts",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "analytics_salts_game_id_rotated_at_pk": {
+          "columns": ["game_id", "rotated_at"],
+          "name": "analytics_salts_game_id_rotated_at_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "analytics_salts_hex_check": {
+          "name": "analytics_salts_hex_check",
+          "value": "length(\"analytics_salts\".\"salt\") = 64 AND \"analytics_salts\".\"salt\" NOT GLOB '*[^0-9a-f]*'"
+        }
+      }
+    },
+    "creator_analytics_daily": {
+      "name": "creator_analytics_daily",
+      "columns": {
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "day": {
+          "name": "day",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "metric": {
+          "name": "metric",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "value": {
+          "name": "value",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "creator_analytics_daily_game_day_idx": {
+          "name": "creator_analytics_daily_game_day_idx",
+          "columns": ["game_id", "day"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "creator_analytics_daily_game_id_games_id_fk": {
+          "name": "creator_analytics_daily_game_id_games_id_fk",
+          "tableFrom": "creator_analytics_daily",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "creator_analytics_daily_game_id_day_release_id_metric_scope_pk": {
+          "columns": ["game_id", "day", "release_id", "metric", "scope"],
+          "name": "creator_analytics_daily_game_id_day_release_id_metric_scope_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "creator_analytics_daily_metric_check": {
+          "name": "creator_analytics_daily_metric_check",
+          "value": "\"creator_analytics_daily\".\"metric\" IN ('plays', 'players', 'attempts', 'clears', 'clear_rate', 'median_active_sec', 'completion_rate', 'marker_reached', 'marker_first_seen', 'drop_off', 'stuck', 'version_adoption', 'test_runs')"
+        },
+        "creator_analytics_daily_value_check": {
+          "name": "creator_analytics_daily_value_check",
+          "value": "\"creator_analytics_daily\".\"value\" >= 0"
+        }
+      }
+    },
+    "creator_analytics_events": {
+      "name": "creator_analytics_events",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ts": {
+          "name": "ts",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "branch_id": {
+          "name": "branch_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "release_id": {
+          "name": "release_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "env": {
+          "name": "env",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "pseudo_user_id": {
+          "name": "pseudo_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "session_id": {
+          "name": "session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "marker": {
+          "name": "marker",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "outcome": {
+          "name": "outcome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "props_json": {
+          "name": "props_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{}'"
+        }
+      },
+      "indexes": {
+        "creator_analytics_events_game_ts_idx": {
+          "name": "creator_analytics_events_game_ts_idx",
+          "columns": ["game_id", "ts"],
+          "isUnique": false
+        },
+        "creator_analytics_events_game_env_release_idx": {
+          "name": "creator_analytics_events_game_env_release_idx",
+          "columns": ["game_id", "env", "release_id"],
+          "isUnique": false
+        },
+        "creator_analytics_events_game_pseudo_idx": {
+          "name": "creator_analytics_events_game_pseudo_idx",
+          "columns": ["game_id", "pseudo_user_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "creator_analytics_events_game_id_games_id_fk": {
+          "name": "creator_analytics_events_game_id_games_id_fk",
+          "tableFrom": "creator_analytics_events",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "creator_analytics_events_env_check": {
+          "name": "creator_analytics_events_env_check",
+          "value": "\"creator_analytics_events\".\"env\" IN ('draft', 'published')"
+        },
+        "creator_analytics_events_name_check": {
+          "name": "creator_analytics_events_name_check",
+          "value": "\"creator_analytics_events\".\"name\" IN ('session_start', 'session_end', 'active_heartbeat', 'game_load_failed', 'error', 'bug_report', 'update_offered', 'update_accepted', 'save', 'load', 'attempt_start', 'attempt_end', 'marker', 'complete')"
+        },
+        "creator_analytics_events_outcome_check": {
+          "name": "creator_analytics_events_outcome_check",
+          "value": "\"creator_analytics_events\".\"outcome\" IS NULL OR \"creator_analytics_events\".\"outcome\" IN ('complete', 'fail', 'quit')"
+        },
+        "creator_analytics_events_props_check": {
+          "name": "creator_analytics_events_props_check",
+          "value": "json_valid(\"creator_analytics_events\".\"props_json\") AND length(CAST(\"creator_analytics_events\".\"props_json\" AS BLOB)) <= 1024"
+        }
+      }
     },
     "scope_sessions": {
       "name": "scope_sessions",
