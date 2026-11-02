@@ -23,6 +23,10 @@ trap cleanup EXIT
 
 # Without it the build falls back to 127.0.0.1, which a phone cannot load; the reader refuses when it is unset.
 GAMES_ORIGIN="$(node "$ROOT/apps/web/tools/games-origin.mjs")"
+if [[ -z "$GAMES_ORIGIN" ]]; then
+  printf '%s\n' 'deploy: the games origin reader printed nothing' >&2
+  exit 1
+fi
 printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
 
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build

@@ -58,7 +58,8 @@ fi
 # Read one origin by name for display; origins are not secret, and a missing one prints as unset.
 origin() {
   local value
-  value=$(grep -E "^$2=" "$env_dir/$1.env" 2> /dev/null | tail -n 1 | cut -d= -f2- | tr -d "[:space:]\"'" || true)
+  value=$(grep -E "^$2=" "$env_dir/$1.env" 2> /dev/null | tail -n 1 | cut -d= -f2- | tr -d "\"'" || true)
+  value=$(printf '%s' "$value" | xargs)
   printf '%s' "${value:-<unset>}"
 }
 

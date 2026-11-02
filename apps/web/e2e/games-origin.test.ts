@@ -1,21 +1,30 @@
 // @vitest-environment node
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
 import { readGamesOrigin } from '../tools/games-origin.mjs';
 
-async function envDir(contents?: string): Promise<string> {
+async function envDir(contents?: string, games?: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'ogm-web-env-'));
   if (contents !== undefined) await writeFile(join(dir, 'web.env'), contents);
+  if (games !== undefined) await writeFile(join(dir, 'games.env'), games);
   return dir;
 }
 
-async function readFrom(contents?: string): Promise<() => string> {
-  const dir = await envDir(contents);
+async function readFrom(contents?: string, games?: string): Promise<() => string> {
+  const dir = await envDir(contents, games);
   return () => readGamesOrigin(dir);
+}
+
+function runCli(dir: string) {
+  return spawnSync(process.execPath, [resolve('tools/games-origin.mjs')], {
+    encoding: 'utf8',
+    env: { OGM_ENV_DIR: dir },
+  });
 }
 
 // deploy.sh must never fall back to the 127.0.0.1 default, which a phone cannot reach.
@@ -44,5 +53,27 @@ describe('deploy games origin', () => {
 
     expect(read).toThrow(/not set/);
     expect(read).not.toThrow(/do-not-print/);
+  });
+
+  it('refuses a web.env origin the games host no longer serves', async () => {
+    const web = 'VITE_GAMES_ORIGIN=https://games.example:10000\n';
+
+    expect(await readFrom(web, 'OGM_GAMES_ORIGIN=https://new.example:10000\n')).toThrow(
+      /differs from OGM_GAMES_ORIGIN/,
+    );
+    expect((await readFrom(web, 'OGM_GAMES_ORIGIN=https://games.example:10000/\n'))()).toBe(
+      'https://games.example:10000',
+    );
+    expect((await readFrom(web, 'OGM_GAMES_ORIGIN=\n'))()).toBe('https://games.example:10000');
+  });
+
+  // deploy.sh captures stdout and relies on a non-zero exit to stop before building.
+  it('prints only the origin from the command line, and fails loudly without one', async () => {
+    const ok = runCli(await envDir('VITE_GAMES_ORIGIN=https://games.example:10000\n'));
+    expect([ok.status, ok.stdout, ok.stderr]).toEqual([0, 'https://games.example:10000\n', '']);
+
+    const missing = runCli(await envDir());
+    expect([missing.status, missing.stdout]).toEqual([1, '']);
+    expect(missing.stderr).toMatch(/^deploy: VITE_GAMES_ORIGIN is not set/);
   });
 });
