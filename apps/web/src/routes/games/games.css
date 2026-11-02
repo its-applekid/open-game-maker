@@ -1,0 +1,324 @@
+.games-screen {
+  position: relative;
+  min-height: calc(100svh - max(32px, var(--safe-t)) - max(32px, var(--safe-b)));
+  padding-bottom: 96px;
+}
+
+.games-spotlight h1 {
+  margin: 0;
+  font-family: var(--display);
+  line-height: 1;
+}
+
+.games-spotlight {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 0.45fr) auto;
+  gap: clamp(20px, 4vw, 56px);
+  align-items: center;
+  min-height: min(34svh, 360px);
+  margin-bottom: 24px;
+  padding: clamp(24px, 4vw, 52px);
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: calc(var(--r) + 10px);
+  background:
+    radial-gradient(circle at 8% 20%, rgba(250, 189, 47, 0.2), transparent 34%),
+    linear-gradient(135deg, var(--paper-3), var(--paper));
+  box-shadow: var(--pop);
+  backdrop-filter: var(--glass);
+}
+
+.games-spotlight h1 {
+  max-width: 14ch;
+  font-size: clamp(2.4rem, 7vw, 6.8rem);
+}
+
+.games-tagline {
+  max-width: 46ch;
+  margin: 12px 0;
+  color: var(--ink-2);
+  font-size: 1.05rem;
+}
+
+.games-tags,
+.games-versions ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0;
+  list-style: none;
+}
+
+.games-tags {
+  margin: 16px 0 0;
+}
+
+.games-tags li,
+.games-versions li,
+.game-building-chip,
+.game-new-badge {
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper-2);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.games-tags li,
+.games-versions li {
+  padding: 6px 10px;
+}
+
+.games-versions li[aria-current='true'] {
+  border-color: var(--aqua-b);
+  background: color-mix(in srgb, var(--aqua) 42%, transparent);
+}
+
+.games-spotlight-job {
+  display: inline-flex;
+  margin: 16px 0 0;
+  color: var(--yellow-b);
+  font-weight: 800;
+}
+
+.games-spotlight-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(92px, 1fr));
+  gap: 10px;
+}
+
+.games-spotlight-actions button,
+.games-close,
+.games-new,
+.games-retry button {
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  color: var(--ink);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.games-play {
+  background: var(--orange);
+}
+
+.games-edit {
+  background: var(--aqua);
+}
+
+.games-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 1;
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--paper-2);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.games-spotlight-actions button:disabled {
+  cursor: not-allowed;
+  filter: grayscale(0.7);
+  opacity: 0.45;
+}
+
+.games-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr));
+  gap: clamp(14px, 2.5vw, 28px);
+}
+
+.games-grid [role='gridcell'] {
+  min-width: 0;
+}
+
+.game-tile {
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--rule);
+  border-radius: var(--r);
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: var(--pop-sm);
+  text-align: left;
+  cursor: pointer;
+}
+
+.game-tile[aria-pressed='true'] {
+  border-color: var(--yellow-b);
+  box-shadow:
+    0 0 0 2px var(--yellow-b),
+    var(--pop);
+}
+
+.game-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  overflow: hidden;
+}
+
+.game-cover-image,
+.game-cover-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.game-cover-image {
+  display: block;
+  object-fit: cover;
+}
+
+.game-cover-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 30% 20%, hsl(var(--game-hue) 70% 66% / 0.72), transparent 38%),
+    linear-gradient(145deg, hsl(var(--game-hue) 42% 38%), var(--night-2));
+}
+
+.game-cover-placeholder span {
+  max-width: 12ch;
+  font: 700 clamp(1.3rem, 4vw, 2.4rem) / 1 var(--display);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.game-building-chip,
+.game-new-badge {
+  position: absolute;
+  top: 12px;
+  padding: 7px 10px;
+  backdrop-filter: var(--glass);
+}
+
+.game-building-chip {
+  left: 12px;
+  background: color-mix(in srgb, var(--yellow) 80%, var(--night));
+}
+
+.game-new-badge {
+  right: 12px;
+  background: color-mix(in srgb, var(--purple) 80%, var(--night));
+}
+
+.game-tile-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 64px;
+  padding: 12px 14px;
+}
+
+.game-tile-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--display);
+  font-size: 1.08rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.game-tag-icons {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 4px;
+  color: var(--cream);
+}
+
+.game-tag-icons .icon {
+  display: grid;
+  width: 20px;
+  height: 20px;
+}
+
+.games-new {
+  position: fixed;
+  right: max(20px, var(--safe-r));
+  bottom: max(20px, var(--safe-b));
+  z-index: 4;
+  min-width: 150px;
+  padding-inline: 24px;
+  background: color-mix(in srgb, var(--purple) 80%, transparent);
+  box-shadow: var(--pop);
+  backdrop-filter: var(--glass);
+}
+
+.games-status,
+.games-empty,
+.games-retry {
+  display: grid;
+  place-items: center;
+  min-height: 40svh;
+  color: var(--ink-2);
+  text-align: center;
+}
+
+.games-retry button {
+  min-height: 44px;
+  margin-left: 8px;
+  padding-inline: 16px;
+  background: var(--paper-2);
+}
+
+@media (max-width: 720px) {
+  .games-spotlight {
+    grid-template-columns: 1fr;
+    min-height: auto;
+    max-height: calc(100svh - max(32px, var(--safe-t)) - max(32px, var(--safe-b)));
+    overflow-y: auto;
+  }
+
+  .games-spotlight h1 {
+    font-size: clamp(2.4rem, 13vw, 4.5rem);
+  }
+
+  .games-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .game-tile-meta {
+    align-items: start;
+    flex-direction: column;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 540px) {
+  .games-spotlight {
+    grid-template-columns: minmax(0, 1fr) minmax(140px, 0.45fr) auto;
+    min-height: 0;
+    max-height: 58svh;
+    margin-bottom: 12px;
+    padding: 18px;
+  }
+
+  .games-spotlight h1 {
+    font-size: clamp(2rem, 8vw, 4rem);
+  }
+
+  .games-tagline,
+  .games-tags,
+  .games-spotlight-job {
+    margin-block: 6px 0;
+  }
+
+  .games-grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-tile {
+    transition: none;
+  }
+}
