@@ -1,7 +1,9 @@
+import type { BlobStore } from '@ogm/blob-store';
 import type { Sqlite } from '@ogm/db';
 
 import type { LogLine } from '../app/types.js';
 import type { AiurClientResolver, ChatJobDirectory } from '../app/registry.js';
+import { messageAttachments, mirrorText } from './attachments.js';
 import { getChatRow, insertChatRow, markMirror, pendingMirrors, type MediaSigner } from './store.js';
 
 export const MIRROR_FAILED_TEXT = "Your message didn't reach the builder; try again.";
@@ -11,6 +13,7 @@ export type MirrorDeps = {
   jobs: () => ChatJobDirectory | null;
   clientFor: () => AiurClientResolver | null;
   sign: MediaSigner;
+  blobStore: BlobStore;
   publish: (jobId: string) => void;
   log: (line: LogLine) => void;
   sleep?: (ms: number) => Promise<void>;
@@ -47,11 +50,14 @@ export function createMirror(deps: MirrorDeps): Mirror {
     if (!resolveClient) return;
     const client = await resolveClient(job.aiur.daemonSlug);
     if (!client) return;
+    const attachments = messageAttachments(deps.sqlite, row.id);
     const message =
-      row.text ??
-      (row.kind === 'image' && row.mediaHash !== null
-        ? `Creator attached an image: ${await deps.sign(row.mediaHash)}`
-        : null);
+      attachments.length > 0
+        ? await mirrorText(row.text, attachments, deps)
+        : (row.text ??
+          (row.kind === 'image' && row.mediaHash !== null
+            ? `Creator attached an image: ${await deps.sign(row.mediaHash)}`
+            : null));
     if (message === null) return;
 
     for (let attempt = 0; attempt < attempts; attempt += 1) {

@@ -8,6 +8,7 @@ import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../../src/app/app.js';
+import { claimAttachments, storeAttachment } from '../../src/build-chat/attachments.js';
 import type { TicketJob } from '../../src/app/registry.js';
 import { bundleRoutes, hookSecretFiles } from '../../src/internal/bundle.js';
 import { tarGz } from '../../src/internal/tarball.js';
@@ -201,6 +202,59 @@ describe('GET /internal/jobs/by-ticket/:identifier/bundle', () => {
       expect(response.status).toBe(200);
       expect((await response.json()).gameContext.title).toBe(title);
     }
+  });
+});
+
+describe('job attachments for the after_create hook', () => {
+  const markdown = new TextEncoder().encode('# Castle\n\nTowers at each corner.\n');
+
+  async function attach(deps: ReturnType<typeof makeDeps>, jobId: string, name: string, messageId: string | null) {
+    const row = await storeAttachment(deps.sqlite, deps.blobStore, {
+      jobId,
+      creatorId: 'u1',
+      type: 'text/markdown',
+      name,
+      bytes: markdown,
+    });
+    if (messageId !== null) claimAttachments(deps.sqlite, { ids: [row.id], jobId, creatorId: 'u1', messageId });
+    return row;
+  }
+
+  it('lists the files sent with chat messages and serves their bytes only to the owning daemon', async () => {
+    const { deps, get } = await setup();
+    const sent = await attach(deps, 'j1', 'castle notes.md', 'm_88000000-0000-4000-8000-000000000001');
+    const unsent = await attach(deps, 'j1', 'draft.md', null);
+    const elsewhere = await attach(deps, 'j2', 'other.md', 'm_88000000-0000-4000-8000-000000000002');
+
+    const bundle = JobBundle.parse(await (await get('/internal/jobs/by-ticket/12/bundle', SECRET_A)).json());
+    expect(bundle.attachments).toEqual([
+      {
+        kind: 'text',
+        name: 'castle notes.md',
+        blob: sent.id,
+        bytes: markdown.byteLength,
+        message_id: 'm_88000000-0000-4000-8000-000000000001',
+        path: `.gm/inbox/attachments/${sent.id}-castle-notes.md`,
+      },
+    ]);
+
+    const response = await get(`/internal/jobs/by-ticket/12/attachments/${sent.id}`, SECRET_A);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toBe('text/markdown');
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(markdown);
+
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${sent.id}`)).status).toBe(401);
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${sent.id}`, SECRET_B)).status).toBe(404);
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${unsent.id}`, SECRET_A)).status).toBe(404);
+    expect((await get(`/internal/jobs/by-ticket/12/attachments/${elsewhere.id}`, SECRET_A)).status).toBe(404);
+  });
+
+  it('keeps serving the bundle when a file name looks like an email address', async () => {
+    const { deps, get } = await setup();
+    const row = await attach(deps, 'j1', 'kevin@example.com.md', 'm_88000000-0000-4000-8000-000000000001');
+    const response = await get('/internal/jobs/by-ticket/12/bundle', SECRET_A);
+    expect(response.status).toBe(200);
+    expect(JobBundle.parse(await response.json()).attachments?.[0]?.name).toBe(row.id);
   });
 });
 
