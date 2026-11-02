@@ -73,6 +73,7 @@ export type StyleFamilyApi = {
     label: string;
     vendors: string[];
     traits: StyleSetTraits;
+    requiresPrivateRepository: boolean;
     packs: { id: string; name: string; thumbnailUrl: string | null; compatibleWith: string[] }[];
   }[];
 };

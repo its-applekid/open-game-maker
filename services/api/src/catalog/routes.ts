@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import {
   loadFamilies,
   loadIndex,
+  licenseFor,
   packOf,
   packsOfFamily,
   type ResolvedCard,
@@ -27,6 +28,18 @@ const blobHash = /^sha256:[0-9a-f]{64}$/;
 
 /** What `gm packs index --import-previews` (OGM-067) adds to an index entry; card files never carry it. */
 type Imported = { previews?: { blob?: { thumb?: string } }; visibility?: 'private' | 'library' };
+
+/** Fail closed unless every pack resolves to a recognized public SPDX license. */
+export function setRequiresPrivateRepository(
+  packIds: readonly string[],
+  resolvedLicenseFor: (packId: string) => string | undefined,
+): boolean {
+  return packIds.some((packId) => {
+    const value = resolvedLicenseFor(packId);
+    const license = value ? licenseFor(value) : undefined;
+    return !license || license.id.startsWith('LicenseRef-') || license.ceiling.audience !== 'public';
+  });
+}
 
 /** A signed URL only for a public collection whose imported thumb blob the store holds. */
 async function thumbnailUrl(blobStore: BlobStore, card: (ResolvedCard & Imported) | undefined): Promise<string | null> {
@@ -67,6 +80,10 @@ async function styleFamilies(assetsRoot: string | undefined, blobStore: BlobStor
           label: set.label,
           vendors: set.vendors,
           traits: set.traits,
+          requiresPrivateRepository: setRequiresPrivateRepository(
+            set.packs.map((pack) => pack.id),
+            (pack) => byPack.get(pack)?.resolved.license,
+          ),
           packs: await Promise.all(
             set.packs.map(async (pack) => ({
               ...(await apiPack(pack.id)),

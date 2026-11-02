@@ -13,7 +13,9 @@ The API also reads `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_G
 `game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
 `OGM_CHAT_POLL_MS` (default `10000`), and `OGM_CHECKPOINT_POLL_MS` (default `5000`).
 Optional `OGM_ASSETS_ROOT` (the `assets-local/` library) gives `GET /api/catalog/style-families` its pack titles and
-thumbnails; without it packs are named by id.
+thumbnails; without it packs are named by id. Each style set includes `requiresPrivateRepository`: creation must force
+private repository visibility when it is `true`. The field is `false` only when every referenced pack resolves to a
+recognized public SPDX license; `LicenseRef-*`, unknown, and missing licenses fail closed to `true`.
 
 `OGM_VAPID_KEY_FILE` defaults to `~/.config/ogm/env/ogm-api.vapid.json`; the API creates the key pair with mode
 `0600` on first boot. Set `OGM_VAPID_SUBJECT` to the contact email used for the Web Push `mailto:` subject.
