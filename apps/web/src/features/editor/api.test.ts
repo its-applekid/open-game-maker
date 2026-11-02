@@ -70,17 +70,55 @@ describe('editor API classifications', () => {
     await expect(getOptionalSaves(gameId)).rejects.toMatchObject({ status: 500 });
   });
 
-  it('writes an identity-free save with the selected slot concurrency revision', async () => {
-    const fetch = vi.fn().mockResolvedValue(response(204));
+  it('takes the play lease, then writes a gzipped save in the API wire format', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { expiresAt: '2026-11-02T16:00:30.000Z' }))
+      .mockResolvedValueOnce(response(200, { revision: 8 }));
     vi.stubGlobal('fetch', fetch);
 
-    await putSave(gameId, '2', { saveSchemaVersion: 1, data: { room: 'crypt' } }, 7);
+    await expect(
+      putSave(gameId, '2', { saveSchemaVersion: 1, data: { room: 'crypt' } }, 7, { branch: 'main', buildId }),
+    ).resolves.toEqual({ revision: 8 });
 
-    const [path, init] = fetch.mock.calls[0] as [string, RequestInit];
+    const [leasePath, leaseInit] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(leasePath).toBe(`/api/v1${savesPath(gameId)}/lease`);
+    const lease = JSON.parse(String(leaseInit.body)) as { deviceId: string; tabId: string };
+    expect(lease.deviceId).toMatch(/^device_[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+    expect(lease.tabId).toMatch(/^tab_[0-7][0-9A-HJKMNP-TV-Z]{25}$/);
+
+    const [path, init] = fetch.mock.calls[1] as [string, RequestInit];
     expect(path).toBe(`/api/v1${savesPath(gameId, '2')}`);
     expect(path).toBe(`/api/v1/games/${gameId}/saves/2`);
-    expect(new Headers(init.headers).get('if-match')).toBe('"7"');
-    expect(JSON.parse(String(init.body))).toEqual({ saveSchemaVersion: 1, data: { room: 'crypt' } });
+    const headers = new Headers(init.headers);
+    expect(Object.fromEntries(headers)).toMatchObject({
+      'content-type': 'application/octet-stream',
+      'content-encoding': 'gzip',
+      'if-match': '7',
+      'idempotency-key': expect.stringMatching(new RegExp(`^${lease.deviceId}:\\d+$`)),
+      'x-save-schema': '1',
+      'x-save-branch': 'main',
+      'x-save-build': buildId,
+      'x-save-reason': 'checkpoint',
+    });
+    const unzipped = new Response(
+      new Response(init.body as ArrayBuffer).body!.pipeThrough(new DecompressionStream('gzip')),
+    );
+    expect(await unzipped.json()).toEqual({ saveSchemaVersion: 1, data: { room: 'crypt' } });
+  });
+
+  it('creates a slot with if-match 0 and never reuses an idempotency key', async () => {
+    const fetch = vi.fn().mockImplementation(async () => response(200, { revision: 1 }));
+    vi.stubGlobal('fetch', fetch);
+    const save = { saveSchemaVersion: 1, data: {} };
+
+    await putSave(gameId, 'auto', save, undefined, { branch: 'main', buildId });
+    await putSave(gameId, 'auto', save, 1, { branch: 'main', buildId });
+
+    const first = new Headers((fetch.mock.calls[1] as [string, RequestInit])[1].headers);
+    const second = new Headers((fetch.mock.calls[3] as [string, RequestInit])[1].headers);
+    expect(first.get('if-match')).toBe('0');
+    expect(second.get('idempotency-key')).not.toBe(first.get('idempotency-key'));
   });
 
   it('uses a conditional published request and preserves the ETag on 304', async () => {

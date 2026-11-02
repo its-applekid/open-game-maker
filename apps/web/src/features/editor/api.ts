@@ -139,21 +139,94 @@ export function getOptionalSaves(gameId: string): Promise<OptionalCapability<{ s
   return optionalApi(savesPath(gameId));
 }
 
-export function getSave(gameId: string, slotId: SaveSlot['slotId']): Promise<SaveData<unknown>> {
-  return api(savesPath(gameId, slotId));
+/** The branch (`main` or a branch id) and build the player is running; the API records both on each save. */
+export type SaveContext = { branch: string; buildId: string };
+
+/** The browser has already gunzipped the body: the API serves the bytes with `content-encoding: gzip`. */
+export async function getSave(gameId: string, slotId: SaveSlot['slotId']): Promise<SaveData<unknown>> {
+  const response = await apiFetch(savesPath(gameId, slotId));
+  if (!response.ok) throw new ApiError(response.status, undefined);
+  return JSON.parse(await response.text()) as SaveData<unknown>;
 }
 
-export function putSave(
+/** Takes this device's play lease, then writes one gzipped revision; `headRevision` 0 creates the slot. */
+export async function putSave(
   gameId: string,
   slotId: SaveSlot['slotId'],
   payload: SaveData<unknown>,
-  headRevision?: number,
-): Promise<unknown> {
+  headRevision: number | undefined,
+  context: SaveContext,
+): Promise<{ revision: number }> {
+  const device = saveDevice();
+  await api(`${savesPath(gameId)}/lease`, { method: 'POST', json: { deviceId: device.deviceId, tabId } });
+  const body = await gzipJson({ saveSchemaVersion: payload.saveSchemaVersion, data: payload.data });
   return api(savesPath(gameId, slotId), {
     method: 'PUT',
-    headers: { 'if-match': headRevision === undefined ? '*' : `"${headRevision}"` },
-    json: payload,
+    headers: {
+      'content-type': 'application/octet-stream',
+      'content-encoding': 'gzip',
+      'if-match': String(headRevision ?? 0),
+      'idempotency-key': `${device.deviceId}:${device.nextSequence()}`,
+      'x-save-schema': String(payload.saveSchemaVersion),
+      'x-save-branch': context.branch,
+      'x-save-build': context.buildId,
+      'x-save-reason': 'checkpoint',
+    },
+    body: body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength) as ArrayBuffer,
   });
+}
+
+async function gzipJson(value: unknown): Promise<Uint8Array> {
+  const stream = new Response(JSON.stringify(value)).body!.pipeThrough(new CompressionStream('gzip'));
+  return new Uint8Array(await new Response(stream).arrayBuffer());
+}
+
+const CROCKFORD = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+const DEVICE_KEY = 'ogm:saves:device';
+
+/** A ULID with a prefix, the shape the API's `StableIdSchema` accepts. */
+function stableId(prefix: string): string {
+  let time = Date.now();
+  let head = '';
+  for (let index = 0; index < 10; index += 1) {
+    head = CROCKFORD[time % 32] + head;
+    time = Math.floor(time / 32);
+  }
+  const random = Array.from(globalThis.crypto.getRandomValues(new Uint8Array(16)), (byte) => CROCKFORD[byte % 32]);
+  return `${prefix}_${head}${random.join('')}`;
+}
+
+const tabId = stableId('tab');
+
+type SaveDevice = { deviceId: string; sequence: number };
+let memoryDevice: SaveDevice | undefined;
+
+/** The device id and its idempotency sequence persist together, so a cleared store never replays an old key. */
+function saveDevice(): { deviceId: string; nextSequence(): number } {
+  const state = readDevice() ?? { deviceId: stableId('device'), sequence: 0 };
+  return {
+    deviceId: state.deviceId,
+    nextSequence() {
+      state.sequence += 1;
+      memoryDevice = state;
+      try {
+        localStorage.setItem(DEVICE_KEY, JSON.stringify(state));
+      } catch {
+        // Without storage the device and its sequence live for this page only.
+      }
+      return state.sequence;
+    },
+  };
+}
+
+function readDevice(): SaveDevice | undefined {
+  try {
+    const raw = localStorage.getItem(DEVICE_KEY);
+    if (raw !== null) return JSON.parse(raw) as SaveDevice;
+  } catch {
+    // Fall back to this page's device.
+  }
+  return memoryDevice;
 }
 
 export async function getOptionalPublished(gameId: string, etag?: string): Promise<PublishedCapability> {

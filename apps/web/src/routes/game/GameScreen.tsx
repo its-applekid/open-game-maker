@@ -280,12 +280,16 @@ export function GameScreen() {
             snap={canvasOptions.snap}
           />
         ) : null}
-        {mode === 'play' && frameRef.current !== undefined && frameState.manifest !== undefined ? (
+        {mode === 'play' &&
+        frameRef.current !== undefined &&
+        frameState.manifest !== undefined &&
+        activeSnapshot !== undefined ? (
           <>
             <PlatformHud
               build={build}
               frame={frameRef.current}
               gameId={gameId}
+              saveContext={{ branch, buildId: activeSnapshot.buildId }}
               saves={frameState.manifest.saves}
               onLeave={back}
             />

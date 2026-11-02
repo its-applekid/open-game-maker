@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { PlayerSettings, SaveData, SaveSlot } from '@ogm/contracts/browser';
 
-import { getOptionalSaves, getSave, putSave, type OptionalCapability } from '../../features/editor/api';
+import {
+  getOptionalSaves,
+  getSave,
+  putSave,
+  type OptionalCapability,
+  type SaveContext,
+} from '../../features/editor/api';
 import type { GameFrameController } from '../../features/editor/frame';
 import { handleGameEvent } from '../../features/editor/hud/achievements';
 import {
@@ -25,6 +31,7 @@ type PlatformHudProps = {
   build: 'draft' | 'published';
   frame: GameFrameController;
   gameId: string;
+  saveContext: SaveContext;
   saves: boolean;
   saveApi?: PlatformSaveApi;
   toast?: (message: string) => void;
@@ -37,6 +44,7 @@ export function PlatformHud({
   build,
   frame,
   gameId,
+  saveContext,
   saves,
   saveApi = defaultSaveApi,
   toast = pushToast,
@@ -52,9 +60,11 @@ export function PlatformHud({
   const wasPausedRef = useRef(false);
   const slotsRef = useRef(slots);
   const selectedSlotRef = useRef(selectedSlot);
+  const saveContextRef = useRef(saveContext);
   const saveQueueRef = useRef(Promise.resolve());
   slotsRef.current = slots;
   selectedSlotRef.current = selectedSlot;
+  saveContextRef.current = saveContext;
 
   useEffect(() => {
     if (!saves) {
@@ -89,7 +99,14 @@ export function PlatformHud({
       if (!savesAvailable) return;
       saveQueueRef.current = saveQueueRef.current
         .then(async () => {
-          await storeSaveWrite(gameId, selectedSlotRef.current, payload, slotsRef.current ?? [], saveApi.write);
+          await storeSaveWrite(
+            gameId,
+            selectedSlotRef.current,
+            payload,
+            slotsRef.current ?? [],
+            saveApi.write,
+            saveContextRef.current,
+          );
           const result = await saveApi.list(gameId);
           if (!active) return;
           setSavesAvailable(result.available);
