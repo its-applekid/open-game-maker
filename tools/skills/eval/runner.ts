@@ -261,7 +261,7 @@ function previousRuns(outDir: string): EvalRun[] | undefined {
   if (!statSync(parent, { throwIfNoEntry: false })?.isDirectory()) return undefined;
   const previous = readdirSync(parent)
     .map((name) => join(parent, name))
-    .filter((path) => path !== outDir && statSync(path).isDirectory())
+    .filter((path) => path !== outDir && statSync(path, { throwIfNoEntry: false })?.isDirectory())
     .sort()
     .at(-1);
   if (!previous) return undefined;
