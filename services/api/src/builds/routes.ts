@@ -51,7 +51,11 @@ export function buildRoutes(opts: { daemonForSecret: HookDaemonResolver }) {
       try {
         await stageArtifact(deps, jobId, gitSha, Buffer.from(await c.req.arrayBuffer()));
       } catch (error) {
-        if (error instanceof BadArchive) return c.json({ error: { code: error.message } }, 422);
+        if (error instanceof BadArchive) {
+          // The job keeps waiting: a later good upload can still land, else the sweep fails it after the grace.
+          deps.log({ event: 'build_upload_refused', jobId, reason: error.message });
+          return c.json({ error: { code: error.message } }, 422);
+        }
         throw error;
       }
 

@@ -28,7 +28,8 @@ Build publishing (`src/builds`): a game repo's `before_remove` hook posts its wo
 its daemon hook secret and `x-gm-sha`. Once Aiur reports the run completed, the API registers the build, moves it to
 `$OGM_GAMES_ROOT/<gameId>/<buildId>/`, writes `.complete`, switches the job's branch to it and finishes the job. New-game,
 feature and repair jobs stay running until then; a run with no build 30 minutes after completion fails
-(`build_not_received`), and a refused build fails the job with the reason in the `build_publish_failed` log line.
+(`build_not_received`). A refused archive is logged as `build_upload_refused` with its reason and leaves the job
+waiting; a staged build that fails to publish fails the job with the reason in the `build_publish_failed` log line.
 
 The build chat (`/api/v1/jobs/:jobId/chat`) relays agent posts from `<workspace>/.gm/outbox/*.jsonl` under
 `OGM_BUILDER_WORKSPACES_ROOT`; without it the relay stays off and the API logs the missing name. Lines of other types

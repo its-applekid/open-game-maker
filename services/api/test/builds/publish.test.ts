@@ -1,12 +1,15 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, symlinkSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { gunzipSync, gzipSync } from 'node:zlib';
 
 import { schema } from '@ogm/db';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { finishRun, publishStaged, sweepBuilds } from '../../src/builds/publish.js';
+import { getDesignRuntime } from '../../src/design/routes.js';
+import { appendTransaction, resolveBranch } from '../../src/design/store.js';
 import { BadArchive, untarGz } from '../../src/builds/untar.js';
 import { tarGz } from '../../src/internal/tarball.js';
 import { builtFiles, completeRun, gamesHost, ids, jobState, SECRET, SHA, TICKET, world } from './fixtures.js';
@@ -94,8 +97,9 @@ describe('publishing a merged build', () => {
     );
   });
 
-  it('refuses an archive carrying a link without touching the job', async () => {
+  it('refuses an archive carrying a link without touching the job, logging why', async () => {
     const { deps, app } = world();
+    const log = vi.spyOn(deps, 'log');
     completeRun(deps);
     const dir = builtFiles();
     symlinkSync('/etc/hostname', join(dir, 'leak.txt'));
@@ -105,6 +109,11 @@ describe('publishing a merged build', () => {
     expect(await response.json()).toEqual({ error: { code: 'archive_unsupported_entry' } });
     expect(jobState(deps)).toBe('running');
     expect(builds(deps)).toEqual([]);
+    expect(log).toHaveBeenCalledWith({
+      event: 'build_upload_refused',
+      jobId: ids.job,
+      reason: 'archive_unsupported_entry',
+    });
   });
 
   it('accepts uploads only from the daemon that owns a build job still awaiting its build', async () => {
@@ -116,6 +125,24 @@ describe('publishing a merged build', () => {
     const { deps, app } = world();
     deps.db.update(schema.jobs).set({ state: 'cancelled' }).run();
     expect((await upload(app, body)).status).toBe(409);
+  });
+});
+
+describe('re-uploads', () => {
+  it('publishes the latest upload when a second one arrives before the merge', async () => {
+    const { deps, app } = world();
+    const first = builtFiles();
+    const second = builtFiles();
+    writeFileSync(join(second, 'index.html'), '<!doctype html><title>Second</title>\n');
+    expect((await upload(app, archiveOf(first))).status).toBe(202);
+    expect((await upload(app, archiveOf(second), { 'x-gm-sha': 'f'.repeat(40) })).status).toBe(202);
+
+    completeRun(deps);
+    const outcome = await publishStaged(deps, ids.job);
+    expect(outcome).toMatchObject({ state: 'done' });
+    const [build] = builds(deps);
+    expect(build).toMatchObject({ gitSha: 'f'.repeat(40) });
+    expect(readFileSync(join(build!.artifactPath, 'index.html'), 'utf8')).toContain('<title>Second</title>');
   });
 });
 
@@ -131,6 +158,45 @@ describe('publish rollback', () => {
     expect(builds(deps)).toEqual([expect.objectContaining({ status: 'failed' })]);
     expect(readdirSync(join(deps.config.gamesRoot, ids.game))).toEqual([]);
     expect(latestBuildId(deps)).toBeNull();
+  });
+});
+
+describe('publish under concurrent edits', () => {
+  it('switches the branch even when a creator edit lands mid-switch', async () => {
+    const { deps, app } = world();
+    completeRun(deps);
+    const source = getDesignRuntime(deps).source;
+    const manifestOf = source.manifest.bind(source);
+    let edited = false;
+    // The switch reads the new build's manifest twice; an edit between its head read and its append makes it stale.
+    let calls = 0;
+    source.manifest = async (gameId, buildId) => {
+      calls += 1;
+      if (!edited && calls === 2) {
+        edited = true;
+        const branch = resolveBranch(deps.sqlite, ids.game, ids.main);
+        appendTransaction(deps.sqlite, {
+          gameId: ids.game,
+          branchId: ids.main,
+          baseRev: branch.headRev,
+          leaseToken: 0,
+          actor: ids.user,
+          kind: 'system',
+          label: 'creator edit',
+          baseBuildId: branch.latestBuildId ?? ids.build,
+          commands: [],
+          patches: [{ op: 'add', path: ['globals', 'edited'], value: true }],
+          inverse: [{ op: 'remove', path: ['globals', 'edited'] }],
+        });
+      }
+      return manifestOf(gameId, buildId);
+    };
+
+    const response = await upload(app, archiveOf(builtFiles()));
+    expect(edited).toBe(true);
+    expect(response.status).toBe(201);
+    expect(jobState(deps)).toBe('done');
+    expect(latestBuildId(deps)).toBe(builds(deps)[0]!.id);
   });
 });
 
@@ -209,6 +275,46 @@ describe('untarGz', () => {
 
   it.each(['../escape.txt', '/etc/escape.txt', 'a/../../escape.txt'])('refuses the path %s', async (path) => {
     await expect(untarGz(tarGz([{ path, content: 'x' }]), target())).rejects.toThrow(BadArchive);
+  });
+
+  // Rewrites the first header of a gzipped tar with `edit`, then fixes its checksum so only the edit is refused.
+  function withHeader(archive: Buffer, edit: (header: Buffer) => void): Buffer {
+    const tar = gunzipSync(archive);
+    const header = tar.subarray(0, 512);
+    edit(header);
+    header.fill(32, 148, 156);
+    const sum = header.reduce((total, byte) => total + byte, 0);
+    header.write(`${sum.toString(8).padStart(6, '0')}\0 `, 148, 'latin1');
+    return gzipSync(tar);
+  }
+
+  it.each([
+    ['archive_not_gzip', () => Buffer.from('not a gzip stream')],
+    ['archive_bad_header', () => gzipSync(gunzipSync(tarGz([{ path: 'a.txt', content: 'x' }])).fill(66, 0, 1))],
+    [
+      'archive_truncated',
+      () => gzipSync(gunzipSync(tarGz([{ path: 'a.txt', content: 'x'.repeat(2000) }])).subarray(0, 1024)),
+    ],
+    ['archive_unsupported_entry', () => withHeader(tarGz([{ path: 'dev', content: '' }]), (h) => h.write('3', 156))],
+    ['archive_unsafe_path', () => withHeader(tarGz([{ path: 'a.txt', content: 'x' }]), (h) => h.write('a\\b\0', 0))],
+  ])('refuses %s', async (code, archive) => {
+    await expect(untarGz(archive(), target())).rejects.toThrow(code);
+  });
+
+  it('refuses an archive with too many entries', async () => {
+    const archive = tarGz([1, 2, 3].map((n) => ({ path: `f${n}.txt`, content: 'x' })));
+    const limits = { compressedBytes: 1 << 20, unpackedBytes: 1 << 20, entries: 2 };
+    await expect(untarGz(archive, target(), limits)).rejects.toThrow('archive_too_many_entries');
+  });
+
+  it('unpacks directories and long ustar paths split into prefix and name', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ogm-untar-src-'));
+    const deep = join('assets', 'a'.repeat(60), 'b'.repeat(60));
+    mkdirSync(join(dir, deep), { recursive: true });
+    writeFileSync(join(dir, deep, 'level.json'), '{}');
+    const out = target();
+    await untarGz(archiveOf(dir), out);
+    expect(readFileSync(join(out, deep, 'level.json'), 'utf8')).toBe('{}');
   });
 
   it('refuses an archive over the size limit', async () => {

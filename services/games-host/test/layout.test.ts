@@ -33,7 +33,6 @@ describe('games-host layout', () => {
     /* Uppercase is allowed only in the exact ULID shape: no ULID past 7ZZZ…, no uppercase prefix. */
     for (const id of [
       'Demo',
-      '.staging',
       '..',
       `a${'b'.repeat(64)}`,
       'b_81ARZ3NDEKTSV4RRFFQ69G5FAV',

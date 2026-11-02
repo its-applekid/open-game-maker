@@ -12,8 +12,7 @@ games origin; this service owns immutable file responses and the browser securit
 
 A build is invisible until its directory contains `.complete`. Publishers should use the exported
 `@ogm/games-host/layout` helpers and call `markComplete` only after every build file has been durably written.
-Ids match `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`, so registered build ids (`build_` + Crockford) are served as-is. The API's
-build publisher (`services/api/src/builds`) is the production writer.
+The API's build publisher (`services/api/src/builds`) is the production writer.
 
 The service exposes `GET /healthz` and `GET|HEAD /g/<gameId>/<buildId>/<path>`. It never sets cookies, never lists a
 directory, and applies the game CSP and immutable caching headers to every `/g/` response.

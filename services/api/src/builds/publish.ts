@@ -12,7 +12,7 @@ import { budgetDefaults } from '../admin/family.js';
 import type { AppDeps } from '../app/types.js';
 import { switchBranchBuild } from '../design/reapply.js';
 import { getDesignRuntime } from '../design/routes.js';
-import { resolveBranch } from '../design/store.js';
+import { resolveBranch, StaleBaseRev } from '../design/store.js';
 import { isTerminal } from '../jobs/state.js';
 import { markTerminal } from '../jobs/spend-cap.js';
 import { releaseRuntimeFor } from '../releases/routes.js';
@@ -23,6 +23,7 @@ import { untarGz } from './untar.js';
 export const BUILD_KINDS = ['new_game', 'feature', 'repair'] as const;
 
 const SYSTEM_ACTOR = 'system:builder';
+const SWITCH_ATTEMPTS = 3;
 
 // `.staging` never matches the games-host id pattern, so nothing under it is ever served.
 const stagingRoot = (deps: AppDeps) => join(deps.config.gamesRoot, '.staging');
@@ -114,10 +115,7 @@ export async function publishStaged(deps: AppDeps, jobId: string): Promise<Publi
     await mkdir(join(deps.config.gamesRoot, job.gameId), { recursive: true });
     await rename(files, target);
     await markComplete(target);
-    const switchTx = await switchBranchBuild(deps.sqlite, design.source, branch, build.id, {
-      actor: SYSTEM_ACTOR,
-      token: 0,
-    });
+    const switchTx = await switchToBuild(deps, design, job.gameId, branch.id, build.id);
     switched = true;
     design.stream.publish(branch.id, switchTx.transaction);
     await updateBuild(deps, release, build.id, 'tested');
@@ -140,6 +138,24 @@ export async function publishStaged(deps: AppDeps, jobId: string): Promise<Publi
   } finally {
     await rm(stagedDir(deps, jobId), { recursive: true, force: true });
     publishing.delete(jobId);
+  }
+}
+
+// A creator's edit landing while the switch computes moves the branch head; recompute against the new head.
+async function switchToBuild(
+  deps: AppDeps,
+  design: ReturnType<typeof getDesignRuntime>,
+  gameId: string,
+  branchId: string,
+  buildId: string,
+) {
+  for (let attempt = 1; ; attempt += 1) {
+    const branch = resolveBranch(deps.sqlite, gameId, branchId);
+    try {
+      return await switchBranchBuild(deps.sqlite, design.source, branch, buildId, { actor: SYSTEM_ACTOR, token: 0 });
+    } catch (error) {
+      if (!(error instanceof StaleBaseRev) || attempt === SWITCH_ATTEMPTS) throw error;
+    }
   }
 }
 
