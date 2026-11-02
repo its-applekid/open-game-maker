@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { FsBaseDocSource, MemoryBaseDocSource } from '../src/design/base-doc.js';
 import { snapshotAt } from '../src/design/snapshot.js';
-import { appendTransaction, ensureMainBranch, insertBranch } from '../src/design/store.js';
+import { appendBuildSwitch, appendTransaction, ensureMainBranch, insertBranch } from '../src/design/store.js';
 import { makeDeps } from './helpers.js';
 
 const ids = {
@@ -16,6 +16,7 @@ const ids = {
   game: 'g_01ARZ3NDEKTSV4RRFFQ69G5FAV',
   owner: 'u_01ARZ3NDEKTSV4RRFFQ69G5FAV',
   build: 'build_01ARZ3NDEKTSV4RRFFQ69G5FAV',
+  nextBuild: 'build_01BX5ZZKBKACTAV9WEVGEMMVR0',
   main: 'b_01ARZ3NDEKTSV4RRFFQ69G5FAV',
   child: 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ',
 } as const;
@@ -89,6 +90,43 @@ describe('snapshotAt', () => {
       rev: 5,
       buildId: ids.build,
       doc: baseDoc(6),
+    });
+  });
+
+  it('loads the build that was active at a historical revision', async () => {
+    const { deps, branch } = setup();
+    deps.db.update(schema.branches).set({ latestBuildId: ids.build }).run();
+    appendGravity(deps.sqlite, branch, 1, 2);
+    appendBuildSwitch(
+      deps.sqlite,
+      {
+        gameId: ids.game,
+        branchId: branch.id,
+        baseRev: 1,
+        leaseToken: 0,
+        actor: ids.owner,
+        kind: 'system',
+        label: 'Switched to build 2',
+        baseBuildId: ids.nextBuild,
+        commands: [{ op: 'invoke', command: 'build.switch', args: { from: ids.build, to: ids.nextBuild } }],
+        patches: [{ op: 'replace', path: ['globals', 'gravity'], value: 9 }],
+        inverse: [{ op: 'replace', path: ['globals', 'gravity'], value: 8 }],
+      },
+      ids.nextBuild,
+    );
+    const source = new MemoryBaseDocSource()
+      .set(ids.game, ids.build, baseDoc(1))
+      .set(ids.game, ids.nextBuild, baseDoc(8));
+
+    await expect(snapshotAt(deps.sqlite, source, branch.id, 1)).resolves.toEqual({
+      rev: 1,
+      buildId: ids.build,
+      doc: baseDoc(2),
+    });
+    await expect(snapshotAt(deps.sqlite, source, branch.id)).resolves.toEqual({
+      rev: 2,
+      buildId: ids.nextBuild,
+      doc: baseDoc(9),
     });
   });
 
