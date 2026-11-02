@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+
 import type { Page, Route } from '@playwright/test';
 
 import type { DesignDoc, Patch } from '@ogm/contracts/browser';
@@ -15,10 +17,12 @@ export type GameApiFixture = {
 };
 
 const buildId = 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ';
+/* The Draft path starts from the fixture build's folded design, as the API's base doc does for a real build. */
+const buildDesign = new URL('../fixtures/bridge-game/design/design.json', import.meta.url);
 
 export async function installGameApi(page: Page): Promise<GameApiFixture> {
   let rev = 4;
-  let doc: DesignDoc = { schemaVersion: 1, globals: {}, entities: {} };
+  let doc = JSON.parse(readFileSync(buildDesign, 'utf8')) as DesignDoc;
   const attempts: TransactionBody[] = [];
   const transactions: TransactionBody[] = [];
   const scripted: ScriptedTransactionResult[] = [];

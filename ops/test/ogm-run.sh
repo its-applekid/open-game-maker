@@ -23,17 +23,45 @@ for service in api rooms games commit voice-host intake; do
   assert_grep "PLACEHOLDER $service" "$scratch/$service.err"
 done
 
+# The unit runs the file the package's start script names, not a fixed dist/index.js.
 built_repo=$scratch/built-repo
 mkdir -p "$built_repo/services/api/dist"
-cat > "$built_repo/services/api/dist/index.js" <<'EOF'
+printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$built_repo/services/api/package.json"
+cat > "$built_repo/services/api/dist/main.js" <<'EOF'
 process.stdout.write('api-up');
 EOF
-api_output=$(HOME=$home OGM_REPO=$built_repo "$repo/ops/bin/ogm-run" api)
+api_output=$(HOME=$home OGM_REPO=$built_repo timeout 5 "$repo/ops/bin/ogm-run" api)
 assert_eq "api-up" "$api_output" "a built API should be executed"
 
+# The games unit's package lives in services/games-host.
+mkdir -p "$built_repo/services/games-host/dist"
+printf '{"scripts":{"start":"node dist/index.js"}}\n' > "$built_repo/services/games-host/package.json"
+printf "process.stdout.write('games-up');\n" > "$built_repo/services/games-host/dist/index.js"
+games_output=$(HOME=$home OGM_REPO=$built_repo timeout 5 "$repo/ops/bin/ogm-run" games)
+assert_eq "games-up" "$games_output" "the games unit should run the games-host build"
+
+mkdir -p "$built_repo/services/rooms"
+printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$built_repo/services/rooms/package.json"
+set +e
+HOME=$home OGM_REPO=$built_repo timeout 2 "$repo/ops/bin/ogm-run" rooms > /dev/null 2> "$scratch/rooms-unbuilt.err"
+status=$?
+set -e
+assert_eq "124" "$status" "a package without a build should keep its placeholder running"
+assert_grep 'PLACEHOLDER rooms' "$scratch/rooms-unbuilt.err"
+
+mkdir -p "$built_repo/services/intake"
+printf '{"scripts":{}}\n' > "$built_repo/services/intake/package.json"
+set +e
+HOME=$home OGM_REPO=$built_repo timeout 2 "$repo/ops/bin/ogm-run" intake > /dev/null 2> "$scratch/intake-nostart.err"
+status=$?
+set -e
+assert_eq "1" "$status" "a package with no start script should fail its unit, not idle"
+assert_grep 'start script is not "node <file>"' "$scratch/intake-nostart.err"
+
 mkdir -p "$built_repo/services/commit/dist"
+printf '{"scripts":{"start":"node dist/index.js"}}\n' > "$built_repo/services/commit/package.json"
 printf "process.stdout.write('commit-up');\n" > "$built_repo/services/commit/dist/index.js"
-commit_output=$(HOME=$home OGM_REPO=$built_repo "$repo/ops/bin/ogm-run" commit)
+commit_output=$(HOME=$home OGM_REPO=$built_repo timeout 5 "$repo/ops/bin/ogm-run" commit)
 assert_eq "commit-up" "$commit_output" "a built commit service should be executed"
 
 set +e

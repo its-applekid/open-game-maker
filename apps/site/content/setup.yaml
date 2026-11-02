@@ -47,11 +47,12 @@ steps:
     agent_prompt: *agent_prompt
     substeps:
       - kind: run
-        text: Install Node 24 and pnpm 10.33.0, then install and build the workspace.
+        text: Install Node 24 and pnpm 10.33.0, install and build the workspace, then restart the Node units onto the build.
         command: |-
           corepack enable
           pnpm install --frozen-lockfile
           pnpm build
+          systemctl --user restart ogm-api ogm-rooms ogm-games ogm-intake ogm-commit
         writes: [node_modules, apps/*/dist, packages/*/dist, services/*/dist]
         check: pnpm build
         cites: [.github/workflows/ci.yml, package.json]
