@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -25,7 +26,7 @@ describe('pixel-art image cache key', () => {
       assets: [
         {
           id: 't3:fixture/tileset',
-          sha256: '0'.repeat(64),
+          sha256: createHash('sha256').update(ONE_PIXEL_PNG).digest('hex'),
           path: 'tileset.png',
           license: 'CC0-1.0',
           rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
@@ -34,7 +35,7 @@ describe('pixel-art image cache key', () => {
       ],
     } as AssetsLock;
 
-    const { jobs } = await planBuild(lock, cwd, ['desktop'], true);
+    const { jobs } = await planBuild(lock, cwd, ['desktop'], true, { cwd, assetsRoot: null, blobRoot: null });
     const job = jobs[0]!;
     const downscalingRecipe = { ...job.recipe };
     delete downscalingRecipe.unscaled;
