@@ -1,5 +1,6 @@
-import { readFile, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { renderSetupHtml } from '../dist/render/html.js';
 import { renderSetupMarkdown } from '../dist/render/markdown.js';
 import { loadSetupContent } from '../dist/schema.js';
 
@@ -24,3 +25,9 @@ if (process.argv.includes('--check')) {
 } else {
   await writeFile(targetPath, generated);
 }
+
+const distRoot = new URL('dist/', packageRoot);
+await mkdir(new URL('setup/', distRoot), { recursive: true });
+await writeFile(new URL('setup/index.html', distRoot), renderSetupHtml(content));
+await copyFile(new URL('apps/web/src/tokens.css', repositoryRoot), new URL('tokens.css', distRoot));
+await copyFile(new URL('src/site.css', packageRoot), new URL('site.css', distRoot));

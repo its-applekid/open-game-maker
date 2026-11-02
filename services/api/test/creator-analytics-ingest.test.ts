@@ -88,8 +88,9 @@ describe('creator analytics ingestion', () => {
   it('deletes one user across salt rotations without storing account ids in events', () => {
     const deps = makeDeps();
     seedGames(deps);
-    ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ sessionId: 'before' })]);
+    // Mint the first salt at the fixed `now`: ingest stamps it with the wall clock, which would make the rotation below date-dependent.
     const before = pseudonymForUser(deps.db, 'g-one', 'u-player', now);
+    ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ sessionId: 'before' })]);
 
     expect(rotateDueSalts(deps.db, later)).toBe(1);
     const after = pseudonymForUser(deps.db, 'g-one', 'u-player', later);

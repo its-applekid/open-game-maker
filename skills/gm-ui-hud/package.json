@@ -1,0 +1,21 @@
+{
+  "name": "@ogm/gm-ui-hud",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/gm-cli --filter @gm/sdk build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/gm-cli --filter @gm/sdk build",
+    "test": "vitest run skill.test.ts",
+    "lint": "eslint skill.test.ts"
+  },
+  "devDependencies": {
+    "@gm/sdk": "workspace:*",
+    "@ogm/contracts": "workspace:*",
+    "@ogm/gm-cli": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}
