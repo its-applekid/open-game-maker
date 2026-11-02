@@ -33,3 +33,28 @@ after_create: |
   fi
 before_remove: |
   git status --short
+  ticket="${AIUR_HOOK_TICKET_IDENTIFIER:-}"
+  secret="$(cat "${OGM_HOOK_SECRET_FILE:-/nonexistent}" 2>/dev/null || true)"
+  root="$(pwd -P)"
+  # Build what the workspace holds now; a stale dist/ from an earlier run never leaves it.
+  if [ -n "$ticket" ] && [ -n "$secret" ]; then
+    rm -rf dist
+    pnpm run build >&2 || { rm -rf dist; echo "build failed: nothing uploaded" >&2; }
+  fi
+  # Only paths that resolve inside the workspace leave it; links inside dist/ are kept as links and refused upstream.
+  if [ -n "$ticket" ] && [ -n "$secret" ] && [ -d dist ] && [ "$(realpath dist)" = "$root/dist" ]; then
+    stage="$(mktemp -d)"
+    cp -PR dist/. "$stage/"
+    for file in manifest.json design/design.json achievements.json; do
+      if [ -f "$file" ] && [ "$(realpath "$file")" = "$root/$file" ]; then
+        mkdir -p "$stage/$(dirname "$file")" && cp "$file" "$stage/$file"
+      fi
+    done
+    if tar --format=ustar -czf "$stage.tgz" -C "$stage" .; then
+      status="$(curl -sS --max-time 120 --retry 3 --retry-connrefused -o /dev/null -w '%{http_code}' -X POST \
+        -H "Authorization: Bearer ${secret}" -H "x-gm-sha: $(git rev-parse HEAD)" -H "content-type: application/gzip" \
+        --data-binary @"$stage.tgz" "${OGM_INTERNAL_URL:-http://127.0.0.1:0}/internal/jobs/by-ticket/${ticket}/build")"
+      echo "build upload: HTTP ${status:-000}" >&2
+    fi
+    rm -rf "$stage" "$stage.tgz"
+  fi

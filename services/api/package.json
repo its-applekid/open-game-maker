@@ -32,6 +32,7 @@
     "@ogm/db": "workspace:*",
     "@ogm/design-log": "workspace:*",
     "@ogm/game-repo-template": "workspace:*",
+    "@ogm/games-host": "workspace:*",
     "@ogm/health": "workspace:*",
     "@ogm/policy": "workspace:*",
     "@ogm/room-protocol": "workspace:*",

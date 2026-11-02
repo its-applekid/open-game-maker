@@ -1,4 +1,6 @@
-import type { AssetsLock } from '@ogm/contracts';
+import type { LockEntry } from '@ogm/contracts';
+
+type CreditEntry = Pick<LockEntry, 'id' | 'license'> & { rights: Pick<LockEntry['rights'], 'attribution'> };
 
 function collectionOf(id: string): string {
   return id
@@ -7,7 +9,7 @@ function collectionOf(id: string): string {
     .replace(/@.*$/, '');
 }
 
-export function renderCredits(lock: AssetsLock): string {
+export function renderCredits(lock: { assets: readonly CreditEntry[] }): string {
   const groups = new Map<string, { attributions: Set<string>; collections: Set<string> }>();
   for (const entry of lock.assets) {
     const group = groups.get(entry.license) ?? { attributions: new Set<string>(), collections: new Set<string>() };

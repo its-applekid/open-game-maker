@@ -148,3 +148,19 @@ vendored. The command names each refused id and leaves that entry as a library o
 
 `gm assets register` moves an agent-made file into the instance blob store and records a tier-3 reference. Use
 `--from` for every locked source the new file derives from so its effective rights cannot become broader.
+
+## Export and import asset libraries
+
+```text
+gm assets export --used [--game <id>|--all-games] [--games-dir <dir>] [--include-restricted] [--out <zip>]
+gm assets export --all [--games-dir <dir>] [--include-restricted] [--out <zip>]
+gm assets import <zip>
+```
+
+`--used` exports the library and blob-store files pinned by the current game's lock. Use `--game` or `--all-games`
+with a directory of game repositories to choose a wider scope; `--all` exports every asset available to the instance.
+The deterministic zip includes the relevant locks, credits, and a rights report. Assets whose rights forbid raw-file
+redistribution are named but omitted unless `--include-restricted` is explicit.
+
+`assets import` verifies every reported hash and adds files to `OGM_ASSETS_ROOT` and `OGM_BLOB_ROOT`. It never replaces
+a different existing file, so the same export can be imported repeatedly.
