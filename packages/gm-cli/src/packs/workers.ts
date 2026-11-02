@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { access, constants } from 'node:fs/promises';
 import { availableParallelism, homedir } from 'node:os';
+import { dirname } from 'node:path';
 
 export type WorkerRecord = Record<string, unknown> & {
   card?: string;
@@ -23,7 +24,7 @@ export function effectiveWorkers(requested: number, logicalCores = availablePara
 export function workerEnvironment(options: WorkerEnvironmentOptions): Record<string, string> {
   const threads = String(Math.max(1, options.workers));
   return {
-    PATH: '/usr/local/bin:/usr/bin:/bin',
+    PATH: `${dirname(process.execPath)}:/usr/local/bin:/usr/bin:/bin`,
     HOME: options.home ?? homedir(),
     OGM_ASSETS_ROOT: options.assetsRoot,
     ...(options.eventsFile ? { GM_EVENTS_FILE: options.eventsFile } : {}),

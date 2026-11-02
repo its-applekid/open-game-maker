@@ -235,3 +235,22 @@ def test_voice_lines_have_no_material():
     """'We need wood' is a spoken line, not a wooden sound."""
     desc, *_ = _sfx("we_need_wood", "kenney-synth-voice-2")
     assert "materials" not in desc
+
+
+def test_pack_derivatives_wait_for_every_music_preview_tile(tmp_path):
+    """A --limit run leaves older sidecars without preview tiles; the pack sheet waits for them instead of crashing."""
+    items = [
+        {"file": "01.wav", "music": True, "sha256": "1" * 64, "_ver": "v1", "preview_tile": "analysis/01.preview.png"},
+        {"file": "02.wav", "music": True, "sha256": "2" * 64, "_ver": "v1"},
+    ]
+    collection = {"rights": {"redistribution": "none"}}
+    assert b.build_pack_derivatives("pack", items, collection, tmp_path / "packs") is False
+    assert "previews" not in collection
+
+
+def test_only_selects_exactly_the_repeated_packs():
+    """gm passes one --only per rights-eligible collection; a refused pack must not ride along on a shared glob."""
+    assert b.matches_any("kenney-music-loops", ["kenney-music-loops", "drive-barbarian-chiptune"])
+    assert not b.matches_any("refused-pack", ["kenney-music-loops", "drive-barbarian-chiptune"])
+    assert b.matches_any("anything", None)
+    assert b.matches_any("kenney-music-loops", "kenney-*")

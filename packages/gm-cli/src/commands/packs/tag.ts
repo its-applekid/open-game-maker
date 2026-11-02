@@ -26,8 +26,8 @@ const PYTHON = join(REPO, 'scripts/py/audio/.venv/bin/python');
 
 type Stage = { label: string; script: string; args: string[] };
 
-function stages(kind: TagKind, assetsRoot: string, only: string, workers: number, limit: number): Stage[] {
-  const common = ['--only', only, '--limit', String(limit), '--json'];
+function stages(kind: TagKind, assetsRoot: string, slugs: readonly string[], workers: number, limit: number): Stage[] {
+  const common = [...slugs.flatMap((slug) => ['--only', slug]), '--limit', String(limit), '--json'];
   if (kind === 'audio') {
     return [
       {
@@ -74,7 +74,7 @@ async function executeStages(options: {
   ctx: GmContext;
   assetsRoot: string;
   kind: TagKind;
-  only: string;
+  slugs: readonly string[];
   workers: number;
   limit: number;
   records: WorkerRecord[];
@@ -84,7 +84,7 @@ async function executeStages(options: {
     workers: options.workers,
     ...(options.ctx.config.eventsFile ? { eventsFile: options.ctx.config.eventsFile } : {}),
   });
-  for (const stage of stages(options.kind, options.assetsRoot, options.only, options.workers, options.limit)) {
+  for (const stage of stages(options.kind, options.assetsRoot, options.slugs, options.workers, options.limit)) {
     const onRecord: RunJsonWorkerOptions['onRecord'] = (record) => {
       assertWorkerRecord(record);
       options.records.push(record);
@@ -139,8 +139,9 @@ async function run(ctx: GmContext, args: string[], flags: Record<string, unknown
         software: ctx.config.verifySoftwareGl,
       }));
     }
-    await executeStages({ ctx, assetsRoot, kind, only, workers, limit, records });
-    const cards = await validateWorkerCards(assetsRoot, targets, records);
+    const slugs = targets.map((target) => target.slug);
+    await executeStages({ ctx, assetsRoot, kind, slugs, workers, limit, records });
+    const cards = await validateWorkerCards(assetsRoot, targets, records, snapshot);
     if (cards === 0) throw new Error('worker completed without reporting a card');
     await reconcileCounts(targets, kind);
 

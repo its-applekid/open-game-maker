@@ -300,7 +300,7 @@ def validate(packs: Path, staged: list[Path]):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--packs", type=Path, default=ROOT / "packs")
-    parser.add_argument("--only", default="*")
+    parser.add_argument("--only", action="append", help="pack id glob; repeat to select several packs")
     parser.add_argument("--kind", choices=sorted(VISUAL_KINDS))
     parser.add_argument("--limit", type=int, default=0)
     parser.add_argument("--json", action="store_true")
@@ -308,7 +308,7 @@ def main():
 
     rows = []
     for pack in sorted(args.packs.iterdir() if args.packs.is_dir() else []):
-        if pack.is_dir() and fnmatch.fnmatch(pack.name, args.only):
+        if pack.is_dir() and any(fnmatch.fnmatch(pack.name, pattern) for pattern in args.only or ["*"]):
             rows.extend(eligible_cards(pack, args.kind))
     if not rows:
         emit({"eligible": 0, "reason": "no local vision-input cards with previews"}, args.json, summary=True)

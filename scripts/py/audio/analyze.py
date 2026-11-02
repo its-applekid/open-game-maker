@@ -1,6 +1,6 @@
 """Analyse every audio file in assets-local/packs once (plan U2/U5): code facts, vendor tags, a CLAP embedding, a waveform preview.
 
-usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N] [--json]
+usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB ...] [--limit N] [--json]
 writes, per file, packs/<id>/<ver>/analysis/<path without ext>.analysis.json:
   {"file", "sha256", "bytes", "music", "measure": {audio, sidecar, timing_s}, "vendor": {...}, "clap": {"model", "windows": [...],
    "excerpts": [{"name", "start_s", "end_s", "embedding": [512 floats]}]}, "preview": bucket key}
@@ -40,12 +40,18 @@ def _card_subkinds(pack: Path) -> dict[str, str]:
     return result
 
 
-def audio_files(packs: Path, only: str):
+def matches_any(name: str, only) -> bool:
+    """True when the pack id matches one of the --only globs (a bare string is one glob; none means all)."""
+    patterns = [only] if isinstance(only, str) else (only or ["*"])
+    return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
+
+
+def audio_files(packs: Path, only="*"):
     """(pack id, version dir, file) for every audio file, one format per stem (ogg preferred over wav/mp3 copies)."""
     out = []
     for pj in sorted(packs.glob("*/pack.json")):
         pid = pj.parent.name
-        if not fnmatch.fnmatch(pid, only):
+        if not matches_any(pid, only):
             continue
         manifest = json.loads(pj.read_text())
         cur = manifest["current"]
@@ -279,7 +285,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
-    ap.add_argument("--only", default="*")
+    ap.add_argument("--only", action="append", help="pack id glob; repeat to select several packs")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()

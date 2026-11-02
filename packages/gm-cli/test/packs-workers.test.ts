@@ -1,5 +1,5 @@
 import { chmodSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { getPriority } from 'node:os';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -30,7 +30,7 @@ describe('pack workers', () => {
       home: '/home/test',
     });
     expect(environment).toEqual({
-      PATH: '/usr/local/bin:/usr/bin:/bin',
+      PATH: `${dirname(process.execPath)}:/usr/local/bin:/usr/bin:/bin`,
       HOME: '/home/test',
       OGM_ASSETS_ROOT: '/assets',
       GM_EVENTS_FILE: '/events.jsonl',
@@ -68,6 +68,21 @@ describe('pack workers', () => {
     });
     expect(records).toEqual([{ file: 'one', status: 'ok', priority: Math.min(19, getPriority(0) + 10) }]);
     expect(result.stderr).toContain('worker summary');
+  });
+
+  it('lets workers run the card validator through the same node as gm', async () => {
+    // The Python workers validate every card with `node`; an nvm-only node is not on the system PATH.
+    const directory = tempDir('gm-worker-node-');
+    const records: Record<string, unknown>[] = [];
+    await runJsonWorker({
+      label: 'node lookup',
+      program: '/bin/sh',
+      args: ['-c', `node -e "console.log(JSON.stringify({ node: process.execPath }))"`],
+      cwd: directory,
+      env: workerEnvironment({ assetsRoot: directory, workers: 1, home: directory }),
+      onRecord: (record) => records.push(record),
+    });
+    expect(records).toEqual([{ node: process.execPath }]);
   });
 
   it('terminates malformed and oversized streams', async () => {

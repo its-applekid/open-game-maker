@@ -17,6 +17,24 @@ vi.mock('../src/packs/workers.js', async (importOriginal) => {
 
 const MUSIC = 'packs/kenney-music-loops/cards';
 
+const NARROWED_RIGHTS = {
+  uses: [],
+  audience: 'private',
+  redistribution: 'none',
+  attribution: null,
+  processing: 'local-only',
+  basis: [
+    {
+      type: 'default',
+      uses: [],
+      audience: 'private',
+      redistribution: 'none',
+      set_by: { role: 'intake-code' },
+      date: '2026-11-01',
+    },
+  ],
+};
+
 function emitMusic(options: RunJsonWorkerOptions): void {
   options.onRecord({
     card: `${MUSIC}/infinite-descent.card.json`,
@@ -107,27 +125,50 @@ describe('gm packs tag', () => {
     expect(worker.run).not.toHaveBeenCalled();
   });
 
+  it('hands workers only the rights-eligible collections, never the raw glob', async () => {
+    successfulWorkers();
+    const assetsRoot = library();
+    const path = join(assetsRoot, 'packs/sidetrax-pack-60-battle/collection.card.json');
+    const collection = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+    collection.rights = { ...(collection.rights as object), uses: ['in-game'] };
+    await writeFile(path, `${JSON.stringify(collection, null, 2)}\n`);
+
+    const result = await gm(['packs', 'tag', '--kind', 'audio', '--only', '*'], {
+      env: { OGM_ASSETS_ROOT: assetsRoot },
+    });
+
+    expect(result.code, result.err.join('\n')).toBe(0);
+    for (const [options] of worker.run.mock.calls as Array<[RunJsonWorkerOptions]>) {
+      const selected = options.args.filter((_arg, index) => options.args[index - 1] === '--only');
+      expect(selected).toContain('kenney-music-loops');
+      expect(selected).not.toContain('*');
+      expect(selected).not.toContain('sidetrax-pack-60-battle');
+    }
+  });
+
+  it('fails and restores when a worker rewrites a card whose own rights exclude tagging', async () => {
+    const assetsRoot = library();
+    const path = join(assetsRoot, MUSIC, 'infinite-descent.card.json');
+    const card = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+    card.rights = { ...NARROWED_RIGHTS };
+    await writeFile(path, `${JSON.stringify(card, null, 2)}\n`);
+    const before = await readFile(path);
+    successfulWorkers();
+
+    const result = await gm(['packs', 'tag', '--kind', 'audio', '--only', 'kenney-music-loops'], {
+      env: { OGM_ASSETS_ROOT: assetsRoot },
+    });
+
+    expect(result.code).toBe(1);
+    expect(result.err.join('\n')).toContain('rights exclude local vision tagging');
+    expect(await readFile(path)).toEqual(before);
+  });
+
   it('excludes cards whose explicit rights narrow inherited vision access', async () => {
     const assetsRoot = library();
     const path = join(assetsRoot, MUSIC, 'infinite-descent.card.json');
     const card = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
-    card.rights = {
-      uses: [],
-      audience: 'private',
-      redistribution: 'none',
-      attribution: null,
-      processing: 'local-only',
-      basis: [
-        {
-          type: 'default',
-          uses: [],
-          audience: 'private',
-          redistribution: 'none',
-          set_by: { role: 'intake-code' },
-          date: '2026-11-01',
-        },
-      ],
-    };
+    card.rights = { ...NARROWED_RIGHTS };
     await writeFile(path, `${JSON.stringify(card, null, 2)}\n`);
 
     const discovery = await discoverTagTargets(assetsRoot, 'audio', 'kenney-music-loops');

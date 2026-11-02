@@ -83,3 +83,14 @@ def test_music_sidecar_is_rebuilt_when_new_preview_derivatives_are_missing(tmp_p
     sound = {"sha256": "abc", "music": False, "hints": [], "preview": {"waveform": "previews/wave.png"}}
     assert a.analysis_current(sound, "abc", tmp_path, False, "previews", [], tmp_path)
     assert not a.analysis_current(sound, "abc", tmp_path, True, "previews", [], tmp_path)
+
+
+def test_audio_jobs_skip_packs_outside_the_repeated_only_list(tmp_path):
+    """Only the collections gm selected are analysed; others under the same packs root stay untouched."""
+    for pid in ("kept", "refused"):
+        (tmp_path / pid).mkdir()
+        (tmp_path / pid / "pack.json").write_text(json.dumps({"current": "v1"}))
+        (tmp_path / pid / "v1" / "extracted").mkdir(parents=True)
+        (tmp_path / pid / "v1" / "extracted" / "hit.wav").write_bytes(b"wav")
+    assert {job["pack"] for job in a.audio_files(tmp_path, ["kept"])} == {"kept"}
+    assert {job["pack"] for job in a.audio_files(tmp_path, None)} == {"kept", "refused"}

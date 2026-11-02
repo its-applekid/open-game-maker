@@ -181,10 +181,16 @@ def settle_tempo(a, vendor):
     return best
 
 
+def matches_any(name: str, only) -> bool:
+    """True when the pack id matches one of the --only globs (a bare string is one glob; none means all)."""
+    patterns = [only] if isinstance(only, str) else (only or ["*"])
+    return any(fnmatch.fnmatch(name, pattern) for pattern in patterns)
+
+
 def load(packs: Path, only="*"):
     rows = []
     for sc in sorted(packs.glob("*/*/analysis/**/*.analysis.json")):
-        if not fnmatch.fnmatch(sc.relative_to(packs).parts[0], only):
+        if not matches_any(sc.relative_to(packs).parts[0], only):
             continue
         d = json.loads(sc.read_text())
         d["_sidecar"] = sc
@@ -345,7 +351,7 @@ def sfx_describe(d, lift, sets, a, stem, pid):
 
 def build_pack_derivatives(pid: str, items: list[dict], collection: dict, packs: Path) -> bool:
     music = sorted((item for item in items if item.get("music")), key=lambda item: item["file"])
-    if not music:
+    if not music or any("preview_tile" not in item for item in music):
         return False
     prefix = P.preview_prefix(collection.get("rights"))
     combined_hash = hashlib.sha256("\0".join(item["sha256"] for item in music).encode()).hexdigest()
@@ -540,7 +546,7 @@ def validate(packs: Path, staged=()):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
-    ap.add_argument("--only", default="*")
+    ap.add_argument("--only", action="append", help="pack id glob; repeat to select several packs")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--no-validate", action="store_true")
     ap.add_argument("--json", action="store_true")

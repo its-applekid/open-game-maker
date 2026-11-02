@@ -21,7 +21,7 @@ export type TagTarget = {
 
 export type TargetDiscovery = { targets: TagTarget[]; refusals: string[] };
 
-type Snapshot = {
+export type Snapshot = {
   roots: string[];
   files: Map<string, Buffer>;
 };
@@ -52,6 +52,18 @@ function matchesKind(card: AssetCard, kind: TagKind): boolean {
   if (kind !== 'model') return true;
   const primary = card.source?.files.find((file) => file.role === 'primary') ?? card.source?.files[0];
   return primary?.format === 'glb';
+}
+
+type Redistribution = NonNullable<AssetCard['rights']>['redistribution'];
+
+const OPENNESS: readonly Redistribution[] = ['none', 'in-build', 'free'];
+
+/** The most restrictive of the given redistribution grants; a missing grant counts as none. */
+function narrowest(...values: Array<Redistribution | undefined>): Redistribution {
+  return values.reduce<Redistribution>(
+    (low, value) => (OPENNESS.indexOf(value ?? 'none') < OPENNESS.indexOf(low) ? (value ?? 'none') : low),
+    'free',
+  );
 }
 
 function allowsLocalVision(card: AssetCard, collection: AssetCard): boolean {
@@ -159,10 +171,16 @@ export async function validateWorkerCards(
   assetsRoot: string,
   targets: readonly TagTarget[],
   records: readonly WorkerRecord[],
+  snapshot: Snapshot,
 ): Promise<number> {
   const roots = await Promise.all(
     targets.map(async (target) => ({ target, root: await realpath(join(target.root, 'cards')) })),
   );
+  const canonicalOf = (path: string) => realpath(path).catch(() => resolve(path));
+  const eligible = new Set(
+    await Promise.all(targets.flatMap((target) => target.cards.map(({ path }) => canonicalOf(path)))),
+  );
+  const existing = new Set(await Promise.all([...snapshot.files.keys()].map(canonicalOf)));
   const seen = new Set<string>();
   let count = 0;
   for (const record of records) {
@@ -173,6 +191,9 @@ export async function validateWorkerCards(
     const canonical = await realpath(lexical);
     const owner = roots.find(({ root }) => inside(root, canonical))?.target;
     if (!owner) throw new Error(`worker card is outside selected collections: ${record.card}`);
+    if (existing.has(canonical) && !eligible.has(canonical)) {
+      throw new Error(`worker card's rights exclude local vision tagging: ${record.card}`);
+    }
     if (seen.has(canonical)) throw new Error(`worker reported a card more than once: ${record.card}`);
     seen.add(canonical);
     const parsed = validateCard(JSON.parse(await readFile(canonical, 'utf8')) as unknown);
@@ -239,7 +260,8 @@ export async function prepareVisualPreviews(options: {
     const sourcePath = await realpath(sourceCandidate);
     if (!inside(extractedRoot, sourcePath)) throw new Error(`${card.id} source path resolves outside its collection`);
     const hash = source.sha256.replace(/^sha256:/, '');
-    const redistribution = card.rights?.redistribution ?? target.collection.rights?.redistribution;
+    const inherited = target.collection.rights?.redistribution;
+    const redistribution = narrowest(card.rights?.redistribution ?? inherited, inherited);
     const key = previewKey(hash, `${options.kind}-sheet`, redistribution, {
       version: 1,
       ...(options.kind === 'sprite' ? { pixelArt: card.image?.pixel_art === true } : {}),
@@ -272,7 +294,11 @@ export async function prepareVisualPreviews(options: {
       const combined = createHash('sha256')
         .update(cards.map((card) => card.source?.content_hash ?? card.id).join('\0'))
         .digest('hex');
-      const key = previewKey(combined, `${options.kind}-collection-sheet`, target.collection.rights?.redistribution, {
+      const redistribution = narrowest(
+        target.collection.rights?.redistribution,
+        ...cards.map((card) => card.rights?.redistribution ?? target.collection.rights?.redistribution),
+      );
+      const key = previewKey(combined, `${options.kind}-collection-sheet`, redistribution, {
         items: cards.length,
         version: 1,
       });
