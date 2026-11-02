@@ -2,7 +2,14 @@ import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import { z } from 'zod';
 
-import { controlDeclSchema, StableIdSchema, TransactionSchema, type Principal, type Transaction } from '@ogm/contracts';
+import {
+  controlDeclSchema,
+  OverrideKeySchema,
+  StableIdSchema,
+  TransactionSchema,
+  type Principal,
+  type Transaction,
+} from '@ogm/contracts';
 import { PatchTooLargeError, validateCommands, validatePatches } from '@ogm/design-log';
 import { authorize } from '@ogm/policy';
 
@@ -14,6 +21,14 @@ import { parseBody, parseQuery } from '../app/validate.js';
 import { findGameForFamily, hasGameGrant, type GameRow } from '../games/games.js';
 import { FsBaseDocSource, type BaseDocSource } from './base-doc.js';
 import { acquireLease, heartbeatLease, LeaseMismatch, releaseLease } from './lease.js';
+import {
+  AnswerConflict,
+  answerReport,
+  BuildNotTested,
+  getReport,
+  ManifestInvalid,
+  switchBranchBuild,
+} from './reapply.js';
 import { snapshotAt } from './snapshot.js';
 import { appendTransaction, BranchNotFound, readTransactions, resolveBranch, StaleBaseRev } from './store.js';
 import { createDesignStreamHub, formatTransactionFrame, type DesignStreamHub } from './stream.js';
@@ -33,6 +48,21 @@ const designQuery = z.object({ rev: z.coerce.number().int().nonnegative().option
 const transactionBody = TransactionSchema.omit({ id: true, rev: true, createdAt: true })
   .partial({ gameId: true, branchId: true, actor: true })
   .extend({ sessionId: z.string().trim().min(1).max(200).optional() });
+const answerBody = fencedLeaseBody
+  .extend({
+    answers: z
+      .array(
+        z
+          .object({
+            key: OverrideKeySchema,
+            choice: z.enum(['use_allowed', 'keep_mine', 'discard', 'use_builder']),
+          })
+          .strict(),
+      )
+      .min(1),
+  })
+  .strict();
+const switchBody = fencedLeaseBody.extend({ buildId: StableIdSchema }).strict();
 
 export function setup(deps: AppDeps): void {
   if (!runtimes.has(deps)) {
@@ -50,6 +80,16 @@ function routeParam(c: Parameters<typeof requirePrincipal>[0], name: string): st
   const value = c.req.param(name);
   if (!value) throw new HttpError(400, 'invalid_request');
   return value;
+}
+
+function stableRouteParam(c: Parameters<typeof requirePrincipal>[0], name: string): string {
+  const parsed = StableIdSchema.safeParse(routeParam(c, name));
+  if (!parsed.success) throw new HttpError(400, 'invalid_request', undefined, parsed.error.issues);
+  return parsed.data;
+}
+
+function invalidManifest(error: ManifestInvalid): HttpError {
+  return new HttpError(422, 'build_manifest_invalid', undefined, { buildId: error.buildId });
 }
 
 function ownedGame(c: Parameters<typeof requirePrincipal>[0]): {
@@ -294,6 +334,61 @@ const routes = new Hono<ApiBindings>()
     const branch = branchFor(c, game.id);
     const query = parseQuery(c, designQuery);
     return c.json(await snapshotAt(c.get('deps').sqlite, getDesignRuntime(c.get('deps')).source, branch.id, query.rev));
+  })
+  .get('/games/:gameId/branches/:branch/reapply/:buildId', async (c) => {
+    const game = readableGame(c);
+    const branch = branchFor(c, game.id);
+    const buildId = stableRouteParam(c, 'buildId');
+    try {
+      return c.json(await getReport(c.get('deps').sqlite, getDesignRuntime(c.get('deps')).source, branch.id, buildId));
+    } catch (error) {
+      if (error instanceof ManifestInvalid) throw invalidManifest(error);
+      if (error instanceof StaleBaseRev) return c.json({ headRev: error.headRev }, 409);
+      throw error;
+    }
+  })
+  .post('/games/:gameId/branches/:branch/reapply/:buildId/answers', async (c) => {
+    const { principal, game } = ownedGame(c);
+    const branch = branchFor(c, game.id);
+    const buildId = stableRouteParam(c, 'buildId');
+    const body = await parseBody(c, answerBody);
+    const runtime = getDesignRuntime(c.get('deps'));
+    try {
+      const transactions = await answerReport(c.get('deps').sqlite, runtime.source, branch, buildId, body.answers, {
+        actor: principal.userId,
+        sessionId: body.sessionId,
+        token: body.token,
+      });
+      transactions.forEach((transaction) => runtime.stream.publish(branch.id, transaction));
+      return c.json({ rev: transactions.at(-1)!.rev });
+    } catch (error) {
+      if (error instanceof AnswerConflict) throw new HttpError(409, 'answer_conflict');
+      if (error instanceof LeaseMismatch) return c.json({ holder: 'other-session' }, 423);
+      if (error instanceof StaleBaseRev) return c.json({ headRev: error.headRev }, 409);
+      if (error instanceof ManifestInvalid) throw invalidManifest(error);
+      throw error;
+    }
+  })
+  .post('/games/:gameId/branches/:branch/switch', async (c) => {
+    const { principal, game } = ownedGame(c);
+    const branch = branchFor(c, game.id);
+    const body = await parseBody(c, switchBody);
+    const runtime = getDesignRuntime(c.get('deps'));
+    try {
+      const switched = await switchBranchBuild(c.get('deps').sqlite, runtime.source, branch, body.buildId, {
+        actor: principal.userId,
+        sessionId: body.sessionId,
+        token: body.token,
+      });
+      runtime.stream.publish(branch.id, switched.transaction);
+      return c.json({ rev: switched.transaction.rev, report: switched.report });
+    } catch (error) {
+      if (error instanceof BuildNotTested) throw new HttpError(409, 'build_not_tested');
+      if (error instanceof LeaseMismatch) return c.json({ holder: 'other-session' }, 423);
+      if (error instanceof StaleBaseRev) return c.json({ headRev: error.headRev }, 409);
+      if (error instanceof ManifestInvalid) throw invalidManifest(error);
+      throw error;
+    }
   });
 
 export default routes;

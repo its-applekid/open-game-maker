@@ -1,6 +1,6 @@
 import type { DesignDoc } from '@ogm/contracts';
 import type { Sqlite } from '@ogm/db';
-import { replay } from '@ogm/design-log';
+import { buildSwitchFrom, replay } from '@ogm/design-log';
 
 import type { BaseDocSource } from './base-doc.js';
 import { readChain } from './store.js';
@@ -10,6 +10,19 @@ export const EMPTY_DESIGN_DOC: DesignDoc = {
   globals: {},
   entities: {},
 };
+
+function buildAtRevision(chain: ReturnType<typeof readChain>, revision: number): string | null {
+  const leaf = chain.at(-1)?.branch;
+  if (!leaf) return null;
+  let buildId = leaf.latestBuildId;
+  const leafTransactions = chain.at(-1)?.txs ?? [];
+  for (const transaction of [...leafTransactions].sort((left, right) => right.rev - left.rev)) {
+    if (transaction.rev <= revision) break;
+    const switched = buildSwitchFrom(transaction);
+    if (switched) buildId = switched.from;
+  }
+  return buildId;
+}
 
 export async function snapshotAt(
   sqlite: Sqlite,
@@ -21,7 +34,8 @@ export async function snapshotAt(
   const leaf = chain.at(-1)?.branch;
   if (!leaf) throw new Error('design branch has no replay chain');
   const rev = requestedRev === undefined ? leaf.headRev : Math.min(requestedRev, leaf.headRev);
-  const baseDoc = leaf.latestBuildId ? await source.load(leaf.gameId, leaf.latestBuildId) : EMPTY_DESIGN_DOC;
-  const result = replay({ baseDoc: structuredClone(baseDoc), chain }, rev);
-  return { rev: result.headRev, buildId: leaf.latestBuildId, doc: result.doc };
+  const buildId = buildAtRevision(chain, rev);
+  const baseDoc = buildId ? await source.load(leaf.gameId, buildId) : EMPTY_DESIGN_DOC;
+  const result = replay({ baseDoc: structuredClone(baseDoc), chain, buildId: buildId ?? undefined }, rev);
+  return { rev: result.headRev, buildId, doc: result.doc };
 }
