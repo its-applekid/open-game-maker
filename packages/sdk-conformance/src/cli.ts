@@ -5,6 +5,7 @@ import { parseArgs } from 'node:util';
 
 import { loadEnv } from '@ogm/config';
 
+import { message } from './checks/util.js';
 import { formatReport, reportFailed, type ConformanceReport } from './report.js';
 import { runConformance, type RunOptions } from './runner.js';
 
@@ -34,7 +35,7 @@ export async function main(argv: string[], io: CliIo): Promise<number> {
       },
     });
   } catch (error) {
-    io.err(`${error instanceof Error ? error.message : String(error)}\n${USAGE}`);
+    io.err(`${message(error)}\n${USAGE}`);
     return 2;
   }
   const [command, gameDir, ...extra] = parsed.positionals;

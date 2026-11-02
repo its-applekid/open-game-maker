@@ -30,12 +30,16 @@ export class BrowserSession implements Session {
   static async open(browser: Browser, origins: Origins, options: OpenOptions): Promise<BrowserSession> {
     const context = await browser.newContext({ viewport: options.viewport });
     const consoleTail: string[] = [];
+    const pageErrors: string[] = [];
     try {
       const page = await context.newPage();
       page.on('console', (entry) => {
         if (entry.type() === 'error') consoleTail.push(entry.text());
       });
-      page.on('pageerror', (error) => consoleTail.push(String(error)));
+      page.on('pageerror', (error) => {
+        pageErrors.push(String(error));
+        consoleTail.push(String(error));
+      });
       const url = new URL(origins.host);
       url.searchParams.set('game', origins.games[options.build]);
       url.searchParams.set('build', options.build);
@@ -55,6 +59,7 @@ export class BrowserSession implements Session {
           timeout: READY_TIMEOUT_MS,
         });
       }
+      if (pageErrors.length > 0) throw new Error(`page error during boot: ${pageErrors[0]}`);
       await page.evaluate(({ width, height, safe }) => window.__conf.setViewport(width, height, safe), {
         ...options.viewport,
         safe: options.safe,

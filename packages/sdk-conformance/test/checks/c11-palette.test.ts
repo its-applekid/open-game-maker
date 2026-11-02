@@ -13,6 +13,11 @@ describe('C11 palette-undo', () => {
     expect(result).toMatchObject({ status: 'fail', detail: expect.stringContaining('palette platform: undo left') });
   });
 
+  it('fails palette items in a game that cannot validate placement', async () => {
+    const result = await c11Palette.run(fakeContext({ placementUnsupported: true }));
+    expect(result).toMatchObject({ status: 'fail', detail: 'palette platform: placement is not supported' });
+  });
+
   it('is unchecked, not passed, with an empty palette', async () => {
     const ctx = fakeContext({ manifest: { palette: { ...MANIFEST.palette, items: [] } } });
     expect((await c11Palette.run(ctx)).status).toBe('unchecked');

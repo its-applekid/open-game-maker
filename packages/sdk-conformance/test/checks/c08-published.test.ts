@@ -15,6 +15,20 @@ describe('C8 published-no-debug', () => {
     expect(result).toMatchObject({ status: 'fail', detail: 'published window exposes __gm' });
   });
 
+  it('fails when the published build answers a test request', async () => {
+    const result = await c08Published.run(fakeContext({ publishedAnswersTest: true }));
+    expect(result).toMatchObject({ status: 'fail', detail: 'published build answered test.renderGameToText' });
+  });
+
+  it('fails a published build with no JavaScript, rather than passing an empty grep', async () => {
+    expect((await c08Published.run(fakeContext({}, { publishedBundle: [] }))).status).toBe('fail');
+  });
+
+  it('fails a bundle that names the __gm global', async () => {
+    const ctx = fakeContext({}, { publishedBundle: [{ path: 'assets/b.js', text: 'window.__gm=h' }] });
+    expect((await c08Published.run(ctx)).detail).toBe('assets/b.js contains \\b__gm\\b');
+  });
+
   it('fails when the bundle carries the adapter', async () => {
     const ctx = fakeContext({}, { publishedBundle: [{ path: 'assets/a.js', text: 'w.render_game_to_text=1' }] });
     expect((await c08Published.run(ctx)).status).toBe('fail');

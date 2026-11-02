@@ -29,10 +29,16 @@ export type FakeScript = {
   /** C7: the player is never picked (off screen). */
   playerHidden?: boolean;
   colours?: number;
+  /** C7: `renderGameToText` reports no players. */
+  noPlayers?: boolean;
+  /** C8: the published build answers `test.*`. */
+  publishedAnswersTest?: boolean;
   /** C8: globals left on a published window. */
   publishedGlobals?: string[];
   /** C9: sessions are not deterministic. */
   nondeterministic?: boolean;
+  /** C11: the game has no `validatePlacement`. */
+  placementUnsupported?: boolean;
   /** C11: a placed entity survives the revert. */
   placementSticks?: boolean;
 };
@@ -104,8 +110,11 @@ export class FakeSession implements Session {
   async setSeed(): Promise<void> {}
 
   async text(): Promise<GameText> {
-    if (this.options.build === 'published') throw new Error('published builds refuse test requests');
-    return { coords: '2d', tick: this.tick, mode: 'play', state: structuredClone(this.state), players: [{ id: 'p1' }] };
+    if (this.options.build === 'published' && !this.script.publishedAnswersTest) {
+      throw new Error('published builds refuse test requests');
+    }
+    const players = this.script.noPlayers ? [] : [{ id: 'p1' }];
+    return { coords: '2d', tick: this.tick, mode: 'play', state: structuredClone(this.state), players };
   }
 
   async applyDesign(doc: unknown, patches: Patch[]): Promise<'live' | 'restart-scene'> {
@@ -146,7 +155,7 @@ export class FakeSession implements Session {
   }
 
   async validatePlacement(): Promise<{ ok: boolean; reason?: string }> {
-    return { ok: true };
+    return this.script.placementUnsupported ? { ok: false, reason: 'placement is not supported' } : { ok: true };
   }
 
   async scan(n: number): Promise<TargetHit[]> {

@@ -59,6 +59,7 @@ export const c07Stills: Check = {
   async run(ctx) {
     const stills: string[] = [];
     const notes: string[] = [];
+    let unlocated = false;
     for (const { name, size } of STILL_VIEWPORTS) {
       const problem = await withSession(ctx, { viewport: size, safe: SAFE_INSETS }, async (session) => {
         await session.advanceTime(500);
@@ -67,6 +68,11 @@ export const c07Stills: Check = {
         stills.push(path);
         if (colours < 2) return `${name} still is a single colour`;
         const players = playerIds(await session.text());
+        if (players.length === 0) {
+          unlocated = true;
+          notes.push(`${name} ${colours} colours, no players reported`);
+          return null;
+        }
         let located: ReturnType<typeof locatePlayers> = [];
         for (const grid of SCAN_GRIDS) {
           located = locatePlayers(await session.scan(grid), players, size, SAFE_INSETS);
@@ -82,6 +88,13 @@ export const c07Stills: Check = {
         return null;
       });
       if (problem) return fail(problem, stills);
+    }
+    if (unlocated) {
+      return {
+        status: 'unchecked',
+        detail: `renderGameToText reports no players; safe area not checked; ${notes.join('; ')}`,
+        artifacts: stills,
+      };
     }
     return pass(notes.join('; '), stills);
   },

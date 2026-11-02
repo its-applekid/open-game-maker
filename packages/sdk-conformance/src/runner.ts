@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +10,7 @@ import { webkit, type Browser } from 'playwright';
 
 import { buildKinds, readBundle } from './build.js';
 import { SAFE_INSETS, STILL_VIEWPORTS } from './checks/c07-stills.js';
+import { message } from './checks/util.js';
 import { loadGame, loadPrevious, readJsonIfPresent, writeRunRecord } from './game-source.js';
 import { HOST_HTML } from './host-page/api.js';
 import { conformanceReportSchema, type ConformanceReport } from './report.js';
@@ -39,6 +40,8 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
   const gameDir = resolve(options.gameDir);
   const outDir = resolve(options.outDir ?? (await mkdtemp(join(tmpdir(), 'gm-sdk-'))));
   await mkdir(join(outDir, '.host'), { recursive: true });
+  /* C3 rewrites it; a stale one from an earlier run in the same --out must not become a later --previous. */
+  await rm(join(outDir, 'save.json'), { force: true });
   const closers: Closer[] = [];
   const slot = await acquireSlot({ runtimeDir: options.runtimeDir });
   closers.push(async () => slot.release());
@@ -48,6 +51,7 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
   try {
     const game = await loadGame(gameDir, join(outDir, '.host'));
     manifestId = game.manifest.id;
+    await writeRunRecord(outDir, game);
     const previous = options.previousDir ? await loadPrevious(resolve(options.previousDir)) : undefined;
     const saveFixture = await readJsonIfPresent<SaveData<unknown>>(join(gameDir, 'tests/fixtures/save.previous.json'));
 
@@ -63,7 +67,7 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
       try {
         builds = await buildKinds(gameDir, outDir);
       } catch (error) {
-        return bootFailedResults(`build failed: ${error instanceof Error ? error.message : String(error)}`);
+        return bootFailedResults(`build failed: ${message(error)}`);
       }
       await copyFile(HOST_BUNDLE, join(outDir, '.host/main.js'));
       await writeFile(join(outDir, '.host/index.html'), HOST_HTML);
@@ -85,7 +89,7 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
       try {
         await (await open()).close();
       } catch (error) {
-        return bootFailedResults(error instanceof Error ? error.message : String(error));
+        return bootFailedResults(message(error));
       }
       const ctx: CheckContext = {
         game,
@@ -97,9 +101,8 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
       };
       return runChecks(ctx);
     })();
-    await writeRunRecord(outDir, game);
   } catch (error) {
-    checks = bootFailedResults(error instanceof Error ? error.message : String(error));
+    checks = bootFailedResults(message(error));
   } finally {
     for (const close of closers.reverse()) await close().catch(() => undefined);
   }
@@ -107,7 +110,7 @@ export async function runConformance(options: RunOptions): Promise<ConformanceRe
   const report = conformanceReportSchema.parse({
     sdkProtocol: SDK_PROTOCOL,
     renderer,
-    gl: isSoftware(renderer) ? 'software' : 'gpu',
+    gl: isSoftware(renderer) || renderer === 'no WebGL' ? 'software' : 'gpu',
     game: { dir: gameDir, manifestId },
     checks,
     stills: checks.flatMap((check) => check.artifacts ?? []).filter((path) => path.endsWith('.png')),

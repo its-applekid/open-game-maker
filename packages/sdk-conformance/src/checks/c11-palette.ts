@@ -2,6 +2,9 @@ import { firstDifference } from '../json.js';
 import type { Check } from '../types.js';
 import { fail, message, pass, unchecked, withSession } from './util.js';
 
+/** What the SDK answers when the game has no `validatePlacement` (packages/sdk/src/core/boot.ts). */
+const UNSUPPORTED = 'placement is not supported';
+
 type Entity = { id: string; prefab: string; props?: Record<string, unknown> };
 
 function position(entity: Entity | undefined): [number, number, number] {
@@ -26,10 +29,13 @@ export const c11Palette: Check = {
     if (entities.length === 0) return fail('design has no entity to model a palette placement on');
     return withSession(ctx, {}, async (session) => {
       const baseline = await session.text();
+      const answers: string[] = [];
       for (const [index, item] of items.entries()) {
         const model = entities.find((entity) => entity.prefab === item.prefab) ?? entities[0]!;
         const placement = await session.validatePlacement(item.prefab, position(model));
         if (!placement) return fail(`palette ${item.prefab}: no placement answer`);
+        if (!placement.ok && placement.reason === UNSUPPORTED) return fail(`palette ${item.prefab}: ${UNSUPPORTED}`);
+        answers.push(`${item.prefab} ${placement.ok ? 'ok' : `rejected (${placement.reason})`}`);
         const id = `${item.prefab}_conf${index}`;
         const added = structuredClone(design);
         const entity = { ...structuredClone(model), id, prefab: item.prefab };
@@ -44,7 +50,7 @@ export const c11Palette: Check = {
         if (diff !== null) return fail(`palette ${item.prefab}: undo left ${diff} changed`);
       }
       return pass(
-        `${items.length} palette items placed and undone byte-equal; tools ${manifest.tools.join(', ')} checked statically (dynamic undo waits for OGM-075)`,
+        `${items.length} palette items placed and undone byte-equal (placement at a model entity: ${answers.join(', ')}); tools ${manifest.tools.join(', ')} checked statically (dynamic undo waits for OGM-075)`,
       );
     });
   },

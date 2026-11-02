@@ -28,6 +28,12 @@ describe('C7 stills-safe-area', () => {
     expect(ctx.sessions[0]!.scans).toEqual([24, 48]);
   });
 
+  it('is unchecked, not passed, when the game reports no players to locate', async () => {
+    const result = await c07Stills.run(fakeContext({ noPlayers: true }));
+    expect(result).toMatchObject({ status: 'unchecked', detail: expect.stringContaining('no players') });
+    expect(result.artifacts).toHaveLength(2);
+  });
+
   it('fails a blank still', async () => {
     const result = await c07Stills.run(fakeContext({ colours: 1 }));
     expect(result).toMatchObject({ status: 'fail', detail: 'desktop still is a single colour' });

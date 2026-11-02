@@ -5,6 +5,8 @@ import { join, relative } from 'node:path';
 import type { BuildKind } from './types.js';
 
 export const BUILD_KINDS: BuildKind[] = ['test', 'published'];
+/** A stalled build would otherwise hold the host-wide capture slot forever. */
+export const BUILD_TIMEOUT_MS = 300_000;
 
 function run(command: string, args: string[], cwd: string, env: Record<string, string>): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -13,8 +15,16 @@ function run(command: string, args: string[], cwd: string, env: Record<string, s
     const output: string[] = [];
     child.stdout.on('data', (chunk: Buffer) => output.push(chunk.toString()));
     child.stderr.on('data', (chunk: Buffer) => output.push(chunk.toString()));
-    child.on('error', reject);
+    const timer = setTimeout(() => {
+      child.kill('SIGKILL');
+      reject(new Error(`${command} ${args.join(' ')} timed out after ${BUILD_TIMEOUT_MS} ms`));
+    }, BUILD_TIMEOUT_MS);
+    child.on('error', (error) => {
+      clearTimeout(timer);
+      reject(error);
+    });
     child.on('close', (code) => {
+      clearTimeout(timer);
       if (code === 0) resolve();
       else reject(new Error(`${command} ${args.join(' ')} exited ${code}: ${output.join('').slice(-800)}`));
     });
