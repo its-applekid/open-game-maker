@@ -1,7 +1,7 @@
-import { expect, test, type Frame, type Page } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
-import { installGameApi } from './support/mock-game-api';
+import { installGameApi, type GameApiFixture } from './support/mock-game-api';
 
 type GameHook = {
   bridgeState: string;
@@ -18,11 +18,10 @@ type FixtureHook = { mode: string; messages: Array<{ t: string; payload: unknown
 test.use({ serviceWorkers: 'block' });
 
 test('runs the cross-origin editor transaction, undo, and mode flow', async ({ page }, testInfo) => {
+  test.slow(); // one test walks load, transaction, undo and play; navigation alone took 13 s on a loaded host
   await installAuthRoutes(page, { signedIn: true });
   const api = await installGameApi(page);
-  await page.goto('/g/game?mode=edit&test');
-
-  await expect.poll(() => gameState(page).then((state) => state?.bridgeState), { timeout: 5_000 }).toBe('ready');
+  await openReadyEditor(page, api);
   const before = (await gameState(page))!;
   await page.evaluate(() => {
     window.dispatchEvent(
@@ -35,7 +34,7 @@ test('runs the cross-origin editor transaction, undo, and mode flow', async ({ p
   await expect.poll(() => gameState(page).then((state) => state?.dropped)).toBe(before.dropped + 1);
   expect(await gameState(page)).toMatchObject({ headRev: before.headRev, selection: before.selection });
 
-  await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
+  await selectSkeleton(page);
   await page.getByLabel('Editor canvas').click({ force: true, position: { x: 180, y: 120 } });
   await expect.poll(() => api.transactions.length).toBe(1);
   expect(api.transactions[0]?.baseRev).toBe(4);
@@ -56,8 +55,13 @@ test('runs the cross-origin editor transaction, undo, and mode flow', async ({ p
   }
 
   await page.getByRole('button', { name: /Play/ }).click({ force: true });
-  const frame = gameFrame(page);
-  await expect.poll(() => fixtureState(frame).then((state) => state.mode)).toBe('play');
+  await expect
+    .poll(() => playFrameState(page), { timeout: 10_000 })
+    .toEqual({
+      attached: true,
+      bridgeState: 'ready',
+      mode: 'play',
+    });
 });
 
 test('replays one conflict and becomes read-only on lease loss', async ({ page }, testInfo) => {
@@ -65,10 +69,9 @@ test('replays one conflict and becomes read-only on lease loss', async ({ page }
   await installAuthRoutes(page, { signedIn: true });
   const api = await installGameApi(page);
   api.script('conflict', 'success');
-  await page.goto('/g/game?mode=edit&test');
-  await expect.poll(() => gameState(page).then((state) => state?.bridgeState), { timeout: 5_000 }).toBe('ready');
+  await openReadyEditor(page, api);
 
-  await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
+  await selectSkeleton(page);
   const canvas = page.getByLabel('Editor canvas');
   await canvas.click({ force: true, position: { x: 160, y: 100 } });
   await expect.poll(() => api.attempts.length).toBe(2);
@@ -80,16 +83,33 @@ test('replays one conflict and becomes read-only on lease loss', async ({ page }
   await expect.poll(() => gameState(page).then((state) => state?.readOnly)).toBe(true);
 });
 
+async function openReadyEditor(page: Page, api: GameApiFixture): Promise<void> {
+  await page.goto('/g/game?mode=edit&test');
+  await Promise.all([api.transactionStreamReady, page.getByLabel('Editor canvas').waitFor()]);
+}
+
+async function selectSkeleton(page: Page): Promise<void> {
+  await page.getByRole('button', { name: 'Skeleton' }).click({ force: true });
+  await expect(page.getByRole('button', { name: 'place', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByText('Place a skeleton', { exact: true })).toBeVisible();
+}
+
 function gameState(page: Page): Promise<GameHook | undefined> {
   return page.evaluate(() => (window as Window & { __ogmHost?: { game?: GameHook } }).__ogmHost?.game);
 }
 
-function gameFrame(page: Page): Frame {
+async function playFrameState(page: Page): Promise<{ attached: boolean; bridgeState?: string; mode?: string }> {
   const frame = page.frames().find((candidate) => candidate.url().startsWith('http://127.0.0.1:10001/g/'));
-  if (!frame) throw new Error('cross-origin game frame was not mounted');
-  return frame;
-}
+  if (!frame || frame.isDetached()) return { attached: false };
 
-function fixtureState(frame: Frame): Promise<FixtureHook> {
-  return frame.evaluate(() => (window as Window & { __fixture: FixtureHook }).__fixture);
+  try {
+    const [game, fixture] = await Promise.all([
+      gameState(page),
+      frame.evaluate(() => (window as Window & { __fixture: FixtureHook }).__fixture),
+    ]);
+    if (frame.isDetached()) return { attached: false };
+    return { attached: true, bridgeState: game?.bridgeState, mode: fixture.mode };
+  } catch {
+    return { attached: false };
+  }
 }
