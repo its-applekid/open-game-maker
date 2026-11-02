@@ -1,8 +1,13 @@
 import { createServer, type ServerResponse } from 'node:http';
 import { readFile } from 'node:fs/promises';
+import { extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
+const templateRoots = new Map([
+  ['game-2d', fileURLToPath(new URL('../../../templates/game-2d/dist/', import.meta.url))],
+  ['game-3d', fileURLToPath(new URL('../../../templates/game-3d/dist/', import.meta.url))],
+]);
 
 function html(response: ServerResponse, body: string): void {
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -10,8 +15,24 @@ function html(response: ServerResponse, body: string): void {
 }
 
 async function file(response: ServerResponse, path: string, headers: Record<string, string> = {}): Promise<void> {
-  response.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', ...headers });
-  response.end(await readFile(path));
+  const body = await readFile(path);
+  response.writeHead(200, { 'content-type': contentType(path), ...headers });
+  response.end(body);
+}
+
+function contentType(path: string): string {
+  switch (extname(path)) {
+    case '.css':
+      return 'text/css; charset=utf-8';
+    case '.html':
+      return 'text/html; charset=utf-8';
+    case '.js':
+      return 'text/javascript; charset=utf-8';
+    case '.wasm':
+      return 'application/wasm';
+    default:
+      return 'application/octet-stream';
+  }
 }
 
 const app = createServer(async (request, response) => {
@@ -38,6 +59,21 @@ const game = createServer(async (request, response) => {
   if (path.endsWith('/assets/x.3f9a.glb')) {
     response.writeHead(200, { 'content-type': 'model/gltf-binary', 'cache-control': 'no-store' });
     return response.end('fixture-asset');
+  }
+  const templateMatch = /^\/g\/(game-[23]d)\/b1\/index\.html$/u.exec(path);
+  if (templateMatch) {
+    return file(response, `${templateRoots.get(templateMatch[1]!)}/index.html`);
+  }
+  if (path.startsWith('/assets/')) {
+    for (const templateRoot of templateRoots.values()) {
+      try {
+        return await file(response, `${templateRoot}${path}`);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    }
+    response.writeHead(404);
+    return response.end('not found');
   }
   return html(
     response,

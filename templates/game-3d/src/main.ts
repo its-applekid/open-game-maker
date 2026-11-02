@@ -72,7 +72,7 @@ async function start() {
     runtime = (await boot(controller.module, {
       build: __GM_BUILD__,
       headless: true,
-      hostOrigin: window.location.origin,
+      hostOrigin: window.parent === window ? window.location.origin : undefined,
     })) as RuntimeImpl<LevelDesign, GameSave>;
     runtime.hooks.ready = false;
     document.documentElement.dataset.bootStage = 'runtime';

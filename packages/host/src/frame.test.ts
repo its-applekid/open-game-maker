@@ -24,6 +24,7 @@ describe('createGameFrame', () => {
 
     expect(frame.iframe.getAttribute('sandbox')).toBe('allow-scripts allow-same-origin allow-pointer-lock');
     expect(frame.iframe.getAttribute('allow')).toBe('autoplay; fullscreen; gamepad');
+    expect(frame.iframe.getAttribute('referrerpolicy')).toBe('origin');
     expect(frame.iframe.src).toBe('https://games.test/g/game%20one/build%2Fone/index.html?build=draft&protocol=1');
     frame.dispose();
   });
