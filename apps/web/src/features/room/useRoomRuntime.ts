@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { apply, type DesignDoc, type Patch } from '@ogm/design-log/browser';
 import type { Envelope, ServerMessage } from '@ogm/contracts';
 
 import { api } from '../../lib/api/client';
@@ -52,7 +53,7 @@ export function useRoomRuntime({ frame, roomId, testMode }: UseRoomRuntimeOption
       const fake = fakeRef.current ?? fakeSession();
       fakeRef.current = fake;
       setSession(fake);
-      const uninstall = installFakeHandle(fake);
+      const uninstall = installFakeHandle(fake, frame);
       return uninstall;
     }
 
@@ -121,17 +122,37 @@ type FakeHandle = {
 
 type HostWithRoom = NonNullable<Window['__ogmHost']> & { room?: FakeHandle };
 
-function installFakeHandle(session: FakeRoomSession): () => void {
+function installFakeHandle(session: FakeRoomSession, frame?: RoomFrame): () => void {
   const host = window.__ogmHost as HostWithRoom | undefined;
   if (host === undefined) return () => undefined;
   const previous = host.room;
+  let document: DesignDoc = { schemaVersion: 1, globals: {}, entities: {} };
+  let sequence = 0;
+  const sendApply = (rev: number, patches: Patch[]) => {
+    sequence += 1;
+    frame?.sendRoomMessage({
+      v: 1,
+      id: `fake-room-design-${sequence}`,
+      t: 'design.apply',
+      payload: { rev, doc: document, patches },
+    });
+  };
   const handle: FakeHandle = {
     state: () => session.snapshot(),
     play: () => session.send({ t: 'phase', to: 'playing' }),
     edit: () => session.send({ t: 'phase', to: 'editing' }),
     leave: () => session.leave(),
     fake: {
-      emit: (message) => session.emit(message),
+      emit: (message) => {
+        session.emit(message);
+        if (message.t === 'welcome') {
+          sendApply(message.state.lastRev, []);
+        } else if (message.t === 'design.tx' && frame !== undefined) {
+          const patches = normalizePatches(message.tx.patches);
+          document = apply(document, patches);
+          sendApply(message.tx.rev, patches);
+        }
+      },
       setState: (state) => session.setState(state),
       sent: () => session.sent(),
     },
@@ -142,4 +163,16 @@ function installFakeHandle(session: FakeRoomSession): () => void {
     if (previous === undefined) delete host.room;
     else host.room = previous;
   };
+}
+
+function normalizePatches(patches: Extract<ServerMessage, { t: 'design.tx' }>['tx']['patches']): Patch[] {
+  return patches.map((patch) => ({
+    ...patch,
+    path: Array.isArray(patch.path)
+      ? patch.path
+      : patch.path
+          .slice(1)
+          .split('/')
+          .map((part) => part.replaceAll('~1', '/').replaceAll('~0', '~')),
+  }));
 }

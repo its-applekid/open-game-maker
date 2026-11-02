@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 
-import type { Envelope, RoomState } from '@ogm/contracts';
+import type { Envelope, RoomState, ServerMessage } from '@ogm/contracts';
 
 import type { OgmHost } from '../../app/testHook';
 import { api } from '../../lib/api/client';
@@ -120,10 +120,11 @@ it('installs a socket-free fake session on the browser test hook', async () => {
     snapshot: () => ({ route: '/g/game', registered: [] }),
   } satisfies OgmHost;
 
-  const { result } = renderHook(() => useRoomRuntime({ roomId: undefined, testMode: true }));
+  const frame = { sendRoomMessage: vi.fn() };
+  const { result } = renderHook(() => useRoomRuntime({ frame, roomId: undefined, testMode: true }));
   const room = (
     window.__ogmHost as OgmHost & {
-      room?: { fake: { emit(message: { t: 'welcome'; you: object; state: RoomState }): void } };
+      room?: { fake: { emit(message: ServerMessage): void } };
     }
   ).room;
   expect(room?.fake).toBeDefined();
@@ -134,8 +135,35 @@ it('installs a socket-free fake session on the browser test hook', async () => {
       you: { userId: 'watcher', playerIndex: 1, sessionId: 'watcher-session' },
       state,
     });
+    room?.fake.emit({
+      t: 'design.tx',
+      tx: {
+        branchId: 'main',
+        rev: 4,
+        baseRev: 3,
+        actor: 'owner',
+        kind: 'manual',
+        patches: [{ op: 'add', path: ['globals', 'gravity'], value: 9 }],
+      },
+    });
   });
 
   await waitFor(() => expect(result.current.snapshot).toMatchObject({ status: 'connected', role: 'peer' }));
+  expect(frame.sendRoomMessage).toHaveBeenNthCalledWith(1, {
+    v: 1,
+    id: 'fake-room-design-1',
+    t: 'design.apply',
+    payload: { rev: 3, doc: { schemaVersion: 1, globals: {}, entities: {} }, patches: [] },
+  });
+  expect(frame.sendRoomMessage).toHaveBeenNthCalledWith(2, {
+    v: 1,
+    id: 'fake-room-design-2',
+    t: 'design.apply',
+    payload: {
+      rev: 4,
+      doc: { schemaVersion: 1, globals: { gravity: 9 }, entities: {} },
+      patches: [{ op: 'add', path: ['globals', 'gravity'], value: 9 }],
+    },
+  });
   expect(mocks.createRoomConnection).not.toHaveBeenCalled();
 });

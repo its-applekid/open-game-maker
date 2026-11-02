@@ -1,9 +1,13 @@
-import { expect, test, type Page, type Route } from '@playwright/test';
+import { expect, test, type Frame, type Page, type Route } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
 import { installGameApi } from './support/mock-game-api';
 
 type GameHook = { bridgeState: string; headRev: number; mode: string };
+type FixtureHook = {
+  applies: Array<{ doc: { globals?: Record<string, unknown> }; patches: unknown[]; rev: number }>;
+  selected: string[];
+};
 type FakeRoomHook = {
   emit(message: unknown): void;
   setState(state: object): void;
@@ -14,9 +18,13 @@ test.use({ serviceWorkers: 'block' });
 test('scripts watcher catch-up, phases, and host-left through the fake session', async ({ page }, testInfo) => {
   await installAuthRoutes(page, { signedIn: true });
   await installGameApi(page);
+  await page.route('**/api/v1/games/game/branches/main', (route) =>
+    json(route, { name: 'Main room', version: '0.0.4' }),
+  );
   await page.goto('/g/game?test');
   await expect.poll(() => gameState(page).then((state) => state?.bridgeState), { timeout: 5_000 }).toBe('ready');
   await expect.poll(() => hasFakeRoom(page)).toBe(true);
+  const frame = gameFrame(page);
 
   await roomFake(page, 'emit', {
     t: 'welcome',
@@ -53,18 +61,42 @@ test('scripts watcher catch-up, phases, and host-left through the fake session',
     },
   });
   await expect.poll(() => gameState(page).then((current) => current?.mode)).toBe('edit');
+  await expect(page.locator('.room-version-badge')).toHaveText('Main room · v0.0.4');
+  await expect.poll(() => fixtureState(frame).then((state) => state.selected)).toEqual(['e-1']);
   for (const rev of [6, 7, 8]) {
     await roomFake(page, 'emit', {
       t: 'design.tx',
-      tx: { branchId: 'main', rev, baseRev: rev - 1, actor: 'owner', kind: 'manual', patches: [] },
+      tx: {
+        branchId: 'main',
+        rev,
+        baseRev: rev - 1,
+        actor: 'owner',
+        kind: 'manual',
+        patches: [
+          {
+            op: rev === 6 ? 'add' : 'replace',
+            path: ['globals', 'roomRevision'],
+            value: rev,
+          },
+        ],
+      },
     });
   }
   await expect.poll(() => gameState(page).then((state) => state?.headRev)).toBe(8);
+  await expect
+    .poll(() => fixtureState(frame).then((state) => state.applies.at(-1)))
+    .toMatchObject({
+      rev: 8,
+      doc: { globals: { roomRevision: 8 } },
+      patches: [{ op: 'replace', path: ['globals', 'roomRevision'], value: 8 }],
+    });
 
-  await roomFake(page, 'setState', { presence: { selection: [], privateMode: true } });
+  await roomFake(page, 'setState', { presence: { selection: ['e-1'], privateMode: true } });
   await expect(page.getByText('talking to the builder…')).toBeVisible();
-  await roomFake(page, 'setState', { presence: { selection: [], privateMode: false } });
+  await expect.poll(() => fixtureState(frame).then((state) => state.selected)).toEqual([]);
+  await roomFake(page, 'setState', { presence: { selection: ['e-1'], privateMode: false } });
   await expect(page.getByText('talking to the builder…')).toBeHidden();
+  await expect.poll(() => fixtureState(frame).then((state) => state.selected)).toEqual(['e-1']);
 
   await roomFake(page, 'setState', { phase: 'playing', phaseAt: Date.now() });
   await expect.poll(() => gameState(page).then((state) => state?.mode), { timeout: 500 }).toBe('play');
@@ -127,6 +159,19 @@ function roomFake(page: Page, method: keyof FakeRoomHook, value: unknown): Promi
     },
     { method, value },
   );
+}
+
+function gameFrame(page: Page): Frame {
+  const frame = page.frames().find((candidate) => {
+    if (candidate === page.mainFrame()) return false;
+    return new URL(candidate.url()).pathname.startsWith('/g/');
+  });
+  if (!frame) throw new Error('cross-origin game frame was not mounted');
+  return frame;
+}
+
+function fixtureState(frame: Frame): Promise<FixtureHook> {
+  return frame.evaluate(() => (window as Window & { __fixture: FixtureHook }).__fixture);
 }
 
 async function json(route: Route, body: unknown): Promise<void> {
