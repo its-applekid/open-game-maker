@@ -18,6 +18,7 @@ const choices: ScopeChoices = {
 
 const scope: AgreedScope = {
   session_id: 's_1',
+  revision: 1,
   title: 'Midnight Crumbs',
   summary: 'Deliver bread between floating islands.',
   scope: { included: ['three islands'], excluded: [] },
