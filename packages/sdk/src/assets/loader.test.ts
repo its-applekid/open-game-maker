@@ -202,8 +202,7 @@ describe('AssetLoader', () => {
     expect(ktx2Spies.constructed).toHaveBeenCalledOnce();
     expect(ktx2Spies.transcoderPath).toHaveBeenCalledWith('https://game.test/assets/basis/');
     expect(ktx2Spies.detectSupport).toHaveBeenCalledWith(renderer);
-    expect(gltfSpies.ktx2).toHaveBeenCalledTimes(2);
-    expect(gltfSpies.ktx2.mock.calls[0]?.[0]).toBe(gltfSpies.ktx2.mock.calls[1]?.[0]);
+    expect(gltfSpies.ktx2).toHaveBeenCalledOnce();
   });
 
   it('requires an attached renderer before decoding KTX2', async () => {

@@ -16,6 +16,10 @@
       "types": "./dist/assets/index.d.ts",
       "import": "./dist/assets/index.js"
     },
+    "./core": {
+      "types": "./dist/core/index.d.ts",
+      "import": "./dist/core/index.js"
+    },
     "./fx": {
       "types": "./dist/fx/index.d.ts",
       "import": "./dist/fx/index.js"
@@ -27,6 +31,10 @@
     "./proc": {
       "types": "./dist/proc/index.d.ts",
       "import": "./dist/proc/index.js"
+    },
+    "./three": {
+      "types": "./dist/three/index.d.ts",
+      "import": "./dist/three/index.js"
     }
   },
   "scripts": {
@@ -39,6 +47,7 @@
     "lint": "eslint src"
   },
   "dependencies": {
+    "@dimforge/rapier3d-compat": "0.21.0",
     "@ogm/contracts": "workspace:*",
     "@ogm/iframe-bridge": "workspace:*",
     "fastnoise-lite": "1.1.1",

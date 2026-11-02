@@ -9,10 +9,12 @@ await build({
   entryPoints: {
     index: 'src/index.ts',
     'assets/index': 'src/assets/index.ts',
+    'core/index': 'src/core/index.ts',
     'fx/index': 'src/fx/index.ts',
     'nav/index': 'src/nav/index.ts',
     'proc/index': 'src/proc/index.ts',
     'test/index': 'src/test/index.ts',
+    'three/index': 'src/three/index.ts',
   },
   outdir: 'dist',
   bundle: true,
