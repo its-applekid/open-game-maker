@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { Presence } from '@ogm/contracts';
@@ -37,6 +37,26 @@ describe('WatcherOverlay', () => {
 
     expect(screen.getByText('talking to the builder…')).toBeVisible();
     expect(onSelection).toHaveBeenLastCalledWith([]);
+  });
+
+  // The watcher's toggle is the only way to leave the owner's player and look around; each press must reach the game.
+  it('sends Follow and Free to the game camera and shows which is on', () => {
+    const onCamera = vi.fn();
+    const view = (camera: 'follow' | 'free') => (
+      <WatcherOverlay branchName="main" camera={camera} onCamera={onCamera} presence={presence()} version="0.0.4" />
+    );
+    const { rerender } = render(view('follow'));
+
+    const follow = screen.getByRole('button', { name: 'Follow' });
+    const free = screen.getByRole('button', { name: 'Free' });
+    expect(follow).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(free);
+    expect(onCamera).toHaveBeenLastCalledWith('free');
+    rerender(view('free'));
+    expect(free).toHaveAttribute('aria-pressed', 'true');
+    expect(follow).toHaveAttribute('aria-pressed', 'false');
+    fireEvent.click(follow);
+    expect(onCamera).toHaveBeenLastCalledWith('follow');
   });
 
   it('announces a resync without exposing a permanent panel', () => {

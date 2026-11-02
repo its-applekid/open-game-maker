@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { styleChoices, type CatalogFamily } from './catalog';
+import { pickerFamilies, setsForFamily, styleChoices, type CatalogFamily } from './catalog';
 
 const family: CatalogFamily = {
   id: 'isometric-2d',
@@ -12,6 +12,7 @@ const family: CatalogFamily = {
     {
       id: 'public-set',
       label: 'Public set',
+      pickerFamilies: ['pixel-art'],
       vendors: ['kenney'],
       traits: {},
       packs: [],
@@ -19,6 +20,7 @@ const family: CatalogFamily = {
     {
       id: 'licensed-set',
       label: 'Licensed set',
+      pickerFamilies: [],
       vendors: ['vendor'],
       traits: {},
       packs: [],
@@ -32,5 +34,22 @@ describe('styleChoices', () => {
       expect.objectContaining({ id: 'public-set', familyId: 'isometric-2d' }),
       expect.objectContaining({ id: 'licensed-set', familyId: 'isometric-2d' }),
     ]);
+  });
+
+  it('keeps canonical choices unique while exposing picker-family aliases', () => {
+    const pixel: CatalogFamily = {
+      ...family,
+      id: 'pixel-art',
+      label: 'Pixel art',
+      sets: [],
+    };
+
+    expect(styleChoices([pixel, family]).map(({ id }) => id)).toEqual(['pixel-art', 'public-set', 'licensed-set']);
+    expect(setsForFamily([pixel, family], 'pixel-art').map(({ id }) => id)).toEqual(['pixel-art', 'public-set']);
+  });
+
+  it('returns only creation families and uses the picker label for Isometric', () => {
+    expect(pickerFamilies([family])).toEqual([expect.objectContaining({ id: 'isometric-2d', label: 'Isometric' })]);
+    expect(pickerFamilies([{ ...family, creationChoice: false }])).toEqual([]);
   });
 });

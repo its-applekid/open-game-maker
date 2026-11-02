@@ -14,13 +14,22 @@ export async function installNewRoutes(page: Page): Promise<NewRouteState> {
   let scopeAgreed = false;
 
   await page.route('**/api/catalog/style-families', (route) => json(route, catalog));
-  await page.route('**/e2e/knight.svg', (route) =>
-    route.fulfill({
+  await page.route('**/e2e/*', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('.mp4'))
+      return route.fulfill({ status: 200, contentType: 'video/mp4', body: Buffer.from([0, 0, 0, 0]) });
+    if (path.endsWith('.gif'))
+      return route.fulfill({
+        status: 200,
+        contentType: 'image/gif',
+        body: Buffer.from('R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==', 'base64'),
+      });
+    return route.fulfill({
       status: 200,
       contentType: 'image/svg+xml',
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128"><rect width="128" height="128" fill="#458588"/></svg>',
-    }),
-  );
+    });
+  });
   await page.route('**/api/v1/games', async (route) => {
     if (route.request().method() === 'POST') return json(route, { id: gameId }, 201);
     return json(route, { games: [] });

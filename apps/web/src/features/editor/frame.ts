@@ -32,6 +32,7 @@ export type GameFrameController = {
   applyDesign(rev: number, doc: DesignDoc, patches: readonly Patch[]): void;
   pick(x: number, y: number): void;
   select(ids: readonly string[]): void;
+  camera(mode: 'follow' | 'free', target?: string): void;
   validatePlacement(prefab: string, pose: Pose, timeoutMs?: number): Promise<PlacementResult>;
   onPicked(callback: (targets: TargetRef[]) => void): () => void;
   onScreen(
@@ -112,6 +113,8 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       onSaveWrite: options.onSaveWrite,
       onEvent: options.onEvent,
       onError: (failure) => {
+        /* The game declined an optional command (a camera mode, selection) and keeps running. */
+        if (failure.code === 'unsupported') return;
         current = { bridgeState: 'error', error: failure.message };
         publish();
       },
@@ -158,6 +161,9 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     },
     select: (ids) => {
       frame.send('editor.select', { ids: [...ids] });
+    },
+    camera: (mode, target) => {
+      frame.send('editor.camera', target === undefined ? { mode } : { mode, target });
     },
     validatePlacement: (prefab, pose, timeoutMs = 3_000) =>
       new Promise((resolve) => {

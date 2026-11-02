@@ -11,8 +11,11 @@ import { sha256File } from './lock.js';
 
 export type EntrySource = NonNullable<LockEntry['source']>;
 
+export type ResolvedFile = { path: string; absolute: string; sha256: string };
+
 export type Resolution =
-  { ok: true; primary: string } | { ok: false; rule: 'missing-file' | 'sha-mismatch'; detail: string; fix: string };
+  | { ok: true; primary: string; files: ResolvedFile[] }
+  | { ok: false; rule: 'missing-file' | 'sha-mismatch'; detail: string; fix: string };
 
 export type Locations = {
   cwd: string;
@@ -99,6 +102,7 @@ export async function resolveEntry(entry: LockEntry, where: Locations): Promise<
   }
 
   let primary: string | null = null;
+  const resolved: ResolvedFile[] = [];
   for (const file of files) {
     const absolute =
       source === 'blob'
@@ -111,6 +115,7 @@ export async function resolveEntry(entry: LockEntry, where: Locations): Promise<
       return { ok: false, rule: 'sha-mismatch', detail: `${file.path} sha256 does not match the lock`, fix };
     }
     primary ??= absolute;
+    resolved.push({ ...file, absolute });
   }
-  return { ok: true, primary: primary! };
+  return { ok: true, primary: primary!, files: resolved };
 }

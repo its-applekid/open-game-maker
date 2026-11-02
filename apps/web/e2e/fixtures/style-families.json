@@ -1,5 +1,56 @@
 [
   {
+    "id": "chunky-low-poly",
+    "label": "Chunky low poly",
+    "dimension": "3d",
+    "fidelity": "low poly",
+    "views": ["orbit", "follow"],
+    "creationChoice": true,
+    "coverage": { "characters": true, "environment": true, "props": true, "ui": false, "sfx": false, "music": false },
+    "packs": [],
+    "sets": [
+      {
+        "id": "chunky",
+        "label": "Chunky set",
+        "pickerFamilies": [],
+        "vendors": ["fixture"],
+        "traits": { "polycount_band": "low", "judgment": "fixture" },
+        "packs": [{ "id": "chunky", "name": "Chunky", "thumbnailUrl": "/e2e/chunky.svg", "compatibleWith": [] }]
+      }
+    ]
+  },
+  {
+    "id": "pixel-art",
+    "label": "Pixel art",
+    "dimension": "2d",
+    "fidelity": "pixel art",
+    "views": ["topdown", "side"],
+    "creationChoice": true,
+    "coverage": { "characters": true, "environment": true, "props": true, "ui": false, "sfx": false, "music": false },
+    "packs": [],
+    "sets": [
+      {
+        "id": "pixel-town",
+        "label": "Pixel Town",
+        "pickerFamilies": [],
+        "vendors": ["fixture"],
+        "traits": { "pixel_size": "16 px", "judgment": "fixture" },
+        "packs": [{ "id": "pixel-town", "name": "Pixel Town", "thumbnailUrl": "/e2e/pixel.svg", "compatibleWith": [] }]
+      }
+    ]
+  },
+  {
+    "id": "flat-cartoon",
+    "label": "Flat cartoon",
+    "dimension": "2d",
+    "fidelity": "flat",
+    "views": ["fixed"],
+    "creationChoice": true,
+    "coverage": { "characters": true, "environment": true, "props": true, "ui": false, "sfx": false, "music": false },
+    "packs": [],
+    "sets": []
+  },
+  {
     "id": "isometric-2d",
     "label": "Isometric 2D",
     "dimension": "2d",
@@ -12,12 +63,37 @@
       {
         "id": "smallscaleint",
         "label": "SmallScaleInt",
+        "pickerFamilies": ["pixel-art"],
         "vendors": ["smallscaleint"],
         "traits": { "perspective": "isometric 2:1", "judgment": "one set" },
         "packs": [
           { "id": "smallscaleint-knight", "name": "Knight", "thumbnailUrl": "/e2e/knight.svg", "compatibleWith": [] }
-        ]
+        ],
+        "showcase": {
+          "tileVideoUrl": "/e2e/showcase.tiles.mp4",
+          "sheetVideoUrl": "/e2e/showcase.sheets.mp4",
+          "stops": [
+            {
+              "id": "fantasy",
+              "label": "Fantasy",
+              "startSeconds": 0,
+              "tileFallbackUrl": "/e2e/fantasy.tile.gif",
+              "sheetFallbackUrl": "/e2e/fantasy.sheet.gif"
+            }
+          ]
+        }
       }
     ]
+  },
+  {
+    "id": "sketch",
+    "label": "Sketch",
+    "dimension": "2d",
+    "fidelity": "line art",
+    "views": ["fixed"],
+    "creationChoice": true,
+    "coverage": { "characters": true, "environment": true, "props": true, "ui": false, "sfx": false, "music": false },
+    "packs": [],
+    "sets": []
   }
 ]

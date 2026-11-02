@@ -97,6 +97,8 @@ export function GameScreen() {
   const [pendingBuild, setPendingBuild] = useState<{ snapshot: DesignSnapshot; report: ReapplyReport }>();
   const [publishedBuildId, setPublishedBuildId] = useState<string>();
   const [lastSaveAt, setLastSaveAt] = useState<string>();
+  /* Outlives the watcher overlay (unmounted while playing); a new frame starts its game on the default follow camera. */
+  const [watcherCamera, setWatcherCamera] = useState<'follow' | 'free'>('follow');
   const inspectedBuildRef = useRef<string | undefined>(undefined);
   const inspectedJobRef = useRef<string | undefined>(undefined);
   const activeSnapshot = adopted?.gameId === gameId && adopted.branch === branch ? adopted.snapshot : design.data;
@@ -159,6 +161,7 @@ export function GameScreen() {
     });
     frameRef.current = controller;
     setFrameController(controller);
+    setWatcherCamera('follow');
     return () => {
       controller.dispose();
       if (frameRef.current === controller) frameRef.current = undefined;
@@ -169,6 +172,11 @@ export function GameScreen() {
   useEffect(() => {
     frameRef.current?.setMode(mode);
   }, [mode]);
+
+  useEffect(() => {
+    if (mode !== 'edit' || room.snapshot?.role !== 'peer' || room.snapshot.phase !== 'editing') return;
+    frameController?.camera(watcherCamera);
+  }, [frameController, mode, room.snapshot?.phase, room.snapshot?.role, watcherCamera]);
 
   useEffect(() => {
     if (mode !== 'edit' || room.snapshot?.role === 'peer' || activeSnapshot === undefined || gameId === '') {
@@ -371,6 +379,10 @@ export function GameScreen() {
         <RoomLayer
           gameTitle={game.data?.title ?? ''}
           lastSaveAt={lastSaveAt}
+          camera={watcherCamera}
+          onCamera={(cameraMode) => {
+            setWatcherCamera(cameraMode);
+          }}
           onLeave={() => void leaveRoom()}
           onMode={setMode}
           onSelection={(ids) => frameRef.current?.select(ids)}

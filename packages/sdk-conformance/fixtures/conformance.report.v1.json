@@ -1,0 +1,82 @@
+{
+  "sdkProtocol": 1,
+  "renderer": "ANGLE (Intel, Mesa Intel(R) UHD Graphics (CML GT2), OpenGL ES 3.2)",
+  "gl": "gpu",
+  "game": {
+    "dir": "templates/game-2d",
+    "manifestId": "game-2d"
+  },
+  "checks": [
+    {
+      "id": "C1",
+      "name": "manifest-valid",
+      "status": "pass",
+      "detail": "2 controls, 1 palette items, ids unique"
+    },
+    {
+      "id": "C2",
+      "name": "controls-round-trip",
+      "status": "pass",
+      "detail": "6 control values applied and reverted byte-equal"
+    },
+    {
+      "id": "C3",
+      "name": "save-round-trip",
+      "status": "pass",
+      "detail": "save v1 restored byte-equal",
+      "artifacts": ["out/save.json"]
+    },
+    {
+      "id": "C4",
+      "name": "previous-save-migrates",
+      "status": "pass",
+      "detail": "save v1 restored unchanged"
+    },
+    {
+      "id": "C5",
+      "name": "capabilities-optional",
+      "status": "unchecked",
+      "detail": "the manifest declares no optional capabilities"
+    },
+    {
+      "id": "C6",
+      "name": "pause-halts",
+      "status": "pass",
+      "detail": "tick frozen at 6 through 100 ms of steps and 2 frames; resumed to 12"
+    },
+    {
+      "id": "C7",
+      "name": "stills-safe-area",
+      "status": "pass",
+      "detail": "desktop 10 colours, 1/1 players located in the safe area; ipad 8 colours, 1/1 players located in the safe area",
+      "artifacts": ["out/still-desktop.png", "out/still-ipad.png"]
+    },
+    {
+      "id": "C8",
+      "name": "published-no-debug",
+      "status": "pass",
+      "detail": "5 bundle files clean; no globals; test requests refused"
+    },
+    {
+      "id": "C9",
+      "name": "override-hints",
+      "status": "pass",
+      "detail": "2 previous control ids resolve; 2 folded overrides apply deterministically"
+    },
+    {
+      "id": "C10",
+      "name": "entity-ids-stable",
+      "status": "pass",
+      "detail": "3 previous entity ids kept or retired"
+    },
+    {
+      "id": "C11",
+      "name": "palette-undo",
+      "status": "pass",
+      "detail": "1 palette items placed and undone byte-equal; tools select, place checked statically (dynamic undo waits for OGM-075)"
+    }
+  ],
+  "stills": ["out/still-desktop.png", "out/still-ipad.png"],
+  "startedAt": "2026-11-02T16:17:21.130Z",
+  "durationMs": 88404
+}

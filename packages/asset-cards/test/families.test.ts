@@ -148,6 +148,7 @@ describe('style-families.json', () => {
       .find((f) => f.id === 'isometric-2d')!
       .sets.find((candidate) => candidate.id === 'smallscaleint');
     expect(set?.packs.map((pack) => pack.id).sort()).toEqual(SMALLSCALEINT_PACKS);
+    expect(set?.picker_families).toEqual(['pixel-art']);
     expect(set?.traits).toMatchObject({ perspective: 'isometric 2:1' });
     expect(set?.previews).toEqual({
       specimen: 'sets/smallscaleint/specimen.png',
@@ -236,6 +237,16 @@ describe('StyleFamilySchema', () => {
     families
       .find((entry) => entry.id === 'isometric-2d')!
       .sets.find((set) => set.id === 'smallscaleint')!.previews!.trailer = 'sets/../private.mp4';
+
+    expect(StyleFamiliesSchema.safeParse(families).success).toBe(false);
+  });
+
+  it('refuses unknown picker-family aliases', () => {
+    const families = structuredClone(loadFamilies());
+    Object.assign(
+      families.find((entry) => entry.id === 'isometric-2d')!.sets.find((set) => set.id === 'smallscaleint')!,
+      { picker_families: ['photoreal'] },
+    );
 
     expect(StyleFamiliesSchema.safeParse(families).success).toBe(false);
   });

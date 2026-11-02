@@ -101,7 +101,7 @@ export async function buildKit(job: BuildJob): Promise<FreshJobResult> {
   );
   const measurement = await textureMeasurements(target);
   const bytes = Buffer.from(await io.writeBinary(target));
-  const name = outputName(job.slug, '*', bytes, 'glb');
+  const name = outputName(bytes, 'glb');
   return {
     files: {
       [name]: {

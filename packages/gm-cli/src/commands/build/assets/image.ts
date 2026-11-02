@@ -17,7 +17,7 @@ export async function buildImage(job: BuildJob): Promise<FreshJobResult> {
   const output = await sharp(bytes).metadata();
   const width = output.width ?? input.width;
   const height = output.height ?? input.height;
-  const name = outputName(job.slug, '*', bytes, 'webp');
+  const name = outputName(bytes, 'webp');
   return {
     files: {
       [name]: {

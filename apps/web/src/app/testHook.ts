@@ -10,6 +10,7 @@ export type OgmHost = {
   register(name: string, api: object): void;
   get(name: string): object | undefined;
   snapshot(): { route: string; registered: string[] };
+  admin?: { readonly route: string; readonly lastTimeline: unknown };
 };
 
 declare global {

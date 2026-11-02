@@ -50,7 +50,7 @@ export async function buildModel(job: BuildJob): Promise<FreshJobResult> {
     await document.transform(resample(), prune(), meshopt({ encoder: MeshoptEncoder, level: 'high' }));
     const measurement = await textureMeasurements(document);
     const bytes = Buffer.from(await io.writeBinary(document));
-    const name = outputName(job.slug, tier, bytes, 'glb');
+    const name = outputName(bytes, 'glb');
     files[name] = {
       bytes: bytes.length,
       tris: triangles(document),

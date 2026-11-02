@@ -62,6 +62,7 @@ const netEvent = z.looseObject({ seq: z.number().int().min(0), data: netData });
 const save = z.looseObject({ saveSchemaVersion: z.number().int().min(0), data: z.unknown() });
 const playMode = z.enum(['play', 'edit']);
 const testMs = z.looseObject({ ms: z.number().min(0) });
+const cameraCommand = z.looseObject({ mode: z.enum(['follow', 'free']), target: z.string().min(1).optional() });
 const placementResult = z.discriminatedUnion('ok', [
   z.looseObject({ ok: z.literal(true) }),
   z.looseObject({ ok: z.literal(false), reason: z.string().max(200) }),
@@ -97,6 +98,11 @@ export const hostToGameSchema = z
     /** Normalized 0..1 of the frame. */
     envelope('editor.pick', z.looseObject({ x: z.number().min(0).max(1), y: z.number().min(0).max(1) })),
     envelope('editor.validatePlacement', z.looseObject({ prefab: z.string(), pose: poseSchema })),
+    /**
+     * Presence, not design state: any role may send it. `follow` tracks `target` (an entity id; the game's
+     * default player when absent); `free` is the editor pan/zoom. Edit mode only; play mode keeps the play rig.
+     */
+    envelope('editor.camera', cameraCommand),
     /** Host pad + touch overlay. */
     envelope('input.frame', actionFrameSchema),
     envelope(

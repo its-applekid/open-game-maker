@@ -68,6 +68,8 @@ describe('game frame adapter', () => {
 
     controller.pick(0.25, 0.75);
     controller.select(['e_01BX5ZZKBKACTAV9WEVGEMMVRZ']);
+    controller.camera('free');
+    controller.camera('follow', 'player_0');
     const firstPlacement = controller.validatePlacement('skeleton', { position: [2, 0, 3] });
     const secondPlacement = controller.validatePlacement('bat', { position: [3, 0, 4] });
     controller.pause();
@@ -75,6 +77,8 @@ describe('game frame adapter', () => {
     controller.restoreSave({ saveSchemaVersion: 1, data: { room: 'crypt' } });
     expect(frame.send).toHaveBeenCalledWith('editor.pick', { x: 0.25, y: 0.75 });
     expect(frame.send).toHaveBeenCalledWith('editor.select', { ids: ['e_01BX5ZZKBKACTAV9WEVGEMMVRZ'] });
+    expect(frame.send).toHaveBeenCalledWith('editor.camera', { mode: 'free' });
+    expect(frame.send).toHaveBeenCalledWith('editor.camera', { mode: 'follow', target: 'player_0' });
     expect(frame.send).toHaveBeenCalledWith('editor.validatePlacement', {
       prefab: 'skeleton',
       pose: { position: [2, 0, 3] },
@@ -175,6 +179,11 @@ describe('game frame adapter', () => {
         };
       },
     });
+
+    // A game without camera modes answers a watcher's Free with `unsupported`; that must not take the game away.
+    const before = controller.state();
+    frameOptions?.onError?.({ code: 'unsupported', message: 'camera modes are not supported' });
+    expect(controller.state()).toEqual(before);
 
     frameOptions?.onError?.({ code: 'ready-timeout', message: 'game did not become ready in time' });
 

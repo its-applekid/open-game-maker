@@ -19,6 +19,7 @@ const catalog = [
       {
         id: 'smallscaleint',
         label: 'SmallScaleInt',
+        pickerFamilies: ['pixel-art'],
         vendors: ['smallscaleint'],
         traits: { perspective: 'isometric 2:1', judgment: 'one set' },
         packs: [
@@ -85,16 +86,18 @@ describe('NewGameScreen', () => {
     expect(screen.getByText('“Delivery”')).toBeVisible();
   }, 20_000);
 
-  it('uses catalog sets as style choices and filters point of view', async () => {
+  it('selects from a catalog family detail and filters point of view', async () => {
     renderScreen();
 
     fireEvent.click(button('Platformer'));
     fireEvent.click(button('Next'));
     fireEvent.click(button('Skip'));
 
-    const style = await screen.findByRole('button', { name: /SmallScaleInt/ });
-    expect(screen.getByRole('img', { name: 'Knight preview' })).toHaveAttribute('src', '/knight.webp');
-    fireEvent.click(style);
+    const family = await screen.findByRole('button', { name: 'Isometric' });
+    expect(screen.queryByText('SmallScaleInt')).not.toBeInTheDocument();
+    fireEvent.click(family);
+    expect(screen.getByRole('img', { name: 'SmallScaleInt preview' })).toHaveAttribute('src', '/knight.webp');
+    fireEvent.click(screen.getByRole('button', { name: 'Select SmallScaleInt' }));
     fireEvent.click(button('Next'));
     fireEvent.click(button('Skip'));
     fireEvent.click(button('Solo'));
@@ -102,6 +105,23 @@ describe('NewGameScreen', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Follow' })).toBeVisible());
     expect(screen.queryByRole('button', { name: 'Isometric' })).not.toBeInTheDocument();
+  });
+
+  it('replaces an Other style with the selected catalog set', async () => {
+    renderScreen('/new?step=family');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Other' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Type it' }));
+    fireEvent.change(screen.getByRole('textbox', { name: 'Your own style' }), { target: { value: 'Clay' } });
+    fireEvent.click(button('Add'));
+    expect(screen.getByText('“Clay”')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Select SmallScaleInt' }));
+    expect(screen.queryByText('“Clay”')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
+    expect(screen.getByRole('button', { name: 'Select SmallScaleInt' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('offers a working retry when game creation fails', async () => {

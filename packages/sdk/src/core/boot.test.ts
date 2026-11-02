@@ -120,6 +120,30 @@ describe('boot', () => {
     expect(runtime.instance.serialize().data.counter).toBe(1);
   });
 
+  // A watcher's Follow/Free toggle must reach the game's camera, and a game without camera modes must say so.
+  it('routes editor.camera to setCamera and reports unsupported games', async () => {
+    const { runtime } = await start();
+    const setCamera = vi.fn();
+    runtime.instance.setCamera = setCamera;
+    bridge.onMessage!(message('editor.camera', { mode: 'free' }));
+    bridge.onMessage!(message('editor.camera', { mode: 'follow', target: 'player_1' }));
+    expect(setCamera.mock.calls).toEqual([
+      ['free', undefined],
+      ['follow', 'player_1'],
+    ]);
+
+    delete runtime.instance.setCamera;
+    const unsupported = message('editor.camera', { mode: 'free' });
+    bridge.onMessage!(unsupported);
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: 'error',
+        replyTo: unsupported.id,
+        payload: expect.objectContaining({ code: 'unsupported' }),
+      }),
+    );
+  });
+
   it('uses the compiled build kind instead of the host claim', async () => {
     const { runtime } = await start({ helloBuild: 'published' });
 

@@ -58,7 +58,7 @@ Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animat
 ## `gm` cheat sheet
 
 - `gm assets search|facets|info` finds and inspects candidate cards.
-- `gm assets sheet` makes the labelled lineup; `gm assets use|register|list|why` records choices and derivatives.
+- `gm assets sheet` makes the labelled lineup; `gm assets use|vendor|register|list|why` records choices and derivatives.
 - `gm maps search` finds map sources; `gm build assets` builds the selected asset manifest.
 - `gm check`, `gm test`, and `gm run` are the definition-of-done gates.
 - `gm shot` captures evidence; `gm perf` checks frame and resource budgets.
@@ -72,6 +72,7 @@ Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animat
 | Skill | Load when… |
 |---|---|
 | gm-core | Starting or resuming any Game Maker build. |
+| gm-asset-showcase | Building or verifying a pre-rendered asset-set showcase. |
 | gm-build | Installing or building in the network-off sandbox. |
 | gm-verify | Checking behavior, visuals, accessibility, performance, or evidence. |
 | gm-genre-platformer | Building or tuning a platformer. |

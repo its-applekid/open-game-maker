@@ -117,6 +117,27 @@ describe('HostBridge', () => {
     owner.bridge.close();
   });
 
+  // Camera is presence, not design: a room watcher must be able to drive its own Follow/Free camera.
+  it('sends editor.camera for a watcher and rejects an invalid mode', async () => {
+    const error = vi.fn();
+    const watcher = harness(() => 'watcher');
+    watcher.bridge.onError(error);
+    watcher.inbound(ready());
+    await watcher.bridge.whenReady;
+    watcher.bridge.send('editor.camera', { mode: 'free' });
+    watcher.bridge.send('editor.camera', { mode: 'follow', target: 'player_0' });
+    expect(watcher.sent).toEqual([
+      expect.objectContaining({ t: 'editor.camera', payload: { mode: 'free' } }),
+      expect.objectContaining({ t: 'editor.camera', payload: { mode: 'follow', target: 'player_0' } }),
+    ]);
+    expect(() => watcher.bridge.send('editor.camera', { mode: 'orbit' } as never)).toThrow(
+      'invalid editor.camera payload',
+    );
+    expect(watcher.sent).toHaveLength(2);
+    expect(error).not.toHaveBeenCalledWith(expect.objectContaining({ code: 'forbidden' }));
+    watcher.bridge.close();
+  });
+
   it('drops unknown and malformed inbound messages through the contract validator', () => {
     const { bridge, validator, stats } = harness(() => 'owner');
     for (const value of [

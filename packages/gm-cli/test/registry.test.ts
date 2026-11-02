@@ -35,13 +35,16 @@ describe('command registry', () => {
   it('registers every dropped-in command, each with help of at most 15 lines', async () => {
     const registry = await loadCommands(COMMANDS_DIR);
     expect([...registry.keys()].sort()).toEqual([
+      'assets export',
       'assets facets',
+      'assets import',
       'assets info',
       'assets list',
       'assets register',
       'assets search',
       'assets sheet',
       'assets use',
+      'assets vendor',
       'assets why',
       'build',
       'build assets',
