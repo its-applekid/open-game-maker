@@ -104,15 +104,45 @@ describe('build chat attachments', () => {
     expect(listSince(deps.sqlite, JOB_ID, 0)).toMatchObject([{ actor: 'creator', kind: 'text', text: null }]);
   });
 
-  it('names a text file too long to inline by its workspace path instead', async () => {
+  // With the file in the workspace the message points at it instead of spending aiur's cap on its content.
+  it('names a text file too long to inline by its workspace path when the workspace has it', async () => {
     const aiur = recordingAiur();
-    const { app } = await makeChatApp(jobTable(chatJob()), aiur.client);
+    const { app, deps } = await makeChatApp(jobTable(chatJob()), aiur.client);
+    registerWorkspace(deps.sqlite, JOB_ID, mkdtempSync(join(tmpdir(), 'ogm-attach-ws-')));
     const long = await uploaded(app, 'x'.repeat(MIRROR_MESSAGE_CAP), 'text/plain', 'long.txt');
     expect((await post(app, { text: 'see the file', attachments: [long.id] })).status).toBe(201);
     await vi.waitFor(() => expect(aiur.texts).toHaveLength(1));
+    expect(aiur.texts[0]).toBe(
+      `see the file\n\nCreator attached the file "long.txt" at .gm/inbox/attachments/${long.id}-long.txt.`,
+    );
+  });
+
+  // No workspace is pinned for the job, so the message is the worker's only copy: no path it cannot open, and as much of
+  // the text as fits.
+  it('inlines a cut-down copy and names no path when the workspace does not have the files', async () => {
+    const aiur = recordingAiur();
+    const { app } = await makeChatApp(jobTable(chatJob()), aiur.client);
+    const long = await uploaded(app, 'x'.repeat(MIRROR_MESSAGE_CAP), 'text/plain', 'long.txt');
+    const image = await uploaded(app, new Uint8Array(await png()), 'image/png', 'door.png');
+    expect((await post(app, { text: 'see the files', attachments: [long.id, image.id] })).status).toBe(201);
+    await vi.waitFor(() => expect(aiur.texts).toHaveLength(1));
+    const text = aiur.texts[0]!;
+    expect(text.length).toBeLessThanOrEqual(MIRROR_MESSAGE_CAP);
+    expect(text).not.toContain('.gm/inbox');
+    expect(text).toMatch(/Creator attached the file "long.txt":\n```\nx{1000,}\n\(truncated\)\n```/);
+    expect(text).toContain('Creator attached the image "door.png"');
+  });
+
+  // aiur caps a message at 8,000 characters; a full-length post must not push its files out of the message.
+  it('keeps every file reference when the creator text is already at the cap', async () => {
+    const aiur = recordingAiur();
+    const { app } = await makeChatApp(jobTable(chatJob()), aiur.client);
+    const ids = [];
+    for (const name of ['a.md', 'b.md', 'c.md']) ids.push((await uploaded(app, '# notes', 'text/markdown', name)).id);
+    expect((await post(app, { text: 'y'.repeat(8000), attachments: ids })).status).toBe(201);
+    await vi.waitFor(() => expect(aiur.texts).toHaveLength(1));
     expect(aiur.texts[0]!.length).toBeLessThanOrEqual(MIRROR_MESSAGE_CAP);
-    expect(aiur.texts[0]).toContain(`.gm/inbox/attachments/${long.id}-long.txt (too long to include here`);
-    expect(aiur.texts[0]).not.toContain('xxxx');
+    for (const name of ['a.md', 'b.md', 'c.md']) expect(aiur.texts[0]).toContain(`Creator attached the file "${name}"`);
   });
 
   it.each([

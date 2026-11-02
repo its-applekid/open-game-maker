@@ -8,16 +8,13 @@ import { JobBundle } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 
 import type { ApiBindings, AppDeps } from '../app/types.js';
-import { getAttachment, jobAttachments, workspacePath } from '../build-chat/attachments.js';
+import { getAttachment, jobAttachments, readBlob, workspacePath } from '../build-chat/attachments.js';
 import { scopeSessions } from '../scope/store.js';
+import { LEAKY } from './leaky.js';
 
 // Resolves an after_create hook's bearer to the one game repo whose daemon holds that secret, or null.
 export type HookDaemonResolver = (secret: string, deps: AppDeps) => Promise<string | null>;
 export type SkillTarball = { version: string; tgz: Buffer };
-
-// Anything token- or email-shaped never leaves in a bundle.
-const LEAKY =
-  /(?<![A-Za-z0-9])(aiur_|ghp_|gho_|github_pat_|sk-|whsec_)[A-Za-z0-9_-]{4,}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 
 // OGM-034 writes each daemon's secret to `~/.config/ogm/daemons/<slug>/hook-secret` (0600) and its env file names
 // only that path; the secret itself never sits in the daemon's environment.
@@ -99,11 +96,9 @@ export function bundleRoutes(opts: { daemonForSecret: HookDaemonResolver; skills
         if (!job || row?.jobId !== job.jobId || row.messageId === null) {
           return c.json({ error: { code: 'not_found' } }, 404);
         }
-        const opened = await deps.blobStore.open(row.blobHash);
-        if (!opened) return c.json({ error: { code: 'not_found' } }, 404);
-        const chunks: Buffer[] = [];
-        for await (const chunk of opened.stream) chunks.push(Buffer.from(chunk as Uint8Array));
-        return c.body(new Uint8Array(Buffer.concat(chunks)), 200, { 'content-type': row.mime });
+        const bytes = await readBlob(deps.blobStore, row.blobHash);
+        if (!bytes) return c.json({ error: { code: 'not_found' } }, 404);
+        return c.body(new Uint8Array(bytes), 200, { 'content-type': row.mime });
       })
       .get('/skills/:file', async (c) => {
         if (!(await daemonRepo(c))) return c.json({ error: { code: 'unauthenticated' } }, 401);

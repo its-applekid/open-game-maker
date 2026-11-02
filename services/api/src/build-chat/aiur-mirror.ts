@@ -3,7 +3,7 @@ import type { Sqlite } from '@ogm/db';
 
 import type { LogLine } from '../app/types.js';
 import type { AiurClientResolver, ChatJobDirectory } from '../app/registry.js';
-import { messageAttachments, mirrorText } from './attachments.js';
+import { inWorkspace, messageAttachments, mirrorText } from './attachments.js';
 import { getChatRow, insertChatRow, markMirror, pendingMirrors, type MediaSigner } from './store.js';
 
 export const MIRROR_FAILED_TEXT = "Your message didn't reach the builder; try again.";
@@ -53,7 +53,7 @@ export function createMirror(deps: MirrorDeps): Mirror {
     const attachments = messageAttachments(deps.sqlite, row.id);
     const message =
       attachments.length > 0
-        ? await mirrorText(row.text, attachments, deps)
+        ? await mirrorText(row.text, attachments, deps, await inWorkspace(deps.sqlite, row.jobId, attachments))
         : (row.text ??
           (row.kind === 'image' && row.mediaHash !== null
             ? `Creator attached an image: ${await deps.sign(row.mediaHash)}`

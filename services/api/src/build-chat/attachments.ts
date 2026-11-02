@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { access, mkdir, realpath, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import type { BlobHash, BlobStore } from '@ogm/blob-store';
@@ -13,6 +13,7 @@ import type { Sqlite } from '@ogm/db';
 
 import { HttpError } from '../app/errors.js';
 import type { LogLine } from '../app/types.js';
+import { LEAKY } from '../internal/leaky.js';
 import { MediaError, putCreatorImage } from './media.js';
 import { workspaceForJob } from './outbox-relay.js';
 
@@ -82,6 +83,8 @@ export async function storeAttachment(
     hash = image.hash;
     mime = 'image/webp';
     size = (await blobStore.head(hash))?.bytes ?? input.bytes.byteLength;
+    // Re-encoding can grow a near-cap source; the message contract caps the stored size.
+    if (size > MAX_IMAGE_ATTACHMENT_BYTES) throw new HttpError(413, 'attachment_too_large');
   } else {
     let text: string;
     try {
@@ -171,14 +174,16 @@ export function workspaceFile(row: Pick<AttachmentRow, 'id' | 'kind' | 'name'>):
     .replace(/[^A-Za-z0-9._-]+/g, '-')
     .replace(/^[.-]+/, '')
     .slice(0, 180);
-  return `${row.id}-${safe === '' ? 'file' : safe}${row.kind === 'image' ? '.webp' : ''}`;
+  // A token-shaped name would make the job bundle refuse to serve, so such a stem is replaced.
+  const stemOut = safe === '' || LEAKY.test(safe) ? row.kind : safe;
+  return `${row.id}-${stemOut}${row.kind === 'image' ? '.webp' : ''}`;
 }
 
 export function workspacePath(row: Pick<AttachmentRow, 'id' | 'kind' | 'name'>): string {
   return `${ATTACHMENT_DIR}/${workspaceFile(row)}`;
 }
 
-async function readBlob(blobStore: BlobStore, hash: BlobHash): Promise<Buffer | null> {
+export async function readBlob(blobStore: BlobStore, hash: BlobHash): Promise<Buffer | null> {
   const opened = await blobStore.open(hash);
   if (!opened) return null;
   const chunks: Buffer[] = [];
@@ -186,39 +191,61 @@ async function readBlob(blobStore: BlobStore, hash: BlobHash): Promise<Buffer | 
   return Buffer.concat(chunks);
 }
 
-// What the worker reads in its aiur message: the creator's words, then each file. Text is inlined while it fits under
-// aiur's cap; every file is also named by its workspace path, and images carry a signed URL as a fallback.
+// True when every file is already in the job's pinned workspace, so the worker can be pointed at it.
+export async function inWorkspace(sqlite: Sqlite, jobId: string, rows: AttachmentRow[]): Promise<boolean> {
+  const workspace = workspaceForJob(sqlite, jobId);
+  if (workspace === null) return false;
+  for (const row of rows) {
+    const present = await access(join(workspace, workspacePath(row))).then(
+      () => true,
+      () => false,
+    );
+    if (!present) return false;
+  }
+  return true;
+}
+
+// What the worker reads in its aiur message: the creator's words, then one line per file. Every file's line is
+// reserved first so none is lost to aiur's cap. Files already in the workspace are named by path; otherwise text is
+// inlined (cut to fit) and images carry a signed URL. Spare room inlines text and adds image URLs in file order.
 export async function mirrorText(
   text: string | null,
   rows: AttachmentRow[],
   deps: { blobStore: BlobStore; sign: (hash: BlobHash) => Promise<string> },
+  placed: boolean,
 ): Promise<string> {
-  const parts = text === null ? [] : [text];
-  let used = text?.length ?? 0;
-  for (const row of rows) {
-    const path = workspacePath(row);
+  const lines = rows.map((row) => {
+    const what = row.kind === 'image' ? 'image' : 'file';
+    return `Creator attached the ${what} "${row.name}"${placed ? ` at ${workspacePath(row)}` : ''}.`;
+  });
+  const reserved = lines.reduce((total, line) => total + line.length + 2, 0);
+  const room = Math.max(0, MIRROR_MESSAGE_CAP - reserved);
+  const words = text === null ? null : text.length <= room ? text : `${text.slice(0, Math.max(0, room - 1))}…`;
+  let spare = room - (words?.length ?? 0);
+  for (const [index, row] of rows.entries()) {
+    const line = lines[index]!;
+    const short = line.slice(0, -1);
+    let full: string;
     if (row.kind === 'image') {
-      const signed = `Creator attached the image "${row.name}" at ${path} (also ${await deps.sign(row.blobHash)}).`;
-      const line =
-        used + signed.length + 2 <= MIRROR_MESSAGE_CAP
-          ? signed
-          : `Creator attached the image "${row.name}" at ${path}.`;
-      parts.push(line);
-      used += line.length + 2;
-      continue;
+      full = `${short} (${await deps.sign(row.blobHash)}).`;
+    } else {
+      const content = (await readBlob(deps.blobStore, row.blobHash))?.toString('utf8') ?? '';
+      const fence = content.includes('```') ? '````' : '```';
+      const block = (body: string) => `${short}:\n${fence}\n${body}\n${fence}`;
+      full = block(content);
+      const overhead = block('').length - line.length;
+      // Outside the workspace the message is the only copy, so a long file is cut to fit rather than dropped.
+      if (full.length - line.length > spare && !placed && spare > overhead + 20) {
+        full = block(`${content.slice(0, spare - overhead - 12)}\n(truncated)`);
+      }
     }
-    const content = (await readBlob(deps.blobStore, row.blobHash))?.toString('utf8') ?? '';
-    const fence = content.includes('```') ? '````' : '```';
-    const inline = `Creator attached the file "${row.name}" at ${path}:\n${fence}\n${content}\n${fence}`;
-    const line =
-      used + inline.length + 2 <= MIRROR_MESSAGE_CAP
-        ? inline
-        : `Creator attached the file "${row.name}" at ${path} (too long to include here; read it there).`;
-    parts.push(line);
-    used += line.length + 2;
+    const extra = full.length - line.length;
+    if (extra <= spare) {
+      lines[index] = full;
+      spare -= extra;
+    }
   }
-  // Only a near-cap message with many files can still overflow; the paths come last, so the creator's words survive.
-  return parts.join('\n\n').slice(0, MIRROR_MESSAGE_CAP);
+  return [...(words === null ? [] : [words]), ...lines].join('\n\n');
 }
 
 // Copies a message's files into the job's pinned workspace so the running worker can open them. Returns false when the
@@ -232,6 +259,10 @@ export async function writeAttachmentInbox(
   if (workspace === null) return false;
   const directory = join(workspace, ATTACHMENT_DIR);
   await mkdir(directory, { recursive: true, mode: 0o700 });
+  // The sandbox can write here; a symlinked folder must not redirect the API's write elsewhere.
+  if ((await realpath(directory)) !== join(await realpath(workspace), ATTACHMENT_DIR)) {
+    throw new Error('attachment_inbox_outside_workspace');
+  }
   for (const row of rows) {
     const bytes = await readBlob(deps.blobStore, row.blobHash);
     if (bytes === null) {

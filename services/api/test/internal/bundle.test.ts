@@ -249,13 +249,20 @@ describe('job attachments for the after_create hook', () => {
     expect((await get(`/internal/jobs/by-ticket/12/attachments/${elsewhere.id}`, SECRET_A)).status).toBe(404);
   });
 
-  it('keeps serving the bundle when a file name looks like an email address', async () => {
-    const { deps, get } = await setup();
-    const row = await attach(deps, 'j1', 'kevin@example.com.md', 'm_88000000-0000-4000-8000-000000000001');
-    const response = await get('/internal/jobs/by-ticket/12/bundle', SECRET_A);
-    expect(response.status).toBe(200);
-    expect(JobBundle.parse(await response.json()).attachments?.[0]?.name).toBe(row.id);
-  });
+  // The bundle refuses to serve anything token- or email-shaped, so a creator's file name must never stall the job.
+  it.each(['kevin@example.com.md', 'sk-learn notes.md', 'ghp_abcdefgh.txt'])(
+    'keeps serving the bundle when a file is named %s',
+    async (name) => {
+      const { deps, get } = await setup();
+      const row = await attach(deps, 'j1', name, 'm_88000000-0000-4000-8000-000000000001');
+      const response = await get('/internal/jobs/by-ticket/12/bundle', SECRET_A);
+      expect(response.status).toBe(200);
+      const [listed] = JobBundle.parse(await response.json()).attachments ?? [];
+      expect(listed?.name).toBe(row.id);
+      expect(listed?.path.startsWith(`.gm/inbox/attachments/${row.id}-`)).toBe(true);
+      expect(listed?.path).not.toMatch(/sk-|ghp_|@/);
+    },
+  );
 });
 
 describe('GET /internal/skills/:version.tgz', () => {
