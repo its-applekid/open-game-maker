@@ -137,7 +137,7 @@ export const command: GmCommand = {
     timeline: { type: 'string', help: 'from:to:step seconds tiled into one PNG' },
     record: { type: 'string', help: 'H.264 clip duration, for example 10s' },
     'record-fps': { type: 'number', help: 'clip frame rate from 1 to 60 (default 30)' },
-    'record-native': { type: 'boolean', default: false, help: 'keep source viewport dimensions (default 960 px)' },
+    'record-native': { type: 'boolean', default: false, help: 'record the game canvas at its pixel size (default 960 px page clip)' },
     rig: { type: 'string', help: 'camera rig id' },
     out: { type: 'string', default: 'shots', help: 'direct-run output directory' },
     budgets: { type: 'string', help: 'calibration budget overrides JSON' },

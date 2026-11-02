@@ -38,8 +38,8 @@ logical-input script, checks a save-state round trip, writes a HUD still, runs `
 `gm run` captures deterministic stills, timelines, and H.264 clips from a built game or loopback URL. Clips default to
 30 fps and a phone-safe 960-pixel width. `--record-fps` selects up to 60 fps. `--record-native` records the game canvas
 itself at its pixel size, scaled up only by a whole-number factor to fill the viewport, for pixel art that rescaling
-would soften; it samples the game at up to 12 frames per second and fails if the browser drops a frame. Both flags
-require `--record`, and the shared verifier queue carries them.
+would soften; it renders every frame through the game's deterministic hook, so a clip holds exactly duration x fps
+frames. Both flags require `--record`, and the shared verifier queue carries them.
 
 ## Refresh the skill pack
 

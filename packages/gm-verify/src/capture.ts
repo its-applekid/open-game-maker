@@ -202,7 +202,10 @@ export function nativeUpscale(
 ): { width: number; height: number } | undefined {
   if (!viewport || source.width <= 0 || source.height <= 0) return undefined;
   const factor = viewport.width / source.width;
-  return Number.isInteger(factor) && factor >= 1 && source.height * factor === viewport.height ? viewport : undefined;
+  const even = viewport.width % 2 === 0 && viewport.height % 2 === 0;
+  return Number.isInteger(factor) && factor >= 1 && source.height * factor === viewport.height && even
+    ? viewport
+    : undefined;
 }
 
 export async function record(h: HookDriver, options: RecordOptions, out: string, binary = 'ffmpeg'): Promise<void> {
