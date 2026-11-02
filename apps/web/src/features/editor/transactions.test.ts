@@ -1,0 +1,99 @@
+import { describe, expect, it } from 'vitest';
+
+import { DesignDocSchema, StableIdSchema, type DesignDoc, type EditorCommand, type Entity } from '@ogm/contracts';
+import { apply, canonical } from '@ogm/design-log';
+
+import {
+  coalesceIntents,
+  createEntityIntent,
+  createIntent,
+  createStableId,
+  replayIntent,
+  toTransactionBody,
+} from './transactions';
+
+const entityId = 'e_01BX5ZZKBKACTAV9WEVGEMMVRZ';
+const buildId = 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ';
+
+function baseDoc(): DesignDoc {
+  return DesignDocSchema.parse({
+    schemaVersion: 1,
+    globals: {},
+    entities: {
+      [entityId]: {
+        id: entityId,
+        prefab: 'skeleton',
+        level: 'crypt',
+        origin: 'build',
+        props: { 'enemy.speed': 1 },
+      },
+    },
+  });
+}
+
+function speed(value: number): EditorCommand {
+  return { op: 'set', control: 'enemy.speed', targets: [entityId], value };
+}
+
+describe('editor transaction intents', () => {
+  it('coalesces a 40-step stroke and restores the byte-identical starting document', () => {
+    const original = baseDoc();
+    let current = original;
+    const steps = Array.from({ length: 40 }, (_, index) => {
+      const intent = createIntent(current, [speed(index + 2)], 'Move skeleton');
+      current = intent.doc;
+      return intent;
+    });
+
+    const stroke = coalesceIntents(steps, 'Move skeleton');
+
+    expect(stroke.patches).toHaveLength(1);
+    expect(stroke.inverse).toHaveLength(1);
+    expect(stroke.commands).toHaveLength(40);
+    expect(canonical(apply(apply(original, stroke.patches), stroke.inverse))).toBe(canonical(original));
+  });
+
+  it('replays original commands against a newer snapshot instead of reusing stale patches', () => {
+    const pending = createIntent(baseDoc(), [speed(4)], 'Speed up');
+    const newer = createIntent(baseDoc(), [speed(3)], 'Remote speed').doc;
+
+    const replayed = replayIntent(pending, newer);
+    const body = toTransactionBody(replayed, {
+      baseRev: 7,
+      leaseToken: 12,
+      baseBuildId: buildId,
+      sessionId: 'session-a',
+    });
+
+    expect(body.baseRev).toBe(7);
+    expect(body.commands).toEqual([speed(4)]);
+    expect(body.inverse).not.toEqual(pending.inverse);
+    expect(canonical(apply(replayed.doc, body.inverse))).toBe(canonical(newer));
+    expect(replayed.doc.entities[entityId]?.props['enemy.speed']).toBe(4);
+  });
+
+  it('pairs an entity create invoke with an add patch and exact remove inverse', () => {
+    const original = baseDoc();
+    const entity: Entity = {
+      id: createStableId('e_', 1_700_000_000_000, new Uint8Array(10).fill(7)),
+      prefab: 'key',
+      level: 'crypt',
+      origin: 'creator',
+      props: { color: 'gold' },
+    };
+
+    const intent = createEntityIntent(original, entity, 'Place key');
+
+    expect(StableIdSchema.safeParse(entity.id).success).toBe(true);
+    expect(intent.commands).toEqual([
+      {
+        op: 'invoke',
+        command: 'entity.create',
+        args: { entityId: entity.id, parent: 'crypt', prefab: 'key', props: { color: 'gold' } },
+      },
+    ]);
+    expect(intent.patches).toEqual([{ op: 'add', path: ['entities', entity.id], value: entity }]);
+    expect(intent.inverse).toEqual([{ op: 'remove', path: ['entities', entity.id] }]);
+    expect(canonical(apply(intent.doc, intent.inverse))).toBe(canonical(original));
+  });
+});

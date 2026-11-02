@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "prebuild": "pnpm --filter @ogm/contracts --filter @ogm/iframe-bridge --filter @gm/host --filter @ogm/design-log build",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1 --port 43170",
+    "pretest": "pnpm --filter @ogm/contracts --filter @ogm/iframe-bridge --filter @gm/host --filter @ogm/design-log build",
     "test": "vitest run",
+    "pretypecheck": "pnpm --filter @ogm/contracts --filter @ogm/iframe-bridge --filter @gm/host --filter @ogm/design-log build",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src e2e tools",
     "e2e": "playwright test",
@@ -14,7 +17,10 @@
   },
   "dependencies": {
     "@better-auth/passkey": "1.7.15",
+    "@gm/host": "workspace:*",
     "@noriginmedia/norigin-spatial-navigation": "2.3.0",
+    "@ogm/contracts": "workspace:*",
+    "@ogm/design-log": "workspace:*",
     "@tanstack/react-query": "5.105.1",
     "better-auth": "1.7.15",
     "react": "19.3.1",
