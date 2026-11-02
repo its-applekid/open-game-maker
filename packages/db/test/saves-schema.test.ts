@@ -6,7 +6,7 @@ describe('saves schema', () => {
   it('creates save slots, immutable revisions, and play leases', () => {
     const { sqlite } = openDb(':memory:');
 
-    expect(migrate({ sqlite }).applied).toContain('20261102022001_saves.sql');
+    expect(migrate({ sqlite }).applied).toContain('20261102023822_saves.sql');
     expect(
       sqlite
         .prepare<[], { name: string }>(
