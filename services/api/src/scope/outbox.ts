@@ -28,10 +28,47 @@ export async function handle(line: AgentOutboxLine, ctx: OutboxContext): Promise
 
   const scopeJson = JSON.stringify(scope);
   const hash = createHash('sha256').update(scopeJson).digest('hex');
-  if (row.scopeHash === hash) return;
-  if (row.status !== 'open' || row.scopeHash !== null) {
-    ctx.log({ event: 'scope-agreed-rejected', jobId: line.job_id, reason: 'already_resolved', sessionId: row.id });
-    throw new Error('scope_session_already_resolved');
+  if (scope.revision === row.revision && row.scopeHash === hash) return;
+  if (
+    scope.revision === row.revision &&
+    row.scope !== null &&
+    JSON.stringify(AgreedScope.parse(JSON.parse(row.scope) as unknown)) === scopeJson
+  )
+    return;
+  if (scope.revision <= row.revision) {
+    ctx.log({
+      event: 'scope-agreed-rejected',
+      jobId: line.job_id,
+      reason: 'stale_revision',
+      sessionId: row.id,
+      sessionRevision: row.revision,
+      payloadRevision: scope.revision,
+    });
+    throw new Error('scope_revision_stale');
+  }
+  const expectedRevision = row.revision + 1;
+  if (scope.revision !== expectedRevision) {
+    ctx.log({
+      event: 'scope-agreed-rejected',
+      jobId: line.job_id,
+      reason: 'revision_mismatch',
+      sessionId: row.id,
+      expectedRevision,
+      payloadRevision: scope.revision,
+    });
+    throw new Error('scope_revision_mismatch');
+  }
+  const expectedStatus = row.revision === 0 ? 'open' : 'revising';
+  if (row.status !== expectedStatus) {
+    ctx.log({
+      event: 'scope-agreed-rejected',
+      jobId: line.job_id,
+      reason: 'revision_not_started',
+      sessionId: row.id,
+      sessionRevision: row.revision,
+      status: row.status,
+    });
+    throw new Error('scope_revision_not_started');
   }
 
   const inserted = ctx.sqlite
@@ -43,7 +80,7 @@ export async function handle(line: AgentOutboxLine, ctx: OutboxContext): Promise
         at: line.at,
         actor: 'system',
         kind: 'text',
-        text: 'Scope agreed',
+        text: scope.revision === 1 ? 'Scope agreed' : 'Scope revised',
       }).inserted;
     })
     .immediate();

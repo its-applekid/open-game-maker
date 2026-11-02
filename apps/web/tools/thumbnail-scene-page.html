@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OGM thumbnail scene renderer</title>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas width="1024" height="1024" aria-label="Rendered thumbnail scene"></canvas>
+    <script>
+      const canvas = document.querySelector('canvas');
+      const context = canvas.getContext('2d', { alpha: false });
+      context.imageSmoothingEnabled = false;
+      const images = new Map();
+
+      async function imageFor(url) {
+        if (!images.has(url)) {
+          images.set(
+            url,
+            new Promise((resolve, reject) => {
+              const image = new Image();
+              image.onload = () => resolve(image);
+              image.onerror = () => reject(new Error(`could not load local image: ${url}`));
+              image.src = url;
+            }),
+          );
+        }
+        return images.get(url);
+      }
+
+      window.renderThumbnailScene = async (payload) => {
+        context.imageSmoothingEnabled = false;
+        context.fillStyle = payload.background;
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        const layers = [...payload.layers].sort(
+          (left, right) =>
+            left.zOrder - right.zOrder || left.anchorY - right.anchorY || left.id.localeCompare(right.id),
+        );
+        for (const layer of layers) {
+          const image = await imageFor(layer.url);
+          const crop = layer.crop ?? { x: 0, y: 0, width: image.naturalWidth, height: image.naturalHeight };
+          const width = crop.width * layer.scale;
+          const height = crop.height * layer.scale;
+          context.drawImage(
+            image,
+            crop.x,
+            crop.y,
+            crop.width,
+            crop.height,
+            Math.round(layer.anchorX - width / 2),
+            Math.round(layer.anchorY - height),
+            width,
+            height,
+          );
+        }
+        return true;
+      };
+      window.rendererReady = true;
+    </script>
+  </body>
+</html>

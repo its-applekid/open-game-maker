@@ -124,9 +124,36 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await expect(page.locator('.build-chat-panel')).toHaveCSS('height', '390px');
 });
 
-async function installBuildRoutes(page: Page) {
-  await page.route('**/api/v1/games', (route) => json(route, { games: [{ id: job.gameId }] }));
+test('a broken picker leaves the chat dock mounted', async ({ page }) => {
+  await installAuthRoutes(page, { signedIn: true });
+  await installBuildRoutes(page, { brokenPicker: true });
+  await page.goto('/games?test');
+
+  await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
+  await expect(
+    page.locator('#chat-dock-slot').getByRole('button', { name: '1 build running, 50% done. Show progress' }),
+  ).toBeVisible();
+});
+
+async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean } = {}) {
+  await page.route('**/api/v1/games', (route) =>
+    json(route, {
+      games: options.brokenPicker
+        ? [
+            {
+              id: job.gameId,
+              title: { broken: true },
+              familyId: job.familyId,
+              ownerId: job.creatorId,
+              repo: null,
+              createdAt: job.createdAt,
+            },
+          ]
+        : [{ id: job.gameId }],
+    }),
+  );
   await page.route('**/api/v1/jobs?gameId=*', (route) => json(route, { jobs: [job] }));
+  await page.route('**/api/v1/jobs?state=active', (route) => json(route, { jobs: [] }));
   await page.route('**/api/v1/budget/status', (route) => json(route, { unitLabel: 'coins' }));
   await page.route('**/api/v1/voice/token', (route) => json(route, { error: 'unavailable' }, 503));
   await page.route('**/api/v1/notifications/stream', (route) =>

@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { AssetsLock } from '@ogm/contracts';
 
-import { MAP, ORC, SYNTY, WALL, preparedLibrary, useOrc } from './assets-fixture.js';
+import { MAP, ORC, SHEET, SHEET_META, SYNTY, WALL, preparedLibrary, useOrc } from './assets-fixture.js';
 import { gm, tempDir } from './helpers.js';
 
 describe('gm assets use', () => {
@@ -26,6 +26,18 @@ describe('gm assets use', () => {
       },
     ]);
     expect(readFileSync(join(cwd, 'CREDITS.md'), 'utf8')).toContain('CC0 assets from: kenney-mini-dungeon');
+  });
+
+  it('copies card metadata into the lock without changing it', async () => {
+    const cwd = tempDir();
+    const result = await gm(['assets', 'use', SHEET, '--family', 'chunky-low-poly', '--pov', 'iso'], {
+      cwd,
+      env: { OGM_ASSETS_ROOT: preparedLibrary() },
+    });
+
+    expect(result).toEqual({ code: 0, out: [], err: [] });
+    const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    expect(lock.assets[0]?.meta).toEqual(SHEET_META);
   });
 
   it('refuses inspiration-only rights without writing any game files', async () => {

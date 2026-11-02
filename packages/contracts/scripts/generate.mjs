@@ -7,9 +7,40 @@ const schemas = [
   ['MapLayoutSpec', new URL('../schemas/map-layout-spec.schema.json', import.meta.url)],
 ];
 const parts = [];
+const metaBlocks = ['sprite', 'rig', 'kit', 'geometry'];
+
+// The card `$defs` that the asset lock/manifest `meta` re-uses, with every `$ref` they reach.
+// Nested refs (`#/$defs/vocab/x`) become flat keys (`vocab.x`) so zod's fromJSONSchema resolves them.
+function metaDefs(card) {
+  const lookup = (ref) => ref.slice('#/$defs/'.length).split('/').reduce((node, key) => node[key], card.$defs);
+  const defs = {};
+  const rewrite = (node) => {
+    if (Array.isArray(node)) return node.map(rewrite);
+    if (node === null || typeof node !== 'object') return node;
+    return Object.fromEntries(
+      Object.entries(node).map(([key, value]) => {
+        if (key !== '$ref') return [key, rewrite(value)];
+        const flat = value.slice('#/$defs/'.length).replaceAll('/', '.');
+        if (!(flat in defs)) {
+          defs[flat] = {};
+          defs[flat] = rewrite(lookup(value));
+        }
+        return [key, `#/$defs/${flat}`];
+      }),
+    );
+  };
+  for (const block of metaBlocks) rewrite({ $ref: `#/$defs/${block}` });
+  return Object.fromEntries(Object.entries(defs).sort(([left], [right]) => left.localeCompare(right)));
+}
 
 for (const [name, url] of schemas) {
   const schema = JSON.parse(await readFile(url, 'utf8'));
+  if (name === 'AssetCard') {
+    parts.push(
+      `/** Card \`$defs\` closure for the asset lock/manifest \`meta\` blocks (${metaBlocks.join(', ')}). */\n` +
+        `export const assetCardMetaDefs: Record<string, object> = ${JSON.stringify(metaDefs(schema), null, 2)};\n`,
+    );
+  }
   parts.push(
     await compile({ ...schema, title: name }, name, {
       additionalProperties: false,

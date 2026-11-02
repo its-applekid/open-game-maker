@@ -157,6 +157,7 @@ describe('runtime hooks', () => {
       frameMs: 0,
       textureBytes: 0,
       backend: 'headless',
+      net: { dropped: 0, eventGaps: 0, outOfOrderSnapshots: 0, stalls: 0, oversized: 0 },
     });
     runtime.setRenderInfoProvider(() => ({ calls: 1, triangles: 2, frameMs: 3, textureBytes: 4, backend: 'test' }));
     runtime.host.events.emit('analytics', { name: 'started' });

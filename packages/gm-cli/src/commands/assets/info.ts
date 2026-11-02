@@ -10,7 +10,12 @@ function size(card: ResolvedCard): string {
   return duration === undefined ? '-' : `${duration}s`;
 }
 
-/** `id  kind/subkind  size  tris  rig  license  uses`, blank (-) where a kind has no such field. */
+function metadataSummary(card: ResolvedCard): string {
+  const blocks = (['sprite', 'rig', 'kit', 'geometry'] as const).filter((block) => card[block] !== undefined);
+  return `meta=${blocks.join(',') || '-'}`;
+}
+
+/** `id  kind/subkind  size  tris  rig  meta  license  uses`, blank (-) where a kind has no such field. */
 function row(card: ResolvedCard): string {
   const kind = card.card_type === 'asset' ? `${card.kind}/${card.subkind}` : 'collection';
   const tris = card.geometry?.triangles === undefined ? '-' : `${card.geometry.triangles}tris`;
@@ -20,6 +25,7 @@ function row(card: ResolvedCard): string {
     size(card),
     tris,
     card.rig?.rig_id ?? '-',
+    metadataSummary(card),
     card.resolved.license,
     card.resolved.rights.uses.join(',') || '-',
   ].join('  ');

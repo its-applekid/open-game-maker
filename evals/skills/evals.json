@@ -1,0 +1,64 @@
+{
+  "evals": [
+    {
+      "id": "01-lantern-leap",
+      "promptFile": "briefs/01-lantern-leap.md",
+      "expectedMechanics": ["run", "jump", "light beacons", "reach the gate"]
+    },
+    {
+      "id": "02-moonlit-courier",
+      "promptFile": "briefs/02-moonlit-courier.md",
+      "expectedMechanics": ["run", "jump", "deliver letters", "reach the tower"]
+    },
+    {
+      "id": "03-tidal-vault",
+      "promptFile": "briefs/03-tidal-vault.md",
+      "expectedMechanics": ["swim", "surface for air", "open the vault"]
+    },
+    {
+      "id": "04-garden-ward",
+      "promptFile": "briefs/04-garden-ward.md",
+      "expectedMechanics": ["move in four directions", "plant wards", "protect the tree"]
+    },
+    {
+      "id": "05-archive-shadow",
+      "promptFile": "briefs/05-archive-shadow.md",
+      "expectedMechanics": ["sneak", "hide behind shelves", "recover the map"]
+    },
+    {
+      "id": "06-current-circuit",
+      "promptFile": "briefs/06-current-circuit.md",
+      "expectedMechanics": ["rotate tiles", "connect the circuit", "power the dock"]
+    },
+    {
+      "id": "07-lighthouse-keeper",
+      "promptFile": "briefs/07-lighthouse-keeper.md",
+      "expectedMechanics": ["redirect light", "read signal flags", "guide the ship"]
+    },
+    {
+      "id": "08-kitchen-cadence",
+      "promptFile": "briefs/08-kitchen-cadence.md",
+      "expectedMechanics": ["chop on the beat", "stir on the beat", "serve the stew"]
+    },
+    {
+      "id": "09-sorting-shift",
+      "promptFile": "briefs/09-sorting-shift.md",
+      "expectedMechanics": ["sort parcels", "switch conveyor lanes", "clear the backlog"]
+    },
+    {
+      "id": "10-star-choir",
+      "promptFile": "briefs/10-star-choir.md",
+      "expectedMechanics": ["trace constellations", "layer tones", "complete the song"]
+    },
+    {
+      "id": "11-orbital-tow",
+      "promptFile": "briefs/11-orbital-tow.md",
+      "expectedMechanics": ["steer in three dimensions", "attach the tow line", "dock the satellite"]
+    },
+    {
+      "id": "12-sunrise-courier",
+      "promptFile": "briefs/12-sunrise-courier.md",
+      "expectedMechanics": ["run", "jump", "deliver letters", "reach the observatory"]
+    }
+  ]
+}
