@@ -18,6 +18,8 @@ describe('gm asset showcase workflow', () => {
     expect(router).toContain('| gm-asset-showcase |');
     expect(skill).toContain('H.264');
     expect(skill).toContain('faststart');
+    expect(skill).toMatch(/muted/i);
+    expect(skill).toMatch(/playsinline/i);
     expect(skill).toContain('GIF');
     expect(skill).toContain('poster');
     expect(skill).toMatch(/per[- ]region/i);

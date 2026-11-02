@@ -38,7 +38,7 @@ The v2 page consumes pre-rendered video, but the reusable repository guidance do
 #### Continuous world and motion
 
 - R1. The tile track is a square viewport matching the square sprite-sheet track, with a camera that follows the hero.
-- R2. Six ordered regions form one continuous isometric world across diamond-grid seams; every region extends beyond the viewport and no output frame exposes an empty background.
+- R2. Eight ordered regions form one continuous isometric world across diamond-grid seams; every region extends beyond the viewport and no output frame exposes an empty background.
 - R3. The hero uses a walk cycle at a natural visual speed, while each stop remains 7.5 seconds by shortening traversal distance instead of slowing animation.
 
 #### Story staging and asset coverage
@@ -153,14 +153,14 @@ U4 performs the expensive full render and visual correction loop only after focu
 - **Test scenarios:** Invalid actor/target IDs, timing outside the stop, unsupported actions, attacks without reactions, stale sprite lists, uncovered packs, repeated props, tile/sheet overlap, uncovered camera samples at a seam, region bounds smaller than the camera footprint, missing fallback files, non-square outputs, or non-faststart/H.264 media all fail; reordering changes track order without desynchronizing it; repeated still renders at the same timestamp are byte-identical.
 - **Verification:** `check.mjs`, focused still rendering, `ffprobe`, image dimensions, file signatures, and cache-hit evidence establish the pipeline contract.
 
-### U3. Six cohesive authored regions
+### U3. Eight cohesive authored regions
 
 - **Goal:** Turn the eight asset groups, including zombie-city and dinosaurs, into one connected world whose environmental dressing and interactions tell readable stories.
 - **Requirements:** R2, R4–R7; AE1, AE3, AE4, AE6.
 - **Dependencies:** U2.
-- **Files:** `assets-local/sets/smallscaleint/showcase/sequence.json`, `assets-local/sets/smallscaleint/showcase/tiles/fantasy.json`, `assets-local/sets/smallscaleint/showcase/tiles/desert.json`, `assets-local/sets/smallscaleint/showcase/tiles/town.json`, `assets-local/sets/smallscaleint/showcase/tiles/modern-zombie.json`, `assets-local/sets/smallscaleint/showcase/tiles/interior.json`, `assets-local/sets/smallscaleint/showcase/tiles/graveyard.json`, synchronized files under `assets-local/sets/smallscaleint/showcase/sheets/`.
-- **Approach:** Preserve pack coverage and sheet separation while repositioning props and stable-ID actors around region-specific beats: fantasy combat, desert confrontation, village work and grazing, modern street break-in, interior ambush, and graveyard battle; use roads, fences, walls, vehicles, buildings, and cut-aways to make each region larger than the camera.
-- **Test scenarios:** Each attack has an on-screen target during contact; targets face attackers and react or die once; workers and grazers use non-combat loops; the street includes parked vehicles and a visible break-in; the interior reads through its cut-away; every seam remains dressed throughout the square camera path.
+- **Files:** `assets-local/sets/smallscaleint/showcase/sequence.json`, `assets-local/sets/smallscaleint/showcase/tiles/fantasy.json`, `assets-local/sets/smallscaleint/showcase/tiles/desert.json`, `assets-local/sets/smallscaleint/showcase/tiles/dinosaurs.json`, `assets-local/sets/smallscaleint/showcase/tiles/town.json`, `assets-local/sets/smallscaleint/showcase/tiles/modern-zombie.json`, `assets-local/sets/smallscaleint/showcase/tiles/zombie-city.json`, `assets-local/sets/smallscaleint/showcase/tiles/interior.json`, `assets-local/sets/smallscaleint/showcase/tiles/graveyard.json`, synchronized files under `assets-local/sets/smallscaleint/showcase/sheets/`.
+- **Approach:** Preserve pack coverage and sheet separation while repositioning props and stable-ID actors around region-specific beats: fantasy combat, desert confrontation, dinosaur interaction, village work and grazing, a modern zombie street confrontation, a second survivor-versus-zombie city street, interior break-in, and graveyard battle; use roads, fences, walls, vehicles, buildings, and cut-aways to make each region larger than the camera.
+- **Test scenarios:** Each attack has an on-screen target during contact; targets face attackers and react or die once; workers and grazers use non-combat loops; both city streets include parked vehicles and readable confrontations; dinosaurs interact without empty-space attacks; the interior break-in reads through its cut-away; every seam remains dressed throughout the square camera path.
 - **Verification:** Validator output proves coverage/no-repeat/no-overlap, and per-stop story stills prove the intended interaction and setting at the named times.
 
 ### U4. Full render, visual correction, and style-picker publication outputs
