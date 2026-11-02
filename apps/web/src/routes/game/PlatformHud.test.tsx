@@ -110,13 +110,7 @@ describe('PlatformHud', () => {
       .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 5 }] } })
       .mockResolvedValueOnce({ available: true, value: { slots: [{ slotId: 'auto', headRevision: 6 }] } });
     render(
-      <PlatformHud
-        build="draft"
-        frame={test.frame}
-        gameId="game"
-        saves
-        saveApi={{ list, read: vi.fn(), write }}
-      />,
+      <PlatformHud build="draft" frame={test.frame} gameId="game" saves saveApi={{ list, read: vi.fn(), write }} />,
     );
     await waitFor(() => expect(list).toHaveBeenCalledOnce());
     await waitFor(() => expect(test.frame.onSaveWrite).toHaveBeenCalledTimes(2));

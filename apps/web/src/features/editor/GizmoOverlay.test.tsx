@@ -50,9 +50,7 @@ function harness(selection: string[] = []) {
     applyDesign: vi.fn(),
     pick: vi.fn(),
     select: vi.fn(),
-    validatePlacement: vi.fn(
-      () => new Promise<PlacementResult>((resolve) => placements.push(resolve)),
-    ),
+    validatePlacement: vi.fn(() => new Promise<PlacementResult>((resolve) => placements.push(resolve))),
     onPicked: vi.fn((callback) => {
       picked = callback;
       return vi.fn();

@@ -27,7 +27,11 @@ describe('player settings', () => {
   });
 
   it('keeps normalized settings usable when device storage rejects writes', () => {
-    const storage = { setItem: () => { throw new Error('denied'); } } as unknown as Storage;
+    const storage = {
+      setItem: () => {
+        throw new Error('denied');
+      },
+    } as unknown as Storage;
 
     expect(saveSettings({ mute: true, volume: 4, textScale: 0.2, reduceMotion: false }, storage)).toEqual({
       mute: true,

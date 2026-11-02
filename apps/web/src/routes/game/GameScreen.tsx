@@ -98,12 +98,7 @@ export function GameScreen() {
 
   useEffect(() => {
     const signal = readyBuildSignal(jobs.data?.jobs ?? [], branch);
-    if (
-      signal === undefined ||
-      signal === inspectedJobRef.current ||
-      activeSnapshot === undefined ||
-      gameId === ''
-    ) {
+    if (signal === undefined || signal === inspectedJobRef.current || activeSnapshot === undefined || gameId === '') {
       return;
     }
     inspectedJobRef.current = signal;

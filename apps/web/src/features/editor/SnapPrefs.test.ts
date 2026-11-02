@@ -23,7 +23,11 @@ describe('snap preferences', () => {
   });
 
   it('does not interrupt editing when device storage rejects writes', () => {
-    const storage = { setItem: () => { throw new Error('denied'); } } as unknown as Storage;
+    const storage = {
+      setItem: () => {
+        throw new Error('denied');
+      },
+    } as unknown as Storage;
 
     expect(() => saveSnapPrefs('game', { version: 1, enabled: false, grid: 1 }, storage)).not.toThrow();
   });

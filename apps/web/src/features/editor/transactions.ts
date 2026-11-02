@@ -1,4 +1,11 @@
-import { poseSchema, type DesignDoc, type EditorCommand, type Entity, type Patch, type Pose } from '@ogm/contracts/browser';
+import {
+  poseSchema,
+  type DesignDoc,
+  type EditorCommand,
+  type Entity,
+  type Patch,
+  type Pose,
+} from '@ogm/contracts/browser';
 import { apply, makeTransaction, toPointer, validatePatches } from '@ogm/design-log/browser';
 
 import type { TransactionBody } from './api';

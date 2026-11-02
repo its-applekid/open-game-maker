@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { DesignDocSchema, StableIdSchema, type DesignDoc, type EditorCommand, type Entity } from '@ogm/contracts/browser';
+import {
+  DesignDocSchema,
+  StableIdSchema,
+  type DesignDoc,
+  type EditorCommand,
+  type Entity,
+} from '@ogm/contracts/browser';
 import { apply, canonical } from '@ogm/design-log/browser';
 
 import {
