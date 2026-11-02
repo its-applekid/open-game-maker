@@ -17,22 +17,24 @@ Build it with `pnpm build`; until `services/commit/dist/index.js` exists the uni
 
 Create it at `https://github.com/settings/apps/new` (or under the organization that will own game repos), generate a
 private key, and install the App on every owner it must write to: the owner of game repos and the owner of
-`OGM_PLATFORM_ISSUE_REPO`. Webhook can stay inactive (see Events).
+`OGM_PLATFORM_ISSUE_REPO`. Webhook can stay inactive (see Events). For Connect GitHub, set the App's Setup URL to
+`<app-origin>/connect/github` with Redirect on update ticked; the API then asks
+`GET /internal/installations/:id` which account an installation id belongs to (`src/server.ts:105`).
 
 Repository permissions, each with the calls that need it:
 
 | Permission | Access | Calls |
 | --- | --- | --- |
 | Administration | Read and write | create repo `POST /orgs/{org}/repos` or `POST /user/repos` (`src/ops/repository.ts:5`, used by `create-repo.ts:24` and `fork.ts:116`); ruleset `POST /repos/{owner}/{repo}/rulesets` (`src/ops/create-repo.ts:37`); invite the builder bot `PUT /repos/{owner}/{repo}/collaborators/{username}` (`src/ops/create-repo.ts:54`); make public `PATCH /repos/{owner}/{repo}` (`src/ops/create-repo.ts:60`, `src/ops/set-visibility.ts:19`, `src/ops/fork.ts:65`) |
-| Contents | Read and write | git blobs, trees, commits (`src/ops/git-data.ts:16`, `:23`, `:39`; `src/ops/fork.ts:79`, `:83`, `:126`, `:129`, `:136`); refs `POST /repos/{owner}/{repo}/git/refs` (`src/ops/create-repo.ts:28`, `src/ops/create-branch.ts:19`, `src/ops/release.ts:29`, `src/ops/fork.ts:147`); move `main` `PATCH .../git/refs/{ref}` (`src/ops/fold-design.ts:50`); tags `POST .../git/tags` (`src/ops/release.ts:20`); merge `PUT .../pulls/{pull_number}/merge` (`src/ops/merge.ts:28`); reads for the boundary check (`src/boundary/inputs.ts:53`, `:86`, `:177`, `:181`, `:282`) |
+| Contents | Read and write | git blobs, trees, commits (`src/ops/git-data.ts:16`, `:23`, `:39`; `src/ops/fork.ts:79`, `:83`, `:126`, `:129`, `:136`); refs `POST /repos/{owner}/{repo}/git/refs` (`src/ops/create-repo.ts:28`, `src/ops/create-branch.ts:19`, `src/ops/release.ts:29`, `src/ops/fork.ts:147`); move `main` `PATCH .../git/refs/{ref}` (`src/ops/fold-design.ts:50`); tags `POST .../git/tags` (`src/ops/release.ts:20`); a retried release reads its existing tag `GET .../git/ref/{ref}`, `GET .../git/tags/{tag_sha}` (`src/ops/release.ts:53`, `:62`); merge `PUT .../pulls/{pull_number}/merge` (`src/ops/merge.ts:28`); reads for the boundary check (`src/boundary/inputs.ts:53`, `:86`, `:177`, `:181`, `:282`) |
 | Workflows | Read and write | the template's `.github/workflows/ci.yml` (`packages/game-repo-template/src/repo.ts:32`) is in the initial commit and in forked trees; GitHub refuses those refs without it (`src/ops/create-repo.ts:28`, `src/ops/fork.ts:147`) |
 | Pull requests | Read | list open pulls (`src/boundary/poller.ts:21`); one pull (`src/ops/merge.ts:13`, `src/boundary/inputs.ts:125`); its files (`src/boundary/inputs.ts:72`) |
 | Checks | Read and write | read `ogm/boundary` runs (`src/boundary/check-run.ts:54`); create them (`src/boundary/check-run.ts:91`) |
 | Issues | Read and write | platform bug reports `POST /repos/{owner}/{repo}/issues` (`src/ops/file-issue.ts:12`); template labels `POST /repos/{owner}/{repo}/labels` (`src/ops/create-repo.ts:35`) |
 | Metadata | Read | mandatory; existing-repo lookup `GET /repos/{owner}/{repo}` (`src/ops/repository.ts:25`) |
 
-No organization or account permissions. `GET /app/installations` and `GET /app` are signed with the App's JWT and need
-none (`src/auth/app.ts:63`, `:108`).
+No organization or account permissions. `GET /app/installations`, `GET /app/installations/{installation_id}` and `GET /app` are signed
+with the App's JWT and need none (`src/auth/app.ts:63`, `:119`, `:108`).
 
 A personal account as game-repo owner uses `POST /user/repos` with an installation token. GitHub's REST reference lists
 that as allowed, but community reports say it can fail with `Resource not accessible by integration`; an organization
@@ -78,7 +80,7 @@ install -m 600 services/commit/ops/ogm-commit.env.example ~/.config/ogm/env/ogm-
 ### Shared tokens
 
 `OGM_COMMIT_SERVICE_TOKEN` and `OGM_INTERNAL_TOKEN` must be byte-identical in `api.env` and `ogm-commit.env`. The
-first authenticates the API to this service and this service's repo lookups back to the API (`src/server.ts:97`,
+first authenticates the API to this service and this service's repo lookups back to the API (`src/server.ts:98`,
 `src/repo-resolver.ts:21`); the second authenticates boundary reads from the API's `/internal/games/*` routes with
 `X-Ogm-Service: commit` (`src/boundary/api-client.ts:38`). `ogm-env-init api` generates both; copy the values into
 `ogm-commit.env` without printing them, then restart both units.

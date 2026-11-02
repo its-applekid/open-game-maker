@@ -86,6 +86,7 @@ fallback when it is blank.
 | `drive-sync.env` | none; the worker reads `~/.config/ogm/drive-sync.toml` and `drive-sa.json` (`scripts/py/drive-sync/README.md`) | |
 | `backup.env` | `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_BACKUP_TARGET` | |
 | `ogm-commit.env` | `OGM_COMMIT_PORT`, `OGM_DATA_DIR`, `OGM_API_INTERNAL_URL`, `OGM_PLATFORM_ISSUE_REPO`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `OGM_BUILDER_BOT_LOGIN` | `OGM_BLOCKLIST_FILE`, `OGM_GITHUB_WEBHOOK_SECRET` |
+| `repair.env` | `OGM_API_INTERNAL_URL`, `OGM_GAMES_ROOT`; no unit runs `services/repair` yet | |
 
 Names read by more than one unit must hold the same value in each file:
 
@@ -93,9 +94,10 @@ Names read by more than one unit must hold the same value in each file:
 | --- | --- |
 | `OGM_DATA_DIR` | `api`, `backup`, `ogm-commit` |
 | `OGM_BLOB_ROOT` | `api`, `backup` |
-| `OGM_GAMES_ROOT`, `OGM_APP_ORIGIN` | `api`, `games` |
+| `OGM_GAMES_ROOT` | `api`, `games`, `repair` |
+| `OGM_APP_ORIGIN` | `api`, `games` |
 | `OGM_ASSETS_ROOT` | `api`, `intake` |
-| `OGM_API_INTERNAL_URL` | `rooms`, `voice-host`, `ogm-commit` (the API's port) |
+| `OGM_API_INTERNAL_URL` | `rooms`, `voice-host`, `ogm-commit`, `repair` (the API's port) |
 | `OGM_BUILDER_BOT_LOGIN` | `api`, `ogm-commit` |
 | `OGM_WS_TOKEN_SECRET`, `OGM_ROOMS_INTERNAL_SECRET` | `api`, `rooms` |
 | `OGM_VOICE_TOKEN_SECRET`, `OGM_VOICE_INTERNAL_SECRET` | `api`, `voice-host` |
