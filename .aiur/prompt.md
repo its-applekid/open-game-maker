@@ -24,3 +24,9 @@ migration so it sorts after main's latest, give it the next `_journal.json` idx,
 exactly this; the reviewer bounces it every time.
 Never modify an already-merged migration or its journal or snapshot entry: the journal is append-only (a PR that
 re-timestamped main's entry was bounced too).
+
+## Tests that need ffmpeg
+
+ffmpeg is not on every CI runner. Any test that encodes video or audio through ffmpeg must `it.skipIf(!ffmpegAvailable)`
+with the reason in the test name (the audio WAV test shows the pattern), or inject a fake encoder so the result shape
+does not depend on the runner. Three PRs tonight (#231, #212, #220) bounced on this.
