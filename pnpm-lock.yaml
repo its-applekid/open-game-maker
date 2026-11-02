@@ -38,6 +38,9 @@ importers:
       '@colyseus/sdk':
         specifier: 0.18.9
         version: 0.18.9(@colyseus/core@0.18.24)(typescript@6.0.3)(zod@4.6.7)
+      '@gm/host':
+        specifier: workspace:*
+        version: link:../../packages/host
       '@noriginmedia/norigin-spatial-navigation':
         specifier: 2.3.0
         version: 2.3.0(react@19.3.1)
