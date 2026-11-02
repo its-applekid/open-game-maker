@@ -19,9 +19,11 @@ The web screens (title town, games selection, creation, editor, chat panel) keep
 ## Database migrations
 
 Before opening or un-drafting a PR that adds a migration under `packages/db`: merge main first, then re-timestamp your
-migration so it sorts after main's latest, give it the next `_journal.json` idx, and regenerate its snapshot with
-`prevId` = the previous snapshot's id (prettier the JSON). Three PRs in one night (#176, #188, #189) failed review on
-exactly this; the reviewer bounces it every time.
+migration so it sorts after main's latest, give it the next `_journal.json` idx, and regenerate its snapshot by running
+`drizzle-kit generate` on top of main's chain (prettier the JSON); never hand-edit `prevId` or copy an old snapshot: a
+hand-chained snapshot (#265) lacked another migration's columns and made the next regen (#256) try to rebuild a table.
+Three PRs in one night (#176, #188, #189) failed review on exactly this; the reviewer bounces it every time. If the
+reviewer says it is renumbering your migration, stop touching the journal and do not push until told to pull.
 Never modify an already-merged migration or its journal or snapshot entry: the journal is append-only (a PR that
 re-timestamped main's entry was bounced too).
 
