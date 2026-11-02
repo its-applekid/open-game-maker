@@ -236,6 +236,10 @@ function outputMtimes(out: string): Record<string, number> {
   return Object.fromEntries(readdirSync(out).map((name) => [name, statSync(join(out, name)).mtimeMs]));
 }
 
+function outputPath(cwd: string, url: string): string {
+  return join(cwd, 'public', url.slice(1));
+}
+
 describe('gm build assets', () => {
   it('builds tiered assets, validates the manifest, preserves metadata, and reuses the cache', async () => {
     const { cwd, meta } = await fixtureGame();
@@ -243,8 +247,10 @@ describe('gm build assets', () => {
     const first = await gm(['build', 'assets', '--json'], { cwd, env: { GM_EVENTS_FILE: events } });
     expect(first, JSON.stringify(first)).toMatchObject({ code: 0, err: [] });
 
-    const out = join(cwd, 'public/assets');
-    const manifest = assetManifestSchema.parse(JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8')));
+    const out = join(cwd, 'public/a');
+    const manifest = assetManifestSchema.parse(
+      JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')),
+    );
     expect(manifest.tiers).toEqual(['desktop', 'mobile', 'low']);
     expect(manifest.assets['t3:fixture/image-sheet']?.meta).toEqual(meta);
     expect(manifest.assets['t3:fixture/model-grid']?.license).toEqual({
@@ -253,18 +259,18 @@ describe('gm build assets', () => {
       use: 'personal',
     });
     for (const [name, file] of Object.entries(manifest.files)) {
-      expect(statSync(join(out, name)).size).toBe(file.bytes);
+      expect(statSync(outputPath(cwd, name)).size).toBe(file.bytes);
     }
 
     const kitName = manifest.assets['t3:fixture/kit-wall']?.file['*'];
     expect(kitName).toBe(manifest.assets['t3:fixture/kit-tower']?.file['*']);
     expect(manifest.files[kitName!]?.decoders).toEqual(['meshopt']);
-    expect(readFileSync(join(out, kitName!), 'utf8')).toContain('EXT_meshopt_compression');
+    expect(readFileSync(outputPath(cwd, kitName!), 'utf8')).toContain('EXT_meshopt_compression');
     await MeshoptDecoder.ready;
     const io = new NodeIO()
       .registerExtensions(ALL_EXTENSIONS)
       .registerDependencies({ 'meshopt.decoder': MeshoptDecoder });
-    const kit = await io.read(join(out, kitName!));
+    const kit = await io.read(outputPath(cwd, kitName!));
     expect(
       kit
         .getRoot()
@@ -294,7 +300,7 @@ describe('gm build assets', () => {
     }
     const kitInputBytes =
       statSync(join(cwd, 'assets/model/kit/tower.glb')).size + statSync(join(cwd, 'assets/model/kit/wall.glb')).size;
-    expect(statSync(join(out, kitName!)).size).toBeLessThan(kitInputBytes);
+    expect(statSync(outputPath(cwd, kitName!)).size).toBeLessThan(kitInputBytes);
 
     const rigMeta = manifest.assets['t3:fixture/kit-rig-meta']!;
     expect(rigMeta.file['*']).toBeUndefined();
@@ -311,21 +317,21 @@ describe('gm build assets', () => {
 
     const rigged = manifest.assets['t3:fixture/model-rigged']!;
     for (const tier of ['desktop', 'mobile', 'low'] as const) {
-      const document = await io.read(join(out, rigged.file[tier]!));
+      const document = await io.read(outputPath(cwd, rigged.file[tier]!));
       expect(document.getRoot().listSkins()).toHaveLength(1);
       expect(document.getRoot().listSkins()[0]!.listJoints()).toHaveLength(1);
     }
 
     const imageName = manifest.assets['t3:fixture/image-sheet']!.file['*']!;
     expect(imageName.endsWith('.webp')).toBe(true);
-    expect(await sharp(join(out, imageName)).metadata()).toMatchObject({ width: 16, height: 8, format: 'webp' });
+    expect(await sharp(outputPath(cwd, imageName)).metadata()).toMatchObject({ width: 16, height: 8, format: 'webp' });
     if (ffmpegAvailable) {
       const audioName = manifest.assets['t3:fixture/audio-tone']!.file['*']!;
       expect(audioName.endsWith('.mp3')).toBe(true);
-      expect(existsSync(join(out, audioName))).toBe(true);
+      expect(existsSync(outputPath(cwd, audioName))).toBe(true);
     }
     const fontName = manifest.assets['t3:fixture/ui-font']!.file['*']!;
-    expect(readFileSync(join(out, fontName), 'utf8')).toBe('font fixture');
+    expect(readFileSync(outputPath(cwd, fontName), 'utf8')).toBe('font fixture');
 
     const updatedMeta = {
       ...meta,
@@ -354,7 +360,9 @@ describe('gm build assets', () => {
     expect(second.code).toBe(0);
     const secondOutput = JSON.parse(second.out[0]!) as { cache: { hits: number; misses: number } };
     expect(secondOutput.cache.misses).toBeGreaterThanOrEqual(2);
-    const updatedManifest = assetManifestSchema.parse(JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8')));
+    const updatedManifest = assetManifestSchema.parse(
+      JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')),
+    );
     expect(updatedManifest.assets['t3:fixture/image-sheet']?.meta).toEqual(updatedMeta);
     expect(updatedManifest.assets['t3:fixture/model-grid']?.license).toEqual({
       id: 'LicenseRef-updated',
@@ -409,10 +417,7 @@ describe('gm build assets', () => {
     expect(result).toMatchObject({ code: 0, err: [] });
     const manifest = JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')) as AssetManifest;
     const name = manifest.assets['t3:fixture/pixel-sheet']!.file['*']!;
-    const written = await sharp(join(cwd, 'public/assets', name))
-      .removeAlpha()
-      .raw()
-      .toBuffer();
+    const written = await sharp(outputPath(cwd, name)).removeAlpha().raw().toBuffer();
     expect(written.equals(await sharp(source).raw().toBuffer())).toBe(true);
   });
 
@@ -426,7 +431,7 @@ describe('gm build assets', () => {
       /* Both sizes exceed the mobile texture budget; that exit code is not what this test guards. */
       await gm(['build', 'assets'], { cwd, env: {} });
       const manifest = JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')) as AssetManifest;
-      return sharp(join(cwd, 'public/assets', manifest.assets['t3:fixture/tileset']!.file['*']!));
+      return sharp(outputPath(cwd, manifest.assets['t3:fixture/tileset']!.file['*']!));
     };
 
     const pixel = await build('pixel-art');
@@ -447,7 +452,7 @@ describe('gm build assets', () => {
     const result = await gm(['build', 'assets'], { cwd, env: {} });
     expect(result.code).toBe(1);
     expect(result.err.join('\n')).toContain('t3:fixture/bad-model');
-    expect(readdirSync(join(cwd, 'public/assets')).some((name) => name.endsWith('.webp'))).toBe(true);
+    expect(readdirSync(join(cwd, 'public/a')).some((name) => name.endsWith('.webp'))).toBe(true);
     expect(existsSync(join(cwd, 'public/assets/manifest.json'))).toBe(false);
 
     const strictCwd = tempDir('gm-build-corrupt-strict-');
@@ -459,7 +464,7 @@ describe('gm build assets', () => {
     ]);
     const strict = await gm(['build', 'assets', '--strict'], { cwd: strictCwd, env: {} });
     expect(strict.code).toBe(1);
-    expect(existsSync(join(strictCwd, 'public/assets'))).toBe(false);
+    expect(existsSync(join(strictCwd, 'public/a'))).toBe(false);
   });
 
   it.skipIf(!ffmpegAvailable || !ffprobeAvailable)(
@@ -484,7 +489,7 @@ describe('gm build assets', () => {
           'stream=codec_name',
           '-of',
           'csv=p=0',
-          join(cwd, 'public/assets', name),
+          outputPath(cwd, name),
         ],
         { encoding: 'utf8' },
       );

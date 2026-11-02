@@ -1,4 +1,4 @@
-import type { AssetMetadata, LockEntry, Tier } from '@ogm/contracts';
+import type { AssetMetadata, CacheEntryKind, LockEntry, Tier } from '@ogm/contracts';
 
 export type LicenseEntry = {
   id: string;
@@ -47,6 +47,7 @@ export type CacheIdentity = { sourceHash: string; key: string };
 
 export type BuildJob = {
   kind: 'kit' | 'model' | 'image' | 'audio' | 'font';
+  cacheKind: CacheEntryKind;
   slug: string;
   items: BuildItem[];
   tiers: Tier[];
@@ -54,6 +55,8 @@ export type BuildJob = {
   /** Image jobs in a `pixel-art` family game encode losslessly so sheet frames stay exact. */
   pixelArt?: boolean;
 };
+
+export type CompletedJob = { job: BuildJob; result: JobResult };
 
 export type BuildFailure = { id: string; message: string };
 

@@ -1,0 +1,400 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "version": {
+      "type": "number",
+      "const": 1
+    },
+    "gameId": {
+      "type": "string"
+    },
+    "buildId": {
+      "type": "string"
+    },
+    "built": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+    },
+    "sdkVersion": {
+      "type": "string"
+    },
+    "tiers": {
+      "minItems": 1,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "desktop",
+          "mobile",
+          "low"
+        ]
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "url": {
+            "type": "string",
+            "minLength": 1
+          },
+          "bytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "code",
+              "model",
+              "texture",
+              "sprite",
+              "sfx",
+              "music",
+              "voice",
+              "font",
+              "data"
+            ]
+          },
+          "phase": {
+            "type": "string",
+            "enum": [
+              "boot",
+              "ready",
+              "stream"
+            ]
+          },
+          "tiers": {
+            "minItems": 1,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "desktop",
+                "mobile",
+                "low",
+                "*"
+              ]
+            }
+          },
+          "ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "sha256",
+          "url",
+          "bytes",
+          "kind",
+          "phase",
+          "tiers"
+        ],
+        "additionalProperties": {}
+      }
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "desktop": {
+          "type": "object",
+          "properties": {
+            "boot": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            },
+            "ready": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            },
+            "stream": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "boot",
+            "ready",
+            "stream"
+          ],
+          "additionalProperties": false
+        },
+        "mobile": {
+          "type": "object",
+          "properties": {
+            "boot": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            },
+            "ready": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            },
+            "stream": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "boot",
+            "ready",
+            "stream"
+          ],
+          "additionalProperties": false
+        },
+        "low": {
+          "type": "object",
+          "properties": {
+            "boot": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            },
+            "ready": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            },
+            "stream": {
+              "type": "object",
+              "properties": {
+                "bytes": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "files": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "bytes",
+                "files"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "boot",
+            "ready",
+            "stream"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "desktop",
+        "mobile",
+        "low"
+      ],
+      "additionalProperties": false
+    },
+    "lineage": {
+      "type": "object",
+      "properties": {
+        "previousBuildId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "removed": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "addedBytes": {
+          "type": "object",
+          "properties": {
+            "desktop": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "mobile": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            },
+            "low": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "required": [
+            "desktop",
+            "mobile",
+            "low"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "previousBuildId",
+        "added",
+        "removed",
+        "addedBytes"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "version",
+    "gameId",
+    "buildId",
+    "built",
+    "sdkVersion",
+    "tiers",
+    "entries",
+    "totals"
+  ],
+  "additionalProperties": {},
+  "$id": "https://open-game-maker-2000.local/schemas/cache-plan.v1.json"
+}

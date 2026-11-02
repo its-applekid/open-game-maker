@@ -1,6 +1,6 @@
 import { extname, dirname } from 'node:path';
 
-import type { AssetsLock, Tier } from '@ogm/contracts';
+import type { AssetsLock, CacheEntryKind, Tier } from '@ogm/contracts';
 
 import { collectionParts, entrySource, resolveEntry, type Locations } from '../../../resolve.js';
 import { inspectGltf } from './gltf.js';
@@ -14,7 +14,7 @@ const FONT = new Set(['.ttf', '.otf', '.woff', '.woff2']);
 
 function recipe(kind: BuildJob['kind'], tiers: Tier[], items: BuildItem[]): Record<string, unknown> {
   return {
-    version: 1,
+    version: 2,
     kind,
     tiers,
     inputs: items.map((item) => ({
@@ -25,6 +25,20 @@ function recipe(kind: BuildJob['kind'], tiers: Tier[], items: BuildItem[]): Reco
     })),
     tools: { gltfTransform: '4.5.1', meshoptimizer: '1.3.0', sharp: '0.35.5', ffmpeg: 'libmp3lame-q4' },
   };
+}
+
+function cacheKind(kind: BuildJob['kind'], item: BuildItem): CacheEntryKind {
+  if (kind === 'kit' || kind === 'model') return 'model';
+  if (kind === 'font') return 'font';
+  const hint = `${item.entry.id}/${item.entry.path}`.toLowerCase();
+  if (kind === 'image') {
+    return item.meta?.sprite !== undefined || /(?:^|[/_-])(?:sprite|sprites|tile|tiles|tileset)(?:$|[/_.-])/.test(hint)
+      ? 'sprite'
+      : 'texture';
+  }
+  if (/(?:^|[/_-])(?:voice|dialogue)(?:$|[/_.-])/.test(hint)) return 'voice';
+  if (/(?:^|[/_-])(?:music|loop|loops|soundtrack)(?:$|[/_.-])/.test(hint)) return 'music';
+  return 'sfx';
 }
 
 /**
@@ -75,6 +89,7 @@ export async function planBuild(
     const pixelArt = kind === 'image' && lock.family === 'pixel-art';
     jobs.push({
       kind,
+      cacheKind: cacheKind(kind, item),
       slug: slugFromId(entry.id),
       items: [item],
       tiers,
@@ -95,6 +110,7 @@ export async function planBuild(
     if (!eligible) {
       jobs.push({
         kind: 'model',
+        cacheKind: 'model',
         slug: slugFromId(item.entry.id),
         items: [item],
         tiers,
@@ -112,6 +128,7 @@ export async function planBuild(
     const sortedItems = [...items].sort((left, right) => left.entry.id.localeCompare(right.entry.id));
     jobs.push({
       kind: 'kit',
+      cacheKind: 'model',
       slug: kitFolder(items[0]!).split('/').at(-1) ?? 'kit',
       items: sortedItems,
       tiers,

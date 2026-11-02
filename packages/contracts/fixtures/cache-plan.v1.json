@@ -1,0 +1,45 @@
+{
+  "version": 1,
+  "gameId": "",
+  "buildId": "",
+  "built": "2026-11-02T20:00:00.000Z",
+  "sdkVersion": "",
+  "tiers": ["desktop", "mobile", "low"],
+  "entries": [
+    {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "url": "/a/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.webp",
+      "bytes": 100,
+      "kind": "sprite",
+      "phase": "ready",
+      "tiers": ["*"],
+      "ids": ["t3:fixture/sprite/hero"]
+    },
+    {
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "url": "/a/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.mp3",
+      "bytes": 200,
+      "kind": "music",
+      "phase": "stream",
+      "tiers": ["desktop", "mobile"],
+      "ids": ["t3:fixture/music/theme"]
+    }
+  ],
+  "totals": {
+    "desktop": {
+      "boot": { "bytes": 0, "files": 0 },
+      "ready": { "bytes": 100, "files": 1 },
+      "stream": { "bytes": 200, "files": 1 }
+    },
+    "mobile": {
+      "boot": { "bytes": 0, "files": 0 },
+      "ready": { "bytes": 100, "files": 1 },
+      "stream": { "bytes": 200, "files": 1 }
+    },
+    "low": {
+      "boot": { "bytes": 0, "files": 0 },
+      "ready": { "bytes": 100, "files": 1 },
+      "stream": { "bytes": 0, "files": 0 }
+    }
+  }
+}

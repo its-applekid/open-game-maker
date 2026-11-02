@@ -123,6 +123,6 @@ describe('gm build assets sources', () => {
       },
     ]);
     /* The blob asset still built: its tier files are on disk even though the manifest is withheld. */
-    expect(readdirSync(join(cwd, 'public/assets')).some((name) => name.startsWith('door.'))).toBe(true);
+    expect(readdirSync(join(cwd, 'public/a')).some((name) => /^[0-9a-f]{64}\.webp$/.test(name))).toBe(true);
   });
 });

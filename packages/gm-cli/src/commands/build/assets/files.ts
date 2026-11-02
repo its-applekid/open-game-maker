@@ -32,20 +32,20 @@ export function slugFromId(id: string): string {
   );
 }
 
-export function outputName(slug: string, tier: string, bytes: Uint8Array, extension: string): string {
-  return `${slug}.${tier}.${sha256(bytes).slice(0, 8)}.${extension}`;
+export function outputName(bytes: Uint8Array, extension: string): string {
+  return `${sha256(bytes)}.${extension}`;
 }
 
 export function resolveOutputDir(cwd: string, value: string): string {
   if (isAbsolute(value)) throw new UsageError('--out must be relative to the game repo', 'gm build assets');
   const segments = value.replaceAll('\\', '/').split('/');
   if (segments.some((segment) => segment === '..' || segment === '.gm' || segment === 'node_modules')) {
-    throw new UsageError('--out must stay outside .gm and node_modules', 'gm build assets --out public/assets');
+    throw new UsageError('--out must stay outside .gm and node_modules', 'gm build assets --out public/a');
   }
   const root = resolve(cwd);
   const target = resolve(cwd, value);
   if (target === root || !target.startsWith(`${root}${sep}`)) {
-    throw new UsageError('--out must be a directory inside the game repo', 'gm build assets --out public/assets');
+    throw new UsageError('--out must be a directory inside the game repo', 'gm build assets --out public/a');
   }
   return target;
 }
@@ -62,7 +62,7 @@ export async function assertNoSymlinks(root: string, target: string): Promise<vo
   const resolvedTarget = resolve(target);
   const relativeTarget = relative(resolvedRoot, resolvedTarget);
   if (relativeTarget === '..' || relativeTarget.startsWith(`..${sep}`) || isAbsolute(relativeTarget)) {
-    throw new UsageError('asset build path escapes the game repo', 'gm build assets --out public/assets');
+    throw new UsageError('asset build path escapes the game repo', 'gm build assets --out public/a');
   }
   let current = resolvedRoot;
   for (const segment of relativeTarget.split(sep).filter(Boolean)) {
