@@ -32,10 +32,16 @@ export function Members() {
         </div>
       </div>
       <MembersTable
+        busy={role.isPending || remove.isPending}
         currentUserId={me.data.user.id}
+        error={role.isError || remove.isError}
         members={members.data.members}
-        onChangeRole={(userId, nextRole) => role.mutate({ userId, nextRole })}
-        onRemove={(userId) => remove.mutate(userId)}
+        onChangeRole={(userId, nextRole) => role.mutateAsync({ userId, nextRole })}
+        onRemove={(userId) => remove.mutateAsync(userId)}
+        onPrepare={() => {
+          role.reset();
+          remove.reset();
+        }}
       />
     </section>
   );
@@ -43,21 +49,35 @@ export function Members() {
 
 export function MembersTable({
   currentUserId,
+  busy = false,
+  error = false,
   members,
   onChangeRole,
   onRemove,
+  onPrepare = () => undefined,
 }: {
   currentUserId: string;
+  busy?: boolean;
+  error?: boolean;
   members: AdminMember[];
-  onChangeRole(userId: string, role: 'admin' | 'member'): void;
-  onRemove(userId: string): void;
+  onChangeRole(userId: string, role: 'admin' | 'member'): void | Promise<unknown>;
+  onRemove(userId: string): void | Promise<unknown>;
+  onPrepare?(): void;
 }) {
   const [pending, setPending] = useState<PendingAction | null>(null);
-  const confirm = () => {
-    if (!pending) return;
-    if (pending.kind === 'role') onChangeRole(pending.member.userId, pending.role);
-    else onRemove(pending.member.userId);
-    setPending(null);
+  const openPending = (next: PendingAction) => {
+    onPrepare();
+    setPending(next);
+  };
+  const confirm = async () => {
+    if (!pending || busy) return;
+    try {
+      if (pending.kind === 'role') await onChangeRole(pending.member.userId, pending.role);
+      else await onRemove(pending.member.userId);
+      setPending(null);
+    } catch {
+      // The dialog stays open and renders the mutation error supplied by the parent.
+    }
   };
 
   return (
@@ -87,7 +107,7 @@ export function MembersTable({
                           className="admin-secondary tap-secondary"
                           type="button"
                           onClick={() =>
-                            setPending({ kind: 'role', member, role: member.role === 'admin' ? 'member' : 'admin' })
+                            openPending({ kind: 'role', member, role: member.role === 'admin' ? 'member' : 'admin' })
                           }
                         >
                           {member.role === 'admin' ? 'Remove admin' : 'Make admin'}
@@ -98,7 +118,7 @@ export function MembersTable({
                           aria-label={`Remove ${member.email}`}
                           className="admin-secondary tap-secondary"
                           type="button"
-                          onClick={() => setPending({ kind: 'remove', member })}
+                          onClick={() => openPending({ kind: 'remove', member })}
                         >
                           Remove member
                         </button>
@@ -113,6 +133,8 @@ export function MembersTable({
       </div>
       {pending ? (
         <ConfirmDialog
+          busy={busy}
+          error={error ? 'Change could not be saved. Try again.' : undefined}
           title={pending.kind === 'remove' ? 'Remove member?' : 'Change admin role?'}
           onCancel={() => setPending(null)}
           onConfirm={confirm}

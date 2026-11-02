@@ -25,23 +25,36 @@ export function Invites() {
     onSuccess: async () => {
       setEmail('');
       await invalidateAdmin(adminKeys.invites());
+      setPending(null);
     },
   });
   const revoke = useMutation({
     mutationFn: (id: string) => adminRequest(`/admin/invites/${encodeURIComponent(id)}`, { method: 'DELETE' }),
-    onSuccess: () => invalidateAdmin(adminKeys.invites()),
+    onSuccess: async () => {
+      await invalidateAdmin(adminKeys.invites());
+      setPending(null);
+    },
   });
   const friends = useMutation({
     mutationFn: (friendsAllowed: boolean) =>
       adminRequest('/admin/settings', { method: 'PATCH', json: { friendsAllowed } }),
-    onSuccess: () => invalidateAdmin(adminKeys.settings()),
+    onSuccess: async () => {
+      await invalidateAdmin(adminKeys.settings());
+      setPending(null);
+    },
   });
+  const activeMutation = pending?.kind === 'create' ? create : pending?.kind === 'revoke' ? revoke : friends;
+  const openPending = (next: Pending) => {
+    create.reset();
+    revoke.reset();
+    friends.reset();
+    setPending(next);
+  };
   const confirm = () => {
-    if (!pending) return;
+    if (!pending || activeMutation.isPending) return;
     if (pending.kind === 'create') create.mutate(pending);
     else if (pending.kind === 'revoke') revoke.mutate(pending.invite.id);
     else friends.mutate(pending.enabled);
-    setPending(null);
   };
 
   if (invites.isPending || settings.isPending) return <p className="admin-state">Loading invitations…</p>;
@@ -54,7 +67,7 @@ export function Invites() {
         className="admin-form admin-card"
         onSubmit={(event) => {
           event.preventDefault();
-          setPending({ kind: 'create', email, capability });
+          openPending({ kind: 'create', email, capability });
         }}
       >
         <label>
@@ -77,7 +90,7 @@ export function Invites() {
         className="admin-toggle tap-secondary"
         role="switch"
         type="button"
-        onClick={() => setPending({ kind: 'friends', enabled: !settings.data.friendsAllowed })}
+        onClick={() => openPending({ kind: 'friends', enabled: !settings.data.friendsAllowed })}
       >
         <span>Friends can receive play invites</span>
         <span>{settings.data.friendsAllowed ? 'On' : 'Off'}</span>
@@ -103,7 +116,7 @@ export function Invites() {
                     <button
                       className="admin-secondary tap-secondary"
                       type="button"
-                      onClick={() => setPending({ kind: 'revoke', invite })}
+                      onClick={() => openPending({ kind: 'revoke', invite })}
                     >
                       Revoke
                     </button>
@@ -115,7 +128,13 @@ export function Invites() {
         </table>
       </div>
       {pending ? (
-        <ConfirmDialog title="Confirm invitation change?" onCancel={() => setPending(null)} onConfirm={confirm}>
+        <ConfirmDialog
+          busy={activeMutation.isPending}
+          error={activeMutation.isError ? 'Change could not be saved. Try again.' : undefined}
+          title="Confirm invitation change?"
+          onCancel={() => setPending(null)}
+          onConfirm={confirm}
+        >
           <p>
             {pending.kind === 'create'
               ? pending.email

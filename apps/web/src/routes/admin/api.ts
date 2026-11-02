@@ -107,6 +107,7 @@ export function useRollups(scope: 'game' | 'member', days: number, items: { id: 
   return useQuery({
     queryKey: [...adminKeys.rollups(scope, days), ids],
     enabled: items.length > 0,
+    initialData: items.length === 0 ? [] : undefined,
     retry: false,
     queryFn: async (): Promise<RollupRow[]> => {
       const to = new Date();

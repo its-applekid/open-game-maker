@@ -42,4 +42,47 @@ describe('timeline layout', () => {
     expect(open).toMatchObject({ open: true });
     expect(open!.x + open!.width).toBeLessThanOrEqual(result.phases[1]!.x + result.phases[1]!.width);
   });
+
+  it('places and splits activities across every work interval', () => {
+    const result = layoutTimeline(
+      {
+        phases: [
+          { phase: 'dispatch', at: '2026-11-01T00:00:00.000Z' },
+          { phase: 'work', at: '2026-11-01T00:00:02.000Z' },
+          { phase: 'review', at: '2026-11-01T00:00:12.000Z' },
+          { phase: 'work', at: '2026-11-01T00:00:20.000Z' },
+          { phase: 'review', at: '2026-11-01T00:00:50.000Z' },
+          { phase: 'done', at: '2026-11-01T00:01:00.000Z' },
+        ],
+        activities: [
+          {
+            activity: 'audio',
+            startedAt: '2026-11-01T00:00:25.000Z',
+            endedAt: '2026-11-01T00:00:35.000Z',
+          },
+          {
+            activity: 'playtesting',
+            startedAt: '2026-11-01T00:00:05.000Z',
+            endedAt: '2026-11-01T00:00:35.000Z',
+          },
+        ],
+        generatedAt: '2026-11-01T00:01:00.000Z',
+      },
+      600,
+    );
+
+    expect(result.activities.filter(({ label }) => label === 'Audio')).toEqual([
+      expect.objectContaining({ x: 250, width: 100 }),
+    ]);
+    expect(result.activities.filter(({ label }) => label === 'Playtesting')).toEqual([
+      expect.objectContaining({ x: 50, width: 70 }),
+      expect.objectContaining({ x: 200, width: 150 }),
+    ]);
+    const workSegments = result.phases.filter(({ label }) => label === 'work');
+    expect(
+      result.activities.every(({ x, width }) =>
+        workSegments.some((work) => x >= work.x && x + width <= work.x + work.width),
+      ),
+    ).toBe(true);
+  });
 });

@@ -79,7 +79,11 @@ export function RollupGroup({
 }) {
   if (loading) return <p>Loading {label.toLowerCase()}…</p>;
   if (error) return <p>{label} unavailable.</p>;
-  const populated = rows.filter(({ rollup }) => rollup.builds > 0);
+  const populated = rows.filter(
+    ({ rollup }) =>
+      rollup.builds > 0 ||
+      Object.values(rollup.byActivity).some(({ count, durationMs }) => count > 0 || durationMs > 0),
+  );
   return (
     <section className="admin-rollup-group">
       <h4>{label}</h4>

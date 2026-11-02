@@ -1,5 +1,6 @@
 .admin-shell {
   display: grid;
+  min-width: 0;
   gap: 24px;
   padding-block: 32px 96px;
 }
@@ -69,6 +70,7 @@
   color: var(--dark);
 }
 
+.admin-content,
 .admin-content > section {
   min-width: 0;
 }
@@ -286,6 +288,12 @@
   margin: 0;
   font-family: var(--display);
   font-size: 2rem;
+}
+
+.admin-dialog-error {
+  margin: 16px 0 0;
+  color: var(--red-b);
+  font-weight: 800;
 }
 
 .admin-dialog-actions {

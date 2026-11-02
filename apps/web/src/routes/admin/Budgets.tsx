@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 
 import { formatUnits } from '../../features/build-chat/units';
@@ -7,14 +7,61 @@ import { ConfirmDialog } from './ConfirmDialog';
 import type { AdminBudget, AdminMember, AdminSettings } from './types';
 
 export function parseUnits(text: string, microUsdPerUnit: number): number | null {
-  if (text.trim() === '') return null;
-  const value = Number(text);
-  const microUsd = value * microUsdPerUnit;
-  return Number.isFinite(value) && value >= 0 && Number.isSafeInteger(microUsd) ? microUsd : null;
+  const value = text.trim();
+  const match = /^(\d+)(?:\.(\d+))?$/.exec(value);
+  if (!match || value.length > 64 || !Number.isSafeInteger(microUsdPerUnit) || microUsdPerUnit <= 0) return null;
+
+  const fractional = match[2] ?? '';
+  const scale = 10n ** BigInt(fractional.length);
+  const units = BigInt(match[1]!) * scale + BigInt(fractional || '0');
+  const scaledMicroUsd = units * BigInt(microUsdPerUnit);
+  if (scaledMicroUsd % scale !== 0n) return null;
+
+  const microUsd = scaledMicroUsd / scale;
+  return microUsd <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(microUsd) : null;
 }
 
 export function formatEditableUnits(microUsd: number, microUsdPerUnit: number): string {
   return String(microUsd / microUsdPerUnit);
+}
+
+export function parseSlot(value: string): number | null {
+  if (value.trim() === '') return null;
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 0 && parsed <= 8 ? parsed : null;
+}
+
+type SettingsPatch = {
+  resetZone: string;
+  slots: { new_game: number; edit: number };
+  platformCapMicroUsd?: number;
+};
+
+export function buildSettingsPatch({
+  resetZone,
+  cap,
+  capDirty,
+  microUsdPerUnit,
+  newSlots,
+  editSlots,
+}: {
+  resetZone: string;
+  cap: string;
+  capDirty: boolean;
+  microUsdPerUnit: number;
+  newSlots: string;
+  editSlots: string;
+}): SettingsPatch | null {
+  const parsedCap = parseUnits(cap, microUsdPerUnit);
+  const parsedNewSlots = parseSlot(newSlots);
+  const parsedEditSlots = parseSlot(editSlots);
+  if (parsedCap === null || parsedNewSlots === null || parsedEditSlots === null) return null;
+
+  return {
+    resetZone,
+    slots: { new_game: parsedNewSlots, edit: parsedEditSlots },
+    ...(capDirty ? { platformCapMicroUsd: parsedCap } : {}),
+  };
 }
 
 export function Budgets() {
@@ -30,27 +77,43 @@ function BudgetContent({ settings, budget }: { settings: AdminSettings; budget: 
   const [newSlots, setNewSlots] = useState(String(settings.slots.new_game));
   const [editSlots, setEditSlots] = useState(String(settings.slots.edit));
   const [cap, setCap] = useState(formatEditableUnits(settings.platformCapMicroUsd, settings.microUsdPerUnit));
+  const [capDirty, setCapDirty] = useState(false);
   const [confirmSettings, setConfirmSettings] = useState(false);
+  const settingsPatch = buildSettingsPatch({
+    resetZone,
+    cap,
+    capDirty,
+    microUsdPerUnit: settings.microUsdPerUnit,
+    newSlots,
+    editSlots,
+  });
+
+  useEffect(() => {
+    if (!capDirty) {
+      setCap(formatEditableUnits(settings.platformCapMicroUsd, settings.microUsdPerUnit));
+    }
+  }, [capDirty, settings.microUsdPerUnit, settings.platformCapMicroUsd]);
+
   const saveSettings = useMutation({
-    mutationFn: () =>
-      adminRequest('/admin/settings', {
+    mutationFn: () => {
+      if (!settingsPatch) throw new Error('invalid_budget_settings');
+      return adminRequest('/admin/settings', {
         method: 'PATCH',
-        json: {
-          resetZone,
-          platformCapMicroUsd: parseUnits(cap, settings.microUsdPerUnit),
-          slots: { new_game: Number(newSlots), edit: Number(editSlots) },
-        },
-      }),
-    onSuccess: () => invalidateAdmin(adminKeys.settings(), adminKeys.budget()),
+        json: settingsPatch,
+      });
+    },
+    onSuccess: async () => {
+      await invalidateAdmin(adminKeys.settings(), adminKeys.budget());
+      setCapDirty(false);
+      setConfirmSettings(false);
+    },
   });
   const saveAllowance = useMutation({
     mutationFn: ({ userId, dailyMicroUsd }: { userId: string; dailyMicroUsd: number }) =>
       adminRequest(`/admin/allowances/${encodeURIComponent(userId)}`, { method: 'PUT', json: { dailyMicroUsd } }),
-    onSuccess: () => invalidateAdmin(adminKeys.members(), adminKeys.budget()),
+    onSuccess: () => invalidateAdmin(adminKeys.members(), adminKeys.settings(), adminKeys.budget()),
   });
-  const settingsValid =
-    parseUnits(cap, settings.microUsdPerUnit) !== null &&
-    [newSlots, editSlots].every((value) => Number.isInteger(Number(value)) && Number(value) >= 0 && Number(value) <= 8);
+  const settingsValid = settingsPatch !== null;
   const zones = [settings.resetZone, 'UTC', ...Intl.supportedValuesOf('timeZone')].filter(
     (zone, index, all) => all.indexOf(zone) === index,
   );
@@ -84,7 +147,14 @@ function BudgetContent({ settings, budget }: { settings: AdminSettings; budget: 
         </label>
         <label>
           Platform cap ({settings.unitLabel})
-          <input inputMode="decimal" value={cap} onChange={(event) => setCap(event.target.value)} />
+          <input
+            inputMode="decimal"
+            value={cap}
+            onChange={(event) => {
+              setCap(event.target.value);
+              setCapDirty(true);
+            }}
+          />
         </label>
         <p>
           In use: {budget.inUse.new_game} creation · {budget.inUse.edit} edit
@@ -92,9 +162,12 @@ function BudgetContent({ settings, budget }: { settings: AdminSettings; budget: 
         <p>Resets {new Date(budget.resetsAt).toLocaleString()}</p>
         <button
           className="admin-primary tap-primary"
-          disabled={!settingsValid}
+          disabled={!settingsValid || saveSettings.isPending}
           type="button"
-          onClick={() => setConfirmSettings(true)}
+          onClick={() => {
+            saveSettings.reset();
+            setConfirmSettings(true);
+          }}
         >
           Save settings
         </button>
@@ -113,9 +186,12 @@ function BudgetContent({ settings, budget }: { settings: AdminSettings; budget: 
             {budget.members.map((member) => (
               <BudgetMemberRow
                 key={member.userId}
+                busy={saveAllowance.isPending}
+                error={saveAllowance.isError}
                 member={member}
                 settings={settings}
-                onSave={(dailyMicroUsd) => saveAllowance.mutate({ userId: member.userId, dailyMicroUsd })}
+                onPrepare={() => saveAllowance.reset()}
+                onSave={(dailyMicroUsd) => saveAllowance.mutateAsync({ userId: member.userId, dailyMicroUsd })}
               />
             ))}
           </tbody>
@@ -123,12 +199,11 @@ function BudgetContent({ settings, budget }: { settings: AdminSettings; budget: 
       </div>
       {confirmSettings ? (
         <ConfirmDialog
+          busy={saveSettings.isPending}
+          error={saveSettings.isError ? 'Change could not be saved. Try again.' : undefined}
           title="Save family budget settings?"
           onCancel={() => setConfirmSettings(false)}
-          onConfirm={() => {
-            setConfirmSettings(false);
-            saveSettings.mutate();
-          }}
+          onConfirm={() => saveSettings.mutate()}
         >
           <p>
             {cap} {settings.unitLabel}
@@ -140,13 +215,19 @@ function BudgetContent({ settings, budget }: { settings: AdminSettings; budget: 
 }
 
 function BudgetMemberRow({
+  busy,
+  error,
   member,
   settings,
   onSave,
+  onPrepare,
 }: {
+  busy: boolean;
+  error: boolean;
   member: AdminMember;
   settings: AdminSettings;
-  onSave(value: number): void;
+  onSave(value: number): Promise<unknown>;
+  onPrepare(): void;
 }) {
   const [value, setValue] = useState(formatEditableUnits(member.dailyMicroUsd, settings.microUsdPerUnit));
   const [confirm, setConfirm] = useState(false);
@@ -168,19 +249,28 @@ function BudgetMemberRow({
       <td data-label="Actions">
         <button
           className="admin-secondary tap-secondary"
-          disabled={parsed === null}
+          disabled={parsed === null || busy}
           type="button"
-          onClick={() => setConfirm(true)}
+          onClick={() => {
+            onPrepare();
+            setConfirm(true);
+          }}
         >
           Save
         </button>
         {confirm && parsed !== null ? (
           <ConfirmDialog
+            busy={busy}
+            error={error ? 'Change could not be saved. Try again.' : undefined}
             title="Save allowance?"
             onCancel={() => setConfirm(false)}
-            onConfirm={() => {
-              setConfirm(false);
-              onSave(parsed);
+            onConfirm={async () => {
+              try {
+                await onSave(parsed);
+                setConfirm(false);
+              } catch {
+                // The dialog stays open and renders the mutation error supplied by the parent.
+              }
             }}
           >
             <p>

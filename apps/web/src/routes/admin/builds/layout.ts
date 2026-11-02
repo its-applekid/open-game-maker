@@ -55,21 +55,36 @@ export function layoutTimeline(input: TimelineLayoutInput, width: number) {
       row: 'phase',
     };
   });
-  const implementIndex = phases.findIndex(({ phase }) => phase === 'implement' || phase === 'work');
-  const implementStart = implementIndex >= 0 ? Date.parse(phases[implementIndex]!.at) : start;
-  const implementEnd =
-    implementIndex >= 0 && phases[implementIndex + 1] ? Date.parse(phases[implementIndex + 1]!.at) : end;
-  const activities: TimelineSegment[] = input.activities.map((activity, index) => {
-    const activityStart = Math.max(implementStart, Date.parse(activity.startedAt));
-    const activityEnd = Math.min(implementEnd, Date.parse(activity.endedAt ?? input.generatedAt));
-    return {
-      id: `${activity.activity}-${activity.startedAt}-${index}`,
-      label: activityLabel(activity.activity),
-      x: (activityStart - start) * scale,
-      width: Math.max(1, Math.max(0, activityEnd - activityStart) * scale),
-      row: 'activity',
-      ...(activity.endedAt === null ? { open: true } : {}),
-    };
+  const workIntervals = phases.flatMap((phase, index) => {
+    if (phase.phase !== 'implement' && phase.phase !== 'work') return [];
+    const intervalStart = Date.parse(phase.at);
+    const intervalEnd = phases[index + 1] ? Date.parse(phases[index + 1]!.at) : end;
+    return intervalEnd > intervalStart ? [{ start: intervalStart, end: intervalEnd }] : [];
+  });
+  const activityIntervals = workIntervals.length > 0 ? workIntervals : [{ start, end }];
+  const activities: TimelineSegment[] = input.activities.flatMap((activity, activityIndex) => {
+    const activityStart = Date.parse(activity.startedAt);
+    const activityEnd = Date.parse(activity.endedAt ?? input.generatedAt);
+    return activityIntervals.flatMap((interval, intervalIndex) => {
+      const segmentStart = Math.max(interval.start, activityStart);
+      const segmentEnd = Math.min(interval.end, activityEnd);
+      if (segmentEnd <= segmentStart) return [];
+
+      const intervalX = (interval.start - start) * scale;
+      const intervalWidth = Math.max(1, (interval.end - interval.start) * scale);
+      const x = Math.min((segmentStart - start) * scale, intervalX + intervalWidth - 1);
+      const segmentWidth = Math.max(1, Math.max(0, segmentEnd - segmentStart) * scale);
+      return [
+        {
+          id: `${activity.activity}-${activity.startedAt}-${activityIndex}-${intervalIndex}`,
+          label: activityLabel(activity.activity),
+          x,
+          width: Math.min(segmentWidth, intervalX + intervalWidth - x),
+          row: 'activity' as const,
+          ...(activity.endedAt === null ? { open: true } : {}),
+        },
+      ];
+    });
   });
   const minutesByActivity = Object.fromEntries(input.activities.map(({ activity }) => [activity, 0])) as Record<
     string,

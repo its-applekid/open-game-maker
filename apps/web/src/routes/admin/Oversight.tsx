@@ -14,18 +14,29 @@ export function Oversight() {
   const delist = useMutation({
     mutationFn: (gameId: string) =>
       adminRequest(`/admin/games/${encodeURIComponent(gameId)}/delist`, { method: 'POST' }),
-    onSuccess: () => invalidateAdmin(adminKeys.games(), adminKeys.builds()),
+    onSuccess: async () => {
+      await invalidateAdmin(adminKeys.builds());
+      setAction(null);
+    },
   });
   const flag = useMutation({
     mutationFn: (gameId: string) =>
       adminRequest(`/admin/games/${encodeURIComponent(gameId)}/flag-abuse`, { method: 'POST', json: { reason } }),
-    onSuccess: () => invalidateAdmin(adminKeys.games()),
+    onSuccess: async () => {
+      await invalidateAdmin(adminKeys.builds());
+      setAction(null);
+    },
   });
+  const activeMutation = action?.kind === 'delist' ? delist : flag;
+  const openAction = (next: Action) => {
+    delist.reset();
+    flag.reset();
+    setAction(next);
+  };
   const confirm = () => {
-    if (!action) return;
+    if (!action || activeMutation.isPending) return;
     if (action.kind === 'delist') delist.mutate(action.game.id);
     else flag.mutate(action.game.id);
-    setAction(null);
   };
 
   if (data.isPending) return <p className="admin-state">Loading games…</p>;
@@ -64,15 +75,17 @@ export function Oversight() {
                       <button
                         className="admin-secondary tap-primary"
                         type="button"
-                        onClick={() => setAction({ kind: 'delist', game })}
+                        disabled={delist.isPending || flag.isPending}
+                        onClick={() => openAction({ kind: 'delist', game })}
                       >
                         Delist
                       </button>
                     ) : null}
                     <button
                       className="admin-secondary tap-secondary"
+                      disabled={delist.isPending || flag.isPending}
                       type="button"
-                      onClick={() => setAction({ kind: 'flag', game })}
+                      onClick={() => openAction({ kind: 'flag', game })}
                     >
                       Flag abuse
                     </button>
@@ -85,6 +98,8 @@ export function Oversight() {
       </div>
       {action ? (
         <ConfirmDialog
+          busy={activeMutation.isPending}
+          error={activeMutation.isError ? 'Change could not be saved. Try again.' : undefined}
           title={action.kind === 'delist' ? 'Delist this game?' : 'Flag this game?'}
           onCancel={() => setAction(null)}
           onConfirm={confirm}

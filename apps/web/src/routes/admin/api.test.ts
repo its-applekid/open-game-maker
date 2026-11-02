@@ -20,7 +20,10 @@ describe('admin requests', () => {
     const game = (id: string) => ({ id, title: id, ownerId: 'u1', visibility: 'private', delistedAt: null });
     const builds = [{ job: { id: 'j1' }, game: game('g1'), member: { userId: 'u2', email: null }, retries: 0 }];
     const games = [game('g1'), { ...game('g2'), delistedAt: '2026-11-01T00:00:00.000Z' }];
-    const members = [{ userId: 'u1', email: 'owner@example.test' }, { userId: 'u2', email: 'kid@example.test' }];
+    const members = [
+      { userId: 'u1', email: 'owner@example.test' },
+      { userId: 'u2', email: 'kid@example.test' },
+    ];
     const bodies: Record<string, unknown> = {
       '/api/v1/admin/builds': { builds },
       '/api/v1/admin/games?includeDelisted=1': { games },
