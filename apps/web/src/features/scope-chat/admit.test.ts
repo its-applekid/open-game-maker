@@ -6,6 +6,7 @@ import { admitNewGame } from './admit';
 
 const scope: AgreedScope = {
   session_id: 's_1',
+  revision: 1,
   title: 'Midnight Crumbs',
   summary: 'A night bakery delivery game.',
   scope: { included: ['three islands'], excluded: ['online multiplayer'] },
