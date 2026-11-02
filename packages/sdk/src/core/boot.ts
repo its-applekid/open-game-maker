@@ -6,6 +6,7 @@ import { openGameBridge } from '@ogm/iframe-bridge';
 import { EventRing } from './events.js';
 import { SdkHostApi, type SendEnvelope } from './host-api.js';
 import { RuntimeImpl, type BuildKind, type Runtime } from './runtime.js';
+import { createNetController } from '../net/index.js';
 import { createSaveMachine, type SaveMachine } from '../saves/machine.js';
 import { dispatchTest } from '../test/dispatch.js';
 import { SdkHooks } from '../test/hooks.js';
@@ -119,6 +120,19 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
     );
     runtime.setLocalPlayerIndex(hello.payload.playerIndex);
     runtimeState.current = runtime;
+    runtime.installNet(
+      createNetController({
+        manifest: module.manifest,
+        hooks: instance.net,
+        localPlayerIndex: hello.payload.playerIndex,
+        send: (type, payload) => send(type, payload),
+        acceptInput: (frame) => runtime.acceptHostFrame(frame),
+        syncPlayers: (players) => runtime.setPlayers(players),
+        setLocalPlayerIndex: (playerIndex) => runtime.setLocalPlayerIndex(playerIndex),
+        recordEvent: (kind, payload) => events.push(++eventCursor, kind, payload),
+        now: markNow,
+      }),
+    );
     const hooks = new SdkHooks(runtime, module.manifest, marks);
     runtime.attachHooks(hooks);
     host.test.register(hooks);
@@ -257,15 +271,11 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
           return;
         }
         case 'net.players':
-          active.setLocalPlayerIndex(envelope.payload.local);
-          active.players.splice(0, active.players.length, ...structuredClone(envelope.payload.players));
-          active.emitNet(envelope.t, envelope.payload);
-          return;
         case 'net.role':
         case 'net.input':
         case 'net.snapshot':
         case 'net.event':
-          active.emitNet(envelope.t, envelope.payload);
+          active.handleNet(envelope.t, envelope.payload);
           return;
         case 'phase':
           events.push(++eventCursor, 'phase', envelope.payload);

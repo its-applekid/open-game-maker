@@ -221,6 +221,75 @@ describe('boot', () => {
     );
   });
 
+  it('owns host net input and post-step snapshots through Runtime.net', async () => {
+    const { runtime } = await start();
+    const received = vi.fn();
+    runtime.net.onInput(received);
+    bridge.onMessage!(
+      message('net.players', {
+        local: 0,
+        players: [
+          { playerIndex: 0, name: 'Host', connected: true },
+          { playerIndex: 1, name: 'Peer', connected: true },
+        ],
+      }),
+    );
+    bridge.onMessage!(message('net.role', { role: 'host' }));
+    bridge.send.mockClear();
+    bridge.onMessage!(message('net.input', { f: { playerIndex: 1, seq: 1, tick: 1, axes: [], buttons: 1 } }));
+    runtime.hooks.advanceTime(3_000);
+
+    expect(received).toHaveBeenCalledWith(1, expect.objectContaining({ source: 'network', actions: { go: true } }));
+    expect(runtime.instance.serialize().data.counter).toBe(1);
+    expect(bridge.send.mock.calls.filter(([envelope]) => envelope.t === 'net.snapshot')).toHaveLength(60);
+    expect(bridge.send.mock.calls.some(([envelope]) => envelope.t === 'net.input')).toBe(false);
+    expect(runtime.hooks.renderGameToText()).toMatchObject({
+      players: [{ playerIndex: 0 }, { playerIndex: 1 }],
+      net: { role: 'host', localPlayerIndex: 0, players: [0, 1] },
+    });
+  });
+
+  it('sends peer input without advancing gameplay simulation', async () => {
+    const { runtime } = await start();
+    bridge.onMessage!(
+      message('net.players', {
+        local: 1,
+        players: [
+          { playerIndex: 0, name: 'Host', connected: true },
+          { playerIndex: 1, name: 'Peer', connected: true },
+        ],
+      }),
+    );
+    bridge.onMessage!(message('net.role', { role: 'peer' }));
+    bridge.send.mockClear();
+
+    runtime.hooks.inject({ playerIndex: 1, tick: 1, source: 'keyboard', actions: { go: true } });
+    runtime.hooks.advanceTime(17);
+
+    expect(runtime.instance.serialize().data.counter).toBe(0);
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({ t: 'net.input', payload: { f: expect.objectContaining({ buttons: 1 }) } }),
+    );
+    expect(bridge.send.mock.calls.some(([envelope]) => envelope.t === 'net.snapshot')).toBe(false);
+  });
+
+  it('keeps default single-player net traffic-free over six hundred ticks', async () => {
+    const { runtime } = await start();
+    bridge.send.mockClear();
+
+    runtime.hooks.advanceTime(10_000);
+
+    expect(runtime.net.role).toBe('host');
+    expect(runtime.net.players).toHaveLength(1);
+    expect(runtime.hooks.renderGameToText()).toMatchObject({
+      net: { role: 'host', localPlayerIndex: 0, players: [0] },
+    });
+    expect(bridge.send.mock.calls.some(([envelope]) => String(envelope.t).startsWith('net.'))).toBe(false);
+    expect(runtime.hooks.renderInfo()).toMatchObject({
+      net: { dropped: 0, eventGaps: 0, outOfOrderSnapshots: 0, stalls: 0, oversized: 0 },
+    });
+  });
+
   it('replays recorded merged frames without current held input leaking into history', async () => {
     const { runtime } = await start();
     const canvas = document.createElement('canvas');
