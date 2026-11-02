@@ -39,6 +39,7 @@ export type StyleSetTraits = {
 };
 export type StyleSetPreviews = {
   specimen: string;
+  trailer?: string;
   diorama: Record<string, string>;
   loop: Record<string, string>;
 };
@@ -114,6 +115,7 @@ const worldPreviewSchema = z.record(z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$
 const styleSetPreviewsSchema = z
   .strictObject({
     specimen: previewPathSchema,
+    trailer: previewPathSchema.optional(),
     diorama: worldPreviewSchema,
     loop: worldPreviewSchema,
   })

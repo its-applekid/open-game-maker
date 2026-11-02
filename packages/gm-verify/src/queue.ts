@@ -73,7 +73,11 @@ export const verifyRequestSchema = z.strictObject({
     frames: z.array(z.number().min(0)).max(120).optional(),
     timeline: timelineSchema.optional(),
     record: z
-      .strictObject({ seconds: z.number().positive().max(60), fps: z.number().int().min(1).max(60).optional() })
+      .strictObject({
+        seconds: z.number().positive().max(60),
+        fps: z.number().int().min(1).max(60).optional(),
+        native: z.boolean().optional(),
+      })
       .optional(),
     inputs: inputScriptSchema.max(10_000).optional(),
     budgets: tierBudgetOverridesSchema.optional(),

@@ -49,6 +49,22 @@ accompanying text; no second attachment commit is required. The route returns `4
 mismatched sessions return `404 scope_session_not_found`, closed sessions return `409 scope_session_not_open`, and
 normal authentication and game-owner authorization errors remain `401` or `403`.
 
+## Chat attachments
+
+`POST /api/v1/jobs/:jobId/chat/attachments` takes one raw file from the job's creator: `Content-Type` is an `image/*`
+type (at most 10 MiB, re-encoded to WebP with no source metadata) or `text/plain`, `text/markdown` or
+`application/json` (at most 64 KB, UTF-8, JSON must parse), and `X-File-Name` is the URI-encoded file name. It answers
+`201` with a `chat.attachment.v1` object. Post the returned ids in `attachments` (at most 8) on
+`POST /api/v1/jobs/:jobId/chat`; `text` may then be left out. Uploads return `400 empty_attachment`,
+`413 attachment_too_large`, `415 unsupported_attachment_type`, `422 invalid_image`, `422 invalid_text`,
+`422 invalid_json` or `429 rate_limited`; a post naming an id that is not the creator's unsent upload for that job
+returns `422 attachment_not_found` and stores nothing.
+
+The worker gets each file three ways: the job bundle lists it (`attachments[]`) and the after_create hook downloads it
+from `/internal/jobs/by-ticket/:ticket/attachments/:id` into `.gm/inbox/attachments/`; a message posted after the
+workspace is pinned copies its files there directly; and the aiur message inlines text files that fit within its
+8,000 characters and names every file by that path (images also carry a signed URL).
+
 Direction checkpoints use the same workspace pin. The API polls each active job's aiur Commands every
 `OGM_CHECKPOINT_POLL_MS`, keeps the supervisor token server-side, and writes answered or moot results under
 `<workspace>/.gm/inbox/checkpoints/` for the sandboxed `gm checkpoint wait` command.

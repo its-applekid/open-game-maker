@@ -125,6 +125,17 @@ describe('useScopeSession', () => {
     expect(result.current.turns).toContainEqual({ id: 'm_2', who: 'you', text: 'keep it small' });
   });
 
+  // The creation flow's scope chat sends attachments through the same job chat post as the build chat (#222).
+  it('posts attachment ids with the creator message', async () => {
+    const transport = fakeTransport();
+    const { result } = renderHook(() => useScopeSession('g_1', choices, transport));
+    await waitFor(() => expect(result.current.jobId).toBe('j_1'));
+
+    await act(async () => result.current.send('use my sketch', ['a_1', 'a_2']));
+
+    expect(transport.postText).toHaveBeenCalledWith('j_1', 'use my sketch', ['a_1', 'a_2']);
+  });
+
   it('reports a missing scope route without enabling admission', async () => {
     const transport = fakeTransport();
     vi.mocked(transport.getSession).mockRejectedValue(new ApiError(404, { error: 'not_found' }));

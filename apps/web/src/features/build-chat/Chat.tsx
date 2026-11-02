@@ -166,9 +166,9 @@ export function Chat({
   );
 }
 
-async function postChatText(jobId: string, text: string): Promise<StreamedChatMessage> {
+async function postChatText(jobId: string, text: string, attachments?: string[]): Promise<StreamedChatMessage> {
   return api<StreamedChatMessage>(`/jobs/${encodeURIComponent(jobId)}/chat`, {
     method: 'POST',
-    json: { text },
+    json: { ...(text ? { text } : {}), ...(attachments ? { attachments } : {}) },
   });
 }

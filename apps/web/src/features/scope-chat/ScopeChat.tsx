@@ -102,7 +102,7 @@ export function ScopeChat({
           <Composer
             jobId={scopeSession.jobId}
             voiceTarget={voiceTarget}
-            postText={(_jobId, text) => scopeSession.send(text)}
+            postText={(_jobId, text, attachments) => scopeSession.send(text, attachments)}
             onOptimistic={scopeSession.addMessage}
           />
         ) : null}

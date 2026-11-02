@@ -29,6 +29,27 @@ afterEach(() => {
 });
 
 describe('MessageList', () => {
+  it('shows the file names of a creator message sent with only attachments', () => {
+    render(
+      <MessageList
+        messages={[
+          {
+            ...base,
+            id: 'm_files',
+            actor: 'creator',
+            kind: 'text',
+            attachments: [
+              { id: 'a_1', kind: 'text', name: 'notes.md', mime: 'text/markdown', bytes: 9 },
+              { id: 'a_2', kind: 'image', name: 'castle.png', mime: 'image/webp', bytes: 40 },
+            ],
+          },
+        ]}
+      />,
+    );
+    expect(screen.getByText('notes.md')).toBeVisible();
+    expect(screen.getByText('castle.png')).toBeVisible();
+  });
+
   it('renders reserved media, progress, and an actionable checkpoint', () => {
     const messages: StreamedChatMessage[] = [
       {
