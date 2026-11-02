@@ -197,10 +197,10 @@ def measure(path: Path, loop_search=False, music=True):
     downmix = None
     try:
         stereo, sr, channels, _, _, _ = es.AudioLoader(filename=str(path))()
-    except RuntimeError as e:  # Essentia reads at most 2 channels; ambisonic and surround SFX are folded to their mean
-        if "more than 2 channels" not in str(e):
-            raise
+    except RuntimeError:  # Essentia reads at most 2 channels; ambisonic, surround and Atmos SFX are folded to their mean
         import soundfile as sf
+        if sf.info(str(path)).channels <= 2:
+            raise
         data, sr = sf.read(str(path), dtype="float32", always_2d=True)
         channels, downmix = data.shape[1], f"mean of {data.shape[1]} channels"
         stereo = np.repeat(data.mean(axis=1, keepdims=True), 2, axis=1)
