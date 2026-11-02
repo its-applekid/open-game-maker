@@ -13,8 +13,9 @@ import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody, parseQuery } from '../app/validate.js';
 import { AdmissionRefused, admit } from './admission.js';
+import { createControlsRoutes, storedDaemonFor } from './controls.js';
 import { findJob, findJobRow, listJobs } from './repo.js';
-import { markTerminal, raiseCap } from './spend-cap.js';
+import { raiseCap } from './spend-cap.js';
 
 export const prefix = '/api/v1';
 
@@ -98,28 +99,6 @@ const routes = new Hono<ApiBindings>()
       .run();
     return c.json(findJob(deps.db, row.id));
   })
-  .post('/jobs/:id/cancel', (c) => {
-    const principal = requirePrincipal(c, ['user']);
-    const deps = c.get('deps');
-    const row = findJobRow(deps.db, c.req.param('id'));
-    const game = gameFor(deps, row.gameId);
-    requireAuthorization(
-      authorize(actorFromPrincipal(principal), 'job.cancel', { familyId: game.familyId, ownerId: game.ownerId }),
-    );
-    if (row.state !== 'queued') throw new HttpError(409, 'job_not_queued');
-    return c.json(
-      markTerminal(
-        {
-          db: deps.db,
-          sqlite: deps.sqlite,
-          events: deps.events,
-          defaults: defaults(deps),
-        },
-        row.id,
-        'cancelled',
-      ),
-    );
-  })
   .post('/jobs/:id/raise-cap', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     const deps = c.get('deps');
@@ -137,5 +116,10 @@ const routes = new Hono<ApiBindings>()
       ),
     );
   });
+
+routes.route(
+  '/jobs',
+  createControlsRoutes({ daemonFor: storedDaemonFor, issues: (deps) => deps.registry.issueStateWriter }),
+);
 
 export default routes;

@@ -43,6 +43,7 @@ describe('migrate', () => {
         '20261102023444_nullable_branch_fork_sha.sql',
         '20261102023822_saves.sql',
         '20261102033839_scope_sessions.sql',
+        '20261102050906_usage_samples.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -72,6 +73,7 @@ describe('migrate', () => {
       'migration:20261102023444_nullable_branch_fork_sha.sql',
       'migration:20261102023822_saves.sql',
       'migration:20261102033839_scope_sessions.sql',
+      'migration:20261102050906_usage_samples.sql',
     ]);
     sqlite.close();
   });

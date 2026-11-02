@@ -6,6 +6,7 @@ export const ACTIONS = [
   'game.fork',
   'job.create',
   'job.cancel',
+  'job.edit',
   'member.invite',
   'admin.budget.set',
   'report.file',

@@ -13,6 +13,7 @@ export * from './build-chat.js';
 export * from './job-tickets.js';
 export * from './reports.js';
 export * from './rooms.js';
+export * from './usage-samples.js';
 export * from './reapply.js';
 export * from './achievements.js';
 export * from './creator-analytics.js';
