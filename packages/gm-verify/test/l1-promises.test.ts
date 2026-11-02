@@ -58,7 +58,10 @@ describe('L1 promise specs', () => {
     const runReplay = vi.fn(async () => ({
       class: 'reproduces_with_error' as const,
       errorsSeen: ['TypeError: planted crash'],
+      finalState: { alive: false },
+      finalProbes: { alive: false },
       scriptPath: join(root, 'private', 'replay.json'),
+      durationMs: 12,
     }));
     const spawn = vi.fn((_command: string, args: string[]) => {
       const configPath = args[args.indexOf('--config') + 1]!;
@@ -80,6 +83,27 @@ describe('L1 promise specs', () => {
       expect.objectContaining(replayJson),
       expect.objectContaining({ serveDir: join(root, 'dist') }),
     );
+  });
+
+  it('reports a replay failure as a failed gate instead of rejecting L1', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'gm-promises-replay-failure-'));
+    const promises = join(root, 'promises');
+    const { mkdirSync } = await import('node:fs');
+    mkdirSync(promises);
+    writeFileSync(join(promises, 'abc.spec.ts'), 'export {};\n');
+    writeFileSync(
+      join(promises, 'abc.replay.json'),
+      JSON.stringify({ seed: 7, keyframe: { tick: 0, state: {} }, actions: [] }),
+    );
+
+    await expect(
+      runPromiseSpecs(root, { replay: vi.fn(async () => Promise.reject(new Error('browser unavailable'))) }),
+    ).resolves.toEqual({
+      id: 'promises',
+      ok: false,
+      detail: 'replay failed: browser unavailable',
+      file: 'promises/abc.replay.json',
+    });
   });
 
   it('refuses a non-loopback browser target before launch', async () => {

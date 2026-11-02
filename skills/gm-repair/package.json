@@ -1,0 +1,12 @@
+{
+  "name": "@ogm/skill-gm-repair",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint skill.test.ts"
+  }
+}

@@ -103,15 +103,25 @@ export async function runPromiseSpecs(root: string, options: PromiseRunnerOption
           file: slash(relative(root, jsonPath)),
         };
       }
-      const result = await (options.replay ?? replayBrowser)(
-        { ...promise, errors: promise.expectedError ? [{ message: promise.expectedError }] : [], probes: {} },
-        {
-          serveDir: join(root, 'dist'),
-          outDir: join(privateDir, replayPromiseKey(promise)),
-          software: options.software,
-          wallClockMs: options.wallClockMs,
-        },
-      );
+      let result: ReplayResult;
+      try {
+        result = await (options.replay ?? replayBrowser)(
+          { ...promise, errors: promise.expectedError ? [{ message: promise.expectedError }] : [], probes: {} },
+          {
+            serveDir: join(root, 'dist'),
+            outDir: join(privateDir, replayPromiseKey(promise)),
+            software: options.software,
+            wallClockMs: options.wallClockMs,
+          },
+        );
+      } catch (error) {
+        return {
+          id: 'promises',
+          ok: false,
+          detail: `replay failed: ${error instanceof Error ? error.message : String(error)}`,
+          file: slash(relative(root, jsonPath)),
+        };
+      }
       results[replayPromiseKey(promise)] = { class: result.class, errorsSeen: result.errorsSeen };
     }
 

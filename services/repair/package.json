@@ -1,0 +1,21 @@
+{
+  "name": "@ogm/repair",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/gm-verify build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/config --filter @ogm/contracts --filter @ogm/gm-verify build",
+    "test": "vitest run",
+    "lint": "eslint src",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@ogm/config": "workspace:*",
+    "@ogm/contracts": "workspace:*",
+    "@ogm/gm-verify": "workspace:*",
+    "zod": "4.6.7"
+  }
+}

@@ -171,7 +171,7 @@ async function readBundle(request: Request, max: number): Promise<Uint8Array> {
 
 const listQuery = z.object({ gameId: Id }).strict();
 const claimBody = z.strictObject({ now: IsoTime, staleBefore: IsoTime });
-const dedupeQuery = z.strictObject({ signature: z.string().regex(/^[0-9a-f]{64}$/), exclude: Id.optional() });
+const dedupeQuery = z.strictObject({ signature: z.string().regex(/^[0-9a-f]{64}$/), exclude: Id });
 
 function requireRepairService(c: Parameters<typeof requirePrincipal>[0]): void {
   const principal = requirePrincipal(c, ['service']);
@@ -262,7 +262,9 @@ const routes = new Hono<ApiBindings>()
   .get('/triage/dedupe', (c) => {
     requireRepairService(c);
     const query = parseQuery(c, dedupeQuery);
-    const report = findOpenTriage(c.get('deps').db, query.signature, query.exclude);
+    const deps = c.get('deps');
+    const source = findReport(deps.db, query.exclude);
+    const report = findOpenTriage(deps.db, query.signature, source.gameId, source.id);
     return c.json({ jobId: report?.jobId ?? null });
   })
   .post('/triage/:id/diagnostics', async (c) => {

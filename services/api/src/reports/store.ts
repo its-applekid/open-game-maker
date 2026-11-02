@@ -164,19 +164,29 @@ export function setDiagnosticsKey(db: Db, reportId: string, diagnosticsKey: stri
   );
 }
 
-export function findOpenTriage(db: Db, signature: string, excludeReportId?: string): ReportRow | undefined {
+const OPEN_REPAIR_STATES = ['queued', 'admitted', 'filed', 'running', 'paused_budget'] as const;
+
+export function findOpenTriage(
+  db: Db,
+  signature: string,
+  gameId: string,
+  excludeReportId?: string,
+): ReportRow | undefined {
   return db
-    .select()
+    .select({ report: schema.reports })
     .from(schema.reports)
+    .innerJoin(schema.jobs, eq(schema.jobs.id, schema.reports.jobId))
     .where(
       and(
         eq(schema.reports.triageSignature, signature),
+        eq(schema.reports.gameId, gameId),
         inArray(schema.reports.triageState, ['ready', 'deduped']),
+        inArray(schema.jobs.state, OPEN_REPAIR_STATES),
         ...(excludeReportId ? [ne(schema.reports.id, excludeReportId)] : []),
       ),
     )
     .orderBy(asc(schema.reports.createdAt))
-    .get();
+    .get()?.report;
 }
 
 export function storeTriage(

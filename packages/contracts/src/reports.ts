@@ -38,7 +38,15 @@ export const ReplayResult = z.strictObject({
   class: ReplayClass,
   reason: ReplayReason.optional(),
   errorsSeen: z.array(z.string().max(16_384)).max(1_000),
+  finalState: z.unknown(),
+  finalProbes: z.record(z.string().max(128), z.union([z.number(), z.string(), z.boolean()])),
   scriptPath: z.string().min(1).max(500),
+  durationMs: z.number().int().nonnegative(),
+});
+export const ReplaySummary = z.strictObject({
+  class: ReplayClass,
+  reason: ReplayReason.optional(),
+  durationMs: z.number().int().nonnegative(),
 });
 export const RepairTicket = z.strictObject({
   title: z.string().min(1).max(120),
@@ -47,26 +55,29 @@ export const RepairTicket = z.strictObject({
 });
 export const EditorHint = z.strictObject({
   controlId: z.string().min(1).max(120),
-  direction: z.enum(['increase', 'decrease', 'toggle']),
+  suggestion: z.enum(['increase', 'decrease', 'toggle']),
   reason: z.string().min(1).max(240),
 });
-export const PromiseArtifact = z.strictObject({
+export const PromiseRef = z.strictObject({
   specPath: z.string().regex(/^promises\/[0-9a-f]{64}\.spec\.ts$/),
   replayPath: z.string().regex(/^promises\/[0-9a-f]{64}\.replay\.json$/),
+});
+export const PromiseArtifact = z.strictObject({
+  ...PromiseRef.shape,
   spec: z.string().min(1).max(8_000),
   replay: z.string().min(1).max(100_000),
 });
 export const TriageResult = z
   .strictObject({
     reportId: Id,
-    replay: ReplayResult,
+    replay: ReplaySummary,
     signature: z
       .string()
       .regex(/^[0-9a-f]{64}$/)
       .optional(),
     diagnosticsKey: z.string().min(1).max(200).optional(),
     ticket: RepairTicket.optional(),
-    promise: PromiseArtifact.optional(),
+    promise: PromiseRef.optional(),
     editorHint: EditorHint.optional(),
     dedupedInto: Id.optional(),
   })
@@ -109,8 +120,10 @@ export type CreateReportResponse = z.infer<typeof CreateReportResponse>;
 export type ReplayClass = z.infer<typeof ReplayClass>;
 export type ReplayReason = z.infer<typeof ReplayReason>;
 export type ReplayResult = z.infer<typeof ReplayResult>;
+export type ReplaySummary = z.infer<typeof ReplaySummary>;
 export type RepairTicket = z.infer<typeof RepairTicket>;
 export type EditorHint = z.infer<typeof EditorHint>;
+export type PromiseRef = z.infer<typeof PromiseRef>;
 export type PromiseArtifact = z.infer<typeof PromiseArtifact>;
 export type TriageResult = z.infer<typeof TriageResult>;
 export type TriageClaim = z.infer<typeof TriageClaim>;

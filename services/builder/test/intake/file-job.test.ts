@@ -223,8 +223,7 @@ describe('fileJob', () => {
             reportId: 'r_10000000-0000-4000-8000-000000000001',
             replay: {
               class: 'reproduces_with_error',
-              errorsSeen: ['TypeError: redacted'],
-              scriptPath: 'private/replay.json',
+              durationMs: 15,
             },
             signature: 'd'.repeat(64),
             diagnosticsKey: 'sha256:' + 'e'.repeat(64),
@@ -232,8 +231,6 @@ describe('fileJob', () => {
             promise: {
               specPath: `promises/${'d'.repeat(64)}.spec.ts`,
               replayPath: `promises/${'d'.repeat(64)}.replay.json`,
-              spec: 'spec',
-              replay: '{}',
             },
           },
         }),
