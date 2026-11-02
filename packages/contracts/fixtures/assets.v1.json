@@ -18,6 +18,15 @@
         "path": "Models/GLB format/tower-base.glb",
         "sha1": "…"
       },
+      "meta": {
+        "kit": { "piece": "wall", "grid_m": 1.0 },
+        "geometry": {
+          "bounds_m": { "min": [0.0, 0.0, 0.0], "max": [1.0, 1.31, 1.0] },
+          "pivot": "base-center",
+          "triangles": 38000,
+          "normalized": true
+        }
+      },
       "license": { "id": "CC0-1.0", "attribution": "Kenney (kenney.nl)", "use": "any" }
     },
     "monsters/yeti": {

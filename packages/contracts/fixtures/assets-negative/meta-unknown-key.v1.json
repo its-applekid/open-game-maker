@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "tiers": ["desktop"],
+  "files": {
+    "sheet.webp": { "bytes": 128, "decoders": [] }
+  },
+  "assets": {
+    "characters/hero": {
+      "file": { "desktop": "sheet.webp" },
+      "meta": {
+        "sprite": {
+          "drawn_view": "iso",
+          "animations": [
+            {
+              "name": "walk",
+              "frames": [0, 1],
+              "sheets": [{ "path": "sheet.png", "frame_w": 8, "frame_h": 8, "cols": 2, "rows": 1 }]
+            }
+          ]
+        },
+        "preview": "not adapter metadata"
+      },
+      "license": { "id": "CC0-1.0", "use": "any" }
+    }
+  }
+}

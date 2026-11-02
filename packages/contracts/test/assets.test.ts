@@ -14,6 +14,12 @@ describe('assets contract', () => {
     expect(emittedValidator('assets.v1')(doc)).toBe(true);
   });
 
+  it('rejects unknown card blocks under manifest metadata', () => {
+    const doc = loadJson('fixtures/assets-negative/meta-unknown-key.v1.json');
+    expect(assetManifestSchema.safeParse(doc).success).toBe(false);
+    expect(emittedValidator('assets.v1')(doc)).toBe(false);
+  });
+
   // The loader never derives file names, so every tier entry must name a real file.
   it('rejects an asset tier that names a file missing from files, at that asset', () => {
     const doc = loadJson<Manifest>('fixtures/assets.v1.json');

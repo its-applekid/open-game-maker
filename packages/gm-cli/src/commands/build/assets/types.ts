@@ -1,4 +1,4 @@
-import type { LockEntry, Tier } from '@ogm/contracts';
+import type { AssetMetadata, LockEntry, Tier } from '@ogm/contracts';
 
 export type LicenseEntry = {
   id: string;
@@ -11,7 +11,7 @@ export type ManifestAssetEntry = {
   mesh?: string;
   bounds?: [number, number, number];
   license: LicenseEntry;
-  meta?: unknown;
+  meta?: AssetMetadata;
 };
 
 export type BuiltFileInfo = {
@@ -38,7 +38,7 @@ export type GltfFacts = {
 export type BuildItem = {
   entry: LockEntry;
   source: string;
-  meta?: unknown;
+  meta?: AssetMetadata;
   facts?: GltfFacts;
   sourceHash?: string;
 };

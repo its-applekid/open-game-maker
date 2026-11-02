@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import type { AssetCard } from './card.generated.js';
+
 export const tierSchema = z.enum(['desktop', 'mobile', 'low']);
 export type Tier = z.infer<typeof tierSchema>;
 
@@ -10,12 +12,29 @@ const fileEntrySchema = z.looseObject({
   decoders: z.array(z.enum(['meshopt', 'draco', 'ktx2'])),
 });
 
+type CardMetadataBlock = 'sprite' | 'rig' | 'kit' | 'geometry';
+
+function cardMetadataBlock<K extends CardMetadataBlock>(): z.ZodType<NonNullable<AssetCard[K]>> {
+  // The asset-card schema owns each inner block. Keep this transport schema tied to
+  // its generated type instead of creating a second, drifting definition here.
+  return z.json() as unknown as z.ZodType<NonNullable<AssetCard[K]>>;
+}
+
+export const assetMetadataSchema = z.strictObject({
+  sprite: cardMetadataBlock<'sprite'>().optional(),
+  rig: cardMetadataBlock<'rig'>().optional(),
+  kit: cardMetadataBlock<'kit'>().optional(),
+  geometry: cardMetadataBlock<'geometry'>().optional(),
+});
+export type AssetMetadata = z.infer<typeof assetMetadataSchema>;
+
 const assetEntrySchema = z.looseObject({
   /** Per-tier file names (or `*` for every tier); the loader never derives names. */
   file: z.partialRecord(z.enum([...tierSchema.options, '*']), z.string().min(1)),
   mesh: z.string().optional(),
   bounds: z.tuple([z.number(), z.number(), z.number()]).optional(),
   source: z.looseObject({ pack: z.string(), version: z.string(), path: z.string() }).optional(),
+  meta: assetMetadataSchema.optional(),
   license: z.looseObject({
     id: z.string().min(1),
     attribution: z.string().optional(),
@@ -104,6 +123,7 @@ const lockEntrySchema = z.looseObject({
     redistribution: z.enum(['none', 'in-build', 'free']),
     attribution: z.string().nullable(),
   }),
+  meta: assetMetadataSchema.optional(),
   derived_from: z.array(lockAssetIdSchema).optional(),
   added: z.iso.date(),
 });
