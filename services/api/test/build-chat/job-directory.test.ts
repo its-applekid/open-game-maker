@@ -74,6 +74,7 @@ describe('build chat job directory', () => {
       gameId: 'g_1',
       familyId: 'f_1',
       ownerId: 'u_1',
+      kind: 'feature',
       state: 'running',
       aiur: { daemonSlug: 'owner-game', ticket: '142' },
     });

@@ -95,6 +95,7 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   expect(await clip.evaluate((element) => (element as HTMLVideoElement).muted)).toBe(true);
   await expect(page.getByText('Door animation wired up')).toBeVisible();
   await expect(page.getByText('Which door looks right?', { exact: true })).toBeVisible();
+  await expect(page.getByText('Checkpoint 1 of 3')).toBeVisible();
 
   const postedText = 'Make the moonlight warmer';
   await page.getByRole('textbox', { name: 'Message the builder' }).fill(postedText);
@@ -131,6 +132,7 @@ async function installBuildRoutes(page: Page) {
   await page.route('**/api/v1/notifications/stream', (route) =>
     route.fulfill({ status: 200, contentType: 'text/event-stream', body: ': connected\n\n' }),
   );
+  await page.route('**/api/v1/jobs/*/checkpoints/budget', (route) => json(route, { used: 1, max: 3 }));
   await page.route('**/api/v1/jobs/*/chat*', async (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as { text: string };

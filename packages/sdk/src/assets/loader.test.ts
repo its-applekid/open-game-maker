@@ -6,6 +6,7 @@ import { AssetNotFound, AssetUnavailable } from './errors.js';
 import { AssetLoader } from './loader.js';
 
 const gltfSpies = vi.hoisted(() => ({
+  constructed: vi.fn(),
   meshopt: vi.fn(),
   ktx2: vi.fn(),
   parse: vi.fn(),
@@ -19,6 +20,10 @@ const ktx2Spies = vi.hoisted(() => ({
 
 vi.mock('three/addons/loaders/GLTFLoader.js', () => ({
   GLTFLoader: class {
+    constructor() {
+      gltfSpies.constructed();
+    }
+
     setMeshoptDecoder(decoder: unknown) {
       gltfSpies.meshopt(decoder);
       return this;
@@ -202,7 +207,9 @@ describe('AssetLoader', () => {
     expect(ktx2Spies.constructed).toHaveBeenCalledOnce();
     expect(ktx2Spies.transcoderPath).toHaveBeenCalledWith('https://game.test/assets/basis/');
     expect(ktx2Spies.detectSupport).toHaveBeenCalledWith(renderer);
+    expect(gltfSpies.constructed).toHaveBeenCalledOnce();
     expect(gltfSpies.ktx2).toHaveBeenCalledOnce();
+    expect(gltfSpies.parse).toHaveBeenCalledTimes(2);
   });
 
   it('requires an attached renderer before decoding KTX2', async () => {

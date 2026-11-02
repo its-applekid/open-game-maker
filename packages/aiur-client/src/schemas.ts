@@ -263,17 +263,45 @@ export const EventPageSchema = z
   })
   .loose();
 
+const DecisionAnswerSchema = z
+  .object({
+    selected_option_id: z.string().nullable().optional(),
+    option_id: z.string().nullable().optional(),
+    option: z.string().nullable().optional(),
+    custom_response: z.string().nullable().optional(),
+  })
+  .loose()
+  .nullable()
+  .optional();
+
 export const DecisionSchema = z
   .object({
     decision_id: z.string(),
     version: z.number().int().positive(),
     ticket: z.object({ identifier: z.string() }).loose(),
-    kind: z.string(),
+    kind: z.string().nullable(),
     authority: z.string(),
     blocking: z.boolean(),
     reversibility: z.enum(['reversible', 'partially_reversible', 'irreversible']),
     question: z.string(),
-    options: z.array(z.object({ id: z.string(), label: z.string() }).loose()),
+    options: z.array(
+      z.object({ id: z.string(), label: z.string(), description: z.string().nullable().optional() }).loose(),
+    ),
+    recommendation: z
+      .object({ option_id: z.string().nullable().optional(), reason: z.string().nullable().optional() })
+      .loose()
+      .nullable()
+      .optional(),
+    context: z
+      .object({
+        short_summary: z.string().nullable().optional(),
+        long_context_markdown: z.string().nullable().optional(),
+      })
+      .loose()
+      .optional(),
+    questions: z.array(z.object({ multi_select: z.boolean().optional() }).loose()).optional(),
+    answer: DecisionAnswerSchema,
+    active_answer: DecisionAnswerSchema,
     created_at: z.string(),
     decision_status: z.string(),
   })

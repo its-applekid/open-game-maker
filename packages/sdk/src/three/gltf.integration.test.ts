@@ -8,7 +8,7 @@ import { createGltf } from './gltf.js';
 
 describe('createGltf meshopt integration', () => {
   it('decodes the checked-in meshopt-compressed cube', async () => {
-    const fixture = await readFile(resolve('src/test/fixtures/cube.meshopt.glb'));
+    const fixture = await readFile(resolve('test/fixtures/cube.meshopt.glb'));
     const bytes = Uint8Array.from(fixture).buffer;
 
     const gltf = await createGltf({} as WebGLRenderer).decode(bytes, 'cube.meshopt.glb');

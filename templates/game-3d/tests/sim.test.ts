@@ -1,5 +1,7 @@
 import type { ActionValue, HostApi, Viewport } from '@ogm/contracts';
 import type { Runtime, StepListener } from '@gm/sdk/core';
+import { readdirSync, readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { DEFAULT_DESIGN, createGame, type GameSave, type LevelDesign } from '../src/game.js';
@@ -71,7 +73,22 @@ async function mount() {
   return { controller, host, instance };
 }
 
+function typescriptFiles(directory: string): string[] {
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) return typescriptFiles(path);
+    return entry.name.endsWith('.ts') ? [path] : [];
+  });
+}
+
 describe('game-3d simulation', () => {
+  it('does not read ambient random values or wall-clock time', () => {
+    const forbidden = new RegExp(['Math', 'random|Date', 'now'].join('\\.'));
+    const offenders = typescriptFiles(resolve('src')).filter((path) => forbidden.test(readFileSync(path, 'utf8')));
+
+    expect(offenders).toEqual([]);
+  });
+
   it('mounts and advances deterministically for 3,600 input steps', async () => {
     const { controller, host, instance } = await mount();
     const steps = stepRuntime();

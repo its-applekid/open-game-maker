@@ -1,0 +1,17 @@
+{
+  "checkpoint_id": "cp_01JBX2R1A2B3C4D5E6F7G8H9JK",
+  "question": "Which door looks right?",
+  "options": [
+    {
+      "id": "a",
+      "label": "Wooden",
+      "media_id": "01JBX2Q7M3K8V5N4R6T9W0YZAB"
+    },
+    {
+      "id": "b",
+      "label": "Iron"
+    }
+  ],
+  "recommend": "a",
+  "blocking": false
+}

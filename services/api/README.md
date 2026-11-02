@@ -11,7 +11,7 @@ context adds `OGM_APP_ORIGIN`, `OGM_SESSION_SECRET`, `OGM_AGE_COOKIE_SECRET`, `O
 `docs/ops/netlify-proxy.md`). Room lifecycle calls add `OGM_ROOMS_INTERNAL_URL` and `OGM_ROOMS_INTERNAL_SECRET`.
 The API also reads `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_GAME_TEMPLATE_REF` (defaults to
 `game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
-`OGM_CHAT_POLL_MS` (default `10000`).
+`OGM_CHAT_POLL_MS` (default `10000`), and `OGM_CHECKPOINT_POLL_MS` (default `5000`).
 Optional `OGM_ASSETS_ROOT` (the `assets-local/` library) gives `GET /api/catalog/style-families` its pack titles and
 thumbnails; without it packs are named by id.
 
@@ -27,6 +27,10 @@ go to a context's `src/<context>/outbox.ts`, which exports `type` and `handle(li
 injectable for focused tests. Without an aiur client creator posts stay pending and nothing is polled. The trusted job
 launcher must call `registerWorkspace(sqlite, jobId, workspaceRoot)` before sandbox output is accepted; unregistered
 workspaces and lines naming another job are rejected.
+
+Direction checkpoints use the same workspace pin. The API polls each active job's aiur Commands every
+`OGM_CHECKPOINT_POLL_MS`, keeps the supervisor token server-side, and writes answered or moot results under
+`<workspace>/.gm/inbox/checkpoints/` for the sandboxed `gm checkpoint wait` command.
 
 ```sh
 pnpm --filter @ogm/api build && pnpm --filter @ogm/api start   # or: pnpm --filter @ogm/api dev
