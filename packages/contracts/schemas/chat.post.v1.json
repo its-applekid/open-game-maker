@@ -7,11 +7,17 @@
       "minLength": 1,
       "maxLength": 8000,
       "pattern": "\\S"
+    },
+    "attachments": {
+      "minItems": 1,
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+      }
     }
   },
-  "required": [
-    "text"
-  ],
   "additionalProperties": false,
   "$id": "https://open-game-maker-2000.local/schemas/chat.post.v1.json"
 }
