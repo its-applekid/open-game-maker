@@ -33,6 +33,13 @@ EOF
 api_output=$(HOME=$home OGM_REPO=$built_repo timeout 5 "$repo/ops/bin/ogm-run" api)
 assert_eq "api-up" "$api_output" "a built API should be executed"
 
+# The games unit's package lives in services/games-host.
+mkdir -p "$built_repo/services/games-host/dist"
+printf '{"scripts":{"start":"node dist/index.js"}}\n' > "$built_repo/services/games-host/package.json"
+printf "process.stdout.write('games-up');\n" > "$built_repo/services/games-host/dist/index.js"
+games_output=$(HOME=$home OGM_REPO=$built_repo timeout 5 "$repo/ops/bin/ogm-run" games)
+assert_eq "games-up" "$games_output" "the games unit should run the games-host build"
+
 mkdir -p "$built_repo/services/rooms"
 printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$built_repo/services/rooms/package.json"
 set +e

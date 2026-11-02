@@ -90,6 +90,15 @@ assert_eq 1 "$code" '--check should fail on a missing service entry'
 assert_grep 'missing entry: services/intake/dist/main.js' "$scratch/entry.txt"
 touch "$OGM_REPO/services/intake/dist/main.js"
 
+printf '{"scripts":{}}\n' > "$OGM_REPO/services/commit/package.json"
+set +e
+"$status" --check > "$scratch/nostart.txt"
+code=$?
+set -e
+assert_eq 1 "$code" '--check should fail when a service names no start entry'
+assert_grep 'no start entry: services/commit/package.json' "$scratch/nostart.txt"
+printf '{"scripts":{"start":"node dist/main.js"}}\n' > "$OGM_REPO/services/commit/package.json"
+
 touch -d '3 days ago' "$OGM_BACKUP_STATE/last-ok"
 set +e
 "$status" --check > "$scratch/stale.txt"
