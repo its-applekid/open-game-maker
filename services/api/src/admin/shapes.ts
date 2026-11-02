@@ -34,6 +34,13 @@ export const IntakeDrop = z.object({
   date: z.string().nullable(),
   problems: z.number().int(),
 });
+export const AbuseFlagReason = z.enum(['spam', 'harmful', 'other']);
+export const GameAbuseFlag = z.object({
+  id: Id,
+  gameId: Id,
+  reason: AbuseFlagReason,
+  createdAt: IsoTime,
+});
 // One row of `GET /admin/builds`: no plan, prompt or source text.
 export const AdminBuild = z.object({
   job: z.object({
@@ -63,6 +70,7 @@ export const AdminBuild = z.object({
 export type MemberRow = z.infer<typeof MemberRow>;
 export type BudgetOverview = z.infer<typeof BudgetOverview>;
 export type IntakeDrop = z.infer<typeof IntakeDrop>;
+export type GameAbuseFlag = z.infer<typeof GameAbuseFlag>;
 export type AdminBuild = z.infer<typeof AdminBuild>;
 
 const SLOTS_MAX = 8;
@@ -88,3 +96,4 @@ export const PatchSettingsBody = z
   .strict()
   .refine((body) => Object.keys(body).length > 0, { message: 'no changes' });
 export const PutAllowanceBody = z.object({ dailyMicroUsd: MicroUsd }).strict();
+export const FlagGameAbuseBody = z.object({ reason: AbuseFlagReason }).strict();

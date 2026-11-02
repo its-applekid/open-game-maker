@@ -51,6 +51,7 @@ export const games = sqliteTable(
     githubRepo: text('github_repo'),
     repoVisibility: text('repo_visibility', { enum: ['public', 'private'] }).notNull(),
     repoUrl: text('repo_url'),
+    publishedReleaseId: text('published_release_id'),
     createdAt: createdAt(),
     delistedAt: text('delisted_at'),
   },

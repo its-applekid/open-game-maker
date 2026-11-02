@@ -96,7 +96,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
     throw new Error(`unsupported host protocol ${hello.payload.protocol}`);
   }
 
-  const build = options.build ?? compiledBuild();
+  const build: BuildKind = compiledBuild() === 'published' ? 'published' : (options.build ?? compiledBuild());
   if (build === 'published' && new URLSearchParams(location.search).get('build') === 'test') {
     send('error', { code: 'published_test_mode', message: 'published build cannot enable test mode' });
     bridge.close();
@@ -145,7 +145,8 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
       saveMachine.checkpoint();
     });
 
-    if (build !== 'published') {
+    // Inline literal check: a bundler that defines __GM_BUILD__ as 'published' drops the adapter chunk.
+    if (!(typeof __GM_BUILD__ !== 'undefined' && __GM_BUILD__ === 'published') && build !== 'published') {
       const { installGlobals } = await import('../test/globals.js');
       runtime.addCleanup(installGlobals(hooks, build));
     }
@@ -174,7 +175,13 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
   function dispatchRuntime(envelope: HostToGame): void {
     const active = runtimeState.current;
     if (!active) return;
-    if (dispatchTest(envelope, host.registeredHooks() ?? active.hooks, send)) return;
+    if (envelope.t.startsWith('test.')) {
+      if (build === 'published') {
+        send('test.result', { ok: false, error: 'published builds refuse test requests' }, envelope.id);
+        return;
+      }
+      if (dispatchTest(envelope, host.registeredHooks() ?? active.hooks, send)) return;
+    }
 
     try {
       switch (envelope.t) {
