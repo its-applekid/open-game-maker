@@ -118,6 +118,29 @@ describe('design-log schema', () => {
     sqlite.close();
   });
 
+  it('stores a fork point before the parent has a Git build', () => {
+    const { sqlite, db } = seededDb();
+    expect(() =>
+      db
+        .insert(branches)
+        .values({
+          id: 'b_2',
+          gameId: 'g_1',
+          name: 'Spooky monsters',
+          gitRef: 'branch/b_2',
+          forkParentBranchId: 'b_1',
+          forkParentRev: 0,
+          forkGitSha: null,
+          headRev: 0,
+          status: 'active',
+          createdBy: 'u_1',
+          createdAt,
+        })
+        .run(),
+    ).not.toThrow();
+    sqlite.close();
+  });
+
   it('rejects updates and deletes from the transaction log', () => {
     const { sqlite, db } = seededDb();
     db.insert(designTransactions)
