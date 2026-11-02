@@ -1,7 +1,6 @@
 import { DEFAULT_REPAIR_CONFIG } from '@ogm/contracts';
 
 // Repair policy (B8 §6, D5: configured placeholders until measured).
-// Admission and the worker consume the same validated policy values.
 export const REPAIR_RESERVATION_FRACTION = DEFAULT_REPAIR_CONFIG.reservationFraction;
 export const REPAIR_ATTEMPTS = DEFAULT_REPAIR_CONFIG.attempts;
 export const WRONG_BEHAVIOUR_REPAIR_AT = 3;

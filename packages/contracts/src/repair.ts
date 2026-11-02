@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 export const RepairConfig = z.strictObject({
-  attempts: z.literal(2),
-  reservationFraction: z.number().min(0.332).max(0.334),
+  attempts: z.number().int().min(1).max(5),
+  reservationFraction: z.number().positive().max(1),
   wallClockMinutes: z.number().int().positive().max(60),
   pollMs: z.number().int().min(1_000).max(60_000),
 });

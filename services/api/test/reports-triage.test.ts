@@ -164,7 +164,7 @@ describe('internal report triage', () => {
         replayPath: `promises/${signature}.replay.json`,
       },
     });
-    const complete = (reportId: string, value: ReturnType<typeof result>) =>
+    const complete = (reportId: string, value: ReturnType<typeof result> & { dedupedInto?: string }) =>
       harness.app.request(`/api/v1/reports/triage/${reportId}/complete`, {
         method: 'POST',
         headers: service(),
@@ -199,7 +199,10 @@ describe('internal report triage', () => {
     await upload(afterTerminal.reportId);
     expect((await claim()).status).toBe(200);
     const afterTerminalKey = await diagnostics(afterTerminal.reportId);
-    const terminalResponse = await complete(afterTerminal.reportId, result(afterTerminal.reportId, afterTerminalKey));
+    const terminalResponse = await complete(afterTerminal.reportId, {
+      ...result(afterTerminal.reportId, afterTerminalKey),
+      dedupedInto: first.jobId,
+    });
     expect(((await terminalResponse.json()) as { result: Record<string, unknown> }).result).not.toHaveProperty(
       'dedupedInto',
     );

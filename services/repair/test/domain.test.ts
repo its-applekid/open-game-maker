@@ -17,7 +17,7 @@ const claim: TriageClaim = {
   bundleUrl: 'https://private.example.test/signed?secret=nope',
 };
 const control: ControlDecl = {
-  id: 'enemy.speed',
+  id: 'enemySpeed',
   label: 'Goblin speed for Alice',
   help: 'Private prose',
   scope: 'global',
@@ -29,9 +29,9 @@ const control: ControlDecl = {
 describe('repair triage domain', () => {
   it('maps a tuning complaint only to a declared control with a fixed reason', () => {
     expect(editorHint('the enemy is too fast', [control])).toEqual({
-      controlId: 'enemy.speed',
+      controlId: 'enemySpeed',
       suggestion: 'decrease',
-      reason: 'Complaint matches the declared enemy.speed control.',
+      reason: 'Complaint matches the declared enemySpeed control.',
     });
     expect(JSON.stringify(editorHint('the enemy is too fast', [control]))).not.toContain('Alice');
     expect(editorHint('make the dragon friendlier', [control])).toBeUndefined();
@@ -54,7 +54,7 @@ describe('repair triage domain', () => {
       findOpen: async () => null,
     });
 
-    expect(result.editorHint).toMatchObject({ controlId: 'enemy.speed', suggestion: 'decrease' });
+    expect(result.editorHint).toMatchObject({ controlId: 'enemySpeed', suggestion: 'decrease' });
     expect(result).not.toHaveProperty('ticket');
   });
 
@@ -75,7 +75,7 @@ describe('repair triage domain', () => {
     expect(Object.keys(JSON.parse(artifact.replay))).toEqual(['seed', 'keyframe', 'actions', 'expectedError']);
   });
 
-  it('dedupes equivalent replay evidence and never composes a second ticket', async () => {
+  it('prepares a private fallback while marking equivalent replay evidence for dedupe', async () => {
     const replay = {
       class: 'reproduces_with_error' as const,
       errorsSeen: ['TypeError: cannot read vy at https://private/path.js:99'],
@@ -101,8 +101,8 @@ describe('repair triage domain', () => {
     });
 
     expect(result).toMatchObject({ signature, dedupedInto: 'j_20000000-0000-4000-8000-000000000002' });
-    expect(result).not.toHaveProperty('ticket');
-    expect(result).not.toHaveProperty('promise');
+    expect(result.ticket).toBeDefined();
+    expect(result.promise).toBeDefined();
   });
 
   it('creates one redacted repair ticket with exact markers and acceptance text', async () => {
@@ -133,7 +133,7 @@ describe('repair triage domain', () => {
 
     expect(result.ticket?.body).toContain(`gm-report:${reportId}`);
     expect(result.ticket?.body).toContain(`gm-job:${jobId}`);
-    expect(result.ticket?.body).toContain(`<!-- gm-job:${jobId} gm-ticket:repair-`);
+    expect(result.ticket?.body).toContain(`<!-- gm-job:${jobId} gm-ticket:repair gm-sig:`);
     expect(result.ticket?.body).toContain('## Load skills\n- gm-repair\n- gm-verify');
     expect(result.ticket?.body).toContain('gm check and gm test green');
     for (const value of privateValues) expect(result.ticket?.body).not.toContain(value);

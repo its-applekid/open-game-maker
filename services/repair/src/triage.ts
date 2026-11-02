@@ -94,23 +94,25 @@ export async function triageResult(input: {
     differingProbeKeys(input.bundle.probes ?? {}, input.replay.finalProbes),
   );
   const dedupedInto = await input.findOpen(signature);
+  const ticket = repairTicket({ claim: input.claim, signature, errorClass: errorClass(firstError) });
+  const promise = promiseArtifact(signature, input.bundle);
   if (dedupedInto) {
-    return withoutPromise(
-      TriageResult.parse({
-        reportId: input.claim.reportId,
-        replay,
-        signature,
-        diagnosticsKey: input.diagnosticsKey,
-        dedupedInto,
-      }),
-    );
+    const triage = TriageResult.parse({
+      reportId: input.claim.reportId,
+      replay,
+      signature,
+      diagnosticsKey: input.diagnosticsKey,
+      ticket,
+      dedupedInto,
+    });
+    return { ...withoutPromise(triage), promise };
   }
   const triage = TriageResult.parse({
     reportId: input.claim.reportId,
     replay,
     signature,
     diagnosticsKey: input.diagnosticsKey,
-    ticket: repairTicket({ claim: input.claim, signature, errorClass: errorClass(firstError) }),
+    ticket,
   });
-  return { ...withoutPromise(triage), promise: promiseArtifact(signature, input.bundle) };
+  return { ...withoutPromise(triage), promise };
 }

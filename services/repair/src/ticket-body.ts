@@ -17,7 +17,7 @@ export function repairTicket(input: { claim: TriageClaim; signature: string; err
       'Reproduction: reproduces_with_error',
       `gm-report:${input.claim.reportId}`,
       `gm-job:${input.claim.jobId}`,
-      `<!-- gm-job:${input.claim.jobId} gm-ticket:repair-${input.signature.slice(0, 8)} gm-sig:${input.signature} -->`,
+      `<!-- gm-job:${input.claim.jobId} gm-ticket:repair gm-sig:${input.signature} -->`,
       '',
       '## Load skills',
       '- gm-repair',

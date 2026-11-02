@@ -122,7 +122,13 @@ async function runActions(game: OpenedGame, bundle: z.output<typeof replayBundle
   await game.hooks.restore(bundle.keyframe!.state);
   let tick = bundle.keyframe!.tick;
   for (const action of [...bundle.actions].sort((left, right) => left.tick - right.tick)) {
-    if (action.tick > tick) await game.hooks.advanceTime((action.tick - tick) * STEP_MS);
+    if (action.tick > tick) {
+      try {
+        await game.hooks.advanceTime((action.tick - tick) * STEP_MS);
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : String(error));
+      }
+    }
     tick = Math.max(tick, action.tick);
     try {
       await game.hooks.inject({
@@ -135,7 +141,11 @@ async function runActions(game: OpenedGame, bundle: z.output<typeof replayBundle
       errors.push(error instanceof Error ? error.message : String(error));
     }
   }
-  await game.hooks.advanceTime(SETTLE_MS);
+  try {
+    await game.hooks.advanceTime(SETTLE_MS);
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+  }
   return errors;
 }
 
@@ -195,7 +205,10 @@ export async function replay(input: ReplayBundle, options: ReplayOptions): Promi
           .map((entry) => entry.text),
         ...injectedErrors,
       ];
-      const [text, finalProbes] = await Promise.all([game.hooks.text(), game.hooks.probes()]);
+      const [text, finalProbes] = await Promise.all([
+        game.hooks.text().catch(() => null),
+        game.hooks.probes().catch(() => ({})),
+      ]);
       const finalState = text?.state ?? null;
       if (matchesExpected(errorsSeen, expectedErrors(parsed))) {
         return finish({ class: 'reproduces_with_error', errorsSeen, finalState, finalProbes, scriptPath });
@@ -212,6 +225,12 @@ export async function replay(input: ReplayBundle, options: ReplayOptions): Promi
           });
     })();
     operation.catch(() => undefined);
+    void operation
+      .finally(async () => {
+        await game?.close().catch(() => undefined);
+        await browser?.close().catch(() => undefined);
+      })
+      .catch(() => undefined);
     const completed = await withDeadline(operation, options.wallClockMs ?? DEFAULT_WALL_CLOCK_MS);
     return (
       completed ??

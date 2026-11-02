@@ -242,6 +242,8 @@ describe('fileJob', () => {
     const issue = vi.mocked(input.issues.create).mock.calls[0]?.[1];
     expect(issue).toMatchObject({ title: 'Repair: crash in draft (dddddddd)' });
     expect(issue?.body).toContain('gm-report:r_10000000-0000-4000-8000-000000000001');
+    expect(issue?.body.match(/<!-- gm-job:/g)).toHaveLength(1);
+    expect(issue?.body).toContain('gm-ticket:repair');
     expect(issue?.body).not.toContain('private creator words');
     close(input);
   });

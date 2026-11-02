@@ -39,7 +39,7 @@ export function renderRepairIssue(input: { jobId: string; complexity: number; ti
   sig: string;
   labels: string[];
 } {
-  const unsigned = input.ticket.body.trim();
+  const unsigned = input.ticket.body.replace(/\n?<!-- gm-job:[^\n]* -->/g, '').trim();
   const sig = createHash('sha256').update(unsigned).digest('hex');
   const extra = input.ticket.labels.filter(
     (label) => !label.startsWith('agent:') && !label.startsWith('complexity:') && !label.startsWith('feature:gm-'),

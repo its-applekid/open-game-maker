@@ -31,11 +31,11 @@ function canonical(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export function promiseKey(replay: PromiseReplay): string {
+export function promiseKey(replay: unknown): string {
   return createHash('sha256').update(canonical(replay)).digest('hex');
 }
 
-export function promiseTest(replay: PromiseReplay, register: Register = it): void {
+export function promiseTest(replay: unknown, register: Register = it): void {
   register('keeps the reported crash fixed', () => {
     const result = globalThis.__GM_PROMISE_RESULTS__?.[promiseKey(replay)];
     expect(result, 'gm test provided no replay result for this promise').toBeDefined();

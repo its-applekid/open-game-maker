@@ -118,8 +118,10 @@ export function completeTriage(deps: AppDeps, reportId: string, input: CompleteT
       }
 
       if (!result.ticket || !result.promise) throw new HttpError(400, 'incomplete_reproduction');
-      storeTriage(deps.db, report.id, completion, 'ready', result);
-      return { value: completion, ...(report.jobId ? { notifyJobId: report.jobId } : {}) };
+      const readyResult = result.dedupedInto ? TriageResult.parse({ ...result, dedupedInto: undefined }) : result;
+      const readyCompletion = { status: 'triaged' as const, result: readyResult };
+      storeTriage(deps.db, report.id, readyCompletion, 'ready', readyResult);
+      return { value: readyCompletion, ...(report.jobId ? { notifyJobId: report.jobId } : {}) };
     })
     .immediate();
 

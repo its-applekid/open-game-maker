@@ -53,6 +53,21 @@ describe('deterministic report replay', () => {
     });
   });
 
+  it('classifies an expected crash thrown while advancing the game clock', async () => {
+    const result = await replay(
+      bundle({
+        actions: [{ tick: 11, action: 'advanceCrash', phase: 'down' }],
+        errors: [{ message: 'TypeError: Cannot advance crashed game state' }],
+      }),
+      options(),
+    );
+
+    expect(result).toMatchObject({
+      class: 'reproduces_with_error',
+      errorsSeen: expect.arrayContaining([expect.stringContaining('Cannot advance crashed game state')]),
+    });
+  });
+
   it.each([
     ['no_actions', { actions: [] }],
     ['no_keyframe', { keyframe: undefined }],
