@@ -157,7 +157,9 @@ describe('deploy API origin', () => {
     });
 
     expect(run.status).toBe(1);
-    expect(run.stderr).toMatch(/^deploy: required host-local directory is missing: .*scripts\/audio\/\.venv$/m);
+    expect(run.stderr).toMatch(
+      /^deploy: required host-local directory is missing: .*(?:assets-local|scripts\/audio\/\.venv)$/m,
+    );
     expect(run.stdout).toBe(
       'games origin: https://games.example:10000 (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' +
         'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n' +
