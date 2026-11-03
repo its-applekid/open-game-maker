@@ -99,6 +99,7 @@ export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
     footprintOverlapFrames: 0,
     actorSolidPixelIntersectionFrames: 0,
     runnerOcclusionFrames: 0,
+    runnerOffPathFrames: 0,
   };
   if (issues.length === 0) {
     collisionReport = await auditShowcaseCollisions({ project, library });

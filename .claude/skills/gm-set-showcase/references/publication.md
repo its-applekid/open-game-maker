@@ -20,7 +20,7 @@ Apply `gm-verify` to the two shared tracks, every stop poster, and the complete 
 frames where a story needs finer timing. Confirm:
 
 - every edge has coherent ground at every sampled time;
-- the route report has zero corridor intersections and zero runner-occlusion frames;
+- the route report has zero corridor intersections, zero runner-occlusion frames, and zero runner-off-path frames;
 - one camera follows one walking hero with no cut, reset, or pop at the loop boundary;
 - every measured interval is within 2% of the declared projected-pixel speed;
 - story action, target, and reaction read at phone size;

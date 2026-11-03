@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   legacyStyleShowcaseSequenceSchema,
   smallScaleIntShowcaseV5Schema,
+  smallScaleIntShowcaseV6Schema,
   styleShowcaseSchema,
 } from '../src/style-showcase.js';
 
@@ -35,6 +36,27 @@ const v5Manifest = () => ({
     variants: [{ id: 'none', label: 'None' }],
     sheet: media('outline-options', 'sheet'),
   },
+});
+
+const v6Manifest = () => ({
+  schema: 'ogm.set-showcase-media/2',
+  set: 'smallscaleint',
+  duration: 24,
+  tracks: {
+    region: media('showcase', 'region'),
+    sheet: media('showcase', 'sheet'),
+  },
+  stops: Array.from({ length: 8 }, (_, index) => {
+    const id = `${index + 1}-scene-${index + 1}`;
+    return {
+      id,
+      label: `Scene ${index + 1}`,
+      start_time: index * 3,
+      region: { poster: `${id}.region.poster.png` },
+      sheet: { poster: `${id}.sheet.poster.png` },
+    };
+  }),
+  speed: { unit: 'projected-px/s', declared: 120 },
 });
 
 describe('style showcase contracts', () => {
@@ -71,6 +93,15 @@ describe('style showcase contracts', () => {
     expect(parsed.outlineOptions?.sheet.poster).toBe('outline-options.sheet.poster.png');
   });
 
+  it('accepts v6 shared tracks and ordered per-stop seek times while ignoring QA metadata', () => {
+    const parsed = smallScaleIntShowcaseV6Schema.parse(v6Manifest());
+
+    expect(parsed.tracks.region.mp4).toBe('showcase.region.720.mp4');
+    expect(parsed.stops).toHaveLength(8);
+    expect(parsed.stops[7]?.start_time).toBe(21);
+    expect(parsed.stops[0]?.label).toBe('Scene 1');
+  });
+
   it('rejects malformed ids, filenames, durations, duplicate stops, and schema versions', () => {
     expect(
       legacyStyleShowcaseSequenceSchema.safeParse({
@@ -97,6 +128,16 @@ describe('style showcase contracts', () => {
     for (const input of [wrongSchema, badDuration, escapingFile, malformedId, duplicateStop]) {
       expect(smallScaleIntShowcaseV5Schema.safeParse(input).success).toBe(false);
     }
+
+    const duplicateV6 = v6Manifest();
+    duplicateV6.stops[1] = { ...duplicateV6.stops[0]!, label: 'Duplicate' };
+    const unorderedV6 = v6Manifest();
+    unorderedV6.stops[2] = { ...unorderedV6.stops[2]!, start_time: 3 };
+    const outsideDurationV6 = v6Manifest();
+    outsideDurationV6.stops[7] = { ...outsideDurationV6.stops[7]!, start_time: 24 };
+    for (const input of [duplicateV6, unorderedV6, outsideDurationV6]) {
+      expect(smallScaleIntShowcaseV6Schema.safeParse(input).success).toBe(false);
+    }
   });
 
   it('validates normalized legacy and v5 showcase responses', () => {
@@ -105,6 +146,21 @@ describe('style showcase contracts', () => {
         tileVideoUrl: '/api/catalog/legacy.mp4',
         sheetVideoUrl: '/api/catalog/legacy-sheets.mp4',
         stops: [{ id: 'fantasy', label: 'Fantasy', startSeconds: 0, tileFallbackUrl: '/fantasy.gif' }],
+      }).success,
+    ).toBe(true);
+    expect(
+      styleShowcaseSchema.safeParse({
+        regionVideoUrl: '/api/catalog/showcase.region.mp4',
+        sheetVideoUrl: '/api/catalog/showcase.sheet.mp4',
+        stops: [
+          {
+            id: '1-fantasy',
+            label: 'Fantasy',
+            startSeconds: 0,
+            region: { posterUrl: '/1.region.png' },
+            sheet: { posterUrl: '/1.sheet.png' },
+          },
+        ],
       }).success,
     ).toBe(true);
     expect(

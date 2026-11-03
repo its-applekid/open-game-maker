@@ -20,6 +20,7 @@ import { loadEnv } from '@ogm/config';
 import {
   legacyStyleShowcaseSequenceSchema,
   smallScaleIntShowcaseV5Schema,
+  smallScaleIntShowcaseV6Schema,
   type StyleShowcase,
   type StyleShowcaseMedia,
 } from '@ogm/contracts';
@@ -134,6 +135,40 @@ async function discoverShowcase(
     } catch {
       return undefined;
     }
+    const v6 = smallScaleIntShowcaseV6Schema.safeParse(input);
+    if (v6.success) {
+      const [region, sheet, resolvedStops] = await Promise.all([
+        addMedia(v6.data.tracks.region),
+        addMedia(v6.data.tracks.sheet),
+        Promise.all(
+          v6.data.stops.map(async (stop) => {
+            const [regionPosterUrl, sheetPosterUrl] = await Promise.all([
+              add(stop.region.poster),
+              add(stop.sheet.poster),
+            ]);
+            if (!regionPosterUrl || !sheetPosterUrl) return undefined;
+            return {
+              id: stop.id,
+              label: stop.label ?? stopLabel(stop.id.replace(/^\d+-/u, '')),
+              startSeconds: stop.start_time,
+              region: { posterUrl: regionPosterUrl },
+              sheet: { posterUrl: sheetPosterUrl },
+            } satisfies StyleShowcase['stops'][number];
+          }),
+        ),
+      ]);
+      const stops = resolvedStops.filter((stop) => stop !== undefined);
+      if (!region || !sheet || stops.length !== v6.data.stops.length) return undefined;
+      return {
+        showcase: {
+          regionVideoUrl: region.videoUrl,
+          sheetVideoUrl: sheet.videoUrl,
+          stops,
+        },
+        files,
+      };
+    }
+
     const parsed = smallScaleIntShowcaseV5Schema.safeParse(input);
     if (!parsed.success) return undefined;
     const [resolvedStops, outlineSheet] = await Promise.all([

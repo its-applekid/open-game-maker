@@ -1,12 +1,24 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import { inspectCollisionFrame, inspectRouteCorridor } from "../collision.mjs";
+import { inspectCollisionFrame, inspectPathCoverage, inspectRouteCorridor } from "../collision.mjs";
 
 function opaqueFrame(width, height) {
   const data = new Uint8Array(width * height * 4);
   for (let index = 3; index < data.length; index += 4) data[index] = 255;
   return { data, width, height };
+}
+
+function diamondFrame(width, height) {
+  const frame = opaqueFrame(width, height);
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < width; x += 1) {
+      if (Math.abs(x + 0.5 - width / 2) / (width / 2) + Math.abs(y + 0.5 - height / 2) / (height / 2) > 1) {
+        frame.data[(y * width + x) * 4 + 3] = 0;
+      }
+    }
+  }
+  return { ...frame, offsetX: 0, offsetY: 0, frameWidth: width, frameHeight: height };
 }
 
 function entity({ id, type, at, depth = at[1], left, top, footprint = [8, 4] }) {
@@ -119,4 +131,27 @@ test("route corridor allows a boundary touch but rejects a closing-segment cross
     }],
   });
   assert.deepEqual(sweptCrossing, [{ entity: "walking-actor", segment: 0 }]);
+});
+
+test("requires the continuous runner foot to remain on an authored path tile", () => {
+  const ground = {
+    grid: { cell: [8, 4], origin: [0, 0] },
+    layers: [{ role: "path", cells: [[0, 0], [1, 0]] }],
+  };
+  const groundLayerFrames = [diamondFrame(16, 8)];
+  assert.equal(inspectPathCoverage({ ground, point: [5, 2.5], projection: "isometric", groundLayerFrames }), true);
+  assert.equal(inspectPathCoverage({ ground, point: [7, 3.5], projection: "isometric", groundLayerFrames }), false);
+  assert.equal(inspectPathCoverage({ ground, point: [5, 7], projection: "isometric", groundLayerFrames }), false);
+  assert.equal(inspectPathCoverage({
+    ground: { ...ground, layers: [...ground.layers, { cells: [[1, 0]] }] },
+    point: [5, 2.5],
+    projection: "isometric",
+    groundLayerFrames: [diamondFrame(16, 8), diamondFrame(16, 8)],
+  }), false);
+  assert.equal(inspectPathCoverage({
+    ground: { ...ground, layers: [] },
+    point: [0, 0],
+    projection: "isometric",
+    groundLayerFrames: [],
+  }), false);
 });

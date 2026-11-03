@@ -94,6 +94,18 @@ export function canvas(width, height, color = "#24252a") {
   return { width, height, data };
 }
 
+export function blendFrames(destination, left, right, amount) {
+  if (
+    destination.width !== left.width || destination.height !== left.height ||
+    destination.width !== right.width || destination.height !== right.height
+  ) throw new Error("cannot blend frames with different dimensions");
+  const weight = Math.max(0, Math.min(1, amount));
+  for (let index = 0; index < destination.data.length; index += 1) {
+    destination.data[index] = Math.round(left.data[index] * (1 - weight) + right.data[index] * weight);
+  }
+  return destination;
+}
+
 export function blit(destination, source, left, top, clip) {
   const roundedLeft = Math.round(left);
   const roundedTop = Math.round(top);

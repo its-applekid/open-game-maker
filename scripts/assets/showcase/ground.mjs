@@ -137,8 +137,6 @@ export async function drawGroundLayers(target, library, ground, offsetX, offsetY
   for (const layer of ground.layers ?? []) {
     const tile = await spriteFrame(library, layer, 0, layer.scale ?? ground.scale ?? 1);
     if (tile.width === 0 || tile.height === 0) throw new Error(`${layer.ref} has an empty ground frame`);
-    const frameWidth = tile.frameWidth ?? tile.width;
-    const frameHeight = tile.frameHeight ?? tile.height;
     let positions = sortedLayerPositions.get(layer);
     if (!positions) {
       positions = layer.cells
@@ -150,8 +148,8 @@ export async function drawGroundLayers(target, library, ground, offsetX, offsetY
       blit(
         target,
         tile,
-        x + offsetX - frameWidth / 2 + tile.offsetX,
-        y + offsetY - frameHeight / 2 + tile.offsetY,
+        x + offsetX - tile.width / 2,
+        y + offsetY - tile.height / 2,
         clip,
       );
     }

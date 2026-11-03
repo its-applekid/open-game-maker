@@ -5,14 +5,14 @@ import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { loadAssetLibrary } from "./assets.mjs";
-import { blit, canvas, spriteFrame } from "./canvas.mjs";
+import { blendFrames, blit, canvas, spriteFrame } from "./canvas.mjs";
 import { auditShowcaseCollisions } from "./collision.mjs";
 import { prepareContinuousFrame } from "./continuous-scene.mjs";
 import {
   continuousTimeline,
   isContinuousShowcase,
 } from "./continuous.mjs";
-import { drawGround, drawGroundBase, drawGroundLayers } from "./ground.mjs";
+import { drawGround } from "./ground.mjs";
 import { verifyProjectAssets } from "./check.mjs";
 import { gifArgs, mp4Args, publicationAttributes } from "./media.mjs";
 import { validateShowcase } from "./model.mjs";
@@ -102,50 +102,27 @@ async function continuousRegionFrame({ project, library, tau, width, height, spr
     prepared.cameraY,
     projection,
   );
-  const regionGrounds = project.sequence.stops.map((stop, index) => {
+  const regionGround = (stop, index) => {
     const ground = project.regions[stop.region].ground;
-    const [areaWidth, areaHeight] = ground.size;
     const [centerX, centerY] = project.sequence.runner.path.points[index];
-    const [boundsX, boundsY] = ground.bounds_offset ?? [0, 0];
     return {
-      index,
       ground,
       offsetX: centerX + prepared.cameraX,
       offsetY: centerY + prepared.cameraY,
-      clip: {
-        left: centerX + boundsX - areaWidth / 2 + prepared.cameraX,
-        right: centerX + boundsX + areaWidth / 2 + prepared.cameraX,
-        top: centerY + boundsY - areaHeight / 2 + prepared.cameraY,
-        bottom: centerY + boundsY + areaHeight / 2 + prepared.cameraY,
-      },
     };
-  }).sort((left, right) =>
-    Number(left.index === prepared.runner.index) - Number(right.index === prepared.runner.index)
-  );
-  for (const regionGround of regionGrounds) {
-    await drawGroundBase(
-      target,
-      library,
-      regionGround.ground,
-      regionGround.offsetX,
-      regionGround.offsetY,
-      projection,
-      regionGround.clip,
-    );
-  }
-  for (const regionGround of regionGrounds) {
-    await drawGroundLayers(
-      target,
-      library,
-      regionGround.ground,
-      regionGround.offsetX,
-      regionGround.offsetY,
-      projection,
-      regionGround.clip,
-    );
-  }
+  };
   const weatherBlend = prepared.runner.localTime / prepared.runner.interval.seconds;
-  const nextStop = project.sequence.stops[(prepared.runner.index + 1) % project.sequence.stops.length];
+  const nextIndex = (prepared.runner.index + 1) % project.sequence.stops.length;
+  const nextStop = project.sequence.stops[nextIndex];
+  const grounds = [
+    regionGround(prepared.runner.stop, prepared.runner.index),
+    regionGround(nextStop, nextIndex),
+  ];
+  const groundFrames = grounds.map(() => ({ ...target, data: target.data.slice() }));
+  await Promise.all(grounds.map(({ ground, offsetX, offsetY }, index) =>
+    drawGround(groundFrames[index], library, ground, offsetX, offsetY, projection)
+  ));
+  blendFrames(target, groundFrames[0], groundFrames[1], weatherBlend);
   drawWeatherLayers(
     target,
     prepared.runner.stop.weather,
@@ -363,6 +340,7 @@ async function renderContinuous({ project, library, output, fps, spriteFps }) {
     ]);
     stops.push({
       id: stop.id,
+      ...(stop.scene ? { label: stop.scene } : {}),
       start_time: stop.start_time,
       region: { poster: regionPosterFile },
       sheet: { poster: sheetPosterFile },

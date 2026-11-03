@@ -86,13 +86,14 @@ export async function prepareContinuousFrame({ project, library, tau, width, hei
   const specs = [];
 
   for (const [index, stop] of project.sequence.stops.entries()) {
+    if (index !== runner.index) continue;
     const origin = project.sequence.runner.path.points[index];
     const region = project.regions[stop.region];
     for (const sprite of region.sprites ?? []) {
       const local = localPosition(sprite, tau);
       const at = [origin[0] + local[0], origin[1] + local[1]];
       positions.set(sprite.id, at);
-      specs.push({ stop, sprite, at, active: index === runner.index });
+      specs.push({ stop, sprite, at, active: true });
     }
   }
   const runnerId = String(project.sequence.runner.ref).split("/").at(-1);

@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { test } from "vitest";
 
-import { spriteFrame } from "../canvas.mjs";
+import { blendFrames, canvas, spriteFrame } from "../canvas.mjs";
 
 const requireFromAssets = createRequire(
   new URL("../../../../packages/asset-cards/package.json", import.meta.url),
@@ -33,4 +33,13 @@ test("sprite scaling rounds fractional destination dimensions consistently", asy
   } finally {
     await rm(root, { recursive: true, force: true });
   }
+});
+
+test("blends equal-sized frames at a bounded weight", () => {
+  const left = canvas(1, 1, "#000000");
+  const right = canvas(1, 1, "#ffffff");
+  const target = canvas(1, 1);
+
+  assert.deepEqual([...blendFrames(target, left, right, 0.5).data], [128, 128, 128, 255]);
+  assert.deepEqual([...blendFrames(target, left, right, 2).data], [255, 255, 255, 255]);
 });

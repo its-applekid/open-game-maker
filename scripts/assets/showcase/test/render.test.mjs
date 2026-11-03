@@ -8,6 +8,9 @@ import { promisify } from "node:util";
 import { test } from "vitest";
 
 import { checkShowcase } from "../check.mjs";
+import { prepareContinuousFrame } from "../continuous-scene.mjs";
+import { loadAssetLibrary } from "../assets.mjs";
+import { loadProject } from "../project.mjs";
 import { renderShowcase } from "../render.mjs";
 import { inspectGif, topLevelMp4Atoms } from "../verify.mjs";
 import { buildFixture, ffmpegAvailable, json } from "./render-fixture.mjs";
@@ -109,18 +112,54 @@ async function buildContinuousFixture(root) {
       size: [32, 64],
       bounds_offset: [4, 0],
       grid: { cell: [8, 8], origin: [0, 0] },
-      layers: [{ ref: "card:test-pack/road", cells: [[0, 0]] }],
+      layers: [{
+        ref: "card:test-pack/road",
+        role: "path",
+        cells: [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
+      }],
     },
     sprites: [{ id: "west-prop", ref: "card:test-pack/west-prop", at: [0, -16], collision: { type: "none" } }],
   });
   await json(path.join(fixture.project, "regions/east.json"), {
-    ground: { ref: "card:test-pack/east-ground", fill: "area", size: [32, 64] },
+    ground: {
+      ref: "card:test-pack/east-ground",
+      fill: "area",
+      size: [32, 64],
+      grid: { cell: [8, 8], origin: [0, 0] },
+      layers: [{
+        ref: "card:test-pack/east-ground",
+        role: "path",
+        cells: [[0, 0], [-1, 0], [-2, 0], [-3, 0], [-4, 0]],
+      }],
+    },
     sprites: [{ id: "east-prop", ref: "card:test-pack/east-prop", at: [0, -16], collision: { type: "none" } }],
   });
   await json(path.join(fixture.project, "sheets/west.json"), westSheet);
   await json(path.join(fixture.project, "sheets/east.json"), eastSheet);
   return fixture;
 }
+
+test("keeps neighboring scene props out of the active continuous region", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildContinuousFixture(root);
+    const project = await loadProject(fixture.project);
+    const library = await loadAssetLibrary({ assetsRoot: fixture.assets, catalogFile: fixture.catalog });
+    const prepared = await prepareContinuousFrame({
+      project,
+      library,
+      tau: 0,
+      width: 64,
+      height: 64,
+      spriteFps: 4,
+    });
+
+    assert.ok(prepared.entities.some(({ id }) => id === "west-prop"));
+    assert.equal(prepared.entities.some(({ id }) => id === "east-prop"), false);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
 
 test.skipIf(!ffmpegAvailable)("renders baked media without a client compositor (requires ffmpeg and ffprobe)", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));

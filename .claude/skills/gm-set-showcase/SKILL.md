@@ -67,8 +67,9 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
 
    Keep the frame-by-frame report with the region evidence. Its route preflight must report zero corridor intersections,
    and every frame must report zero footprint overlaps, zero disallowed actor/solid-prop intersections, and zero
-   later-drawn runner occlusions. Fix the layout, footprint, painter order, or path when a count is non-zero; never waive
-   an intersection after rendering.
+   later-drawn runner occlusions. The hero's sampled foot point must also stay on a ground layer marked `role: "path"`
+   for every frame. Fix the layout, footprint, painter order, or path when a count is non-zero; never waive a failed
+   frame after rendering.
 
 9. Render to a scratch output directory:
 
@@ -99,8 +100,8 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
 
 The checker and post-render media probe pass; the route closes physically; every interval is within 2% of the declared
 speed; the route has zero corridor intersections; every frame has zero footprint overlaps, zero disallowed actor/solid
-pixel intersections, and zero runner occlusions; rain and snow move down-screen with deterministic wind drift; every installed pack
-is represented; every stop and both shared tracks have been visually inspected; the one-frame-per-second timeline shows
+pixel intersections, zero runner occlusions, and zero runner-off-path results; rain and snow move down-screen with
+deterministic wind drift; every installed pack is represented; every stop and both shared tracks have been visually inspected; the one-frame-per-second timeline shows
 one hero in one filled world with no cut or burned text; each sheet interval shows 24 distinct sprites; protected focal
 elements and weather remain readable; paired world/sheet casts do not overlap; and the published surface seeks the two
 generated shared tracks by manifest time. Report any device or physical-phone check that was not run.
