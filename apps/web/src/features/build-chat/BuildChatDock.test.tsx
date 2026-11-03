@@ -3,6 +3,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { queryClient } from '../../app/query';
 import { BuildChatDock } from './BuildChatDock';
 import { useDock } from './dock';
 import { buildChatJob } from './test-fixtures';
@@ -43,7 +44,10 @@ beforeEach(() => {
   chatListeners.clear();
 });
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('BuildChatDock', () => {
   it('remounts chat state when switching jobs', async () => {
@@ -76,6 +80,7 @@ describe('BuildChatDock', () => {
   });
 
   it('starts an edit job from a draft chat when no job is running, then streams it', async () => {
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
     api.mockResolvedValue({ jobId: 'j_new', state: 'admitted' });
     renderDock();
 
@@ -92,6 +97,7 @@ describe('BuildChatDock', () => {
     // The instruction stays on screen while the new job streams into the same chat.
     expect(screen.getByText('Make the door glow')).toBeInTheDocument();
     expect(useDock.getState()).toMatchObject({ view: 'chat', openJobId: 'j_new' });
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['game-jobs', 'g_1'] });
 
     send('And make it creak');
     await waitFor(() =>

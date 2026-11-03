@@ -218,9 +218,13 @@ test('asking for a change with no build running starts an edit job and streams i
     plan: { ...job.plan, title: 'Make the door glow' },
   };
   const streamed: string[] = [];
+  let jobResponses = 0;
   // Registered after installGameApi, so these win over its catch-all.
   await page.route('**/api/v1/games', (route) => json(route, { games: [{ id: 'game' }] }));
-  await page.route('**/api/v1/jobs?gameId=*', (route) => json(route, { jobs: created.length > 0 ? [editJob] : [] }));
+  await page.route('**/api/v1/jobs?gameId=*', async (route) => {
+    await json(route, { jobs: created.length > 0 ? [editJob] : [] });
+    jobResponses += 1;
+  });
   await page.route('**/api/v1/jobs', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     created.push(route.request().postDataJSON() as Record<string, unknown>);
@@ -243,7 +247,9 @@ test('asking for a change with no build running starts an edit job and streams i
   await page.route('**/api/v1/voice/token', (route) => json(route, { error: 'unavailable' }, 503));
 
   await page.goto('/g/game?test');
-  await page.getByRole('button', { name: 'Ask for a change' }).click();
+  await expect.poll(() => jobResponses).toBeGreaterThan(0);
+  // Waiting for the empty jobs response lets the live game frame start moving the toolbar; this test targets refresh.
+  await page.getByRole('button', { name: 'Ask for a change' }).click({ force: true });
   await expect(page.getByRole('heading', { name: 'Goblin Cellar' })).toBeVisible();
 
   await page.getByRole('textbox', { name: 'Message the builder' }).fill('Make the door glow');
@@ -253,7 +259,8 @@ test('asking for a change with no build running starts an edit job and streams i
   expect(created[0]).toMatchObject({ gameId: 'game', branchId: 'main', kind: 'feature', start: 'now' });
   await expect.poll(() => streamed).toContain(`/api/v1/jobs/${editJob.id}/chat`);
   await expect(page.getByRole('heading', { name: 'Make the door glow' })).toBeVisible();
-  await expect(page.locator('.play-bar .build-state')).toHaveText('Waiting for a free slot');
+  await expect.poll(() => jobResponses, { timeout: 2_000 }).toBeGreaterThan(1);
+  await expect(page.locator('.play-bar .build-state')).toHaveText('Waiting for a free slot', { timeout: 2_000 });
 });
 
 async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean; posts?: unknown[] } = {}) {
