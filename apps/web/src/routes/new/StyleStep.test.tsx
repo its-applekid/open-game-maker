@@ -146,6 +146,25 @@ describe('StyleStep', () => {
     );
   });
 
+  it('wraps region controls independently from the set controls', () => {
+    renderStep();
+    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
+
+    const previousRegion = screen.getByRole('button', { name: 'Previous region' });
+    const nextRegion = screen.getByRole('button', { name: 'Next region' });
+    expect(previousRegion).toHaveClass('new-style-region-button');
+    expect(nextRegion).toHaveClass('new-style-region-button');
+    expect(screen.getByRole('button', { name: 'Previous set' })).toHaveClass('new-style-set-button');
+    expect(screen.getByRole('button', { name: 'Next set' })).toHaveClass('new-style-set-button');
+
+    fireEvent.click(nextRegion);
+    expect(screen.getByRole('button', { name: 'Modern zombie' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(nextRegion);
+    expect(screen.getByRole('button', { name: 'Fantasy' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(previousRegion);
+    expect(screen.getByRole('button', { name: 'Modern zombie' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
   it('cycles through a multi-set family with Previous, Next, and keyboard wrap', () => {
     renderStep();
     fireEvent.click(screen.getByRole('button', { name: 'Pixel art' }));

@@ -148,7 +148,7 @@ export function StyleStep({
             <h2>{active.label}</h2>
             <span className="new-style-cycle">
               <button
-                className="new-style-icon-button tap-secondary"
+                className="new-style-icon-button new-style-set-button tap-secondary"
                 type="button"
                 aria-label="Previous set"
                 onClick={() => cycle(-1)}
@@ -156,7 +156,7 @@ export function StyleStep({
                 <span aria-hidden="true">‹</span>
               </button>
               <button
-                className="new-style-icon-button tap-secondary"
+                className="new-style-icon-button new-style-set-button tap-secondary"
                 type="button"
                 aria-label="Next set"
                 onClick={() => cycle(1)}
@@ -215,6 +215,12 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
     if (sheet.current) sheet.current.currentTime = next.startSeconds;
   };
 
+  const cycleStop = (offset: number) => {
+    const length = showcase.stops.length;
+    if (length === 0) return;
+    seek((activeStop + offset + length) % length);
+  };
+
   return (
     <>
       <div className="new-style-showcase">
@@ -237,19 +243,37 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
           videoRef={sheet}
         />
       </div>
-      <div className="new-style-stops" role="group" aria-label="Showcase regions">
-        {showcase.stops.map((candidate, index) => (
-          <button
-            className="new-style-stop"
-            type="button"
-            aria-pressed={index === activeStop}
-            onClick={() => seek(index)}
-            key={candidate.id}
-          >
-            {candidate.tileFallbackUrl ? <img src={candidate.tileFallbackUrl} alt="" /> : null}
-            <span>{candidate.label}</span>
-          </button>
-        ))}
+      <div className="new-style-stop-switcher" role="group" aria-label="Showcase region controls">
+        <button
+          className="new-style-icon-button new-style-region-button tap-secondary"
+          type="button"
+          aria-label="Previous region"
+          onClick={() => cycleStop(-1)}
+        >
+          <span aria-hidden="true">←</span>
+        </button>
+        <div className="new-style-stops" role="group" aria-label="Showcase regions">
+          {showcase.stops.map((candidate, index) => (
+            <button
+              className="new-style-stop"
+              type="button"
+              aria-pressed={index === activeStop}
+              onClick={() => seek(index)}
+              key={candidate.id}
+            >
+              {candidate.tileFallbackUrl ? <img src={candidate.tileFallbackUrl} alt="" /> : null}
+              <span>{candidate.label}</span>
+            </button>
+          ))}
+        </div>
+        <button
+          className="new-style-icon-button new-style-region-button tap-secondary"
+          type="button"
+          aria-label="Next region"
+          onClick={() => cycleStop(1)}
+        >
+          <span aria-hidden="true">→</span>
+        </button>
       </div>
     </>
   );
