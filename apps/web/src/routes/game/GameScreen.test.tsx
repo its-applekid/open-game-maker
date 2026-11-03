@@ -5,6 +5,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { OgmHost } from '../../app/testHook';
 
+type MockFrameState = {
+  bridgeState: 'connecting' | 'ready' | 'error';
+  dropped: number;
+  manifest?: unknown;
+  error?: string;
+  errorCode?: string;
+  load?: { phase: 'boot' | 'ready' | 'stream'; loaded: number; total: number; done: boolean };
+};
+
+type MockMountOptions = {
+  onSaveWrite?(payload: { saveSchemaVersion: number; data: unknown }): void;
+  onState?(state: MockFrameState): void;
+  onLoadDone?(measurement: { ms: number; fetchedBytes: number; cachedBytes: number }): void;
+  onLoadStalled?(measurement: { ms: number; fetchedBytes: number; cachedBytes: number }): void;
+};
+
 const editorApi = vi.hoisted(() => ({
   acquireLease: vi.fn(),
   getDesignSnapshot: vi.fn(),
@@ -17,6 +33,7 @@ const editorApi = vi.hoisted(() => ({
   listJobs: vi.fn(),
   openTransactionStream: vi.fn(),
   postTransaction: vi.fn(),
+  postAnalyticsEvent: vi.fn(),
   putSave: vi.fn(),
   releaseLease: vi.fn(),
   submitReapply: vi.fn(),
@@ -44,15 +61,10 @@ const host = vi.hoisted(() => {
   };
   return {
     controller,
-    mountGameFrame: vi.fn(
-      (options?: {
-        onSaveWrite?(payload: { saveSchemaVersion: number; data: unknown }): void;
-        onState?(state: { bridgeState: 'ready'; dropped: number; manifest: unknown }): void;
-      }) => {
-        void options;
-        return controller;
-      },
-    ),
+    mountGameFrame: vi.fn((options?: MockMountOptions) => {
+      void options;
+      return controller;
+    }),
   };
 });
 
@@ -102,6 +114,7 @@ beforeEach(() => {
     lease: { token: 3, expiresAt: '2026-11-02T03:01:00.000Z' },
   });
   editorApi.postTransaction.mockResolvedValue({ ok: true, rev: 5 });
+  editorApi.postAnalyticsEvent.mockResolvedValue({ accepted: 1, rejected: [] });
   editorApi.openTransactionStream.mockReturnValue({
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
@@ -203,6 +216,44 @@ describe('GameScreen', () => {
 
     expect(await screen.findByRole('heading', { name: 'Games destination' })).toBeVisible();
     expect(host.controller.dispose).toHaveBeenCalled();
+  });
+
+  it('posts the terminal load measurement through OGM-014 analytics', async () => {
+    renderGame();
+    await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalled());
+    const options = host.mountGameFrame.mock.calls.at(-1)?.[0];
+
+    act(() => {
+      options?.onLoadDone?.({ ms: 420, fetchedBytes: 1024, cachedBytes: 2048 });
+    });
+
+    await waitFor(() =>
+      expect(editorApi.postAnalyticsEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameId: 'game',
+          meta: expect.objectContaining({ system: 'game-load', command: 'partial', result: 'ok' }),
+        }),
+      ),
+    );
+  });
+
+  it('shows Try again for a stalled load and remounts the frame', async () => {
+    renderGame();
+    await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalledTimes(1));
+    const options = host.mountGameFrame.mock.calls.at(-1)?.[0];
+
+    act(() => {
+      options?.onState?.({
+        bridgeState: 'error',
+        dropped: 0,
+        error: 'load-stalled',
+        errorCode: 'load-stalled',
+        load: { phase: 'ready', loaded: 20, total: 100, done: false },
+      });
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalledTimes(2));
   });
 
   it('exposes live game state directly under the test hook', async () => {

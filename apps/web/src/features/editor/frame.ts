@@ -18,11 +18,37 @@ type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSet
   bridge: Pick<GameFrame['bridge'], 'dropped'>;
 };
 
+export type GameLoadProgress = {
+  phase: 'boot' | 'ready' | 'stream';
+  loaded: number;
+  total: number;
+  cachedBytes: number;
+};
+
+export type GameLoadDone = {
+  ms: number;
+  fetchedBytes: number;
+  cachedBytes: number;
+  fetchedFiles: number;
+  cachedFiles: number;
+  persisted: boolean | null;
+  usage?: number;
+  quota?: number;
+};
+
+export type GameLoadMeasurement = Pick<GameLoadDone, 'ms' | 'fetchedBytes' | 'cachedBytes'>;
+export type GameLoadEvent =
+  { t: 'load.progress'; payload: GameLoadProgress } | { t: 'load.done'; payload: GameLoadDone };
+
+type LoadAwareGameFrameOptions = GameFrameOptions & { onLoad?(event: GameLoadEvent): void };
+
 export type GameFrameState = {
   bridgeState: 'connecting' | 'ready' | 'error';
   dropped: number;
   manifest?: GameManifest;
   error?: string;
+  errorCode?: string;
+  load?: Pick<GameLoadProgress, 'phase' | 'loaded' | 'total'> & { done: boolean };
 };
 
 export type GameFrameController = {
@@ -55,11 +81,13 @@ export type MountGameFrameOptions = {
   mode: 'play' | 'edit';
   design: { rev: number; doc: DesignDoc };
   build?: 'draft' | 'test' | 'published';
-  create?(options: GameFrameOptions): FrameLike;
+  create?(options: LoadAwareGameFrameOptions): FrameLike;
   onState?(state: GameFrameState): void;
   onSaveWrite?(payload: { saveSchemaVersion: number; data: unknown }): void;
   onEvent?(kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown): void;
   onRoomMessage?(envelope: Envelope<string, unknown>): void;
+  onLoadDone?(measurement: GameLoadDone): void;
+  onLoadStalled?(measurement: GameLoadMeasurement): void;
 };
 
 export function mountGameFrame(options: MountGameFrameOptions): GameFrameController {
@@ -68,6 +96,11 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
   let disposed = false;
   let current: Omit<GameFrameState, 'dropped'> = { bridgeState: 'connecting' };
   let frame!: FrameLike;
+  let loadObserved = false;
+  let loadTerminal = false;
+  let loadStallTimer: ReturnType<typeof setTimeout> | undefined;
+  let lastLoadProgress: GameLoadProgress | undefined;
+  const mountedAt = performance.now();
   type PlacementRequest = {
     prefab: string;
     pose: Pose;
@@ -85,6 +118,49 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
 
   const snapshot = (): GameFrameState => ({ ...current, dropped: frame.bridge.dropped + wrongOriginDrops });
   const publish = () => options.onState?.(snapshot());
+  const clearLoadStall = () => {
+    if (loadStallTimer !== undefined) clearTimeout(loadStallTimer);
+    loadStallTimer = undefined;
+  };
+  const stallLoad = () => {
+    if (disposed || loadTerminal || lastLoadProgress === undefined) return;
+    loadTerminal = true;
+    clearLoadStall();
+    current = { ...current, bridgeState: 'error', error: 'load-stalled', errorCode: 'load-stalled' };
+    publish();
+    options.onLoadStalled?.({
+      ms: Math.max(0, Math.round(performance.now() - mountedAt)),
+      fetchedBytes: Math.max(0, lastLoadProgress.loaded - lastLoadProgress.cachedBytes),
+      cachedBytes: lastLoadProgress.cachedBytes,
+    });
+  };
+  const handleLoad = (event: GameLoadEvent) => {
+    if (disposed || loadTerminal) return;
+    loadObserved = true;
+    if (event.t === 'load.done') {
+      loadTerminal = true;
+      clearLoadStall();
+      const load = current.load ?? { phase: 'ready' as const, loaded: 0, total: 0, done: false };
+      current = { ...current, load: { ...load, done: true } };
+      publish();
+      options.onLoadDone?.(event.payload);
+      return;
+    }
+    if (event.payload.phase === 'stream') return;
+    lastLoadProgress = event.payload;
+    clearLoadStall();
+    loadStallTimer = setTimeout(stallLoad, 20_000);
+    current = {
+      ...current,
+      load: {
+        phase: event.payload.phase,
+        loaded: event.payload.loaded,
+        total: event.payload.total,
+        done: false,
+      },
+    };
+    publish();
+  };
   const observeOrigin = (event: MessageEvent) => {
     if (event.origin === trustedOrigin) return;
     wrongOriginDrops += 1;
@@ -93,7 +169,8 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
   window.addEventListener('message', observeOrigin);
 
   try {
-    frame = (options.create ?? createGameFrame)({
+    const create = (options.create ?? createGameFrame) as (frameOptions: LoadAwareGameFrameOptions) => FrameLike;
+    frame = create({
       container: options.container,
       gamesOrigin: trustedOrigin,
       gameId: options.gameId,
@@ -105,17 +182,25 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       role: () => 'owner',
       readyTimeoutMs: 10_000,
       onReady: (manifest, marks) => {
-        current = { bridgeState: 'ready', manifest };
+        if (current.bridgeState === 'error') return;
+        current = {
+          ...current,
+          bridgeState: 'ready',
+          manifest,
+          load: loadObserved ? current.load : { phase: 'ready', loaded: 0, total: 0, done: true },
+        };
         frame.send('design.apply', { rev: options.design.rev, doc: options.design.doc, patches: [] });
         emitRoomMessage('ready', { protocol: SDK_PROTOCOL, manifest, marks });
         publish();
       },
+      onLoad: handleLoad,
       onSaveWrite: options.onSaveWrite,
       onEvent: options.onEvent,
       onError: (failure) => {
         /* The game declined an optional command (a camera mode, selection) and keeps running. */
         if (failure.code === 'unsupported') return;
-        current = { bridgeState: 'error', error: failure.message };
+        clearLoadStall();
+        current = { ...current, bridgeState: 'error', error: failure.message, errorCode: failure.code };
         publish();
       },
     });
@@ -193,6 +278,7 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
     dispose: () => {
       if (disposed) return;
       disposed = true;
+      clearLoadStall();
       window.removeEventListener('message', observeOrigin);
       stopPlacement();
       for (const stop of stopRoomMessages) stop();

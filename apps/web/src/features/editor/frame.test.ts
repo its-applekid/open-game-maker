@@ -5,6 +5,25 @@ import type { DesignDoc, GameManifest } from '@ogm/contracts/browser';
 
 import { mountGameFrame } from './frame';
 
+type LoadEvent =
+  | {
+      t: 'load.progress';
+      payload: { phase: 'boot' | 'ready' | 'stream'; loaded: number; total: number; cachedBytes: number };
+    }
+  | {
+      t: 'load.done';
+      payload: {
+        ms: number;
+        fetchedBytes: number;
+        cachedBytes: number;
+        fetchedFiles: number;
+        cachedFiles: number;
+        persisted: boolean | null;
+      };
+    };
+
+type LoadAwareFrameOptions = GameFrameOptions & { onLoad?(event: LoadEvent): void };
+
 const manifest = {
   id: 'cellar',
   title: 'Goblin Cellar',
@@ -191,6 +210,104 @@ describe('game frame adapter', () => {
       bridgeState: 'error',
       error: 'game did not become ready in time',
     });
+  });
+
+  it('tracks load progress and fails only after twenty seconds without progress', async () => {
+    vi.useFakeTimers();
+    let frameOptions: LoadAwareFrameOptions | undefined;
+    const onLoadStalled = vi.fn();
+    const states: unknown[] = [];
+    const controller = mountGameFrame({
+      container: document.createElement('div'),
+      gamesOrigin: 'http://127.0.0.1:10001',
+      gameId: 'game',
+      buildId: 'build',
+      mode: 'play',
+      design: { rev: 0, doc: {} as DesignDoc },
+      create: (options) => {
+        frameOptions = options as LoadAwareFrameOptions;
+        return {
+          bridge: { dropped: 0 },
+          on: vi.fn(() => vi.fn()),
+          setMode: vi.fn(),
+          setSettings: vi.fn(),
+          send: vi.fn(),
+          dispose: vi.fn(),
+        };
+      },
+      onLoadStalled,
+      onState: (state) => states.push(state),
+    });
+
+    frameOptions?.onReady?.(manifest, []);
+    expect(controller.state().load).toMatchObject({ done: true });
+
+    frameOptions?.onLoad?.({
+      t: 'load.progress',
+      payload: { phase: 'ready', loaded: 25, total: 100, cachedBytes: 10 },
+    });
+    expect(controller.state().load).toEqual({ phase: 'ready', loaded: 25, total: 100, done: false });
+
+    await vi.advanceTimersByTimeAsync(19_000);
+    frameOptions?.onLoad?.({
+      t: 'load.progress',
+      payload: { phase: 'ready', loaded: 50, total: 100, cachedBytes: 10 },
+    });
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(controller.state().bridgeState).toBe('ready');
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(controller.state()).toMatchObject({ bridgeState: 'error', errorCode: 'load-stalled' });
+    expect(states).toContainEqual(expect.objectContaining({ bridgeState: 'error', errorCode: 'load-stalled' }));
+    expect(onLoadStalled).toHaveBeenCalledWith(expect.objectContaining({ fetchedBytes: 40, cachedBytes: 10 }));
+  });
+
+  it('marks load.done terminal and cancels the stall timer', async () => {
+    vi.useFakeTimers();
+    let frameOptions: LoadAwareFrameOptions | undefined;
+    const onLoadDone = vi.fn();
+    const onLoadStalled = vi.fn();
+    const controller = mountGameFrame({
+      container: document.createElement('div'),
+      gamesOrigin: 'http://127.0.0.1:10001',
+      gameId: 'game',
+      buildId: 'build',
+      mode: 'play',
+      design: { rev: 0, doc: {} as DesignDoc },
+      create: (options) => {
+        frameOptions = options as LoadAwareFrameOptions;
+        return {
+          bridge: { dropped: 0 },
+          on: vi.fn(() => vi.fn()),
+          setMode: vi.fn(),
+          setSettings: vi.fn(),
+          send: vi.fn(),
+          dispose: vi.fn(),
+        };
+      },
+      onLoadDone,
+      onLoadStalled,
+    });
+
+    frameOptions?.onLoad?.({
+      t: 'load.progress',
+      payload: { phase: 'ready', loaded: 40, total: 100, cachedBytes: 20 },
+    });
+    const done = {
+      ms: 230,
+      fetchedBytes: 80,
+      cachedBytes: 20,
+      fetchedFiles: 2,
+      cachedFiles: 1,
+      persisted: true,
+    };
+    frameOptions?.onLoad?.({ t: 'load.done', payload: done });
+
+    expect(controller.state().load).toEqual({ phase: 'ready', loaded: 40, total: 100, done: true });
+    expect(onLoadDone).toHaveBeenCalledWith(done);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(onLoadStalled).not.toHaveBeenCalled();
+    expect(controller.state().bridgeState).toBe('connecting');
   });
 
   it('does not misattribute a late placement reply after timeout', async () => {

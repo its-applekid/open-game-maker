@@ -1,6 +1,8 @@
 import type {
+  ActivityEvent,
   DesignDoc,
   EditorCommand,
+  IngestResponse,
   Job,
   Patch,
   ReapplyReport,
@@ -61,6 +63,10 @@ export type PublishedCapability =
 
 export function getGame(gameId: string): Promise<GameMetadata> {
   return api(`/games/${segment(gameId)}`);
+}
+
+export function postAnalyticsEvent(event: ActivityEvent): Promise<IngestResponse> {
+  return api('/analytics/events', { method: 'POST', json: { events: [event] } });
 }
 
 export function getDesignSnapshot(gameId: string, branch: string): Promise<DesignSnapshot> {
