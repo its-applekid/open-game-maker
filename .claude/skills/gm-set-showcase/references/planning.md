@@ -27,7 +27,14 @@ For top-down art, repeat or extend grid-aligned ground beyond the camera. For is
 
 ## Composition rules
 
-- Give every prop a purpose in the region's story or silhouette. Do not repeat a prop across regions to fill space.
+- Start from the closest store thumbnail or official pack screenshot. Match its setting, ground and walls, prop choices,
+  density, layering, and camera framing in a still before adding the story beat.
+- Give every prop a purpose in the region's story or silhouette. Do not repeat one design inside a region. Crowd actors
+  may use visibly different variants, never copies of the same sprite.
+- Classify every region sprite as `actor`, `solid`, or `none`. Reserve the full declared footprint for actors and solid
+  props before placing the next entity; anchor points alone are not collision geometry. Effects such as rain use `none`.
+- Check the complete motion path, not only the authored still. Moving actors must keep their footprints disjoint on every
+  output frame, and an actor may share visible pixels with a solid only while depth-sorted behind it.
 - Use source-authentic walk timing. A walking hero is the continuity device between regions.
 - Pair an action with a visible target and reaction. Record `[start, contact, end]`; the action runs once before contact,
   then the target reacts and settles. “Raider attacks” is incomplete; “raider strikes the gate, gate bobs once” is

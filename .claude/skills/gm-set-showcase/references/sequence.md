@@ -24,7 +24,8 @@ relative to the project directory and may not escape it.
     "action": "walk",
     "path": { "from": [-48, 320], "to": [560, 320] },
     "speed": 48,
-    "scale": 2
+    "scale": 2,
+    "collision": { "type": "actor", "footprint": [20, 12] }
   },
   "stops": [
     {
@@ -73,7 +74,8 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
       "ref": "card:pack-b/cart",
       "at": [360, 300],
       "scale": 2,
-      "z": 0
+      "z": 0,
+      "collision": { "type": "solid", "footprint": [64, 28] }
     },
     {
       "id": "dog",
@@ -81,6 +83,7 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
       "action": "walk",
       "dir": "right",
       "at": [180, 340],
+      "collision": { "type": "actor", "footprint": [18, 10] },
       "walk": { "to": [280, 340], "seconds": 2.5, "offset": 0.5 }
     }
   ]
@@ -89,6 +92,16 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
 
 `fill` must be `cover`. Coordinates are world pixels. The camera offsets the world to keep the runner centered. Sprites
 need unique stable `id` values, are anchored at bottom-center, and are depth-sorted by world y plus optional `z`.
+
+Every runner and region sprite needs `collision.type`: `actor` for characters and creatures, `solid` for props, walls,
+and vehicles, or `none` for non-solid effects. Actors and solids also need a positive `[width, depth]` footprint in
+world pixels. The rectangle is bottom-centered on `at`; optional `collision.offset: [x, y]` moves its anchor for an
+asymmetric source. Measure occupied ground, not the full visible sprite. The checker reserves those rectangles and scans
+every output frame before the renderer starts encoding. Touching edges are valid; overlapping areas are not.
+
+The checker also compares rendered alpha pixels for every actor/solid pair. Pixel overlap is allowed only when the actor
+has lower depth and is therefore drawn behind the solid. A foreground actor intersecting a solid fails even when their
+declared footprints do not overlap, which catches the actor-through-counter case.
 
 ## Sheet file
 

@@ -24,6 +24,7 @@ function validProject() {
         action: "walk",
         path: { from: [-24, 128], to: [280, 128] },
         speed: 48,
+        collision: { type: "actor", footprint: [12, 8] },
       },
       stops: [
         {
@@ -59,6 +60,7 @@ function validProject() {
             id: "shop-door",
             ref: "card:limezu-modern-exteriors/storefront",
             at: [128, 72],
+            collision: { type: "solid", footprint: [48, 16] },
           },
         ],
       },
@@ -181,6 +183,21 @@ test("rejects unstable entity ids and story timing without a contact point", () 
 
   assert.ok(codes.includes("region.entity_ids"));
   assert.ok(codes.includes("story.timing"));
+});
+
+test("rejects a duplicate design inside one region", () => {
+  const project = validProject();
+  project.regions["regions/corner-store.json"].sprites.push({
+    id: "shop-door-copy",
+    ref: "card:alternate-resolution/storefront",
+    at: [32, 32],
+    collision: { type: "solid", footprint: [48, 16] },
+  });
+  project.sequence.stops[0].tile_sprites.push(
+    "card:alternate-resolution/storefront",
+  );
+
+  assert.ok(validateShowcase(project).some(({ code }) => code === "props.duplicated"));
 });
 
 test("publishes phone-ready H.264 video with GIF fallback", () => {
