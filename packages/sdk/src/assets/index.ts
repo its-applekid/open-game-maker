@@ -11,6 +11,7 @@ export {
   type PrepareOptions,
   type PrepareResult,
 } from './cache.js';
+export { CACHE_EVICTION_POLICY } from './evict.js';
 export {
   ADAPTED_TIER_STORAGE_KEY,
   FRAME_SAMPLE_COUNT,
