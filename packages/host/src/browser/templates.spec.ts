@@ -22,6 +22,10 @@ for (const template of [
       throw new Error(`template boot stopped at ${stage}; page errors: ${pageErrors.join(' | ')}`, { cause: error });
     }
     expect(page.frames().some((frame) => frame.url().startsWith(`http://127.0.0.1:4174/g/${template.id}/`))).toBe(true);
+    const gameFrame = page.frames().find((frame) => frame.url().includes(`/g/${template.id}/`))!;
+    await expect
+      .poll(() => gameFrame.evaluate(async () => (await navigator.serviceWorker.getRegistration())?.scope))
+      .toBe('http://127.0.0.1:4174/g/');
     expect(await page.evaluate(() => window.__host.errors)).toEqual([]);
     expect(pageErrors).toEqual([]);
   });

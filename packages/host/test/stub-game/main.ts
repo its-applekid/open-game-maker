@@ -8,6 +8,7 @@ declare global {
     __hostMessages: unknown[];
     __taps: number;
     __cacheReady: Promise<ServiceWorkerRegistration | undefined>;
+    __cacheResult: Promise<string>;
   }
 }
 
@@ -30,10 +31,15 @@ const manifest: GameManifest = {
 window.__frames = [];
 window.__hostMessages = [];
 window.__taps = 0;
-window.__cacheReady =
-  'serviceWorker' in navigator
-    ? navigator.serviceWorker.register('/game-cache.js', { scope: '/g/' }).then(() => navigator.serviceWorker.ready)
-    : Promise.resolve(undefined);
+window.__cacheReady = 'serviceWorker' in navigator ? navigator.serviceWorker.ready : Promise.resolve(undefined);
+window.__cacheResult = window.__cacheReady
+  .then(() => fetch(`/a/${'a'.repeat(64)}.glb`))
+  .then((response) => response.text())
+  .then((result) => {
+    const output = document.querySelector('#cache-result');
+    if (output) output.textContent = result;
+    return result;
+  });
 
 const bridge = openGameBridge({
   hostOrigin: 'http://127.0.0.1:4173',
@@ -72,5 +78,3 @@ document.querySelector('#relay')?.addEventListener('click', () => {
 document.querySelector('#canvas')?.addEventListener('click', () => {
   window.__taps += 1;
 });
-
-void window.__cacheReady.then(() => fetch('./assets/x.3f9a.glb'));
