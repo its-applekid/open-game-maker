@@ -1,4 +1,4 @@
-import type { Tier } from '@ogm/contracts/assets';
+import type { LedgerBuild } from './cache.js';
 
 export const CACHE_EVICTION_POLICY = {
   retentionMs: 30 * 24 * 60 * 60 * 1_000,
@@ -8,21 +8,11 @@ export const CACHE_EVICTION_POLICY = {
   idleTimeoutMs: 5_000,
 } as const;
 
-const BLOB_CACHE = 'gm-blobs-v1';
-const BUILD_CACHE = 'gm-builds-v1';
+export const ASSET_CACHE_NAME = 'gm-blobs-v1';
+export const BUILD_CACHE_NAME = 'gm-builds-v1';
+export const CACHE_LOCK_NAME = 'gm-cache';
 
-export interface EvictionLedgerBuild {
-  key: string;
-  gameId: string;
-  buildId: string;
-  channel: 'published' | 'draft' | 'test';
-  tier: Tier;
-  hashes: string[];
-  bytes: number;
-  firstPlayedAt: number;
-  lastPlayedAt: number;
-  plays: number;
-}
+type EvictionLedgerBuild = LedgerBuild;
 
 export interface CacheEvictionLedger {
   list(): Promise<EvictionLedgerBuild[]>;
@@ -39,11 +29,7 @@ interface CacheStorageForEviction {
 }
 
 interface LockManagerForEviction {
-  request<T>(
-    name: string,
-    options: LockOptions,
-    callback: (lock: Lock | null) => Promise<T> | T,
-  ): Promise<T>;
+  request<T>(name: string, options: LockOptions, callback: (lock: Lock | null) => Promise<T> | T): Promise<T>;
 }
 
 interface StorageManagerForEviction {
@@ -64,7 +50,11 @@ interface IdleScheduler {
 }
 
 function compareNewest(left: EvictionLedgerBuild, right: EvictionLedgerBuild): number {
-  return right.lastPlayedAt - left.lastPlayedAt || right.firstPlayedAt - left.firstPlayedAt || right.key.localeCompare(left.key);
+  return (
+    right.lastPlayedAt - left.lastPlayedAt ||
+    right.firstPlayedAt - left.firstPlayedAt ||
+    right.key.localeCompare(left.key)
+  );
 }
 
 function compareOldest(left: EvictionLedgerBuild, right: EvictionLedgerBuild): number {
@@ -93,7 +83,9 @@ function retainedBuilds(builds: EvictionLedgerBuild[], now: number): Set<string>
       if (build.channel !== 'draft' && build.lastPlayedAt > cutoff) retained.add(build.key);
     }
 
-    for (const draft of newest.filter((build) => build.channel === 'draft').slice(0, CACHE_EVICTION_POLICY.draftsPerGame)) {
+    for (const draft of newest
+      .filter((build) => build.channel === 'draft')
+      .slice(0, CACHE_EVICTION_POLICY.draftsPerGame)) {
       retained.add(draft.key);
     }
   }
@@ -101,10 +93,31 @@ function retainedBuilds(builds: EvictionLedgerBuild[], now: number): Set<string>
   return retained;
 }
 
+function buildHashes(build: EvictionLedgerBuild): [string, number][] {
+  if (!build.hashBytes) return [[`legacy:${build.key}`, build.bytes]];
+  return [...new Set(build.hashes)].map((hash) => [hash, build.hashBytes?.[hash] ?? 0]);
+}
+
+function retainedUsage(builds: EvictionLedgerBuild[], retained: Set<string>) {
+  const hashes = new Map<string, { bytes: number; references: number }>();
+  for (const build of builds) {
+    if (!retained.has(build.key)) continue;
+    for (const [hash, bytes] of buildHashes(build)) {
+      const existing = hashes.get(hash);
+      hashes.set(hash, {
+        bytes: Math.max(existing?.bytes ?? 0, bytes),
+        references: (existing?.references ?? 0) + 1,
+      });
+    }
+  }
+  return hashes;
+}
+
 function enforceBudget(builds: EvictionLedgerBuild[], retained: Set<string>, quota: number | undefined): void {
   const budget = Math.min(CACHE_EVICTION_POLICY.maxBytes, (quota ?? Infinity) * CACHE_EVICTION_POLICY.quotaRatio);
-  let retainedBytes = builds.reduce((total, build) => total + (retained.has(build.key) ? build.bytes : 0), 0);
-  if (retainedBytes <= budget) return;
+  const usage = retainedUsage(builds, retained);
+  let bytes = [...usage.values()].reduce((total, hash) => total + hash.bytes, 0);
+  if (bytes <= budget) return;
 
   const candidates = builds
     .filter((build) => retained.has(build.key))
@@ -115,8 +128,13 @@ function enforceBudget(builds: EvictionLedgerBuild[], retained: Set<string>, quo
 
   for (const build of candidates) {
     retained.delete(build.key);
-    retainedBytes -= build.bytes;
-    if (retainedBytes <= budget) break;
+    for (const [hash] of buildHashes(build)) {
+      const entry = usage.get(hash);
+      if (!entry) continue;
+      entry.references -= 1;
+      if (entry.references === 0) bytes -= entry.bytes;
+    }
+    if (bytes <= budget) break;
   }
 }
 
@@ -128,7 +146,7 @@ function blobHash(request: Request): string | undefined {
 function cachedBuildKey(request: Request): string | undefined {
   const match = new URL(request.url).pathname.match(/^\/g\/([^/]+)\/([^/]+)\//);
   if (!match) return undefined;
-  return `${decodeURIComponent(match[1] ?? '')}/${decodeURIComponent(match[2] ?? '')}`;
+  return `${match[1]}/${match[2]}`;
 }
 
 async function deleteUnretainedEntries(
@@ -136,17 +154,17 @@ async function deleteUnretainedEntries(
   builds: EvictionLedgerBuild[],
   retained: Set<string>,
 ): Promise<void> {
-  const liveHashes = new Set(
-    builds.filter((build) => retained.has(build.key)).flatMap((build) => build.hashes),
-  );
+  const liveHashes = new Set(builds.filter((build) => retained.has(build.key)).flatMap((build) => build.hashes));
   const [blobs, buildCache] = await Promise.all([
-    dependencies.caches.open(BLOB_CACHE),
-    dependencies.caches.open(BUILD_CACHE),
+    dependencies.caches.open(ASSET_CACHE_NAME),
+    dependencies.caches.open(BUILD_CACHE_NAME),
   ]);
   const [blobRequests, buildRequests] = await Promise.all([blobs.keys(), buildCache.keys()]);
 
   await Promise.all([
-    ...blobRequests.filter((request) => !liveHashes.has(blobHash(request) ?? '')).map((request) => blobs.delete(request)),
+    ...blobRequests
+      .filter((request) => !liveHashes.has(blobHash(request) ?? ''))
+      .map((request) => blobs.delete(request)),
     ...buildRequests
       .filter((request) => !retained.has(cachedBuildKey(request) ?? ''))
       .map((request) => buildCache.delete(request)),
@@ -154,7 +172,7 @@ async function deleteUnretainedEntries(
 }
 
 export async function evictAssetCaches(dependencies: CacheEvictionDependencies): Promise<void> {
-  await dependencies.locks.request('gm-cache', { mode: 'exclusive', ifAvailable: true }, async (lock) => {
+  await dependencies.locks.request(CACHE_LOCK_NAME, { mode: 'exclusive', ifAvailable: true }, async (lock) => {
     if (!lock) return;
 
     const [builds, estimate] = await Promise.all([dependencies.ledger.list(), dependencies.storage.estimate()]);

@@ -54,6 +54,7 @@ interface TestContext extends PrepareDependencies {
   messages: LoadMessage[];
   requestOrder: string[];
   send: LoadSender;
+  evictionScheduler: ReturnType<typeof vi.fn<NonNullable<PrepareDependencies['evictionScheduler']>>>;
   storage: NonNullable<PrepareDependencies['storage']> & {
     persisted: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
     estimate: ReturnType<typeof vi.fn<() => Promise<{ usage: number; quota: number }>>>;
@@ -109,9 +110,9 @@ function setup(cachePlan: CachePlan, cacheStorage = new MemoryCacheStorage()): T
     return new Response(new Uint8Array(item?.bytes ?? 0).fill(1));
   });
   const locks: NonNullable<PrepareDependencies['locks']> = {
-    async request<T>(_name: string, options: LockOptions, callback: () => Promise<T>): Promise<T> {
+    async request<T>(_name: string, options: LockOptions, callback: (lock: Lock | null) => Promise<T> | T): Promise<T> {
       expect(options.mode).toBe('shared');
-      return callback();
+      return callback({} as Lock);
     },
   };
   const storage = {
@@ -120,11 +121,13 @@ function setup(cachePlan: CachePlan, cacheStorage = new MemoryCacheStorage()): T
     persist: vi.fn(async () => false),
   };
   const localStorage = new Map<string, string>();
+  const evictionScheduler = vi.fn<NonNullable<PrepareDependencies['evictionScheduler']>>();
   return {
     cacheStorage,
     databaseName,
     fetcher,
     localStorage,
+    evictionScheduler,
     locks,
     messages,
     requestOrder,
@@ -369,10 +372,20 @@ describe('prepare asset cache', () => {
     expect(context.messages).toEqual([]);
   });
 
-  it('writes the build ledger after load.done and increments repeat plays', async () => {
+  it('writes the build ledger after load.done, schedules eviction, and increments repeat plays', async () => {
     const ready = entry('a', 10);
     const cachePlan = plan([ready]);
     const context = setup(cachePlan);
+    const lifecycle: string[] = [];
+    let scheduled: Parameters<NonNullable<PrepareDependencies['evictionScheduler']>>[0] | undefined;
+    context.send = ((type, payload) => {
+      lifecycle.push(type);
+      context.messages.push({ t: type, payload } as LoadMessage);
+    }) as LoadSender;
+    context.evictionScheduler.mockImplementation((dependencies) => {
+      lifecycle.push('eviction');
+      scheduled = dependencies;
+    });
     const options = {
       plan: 'https://game.test/g/game/build/assets/cache-plan.json',
       tier: 'desktop' as const,
@@ -397,6 +410,19 @@ describe('prepare asset cache', () => {
       plays: 2,
     });
     expect(row.lastPlayedAt).toBeGreaterThanOrEqual(row.firstPlayedAt);
+    expect(lifecycle.filter((event) => event === 'load.done' || event === 'eviction')).toEqual([
+      'load.done',
+      'eviction',
+      'load.done',
+      'eviction',
+    ]);
+    expect(scheduled).toBeDefined();
+    expect((await scheduled!.ledger.list()).map((entry) => entry.key)).toEqual(['game/build']);
+    await scheduled!.ledger.delete(['game/build']);
+
+    const emptied = await openDB(context.databaseName, 1);
+    expect(await emptied.get('builds', 'game/build')).toBeUndefined();
+    emptied.close();
   });
 
   it('atomically increments the build ledger for concurrent plays', async () => {

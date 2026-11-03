@@ -1,27 +1,31 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   CACHE_EVICTION_POLICY,
   evictAssetCaches,
+  scheduleAssetCacheEviction,
   type CacheEvictionDependencies,
   type CacheEvictionLedger,
-  type EvictionLedgerBuild,
 } from './evict.js';
+import type { LedgerBuild } from './cache.js';
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const NOW = Date.UTC(2026, 10, 2);
 
-function build(overrides: Partial<EvictionLedgerBuild> & Pick<EvictionLedgerBuild, 'gameId' | 'buildId'>): EvictionLedgerBuild {
+function build(overrides: Partial<LedgerBuild> & Pick<LedgerBuild, 'gameId' | 'buildId'>): LedgerBuild {
   const { gameId, buildId, ...rest } = overrides;
   const lastPlayedAt = overrides.lastPlayedAt ?? NOW;
+  const hashes = overrides.hashes ?? [`hash-${gameId}-${buildId}`];
+  const bytes = overrides.bytes ?? 10;
   return {
     key: `${gameId}/${buildId}`,
     gameId,
     buildId,
     channel: 'published',
     tier: 'desktop',
-    hashes: [`hash-${buildId}`],
-    bytes: 10,
+    hashes,
+    hashBytes: Object.fromEntries(hashes.map((hash) => [hash, bytes / hashes.length])),
+    bytes,
     firstPlayedAt: lastPlayedAt,
     lastPlayedAt,
     plays: 1,
@@ -47,13 +51,13 @@ class FakeCache {
 }
 
 class FakeLedger implements CacheEvictionLedger {
-  readonly builds: Map<string, EvictionLedgerBuild>;
+  readonly builds: Map<string, LedgerBuild>;
 
-  constructor(builds: EvictionLedgerBuild[]) {
+  constructor(builds: LedgerBuild[]) {
     this.builds = new Map(builds.map((entry) => [entry.key, entry]));
   }
 
-  async list(): Promise<EvictionLedgerBuild[]> {
+  async list(): Promise<LedgerBuild[]> {
     return [...this.builds.values()];
   }
 
@@ -63,7 +67,7 @@ class FakeLedger implements CacheEvictionLedger {
 }
 
 function setup(
-  builds: EvictionLedgerBuild[],
+  builds: LedgerBuild[],
   options: {
     blobHashes?: string[];
     buildUrls?: string[];
@@ -78,9 +82,7 @@ function setup(
 } {
   const ledger = new FakeLedger(builds);
   const blobs = new FakeCache(
-    (options.blobHashes ?? builds.flatMap((entry) => entry.hashes)).map(
-      (hash) => `https://games.test/a/${hash}.webp`,
-    ),
+    (options.blobHashes ?? builds.flatMap((entry) => entry.hashes)).map((hash) => `https://games.test/a/${hash}.webp`),
   );
   const buildCache = new FakeCache(
     options.buildUrls ?? builds.map((entry) => `https://games.test/g/${entry.gameId}/${entry.buildId}/main.js`),
@@ -131,9 +133,7 @@ describe('evictAssetCaches', () => {
 
     await evictAssetCaches(dependencies);
 
-    expect(blobs.urls).toEqual(
-      new Set(['https://games.test/a/shared.webp', 'https://games.test/a/current-only.webp']),
-    );
+    expect(blobs.urls).toEqual(new Set(['https://games.test/a/shared.webp', 'https://games.test/a/current-only.webp']));
     expect(buildCache.urls).toEqual(new Set(['https://games.test/g/game/new/main.js']));
     expect([...ledger.builds]).toHaveLength(1);
     expect(ledger.builds.has(current.key)).toBe(true);
@@ -174,6 +174,30 @@ describe('evictAssetCaches', () => {
     expect([...ledger.builds.keys()]).toEqual([mostRecent.key]);
   });
 
+  it('counts shared hashes once when applying the storage budget', async () => {
+    const sharedOlder = build({
+      gameId: 'old-game',
+      buildId: 'only',
+      bytes: 60,
+      hashes: ['shared'],
+      hashBytes: { shared: 60 },
+      lastPlayedAt: NOW - 2_000,
+    });
+    const sharedNewer = build({
+      gameId: 'new-game',
+      buildId: 'only',
+      bytes: 60,
+      hashes: ['shared'],
+      hashBytes: { shared: 60 },
+      lastPlayedAt: NOW - 1_000,
+    });
+    const { dependencies, ledger } = setup([sharedOlder, sharedNewer], { quota: 400 });
+
+    await evictAssetCaches(dependencies);
+
+    expect([...ledger.builds.keys()].sort()).toEqual([sharedNewer.key, sharedOlder.key].sort());
+  });
+
   it('deletes orphan blob entries without ledger rows', async () => {
     const current = build({ gameId: 'game', buildId: 'current', hashes: ['live'] });
     const { dependencies, blobs } = setup([current], { blobHashes: ['live', 'orphan'] });
@@ -195,5 +219,29 @@ describe('evictAssetCaches', () => {
     expect(blobs.urls).toEqual(beforeBlobs);
     expect(buildCache.urls).toEqual(beforeBuilds);
     expect([...ledger.builds.keys()].sort()).toEqual([current.key, stale.key].sort());
+  });
+
+  it('runs from an idle callback with a five-second deadline', async () => {
+    const stale = build({ gameId: 'game', buildId: 'stale', lastPlayedAt: NOW - 31 * DAY_MS });
+    const current = build({ gameId: 'game', buildId: 'current' });
+    const { dependencies, ledger } = setup([stale, current]);
+    let idleCallback: IdleRequestCallback | undefined;
+    let timeout: number | undefined;
+
+    scheduleAssetCacheEviction(dependencies, {
+      requestIdleCallback(callback, options) {
+        idleCallback = callback;
+        timeout = options?.timeout;
+        return 1;
+      },
+      setTimeout() {
+        throw new Error('idle callback should be preferred');
+      },
+    });
+
+    expect(timeout).toBe(5_000);
+    expect(ledger.builds.has(stale.key)).toBe(true);
+    idleCallback?.({ didTimeout: false, timeRemaining: () => 10 });
+    await vi.waitFor(() => expect(ledger.builds.has(stale.key)).toBe(false));
   });
 });

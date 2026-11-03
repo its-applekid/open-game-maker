@@ -2,9 +2,16 @@ import { cachePlanSchema, type CachePlan, type CachePlanEntry, type Tier } from 
 import type { GameToHost } from '@ogm/contracts/bridge';
 import { openDB, type DBSchema } from 'idb';
 
-export const ASSET_CACHE_NAME = 'gm-blobs-v1';
+import {
+  ASSET_CACHE_NAME,
+  CACHE_LOCK_NAME,
+  scheduleAssetCacheEviction,
+  type CacheEvictionDependencies,
+  type CacheEvictionLedger,
+} from './evict.js';
+
 export const CACHE_DATABASE_NAME = 'gm-cache';
-export const CACHE_LOCK_NAME = 'gm-cache';
+export { ASSET_CACHE_NAME, CACHE_LOCK_NAME };
 
 const PERSIST_REQUESTED_KEY = 'gm-cache.persist-requested-v1';
 const FETCH_CONCURRENCY = 6;
@@ -32,6 +39,7 @@ export interface LedgerBuild {
   channel: 'published' | 'draft' | 'test';
   tier: Tier;
   hashes: string[];
+  hashBytes?: Record<string, number>;
   bytes: number;
   firstPlayedAt: number;
   lastPlayedAt: number;
@@ -42,9 +50,7 @@ interface CacheDatabase extends DBSchema {
   builds: { key: string; value: LedgerBuild };
 }
 
-interface LockManagerLike {
-  request<T>(name: string, options: { mode: 'shared' }, callback: () => Promise<T>): Promise<T>;
-}
+type LockManagerLike = CacheEvictionDependencies['locks'];
 
 interface StorageManagerLike {
   persisted?(): Promise<boolean>;
@@ -76,6 +82,7 @@ export interface PrepareDependencies {
   databaseName?: string;
   now?: () => number;
   dateNow?: () => number;
+  evictionScheduler?: (dependencies: CacheEvictionDependencies) => void;
 }
 
 export interface PrepareResult {
@@ -131,6 +138,7 @@ export async function prepare(
     });
 
     await recordPlay(plan, options.tier, options.channel ?? 'test', dependencies).catch(() => undefined);
+    scheduleEviction(dependencies);
     void requestPersistence(storage, persisted, dependencies);
     return { plan, ...ready };
   };
@@ -349,11 +357,7 @@ async function recordPlay(
   dependencies: PrepareDependencies,
 ): Promise<void> {
   if (!plan.gameId || !plan.buildId || typeof indexedDB === 'undefined') return;
-  const database = await openDB<CacheDatabase>(dependencies.databaseName ?? CACHE_DATABASE_NAME, 1, {
-    upgrade(db) {
-      if (!db.objectStoreNames.contains('builds')) db.createObjectStore('builds', { keyPath: 'key' });
-    },
-  });
+  const database = await openCacheDatabase(dependencies.databaseName);
   try {
     const key = `${plan.gameId}/${plan.buildId}`;
     const transaction = database.transaction('builds', 'readwrite');
@@ -367,6 +371,7 @@ async function recordPlay(
       channel,
       tier,
       hashes: selected.map((entry) => entry.sha256),
+      hashBytes: Object.fromEntries(selected.map((entry) => [entry.sha256, entry.bytes])),
       bytes: selected.reduce((sum, entry) => sum + entry.bytes, 0),
       firstPlayedAt: previous?.firstPlayedAt ?? playedAt,
       lastPlayedAt: playedAt,
@@ -376,6 +381,57 @@ async function recordPlay(
   } finally {
     database.close();
   }
+}
+
+function openCacheDatabase(databaseName = CACHE_DATABASE_NAME) {
+  return openDB<CacheDatabase>(databaseName, 1, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('builds')) db.createObjectStore('builds', { keyPath: 'key' });
+    },
+  });
+}
+
+function evictionLedger(databaseName: string | undefined): CacheEvictionLedger {
+  return {
+    async list() {
+      const database = await openCacheDatabase(databaseName);
+      try {
+        return await database.getAll('builds');
+      } finally {
+        database.close();
+      }
+    },
+    async delete(keys) {
+      const database = await openCacheDatabase(databaseName);
+      try {
+        const transaction = database.transaction('builds', 'readwrite');
+        await Promise.all(keys.map((key) => transaction.store.delete(key)));
+        await transaction.done;
+      } finally {
+        database.close();
+      }
+    },
+  };
+}
+
+function scheduleEviction(dependencies: PrepareDependencies): void {
+  const cacheStorage = dependencies.cacheStorage ?? defaultCacheStorage();
+  const locks = dependencies.locks ?? defaultLockManager();
+  const storage = dependencies.storage ?? defaultStorageManager();
+  if (!cacheStorage || !locks || !storage || typeof indexedDB === 'undefined') return;
+
+  const schedule = dependencies.evictionScheduler ?? scheduleAssetCacheEviction;
+  schedule({
+    ledger: evictionLedger(dependencies.databaseName),
+    caches: cacheStorage,
+    locks,
+    storage: {
+      async estimate() {
+        return (await storage.estimate?.()) ?? {};
+      },
+    },
+    now: dependencies.dateNow,
+  });
 }
 
 async function requestPersistence(
