@@ -52,7 +52,7 @@ export function MergeScreen() {
   const jobs = useQuery({
     queryKey: ['game-jobs', gameId],
     queryFn: () => listJobs(gameId),
-    enabled: gameId !== '',
+    enabled: gameId !== '' && typeof plan?.code === 'object',
   });
   const [resolutions, dispatch] = useReducer(reduceResolutions, {});
   const [pendingResolutions, setPendingResolutions] = useState(0);

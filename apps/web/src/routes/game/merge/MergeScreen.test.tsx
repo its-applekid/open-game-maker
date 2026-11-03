@@ -76,6 +76,7 @@ describe('MergeScreen', () => {
     renderMerge();
 
     expect(await screen.findByText(/Mine false Theirs true/)).toBeVisible();
+    expect(editor.listJobs).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Both' })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Land' })).toBeDisabled();
 
