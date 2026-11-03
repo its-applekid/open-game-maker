@@ -130,6 +130,16 @@ test('style detail fits its media and navigation into phone and desktop viewport
       await expect(controls).toHaveCount(4);
       await expect(tracks).toHaveCount(2);
       await expect(stopRow).toHaveCount(1);
+      await expect
+        .poll(
+          () =>
+            tracks.first().evaluate((element) => {
+              const box = element.getBoundingClientRect();
+              return box.bottom <= window.innerHeight && box.right <= window.innerWidth;
+            }),
+          { message: `style media settled at ${viewport.width}x${viewport.height}` },
+        )
+        .toBe(true);
       const boxesFor = (elements: Element[]) =>
         elements.map((element) => {
           const box = element.getBoundingClientRect();
