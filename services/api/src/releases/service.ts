@@ -40,7 +40,7 @@ export class ReleaseError extends Error {
   }
 }
 
-function buildResponse(row: BuildRow): Build {
+export function buildResponse(row: BuildRow): Build {
   return {
     id: row.id,
     gameId: row.gameId,
@@ -98,6 +98,7 @@ function requireGameBranch(deps: AppDeps, gameId: string, branchId: string) {
 function requireMainBuild(deps: AppDeps, gameId: string, buildId: string): { build: BuildRow; game: GameRow } {
   const build = requireBuild(deps, gameId, buildId);
   if (build.status !== 'tested') throw new ReleaseError('not_tested', 409);
+  if (build.artifact !== 'present') throw new ReleaseError('artifact_missing', 409);
   if (requireGameBranch(deps, gameId, build.branchId).name !== 'main') throw new ReleaseError('not_main', 409);
   const game = deps.db.select().from(schema.games).where(eq(schema.games.id, gameId)).get();
   if (!game) throw new ReleaseError('game_not_found', 404);
@@ -329,6 +330,10 @@ function appendRelease(
         (deps.sqlite
           .prepare<[string], { seq: number | null }>('SELECT MAX(seq) AS seq FROM releases WHERE game_id = ?')
           .get(input.gameId)?.seq ?? 0) + 1;
+      const artifact = deps.sqlite
+        .prepare<[string], { artifact: BuildRow['artifact'] }>('SELECT artifact FROM builds WHERE id = ?')
+        .get(input.buildId)?.artifact;
+      if (artifact !== 'present') throw new ReleaseError('artifact_missing', 409);
       const row: ReleaseRow = {
         id: stableId('rel', runtime.now()),
         gameId: input.gameId,
