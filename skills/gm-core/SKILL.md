@@ -73,6 +73,9 @@ Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animat
 |---|---|
 | gm-core | Starting or resuming any Game Maker build. |
 | gm-asset-showcase | Building or verifying a pre-rendered asset-set showcase. |
+| gm-video | Rendering a short deterministic title card, trailer beat, or motion graphic locally. |
+| gm-voiceover | Making a short consented local voice draft and caption timing. |
+| gm-3d | Authoring or checking offline 3D assets with Blender before Three.js runtime work. |
 | gm-build | Installing or building in the network-off sandbox. |
 | gm-verify | Checking behavior, visuals, accessibility, performance, or evidence. |
 | gm-genre-platformer | Building or tuning a platformer. |
