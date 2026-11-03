@@ -28,6 +28,19 @@ Plan a connected route rather than independent stage boxes. For every stop write
 For top-down art, repeat or extend grid-aligned ground beyond the camera. For isometric art, cover the square camera with
 2:1 diamonds and keep adjacent cells on 45-degree seams. Background color is not ground coverage.
 
+## Closed-route plan
+
+Treat the stop centres as one physical route, not filenames to concatenate. Record this table before authoring:
+
+| Stop | World centre | Start time | Distance to next | Measured px/s | Deviation |
+|---|---:|---:|---:|---:|---:|
+| first stop | `[x, y]` | `0` | projected route distance | distance / interval | from declared speed |
+
+The last row measures the real return path to the first centre. Place centres close enough that the camera always sees
+composed ground and purposeful transition content. When replacing an older showcase, record its centre spacing and the
+new target explicitly. Use one projected-pixel speed everywhere and reject any interval whose deviation exceeds 2%.
+Keep the loop at or below 30 seconds.
+
 ## Composition rules
 
 - Start from the closest store thumbnail or official pack screenshot. Match its setting, ground and walls, prop choices,
@@ -49,8 +62,9 @@ For top-down art, repeat or extend grid-aligned ground beyond the camera. For is
   no unrelated prop blocks the interactive opening.
 - Make interiors read as connected cutaway rooms: continuous walls, doors and windows in those walls, furniture against
   plausible surfaces, and signs, banners, paintings, windows, or torches mounted rather than floating.
-- Use source-authentic walk timing. Derive travel distance from cadence and duration, and make each region's exit equal
-  the next region's entrance. A walking hero is the continuity device, so a seam teleport is a failed route.
+- Use source-authentic walk timing. Parameterize the whole route by projected distance at one speed; do not give stops
+  separate paths or playback rates. A walking hero is the continuity device, so any seam teleport or speed jump is a
+  failed route.
 - Pair an action with a visible target and reaction. Face both participants toward each other, align contact to the
   source action's strike frame, and record `[start, contact, end]`; the action runs once before contact, then the target
   plays a visible hit, stagger, knockback, or death response once and settles. “Raider attacks” is incomplete; “raider
@@ -58,6 +72,9 @@ For top-down art, repeat or extend grid-aligned ground beyond the camera. For is
 - Seed particle emitters so rerenders are deterministic, but vary position, speed, phase, and lifetime across the full
   viewport. Inspect a timeline for synchronized rows, identical phases, sparse corners, and an obvious loop reset.
 - Keep region and sheet casts disjoint, including alternate-resolution copies of the same design.
-- Rotate every directional sheet sprite through all directions at one shared beat. Alternate actions only on that beat.
+- Put exactly 24 distinct source designs in every stop's sheet. Rotate every directional sprite through all directions
+  at one shared beat and alternate actions only on that beat.
 - Keep actors readable inside dense scenes. Put surplus character designs on the paired sheet instead of crowding focal
   zones, but do not use the sheet as an excuse for a sparse or stage-like world.
+- Keep visible text out of renderer inputs. Scene names, stop numbers, and descriptions belong in the manifest or review
+  page; never burn them into region frames, sheet frames, posters, GIFs, or QA timelines.

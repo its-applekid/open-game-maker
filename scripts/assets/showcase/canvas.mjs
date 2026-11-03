@@ -93,13 +93,13 @@ export function canvas(width, height, color = "#24252a") {
   return { width, height, data };
 }
 
-export function blit(destination, source, left, top) {
+export function blit(destination, source, left, top, clip) {
   const roundedLeft = Math.round(left);
   const roundedTop = Math.round(top);
-  const x0 = Math.max(0, roundedLeft);
-  const y0 = Math.max(0, roundedTop);
-  const x1 = Math.min(destination.width, roundedLeft + source.width);
-  const y1 = Math.min(destination.height, roundedTop + source.height);
+  const x0 = Math.max(0, roundedLeft, Math.floor(clip?.left ?? 0));
+  const y0 = Math.max(0, roundedTop, Math.floor(clip?.top ?? 0));
+  const x1 = Math.min(destination.width, roundedLeft + source.width, Math.ceil(clip?.right ?? destination.width));
+  const y1 = Math.min(destination.height, roundedTop + source.height, Math.ceil(clip?.bottom ?? destination.height));
   for (let y = y0; y < y1; y += 1) {
     let sourceIndex = ((y - roundedTop) * source.width + x0 - roundedLeft) * 4;
     let destinationIndex = (y * destination.width + x0) * 4;

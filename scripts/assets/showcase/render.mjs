@@ -7,12 +7,20 @@ import path from "node:path";
 import { loadAssetLibrary } from "./assets.mjs";
 import { blit, canvas, spriteFrame } from "./canvas.mjs";
 import { auditShowcaseCollisions } from "./collision.mjs";
+import { prepareContinuousFrame } from "./continuous-scene.mjs";
+import {
+  continuousTimeline,
+  isContinuousShowcase,
+} from "./continuous.mjs";
 import { verifyProjectAssets } from "./check.mjs";
 import { gifArgs, mp4Args, publicationAttributes } from "./media.mjs";
 import { validateShowcase } from "./model.mjs";
 import { loadProject, parseArgs } from "./project.mjs";
+import { publishStagedShowcase } from "./publish.mjs";
 import { prepareRegionFrame } from "./scene.mjs";
+import { fittedSheetScale } from "./sheet.mjs";
 import { verifyShowcaseMedia } from "./verify.mjs";
+import { drawWeather } from "./weather.mjs";
 
 const DEFAULT_FPS = 24;
 const DEFAULT_SPRITE_FPS = 12;
@@ -22,7 +30,7 @@ function safeId(id) {
   return id;
 }
 
-async function drawGround(target, library, ground, offsetX, offsetY, projection) {
+async function drawGround(target, library, ground, offsetX, offsetY, projection, clip) {
   const tile = await spriteFrame(library, ground, 0, ground.scale ?? 1);
   if (tile.width === 0 || tile.height === 0) throw new Error(`${ground.ref} has an empty ground frame`);
   if (projection === "isometric") {
@@ -34,14 +42,14 @@ async function drawGround(target, library, ground, offsetX, offsetY, projection)
       const stagger = row % 2 === 0 ? 0 : tile.width / 2;
       const startX =
         ((Math.round(offsetX - stagger) % tile.width) + tile.width) % tile.width - tile.width + stagger;
-      for (let x = startX; x < target.width + tile.width; x += tile.width) blit(target, tile, x, y);
+      for (let x = startX; x < target.width + tile.width; x += tile.width) blit(target, tile, x, y, clip);
     }
     return;
   }
   const startX = ((Math.round(offsetX) % tile.width) + tile.width) % tile.width - tile.width;
   const startY = ((Math.round(offsetY) % tile.height) + tile.height) % tile.height - tile.height;
   for (let y = startY; y < target.height; y += tile.height) {
-    for (let x = startX; x < target.width; x += tile.width) blit(target, tile, x, y);
+    for (let x = startX; x < target.width; x += tile.width) blit(target, tile, x, y, clip);
   }
 }
 
@@ -78,11 +86,14 @@ async function sheetFrame({ project, library, stop, tau, width, height, spriteFp
     const action = actions[directionIndex % actions.length];
     const spec = { ...sprite, action, dir };
     const resolved = await library.resolve(spec);
-    const frame = await spriteFrame(
+    const frameIndex = Math.floor(tau * (sprite.fps ?? spriteFps)) % resolved.n;
+    const natural = await spriteFrame(library, spec, frameIndex, 1, resolved);
+    const scale = fittedSheetScale(natural, cellWidth, cellHeight, sprite.scale);
+    const frame = scale === 1 ? natural : await spriteFrame(
       library,
       spec,
-      Math.floor(tau * (sprite.fps ?? spriteFps)) % resolved.n,
-      sprite.scale ?? 1,
+      frameIndex,
+      scale,
       resolved,
     );
     const column = index % columns;
@@ -92,6 +103,65 @@ async function sheetFrame({ project, library, stop, tau, width, height, spriteFp
     blit(target, frame, left, top);
   }
   return target;
+}
+
+async function continuousRegionFrame({ project, library, tau, width, height, spriteFps }) {
+  const target = canvas(width, height, project.sequence.layout.background ?? "#28332a");
+  const prepared = await prepareContinuousFrame({
+    project,
+    library,
+    tau,
+    width,
+    height,
+    spriteFps,
+  });
+  const projection = project.sequence.layout.projection;
+  await drawGround(
+    target,
+    library,
+    project.sequence.world.ground,
+    prepared.cameraX,
+    prepared.cameraY,
+    projection,
+  );
+  for (const [index, stop] of project.sequence.stops.entries()) {
+    const ground = project.regions[stop.region].ground;
+    const [areaWidth, areaHeight] = ground.size;
+    const [centerX, centerY] = project.sequence.runner.path.points[index];
+    await drawGround(
+      target,
+      library,
+      ground,
+      prepared.cameraX,
+      prepared.cameraY,
+      projection,
+      {
+        left: centerX - areaWidth / 2 + prepared.cameraX,
+        right: centerX + areaWidth / 2 + prepared.cameraX,
+        top: centerY - areaHeight / 2 + prepared.cameraY,
+        bottom: centerY + areaHeight / 2 + prepared.cameraY,
+      },
+    );
+  }
+  const weatherBlend = prepared.runner.localTime / prepared.runner.interval.seconds;
+  const nextStop = project.sequence.stops[(prepared.runner.index + 1) % project.sequence.stops.length];
+  drawWeather(
+    target,
+    prepared.runner.stop.weather,
+    tau,
+    project.sequence.loop_seconds,
+    1 - weatherBlend,
+  );
+  drawWeather(target, nextStop.weather, tau, project.sequence.loop_seconds, weatherBlend);
+  for (const entity of prepared.entities) blit(target, entity.frame, entity.left, entity.top);
+  return { frame: target, runner: prepared.runner };
+}
+
+async function writePng(frame, file, library) {
+  const sharp = await library.sharp();
+  await sharp(Buffer.from(frame.data), {
+    raw: { width: frame.width, height: frame.height, channels: 4 },
+  }).png().toFile(file);
 }
 
 function run(command, args, options = {}) {
@@ -213,6 +283,116 @@ async function renderStop({ project, library, stop, output, fps, spriteFps }) {
   };
 }
 
+async function renderContinuous({ project, library, output, fps, spriteFps }) {
+  const [width, height] = project.sequence.layout.viewport;
+  const regionMp4 = path.join(output, "showcase.region.mp4");
+  const sheetMp4 = path.join(output, "showcase.sheet.mp4");
+  const regionEncoder = openEncoder(regionMp4, width, height, fps);
+  const sheetEncoder = openEncoder(sheetMp4, width, height, fps);
+  const frames = Math.round(project.sequence.loop_seconds * fps);
+  const stopPosters = new Map();
+  const timeline = [];
+  let regionPoster;
+  let sheetPoster;
+
+  try {
+    for (let index = 0; index < frames; index += 1) {
+      const tau = index / fps;
+      const { frame: region, runner } = await continuousRegionFrame({
+        project,
+        library,
+        tau,
+        width,
+        height,
+        spriteFps,
+      });
+      const sheet = await sheetFrame({
+        project,
+        library,
+        stop: runner.stop,
+        tau: runner.localTime,
+        width,
+        height,
+        spriteFps,
+      });
+      await Promise.all([regionEncoder.write(region.data), sheetEncoder.write(sheet.data)]);
+      if (index === 0) {
+        regionPoster = region;
+        sheetPoster = sheet;
+      }
+      if (!stopPosters.has(runner.stop.id)) {
+        stopPosters.set(runner.stop.id, { region, sheet });
+      }
+      if (index % fps === 0) {
+        const file = `timeline-${String(timeline.length).padStart(3, "0")}.png`;
+        await writePng(region, path.join(output, file), library);
+        timeline.push(file);
+      }
+    }
+    await Promise.all([regionEncoder.close(), sheetEncoder.close()]);
+  } catch (error) {
+    await Promise.allSettled([regionEncoder.abort(), sheetEncoder.abort()]);
+    await Promise.allSettled([rm(regionMp4, { force: true }), rm(sheetMp4, { force: true })]);
+    throw error;
+  }
+
+  const region = {
+    mp4: path.basename(regionMp4),
+    gif: "showcase.region.gif",
+    poster: "showcase.region.poster.png",
+  };
+  const sheet = {
+    mp4: path.basename(sheetMp4),
+    gif: "showcase.sheet.gif",
+    poster: "showcase.sheet.poster.png",
+  };
+  await Promise.all([
+    encodeFallbacks(regionMp4, path.join(output, region.gif), path.join(output, region.poster), regionPoster, library, fps),
+    encodeFallbacks(sheetMp4, path.join(output, sheet.gif), path.join(output, sheet.poster), sheetPoster, library, fps),
+  ]);
+
+  const stops = [];
+  for (const stop of project.sequence.stops) {
+    const posters = stopPosters.get(stop.id);
+    const regionPosterFile = `${safeId(stop.id)}.region.poster.png`;
+    const sheetPosterFile = `${safeId(stop.id)}.sheet.poster.png`;
+    await Promise.all([
+      writePng(posters.region, path.join(output, regionPosterFile), library),
+      writePng(posters.sheet, path.join(output, sheetPosterFile), library),
+    ]);
+    stops.push({
+      id: stop.id,
+      start_time: stop.start_time,
+      region: { poster: regionPosterFile },
+      sheet: { poster: sheetPosterFile },
+    });
+  }
+  const speed = continuousTimeline(project.sequence);
+  return {
+    schema: "ogm.set-showcase-media/2",
+    set: project.sequence.set,
+    client_rendering: false,
+    duration: project.sequence.loop_seconds,
+    video: { codec: "h264", pixel_format: "yuv420p", faststart: true },
+    attributes: publicationAttributes,
+    tracks: { region, sheet },
+    stops,
+    speed: {
+      unit: "projected-px/s",
+      declared: project.sequence.runner.speed,
+      intervals: speed.intervals.map(({ id, startTime, seconds, distance, speed: measured, deviation }) => ({
+        id,
+        start_time: startTime,
+        seconds,
+        distance,
+        speed: measured,
+        deviation,
+      })),
+    },
+    qa: { timeline_fps: 1, timeline },
+  };
+}
+
 export async function renderShowcase({ projectRoot, assetsRoot, catalogFile, outputRoot, only }) {
   const project = await loadProject(projectRoot);
   const output = path.resolve(outputRoot);
@@ -242,6 +422,18 @@ export async function renderShowcase({ projectRoot, assetsRoot, catalogFile, out
 
   const staging = await mkdtemp(path.join(output, ".showcase-staging-"));
   try {
+    if (isContinuousShowcase(project.sequence)) {
+      if (only) throw new Error("continuous showcases render as one loop and do not support --only");
+      const manifest = await renderContinuous({ project, library, output: staging, fps, spriteFps });
+      const mediaIssues = await verifyShowcaseMedia({ manifest, output: staging, project, library });
+      if (mediaIssues.length) {
+        throw new Error(mediaIssues.map(({ path: at, detail }) => `media.invalid ${at}: ${detail}`).join("\n"));
+      }
+      const stagedManifest = path.join(staging, "manifest.json");
+      await writeFile(stagedManifest, `${JSON.stringify(manifest, null, 2)}\n`);
+      await publishStagedShowcase({ staging, output });
+      return manifest;
+    }
     const entries = [];
     for (const stop of stops) {
       console.log(`rendering ${stop.id}`);

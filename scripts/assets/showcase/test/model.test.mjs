@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
-import test from "node:test";
+import { test } from "vitest";
 
-import { validateShowcase } from "../model.mjs";
+import { continuousTimeline, validateShowcase } from "../model.mjs";
 import { gifArgs, mp4Args, publicationAttributes } from "../media.mjs";
 
 const directions = ["down", "left", "right", "up"];
@@ -76,6 +76,92 @@ function validProject() {
           },
         ],
       },
+    },
+  };
+}
+
+function validContinuousProject() {
+  const sheet = (prefix) => ({
+    grid: [6, 4],
+    sprites: Array.from({ length: 24 }, (_, index) => {
+      const suffix = `a${String.fromCharCode(97 + index)}`;
+      return {
+        id: `${prefix}-${suffix}`,
+        ref: `card:test-pack/${prefix}-${suffix}`,
+        action: "walk",
+        directions,
+      };
+    }),
+  });
+  const sheetRefs = (prefix) => sheet(prefix).sprites.map(({ ref }) => ref);
+  return {
+    sequence: {
+      schema: "ogm.set-showcase/2",
+      set: "continuous-fixture",
+      style_family: "pixel-art",
+      loop_seconds: 2,
+      layout: {
+        projection: "top-down",
+        seam: "grid",
+        viewport: [64, 64],
+        directions,
+        background: "#183018",
+      },
+      world: {
+        ground: { ref: "card:test-pack/world-ground", fill: "cover" },
+      },
+      required_packs: ["test-pack"],
+      runner: {
+        ref: "card:test-pack/hero",
+        action: "walk",
+        path: { points: [[0, 0], [32, 0], [0, 0]] },
+        speed: 32,
+        collision: { type: "actor", footprint: [8, 4] },
+      },
+      stops: [
+        {
+          id: "west",
+          region: "regions/west.json",
+          sheet: "sheets/west.json",
+          start_time: 0,
+          tile_sprites: ["card:test-pack/west-ground", "card:test-pack/west-prop"],
+          sheet_sprites: sheetRefs("west-sheet"),
+          story: [{ actor: "runner", action: "walk", target: "west-prop", reaction: "bob", timing: [0, 0.4, 0.8] }],
+        },
+        {
+          id: "east",
+          region: "regions/east.json",
+          sheet: "sheets/east.json",
+          start_time: 1,
+          tile_sprites: ["card:test-pack/east-ground", "card:test-pack/east-prop"],
+          sheet_sprites: sheetRefs("east-sheet"),
+          story: [{ actor: "runner", action: "walk", target: "east-prop", reaction: "bob", timing: [0, 0.4, 0.8] }],
+        },
+      ],
+    },
+    regions: {
+      "regions/west.json": {
+        ground: { ref: "card:test-pack/west-ground", fill: "area", size: [32, 64] },
+        sprites: [{
+          id: "west-prop",
+          ref: "card:test-pack/west-prop",
+          at: [0, -16],
+          collision: { type: "none" },
+        }],
+      },
+      "regions/east.json": {
+        ground: { ref: "card:test-pack/east-ground", fill: "area", size: [32, 64] },
+        sprites: [{
+          id: "east-prop",
+          ref: "card:test-pack/east-prop",
+          at: [0, -16],
+          collision: { type: "none" },
+        }],
+      },
+    },
+    sheets: {
+      "sheets/west.json": sheet("west-sheet"),
+      "sheets/east.json": sheet("east-sheet"),
     },
   };
 }
@@ -230,4 +316,67 @@ test("publishes phone-ready H.264 video with GIF fallback", () => {
     muted: true,
     playsInline: true,
   });
+});
+
+test("accepts a closed continuous route with one measured speed and 24-sprite sheets", () => {
+  const project = validContinuousProject();
+
+  assert.deepEqual(validateShowcase(project), []);
+  assert.deepEqual(continuousTimeline(project.sequence), {
+    loopSeconds: 2,
+    intervals: [
+      { id: "west", startTime: 0, seconds: 1, distance: 32, speed: 32, deviation: 0 },
+      { id: "east", startTime: 1, seconds: 1, distance: 32, speed: 32, deviation: 0 },
+    ],
+  });
+});
+
+test("rejects continuous routes that cut, drift, duplicate the world, or burn text", () => {
+  const project = validContinuousProject();
+  project.sequence.runner.path.points[2] = [4, 0];
+  project.sequence.stops[1].start_time = 1.2;
+  project.sheets["sheets/east.json"].sprites.pop();
+  project.sequence.stops[1].sheet_sprites.pop();
+  project.regions["regions/east.json"].sprites[0].id = "west-prop";
+  project.regions["regions/east.json"].sprites[0].label = "East";
+
+  const codes = validateShowcase(project).map(({ code }) => code);
+
+  assert.ok(codes.includes("runner.loop"));
+  assert.ok(codes.includes("runner.cadence"));
+  assert.ok(codes.includes("sheet.count"));
+  assert.ok(codes.includes("region.entity_ids"));
+  assert.ok(codes.includes("media.text_overlay"));
+});
+
+test("reserves runner identities across the continuous world", () => {
+  const project = validContinuousProject();
+  project.regions["regions/west.json"].sprites[0].id = "runner";
+
+  assert.ok(validateShowcase(project).some(({ code }) => code === "region.entity_ids"));
+});
+
+test("rejects weather that the continuous compositor cannot draw", () => {
+  const project = validContinuousProject();
+  project.sequence.stops[0].weather = { kind: "snow", count: 12 };
+
+  assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
+});
+
+test("rejects duplicate or unsafe continuous stop ids before rendering", () => {
+  const project = validContinuousProject();
+  project.sequence.stops[1].id = project.sequence.stops[0].id;
+
+  assert.ok(validateShowcase(project).some(({ code }) => code === "stops.ids"));
+});
+
+test("rejects stop intervals too short to contain a video frame", () => {
+  const project = validContinuousProject();
+  project.sequence.fps = 2;
+  project.sequence.loop_seconds = 0.5;
+  project.sequence.runner.path.points = [[0, 0], [8, 0], [0, 0]];
+  project.sequence.stops[1].start_time = 0.25;
+  for (const stop of project.sequence.stops) stop.story[0].timing = [0, 0.1, 0.2];
+
+  assert.ok(validateShowcase(project).some(({ code }) => code === "runner.cadence"));
 });

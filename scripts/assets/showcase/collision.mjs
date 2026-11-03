@@ -1,4 +1,6 @@
 import { prepareRegionFrame } from "./scene.mjs";
+import { prepareContinuousFrame } from "./continuous-scene.mjs";
+import { isContinuousShowcase } from "./continuous.mjs";
 
 function footprintBounds(entity) {
   const [width, depth] = entity.collision.footprint;
@@ -94,6 +96,47 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
   const [width, height] = project.sequence.layout.viewport;
   const frames = [];
   const issues = [];
+
+  if (isContinuousShowcase(project.sequence)) {
+    const frameCount = Math.round(project.sequence.loop_seconds * fps);
+    for (let index = 0; index < frameCount; index += 1) {
+      const tau = index / fps;
+      const { entities, runner } = await prepareContinuousFrame({
+        project,
+        library,
+        tau,
+        width,
+        height,
+        spriteFps,
+      });
+      const inspected = inspectCollisionFrame(entities);
+      const frame = { stop: runner.stop.id, index, tau, ...inspected };
+      frames.push(frame);
+      const framePath = `sequence.frames[${index}]`;
+      if (inspected.footprintOverlaps.length) {
+        issues.push(reportIssue(
+          "collision.footprint_overlap",
+          framePath,
+          pairDetails(inspected.footprintOverlaps),
+        ));
+      }
+      if (inspected.actorSolidPixelIntersections.length) {
+        issues.push(reportIssue(
+          "collision.actor_solid_pixels",
+          framePath,
+          pairDetails(inspected.actorSolidPixelIntersections),
+        ));
+      }
+    }
+    return {
+      frames,
+      issues,
+      footprintOverlapFrames: frames.filter(({ footprintOverlaps }) => footprintOverlaps.length).length,
+      actorSolidPixelIntersectionFrames: frames.filter(
+        ({ actorSolidPixelIntersections }) => actorSolidPixelIntersections.length,
+      ).length,
+    };
+  }
 
   for (const stop of stops ?? project.sequence.stops ?? []) {
     const frameCount = Math.round(stop.seconds * fps);

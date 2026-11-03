@@ -108,6 +108,67 @@ export async function verifyShowcaseMedia({ manifest, output, project, library }
   const issues = [];
   const [width, height] = project.sequence.layout.viewport;
   const fps = project.sequence.fps ?? 24;
+
+  if (manifest.schema === "ogm.set-showcase-media/2") {
+    for (const track of ["region", "sheet"]) {
+      try {
+        const details = await verifyTrack({
+          media: manifest.tracks[track],
+          output,
+          width,
+          height,
+          seconds: project.sequence.loop_seconds,
+          fps,
+          library,
+        });
+        for (const detail of details) issues.push(issue(`tracks.${track}`, detail));
+      } catch (error) {
+        issues.push(issue(`tracks.${track}`, error.message));
+      }
+    }
+    const expectedStarts = new Map(project.sequence.stops.map((stop) => [stop.id, stop.start_time]));
+    const manifestStops = manifest.stops ?? [];
+    if (manifestStops.length !== expectedStarts.size) {
+      issues.push(issue("stops", `got ${manifestStops.length}, expected ${expectedStarts.size}`));
+    }
+    for (const id of expectedStarts.keys()) {
+      if (!manifestStops.some((entry) => entry.id === id)) issues.push(issue(`stops.${id}`, "missing stop"));
+    }
+    for (const entry of manifestStops) {
+      if (entry.start_time !== expectedStarts.get(entry.id)) {
+        issues.push(issue(`stops.${entry.id}.start_time`, `got ${entry.start_time}, expected ${expectedStarts.get(entry.id)}`));
+      }
+      for (const track of ["region", "sheet"]) {
+        try {
+          const metadata = await library.sharp().then((sharp) =>
+            sharp(path.join(output, entry[track].poster)).metadata()
+          );
+          if (metadata.width !== width || metadata.height !== height) {
+            issues.push(issue(`stops.${entry.id}.${track}.poster`, `dimensions are ${metadata.width}x${metadata.height}, expected ${width}x${height}`));
+          }
+        } catch (error) {
+          issues.push(issue(`stops.${entry.id}.${track}.poster`, error.message));
+        }
+      }
+    }
+    const timeline = manifest.qa?.timeline ?? [];
+    const expectedTimelineFrames = Math.ceil(Math.round(project.sequence.loop_seconds * fps) / fps);
+    if (manifest.qa?.timeline_fps !== 1 || timeline.length !== expectedTimelineFrames) {
+      issues.push(issue("qa.timeline", `got ${timeline.length} frames at ${manifest.qa?.timeline_fps} fps, expected ${expectedTimelineFrames} at 1 fps`));
+    }
+    for (const [index, file] of timeline.entries()) {
+      try {
+        const metadata = await library.sharp().then((sharp) => sharp(path.join(output, file)).metadata());
+        if (metadata.width !== width || metadata.height !== height) {
+          issues.push(issue(`qa.timeline[${index}]`, `dimensions are ${metadata.width}x${metadata.height}, expected ${width}x${height}`));
+        }
+      } catch (error) {
+        issues.push(issue(`qa.timeline[${index}]`, error.message));
+      }
+    }
+    return issues;
+  }
+
   const stops = new Map(project.sequence.stops.map((stop) => [stop.id, stop]));
 
   for (const entry of manifest.stops) {
