@@ -200,6 +200,18 @@ describe('evictAssetCaches', () => {
     expect([...ledger.builds.keys()].sort()).toEqual([sharedNewer.key, sharedOlder.key].sort());
   });
 
+  it('caps the storage budget at one GiB when quota is larger', async () => {
+    const bytes = 600 * 1024 ** 2;
+    const leastRecent = build({ gameId: 'old-game', buildId: 'only', bytes, lastPlayedAt: NOW - 2_000 });
+    const mostRecent = build({ gameId: 'new-game', buildId: 'only', bytes, lastPlayedAt: NOW - 1_000 });
+    const { dependencies, ledger } = setup([leastRecent, mostRecent], { quota: 20 * 1024 ** 3 });
+
+    await evictAssetCaches(dependencies);
+
+    expect(CACHE_EVICTION_POLICY.maxBytes).toBe(1024 ** 3);
+    expect([...ledger.builds.keys()]).toEqual([mostRecent.key]);
+  });
+
   it('deletes orphan blob entries without ledger rows', async () => {
     const current = build({ gameId: 'game', buildId: 'current', hashes: ['live'] });
     const { dependencies, blobs } = setup([current], { blobHashes: ['live', 'orphan'] });
@@ -258,7 +270,7 @@ describe('evictAssetCaches', () => {
       setTimeout(callback, delay) {
         timeoutCallback = callback;
         timeout = delay;
-        return 1 as ReturnType<typeof setTimeout>;
+        return 1 as unknown as ReturnType<typeof setTimeout>;
       },
     });
 
