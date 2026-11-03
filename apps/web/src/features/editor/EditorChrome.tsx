@@ -61,11 +61,18 @@ export function EditorChrome({
 
   return (
     <div className="editor-chrome">
-      <Rail categories={manifest.palette.categories} active={category} onChange={setCategory} />
+      <Rail
+        categories={manifest.palette.categories}
+        items={manifest.palette.items}
+        active={category}
+        onChange={setCategory}
+      />
       {activeCategory?.kind === 'items' ? (
         <Palette
           palette={manifest.palette}
           category={category}
+          title={activeCategory.label}
+          showTabs={false}
           onCategory={setCategory}
           onPick={(prefab) => {
             setPickedPrefab(prefab);
@@ -73,29 +80,31 @@ export function EditorChrome({
           }}
         />
       ) : null}
-      <Tools
-        tools={manifest.tools}
-        active={session.tool}
-        snap={snap}
-        canUndo={session.canUndo}
-        canRedo={session.canRedo}
-        onTool={(tool) => {
-          if (tool !== 'place') setPickedPrefab(undefined);
-          onTool(tool);
-        }}
-        onSnap={updateSnap}
-        onUndo={onUndo}
-        onRedo={onRedo}
-      />
-      <Inspector
-        doc={session.doc}
-        selectedIds={session.selection}
-        controls={controls}
-        onCommand={onCommand}
-        onDelete={onDelete}
-        onDuplicate={onDuplicate}
-        onInstanceCount={onInstanceCount}
-      />
+      <div className="editor-inspector-stack">
+        <Tools
+          tools={manifest.tools}
+          active={session.tool}
+          snap={snap}
+          canUndo={session.canUndo}
+          canRedo={session.canRedo}
+          onTool={(tool) => {
+            if (tool !== 'place') setPickedPrefab(undefined);
+            onTool(tool);
+          }}
+          onSnap={updateSnap}
+          onUndo={onUndo}
+          onRedo={onRedo}
+        />
+        <Inspector
+          doc={session.doc}
+          selectedIds={session.selection}
+          controls={controls}
+          onCommand={onCommand}
+          onDelete={onDelete}
+          onDuplicate={onDuplicate}
+          onInstanceCount={onInstanceCount}
+        />
+      </div>
       <HintStrip hint={picked?.hint} />
     </div>
   );

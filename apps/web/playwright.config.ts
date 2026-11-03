@@ -24,6 +24,11 @@ export default defineConfig({
       url: 'http://127.0.0.1:10001/health',
       reuseExistingServer: false,
     },
+    {
+      command: 'node e2e/support/serve-prototypes.ts',
+      url: 'http://127.0.0.1:43176/health',
+      reuseExistingServer: false,
+    },
   ],
   projects: [
     {

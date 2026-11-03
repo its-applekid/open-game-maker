@@ -131,9 +131,10 @@ afterEach(() => {
 
 describe('GameScreen', () => {
   it('defaults to main/play and preserves the prototype bar ordering', async () => {
-    renderGame();
+    const { container } = renderGame();
 
     expect(await screen.findByText('Goblin Cellar')).toBeVisible();
+    expect(container.querySelector('.game-screen.is-playing')).toBeVisible();
     expect(screen.getByRole('button', { name: 'Invite' })).toBeVisible();
     const buttons = screen.getAllByRole('button').map((button) => button.textContent?.trim());
     expect(buttons.slice(0, 4)).toEqual(['Games', '▶ Play', '✎ Edit', 'Ask for a change']);
@@ -150,13 +151,14 @@ describe('GameScreen', () => {
   }, 10_000);
 
   it('shares mode in the query and acquires an edit lease', async () => {
-    renderGame();
+    const { container } = renderGame();
     await screen.findByText('Goblin Cellar');
 
     fireEvent.click(screen.getByRole('button', { name: /edit/i }));
 
     await waitFor(() => expect(editorApi.acquireLease).toHaveBeenCalledWith('game', 'main', expect.any(String)));
     expect(host.controller.setMode).toHaveBeenCalledWith('edit');
+    expect(container.querySelector('.game-screen.is-editing')).toBeVisible();
   });
 
   it('asks for a change in the build chat for this game and branch', async () => {

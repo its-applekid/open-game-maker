@@ -70,6 +70,17 @@ function button(label: string): HTMLButtonElement {
 }
 
 describe('NewGameScreen', () => {
+  it('uses the prototype three-part wizard header without extra navigation copy', () => {
+    const { container } = renderScreen();
+
+    expect(container.querySelector('.new-game-head > .new-head-back')).toContainElement(
+      screen.getByRole('button', { name: 'Back' }),
+    );
+    expect(container.querySelector('.new-game-head > h1')).toHaveTextContent('Genre');
+    expect(container.querySelector('.new-game-head > .new-dots')).toHaveAttribute('aria-label', 'Step 1 of 7');
+    expect(screen.queryByText(/Create your game|Game setup|Choose a template/)).toBeNull();
+  });
+
   it('enforces pick limits and flips Other into a typed value', () => {
     renderScreen();
 

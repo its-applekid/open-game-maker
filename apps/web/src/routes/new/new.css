@@ -1,6 +1,6 @@
 .new-game-screen {
   width: min(100%, 64rem);
-  min-height: calc(100svh - max(32px, var(--safe-t)) - max(32px, var(--safe-b)));
+  min-height: calc(min(100svh, 100vh) - max(32px, var(--safe-t)) - max(32px, var(--safe-b)));
   margin-inline: auto;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -197,7 +197,7 @@
   font-size: 36px;
 }
 .new-style-showcase {
-  --new-style-media-size: min(calc((100% - 14px) / 2), max(72px, calc(100svh - 32rem)));
+  --new-style-media-size: min(calc((100% - 14px) / 2), max(72px, calc(min(100svh, 100vh) - 32rem)));
 
   display: grid;
   grid-template-columns: repeat(2, var(--new-style-media-size));
