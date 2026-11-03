@@ -12,7 +12,11 @@ type MergeFixture = {
   theirs: DesignSnapshot;
   preview: { previewBuildId: string; rev: number; doc: DesignSnapshot['doc'] };
 };
-type DesignSnapshot = { buildId: string; rev: number; doc: { schemaVersion: number; globals: object; entities: object } };
+type DesignSnapshot = {
+  buildId: string;
+  rev: number;
+  doc: { schemaVersion: number; globals: object; entities: object };
+};
 
 export type VersioningApiFixture = {
   readonly publishes: CapturedBody[];
@@ -23,9 +27,7 @@ export type VersioningApiFixture = {
   useFiveActiveVersions(): void;
 };
 
-const mergeFixture = JSON.parse(
-  readFileSync(new URL('./merge-ae3.json', import.meta.url), 'utf8'),
-) as MergeFixture;
+const mergeFixture = JSON.parse(readFileSync(new URL('./merge-ae3.json', import.meta.url), 'utf8')) as MergeFixture;
 const createdAt = '2026-11-01T00:00:00.000Z';
 
 const branches: VersionBranch[] = [
@@ -34,11 +36,7 @@ const branches: VersionBranch[] = [
   versionBranch('quiet', 'quiet', '0.1.0', 'build_quiet'),
 ];
 
-const builds: Build[] = [
-  build('build_main', 'main'),
-  build('build_ae3', 'ae3'),
-  build('build_quiet', 'quiet'),
-];
+const builds: Build[] = [build('build_main', 'main'), build('build_ae3', 'ae3'), build('build_quiet', 'quiet')];
 
 const releases: Release[] = [
   release('release_200', 1, '2.0.0', 'build_old', 'First public build', '2026-10-29T12:00:00.000Z'),
