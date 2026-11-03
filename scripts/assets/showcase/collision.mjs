@@ -117,17 +117,18 @@ function placementBounds(placement) {
   };
 }
 
-export function inspectRouteCorridor({ points, runnerFootprint, placements }) {
+export function inspectRouteCorridor({ points, runnerFootprint, runnerOffset = [0, 0], placements }) {
   const [runnerWidth, runnerDepth] = runnerFootprint;
+  const [runnerOffsetX, runnerOffsetY] = runnerOffset;
   const intersections = [];
   for (const placement of placements) {
     if (!placement.collision?.footprint) continue;
     const bounds = placementBounds(placement);
     const expanded = {
-      left: bounds.left - runnerWidth / 2,
-      right: bounds.right + runnerWidth / 2,
-      top: bounds.top - runnerDepth / 2,
-      bottom: bounds.bottom + runnerDepth / 2,
+      left: bounds.left - runnerWidth / 2 - runnerOffsetX,
+      right: bounds.right + runnerWidth / 2 - runnerOffsetX,
+      top: bounds.top - runnerOffsetY,
+      bottom: bounds.bottom + runnerDepth - runnerOffsetY,
     };
     for (let segment = 0; segment < points.length - 1; segment += 1) {
       if (segmentCrossesOpenBounds(points[segment], points[segment + 1], expanded)) {
@@ -176,6 +177,7 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
     const corridorIntersections = inspectRouteCorridor({
       points: project.sequence.runner.path.points,
       runnerFootprint: project.sequence.runner.collision.footprint,
+      runnerOffset: project.sequence.runner.collision.offset,
       placements: continuousPlacements(project),
     });
     for (const intersection of corridorIntersections) {

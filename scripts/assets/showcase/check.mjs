@@ -7,6 +7,7 @@ import { auditShowcaseCollisions, collisionReportLines } from "./collision.mjs";
 
 export async function verifyProjectAssets(project, library) {
   const issues = [];
+  const groundLayers = (ground) => Array.isArray(ground?.layers) ? ground.layers : [];
   async function verify(where, spec) {
     try {
       await library.verify(spec);
@@ -24,17 +25,17 @@ export async function verifyProjectAssets(project, library) {
   }
   if (project.sequence.world?.ground) {
     await verify("sequence.world.ground", project.sequence.world.ground);
-    for (const [index, layer] of (project.sequence.world.ground.layers ?? []).entries()) {
-      await verify(`sequence.world.ground.layers[${index}]`, layer);
+    for (const [index, layer] of groundLayers(project.sequence.world.ground).entries()) {
+      if (layer?.ref) await verify(`sequence.world.ground.layers[${index}]`, layer);
     }
   }
   for (const stop of project.sequence.stops ?? []) {
     const region = project.regions[stop.region];
     const sheet = project.sheets[stop.sheet];
     if (!region || !sheet) continue;
-    await verify(`${stop.region}.ground`, region.ground);
-    for (const [index, layer] of (region.ground.layers ?? []).entries()) {
-      await verify(`${stop.region}.ground.layers[${index}]`, layer);
+    if (region.ground?.ref) await verify(`${stop.region}.ground`, region.ground);
+    for (const [index, layer] of groundLayers(region.ground).entries()) {
+      if (layer?.ref) await verify(`${stop.region}.ground.layers[${index}]`, layer);
     }
     for (const [index, sprite] of (region.sprites ?? []).entries()) {
       await verify(`${stop.region}.sprites[${index}]`, sprite);

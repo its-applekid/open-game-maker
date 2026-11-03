@@ -352,6 +352,7 @@ test("accepts ordered ground cells and validates their geometry", () => {
   const project = validContinuousProject();
   const ground = project.regions["regions/west.json"].ground;
   ground.underlay = "#477636";
+  ground.bounds_offset = [16, 0];
   ground.grid = { cell: [16, 8], origin: [0, 0] };
   ground.layers = [{
     ref: "card:test-pack/west-road",
@@ -362,7 +363,37 @@ test("accepts ordered ground cells and validates their geometry", () => {
   assert.deepEqual(validateShowcase(project), []);
 
   ground.layers[0].cells.push([Number.NaN, 1]);
+  ground.bounds_offset = [Number.POSITIVE_INFINITY, 0];
   assert.ok(validateShowcase(project).some(({ code }) => code === "ground.cells"));
+  assert.ok(validateShowcase(project).some(({ code }) => code === "ground.bounds_offset"));
+});
+
+test("accepts layer-only continuous region ground over the shared world base", () => {
+  const project = validContinuousProject();
+  const ground = project.regions["regions/west.json"].ground;
+  ground.fill = "layers";
+  ground.grid = { cell: [16, 8], origin: [0, 0] };
+  ground.layers = [{ ref: ground.ref, cells: [[0, 0], [1, 0]] }];
+  delete ground.ref;
+
+  assert.deepEqual(validateShowcase(project), []);
+});
+
+test("rejects missing or malformed layer-only ground without throwing", () => {
+  const project = validContinuousProject();
+  const ground = project.regions["regions/west.json"].ground;
+  ground.fill = "layers";
+  delete ground.ref;
+
+  assert.ok(validateShowcase(project).some(({ code }) => code === "ground.layers"));
+
+  ground.layers = "not-an-array";
+  assert.ok(validateShowcase(project).some(({ code }) => code === "ground.layers"));
+
+  ground.layers = [null];
+  const issues = validateShowcase(project);
+  assert.ok(issues.some(({ code }) => code === "ground.ref"));
+  assert.ok(issues.some(({ code }) => code === "ground.cells"));
 });
 
 test("rejects continuous routes that cut, drift, duplicate the world, or burn text", () => {
@@ -394,6 +425,27 @@ test("rejects weather that the continuous compositor cannot draw", () => {
   const project = validContinuousProject();
   project.sequence.stops[0].weather = { kind: "hail", count: 12 };
 
+  assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
+});
+
+test("accepts layered weather while validating every layer", () => {
+  const project = validContinuousProject();
+  project.sequence.stops[0].weather = [
+    { kind: "embers", seed: "ritual", count: 12 },
+    { kind: "snow", seed: "winter", count: 16, wind: 18 },
+  ];
+  assert.deepEqual(validateShowcase(project), []);
+
+  project.sequence.stops[0].weather.push({ kind: "hail", count: 4 });
+  assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
+
+  project.sequence.stops[0].weather = [];
+  assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
+
+  project.sequence.stops[0].weather = [null];
+  assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
+
+  project.sequence.stops[0].weather = { kind: "rain", count: 4, wind: Number.NaN };
   assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
 });
 

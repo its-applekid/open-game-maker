@@ -57,13 +57,14 @@ export async function spriteFrame(library, spec, index, scale = 1, resolvedAsset
 
   const sourceWidth = right - left + 1;
   const sourceHeight = bottom - top + 1;
-  const width = sourceWidth * scale;
-  const height = sourceHeight * scale;
+  const width = Math.max(1, Math.round(sourceWidth * scale));
+  const height = Math.max(1, Math.round(sourceHeight * scale));
   const data = new Uint8Array(width * height * 4);
   for (let y = 0; y < height; y += 1) {
-    const sourceY = top + Math.floor(y / scale);
+    const sourceY = top + Math.min(sourceHeight - 1, Math.floor(y * sourceHeight / height));
     for (let x = 0; x < width; x += 1) {
-      const sourceIndex = (sourceY * image.width + left + Math.floor(x / scale)) * 4;
+      const sourceX = left + Math.min(sourceWidth - 1, Math.floor(x * sourceWidth / width));
+      const sourceIndex = (sourceY * image.width + sourceX) * 4;
       const destinationIndex = (y * width + x) * 4;
       data.set(image.data.subarray(sourceIndex, sourceIndex + 4), destinationIndex);
     }
@@ -72,10 +73,10 @@ export async function spriteFrame(library, spec, index, scale = 1, resolvedAsset
     data,
     width,
     height,
-    offsetX: left * scale,
-    offsetY: top * scale,
-    frameWidth: image.width * scale,
-    frameHeight: image.height * scale,
+    offsetX: Math.round(left * scale),
+    offsetY: Math.round(top * scale),
+    frameWidth: Math.max(1, Math.round(image.width * scale)),
+    frameHeight: Math.max(1, Math.round(image.height * scale)),
   };
   frameCache.set(key, cached);
   return cached;

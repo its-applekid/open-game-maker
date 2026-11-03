@@ -85,4 +85,38 @@ test("route corridor allows a boundary touch but rejects a closing-segment cross
     }],
   });
   assert.deepEqual(crossing, [{ entity: "closing-tree", segment: 2 }]);
+
+  const bottomAnchoredOverlap = inspectRouteCorridor({
+    points: [[0, 13], [20, 13]],
+    runnerFootprint,
+    placements: [{
+      id: "lower-tree",
+      at: [10, 10],
+      collision: { type: "solid", footprint: [4, 4] },
+    }],
+  });
+  assert.deepEqual(bottomAnchoredOverlap, [{ entity: "lower-tree", segment: 0 }]);
+
+  const bottomBoundary = inspectRouteCorridor({
+    points: [[0, 14], [20, 14]],
+    runnerFootprint,
+    placements: [{
+      id: "lower-boundary-tree",
+      at: [10, 10],
+      collision: { type: "solid", footprint: [4, 4] },
+    }],
+  });
+  assert.deepEqual(bottomBoundary, []);
+
+  const sweptCrossing = inspectRouteCorridor({
+    points: [[0, 0], [20, 0]],
+    runnerFootprint,
+    placements: [{
+      id: "walking-actor",
+      at: [10, -10],
+      walk: { to: [10, 10] },
+      collision: { type: "actor", footprint: [4, 4] },
+    }],
+  });
+  assert.deepEqual(sweptCrossing, [{ entity: "walking-actor", segment: 0 }]);
 });

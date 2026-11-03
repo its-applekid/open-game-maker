@@ -7,6 +7,19 @@ const palettes = {
 
 export const supportedWeatherKinds = new Set(["rain", "snow", ...Object.keys(palettes)]);
 
+export function weatherLayers(weather) {
+  return Array.isArray(weather) ? weather : weather ? [weather] : [];
+}
+
+export function validWeather(weather) {
+  const layers = weatherLayers(weather);
+  return layers.length > 0 && layers.every(
+    (layer) => supportedWeatherKinds.has(layer?.kind) &&
+      Number.isInteger(layer?.count) && layer.count > 0 &&
+      (layer.wind === undefined || Number.isFinite(layer.wind)),
+  );
+}
+
 function seedNumber(value) {
   let seed = 2166136261;
   for (const char of String(value)) seed = Math.imul(seed ^ char.charCodeAt(0), 16777619) >>> 0;
@@ -117,4 +130,8 @@ export function drawWeather(frame, weather, tau, loopSeconds = 24, opacity = 1) 
     return;
   }
   if (palettes[weather.kind]) drawMotes(frame, weather, loopTime, loopSeconds, opacity, next);
+}
+
+export function drawWeatherLayers(frame, weather, tau, loopSeconds = 24, opacity = 1) {
+  for (const layer of weatherLayers(weather)) drawWeather(frame, layer, tau, loopSeconds, opacity);
 }

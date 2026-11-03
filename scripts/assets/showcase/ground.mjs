@@ -1,5 +1,7 @@
 import { blit, spriteFrame } from "./canvas.mjs";
 
+const sortedLayerPositions = new WeakMap();
+
 function finitePair(value) {
   return Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
 }
@@ -9,10 +11,19 @@ function issue(code, path, detail) {
 }
 
 export function groundReferences(ground) {
+  const layers = Array.isArray(ground?.layers) ? ground.layers : [];
   return [
     ground?.ref,
-    ...(ground?.layers ?? []).map(({ ref }) => ref),
+    ...layers.map((layer) => layer?.ref),
   ].filter(Boolean);
+}
+
+export function validContinuousGround(ground) {
+  const layers = Array.isArray(ground?.layers) ? ground.layers : [];
+  return ["area", "layers"].includes(ground?.fill) &&
+    finitePair(ground?.size) &&
+    ground.size.every((value) => value > 0) &&
+    (ground.fill === "area" ? Boolean(ground.ref) : layers.length > 0);
 }
 
 export function validateGroundLayers(ground, path) {
@@ -20,7 +31,15 @@ export function validateGroundLayers(ground, path) {
   if (ground?.underlay !== undefined && !/^#[0-9a-f]{6}$/iu.test(ground.underlay)) {
     issues.push(issue("ground.underlay", `${path}.underlay`, "underlay must be a six-digit hex color"));
   }
-  if (ground?.layers === undefined) return issues;
+  if (ground?.bounds_offset !== undefined && !finitePair(ground.bounds_offset)) {
+    issues.push(issue("ground.bounds_offset", `${path}.bounds_offset`, "bounds offset must be a finite [x, y] pair"));
+  }
+  if (ground?.layers === undefined) {
+    if (ground?.fill === "layers") {
+      issues.push(issue("ground.layers", `${path}.layers`, "layer-only ground needs a non-empty layer array"));
+    }
+    return issues;
+  }
   if (!Array.isArray(ground.layers) || ground.layers.length === 0) {
     issues.push(issue("ground.layers", `${path}.layers`, "ground layers must be a non-empty array"));
     return issues;
@@ -50,22 +69,34 @@ function paintRect(target, color, clip) {
   const top = Math.max(0, Math.floor(clip?.top ?? 0));
   const right = Math.min(target.width, Math.ceil(clip?.right ?? target.width));
   const bottom = Math.min(target.height, Math.ceil(clip?.bottom ?? target.height));
+  if (left >= right || top >= bottom) return;
+  const row = new Uint8Array((right - left) * 4);
+  const pixel = [...rgb, 255];
+  for (let x = 0; x < right - left; x += 1) {
+    row.set(pixel, x * 4);
+  }
   for (let y = top; y < bottom; y += 1) {
-    for (let x = left; x < right; x += 1) {
-      const offset = (y * target.width + x) * 4;
-      target.data[offset] = rgb[0];
-      target.data[offset + 1] = rgb[1];
-      target.data[offset + 2] = rgb[2];
-      target.data[offset + 3] = 255;
-    }
+    target.data.set(row, (y * target.width + left) * 4);
   }
 }
 
 async function drawFill(target, library, ground, offsetX, offsetY, projection, clip) {
   const tile = await spriteFrame(library, ground, 0, ground.scale ?? 1);
   if (tile.width === 0 || tile.height === 0) throw new Error(`${ground.ref} has an empty ground frame`);
-  const frameWidth = tile.frameWidth ?? tile.width;
-  const frameHeight = tile.frameHeight ?? tile.height;
+  // Isometric packs commonly center a 2:1 power-of-two diamond near the
+  // bottom of a much larger transparent frame. The painted bounds may include
+  // a couple of antialiased edge pixels, so snap the width to its nearest
+  // power of two and derive the logical height from the 2:1 projection.
+  const nearestPowerOfTwo = 2 ** Math.round(Math.log2(tile.width));
+  const correctedIsometricWidth =
+    nearestPowerOfTwo === tile.width ||
+      (tile.width >= 32 && Math.abs(nearestPowerOfTwo - tile.width) <= 2)
+      ? nearestPowerOfTwo
+      : tile.width;
+  const frameWidth = projection === "isometric" ? correctedIsometricWidth : tile.width;
+  const frameHeight = projection === "isometric"
+    ? frameWidth / 2
+    : tile.height;
   if (projection === "isometric") {
     const rowHeight = Math.max(1, Math.floor(frameHeight / 2));
     const startRow = Math.floor(-frameHeight / rowHeight) - 1;
@@ -73,10 +104,10 @@ async function drawFill(target, library, ground, offsetX, offsetY, projection, c
     for (let row = startRow; row <= endRow; row += 1) {
       const y = row * rowHeight + (((Math.round(offsetY) % rowHeight) + rowHeight) % rowHeight);
       const stagger = row % 2 === 0 ? 0 : frameWidth / 2;
-      const startX =
-        ((Math.round(offsetX - stagger) % frameWidth) + frameWidth) % frameWidth - frameWidth + stagger;
+      const phaseX = ((Math.round(offsetX) % frameWidth) + frameWidth) % frameWidth;
+      const startX = phaseX - frameWidth + stagger;
       for (let x = startX; x < target.width + frameWidth; x += frameWidth) {
-        blit(target, tile, x + tile.offsetX, y + tile.offsetY, clip);
+        blit(target, tile, x, y, clip);
       }
     }
     return;
@@ -85,7 +116,7 @@ async function drawFill(target, library, ground, offsetX, offsetY, projection, c
   const startY = ((Math.round(offsetY) % frameHeight) + frameHeight) % frameHeight - frameHeight;
   for (let y = startY; y < target.height; y += frameHeight) {
     for (let x = startX; x < target.width; x += frameWidth) {
-      blit(target, tile, x + tile.offsetX, y + tile.offsetY, clip);
+      blit(target, tile, x, y, clip);
     }
   }
 }
@@ -102,14 +133,20 @@ function cellPosition(ground, cell, projection) {
   return [originX + cell[0] * cellWidth, originY + cell[1] * cellHeight];
 }
 
-async function drawLayers(target, library, ground, offsetX, offsetY, projection, clip) {
+export async function drawGroundLayers(target, library, ground, offsetX, offsetY, projection, clip) {
   for (const layer of ground.layers ?? []) {
     const tile = await spriteFrame(library, layer, 0, layer.scale ?? ground.scale ?? 1);
     if (tile.width === 0 || tile.height === 0) throw new Error(`${layer.ref} has an empty ground frame`);
     const frameWidth = tile.frameWidth ?? tile.width;
     const frameHeight = tile.frameHeight ?? tile.height;
-    for (const cell of layer.cells) {
-      const [x, y] = cellPosition(ground, cell, projection);
+    let positions = sortedLayerPositions.get(layer);
+    if (!positions) {
+      positions = layer.cells
+        .map((cell) => cellPosition(ground, cell, projection))
+        .sort(([leftX, leftY], [rightX, rightY]) => leftY - rightY || leftX - rightX);
+      sortedLayerPositions.set(layer, positions);
+    }
+    for (const [x, y] of positions) {
       blit(
         target,
         tile,
@@ -122,7 +159,12 @@ async function drawLayers(target, library, ground, offsetX, offsetY, projection,
 }
 
 export async function drawGround(target, library, ground, offsetX, offsetY, projection, clip) {
+  await drawGroundBase(target, library, ground, offsetX, offsetY, projection, clip);
+  await drawGroundLayers(target, library, ground, offsetX, offsetY, projection, clip);
+}
+
+export async function drawGroundBase(target, library, ground, offsetX, offsetY, projection, clip) {
   if (ground.underlay) paintRect(target, ground.underlay, clip);
+  if (ground.fill === "layers") return;
   await drawFill(target, library, ground, offsetX, offsetY, projection, clip);
-  await drawLayers(target, library, ground, offsetX, offsetY, projection, clip);
 }

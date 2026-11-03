@@ -3,9 +3,9 @@ import {
   continuousTimeline,
   isContinuousShowcase,
 } from "./continuous.mjs";
-import { groundReferences, validateGroundLayers } from "./ground.mjs";
+import { groundReferences, validContinuousGround, validateGroundLayers } from "./ground.mjs";
 import { designKey, globalPlacementKey } from "./identity.mjs";
-import { supportedWeatherKinds } from "./weather.mjs";
+import { validWeather } from "./weather.mjs";
 
 const SHOWCASE_SCHEMA = "ogm.set-showcase/1";
 
@@ -350,8 +350,12 @@ function validateContinuousStop(stop, index, project, issues, state, seconds) {
     return;
   }
 
-  if (region.ground?.fill !== "area" || !finitePair(region.ground?.size) || region.ground.size.some((value) => value <= 0)) {
-    issues.push(issue("region.area", `${stop.region}.ground`, "continuous regions need a positive area size and fill=area"));
+  if (!validContinuousGround(region.ground)) {
+    issues.push(issue(
+      "region.area",
+      `${stop.region}.ground`,
+      "continuous regions need a positive area size and either a base ref or fill=layers",
+    ));
   }
   issues.push(...validateGroundLayers(region.ground, `${stop.region}.ground`));
   if (hasRenderedText(region) || hasRenderedText(sheet)) {
@@ -359,7 +363,7 @@ function validateContinuousStop(stop, index, project, issues, state, seconds) {
   }
   if (
     stop.weather !== undefined &&
-    (!supportedWeatherKinds.has(stop.weather.kind) || !Number.isInteger(stop.weather.count) || stop.weather.count <= 0)
+    !validWeather(stop.weather)
   ) {
     issues.push(issue("weather.invalid", `${path}.weather`, "weather needs a supported kind and positive integer count"));
   }
