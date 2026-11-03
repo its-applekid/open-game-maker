@@ -126,9 +126,10 @@ describe('GamesScreen', () => {
   }, 10_000);
 
   it('opens the URL-selected spotlight and falls back to main when branches are unavailable', async () => {
-    renderGames('/games?spotlight=g_1');
+    const { container } = renderGames('/games?spotlight=g_1');
 
     expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' })).toBeVisible();
+    expect(container.querySelector('.games-spotlight-media .game-cover')).toBeVisible();
     expect(screen.queryByText(/Your library|My games|Selected game|Choose what happens next|Versions/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Close game' })).toHaveTextContent('×');
     expect(screen.getByRole('listitem', { name: 'main' })).toHaveAttribute('aria-current', 'true');
@@ -136,7 +137,15 @@ describe('GamesScreen', () => {
     expect(screen.getByRole('button', { name: 'Edit Midnight Crumbs' })).toBeDisabled();
   });
 
-  it('writes selection to the URL and returns focus to the tile after closing', async () => {
+  it('uses the prototype creation affordance without adding helper copy', async () => {
+    const { container } = renderGames();
+
+    await screen.findByRole('button', { name: 'New game' });
+    expect(container.querySelector('.games-new .plus')).toHaveTextContent('+');
+    expect(screen.queryByText(/Create a new game|Add another game|Start creating/)).toBeNull();
+  });
+
+  it('writes selection to the URL and returns focus to the tile after closing with Escape', async () => {
     renderGames('/games?test');
     const tile = await screen.findByRole('button', { name: /Goblin Cellar/ });
 
@@ -144,7 +153,9 @@ describe('GamesScreen', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
     expect(await screen.findByRole('button', { name: 'Play Goblin Cellar' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close game' }));
+    const close = screen.getByRole('button', { name: 'Close game' });
+    await waitFor(() => expect(close).toHaveFocus());
+    fireEvent.keyDown(close, { key: 'Escape' });
     await waitFor(() => expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight'));
     expect(tile).toHaveFocus();
   });

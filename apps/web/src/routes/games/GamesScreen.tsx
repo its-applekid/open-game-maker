@@ -11,6 +11,7 @@ import { useBranches } from './useBranches';
 import { useGames } from './useGames';
 import { measureGridColumns, useGridNav } from './useGridNav';
 import './games.css';
+import './games-responsive.css';
 
 let gamesApiRegistered = false;
 const gamesTestSnapshot: { selected: string | null; tiles: string[] } = { selected: null, tiles: [] };
@@ -115,29 +116,39 @@ export function GamesScreen() {
           {sortedGames.length === 0 ? (
             <p className="games-empty">No games yet. Start with a new idea.</p>
           ) : (
-            <div ref={gridRef} className="games-grid" role="grid" aria-label="Your games" onKeyDown={nav.onKeyDown}>
-              {sortedGames.map((game, index) => (
-                <div key={game.id} role="gridcell" data-game-id={game.id}>
-                  <Tile
-                    game={game}
-                    job={activeJobs.get(game.id)}
-                    selected={game.id === selected?.id}
-                    tabIndex={nav.tabIndexFor(index)}
-                    onFocus={() => nav.focusAt(index)}
-                    onClick={() => {
-                      nav.focusAt(index);
-                      select(index);
-                    }}
-                  />
-                </div>
-              ))}
+            <div className="games-floor">
+              <div ref={gridRef} className="games-grid" role="grid" aria-label="Your games" onKeyDown={nav.onKeyDown}>
+                {sortedGames.map((game, index) => (
+                  <div
+                    key={game.id}
+                    role="gridcell"
+                    data-game-id={game.id}
+                    className={game.id === selected?.id ? 'is-selected' : undefined}
+                  >
+                    <Tile
+                      game={game}
+                      job={activeJobs.get(game.id)}
+                      selected={game.id === selected?.id}
+                      tabIndex={nav.tabIndexFor(index)}
+                      onFocus={() => nav.focusAt(index)}
+                      onClick={() => {
+                        nav.focusAt(index);
+                        select(index);
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </>
       )}
 
       <button type="button" className="tap-primary games-new" onClick={() => navigate('/new')}>
-        New game
+        <span className="plus" aria-hidden="true">
+          +
+        </span>
+        <span>New game</span>
       </button>
     </div>
   );
