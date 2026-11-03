@@ -217,7 +217,7 @@ function ShowcaseDetail({
   const stop = showcase.stops[Math.min(activeStop, showcase.stops.length - 1)];
   const region = stop?.region;
   const sheetMedia = outlineActive ? showcase.outlineOptions?.sheet : stop?.sheet;
-  const regionVideoUrl = region?.videoUrl ?? showcase.tileVideoUrl;
+  const regionVideoUrl = region?.videoUrl ?? showcase.regionVideoUrl ?? showcase.tileVideoUrl;
   const sheetVideoUrl = sheetMedia?.videoUrl ?? showcase.sheetVideoUrl;
   const regionFallbackUrl = region?.gifUrl ?? stop?.tileFallbackUrl;
   const sheetFallbackUrl = sheetMedia?.gifUrl ?? stop?.sheetFallbackUrl;

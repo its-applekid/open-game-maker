@@ -20,13 +20,19 @@ Apply `gm-verify` to the two shared tracks, every stop poster, and the complete 
 frames where a story needs finer timing. Confirm:
 
 - every edge has coherent ground at every sampled time;
+- the route report has zero corridor intersections, zero runner-occlusion frames, and zero runner-off-path frames;
 - one camera follows one walking hero with no cut, reset, or pop at the loop boundary;
 - every measured interval is within 2% of the declared projected-pixel speed;
 - story action, target, and reaction read at phone size;
 - feet are not clipped and painter order is stable;
 - every active sheet contains 24 distinct assets and changes direction on the shared beat;
 - paired region and sheet casts do not duplicate a design;
+- every building close-up has joined walls, one covering roof, and doors mounted in walls;
+- rain and snow move down-screen between wraps with visible horizontal wind drift;
 - no label, caption, scene number, or title appears in any media pixel.
+
+Keep a comparison strip that includes every stop and seam. When repairing an accepted showcase, put matching prior and
+current stills beside it so scene density, terrain, structures, and content ownership can be judged directly.
 
 Do not claim iPhone playback or a physical-device check unless it was run. Record it as a post-deploy check when the
 workspace cannot perform it.

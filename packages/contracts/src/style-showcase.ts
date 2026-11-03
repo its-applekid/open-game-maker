@@ -65,6 +65,47 @@ export const smallScaleIntShowcaseV5Schema = z
   });
 export type SmallScaleIntShowcaseV5 = z.infer<typeof smallScaleIntShowcaseV5Schema>;
 
+const v6StopSchema = z.object({
+  id: showcaseIdSchema,
+  label: z.string().min(1).optional(),
+  start_time: z.number().nonnegative().finite(),
+  region: z.strictObject({ poster: mediaFile('png') }),
+  sheet: z.strictObject({ poster: mediaFile('png') }),
+});
+
+/** The continuous SmallScaleInt showcase manifest written by the v2 set-showcase renderer. */
+export const smallScaleIntShowcaseV6Schema = z
+  .object({
+    schema: z.literal('ogm.set-showcase-media/2'),
+    set: z.literal('smallscaleint'),
+    duration: z.number().positive().finite(),
+    tracks: z.strictObject({
+      region: sourceMediaSchema,
+      sheet: sourceMediaSchema,
+    }),
+    stops: z.array(v6StopSchema).length(8),
+  })
+  .superRefine(({ duration, stops }, ctx) => {
+    const seen = new Set<string>();
+    for (const [index, stop] of stops.entries()) {
+      if (seen.has(stop.id)) {
+        ctx.addIssue({ code: 'custom', path: ['stops', index, 'id'], message: `duplicate stop id: ${stop.id}` });
+      }
+      if (index > 0 && stop.start_time <= stops[index - 1]!.start_time) {
+        ctx.addIssue({ code: 'custom', path: ['stops', index, 'start_time'], message: 'stop times must increase' });
+      }
+      if (stop.start_time >= duration) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['stops', index, 'start_time'],
+          message: 'stop time must precede duration',
+        });
+      }
+      seen.add(stop.id);
+    }
+  });
+export type SmallScaleIntShowcaseV6 = z.infer<typeof smallScaleIntShowcaseV6Schema>;
+
 export const styleShowcaseMediaSchema = z
   .strictObject({
     videoUrl: z.string().min(1).optional(),
@@ -86,6 +127,7 @@ export const styleShowcaseStopSchema = z.strictObject({
 export type StyleShowcaseStop = z.infer<typeof styleShowcaseStopSchema>;
 
 export const styleShowcaseSchema = z.strictObject({
+  regionVideoUrl: z.string().min(1).optional(),
   tileVideoUrl: z.string().min(1).optional(),
   sheetVideoUrl: z.string().min(1).optional(),
   stops: z.array(styleShowcaseStopSchema).min(1),

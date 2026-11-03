@@ -5,13 +5,14 @@ import { mkdir, mkdtemp, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 
 import { loadAssetLibrary } from "./assets.mjs";
-import { blit, canvas, spriteFrame } from "./canvas.mjs";
+import { blendFrames, blit, canvas, spriteFrame } from "./canvas.mjs";
 import { auditShowcaseCollisions } from "./collision.mjs";
 import { prepareContinuousFrame } from "./continuous-scene.mjs";
 import {
   continuousTimeline,
   isContinuousShowcase,
 } from "./continuous.mjs";
+import { drawGround } from "./ground.mjs";
 import { verifyProjectAssets } from "./check.mjs";
 import { gifArgs, mp4Args, publicationAttributes } from "./media.mjs";
 import { validateShowcase } from "./model.mjs";
@@ -20,7 +21,7 @@ import { publishStagedShowcase } from "./publish.mjs";
 import { prepareRegionFrame } from "./scene.mjs";
 import { fittedSheetScale } from "./sheet.mjs";
 import { verifyShowcaseMedia } from "./verify.mjs";
-import { drawWeather } from "./weather.mjs";
+import { drawWeatherLayers } from "./weather.mjs";
 
 const DEFAULT_FPS = 24;
 const DEFAULT_SPRITE_FPS = 12;
@@ -28,29 +29,6 @@ const DEFAULT_SPRITE_FPS = 12;
 function safeId(id) {
   if (!/^[a-z0-9][a-z0-9-]*$/u.test(id)) throw new Error(`unsafe stop id ${JSON.stringify(id)}`);
   return id;
-}
-
-async function drawGround(target, library, ground, offsetX, offsetY, projection, clip) {
-  const tile = await spriteFrame(library, ground, 0, ground.scale ?? 1);
-  if (tile.width === 0 || tile.height === 0) throw new Error(`${ground.ref} has an empty ground frame`);
-  if (projection === "isometric") {
-    const rowHeight = Math.max(1, Math.floor(tile.height / 2));
-    const startRow = Math.floor(-tile.height / rowHeight) - 1;
-    const endRow = Math.ceil((target.height + tile.height) / rowHeight) + 1;
-    for (let row = startRow; row <= endRow; row += 1) {
-      const y = row * rowHeight + (((Math.round(offsetY) % rowHeight) + rowHeight) % rowHeight);
-      const stagger = row % 2 === 0 ? 0 : tile.width / 2;
-      const startX =
-        ((Math.round(offsetX - stagger) % tile.width) + tile.width) % tile.width - tile.width + stagger;
-      for (let x = startX; x < target.width + tile.width; x += tile.width) blit(target, tile, x, y, clip);
-    }
-    return;
-  }
-  const startX = ((Math.round(offsetX) % tile.width) + tile.width) % tile.width - tile.width;
-  const startY = ((Math.round(offsetY) % tile.height) + tile.height) % tile.height - tile.height;
-  for (let y = startY; y < target.height; y += tile.height) {
-    for (let x = startX; x < target.width; x += tile.width) blit(target, tile, x, y, clip);
-  }
 }
 
 async function regionFrame({ project, library, stop, tau, width, height, spriteFps }) {
@@ -124,35 +102,35 @@ async function continuousRegionFrame({ project, library, tau, width, height, spr
     prepared.cameraY,
     projection,
   );
-  for (const [index, stop] of project.sequence.stops.entries()) {
+  const regionGround = (stop, index) => {
     const ground = project.regions[stop.region].ground;
-    const [areaWidth, areaHeight] = ground.size;
     const [centerX, centerY] = project.sequence.runner.path.points[index];
-    await drawGround(
-      target,
-      library,
+    return {
       ground,
-      prepared.cameraX,
-      prepared.cameraY,
-      projection,
-      {
-        left: centerX - areaWidth / 2 + prepared.cameraX,
-        right: centerX + areaWidth / 2 + prepared.cameraX,
-        top: centerY - areaHeight / 2 + prepared.cameraY,
-        bottom: centerY + areaHeight / 2 + prepared.cameraY,
-      },
-    );
-  }
+      offsetX: centerX + prepared.cameraX,
+      offsetY: centerY + prepared.cameraY,
+    };
+  };
   const weatherBlend = prepared.runner.localTime / prepared.runner.interval.seconds;
-  const nextStop = project.sequence.stops[(prepared.runner.index + 1) % project.sequence.stops.length];
-  drawWeather(
+  const nextIndex = (prepared.runner.index + 1) % project.sequence.stops.length;
+  const nextStop = project.sequence.stops[nextIndex];
+  const grounds = [
+    regionGround(prepared.runner.stop, prepared.runner.index),
+    regionGround(nextStop, nextIndex),
+  ];
+  const groundFrames = grounds.map(() => ({ ...target, data: target.data.slice() }));
+  await Promise.all(grounds.map(({ ground, offsetX, offsetY }, index) =>
+    drawGround(groundFrames[index], library, ground, offsetX, offsetY, projection)
+  ));
+  blendFrames(target, groundFrames[0], groundFrames[1], weatherBlend);
+  drawWeatherLayers(
     target,
     prepared.runner.stop.weather,
     tau,
     project.sequence.loop_seconds,
     1 - weatherBlend,
   );
-  drawWeather(target, nextStop.weather, tau, project.sequence.loop_seconds, weatherBlend);
+  drawWeatherLayers(target, nextStop.weather, tau, project.sequence.loop_seconds, weatherBlend);
   for (const entity of prepared.entities) blit(target, entity.frame, entity.left, entity.top);
   return { frame: target, runner: prepared.runner };
 }
@@ -362,6 +340,7 @@ async function renderContinuous({ project, library, output, fps, spriteFps }) {
     ]);
     stops.push({
       id: stop.id,
+      ...(stop.scene ? { label: stop.scene } : {}),
       start_time: stop.start_time,
       region: { poster: regionPosterFile },
       sheet: { poster: sheetPosterFile },

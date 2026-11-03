@@ -80,6 +80,10 @@ last path segment, or a region sprite id; targets are region sprite ids. `action
 card. `timing` is `[start, contact, end]`: the action plays once before contact, then the target reacts until the end.
 `reaction` may be a target card action or the built-in one-shot `bob`/settled `hold` choreography.
 
+Optional stop `weather` is either one weather object or a non-empty array of weather objects. Every object has a
+supported `kind` and a positive integer `count`; precipitation may also declare deterministic `seed` and horizontal
+`wind` as a finite number. Array layers render in declaration order.
+
 ## Region file
 
 ```json
@@ -88,7 +92,15 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
     "ref": "card:pack-b/road",
     "fill": "area",
     "size": [320, 512],
-    "scale": 2
+    "bounds_offset": [16, 0],
+    "scale": 2,
+    "underlay": "#596f42",
+    "grid": { "cell": [64, 32], "origin": [0, 0] },
+    "layers": [{
+      "ref": "card:pack-b/path",
+      "role": "path",
+      "cells": [[-1, 0], [0, 0], [1, 0]]
+    }]
   },
   "sprites": [
     {
@@ -112,9 +124,14 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
 }
 ```
 
-In v2 region ground uses `fill: "area"`; `size` is the region's world-space patch around its route point. The full-cover
-`world.ground` remains underneath every patch so camera corners never expose empty canvas. Region coordinates are local
-to that stop's route point. Sprites need globally unique stable `id` values and are anchored at bottom-center. Treat that anchor as the visible footprint: ordinary
+In v2 region ground uses `fill: "area"` with a base `ref`, or `fill: "layers"` with no base and at least one ordered
+layer. `size` is the region's world-space patch around its route point; optional `bounds_offset` moves that patch without
+moving the region's route origin. The full-cover `world.ground` remains underneath every patch so camera corners never
+expose empty canvas. Region coordinates are local to that stop's route point. `underlay` is an opaque terrain-matched
+safety color for transparent base-tile margins. Ordered `layers` place catalog refs at `grid` cells; include every base
+and layer ref in `tile_sprites`. Mark the continuous cells under the complete runner route with `role: "path"`; the
+frame audit samples the hero's foot point against those rendered isometric diamonds. Sprites need globally
+unique stable `id` values and are anchored at bottom-center. Treat that anchor as the visible footprint: ordinary
 sprites depth-sort by projected footprint position, while `z` is only a narrow correction for a known structural layer,
 not a way to force every focal actor above the world.
 
@@ -142,6 +159,12 @@ every output frame before the renderer starts encoding. Touching edges are valid
 The checker also compares rendered alpha pixels for every actor/solid pair. Pixel overlap is allowed only when the actor
 has lower depth and is therefore drawn behind the solid. A foreground actor intersecting a solid fails even when their
 declared footprints do not overlap, which catches the actor-through-counter case.
+
+For v2, the checker expands every route segment by the runner footprint and rejects any placed footprint that crosses
+that open corridor, including the closing segment and moving sprites' swept bounds. It also rejects any sprite drawn
+after and visibly over the runner, regardless of collision class, and samples every rendered hero foot point against a
+`role: "path"` ground tile. The report's `corridor-intersections`, `runner-occlusion-frames`, and
+`runner-off-path-frames` counts must all be zero before encoding.
 
 ## Sheet file
 

@@ -1,6 +1,7 @@
 import { prepareRegionFrame } from "./scene.mjs";
 import { prepareContinuousFrame } from "./continuous-scene.mjs";
 import { isContinuousShowcase } from "./continuous.mjs";
+import { spriteFrame } from "./canvas.mjs";
 
 function footprintBounds(entity) {
   const [width, depth] = entity.collision.footprint;
@@ -77,7 +78,126 @@ export function inspectCollisionFrame(entities) {
     }
   }
 
-  return { footprintOverlaps, actorSolidPixelIntersections };
+  const runnerIndex = entities.findIndex(({ id }) => id === "runner");
+  const runner = entities[runnerIndex];
+  const runnerOcclusions = [];
+  if (runner) {
+    for (const foreground of entities.slice(runnerIndex + 1)) {
+      const pixels = alphaIntersection(runner, foreground);
+      if (pixels > 0) runnerOcclusions.push({ ids: [runner.id, foreground.id], pixels });
+    }
+  }
+
+  return { footprintOverlaps, actorSolidPixelIntersections, runnerOcclusions };
+}
+
+function openAxisRange(start, end, minimum, maximum) {
+  const delta = end - start;
+  if (delta === 0) return start > minimum && start < maximum ? [-Infinity, Infinity] : undefined;
+  const first = (minimum - start) / delta;
+  const second = (maximum - start) / delta;
+  return [Math.min(first, second), Math.max(first, second)];
+}
+
+function segmentCrossesOpenBounds(from, to, bounds) {
+  const x = openAxisRange(from[0], to[0], bounds.left, bounds.right);
+  const y = openAxisRange(from[1], to[1], bounds.top, bounds.bottom);
+  if (!x || !y) return false;
+  return Math.max(0, x[0], y[0]) < Math.min(1, x[1], y[1]);
+}
+
+function placementBounds(placement) {
+  const starts = footprintBounds(placement);
+  if (!placement.walk?.to) return starts;
+  const ends = footprintBounds({ ...placement, at: placement.walk.to });
+  return {
+    left: Math.min(starts.left, ends.left),
+    right: Math.max(starts.right, ends.right),
+    top: Math.min(starts.top, ends.top),
+    bottom: Math.max(starts.bottom, ends.bottom),
+  };
+}
+
+export function inspectRouteCorridor({ points, runnerFootprint, runnerOffset = [0, 0], placements }) {
+  const [runnerWidth, runnerDepth] = runnerFootprint;
+  const [runnerOffsetX, runnerOffsetY] = runnerOffset;
+  const intersections = [];
+  for (const placement of placements) {
+    if (!placement.collision?.footprint) continue;
+    const bounds = placementBounds(placement);
+    const expanded = {
+      left: bounds.left - runnerWidth / 2 - runnerOffsetX,
+      right: bounds.right + runnerWidth / 2 - runnerOffsetX,
+      top: bounds.top - runnerOffsetY,
+      bottom: bounds.bottom + runnerDepth - runnerOffsetY,
+    };
+    for (let segment = 0; segment < points.length - 1; segment += 1) {
+      if (segmentCrossesOpenBounds(points[segment], points[segment + 1], expanded)) {
+        intersections.push({ entity: placement.id, segment });
+        break;
+      }
+    }
+  }
+  return intersections;
+}
+
+function pathCellCenter(ground, cell, projection) {
+  const [cellWidth, cellHeight] = ground.grid.cell;
+  const [originX, originY] = ground.grid.origin;
+  if (projection === "isometric") {
+    return [
+      originX + (cell[0] - cell[1]) * cellWidth / 2,
+      originY + (cell[0] + cell[1]) * cellHeight / 2,
+    ];
+  }
+  return [originX + cell[0] * cellWidth, originY + cell[1] * cellHeight];
+}
+
+export function inspectPathCoverage({ ground, point, projection, groundLayerFrames, offset = [0, 0] }) {
+  const layers = ground.layers ?? [];
+  if (
+    !ground.grid?.cell || !ground.grid?.origin || layers.length === 0 ||
+    groundLayerFrames?.length !== layers.length
+  ) return false;
+  const targetX = Math.round(point[0]);
+  const targetY = Math.round(point[1]);
+  for (let layerIndex = layers.length - 1; layerIndex >= 0; layerIndex -= 1) {
+    const layer = layers[layerIndex];
+    const frame = groundLayerFrames[layerIndex];
+    for (let cellIndex = layer.cells.length - 1; cellIndex >= 0; cellIndex -= 1) {
+      const [centerX, centerY] = pathCellCenter(ground, layer.cells[cellIndex], projection);
+      const left = Math.round(centerX + offset[0] - frame.width / 2);
+      const top = Math.round(centerY + offset[1] - frame.height / 2);
+      const x = targetX - left;
+      const y = targetY - top;
+      if (
+        x >= 0 && x < frame.width && y >= 0 && y < frame.height &&
+        frame.data[(y * frame.width + x) * 4 + 3] > 16
+      ) return layer.role === "path";
+    }
+  }
+  return false;
+}
+
+async function loadGroundLayerFrames(library, ground) {
+  return Promise.all((ground.layers ?? [])
+    .map((layer) => spriteFrame(library, layer, 0, layer.scale ?? ground.scale ?? 1)));
+}
+
+function continuousPlacements(project) {
+  return project.sequence.stops.flatMap((stop, index) => {
+    const origin = project.sequence.runner.path.points[index];
+    return (project.regions[stop.region]?.sprites ?? []).map((sprite) => ({
+      ...sprite,
+      at: [origin[0] + sprite.at[0], origin[1] + sprite.at[1]],
+      ...(sprite.walk?.to ? {
+        walk: {
+          ...sprite.walk,
+          to: [origin[0] + sprite.walk.to[0], origin[1] + sprite.walk.to[1]],
+        },
+      } : {}),
+    }));
+  });
 }
 
 function reportIssue(code, path, detail) {
@@ -98,10 +218,38 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
   const issues = [];
 
   if (isContinuousShowcase(project.sequence)) {
+    const corridorIntersections = inspectRouteCorridor({
+      points: project.sequence.runner.path.points,
+      runnerFootprint: project.sequence.runner.collision.footprint,
+      runnerOffset: project.sequence.runner.collision.offset,
+      placements: continuousPlacements(project),
+    });
+    for (const intersection of corridorIntersections) {
+      issues.push(reportIssue(
+        "collision.route_corridor",
+        `sequence.runner.path.segments[${intersection.segment}]`,
+        intersection.entity,
+      ));
+    }
+    if (issues.length) {
+      return {
+        frames,
+        issues,
+        corridorIntersections,
+        footprintOverlapFrames: 0,
+        actorSolidPixelIntersectionFrames: 0,
+        runnerOcclusionFrames: 0,
+        runnerOffPathFrames: 0,
+      };
+    }
+    const groundLayerFrames = new Map(await Promise.all(project.sequence.stops.map(async (stop) => [
+      stop.region,
+      await loadGroundLayerFrames(library, project.regions[stop.region].ground),
+    ])));
     const frameCount = Math.round(project.sequence.loop_seconds * fps);
     for (let index = 0; index < frameCount; index += 1) {
       const tau = index / fps;
-      const { entities, runner } = await prepareContinuousFrame({
+      const { cameraX, cameraY, entities, runner } = await prepareContinuousFrame({
         project,
         library,
         tau,
@@ -110,7 +258,15 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
         spriteFps,
       });
       const inspected = inspectCollisionFrame(entities);
-      const frame = { stop: runner.stop.id, index, tau, ...inspected };
+      const origin = project.sequence.runner.path.points[runner.index];
+      const runnerOnPath = inspectPathCoverage({
+        ground: project.regions[runner.stop.region].ground,
+        point: [runner.position[0] + cameraX, runner.position[1] + cameraY],
+        projection: project.sequence.layout.projection,
+        groundLayerFrames: groundLayerFrames.get(runner.stop.region),
+        offset: [origin[0] + cameraX, origin[1] + cameraY],
+      });
+      const frame = { stop: runner.stop.id, index, tau, runnerOnPath, ...inspected };
       frames.push(frame);
       const framePath = `sequence.frames[${index}]`;
       if (inspected.footprintOverlaps.length) {
@@ -127,14 +283,31 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
           pairDetails(inspected.actorSolidPixelIntersections),
         ));
       }
+      if (inspected.runnerOcclusions.length) {
+        issues.push(reportIssue(
+          "collision.runner_occlusion",
+          framePath,
+          pairDetails(inspected.runnerOcclusions),
+        ));
+      }
+      if (!runnerOnPath) {
+        issues.push(reportIssue(
+          "ground.runner_off_path",
+          framePath,
+          `${runner.stop.id} hero foot is not on a path tile`,
+        ));
+      }
     }
     return {
       frames,
       issues,
+      corridorIntersections,
       footprintOverlapFrames: frames.filter(({ footprintOverlaps }) => footprintOverlaps.length).length,
       actorSolidPixelIntersectionFrames: frames.filter(
         ({ actorSolidPixelIntersections }) => actorSolidPixelIntersections.length,
       ).length,
+      runnerOcclusionFrames: frames.filter(({ runnerOcclusions }) => runnerOcclusions.length).length,
+      runnerOffPathFrames: frames.filter(({ runnerOnPath }) => !runnerOnPath).length,
     };
   }
 
@@ -175,10 +348,13 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
   return {
     frames,
     issues,
+    corridorIntersections: [],
     footprintOverlapFrames: frames.filter(({ footprintOverlaps }) => footprintOverlaps.length).length,
     actorSolidPixelIntersectionFrames: frames.filter(
       ({ actorSolidPixelIntersections }) => actorSolidPixelIntersections.length,
     ).length,
+    runnerOcclusionFrames: 0,
+    runnerOffPathFrames: 0,
   };
 }
 
@@ -187,10 +363,15 @@ export function collisionReportLines(report) {
     ...report.frames.map((frame) =>
       `${frame.stop} frame ${String(frame.index).padStart(3, "0")} @ ${frame.tau.toFixed(6)}s: ` +
       `footprints=${frame.footprintOverlaps.length} ` +
-      `actor-solid-pixels=${frame.actorSolidPixelIntersections.length}`
+      `actor-solid-pixels=${frame.actorSolidPixelIntersections.length} ` +
+      `runner-occlusions=${frame.runnerOcclusions?.length ?? 0} ` +
+      `runner-on-path=${frame.runnerOnPath === undefined ? "n/a" : Number(frame.runnerOnPath)}`
     ),
     `SUMMARY frames=${report.frames.length} ` +
+      `corridor-intersections=${report.corridorIntersections?.length ?? 0} ` +
       `footprint-overlap-frames=${report.footprintOverlapFrames} ` +
-      `actor-solid-pixel-intersection-frames=${report.actorSolidPixelIntersectionFrames}`,
+      `actor-solid-pixel-intersection-frames=${report.actorSolidPixelIntersectionFrames} ` +
+      `runner-occlusion-frames=${report.runnerOcclusionFrames ?? 0} ` +
+      `runner-off-path-frames=${report.runnerOffPathFrames ?? 0}`,
   ];
 }

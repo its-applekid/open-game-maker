@@ -7,6 +7,7 @@ import { auditShowcaseCollisions, collisionReportLines } from "./collision.mjs";
 
 export async function verifyProjectAssets(project, library) {
   const issues = [];
+  const groundLayers = (ground) => Array.isArray(ground?.layers) ? ground.layers : [];
   async function verify(where, spec) {
     try {
       await library.verify(spec);
@@ -22,11 +23,20 @@ export async function verifyProjectAssets(project, library) {
       dir: direction,
     });
   }
+  if (project.sequence.world?.ground) {
+    await verify("sequence.world.ground", project.sequence.world.ground);
+    for (const [index, layer] of groundLayers(project.sequence.world.ground).entries()) {
+      if (layer?.ref) await verify(`sequence.world.ground.layers[${index}]`, layer);
+    }
+  }
   for (const stop of project.sequence.stops ?? []) {
     const region = project.regions[stop.region];
     const sheet = project.sheets[stop.sheet];
     if (!region || !sheet) continue;
-    await verify(`${stop.region}.ground`, region.ground);
+    if (region.ground?.ref) await verify(`${stop.region}.ground`, region.ground);
+    for (const [index, layer] of groundLayers(region.ground).entries()) {
+      if (layer?.ref) await verify(`${stop.region}.ground.layers[${index}]`, layer);
+    }
     for (const [index, sprite] of (region.sprites ?? []).entries()) {
       await verify(`${stop.region}.sprites[${index}]`, sprite);
     }
@@ -85,8 +95,11 @@ export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
   let collisionReport = {
     frames: [],
     issues: [],
+    corridorIntersections: [],
     footprintOverlapFrames: 0,
     actorSolidPixelIntersectionFrames: 0,
+    runnerOcclusionFrames: 0,
+    runnerOffPathFrames: 0,
   };
   if (issues.length === 0) {
     collisionReport = await auditShowcaseCollisions({ project, library });

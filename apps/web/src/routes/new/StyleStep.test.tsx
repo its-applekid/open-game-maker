@@ -69,6 +69,27 @@ const v5Showcase = {
   },
 };
 
+const v6Showcase = {
+  regionVideoUrl: '/showcase/showcase.region.mp4',
+  sheetVideoUrl: '/showcase/showcase.sheet.mp4',
+  stops: [
+    {
+      id: '1-fantasy',
+      label: 'Portal glade ambush',
+      startSeconds: 0,
+      region: { posterUrl: '/showcase/1-fantasy.region.png' },
+      sheet: { posterUrl: '/showcase/1-fantasy.sheet.png' },
+    },
+    {
+      id: '2-desert',
+      label: 'Caravan camp raid',
+      startSeconds: 3,
+      region: { posterUrl: '/showcase/2-desert.region.png' },
+      sheet: { posterUrl: '/showcase/2-desert.sheet.png' },
+    },
+  ],
+};
+
 const families: CatalogFamily[] = [
   family('chunky-low-poly', 'Chunky low poly', [set('chunky', 'Chunky set')]),
   family('pixel-art', 'Pixel art', [
@@ -231,6 +252,36 @@ describe('StyleStep', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Modern zombie' }));
     expect(tile.currentTime).toBe(7.5);
     expect(sheet.currentTime).toBe(7.5);
+  });
+
+  it('keeps v6 shared tracks loaded and seeks both to each stop start time', () => {
+    const v6Families: CatalogFamily[] = [
+      family('isometric-2d', 'Isometric 2D', [{ ...set('smallscaleint', 'SmallScaleInt'), showcase: v6Showcase }]),
+    ];
+    render(
+      <StyleStep
+        families={v6Families}
+        selected={[]}
+        other={undefined}
+        full={false}
+        onFull={vi.fn()}
+        onOtherChange={vi.fn()}
+        onSelect={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
+    const region = screen.getByLabelText('Diorama preview') as HTMLVideoElement;
+    const sheet = screen.getByLabelText('Sprite sheets preview') as HTMLVideoElement;
+
+    expect(region).toHaveAttribute('src', '/showcase/showcase.region.mp4');
+    expect(sheet).toHaveAttribute('src', '/showcase/showcase.sheet.mp4');
+    fireEvent.click(screen.getByRole('button', { name: 'Caravan camp raid' }));
+    expect(screen.getByLabelText('Diorama preview')).toBe(region);
+    expect(screen.getByLabelText('Sprite sheets preview')).toBe(sheet);
+    expect(region.currentTime).toBe(3);
+    expect(sheet.currentTime).toBe(3);
+    expect(region).toHaveAttribute('poster', '/showcase/2-desert.region.png');
+    expect(sheet).toHaveAttribute('poster', '/showcase/2-desert.sheet.png');
   });
 
   it('cycles through a multi-set family with style navigation and keyboard wrap', () => {
