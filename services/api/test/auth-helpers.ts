@@ -2,7 +2,7 @@ import type { Hono } from 'hono';
 
 import type { ApiBindings } from '../src/app/types.js';
 
-export const APP_ORIGIN = 'https://ogm2000.netlify.app';
+export const APP_ORIGIN = 'https://makeopen.games';
 export const AGE_SECRET = 'age-cookie-secret-for-tests-0123456789';
 export const WS_SECRET = 'ws-token-secret-for-tests-0123456789';
 

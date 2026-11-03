@@ -9,11 +9,19 @@ const publicFile = (name: string) => readFileSync(resolve(process.cwd(), 'public
 
 describe('Netlify static configuration', () => {
   it('places both backend proxies, built from the deploy-time origin, before the SPA fallback', () => {
-    expect(renderRedirects('https://api.example:8443').split('\n').filter(Boolean)).toEqual([
+    expect(renderRedirects('https://api.example:8443', 'https://makeopen.games').split('\n').filter(Boolean)).toEqual([
+      'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!',
       '/api/*  https://api.example:8443/api/:splat  200',
       '/auth/*  https://api.example:8443/auth/:splat  200',
       '/*  /index.html  200',
     ]);
+  });
+
+  it('publishes the custom domain as the canonical and Open Graph URL', () => {
+    const index = readFileSync(resolve(process.cwd(), 'index.html'), 'utf8');
+
+    expect(index).toContain('<link rel="canonical" href="https://makeopen.games/" />');
+    expect(index).toContain('<meta property="og:url" content="https://makeopen.games/" />');
   });
 
   // The host is a deploy-time value (#317): the repo keeps no _redirects of its own.
@@ -22,6 +30,7 @@ describe('Netlify static configuration', () => {
 
     expect(existsSync(resolve(process.cwd(), 'public/_redirects'))).toBe(false);
     expect(deploy).toContain('REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"');
+    expect(deploy).toContain(`printf '%s\\n' "$REDIRECTS"`);
     expect(deploy).toContain('>"$DEPLOY_DIR/_redirects"');
   });
 

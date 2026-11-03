@@ -53,7 +53,7 @@ describe('age gate on Better Auth', () => {
     const mails = outbox(deps)();
     expect(mails).toHaveLength(1);
     expect(mails[0].to).toBe('kim@example.com');
-    expect(mails[0].text).toMatch(/https:\/\/ogm2000\.netlify\.app\/auth\/magic-link\/verify\?token=\S+/);
+    expect(mails[0].text).toMatch(/https:\/\/makeopen\.games\/auth\/magic-link\/verify\?token=\S+/);
 
     const verified = await followLink(app, mails[0].text, age);
     expect(cookiePair(verified, SESSION_COOKIE)).toBeDefined();
@@ -79,7 +79,7 @@ describe('age gate on Better Auth', () => {
       headers: { cookie: `${session}; ${age}` },
     });
     expect(allowed.status).toBe(200);
-    expect(await allowed.json()).toMatchObject({ rp: { id: 'ogm2000.netlify.app' } });
+    expect(await allowed.json()).toMatchObject({ rp: { id: 'makeopen.games' } });
   });
 
   it('rate-limits magic links to 10 an hour per email and per client address', async () => {
@@ -156,7 +156,7 @@ describe('sign-in methods', () => {
     expect(response.status).toBe(200);
     const url = new URL(((await response.json()) as { url: string }).url);
     expect(url.origin).toBe('https://accounts.google.com');
-    expect(url.searchParams.get('redirect_uri')).toBe('https://ogm2000.netlify.app/auth/callback/google');
+    expect(url.searchParams.get('redirect_uri')).toBe('https://makeopen.games/auth/callback/google');
   });
 
   it('treats blank optional names as unset at boot', async () => {
