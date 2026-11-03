@@ -16,6 +16,7 @@ Pixabay has no music API, its terms disallow systematic mass downloads, and its 
 ## Download
 `DISPLAY=:1 nice -n 10 node scripts/assets/pixabay/fetch-curated.mjs <profile-dir> assets-local/inbox/pixabay-curated [start-url] > assets-local/inbox/pixabay-curated.log 2>&1` (log outside the output folder)
 - Default start is https://pixabay.com/curated_playlists/ (Kevin wants curated playlists only); pass one playlist URL to fetch just that playlist.
+- Pacing via env: `PIX_MIN_MS`/`PIX_MAX_MS` between tracks (default 45-240 s), `PIX_BREAK_MIN_MS`/`PIX_BREAK_MAX_MS` every 15-25 tracks (default 5-15 min). Overnight run used 8-30 s and 45-120 s (~1,000 tracks in ~12 h).
 - Per track: page visit, mouse moves and scrolls, click Download, save `<artist>-<title>-<id>.mp3` plus a `.json` (id, page, playlist, title, tags, licence). 45-240 s between tracks, longer pauses every 6-12. Resumable by id. Run it as a background job; never in parallel.
 - Login check fails (no Download event): rerun login.mjs.
 

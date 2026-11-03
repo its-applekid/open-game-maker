@@ -44,7 +44,7 @@ for (const pl of playlists) {
       fs.writeFileSync(f.replace(/\.mp3$/, '.json'), JSON.stringify({ id, page: t, playlist: pl, ...meta, file: path.basename(f), licence: 'Pixabay Content License', downloaded: new Date().toISOString() }, null, 1));
       have.add(id); done++; log('saved', path.basename(f));
     } catch (e) { log('miss', t, e.message.split('\n')[0]); }
-    await sleep(rnd(45000, 240000) + (done % Math.floor(rnd(6, 12)) === 0 ? rnd(300000, 900000) : 0));
+    await sleep(rnd(+(process.env.PIX_MIN_MS || 45000), +(process.env.PIX_MAX_MS || 240000)) + (done % Math.floor(rnd(15, 25)) === 0 ? rnd(+(process.env.PIX_BREAK_MIN_MS || 300000), +(process.env.PIX_BREAK_MAX_MS || 900000)) : 0));
   }
 }
 log('DONE', done, 'new tracks'); await ctx.close();
