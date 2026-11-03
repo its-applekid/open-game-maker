@@ -103,6 +103,12 @@ export const gameManifestSchema = z.looseObject({
   /** Semver range of the SDK the game targets. */
   sdk: z.string().min(1).max(64),
   title,
+  /** Optional build-time pin for the one HTTP(S) host origin allowed to frame this game. */
+  hostOrigin: z
+    .string()
+    .regex(/^https?:\/\/[^/?#@]+$/u)
+    .url()
+    .optional(),
   inputs: z.looseObject({ actions: z.record(z.string().min(1).max(32), z.enum(['button', 'axis', 'stick'])) }),
   presentation: z.looseObject({
     orientation: z.enum(['landscape', 'portrait', 'any']),

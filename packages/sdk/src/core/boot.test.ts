@@ -8,12 +8,14 @@ import { createCounterGame } from '../test/fixtures/counter-game.js';
 
 const bridge = vi.hoisted(() => ({
   close: vi.fn(),
+  hostOrigin: undefined as string | undefined,
   onMessage: undefined as ((message: Envelope<string, unknown>) => void) | undefined,
   send: vi.fn(),
 }));
 
 vi.mock('@ogm/iframe-bridge', () => ({
-  openGameBridge: vi.fn((options: { onMessage: (message: Envelope<string, unknown>) => void }) => {
+  openGameBridge: vi.fn((options: { hostOrigin: string; onMessage: (message: Envelope<string, unknown>) => void }) => {
+    bridge.hostOrigin = options.hostOrigin;
     bridge.onMessage = options.onMessage;
     return {
       ready: Promise.resolve(),
@@ -51,6 +53,7 @@ describe('boot', () => {
     id = 0;
     bridge.close.mockReset();
     bridge.send.mockReset();
+    bridge.hostOrigin = undefined;
     bridge.onMessage = undefined;
   });
 
@@ -73,6 +76,18 @@ describe('boot', () => {
     expect(runtime.hooks.marks[0]?.[0]).toBe('start');
     expect(runtime.hooks.marks.at(-1)?.[0]).toBe('frame0');
     expect(runtime.hooks.ready).toBe(true);
+  });
+
+  it('uses the build manifest host origin when the caller does not provide one', async () => {
+    const fixture = createCounterGame();
+    fixture.module.manifest.hostOrigin = 'https://HOST-A.example.test:443';
+
+    const pending = boot(fixture.module, { headless: true });
+    const handled = pending.catch((error: unknown) => error);
+
+    expect(bridge.hostOrigin).toBe('https://host-a.example.test');
+    bridge.onMessage!(hello());
+    expect(await handled).toBeInstanceOf(RuntimeImpl);
   });
 
   it('exposes the game bridge sender for load messages', async () => {

@@ -19,9 +19,13 @@ export interface BootOptions {
   headless?: boolean;
 }
 
+function canonicalOrigin(origin: string): string {
+  return new URL(origin).origin;
+}
+
 function originFromDocument(): string {
   if (!document.referrer) throw new Error('boot requires hostOrigin when document.referrer is empty');
-  return new URL(document.referrer).origin;
+  return canonicalOrigin(document.referrer);
 }
 
 function markNow(): number {
@@ -33,7 +37,8 @@ function compiledBuild(): BuildKind {
 }
 
 export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions = {}): Promise<Runtime<D, S>> {
-  const hostOrigin = options.hostOrigin ?? originFromDocument();
+  const configuredHostOrigin = options.hostOrigin ?? module.manifest.hostOrigin;
+  const hostOrigin = configuredHostOrigin ? canonicalOrigin(configuredHostOrigin) : originFromDocument();
   const marks: [string, number][] = [['start', markNow()]];
   const queued: HostToGame[] = [];
   const events = new EventRing();

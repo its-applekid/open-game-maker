@@ -1,5 +1,11 @@
 # Game SDK
 
+## Trusted host origin
+
+Set the optional game-manifest `hostOrigin` to the exact HTTP(S) origin allowed to frame a build. `boot` prefers an
+explicit `BootOptions.hostOrigin`, then the manifest value, and otherwise keeps the referrer-derived fallback for
+existing builds. Paths, credentials, query strings, and fragments are not valid origins.
+
 ## Narration
 
 Narration manifest entries use this shape:
