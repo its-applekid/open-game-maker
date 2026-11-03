@@ -9,7 +9,7 @@ import fs from 'node:fs'; import path from 'node:path';
 const [,, profile, outRoot, start = 'https://pixabay.com/curated_playlists/'] = process.argv;
 const rnd = (a, b) => a + Math.random() * (b - a);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-const have = new Set(); for (const d of fs.existsSync(outRoot) ? fs.readdirSync(outRoot) : []) for (const f of fs.readdirSync(path.join(outRoot, d))) { const m = f.match(/-(\d{5,})\.mp3$/); if (m) have.add(m[1]); }
+const have = new Set(); for (const d of fs.existsSync(outRoot) ? fs.readdirSync(outRoot).filter(x => fs.statSync(path.join(outRoot, x)).isDirectory()) : []) for (const f of fs.readdirSync(path.join(outRoot, d))) { const m = f.match(/-(\d{5,})\.mp3$/); if (m) have.add(m[1]); }
 const ctx = await chromium.launchPersistentContext(profile, { headless: false, acceptDownloads: true, viewport: { width: 1366, height: 900 }, ignoreDefaultArgs: ['--enable-automation'], args: ['--disable-blink-features=AutomationControlled'] });
 const p = ctx.pages()[0] || await ctx.newPage();
 async function human() {
