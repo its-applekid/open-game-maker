@@ -3,6 +3,7 @@ import type { ComponentType } from 'react';
 import { InviteRoomControl, RoomMembersControl } from '../../features/room/RoomControls';
 import type { CreatedRoom } from '../../features/room/InviteButton';
 import type { RoomSession, RoomSessionSnapshot } from '../../features/room/session';
+import { VersionControls } from './versions/VersionControls';
 
 export type GameExtraProps = {
   gameId: string;
@@ -25,4 +26,5 @@ export type GameExtra = {
 export const gameExtras: GameExtra[] = [
   { id: 'room-invite', placement: 'topbar', Component: InviteRoomControl },
   { id: 'room-members', placement: 'topbar', Component: RoomMembersControl },
+  { id: 'versions-nav', placement: 'topbar', Component: VersionControls },
 ];

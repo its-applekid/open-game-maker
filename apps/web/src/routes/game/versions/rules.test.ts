@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Branch, Build } from '@ogm/contracts/browser';
+import type { Build } from '@ogm/contracts/browser';
 
 import { canCreateVersion, publishableBuild, type VersionBranch } from './rules';
 
