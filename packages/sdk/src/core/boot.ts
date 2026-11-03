@@ -118,6 +118,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
       events,
       () => bridge.close(),
     );
+    runtime.attachSender(send);
     runtime.setLocalPlayerIndex(hello.payload.playerIndex);
     runtimeState.current = runtime;
     runtime.installNet(

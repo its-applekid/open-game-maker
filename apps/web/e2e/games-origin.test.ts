@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { readApiOrigin, readGamesOrigin } from '../tools/games-origin.mjs';
+import { readApiOrigin, readGamesOrigin, readPublicAppOrigin } from '../tools/games-origin.mjs';
 
 async function envDir(contents?: string, rooms?: string, api?: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'ogm-web-env-'));
@@ -98,7 +98,7 @@ describe('deploy games origin', () => {
 
 // The /api and /auth proxies are written at deploy time so the repo never names the host (#317).
 describe('deploy API origin', () => {
-  const games = 'VITE_GAMES_ORIGIN=https://games.example:10000\n';
+  const games = 'VITE_GAMES_ORIGIN=https://games.example:10000\nOGM_PUBLIC_APP_ORIGIN=https://makeopen.games\n';
 
   it('refuses a missing, http or pathed VITE_API_ORIGIN, which would ship an app that cannot sign in', async () => {
     for (const [contents, error] of [
@@ -125,7 +125,7 @@ describe('deploy API origin', () => {
     const ok = runCli(await envDir(`${games}VITE_API_ORIGIN=https://api.example:8443\n`), 'redirects.mjs');
     expect([ok.status, ok.stderr]).toEqual([0, '']);
     expect(ok.stdout).toBe(
-      '/api/*  https://api.example:8443/api/:splat  200\n/auth/*  https://api.example:8443/auth/:splat  200\n/*  /index.html  200\n',
+      'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n/api/*  https://api.example:8443/api/:splat  200\n/auth/*  https://api.example:8443/auth/:splat  200\n/proto  /proto/  301\n/proto/*  /proto/:splat  200\n/*  /index.html  200\n',
     );
 
     const missing = runCli(await envDir(games), 'redirects.mjs');
@@ -142,5 +142,45 @@ describe('deploy API origin', () => {
 
     expect(run.status).toBe(1);
     expect(run.stderr).toMatch(/^deploy: VITE_API_ORIGIN is not set/m);
+  });
+
+  it('prints the generated redirects before checking host-local build inputs', async () => {
+    const script = fileURLToPath(new URL('../tools/deploy.sh', import.meta.url));
+    const commands = await mkdtemp(join(tmpdir(), 'ogm-web-commands-'));
+    await writeFile(join(commands, 'pnpm'), '#!/usr/bin/env bash\nexit 73\n', { mode: 0o755 });
+    const run = spawnSync('bash', [script, '--dry-run'], {
+      encoding: 'utf8',
+      env: {
+        PATH: `${commands}:${dirname(process.execPath)}:/usr/bin:/bin`,
+        OGM_ENV_DIR: await envDir(`${games}VITE_API_ORIGIN=https://api.example:8443\n`),
+      },
+    });
+
+    expect(run.status).toBe(1);
+    expect(run.stderr).toMatch(
+      /^deploy: required host-local directory is missing: .*(?:assets-local|scripts\/audio\/\.venv)$/m,
+    );
+    expect(run.stdout).toBe(
+      'games origin: https://games.example:10000 (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' +
+        'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n' +
+        '/api/*  https://api.example:8443/api/:splat  200\n' +
+        '/auth/*  https://api.example:8443/auth/:splat  200\n' +
+        '/proto  /proto/  301\n' +
+        '/proto/*  /proto/:splat  200\n' +
+        '/*  /index.html  200\n',
+    );
+  });
+});
+
+describe('public app origin', () => {
+  it('reads the custom domain from web.env and rejects missing or unsafe values', async () => {
+    expect(readPublicAppOrigin(await envDir('OGM_PUBLIC_APP_ORIGIN=https://makeopen.games/\n'))).toBe(
+      'https://makeopen.games',
+    );
+    expect(() => readPublicAppOrigin('/nonexistent')).toThrow(/web\.env is missing/);
+    for (const value of ['http://makeopen.games', 'https://makeopen.games/app']) {
+      const dir = await envDir(`OGM_PUBLIC_APP_ORIGIN=${value}\n`);
+      expect(() => readPublicAppOrigin(dir)).toThrow(/https origin/);
+    }
   });
 });

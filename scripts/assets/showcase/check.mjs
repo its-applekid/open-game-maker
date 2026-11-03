@@ -3,6 +3,7 @@ import { loadAssetLibrary } from "./assets.mjs";
 import { validateShowcase } from "./model.mjs";
 import { loadProject, parseArgs } from "./project.mjs";
 import { builtInReactions } from "./story.mjs";
+import { auditShowcaseCollisions, collisionReportLines } from "./collision.mjs";
 
 export async function verifyProjectAssets(project, library) {
   const issues = [];
@@ -81,13 +82,23 @@ export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
   const issues = validateShowcase(project);
   const library = await loadAssetLibrary({ assetsRoot, catalogFile });
   issues.push(...await verifyProjectAssets(project, library));
+  let collisionReport = {
+    frames: [],
+    issues: [],
+    footprintOverlapFrames: 0,
+    actorSolidPixelIntersectionFrames: 0,
+  };
+  if (issues.length === 0) {
+    collisionReport = await auditShowcaseCollisions({ project, library });
+    issues.push(...collisionReport.issues);
+  }
 
-  return { project, issues };
+  return { project, issues, collisionReport };
 }
 
 async function main() {
   const args = parseArgs(process.argv.slice(2), ["project", "assets-root", "catalog"]);
-  const { project, issues } = await checkShowcase({
+  const { project, issues, collisionReport } = await checkShowcase({
     projectRoot: args.project,
     assetsRoot: args["assets-root"],
     catalogFile: args.catalog,
@@ -97,6 +108,7 @@ async function main() {
     const sheet = project.sheets[stop.sheet];
     console.log(`${stop.id}: ${region.sprites?.length ?? 0} region sprites, ${sheet.sprites?.length ?? 0} sheet sprites`);
   }
+  for (const line of collisionReportLines(collisionReport)) console.log(line);
   if (issues.length) {
     for (const { code, path, detail } of issues) console.error(`${code} ${path}: ${detail}`);
     process.exitCode = 1;

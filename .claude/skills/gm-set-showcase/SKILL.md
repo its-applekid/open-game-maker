@@ -21,6 +21,7 @@ Collect these before planning:
 - the style family (pixel art, painted, low-poly, and so on);
 - the local asset-library root;
 - a scratch project directory and an authorized media destination.
+- the matching store thumbnail or official pack screenshot for each region.
 
 Read [planning.md](references/planning.md) while inventorying and planning. Read
 [sequence.md](references/sequence.md) while authoring JSON. For the known-good timing and composition lessons from the
@@ -31,18 +32,25 @@ is under [examples/limezu-modern](references/examples/limezu-modern/).
 
 1. Inventory every card by pack, kind, world/theme, actions, directions, and renderable source. Keep an explicit list of
    all packs that must appear.
-2. Plan adjacent regions and one story beat per region. A beat names stable actor/target ids, a real card action, the
-   target's reaction, and `[start, contact, end]` timing. An attack without a target and reaction is not a story.
-3. Make the world continuous. Use 45-degree diamond seams for isometric sets and grid seams for top-down sets. Ground
-   must cover every edge; do not leave empty canvas around a diorama.
-4. Choose a hero with a real `walk` action and a natural source-derived cadence. Give it a path across the region. The
-   square camera follows that hero. Do not substitute an idle bob or run animation.
-5. Put additional, non-scene assets on each region's sheet. Every animated sheet sprite rotates through the set's full
+2. Recreate the matching store thumbnail as a still before adding motion: preserve its ground, walls, prop choices,
+   density, layering, and camera framing as closely as the installed pack allows. Put the reference beside the render
+   and fix the largest mismatch before continuing. Only deviate when the pack does not contain the pictured asset.
+3. Plan adjacent regions, purposeful density, protected focal zones, and one story beat per region. A beat names stable
+   actor/target ids, a real card action, the target's one-shot reaction, and `[start, contact, end]` timing. An attack
+   without a target and reaction is not a story.
+4. Make the world continuous. Use 45-degree diamond seams for isometric sets and grid seams for top-down sets. Ground
+   must cover every edge with coherent roads, paths, borders, and transitions; do not leave empty canvas around a
+   diorama or place incompatible ground patterns edge-to-edge.
+5. Choose a hero with a real `walk` action and a natural source-derived cadence. Give it a path across the region. The
+   square camera follows that hero. Derive distance from cadence and duration, and make each exit meet the next
+   entrance so the hero never slows down and teleports. Do not substitute an idle bob or run animation.
+6. Put additional, non-scene assets on each region's sheet. Every animated sheet sprite rotates through the set's full
    direction order on the same tempo. A design may appear in the region or its paired sheet, never both.
-6. Write `sequence.json`, `regions/*.json`, and `sheets/*.json` using [sequence.md](references/sequence.md). Every placed
-   sprite needs a unique stable id. Keep
+7. Write `sequence.json`, `regions/*.json`, and `sheets/*.json` using [sequence.md](references/sequence.md). Every placed
+   sprite needs a unique stable id and collision classification. Reserve each actor or solid prop's complete footprint
+   while placing it; never place by anchor point alone. Keep
    `tile_sprites`, `sheet_sprites`, story beats, and `required_packs` explicit so the checker can audit the plan.
-7. Check every reference, direction, pack, story target, repeated prop, and region/sheet overlap:
+8. Check every reference, direction, pack, story target, repeated prop, region/sheet overlap, and rendered frame:
 
    ```sh
    node scripts/assets/showcase/check.mjs \
@@ -51,7 +59,11 @@ is under [examples/limezu-modern](references/examples/limezu-modern/).
      --catalog <cards.index.json>
    ```
 
-8. Render to a scratch output directory:
+   Keep the frame-by-frame report with the region evidence. Every frame must report zero footprint overlaps and zero
+   actor/solid-prop pixel intersections unless the actor is depth-sorted behind that prop. Fix the layout, footprint, or
+   path when either count is non-zero; never waive an intersection after rendering.
+
+9. Render to a scratch output directory:
 
    ```sh
    node scripts/assets/showcase/render.mjs \
@@ -64,16 +76,21 @@ is under [examples/limezu-modern](references/examples/limezu-modern/).
    Use `--only <region-id>` during authoring. The compositor emits a looping H.264/yuv420p/faststart MP4, GIF fallback,
    and PNG poster for every region and every sheet. It then probes every file and publishes `manifest.json` only after
    codec, profile, pixel format, dimensions, duration, faststart atom order, GIF looping, and poster checks pass.
-9. QA start, middle, and end stills from every region and sheet using `gm-verify`. Look for empty edges, discontinuous
-   seams, clipped feet, direction-order mistakes, repeated props, unreadable action/reaction pairs, and an unnatural
-   walking cadence. Fix the worst visual defect and rerender before judging the next one.
-10. Publish the baked files and manifest to the style-picker detail surface. The client uses the manifest's media files
+10. QA start, middle, contact, reaction, result, end, and seam stills from every region and start/middle/end stills from
+   every sheet using `gm-verify`. Look for empty edges, discontinuous seams, clipped feet, footprint-order mistakes,
+   hidden focal actors, floating wall props, misaligned composite parts, repeated props, unreadable action/reaction
+   pairs, synchronized particle patterns, and an unnatural walking cadence. Fix the worst visual defect and rerender
+   before judging the next one.
+11. Publish the baked files and manifest to the style-picker detail surface. The client uses the manifest's media files
     with `autoplay loop muted playsinline`; it never imports these tools, runs a game engine, or renders a canvas preview.
     Follow [publication.md](references/publication.md).
 
 ## Completion gate
 
-The checker and post-render media probe pass; every installed pack is represented; each region and sheet has been
-visually inspected; the hero walks; every story has a target and reaction; paired scene/sheet casts do not overlap; and
-the published surface uses only the generated MP4/GIF/poster files. Report any device or physical-phone check that was
-not run.
+The checker and post-render media probe pass; every frame has zero footprint overlaps and zero disallowed actor/solid
+pixel intersections; every installed pack is represented; each region's first still has been compared beside its store
+reference; each region and sheet has been visually inspected; the hero walks continuously at a natural cadence;
+purposeful scene density fills each viewport; ground and interior structures are coherent; protected focal elements
+remain readable; every story has face-to-face contact and a visible one-shot reaction; particle fields cover the
+viewport without obvious phase bands; paired scene/sheet casts do not overlap; and the published surface uses only the
+generated MP4/GIF/poster files. Report any device or physical-phone check that was not run.

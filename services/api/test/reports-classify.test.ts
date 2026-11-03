@@ -19,7 +19,7 @@ describe('report classification (first rule wins)', () => {
   });
 
   it.each([
-    'https://ogm2000.netlify.app/assets/index.js',
+    'https://makeopen.games/assets/index.js',
     '@gm/host/frame.js',
     `/g/${ids.otherGame}/b_1/main.js`,
     'https://cdn.example.test/lib.js',

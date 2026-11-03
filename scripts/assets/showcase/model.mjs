@@ -40,6 +40,42 @@ function refsFromSheet(sheet) {
   return (sheet?.sprites ?? []).map(({ ref }) => ref).filter(Boolean);
 }
 
+function validateCollision(spec, path, issues) {
+  const collision = spec?.collision;
+  if (!collision || !["actor", "solid", "none"].includes(collision.type)) {
+    issues.push(issue(
+      "collision.type",
+      `${path}.collision`,
+      "classify every region entity as actor, solid, or none",
+    ));
+    return;
+  }
+  if (collision.type === "none") return;
+  if (
+    !Array.isArray(collision.footprint) ||
+    collision.footprint.length !== 2 ||
+    collision.footprint.some((value) => !Number.isFinite(value) || value <= 0)
+  ) {
+    issues.push(issue(
+      "collision.footprint",
+      `${path}.collision.footprint`,
+      "actors and solids need a positive [width, depth] world footprint",
+    ));
+  }
+  if (
+    collision.offset !== undefined &&
+    (!Array.isArray(collision.offset) ||
+      collision.offset.length !== 2 ||
+      collision.offset.some((value) => !Number.isFinite(value)))
+  ) {
+    issues.push(issue(
+      "collision.offset",
+      `${path}.collision.offset`,
+      "collision offset must be a finite [x, y] pair",
+    ));
+  }
+}
+
 function validateLayout(sequence, issues) {
   const layout = sequence.layout ?? {};
   const [width, height] = layout.viewport ?? [];
@@ -71,6 +107,7 @@ function validateRunner(sequence, issues) {
   if (!(runner.speed > 0)) {
     issues.push(issue("runner.speed", "sequence.runner.speed", "provide a positive natural walking speed"));
   }
+  validateCollision(runner, "sequence.runner", issues);
   if (Array.isArray(runner.path?.from) && Array.isArray(runner.path?.to) && runner.speed > 0) {
     const distance = Math.hypot(
       runner.path.to[0] - runner.path.from[0],
@@ -165,6 +202,22 @@ function validateStop(stop, index, project, issues, propUses) {
         "every placed sprite needs a unique stable id",
       ),
     );
+  }
+
+  const designUses = new Map();
+  for (const [spriteIndex, sprite] of (region.sprites ?? []).entries()) {
+    validateCollision(sprite, `${stop.region}.sprites[${spriteIndex}]`, issues);
+    const key = designKey(sprite.ref);
+    const previous = designUses.get(key);
+    if (previous !== undefined) {
+      issues.push(issue(
+        "props.duplicated",
+        `${stop.region}.sprites[${spriteIndex}].ref`,
+        `${sprite.ref} duplicates the design at sprites[${previous}]`,
+      ));
+    } else {
+      designUses.set(key, spriteIndex);
+    }
   }
 
   const regionRefs = refsFromRegion(region);

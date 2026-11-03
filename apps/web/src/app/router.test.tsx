@@ -7,6 +7,14 @@ import { collectScreenRoutes, screenRouteObjects } from './router';
 import type { ScreenRoute } from './screen';
 
 const captureError = vi.hoisted(() => vi.fn());
+const soundApi = vi.hoisted(() => ({
+  getVolume: vi.fn(() => 1),
+  onChange: vi.fn(() => () => undefined),
+  setMuted: vi.fn(),
+  setVolume: vi.fn(),
+  status: vi.fn(() => 'off' as const),
+  unlock: vi.fn(),
+}));
 
 vi.mock('../features/bug-report', () => ({
   BugButton: () => null,
@@ -21,6 +29,8 @@ vi.mock('../lib/notify', () => ({
   Toasts: () => null,
   useNotificationFeed: () => undefined,
 }));
+
+vi.mock('../lib/sound', () => soundApi);
 
 const routeTable = [
   '/',
@@ -49,6 +59,9 @@ describe('screen route collection', () => {
   afterEach(() => {
     cleanup();
     captureError.mockReset();
+    soundApi.setMuted.mockReset();
+    soundApi.setVolume.mockReset();
+    soundApi.unlock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -125,6 +138,33 @@ describe('screen route collection', () => {
       expect(captureError).toHaveBeenCalledWith(expect.any(Error), { route: '/g/g_2', gameId: 'g_2' }),
     );
   }, 10_000);
+
+  it('wraps app routes in the prototype studio chrome', async () => {
+    const routes = collectScreenRoutes({
+      '../routes/games/route.tsx': {
+        route: {
+          path: '/games',
+          element: <h1>Games</h1>,
+          chrome: 'app',
+          auth: 'none',
+        },
+      },
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/games'] });
+
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByRole('link', { name: 'Open Game Maker 2000' })).toHaveAttribute('href', '/');
+    expect(document.querySelector('.studio-backdrop canvas')).toBeInTheDocument();
+    const sound = screen.getByRole('button', { name: /sound/i });
+    expect(sound).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(sound);
+
+    expect(sound).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('slider', { name: 'Volume' })).toBeVisible();
+    expect(soundApi.setMuted).toHaveBeenCalledWith(false);
+  });
 
   it('retries a crashed screen', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);

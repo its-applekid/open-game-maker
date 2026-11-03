@@ -71,7 +71,7 @@ describe('splash page', () => {
 
   it('rejects content that breaks the schema', () => {
     const valid = readFileSync(splashPath, 'utf8');
-    expect(() => parseSplashContent(valid.replace('https://ogm2000', 'http://ogm2000'))).toThrow();
+    expect(() => parseSplashContent(valid.replace('https://makeopen.games', 'http://makeopen.games'))).toThrow();
     expect(() =>
       parseSplashContent(valid.replace(/  - heading: Play on a phone[\s\S]*?poster: [^\n]+\n/, '')),
     ).toThrow();

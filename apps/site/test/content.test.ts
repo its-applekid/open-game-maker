@@ -63,8 +63,8 @@ describe('content/setup.yaml', () => {
     }
   });
 
-  it('names no host of this machine or the hosted app, so a self-hoster can follow it as written', () => {
-    expect(source).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]|ogm2000\.netlify\.app/);
+  it('names no private host of this machine, so a self-hoster can follow it as written', () => {
+    expect(source).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
   });
 });
 

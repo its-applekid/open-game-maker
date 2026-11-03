@@ -2,7 +2,9 @@ import type { CSSProperties } from 'react';
 
 import type { GameSummary } from './types';
 
-export function Cover({ game }: { game: GameSummary }) {
+type CoverGame = Pick<GameSummary, 'familyId' | 'title' | 'coverUrl'>;
+
+export function Cover({ game }: { game: CoverGame }) {
   if (game.coverUrl) {
     return <img className="game-cover-image" src={game.coverUrl} alt="" loading="lazy" />;
   }

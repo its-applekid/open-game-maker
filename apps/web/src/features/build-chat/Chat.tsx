@@ -11,7 +11,7 @@ import { AllowanceStatus } from '../scope-chat/ScopeChat';
 import { Composer } from './Composer';
 import type { EditDraft } from './dock';
 import { editJobRequest } from './edit';
-import { isTerminal, myJobsQueryKey } from './jobs';
+import { gameJobsQueryKey, isTerminal, myJobsQueryKey } from './jobs';
 import { MessageList } from './MessageList';
 import { reduceMessages, subscribeChat, type StreamedChatMessage } from './stream';
 
@@ -108,6 +108,7 @@ export function Chat({
       setRefusal(undefined);
       setWaitingForAdmin(false);
       void queryClient.invalidateQueries({ queryKey: myJobsQueryKey });
+      void queryClient.invalidateQueries({ queryKey: gameJobsQueryKey(target.gameId) });
       if (mountedRef.current) onAdmitted?.(result.jobId, target);
       return result.jobId;
     } finally {

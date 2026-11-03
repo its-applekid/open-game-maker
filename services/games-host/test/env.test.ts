@@ -7,14 +7,14 @@ import { loadGamesHostEnv } from '../src/env.js';
 const validEnvironment = {
   OGM_GAMES_PORT: '3400',
   OGM_GAMES_ROOT: './games',
-  OGM_APP_ORIGIN: 'https://ogm2000.netlify.app',
+  OGM_APP_ORIGIN: 'https://makeopen.games',
 };
 const defaultWorkerScript = fileURLToPath(new URL('../../../packages/host/dist/game-cache.js', import.meta.url));
 
 describe('games-host environment', () => {
   it('loads the loopback-only service configuration', () => {
     expect(loadGamesHostEnv(validEnvironment)).toEqual({
-      appOrigin: 'https://ogm2000.netlify.app',
+      appOrigin: 'https://makeopen.games',
       host: '127.0.0.1',
       port: 3400,
       root: resolve('./games'),
@@ -32,9 +32,9 @@ describe('games-host environment', () => {
     expect(
       loadGamesHostEnv({
         ...validEnvironment,
-        OGM_APP_ORIGIN: 'https://ogm2000.netlify.app http://127.0.0.1:5173',
+        OGM_APP_ORIGIN: 'https://makeopen.games http://127.0.0.1:5173',
       }).appOrigin,
-    ).toBe('https://ogm2000.netlify.app http://127.0.0.1:5173');
+    ).toBe('https://makeopen.games http://127.0.0.1:5173');
   });
 
   it.each(['0', '65536', '3.5', 'port'])('rejects invalid port %s', (port) => {

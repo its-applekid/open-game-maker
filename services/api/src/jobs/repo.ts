@@ -57,12 +57,14 @@ export function findJob(db: Db, id: string): Job {
   return toJob(found.job, found.projection);
 }
 
-export function listJobs(db: Db, gameId: string): Job[] {
+export function listJobs(db: Db, gameIds: string | readonly string[]): Job[] {
+  const ids = typeof gameIds === 'string' ? [gameIds] : gameIds;
+  if (ids.length === 0) return [];
   return db
     .select({ job: schema.jobs, projection: schema.jobProjections })
     .from(schema.jobs)
     .leftJoin(schema.jobProjections, eq(schema.jobs.id, schema.jobProjections.jobId))
-    .where(eq(schema.jobs.gameId, gameId))
+    .where(inArray(schema.jobs.gameId, ids))
     .orderBy(asc(schema.jobs.createdAt))
     .all()
     .map(({ job, projection }) => toJob(job, projection));

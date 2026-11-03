@@ -16,6 +16,7 @@ import {
   BadId,
   blobPath,
   buildDir,
+  gcBlobs,
   isComplete,
   markComplete,
   putBlob,
@@ -138,5 +139,62 @@ describe('games-host layout', () => {
     const destination = await putBlob(root, source);
 
     await expect(readFile(destination, 'utf8')).resolves.toBe('cross-device-image');
+  });
+
+  it('collects only unreferenced blobs and fails closed on an invalid live plan', async () => {
+    const kept = `${'d'.repeat(64)}.png`;
+    const removed = `${'e'.repeat(64)}.png`;
+    await mkdir(join(root, '_a'));
+    await writeFile(blobPath(root, kept), 'kept');
+    await writeFile(blobPath(root, removed), 'removed');
+    const phases = {
+      boot: { bytes: 0, files: 0 },
+      ready: { bytes: 4, files: 1 },
+      stream: { bytes: 0, files: 0 },
+    };
+    await writeFile(
+      join(build, 'assets', 'cache-plan.json'),
+      JSON.stringify({
+        version: 1,
+        gameId: 'demo',
+        buildId: 'b1',
+        built: '2026-11-02T20:00:00.000Z',
+        sdkVersion: '1.0.0',
+        tiers: ['desktop'],
+        entries: [
+          {
+            sha256: 'd'.repeat(64),
+            url: `/a/${kept}`,
+            bytes: 4,
+            kind: 'sprite',
+            phase: 'ready',
+            tiers: ['*'],
+          },
+        ],
+        totals: {
+          desktop: phases,
+          mobile: {
+            boot: { bytes: 0, files: 0 },
+            ready: { bytes: 0, files: 0 },
+            stream: { bytes: 0, files: 0 },
+          },
+          low: {
+            boot: { bytes: 0, files: 0 },
+            ready: { bytes: 0, files: 0 },
+            stream: { bytes: 0, files: 0 },
+          },
+        },
+      }),
+    );
+
+    await gcBlobs(root, [build]);
+    await expect(readFile(blobPath(root, kept), 'utf8')).resolves.toBe('kept');
+    await expect(readFile(blobPath(root, removed), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' });
+
+    await writeFile(blobPath(root, removed), 'removed');
+    await writeFile(join(build, 'assets', 'cache-plan.json'), '{broken');
+    await expect(gcBlobs(root, [build])).rejects.toBeInstanceOf(SyntaxError);
+    await expect(readFile(blobPath(root, kept), 'utf8')).resolves.toBe('kept');
+    await expect(readFile(blobPath(root, removed), 'utf8')).resolves.toBe('removed');
   });
 });

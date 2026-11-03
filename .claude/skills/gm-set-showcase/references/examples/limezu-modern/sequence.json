@@ -16,7 +16,8 @@
     "action": "walk",
     "path": { "from": [136, 400], "to": [376, 400] },
     "speed": 48,
-    "scale": 2
+    "scale": 2,
+    "collision": { "type": "actor", "footprint": [24, 12] }
   },
   "stops": [
     {

@@ -1,5 +1,6 @@
 import type { BoundaryVerdict, CommitOp, CommitResult } from '@ogm/contracts';
 import { schema } from '@ogm/db';
+import { eq } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 
 import { signJobToken } from '../src/app/job-token.js';
@@ -157,6 +158,23 @@ describe('release routes', () => {
     expect(response.status).toBe(422);
     expect(await response.json()).toEqual({ rights });
     expect(commit).not.toHaveBeenCalled();
+  });
+
+  it('rechecks artifact presence before appending a release', async () => {
+    const checkRights = vi.fn(async () => []);
+    const { deps, source } = setup({ checkRights });
+    checkRights.mockImplementation(async () => {
+      deps.db.update(schema.builds).set({ artifact: 'gc' }).where(eq(schema.builds.id, ids.build)).run();
+      return [];
+    });
+    insertBuild(deps, source);
+    const { app } = await makeApp(deps);
+
+    const response = await publish(app);
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'artifact_missing' });
+    expect(deps.db.select().from(schema.releases).all()).toEqual([]);
   });
 
   it('lets exactly one concurrent publish move the pointer', async () => {

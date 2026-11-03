@@ -564,6 +564,7 @@ Command:
 ```sh
 # Write the Netlify site id to apps/web/.netlify-site-id.
 pnpm --filter @ogm/config exec ogm-env-init web
+# Set OGM_PUBLIC_APP_ORIGIN=https://makeopen.games in web.env; deploy.sh redirects the retired Netlify host to it.
 # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
 # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
 # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.

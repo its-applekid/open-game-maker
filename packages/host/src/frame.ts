@@ -15,6 +15,10 @@ type HostPayload<T extends HostType> = Extract<HostToGame, { t: T }>['payload'];
 type GamePayload<T extends GameType> = Extract<GameToHost, { t: T }>['payload'];
 type AudioRelayPayload = Extract<GameToHost, { t: 'audio.relay' }>['payload'];
 
+export type GameLoadEvent =
+  | Pick<Extract<GameToHost, { t: 'load.progress' }>, 't' | 'payload'>
+  | Pick<Extract<GameToHost, { t: 'load.done' }>, 't' | 'payload'>;
+
 export interface GameFrameOptions {
   container: HTMLElement;
   gamesOrigin: string;
@@ -31,6 +35,7 @@ export interface GameFrameOptions {
   onReady?: (manifest: GameManifest, marks: [string, number][]) => void;
   onSaveWrite?: (payload: { saveSchemaVersion: number; data: unknown }) => void;
   onEvent?: (kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown) => void;
+  onLoad?: (event: GameLoadEvent) => void;
   onAudioRelay?: (payload: AudioRelayPayload) => void;
   onRawKey?: (code: string, down: boolean) => void;
   onError?: (failure: HostFailure) => void;
@@ -142,6 +147,8 @@ export function createGameFrame(options: GameFrameOptions): GameFrame {
   });
   bridge.on('save.write', (payload) => options.onSaveWrite?.(payload));
   bridge.on('event', ({ kind, payload }) => options.onEvent?.(kind, payload));
+  bridge.on('load.progress', (payload) => options.onLoad?.({ t: 'load.progress', payload }));
+  bridge.on('load.done', (payload) => options.onLoad?.({ t: 'load.done', payload }));
   bridge.on('audio.relay', (payload) => options.onAudioRelay?.(payload));
   bridge.on('input.rawKey', ({ code, down }) => {
     overlay.noteKeyboardInput();

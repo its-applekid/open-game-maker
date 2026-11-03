@@ -94,8 +94,10 @@ export function copyCatalog(
   toGameId: string,
   releaseId: string,
   now = new Date().toISOString(),
+  fromReleaseId?: string,
 ): number {
-  const definitions = latestCatalog(db, fromGameId);
+  const definitions =
+    fromReleaseId === undefined ? latestCatalog(db, fromGameId) : catalogForRelease(db, fromGameId, fromReleaseId);
   if (!definitions) return 0;
   registerCatalog(db, toGameId, releaseId, definitions, now);
   return definitions.length;

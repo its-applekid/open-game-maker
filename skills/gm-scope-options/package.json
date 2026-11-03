@@ -1,0 +1,19 @@
+{
+  "name": "@ogm/gm-scope-options",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/gm-cli build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/gm-cli build",
+    "test": "vitest run skill.test.ts",
+    "lint": "eslint skill.test.ts"
+  },
+  "devDependencies": {
+    "@ogm/gm-cli": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}
