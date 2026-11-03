@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # Build, inspect, and manually deploy the public app site.
+# Host-local inputs (all gitignored) are OGM_PUBLIC_APP_ORIGIN in web.env, assets-local/, scripts/audio/.venv/,
+# prototypes/ui-v0/site/assets/, prototypes/studio-v0/{town,demo}/, and
+# apps/web/title-town/models/{bake,sprites,variants,candidates,mdungeon}/.
 set -euo pipefail
 
 ROOT="$(realpath "$(dirname "${BASH_SOURCE[0]}")/../../..")"
@@ -21,6 +24,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
+require_directory() {
+  if [[ ! -d "$1" ]]; then
+    printf 'deploy: required host-local directory is missing: %s\n' "$1" >&2
+    exit 1
+  fi
+}
+
 # Without it the build falls back to 127.0.0.1, which a phone cannot load; the reader refuses when it is unset.
 GAMES_ORIGIN="$(node "$ROOT/apps/web/tools/games-origin.mjs")"
 if [[ -z "$GAMES_ORIGIN" ]]; then
@@ -34,6 +44,25 @@ REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"
 if [[ "$DRY_RUN" == true ]]; then
   printf '%s\n' "$REDIRECTS"
 fi
+
+require_directory "$ROOT/assets-local"
+require_directory "$ROOT/scripts/audio/.venv"
+require_directory "$ROOT/prototypes/ui-v0/site/assets"
+require_directory "$ROOT/prototypes/studio-v0/town"
+require_directory "$ROOT/prototypes/studio-v0/demo"
+require_directory "$ROOT/apps/web/title-town/models/bake"
+require_directory "$ROOT/apps/web/title-town/models/sprites"
+require_directory "$ROOT/apps/web/title-town/models/variants"
+require_directory "$ROOT/apps/web/title-town/models/candidates"
+require_directory "$ROOT/apps/web/title-town/models/mdungeon"
+
+if [[ ! -d "$ROOT/apps/web/title-town/vendor" ]]; then
+  bash "$ROOT/apps/web/title-town/tools/build.sh"
+fi
+if [[ ! -d "$ROOT/apps/web/title-town/models/sounds" ]]; then
+  bash "$ROOT/apps/web/title-town/tools/sounds.sh"
+fi
+bash "$ROOT/apps/web/tools/town.sh" --public
 
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
 # The archived prototype's generated art/, demo/, and town/ payload is gitignored.
@@ -91,9 +120,13 @@ SHEET="$RECORD_DIR/sheet.png"
 ffmpeg -loglevel error -ss 0 -t 3 -i "$VIDEO" \
   -vf 'fps=12.5,scale=156:-2,tile=10x4' -frames:v 1 "$SHEET"
 
-TOWN_READY="$(grep 'town-ready' "$LOAD_LOG" | tail -n 1 || true)"
-printf 'town-ready: %s\n' "${TOWN_READY:-no town}"
+TOWN_READY="$(grep ' msg town-ready$' "$LOAD_LOG" | tail -n 1 || true)"
 printf 'contact sheet: %s\n' "$SHEET"
+if [[ -z "$TOWN_READY" ]]; then
+  printf '%s\n' 'deploy: load check did not report town-ready; refusing to deploy' >&2
+  exit 1
+fi
+printf 'town-ready: %s\n' "$TOWN_READY"
 
 if [[ "$DRY_RUN" == true ]]; then
   exit 0
