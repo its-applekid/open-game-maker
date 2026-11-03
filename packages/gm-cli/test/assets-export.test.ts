@@ -49,6 +49,10 @@ function entry(id: string, content: string | Buffer, rights: Partial<LockEntry['
     [LOOP]: 'Loops/Infinite Descent.ogg',
   };
   const blob = id.startsWith('t3:');
+  const pack = blob
+    ? `${id.slice(3).split('/')[0]}:made${rights.redistribution === 'in-build' ? ':restricted' : ''}`
+    : id.replace(/^t1:/, '').split('/')[0]!;
+  const attribution = rights.attribution ?? 'none required';
   return {
     id,
     sha256: sha(content),
@@ -56,6 +60,13 @@ function entry(id: string, content: string | Buffer, rights: Partial<LockEntry['
     source: blob ? 'blob' : 'library',
     license: rights.redistribution === 'in-build' ? 'LicenseRef-synty-personal' : 'CC0-1.0',
     rights: { ...FREE, ...rights },
+    credit: {
+      pack,
+      title: pack,
+      licenseSource: rights.redistribution === 'in-build' ? 'Vendor licence' : 'License.txt',
+      attribution,
+      source: { label: blob ? 'agent-generated' : 'Fixture vendor' },
+    },
     added: '2026-11-02',
   };
 }
@@ -139,7 +150,7 @@ describe('gm assets export --used', () => {
     expect(zip.readAsText('locks/game-a/assets.lock.json')).toBe(
       readFileSync(join(world.gameA, 'assets.lock.json'), 'utf8'),
     );
-    expect(zip.readAsText('CREDITS.md')).toContain('CC0 assets from: game-a, kenney-mini-dungeon');
+    expect(zip.readAsText('CREDITS.md')).toContain('CC0 assets from: game-a:made, kenney-mini-dungeon');
     expect(report(out).excluded).toMatchObject([{ ids: [SYNTY], reason: 'redistribution is in-build' }]);
   });
 

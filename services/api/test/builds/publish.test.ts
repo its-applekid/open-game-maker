@@ -97,6 +97,17 @@ describe('publishing a merged build', () => {
     );
   });
 
+  it('fails the job when the build has no generated credits document', async () => {
+    const { deps, app } = world();
+    completeRun(deps);
+
+    const response = await upload(app, archiveOf(builtFiles(undefined, { credits: false })));
+
+    expect(response.status).toBe(422);
+    expect(await response.json()).toEqual({ state: 'failed', reason: 'credits_invalid' });
+    expect(jobState(deps)).toBe('failed');
+  });
+
   it('refuses an archive carrying a link without touching the job, logging why', async () => {
     const { deps, app } = world();
     const log = vi.spyOn(deps, 'log');

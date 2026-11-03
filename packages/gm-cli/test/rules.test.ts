@@ -47,6 +47,13 @@ function entry(overrides: Partial<LockEntry> = {}): LockEntry {
       redistribution: 'free',
       attribution: null,
     },
+    credit: {
+      pack: 'fixture',
+      title: 'Fixture assets',
+      licenseSource: 'Fixture CC0 declaration',
+      attribution: 'none required',
+      source: { label: 'test fixture' },
+    },
     added: '2026-11-01',
     ...overrides,
   };

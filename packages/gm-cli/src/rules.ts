@@ -10,6 +10,7 @@ export type RefusalRule =
   | 'family-mismatch'
   | 'private-in-public'
   | 'stale-rights'
+  | 'missing-license-metadata'
   | 'missing-file'
   | 'sha-mismatch'
   | 'name-collision'
@@ -91,6 +92,9 @@ export function refusalsForCheck(
   },
 ): Refusal[] {
   const result: Refusal[] = [];
+  if (entry.credit === undefined) {
+    result.push(refusal(entry.id, 'missing-license-metadata', 'lock entry has no credit metadata'));
+  }
   if (!file.exists) result.push(refusal(entry.id, 'missing-file', `${entry.path} does not exist`));
   else if (file.sha256 !== entry.sha256) {
     result.push(refusal(entry.id, 'sha-mismatch', `${entry.path} sha256 does not match the lock`));

@@ -135,6 +135,52 @@
             ],
             "additionalProperties": {}
           },
+          "credit": {
+            "type": "object",
+            "properties": {
+              "pack": {
+                "type": "string",
+                "minLength": 1
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1
+              },
+              "licenseSource": {
+                "type": "string",
+                "minLength": 1
+              },
+              "attribution": {
+                "type": "string",
+                "minLength": 1
+              },
+              "source": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  }
+                },
+                "required": [
+                  "label"
+                ],
+                "additionalProperties": false
+              }
+            },
+            "required": [
+              "pack",
+              "title",
+              "licenseSource",
+              "attribution",
+              "source"
+            ],
+            "additionalProperties": false
+          },
           "meta": {
             "type": "object",
             "properties": {

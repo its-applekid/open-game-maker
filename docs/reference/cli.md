@@ -145,12 +145,16 @@ gm assets register <path> --made-by-agent [--from <id>...] --game <id>
 ```
 
 `gm assets use` normally records library references in `assets.lock.json` without copying bytes into the game repo.
+It refuses a card whose pack cannot supply `license`, `license_source`, explicit `attribution`, and `source` metadata.
+Every accepted entry copies that metadata into the lock and regenerates `CREDITS.md`. `gm check assets` rejects older or
+hand-edited entries that omit it.
 Use `gm assets vendor` to materialise an already-locked asset under `assets/`; the command verifies every pinned hash
 and updates the lock source to `vendored`. Only assets whose effective rights allow free redistribution can be
 vendored. The command names each refused id and leaves that entry as a library or blob reference.
 
 `gm assets register` moves an agent-made file into the instance blob store and records a tier-3 reference. Use
-`--from` for every locked source the new file derives from so its effective rights cannot become broader.
+`--from` for every locked source the new file derives from so its effective rights cannot become broader and its
+licence sources and attribution remain in the generated credits.
 
 ## Export and import asset libraries
 

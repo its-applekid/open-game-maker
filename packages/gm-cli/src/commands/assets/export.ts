@@ -60,15 +60,11 @@ function report(
   };
 }
 
-function creditsFor(plan: ExportPlan): string {
-  const byId = new Map<string, { id: string; license: string; rights: { attribution: string | null } }>();
-  for (const file of plan.files) {
-    if (!file.license) continue;
-    for (const id of file.ids) {
-      byId.set(id, { id, license: file.license, rights: { attribution: file.rights?.attribution ?? null } });
-    }
-  }
-  return renderCredits({ assets: [...byId.values()] });
+function creditsFor(games: Game[], plan: ExportPlan): string {
+  const included = new Set(plan.files.flatMap((file) => file.ids));
+  return renderCredits({
+    assets: games.flatMap((game) => game.lock.assets.filter((entry) => included.has(entry.id))),
+  });
 }
 
 export const command: GmCommand = {
@@ -154,7 +150,7 @@ export const command: GmCommand = {
           ctx.err(`export: ${index + 1}/${plan.files.length} files, ${megabytes(total)}`);
         }
       }
-      await zip.addBuffer('CREDITS.md', Buffer.from(creditsFor(plan)));
+      await zip.addBuffer('CREDITS.md', Buffer.from(creditsFor(games, plan)));
       for (const game of games) {
         await zip.addFile(`locks/${game.id}/assets.lock.json`, join(game.dir, 'assets.lock.json'));
       }

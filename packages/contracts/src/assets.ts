@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { assetCardMetaDefs, type AssetCard } from './card.generated.js';
+import { assetCreditSchema } from './credits.js';
 
 export const tierSchema = z.enum(['desktop', 'mobile', 'low']);
 export type Tier = z.infer<typeof tierSchema>;
@@ -9,8 +10,9 @@ export type Tier = z.infer<typeof tierSchema>;
  * Additive revision within `version: 1` for both the lock and the manifest; readers accept any minor.
  * 1: entries may carry `meta` (card sprite/rig/kit/geometry blocks).
  * 2: build manifests use content-addressed `/a/` URLs and may be accompanied by a cache plan.
+ * 3: lock entries may carry normalized legal-credit metadata.
  */
-export const ASSETS_SCHEMA_MINOR = 2;
+export const ASSETS_SCHEMA_MINOR = 3;
 const minorSchema = z.number().int().min(0).optional();
 
 export const loadPhaseSchema = z.enum(['boot', 'ready', 'stream']);
@@ -230,6 +232,8 @@ const lockEntrySchema = z.looseObject({
     redistribution: z.enum(['none', 'in-build', 'free']),
     attribution: z.string().nullable(),
   }),
+  /** Legal provenance is optional only so legacy locks parse and `gm check assets` can report a precise refusal. */
+  credit: assetCreditSchema.optional(),
   meta: assetMetadataSchema.optional(),
   derived_from: z.array(lockAssetIdSchema).optional(),
   added: z.iso.date(),

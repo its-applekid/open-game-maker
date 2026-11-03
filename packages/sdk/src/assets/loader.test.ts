@@ -157,7 +157,7 @@ describe('AssetLoader', () => {
     expect(loader.resolve('castle/tower-base').meta).toEqual(metadata);
   });
 
-  it('resolves schema-minor-2 content addresses from the games origin root', async () => {
+  it('resolves older schema-minor-2 content addresses from the games origin root', async () => {
     const digest = 'a'.repeat(64);
     const file = `/a/${digest}.glb`;
     const contentAddressed = structuredClone(manifest);
@@ -174,7 +174,7 @@ describe('AssetLoader', () => {
     });
     await loader.load();
 
-    expect(ASSETS_SCHEMA_MINOR).toBe(2);
+    expect(ASSETS_SCHEMA_MINOR).toBe(3);
     expect(loader.resolve('content-addressed/model')).toMatchObject({
       file,
       url: `https://game.test/a/${digest}.glb`,

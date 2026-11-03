@@ -53,6 +53,13 @@ describe('gm assets register keeps tier-3 bytes in the blob store (D-ASSETS-REFE
       sha256: sha('door-bytes'),
       source: 'blob',
       path: 'assets/model/boss-door.glb',
+      credit: {
+        pack: 'g1:made',
+        title: 'Made for this game',
+        licenseSource: 'created for this game',
+        attribution: 'none required',
+        source: { label: 'agent-generated' },
+      },
     });
   });
 

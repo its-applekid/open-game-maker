@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import type { PlayerSettings, SaveData, SaveSlot } from '@ogm/contracts/browser';
+import type { CreditsDocument, PlayerSettings, SaveData, SaveSlot } from '@ogm/contracts/browser';
 
 import {
   getOptionalSaves,
@@ -20,6 +20,8 @@ import {
 } from '../../features/editor/hud/saves';
 import { loadSettings, saveSettings } from '../../features/editor/hud/settings';
 import { pushToast } from '../../lib/notify/slice';
+import { CreditsList } from '../settings/CreditsList';
+import { getCredits } from '../settings/credits';
 
 export type PlatformSaveApi = {
   list(gameId: string): Promise<OptionalCapability<{ slots: SaveSlot[] }>>;
@@ -35,10 +37,12 @@ type PlatformHudProps = {
   saves: boolean;
   saveApi?: PlatformSaveApi;
   toast?: (message: string) => void;
+  creditsApi?: (gameId: string, buildId: string) => Promise<CreditsDocument>;
   onLeave?(): void;
 };
 
 const defaultSaveApi: PlatformSaveApi = { list: getOptionalSaves, read: getSave, write: putSave };
+const defaultCreditsApi = (gameId: string, buildId: string) => getCredits(gameId, buildId);
 
 export function PlatformHud({
   build,
@@ -48,6 +52,7 @@ export function PlatformHud({
   saves,
   saveApi = defaultSaveApi,
   toast = pushToast,
+  creditsApi = defaultCreditsApi,
   onLeave,
 }: PlatformHudProps) {
   const [paused, setPaused] = useState(false);
@@ -55,8 +60,12 @@ export function PlatformHud({
   const [savesAvailable, setSavesAvailable] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<SaveSlotId>('auto');
   const [settings, setSettings] = useState<PlayerSettings>(() => loadSettings());
+  const [page, setPage] = useState<'pause' | 'credits'>('pause');
+  const [credits, setCredits] = useState<CreditsDocument>();
+  const [creditsFailed, setCreditsFailed] = useState(false);
   const pauseRef = useRef<HTMLButtonElement>(null);
   const resumeRef = useRef<HTMLButtonElement>(null);
+  const backRef = useRef<HTMLButtonElement>(null);
   const wasPausedRef = useRef(false);
   const slotsRef = useRef(slots);
   const selectedSlotRef = useRef(selectedSlot);
@@ -132,11 +141,32 @@ export function PlatformHud({
   useEffect(() => {
     if (paused) {
       wasPausedRef.current = true;
-      resumeRef.current?.focus();
+      (page === 'credits' ? backRef : resumeRef).current?.focus();
     } else if (wasPausedRef.current) {
       pauseRef.current?.focus();
     }
-  }, [paused]);
+  }, [page, paused]);
+
+  useEffect(() => {
+    setCredits(undefined);
+    setCreditsFailed(false);
+  }, [gameId, saveContext.buildId]);
+
+  useEffect(() => {
+    if (page !== 'credits' || credits !== undefined) return;
+    let active = true;
+    setCreditsFailed(false);
+    void creditsApi(gameId, saveContext.buildId)
+      .then((document) => {
+        if (active) setCredits(document);
+      })
+      .catch(() => {
+        if (active) setCreditsFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [credits, creditsApi, gameId, page, saveContext.buildId]);
 
   const pause = () => {
     frame.pause();
@@ -144,6 +174,7 @@ export function PlatformHud({
   };
   const resume = () => {
     frame.resume();
+    setPage('pause');
     setPaused(false);
   };
   const load = async () => {
@@ -164,41 +195,63 @@ export function PlatformHud({
       </button>
       {paused ? (
         <div className="platform-pause-shade">
-          <div className="platform-pause-dialog" role="dialog" aria-modal="true" aria-label="Paused">
-            <h2>Paused</h2>
-            <button ref={resumeRef} className="tap-primary" type="button" onClick={resume}>
-              Resume
-            </button>
-            {savesAvailable && slots !== undefined ? (
-              <div className="save-slots" role="group" aria-label="Save slots">
-                {saveSlotOptions(slots).map(({ id }) => (
-                  <button
-                    className="tap-secondary"
-                    type="button"
-                    key={id}
-                    aria-label={saveSlotLabel(id)}
-                    aria-pressed={selectedSlot === id}
-                    onClick={() => setSelectedSlot(id)}
-                  >
-                    {id === 'auto' ? 'Auto' : id}
-                  </button>
-                ))}
-                <button
-                  className="tap-secondary"
-                  type="button"
-                  disabled={!slots.some((slot) => slot.slotId === selectedSlot)}
-                  onClick={() => void load()}
-                >
-                  Load
+          <div
+            className="platform-pause-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-label={page === 'credits' ? 'Credits' : 'Paused'}
+          >
+            {page === 'credits' ? (
+              <>
+                <h2>Credits</h2>
+                <button ref={backRef} className="tap-secondary" type="button" onClick={() => setPage('pause')}>
+                  Back
                 </button>
-              </div>
-            ) : null}
-            <SettingsControls settings={settings} onChange={setSettings} />
-            {onLeave ? (
-              <button className="tap-primary" type="button" onClick={onLeave}>
-                Leave
-              </button>
-            ) : null}
+                {credits === undefined && !creditsFailed ? <p>Loading…</p> : null}
+                {creditsFailed ? <p role="alert">Unavailable</p> : null}
+                {credits ? <CreditsList packs={credits.packs} /> : null}
+              </>
+            ) : (
+              <>
+                <h2>Paused</h2>
+                <button ref={resumeRef} className="tap-primary" type="button" onClick={resume}>
+                  Resume
+                </button>
+                {savesAvailable && slots !== undefined ? (
+                  <div className="save-slots" role="group" aria-label="Save slots">
+                    {saveSlotOptions(slots).map(({ id }) => (
+                      <button
+                        className="tap-secondary"
+                        type="button"
+                        key={id}
+                        aria-label={saveSlotLabel(id)}
+                        aria-pressed={selectedSlot === id}
+                        onClick={() => setSelectedSlot(id)}
+                      >
+                        {id === 'auto' ? 'Auto' : id}
+                      </button>
+                    ))}
+                    <button
+                      className="tap-secondary"
+                      type="button"
+                      disabled={!slots.some((slot) => slot.slotId === selectedSlot)}
+                      onClick={() => void load()}
+                    >
+                      Load
+                    </button>
+                  </div>
+                ) : null}
+                <SettingsControls settings={settings} onChange={setSettings} />
+                <button className="tap-secondary" type="button" onClick={() => setPage('credits')}>
+                  Credits
+                </button>
+                {onLeave ? (
+                  <button className="tap-primary" type="button" onClick={onLeave}>
+                    Leave
+                  </button>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
       ) : null}

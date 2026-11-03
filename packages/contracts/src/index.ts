@@ -15,6 +15,7 @@ export * from './bridge.js';
 export * from './game.js';
 export * from './input.js';
 export * from './assets.js';
+export * from './credits.js';
 export type { InputFrame, Phase } from './room.js';
 export type { Patch } from './bridge.js';
 export * from './job-bundle.js';

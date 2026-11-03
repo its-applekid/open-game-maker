@@ -38,15 +38,19 @@ export function manifest(): GameManifest {
 }
 
 // A game repo's built output as the hook stages it: `dist/` contents plus the manifest and the base design.
-export function builtFiles(dir = mkdtempSync(join(tmpdir(), 'ogm-built-')), parts = { manifest: true, design: true }) {
+export function builtFiles(
+  dir = mkdtempSync(join(tmpdir(), 'ogm-built-')),
+  parts: { manifest?: boolean; design?: boolean; credits?: boolean } = {},
+) {
   mkdirSync(join(dir, 'assets'), { recursive: true });
   writeFileSync(join(dir, 'index.html'), '<!doctype html><title>Fixture</title>\n');
   writeFileSync(join(dir, 'assets', 'main.js'), 'console.log("fixture");\n');
-  if (parts.manifest) writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest()));
-  if (parts.design) {
+  if (parts.manifest ?? true) writeFileSync(join(dir, 'manifest.json'), JSON.stringify(manifest()));
+  if (parts.design ?? true) {
     mkdirSync(join(dir, 'design'), { recursive: true });
     writeFileSync(join(dir, 'design', 'design.json'), JSON.stringify({ schemaVersion: 1, globals: {}, entities: {} }));
   }
+  if (parts.credits ?? true) writeFileSync(join(dir, 'credits.json'), JSON.stringify({ version: 1, packs: [] }));
   return dir;
 }
 

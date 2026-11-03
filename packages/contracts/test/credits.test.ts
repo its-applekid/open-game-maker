@@ -1,0 +1,64 @@
+import { describe, expect, it } from 'vitest';
+
+import { creditsFromLock, mergeCreditsDocuments, renderCredits, type AssetsLock } from '../src/index.js';
+
+function entry(overrides: Partial<AssetsLock['assets'][number]> = {}): AssetsLock['assets'][number] {
+  return {
+    id: 't1:example-pack/hero@1',
+    sha256: 'a'.repeat(64),
+    path: 'hero.png',
+    source: 'library',
+    license: 'CC-BY-4.0',
+    rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: 'Example Artist' },
+    credit: {
+      pack: 'example-pack',
+      title: 'Example Pack',
+      licenseSource: 'License.txt',
+      attribution: 'Example Artist',
+      source: { label: 'Example', url: 'https://example.test/source' },
+    },
+    added: '2026-11-02',
+    ...overrides,
+  };
+}
+
+describe('asset credits', () => {
+  it('deduplicates a pack and renders attribution under its licence', () => {
+    const lock = { assets: [entry(), entry({ id: 't1:example-pack/tree@1', path: 'tree.png' })] };
+
+    expect(creditsFromLock(lock).packs).toHaveLength(1);
+    expect(renderCredits(lock)).toContain('## CC-BY-4.0\n- Example Pack — Example Artist');
+  });
+
+  it('refuses missing or inconsistent metadata instead of publishing partial credits', () => {
+    expect(() => creditsFromLock({ assets: [entry({ credit: undefined })] })).toThrow('missing credit metadata');
+    expect(() =>
+      creditsFromLock({
+        assets: [
+          entry(),
+          entry({
+            id: 't1:example-pack/tree@1',
+            credit: { ...entry().credit!, attribution: 'Someone else' },
+          }),
+        ],
+      }),
+    ).toThrow('inconsistent credit metadata');
+  });
+
+  it('merges matching build documents and rejects inconsistent pack records', () => {
+    const pack = creditsFromLock({ assets: [entry()] }).packs[0]!;
+
+    expect(
+      mergeCreditsDocuments([
+        { version: 1, packs: [pack] },
+        { version: 1, packs: [pack] },
+      ]).packs,
+    ).toEqual([pack]);
+    expect(() =>
+      mergeCreditsDocuments([
+        { version: 1, packs: [pack] },
+        { version: 1, packs: [{ ...pack, attribution: 'Someone else' }] },
+      ]),
+    ).toThrow('inconsistent credit metadata');
+  });
+});

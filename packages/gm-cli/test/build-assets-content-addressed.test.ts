@@ -67,6 +67,13 @@ async function game(includeAudio = false): Promise<string> {
         path: 'assets/music/theme.wav',
         license: 'CC0-1.0',
         rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+        credit: {
+          pack: 'fixture',
+          title: 'Fixture assets',
+          licenseSource: 'Fixture CC0 declaration',
+          attribution: 'none required',
+          source: { label: 'test fixture' },
+        },
         added: '2026-11-02',
       },
       {
@@ -75,6 +82,13 @@ async function game(includeAudio = false): Promise<string> {
         path: 'assets/voice/intro.wav',
         license: 'CC0-1.0',
         rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+        credit: {
+          pack: 'fixture',
+          title: 'Fixture assets',
+          licenseSource: 'Fixture CC0 declaration',
+          attribution: 'none required',
+          source: { label: 'test fixture' },
+        },
         added: '2026-11-02',
       },
     );
@@ -94,6 +108,13 @@ async function game(includeAudio = false): Promise<string> {
             path: 'assets/sprite/hero.png',
             license: 'CC0-1.0',
             rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+            credit: {
+              pack: 'fixture',
+              title: 'Fixture assets',
+              licenseSource: 'Fixture CC0 declaration',
+              attribution: 'none required',
+              source: { label: 'test fixture' },
+            },
             meta: {
               sprite: {
                 drawn_view: 'topdown',

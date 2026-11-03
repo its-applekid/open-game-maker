@@ -3,12 +3,13 @@ import { lstat, readFile, unlink } from 'node:fs/promises';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { loadIndex } from '@ogm/asset-cards';
-import type { LockEntry } from '@ogm/contracts';
+import type { AssetCredit, LockEntry } from '@ogm/contracts';
 
 import { putBlob } from '../../blobs.js';
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { requireAssetsRoot, resolveContainedPath } from '../../context.js';
 import { renderCredits } from '../../credits.js';
+import { creditForCard, derivedCredit } from '../../license-metadata.js';
 import { readLock, upsertLock, writeGeneratedText, writeLock } from '../../lock.js';
 import { intersectLockRights, rightsForCard } from '../../rules.js';
 import { MIME } from '../packs/index.js';
@@ -101,6 +102,7 @@ export const command: GmCommand = {
 
     const sourceIds = [...new Set(repeated(flags.from))];
     const sourceRights: LockEntry['rights'][] = [];
+    const sourceCredits: AssetCredit[] = [];
     let sourceLicenses: string[] = [];
     if (sourceIds.length > 0) {
       const index = await loadIndex(requireAssetsRoot(ctx));
@@ -108,7 +110,14 @@ export const command: GmCommand = {
       for (const id of sourceIds) {
         const card = byId.get(id);
         if (!card) throw new UsageError(`unknown source asset ${id}`, 'gm assets why <id>');
+        const collection = card.collection === undefined ? undefined : index.collections[card.collection];
+        if (!collection) throw new UsageError(`source asset ${id} has no collection`, 'gm assets why <id>');
+        const metadata = await creditForCard(requireAssetsRoot(ctx), card, collection);
+        if (metadata.credit === undefined) {
+          throw new UsageError(`${id} ${metadata.detail ?? 'has no credit metadata'}`, 'gm assets why <id>');
+        }
         sourceRights.push(rightsForCard(card, index.collections));
+        sourceCredits.push(metadata.credit);
         sourceLicenses.push(card.resolved.license);
       }
     }
@@ -117,7 +126,8 @@ export const command: GmCommand = {
       throw new UsageError('derived source rights prohibit redistribution', `gm assets why ${sourceIds[0]}`);
     }
     sourceLicenses = [...new Set(sourceLicenses)];
-    const id = `t3:${await gameId(ctx.cwd, flags.game)}/${idPath(file.relative)}`;
+    const game = await gameId(ctx.cwd, flags.game);
+    const id = `t3:${game}/${idPath(file.relative)}`;
     const taken = lock.assets.find((entry) => entry.id === id && entry.path !== file.relative);
     if (taken) {
       throw new UsageError(
@@ -136,6 +146,7 @@ export const command: GmCommand = {
       path: file.relative,
       license: derivedLicense(sourceLicenses),
       rights,
+      credit: derivedCredit(game, sourceCredits),
       ...(sourceIds.length > 0 ? { derived_from: sourceIds } : {}),
       added: new Date().toISOString().slice(0, 10),
     });
