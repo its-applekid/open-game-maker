@@ -84,5 +84,5 @@ if [[ "$DRY_RUN" == true ]]; then
   exit 0
 fi
 
-netlify deploy --prod --no-build --dir "$DEPLOY_DIR" \
+netlify deploy --prod --no-build --filter @ogm/web --dir "$DEPLOY_DIR" \
   --site "$(<"$ROOT/apps/web/.netlify-site-id")"

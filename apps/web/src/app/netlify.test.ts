@@ -40,4 +40,10 @@ describe('Netlify static configuration', () => {
     expect(deploy).not.toContain('RECORD_DIR="$DEPLOY_DIR');
     expect(deploy).not.toContain('>"$DEPLOY_DIR/preview.log"');
   });
+
+  it('selects the web project without a Netlify monorepo prompt', () => {
+    const deploy = readFileSync(resolve(process.cwd(), 'tools/deploy.sh'), 'utf8');
+
+    expect(deploy).toContain('netlify deploy --prod --no-build --filter @ogm/web --dir "$DEPLOY_DIR"');
+  });
 });
