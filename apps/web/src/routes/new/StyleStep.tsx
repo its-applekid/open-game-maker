@@ -148,17 +148,17 @@ export function StyleStep({
             <h2>{active.label}</h2>
             <span className="new-style-cycle">
               <button
-                className="new-style-icon-button new-style-set-button tap-secondary"
+                className="new-style-icon-button new-style-style-button tap-secondary"
                 type="button"
-                aria-label="Previous set"
+                aria-label="Previous style"
                 onClick={() => cycle(-1)}
               >
                 <span aria-hidden="true">‹</span>
               </button>
               <button
-                className="new-style-icon-button new-style-set-button tap-secondary"
+                className="new-style-icon-button new-style-style-button tap-secondary"
                 type="button"
-                aria-label="Next set"
+                aria-label="Next style"
                 onClick={() => cycle(1)}
               >
                 <span aria-hidden="true">›</span>
@@ -215,10 +215,10 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
     if (sheet.current) sheet.current.currentTime = next.startSeconds;
   };
 
-  const cycleStop = (offset: number) => {
-    const length = showcase.stops.length;
-    if (length === 0) return;
-    seek((activeStop + offset + length) % length);
+  const cycleScene = (offset: number) => {
+    const count = showcase.stops.length;
+    if (count === 0) return;
+    seek((activeStop + offset + count) % count);
   };
 
   return (
@@ -243,14 +243,14 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
           videoRef={sheet}
         />
       </div>
-      <div className="new-style-stop-switcher" role="group" aria-label="Showcase region controls">
+      <div className="new-style-scene-row">
         <button
-          className="new-style-icon-button new-style-region-button tap-secondary"
+          className="new-style-scene-button tap-secondary"
           type="button"
-          aria-label="Previous region"
-          onClick={() => cycleStop(-1)}
+          aria-label="Previous scene"
+          onClick={() => cycleScene(-1)}
         >
-          <span aria-hidden="true">←</span>
+          <span aria-hidden="true">|‹</span>
         </button>
         <div className="new-style-stops" role="group" aria-label="Showcase regions">
           {showcase.stops.map((candidate, index) => (
@@ -267,12 +267,12 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
           ))}
         </div>
         <button
-          className="new-style-icon-button new-style-region-button tap-secondary"
+          className="new-style-scene-button tap-secondary"
           type="button"
-          aria-label="Next region"
-          onClick={() => cycleStop(1)}
+          aria-label="Next scene"
+          onClick={() => cycleScene(1)}
         >
-          <span aria-hidden="true">→</span>
+          <span aria-hidden="true">›|</span>
         </button>
       </div>
     </>

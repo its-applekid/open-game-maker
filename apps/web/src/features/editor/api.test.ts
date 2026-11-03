@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { savesPath, type DesignDoc } from '@ogm/contracts/browser';
 
-import { getOptionalPublished, getOptionalSaves, postTransaction, putSave, type TransactionBody } from './api';
+import {
+  getOptionalPublished,
+  getOptionalSaves,
+  postAnalyticsEvent,
+  postTransaction,
+  putSave,
+  type TransactionBody,
+} from './api';
 
 const gameId = 'g_00000000-0000-4000-8000-000000000001';
 const buildId = 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ';
@@ -33,6 +40,26 @@ afterEach(() => {
 });
 
 describe('editor API classifications', () => {
+  it('posts one load activity through the analytics ingest client', async () => {
+    const fetch = vi.fn().mockResolvedValue(response(202, { accepted: 1, rejected: [] }));
+    vi.stubGlobal('fetch', fetch);
+    const event = {
+      ts: '2026-11-02T12:00:00.000Z',
+      gameId,
+      actor: 'human' as const,
+      activity: 'playtesting' as const,
+      boundary: 'point' as const,
+      source: 'editor' as const,
+      meta: { system: 'game-load', command: 'hit', count: 0, durationMs: 10, result: 'ok' as const },
+    };
+
+    await expect(postAnalyticsEvent(event)).resolves.toEqual({ accepted: 1, rejected: [] });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/analytics/events',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ events: [event] }) }),
+    );
+  });
+
   it('reports 409 as a conflict with the authoritative head revision', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response(409, { headRev: 9 })));
 

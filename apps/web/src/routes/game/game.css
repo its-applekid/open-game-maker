@@ -289,6 +289,86 @@
   height: 100%;
 }
 
+.game-loading-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 11;
+  overflow: hidden;
+  opacity: 1;
+  pointer-events: none;
+  transition: opacity 220ms ease-out;
+}
+
+.game-loading-layer.is-done {
+  opacity: 0;
+}
+
+.game-loading-cover {
+  position: absolute;
+  inset: -24px;
+  filter: blur(18px);
+  transform: scale(1.04);
+}
+
+.game-loading-cover .game-cover-image,
+.game-loading-cover .game-cover-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.game-loading-cover .game-cover-image {
+  display: block;
+  object-fit: cover;
+}
+
+.game-loading-cover .game-cover-placeholder {
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 30% 20%, hsl(var(--game-hue) 70% 66% / 0.72), transparent 38%),
+    linear-gradient(145deg, hsl(var(--game-hue) 42% 38%), var(--night-2));
+}
+
+.game-loading-cover .game-cover-placeholder span {
+  max-width: 12ch;
+  font: 700 clamp(1.3rem, 8vw, 3rem) / 1 var(--display);
+  text-align: center;
+  text-wrap: balance;
+}
+
+.game-loading-glass {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(12, 11, 18, 0.7);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+}
+
+.game-loading-progress {
+  width: min(320px, calc(100% - 24px));
+  height: 12px;
+  overflow: hidden;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper) 35%, transparent);
+}
+
+.game-loading-progress span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink);
+  transition: width 100ms linear;
+}
+
+.game-screen > .screen-error {
+  z-index: 20;
+}
+
 .platform-hud,
 .platform-pause-shade {
   position: absolute;
@@ -422,5 +502,12 @@
     width: calc(100% - 24px);
     justify-content: center;
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-loading-layer,
+  .game-loading-progress span {
+    transition: none;
   }
 }

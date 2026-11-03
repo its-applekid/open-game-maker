@@ -109,7 +109,7 @@ describe('StyleStep', () => {
     renderStep();
     fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
     expect(screen.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Next set' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next style' }));
     expect(screen.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
     fireEvent.keyDown(document, { key: 'ArrowLeft' });
     expect(screen.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
@@ -117,7 +117,7 @@ describe('StyleStep', () => {
     expect(screen.getByRole('button', { name: 'Isometric' })).toHaveFocus();
   });
 
-  it('renders inline looping media and seeks and synchronizes both tracks', () => {
+  it('renders inline looping media and cycles scenes with distinct media controls', () => {
     renderStep();
     fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
     const tile = screen.getByLabelText('Diorama preview') as HTMLVideoElement;
@@ -132,7 +132,9 @@ describe('StyleStep', () => {
     expect(track).toHaveAttribute('data-ready', 'true');
     fireEvent.error(tile);
     expect(track).toHaveAttribute('data-ready', 'false');
-    fireEvent.click(screen.getByRole('button', { name: 'Modern zombie' }));
+    expect(screen.getByRole('button', { name: 'Previous scene' })).toHaveClass('new-style-scene-button');
+    expect(screen.getByRole('button', { name: 'Next scene' })).toHaveClass('new-style-scene-button');
+    fireEvent.click(screen.getByRole('button', { name: 'Next scene' }));
     expect(tile.currentTime).toBe(7.5);
     expect(sheet.currentTime).toBe(7.5);
 
@@ -144,32 +146,19 @@ describe('StyleStep', () => {
       'src',
       '/showcase/zombie-tile.gif',
     );
-  });
-
-  it('wraps region controls independently from the set controls', () => {
-    renderStep();
-    fireEvent.click(screen.getByRole('button', { name: 'Isometric' }));
-
-    const previousRegion = screen.getByRole('button', { name: 'Previous region' });
-    const nextRegion = screen.getByRole('button', { name: 'Next region' });
-    expect(previousRegion).toHaveClass('new-style-region-button');
-    expect(nextRegion).toHaveClass('new-style-region-button');
-    expect(screen.getByRole('button', { name: 'Previous set' })).toHaveClass('new-style-set-button');
-    expect(screen.getByRole('button', { name: 'Next set' })).toHaveClass('new-style-set-button');
-
-    fireEvent.click(nextRegion);
-    expect(screen.getByRole('button', { name: 'Modern zombie' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(nextRegion);
+    fireEvent.click(screen.getByRole('button', { name: 'Next scene' }));
     expect(screen.getByRole('button', { name: 'Fantasy' })).toHaveAttribute('aria-pressed', 'true');
-    fireEvent.click(previousRegion);
+    fireEvent.click(screen.getByRole('button', { name: 'Previous scene' }));
     expect(screen.getByRole('button', { name: 'Modern zombie' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('cycles through a multi-set family with Previous, Next, and keyboard wrap', () => {
+  it('cycles through a multi-set family with style navigation and keyboard wrap', () => {
     renderStep();
     fireEvent.click(screen.getByRole('button', { name: 'Pixel art' }));
     fireEvent.click(screen.getByRole('button', { name: 'Pixel Town' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Previous set' }));
+    expect(screen.getByRole('button', { name: 'Previous style' })).toHaveClass('new-style-style-button');
+    expect(screen.getByRole('button', { name: 'Next style' })).toHaveClass('new-style-style-button');
+    fireEvent.click(screen.getByRole('button', { name: 'Previous style' }));
     expect(screen.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
     fireEvent.keyDown(document, { key: 'ArrowRight' });
     expect(screen.getByRole('heading', { name: 'Pixel Town' })).toBeVisible();
@@ -183,7 +172,7 @@ describe('StyleStep', () => {
     fireEvent.canPlay(first);
     expect(first.closest('.new-style-track')).toHaveAttribute('data-ready', 'true');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Next set' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Next style' }));
     const next = screen.getByLabelText('Diorama preview');
     expect(screen.getByRole('heading', { name: 'Pixel Town' })).toBeVisible();
     expect(next.closest('.new-style-track')).toHaveAttribute('data-ready', 'false');

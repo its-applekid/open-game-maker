@@ -1,5 +1,17 @@
 export { AssetNotFound, AssetUnavailable } from './errors.js';
 export {
+  ASSET_CACHE_NAME,
+  CACHE_DATABASE_NAME,
+  CACHE_LOCK_NAME,
+  matchCachedAsset,
+  prepare,
+  type LedgerBuild,
+  type LoadMessage,
+  type LoadSender,
+  type PrepareOptions,
+  type PrepareResult,
+} from './cache.js';
+export {
   ADAPTED_TIER_STORAGE_KEY,
   FRAME_SAMPLE_COUNT,
   FrameGovernor,

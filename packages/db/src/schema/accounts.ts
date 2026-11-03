@@ -52,6 +52,9 @@ export const games = sqliteTable(
     repoVisibility: text('repo_visibility', { enum: ['public', 'private'] }).notNull(),
     repoUrl: text('repo_url'),
     publishedReleaseId: text('published_release_id'),
+    forkedFromGameId: text('forked_from_game_id'),
+    forkedFromReleaseId: text('forked_from_release_id'),
+    forkable: integer('forkable', { mode: 'boolean' }).notNull().default(true),
     createdAt: createdAt(),
     delistedAt: text('delisted_at'),
   },
@@ -60,6 +63,11 @@ export const games = sqliteTable(
     index('games_owner_id_index').on(table.ownerId),
     check('games_visibility_check', sql`${table.visibility} IN ('listed', 'private')`),
     check('games_repo_visibility_check', sql`${table.repoVisibility} IN ('public', 'private')`),
+    check(
+      'games_fork_provenance_check',
+      sql`(${table.forkedFromGameId} IS NULL AND ${table.forkedFromReleaseId} IS NULL) OR (${table.forkedFromGameId} IS NOT NULL AND ${table.forkedFromReleaseId} IS NOT NULL)`,
+    ),
+    check('games_forkable_check', sql`${table.forkable} IN (0, 1)`),
   ],
 );
 

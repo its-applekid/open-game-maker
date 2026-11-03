@@ -1,5 +1,5 @@
 export { HostBridge, canApply, type HostBridgeOptions, type HostFailure, type Role } from './bridge.js';
-export { createGameFrame, HostError, type GameFrame, type GameFrameOptions } from './frame.js';
+export { createGameFrame, HostError, type GameFrame, type GameFrameOptions, type GameLoadEvent } from './frame.js';
 export {
   GamepadPoller,
   defaultGamepadMapping,

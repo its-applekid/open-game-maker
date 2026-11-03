@@ -14,6 +14,7 @@ import {
   getOptionalReapply,
   heartbeatLease,
   listJobs,
+  postAnalyticsEvent,
   postTransaction,
   releaseLease,
   submitReapply,
@@ -23,7 +24,12 @@ import { activeBuildStatus, inspectBuildChange, readyBuildSignal } from '../../f
 import { EditorChrome } from '../../features/editor/EditorChrome';
 import { GizmoOverlay } from '../../features/editor/GizmoOverlay';
 import { changeInstanceCount } from '../../features/editor/instanceCount';
-import { mountGameFrame, type GameFrameController, type GameFrameState } from '../../features/editor/frame';
+import {
+  mountGameFrame,
+  type GameFrameController,
+  type GameFrameState,
+  type GameLoadMeasurement,
+} from '../../features/editor/frame';
 import { LeaseController } from '../../features/editor/lease';
 import { ReapplyCard } from '../../features/editor/ReapplyCard';
 import { createEditorSession, type EditorSessionState } from '../../features/editor/session';
@@ -41,6 +47,8 @@ import { useRoomRuntime } from '../../features/room/useRoomRuntime';
 import { useBranches } from '../games/useBranches';
 import { clearRoomGrant, storeRoomGrant } from '../join/grant-store';
 import { PlayEditBar } from './PlayEditBar';
+import { LoadingLayer } from './LoadingLayer';
+import { gameLoadActivity } from './load-analytics';
 import { PlatformHud } from './PlatformHud';
 import { UpdateIndicator } from './UpdateIndicator';
 import { gameExtras, type GameExtraProps } from './extras';
@@ -104,6 +112,12 @@ export function GameScreen() {
   const activeSnapshot = adopted?.gameId === gameId && adopted.branch === branch ? adopted.snapshot : design.data;
   const build = publishedBuildId !== undefined && publishedBuildId === activeSnapshot?.buildId ? 'published' : 'draft';
   const room = useRoomRuntime({ frame: frameController, roomId, testMode: searchParams.has('test') });
+  const reportGameLoad = useCallback(
+    (measurement: GameLoadMeasurement, result: 'ok' | 'fail') => {
+      void postAnalyticsEvent(gameLoadActivity(gameId, measurement, result)).catch(() => undefined);
+    },
+    [gameId],
+  );
 
   useEffect(() => {
     inspectedBuildRef.current = undefined;
@@ -158,6 +172,8 @@ export function GameScreen() {
       onState: setFrameState,
       onSaveWrite: () => setLastSaveAt(new Date().toISOString()),
       onRoomMessage: room.handleGameMessage,
+      onLoadDone: (measurement) => reportGameLoad(measurement, 'ok'),
+      onLoadStalled: (measurement) => reportGameLoad(measurement, 'fail'),
     });
     frameRef.current = controller;
     setFrameController(controller);
@@ -167,7 +183,7 @@ export function GameScreen() {
       if (frameRef.current === controller) frameRef.current = undefined;
       setFrameController((current) => (current === controller ? undefined : current));
     };
-  }, [activeSnapshot, branch, build, frameAttempt, gameId, gamesOrigin, room.handleGameMessage]);
+  }, [activeSnapshot, branch, build, frameAttempt, gameId, gamesOrigin, reportGameLoad, room.handleGameMessage]);
 
   useEffect(() => {
     frameRef.current?.setMode(mode);
@@ -336,6 +352,9 @@ export function GameScreen() {
       </PlayEditBar>
       <div className="game-stage">
         <div className="game-frame" ref={containerRef} />
+        {game.data !== undefined && activeSnapshot !== undefined && frameState.bridgeState !== 'error' ? (
+          <LoadingLayer key={`${activeSnapshot.buildId}-${frameAttempt}`} game={game.data} load={frameState.load} />
+        ) : null}
         {mode === 'edit' &&
         frameRef.current !== undefined &&
         frameState.manifest !== undefined &&

@@ -26,7 +26,7 @@ execution: code
 
 Replace the sparse v3 world with eight deliberately composed gameplay scenes whose ground, architecture, movement, combat, weather, and occlusion behave like a real isometric game.
 Preserve the eight synchronized sprite sheets and baked-media delivery boundary while teaching future showcase authors the stricter rules.
-Keep the existing Style screen flow and visual language, but make its detail layout contain two square previews, the full thumbnail rail, and visibly different region-versus-set navigation on narrow iPhone viewports.
+Keep the existing Style screen flow and visual language, but make its detail layout contain two square previews, the full thumbnail rail, and visibly different scene-versus-style navigation on narrow iPhone viewports.
 
 ### Problem Frame
 
@@ -53,8 +53,8 @@ The style-picker detail also uses a widescreen aspect ratio for square media and
 #### Style-picker and reusable contract
 
 - R9. The Style screen continues to open with representative line-art family icons matching the established genre-tile treatment; set thumbnails remain hidden until a family is chosen.
-- R10. At supported desktop and iPhone aspect ratios, the detail contains both square previews, the thumbnail rail, set-cycle controls, and the containing creation-screen actions without clipping or horizontal page overflow.
-- R11. Region thumbnail controls and set-cycle controls are visually and semantically distinct while preserving the fixed Back/Previous/Next behavior, keyboard navigation, wording, tokens, and overall layout.
+- R10. At supported desktop and iPhone aspect ratios, the detail contains both square previews, the thumbnail rail, style-cycle controls, and the containing creation-screen actions without clipping or horizontal page overflow.
+- R11. Scene thumbnail controls and style-cycle controls are visually and semantically distinct while preserving the fixed Back/Previous/Next behavior, keyboard navigation, wording, tokens, and overall layout.
 - R12. The reusable `gm-set-showcase` skill and project reference require coherent ground, purposeful density, cutaway interiors, mounted props, footprint depth, protected focal elements, aligned multi-part props, continuous distance-derived walks, timed hit reactions, and deterministic non-obvious particles.
 - R13. V3 invariants remain: eight square stops, synchronized disjoint sprite sheets, every pack represented, reorderable data, H.264/faststart MP4 plus GIF/poster fallbacks, and no client compositor, game engine, or canvas preview.
 
@@ -67,7 +67,7 @@ The style-picker detail also uses a widescreen aspect ratio for square media and
 - AE5. **Given** consecutive stop boundary frames, **when** the last v4 frame is compared with the first frame of the next stop, **then** the hero continues across the same seam without a discontinuous jump.
 - AE6. **Given** a combat contact, **when** contact and the following frames are inspected, **then** the strike reaches the target, both actors face correctly, and the target's reaction visibly follows the blow once.
 - AE7. **Given** the rain stop over a full loop, **when** a timeline is inspected, **then** drops cover the viewport and do not repeat in obvious synchronized rows or phases.
-- AE8. **Given** a 390-by-844 iPhone viewport, **when** SmallScaleInt detail opens, **then** both square previews, the region rail, differentiated set controls, and the page's own navigation remain reachable without sideways page scrolling.
+- AE8. **Given** a 390-by-844 iPhone viewport, **when** SmallScaleInt detail opens, **then** both square previews, the scene rail, differentiated style controls, and the page's own navigation remain reachable without sideways page scrolling.
 
 ### Scope Boundaries
 
@@ -86,7 +86,7 @@ The style-picker detail also uses a widescreen aspect ratio for square media and
 - KTD2. Make authored footprint metadata and focal priority explicit in the host-local compositor, then sort by projected footprint depth plus narrow, documented priority exceptions for the runner, portal, and active story pair.
 - KTD3. Derive travel from a continuous per-stop route and validate seam endpoints numerically; preserve the source walk frame rate and change path/layout distance rather than playback speed.
 - KTD4. Represent effects as seeded emitters or anchored composite parts, so full-loop rendering stays deterministic while rain distribution and multi-part facing/offset remain auditable.
-- KTD5. Treat the shipped UI as the style-picker artifact: render showcase tracks at their actual square ratio; bracket the thumbnail rail with compact rounded-square region controls; and keep the circular set-cycle controls in the title row with separate accessible names. This creates a stable location-and-shape distinction without changing the established flow or adding visible copy.
+- KTD5. Treat the shipped UI as the style-picker artifact: render showcase tracks at their actual square ratio; retain the base branch's compact bordered scene controls around the thumbnail rail; and retain its transparent style-cycle controls in the title row with separate accessible names. This preserves the established location-and-treatment distinction without adding visible copy or reverting the newer viewport-fit behavior.
 - KTD6. Strengthen the set-neutral skill only where the v4 findings generalize. Keep the existing `ogm.set-showcase/1` project format compatible and leave SmallScaleInt-specific card references, coordinates, counts, compositor behavior, and private media out of tracked code.
 
 ### High-Level Technical Design
@@ -138,9 +138,9 @@ U4 performs the expensive full render and final desktop/phone QA only after vali
 - **Requirements:** R9-R11, R13; AE8.
 - **Dependencies:** None.
 - **Files:** `apps/web/src/routes/new/StyleStep.tsx`, `apps/web/src/routes/new/new.css`, `apps/web/src/routes/new/StyleStep.test.tsx`, `apps/web/e2e/new.spec.ts`.
-- **Approach:** Preserve line-art family tiles; use square preview boxes; bracket the thumbnail rail with compact rounded-square previous/next-region controls; keep circular previous/next-set controls in the title row; and constrain the detail body so all controls remain reachable within the creation-screen viewport. Scrolling remains available for the two stacked square previews on short phones; no preview or control is clipped and the page never scrolls sideways.
+- **Approach:** Preserve line-art family tiles; use square preview boxes; retain compact previous/next-scene controls around the thumbnail rail and distinct previous/next-style controls in the title row; and constrain the detail body so all controls remain reachable within the creation-screen viewport. No preview or control is clipped and the page never scrolls sideways.
 - **Patterns to follow:** Current `FamilyStep`, `Icon`, tap-token, focus-restoration, keyboard-cycle, and phone media-query behavior.
-- **Test scenarios:** Region and set controls have distinct accessible names and classes; square preview structure persists across fallback/video states; previous/next set wrapping and thumbnail seeking still work; the 390-by-844 browser journey has two square previews, no page-level horizontal overflow, and reachable region/set controls.
+- **Test scenarios:** Scene and style controls have distinct accessible names and classes; square preview structure persists across fallback/video states; previous/next style wrapping and thumbnail seeking still work; the 390-by-844 browser journey has two square previews, no page-level horizontal overflow, and reachable scene/style controls.
 - **Verification:** Focused Vitest and Playwright specs pass, and desktop/phone screenshots are inspected with `gm-verify`.
 
 ### U3. Rebuild the eight private gameplay regions
