@@ -1,5 +1,6 @@
 import type { ScreenRoute } from '../../app/screen';
 import { GameScreen } from './GameScreen';
+import { releasesRoute } from './releases/route';
 import { versionsRoute } from './versions/route';
 
 export const route: ScreenRoute = {
@@ -7,5 +8,5 @@ export const route: ScreenRoute = {
   element: <GameScreen />,
   chrome: 'app',
   auth: 'required',
-  children: [versionsRoute, { path: 'releases', element: <h2>Releases</h2> }],
+  children: [versionsRoute, releasesRoute],
 };

@@ -15,6 +15,7 @@ export type RollbackPreview = { affectedSaves: number | null };
 
 export const releaseKeys = {
   releases: (gameId: string) => ['game', gameId, 'releases'] as const,
+  published: (gameId: string) => ['game', gameId, 'published'] as const,
   publishPreview: (gameId: string, buildId: string) => ['game', gameId, 'publish-preview', buildId] as const,
   rollbackPreview: (gameId: string, releaseId: string) => ['game', gameId, 'rollback-preview', releaseId] as const,
 };
@@ -61,7 +62,7 @@ export async function publishRelease(
     method: 'POST',
     json: { buildId, changelog },
   });
-  await invalidateReleaseData(gameId);
+  await refreshReleaseData(gameId);
   return release;
 }
 
@@ -74,13 +75,14 @@ export async function rollbackRelease(gameId: string, releaseId: string): Promis
     method: 'POST',
     json: { releaseId },
   });
-  await invalidateReleaseData(gameId);
+  await refreshReleaseData(gameId);
   return release;
 }
 
-async function invalidateReleaseData(gameId: string): Promise<void> {
+export async function refreshReleaseData(gameId: string): Promise<void> {
   await Promise.all([
     queryClient.invalidateQueries({ queryKey: releaseKeys.releases(gameId) }),
+    queryClient.invalidateQueries({ queryKey: releaseKeys.published(gameId) }),
     queryClient.invalidateQueries({ queryKey: versionKeys.branches(gameId) }),
     queryClient.invalidateQueries({ queryKey: versionKeys.builds(gameId) }),
   ]);

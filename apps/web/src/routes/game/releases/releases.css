@@ -1,0 +1,67 @@
+.release-body {
+  display: grid;
+  gap: 20px;
+}
+
+.release-publish,
+.release-history button {
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--yellow-b);
+  color: var(--dark);
+  font-weight: 800;
+  box-shadow: var(--pop-sm);
+}
+
+.published-release,
+.release-history article {
+  padding: clamp(18px, 3vw, 30px);
+  border: 3px solid var(--ink);
+  border-radius: calc(var(--r) + 6px);
+  background: var(--paper-2);
+  box-shadow: var(--pop-sm);
+}
+
+.published-release > span,
+.release-history article > header > span {
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 5px 9px;
+  background: var(--green-b);
+  color: var(--dark);
+  font-weight: 800;
+}
+
+.published-release h2,
+.release-history h2 {
+  margin-block: 10px 0;
+  font-family: var(--display);
+}
+
+.release-history {
+  display: grid;
+  gap: 18px;
+}
+
+.release-history article > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.release-history article > header p {
+  margin-block: 4px 0;
+  color: var(--muted);
+}
+
+.release-public-note {
+  color: var(--pink-b);
+  font-weight: 800;
+}
+
+@media (max-width: 600px) {
+  .release-publish {
+    width: 100%;
+  }
+}
