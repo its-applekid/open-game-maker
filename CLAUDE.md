@@ -11,7 +11,7 @@ use. Work here the way those agents will work: dogfood the skills.
   there; use `/* */` mid-line. A swallowed tail is still valid syntax, so `node --check` won't catch it (it dropped a
   scene's arguments and an iframe's attributes here); render or run the change before moving on.
 - **Scripted waits** (a chain that polls a log for an earlier step): match a terminal marker the step itself writes (`exit=0 <step>`),
-  never line adjacency (`grep -A1`); a stray log line between marker and status stalled the tiers render chain for 90 minutes.
+  never line adjacency (`grep -A1`); a stray log line between marker and status stalled the tiers render chain for 90 minutes. Waiting on a process: `pgrep -f` matches the waiting shell's own command line, so wait on a pid (`while kill -0 $PID`) instead (a Sonniss retry waited on itself overnight).
 - **Sprite Forge skills** (`agent-sprite-forge` plugin, project scope in `.claude/settings.json`: generate2dsprite,
   generate2dmap, video2dsprite, generate2dmedia, codeart2d): run their scripts with
   `~/.local/share/ogm/forge-venv/bin/python` (no `python` on PATH). No API key is configured, so `route_media.py` falls
