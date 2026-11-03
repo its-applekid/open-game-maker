@@ -1,1 +1,1 @@
-export function renderRedirects(apiOrigin: string): string;
+export function renderRedirects(apiOrigin: string, publicAppOrigin: string): string;

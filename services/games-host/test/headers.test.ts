@@ -5,7 +5,7 @@ import { mimeForPath } from '../src/mime.js';
 
 describe('games-host response headers', () => {
   it('returns the complete immutable game security policy', () => {
-    const headers = gameHeaders('https://ogm2000.netlify.app');
+    const headers = gameHeaders('https://makeopen.games');
 
     expect(Object.keys(headers).sort()).toEqual(
       [
@@ -28,7 +28,7 @@ describe('games-host response headers', () => {
         "font-src 'self'",
         "connect-src 'self' blob: data:",
         "worker-src 'self' blob:",
-        'frame-ancestors https://ogm2000.netlify.app',
+        'frame-ancestors https://makeopen.games',
         "base-uri 'none'",
         "form-action 'none'",
         "object-src 'none'",

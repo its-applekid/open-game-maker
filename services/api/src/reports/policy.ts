@@ -10,7 +10,7 @@ export const REPORTS_PER_USER_PER_HOUR = 20;
 export const PLATFORM_ISSUE_LABELS = ['bug', 'source:report'];
 
 // Frames from the host shell or platform origin are never the game's own code.
-export const PLATFORM_FRAME = /^(https?:\/\/ogm2000\.netlify\.app|@ogm\/host|@gm\/host)/;
+export const PLATFORM_FRAME = /^(https?:\/\/makeopen\.games|@ogm\/host|@gm\/host)/;
 // SDK-only frames are ambiguous: B8 sends ambiguous crashes to game repair first.
 export const SDK_FRAME = /^@gm\/sdk/;
 

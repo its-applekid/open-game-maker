@@ -126,9 +126,10 @@ describe('GamesScreen', () => {
   }, 10_000);
 
   it('opens the URL-selected spotlight and falls back to main when branches are unavailable', async () => {
-    renderGames('/games?spotlight=g_1');
+    const { container } = renderGames('/games?spotlight=g_1');
 
     expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' })).toBeVisible();
+    expect(container.querySelector('.games-spotlight-media .game-cover')).toBeVisible();
     expect(screen.queryByText(/Your library|My games|Selected game|Choose what happens next|Versions/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Close game' })).toHaveTextContent('×');
     expect(screen.getByRole('listitem', { name: 'main' })).toHaveAttribute('aria-current', 'true');
@@ -136,7 +137,15 @@ describe('GamesScreen', () => {
     expect(screen.getByRole('button', { name: 'Edit Midnight Crumbs' })).toBeDisabled();
   });
 
-  it('writes selection to the URL and returns focus to the tile after closing', async () => {
+  it('uses the prototype creation affordance without adding helper copy', async () => {
+    const { container } = renderGames();
+
+    await screen.findByRole('button', { name: 'New game' });
+    expect(container.querySelector('.games-new .plus')).toHaveTextContent('+');
+    expect(screen.queryByText(/Create a new game|Add another game|Start creating/)).toBeNull();
+  });
+
+  it('writes selection to the URL and returns focus to the tile after closing with Escape', async () => {
     renderGames('/games?test');
     const tile = await screen.findByRole('button', { name: /Goblin Cellar/ });
 
@@ -144,7 +153,9 @@ describe('GamesScreen', () => {
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
     expect(await screen.findByRole('button', { name: 'Play Goblin Cellar' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close game' }));
+    const close = screen.getByRole('button', { name: 'Close game' });
+    await waitFor(() => expect(close).toHaveFocus());
+    fireEvent.keyDown(close, { key: 'Escape' });
     await waitFor(() => expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight'));
     expect(tile).toHaveFocus();
   });
@@ -164,5 +175,20 @@ describe('GamesScreen', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t refresh the library');
     expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+
+  it('loads the library without an error banner when only the jobs poll fails', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/v1/games')) return json({ games });
+      if (url.includes('/api/v1/jobs')) return json({ error: 'unavailable' }, 503);
+      return json({ error: 'not_found' }, 404);
+    });
+
+    const { container } = renderGames();
+
+    await screen.findByRole('button', { name: /Midnight Crumbs/ });
+    expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 });

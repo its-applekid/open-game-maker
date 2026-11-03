@@ -3,7 +3,8 @@
 # models (CC0). vendor/ and models/ are gitignored; rebuild them with this script.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../../.." && pwd)"; HERE="$ROOT/apps/web/title-town"; K="$ROOT/assets-local/packs"
-rm -rf "$HERE/vendor" "$HERE/models"; mkdir -p "$HERE/vendor" "$HERE/models/city" "$HERE/models/cars"
+rm -rf "$HERE/vendor" "$HERE/models/"{city,cars,roads,suburb,train,industrial,castle,minidungeon,monsters,fx}
+mkdir -p "$HERE/vendor" "$HERE/models/city" "$HERE/models/cars"
 cp -r "$ROOT/prototypes/studio-v0/demo/vendor/three" "$HERE/vendor/"
 mkdir -p "$HERE/vendor/three/examples/jsm/exporters"; curl -sfL https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/exporters/GLTFExporter.js -o "$HERE/vendor/three/examples/jsm/exporters/GLTFExporter.js"
 cp -r "$K/kenney-city-kit-commercial/2.1/extracted/Models/GLB format/"{*.glb,Textures} "$HERE/models/city/"

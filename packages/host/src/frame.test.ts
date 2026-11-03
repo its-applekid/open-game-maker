@@ -15,8 +15,8 @@ describe('createGameFrame', () => {
       appOrigin: 'https://app.test',
       gameId: 'game one',
       buildId: 'build/one',
-      build: 'draft',
-      mode: 'play',
+      build: 'draft' as const,
+      mode: 'play' as const,
       playerIndex: 0,
       capabilities: [],
       role: () => 'owner',
@@ -108,6 +108,52 @@ describe('createGameFrame', () => {
 
     expect(setPadMode).not.toHaveBeenCalled();
     expect(setOverlayEnabled).not.toHaveBeenCalled();
+    frame.dispose();
+  });
+
+  it('forwards validated load progress and completion messages', () => {
+    const container = document.createElement('div');
+    const onLoad = vi.fn();
+    const options = {
+      container,
+      gamesOrigin: 'https://games.test',
+      appOrigin: 'https://app.test',
+      gameId: 'g',
+      buildId: 'b',
+      build: 'draft' as const,
+      mode: 'play' as const,
+      playerIndex: 0,
+      capabilities: [],
+      role: () => 'owner' as const,
+      onLoad,
+    };
+    const frame = createGameFrame(options);
+    const receive = (frame.bridge as unknown as { receive(message: unknown): void }).receive.bind(frame.bridge);
+    const progress = {
+      v: 1,
+      id: 'game-load-1',
+      t: 'load.progress',
+      payload: { phase: 'ready', loaded: 50, total: 100, cachedBytes: 20 },
+    };
+    const done = {
+      v: 1,
+      id: 'game-load-2',
+      t: 'load.done',
+      payload: {
+        ms: 400,
+        fetchedBytes: 80,
+        cachedBytes: 20,
+        fetchedFiles: 2,
+        cachedFiles: 1,
+        persisted: true,
+      },
+    };
+
+    receive(progress);
+    receive(done);
+
+    expect(onLoad).toHaveBeenNthCalledWith(1, { t: 'load.progress', payload: progress.payload });
+    expect(onLoad).toHaveBeenNthCalledWith(2, { t: 'load.done', payload: done.payload });
     frame.dispose();
   });
 });

@@ -8,11 +8,13 @@ import { EDITOR_FOCUS_ZONES } from './focus';
 type PaletteProps = {
   palette: GameManifest['palette'];
   category?: string;
+  title?: string;
+  showTabs?: boolean;
   onCategory?(id: string): void;
   onPick(prefab: string): void;
 };
 
-export function Palette({ palette, category, onCategory, onPick }: PaletteProps) {
+export function Palette({ palette, category, title, showTabs = true, onCategory, onPick }: PaletteProps) {
   const [localCategory, setLocalCategory] = useState(palette.categories[0]?.id ?? '');
   const active = category ?? localCategory;
   useEffect(() => {
@@ -27,20 +29,23 @@ export function Palette({ palette, category, onCategory, onPick }: PaletteProps)
 
   return (
     <FocusZone id={EDITOR_FOCUS_ZONES.palette} className="editor-palette">
-      <div className="palette-tabs" role="tablist" aria-label="Palette">
-        {palette.categories.map((candidate) => (
-          <button
-            className="tap-secondary"
-            type="button"
-            role="tab"
-            key={candidate.id}
-            aria-selected={candidate.id === active}
-            onClick={() => chooseCategory(candidate.id)}
-          >
-            {candidate.label}
-          </button>
-        ))}
-      </div>
+      {title ? <h2>{title}</h2> : null}
+      {showTabs ? (
+        <div className="palette-tabs" role="tablist" aria-label="Palette">
+          {palette.categories.map((candidate) => (
+            <button
+              className="tap-secondary"
+              type="button"
+              role="tab"
+              key={candidate.id}
+              aria-selected={candidate.id === active}
+              onClick={() => chooseCategory(candidate.id)}
+            >
+              {candidate.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="palette-items">
         {palette.items
           .filter((item) => item.category === active)

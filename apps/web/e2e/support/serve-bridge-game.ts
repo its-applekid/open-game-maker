@@ -2,7 +2,8 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 
 const host = '127.0.0.1';
-const port = 10_001;
+// eslint-disable-next-line no-restricted-properties
+const port = Number.parseInt(process.env.OGM_WEB_BRIDGE_PORT ?? '10001', 10);
 const fixture = new URL('../fixtures/bridge-game/', import.meta.url);
 /* A build dir as the publisher stages it: the page plus its manifest and folded design. */
 const files: Record<string, string> = {

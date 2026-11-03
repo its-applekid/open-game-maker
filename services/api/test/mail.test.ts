@@ -6,7 +6,7 @@ import { SmtpMailSender } from '../src/auth/mail-smtp.js';
 import { selectMailSender } from '../src/auth/mail.js';
 import { makeDeps } from './helpers.js';
 
-const message = { to: 'kim@example.com', subject: 'Hi', text: 'https://ogm2000.netlify.app/x' };
+const message = { to: 'kim@example.com', subject: 'Hi', text: 'https://makeopen.games/x' };
 
 describe('MailSender', () => {
   it('defaults to the admin inbox when SMTP_URL is unset', () => {

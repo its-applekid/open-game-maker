@@ -31,7 +31,7 @@ describe('build id contract between the API and the games host', () => {
   function app() {
     return createApp({
       root,
-      appOrigin: 'https://ogm2000.netlify.app',
+      appOrigin: 'https://makeopen.games',
       version: '0123456789abcdef0123456789abcdef01234567',
       uptimeSec: () => 0,
       workerScript: join(root, 'unused-worker.js'),

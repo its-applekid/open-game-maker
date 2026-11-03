@@ -8,3 +8,9 @@
   Cache-Control: public, max-age=31536000, immutable
 /site.webmanifest
   Content-Type: application/manifest+json
+/proto/sw.js
+  Cache-Control: no-cache
+/proto/town/*
+  Cache-Control: no-cache
+/proto/art/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800

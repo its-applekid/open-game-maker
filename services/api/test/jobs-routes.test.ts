@@ -9,6 +9,7 @@ const ids = {
   family: 'f_50000000-0000-4000-8000-000000000001',
   user: 'u_50000000-0000-4000-8000-000000000001',
   game: 'g_50000000-0000-4000-8000-000000000001',
+  otherGame: 'g_50000000-0000-4000-8000-000000000002',
 };
 
 const plan = {
@@ -77,7 +78,7 @@ async function createJob(app: Awaited<ReturnType<typeof makeApp>>['app'], overri
 }
 
 describe('jobs routes', () => {
-  it('admits, lists, and reads a job with optional projection fields', async () => {
+  it("serves the web app's game and active jobs query strings", async () => {
     const deps = setup();
     deps.db
       .insert(schema.allowances)
@@ -102,10 +103,32 @@ describe('jobs routes', () => {
         updatedAt: '2026-11-01T16:00:00.000Z',
       })
       .run();
+    deps.db
+      .insert(schema.games)
+      .values({
+        id: ids.otherGame,
+        familyId: ids.family,
+        ownerId: ids.user,
+        title: 'Other game',
+        visibility: 'private',
+        repoVisibility: 'private',
+        createdAt: '2026-11-01T16:00:00.000Z',
+      })
+      .run();
+    const otherCreated = await createJob(app, { gameId: ids.otherGame });
+    expect(otherCreated.status).toBe(202);
+    const { jobId: otherJobId } = (await otherCreated.json()) as { jobId: string };
 
-    const listed = await app.request(`/api/v1/jobs?gameId=${ids.game}`, { headers: asUser(ids.user) });
-    expect(listed.status).toBe(200);
-    expect(await listed.json()).toMatchObject({ jobs: [{ id: jobId, stage: 'building', phase: 'work' }] });
+    const byGame = await app.request(`/api/v1/jobs?gameId=${ids.game}`, { headers: asUser(ids.user) });
+    expect(byGame.status).toBe(200);
+    expect(await byGame.json()).toMatchObject({ jobs: [{ id: jobId, stage: 'building', phase: 'work' }] });
+
+    const active = await app.request('/api/v1/jobs?state=active', { headers: asUser(ids.user) });
+    expect(active.status).toBe(200);
+    const activeBody = (await active.json()) as { jobs: { id: string }[] };
+    expect(activeBody.jobs.map(({ id }) => id).sort()).toEqual([jobId, otherJobId].sort());
+    expect(activeBody.jobs).toContainEqual(expect.objectContaining({ id: jobId, stage: 'building', phase: 'work' }));
+
     const read = await app.request(`/api/v1/jobs/${jobId}`, { headers: asUser(ids.user) });
     expect(await read.json()).toMatchObject({
       id: jobId,
@@ -113,6 +136,22 @@ describe('jobs routes', () => {
       stageText: 'Building',
       progressPercent: 40,
     });
+
+    deps.db.update(schema.jobs).set({ state: 'done' }).where(eq(schema.jobs.id, jobId)).run();
+    const afterCompletion = await app.request('/api/v1/jobs?state=active', { headers: asUser(ids.user) });
+    expect(afterCompletion.status).toBe(200);
+    expect(await afterCompletion.json()).toMatchObject({ jobs: [{ id: otherJobId }] });
+  });
+
+  it('returns no active jobs when the user has no visible games', async () => {
+    const deps = setup();
+    deps.db.delete(schema.games).where(eq(schema.games.id, ids.game)).run();
+    const { app } = await makeApp(deps);
+
+    const response = await app.request('/api/v1/jobs?state=active', { headers: asUser(ids.user) });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ jobs: [] });
   });
 
   it('returns the allowance refusal body at the top level', async () => {

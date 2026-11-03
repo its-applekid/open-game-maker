@@ -70,8 +70,6 @@
           { "id": "smallscaleint-knight", "name": "Knight", "thumbnailUrl": "/e2e/knight.svg", "compatibleWith": [] }
         ],
         "showcase": {
-          "tileVideoUrl": "/e2e/showcase.tiles.mp4",
-          "sheetVideoUrl": "/e2e/showcase.sheets.mp4",
           "stops": [
             {
               "id": "fantasy",

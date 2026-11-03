@@ -22,6 +22,7 @@ import {
 } from './options';
 import { useCreateGame } from './useCreateGame';
 import './new.css';
+import './new-prototype.css';
 
 const VIEW_LABELS: Record<string, string> = {
   iso: 'Isometric',
@@ -133,16 +134,16 @@ export function NewGameScreen() {
   return (
     <section className="new-game-screen">
       <header className="new-game-head">
-        <button className="new-back tap-secondary" type="button" onClick={back}>
-          Back
-        </button>
-        <div>
-          <h1>{step === 'talk' ? 'Talk it through' : current?.title}</h1>
-          <div className="new-dots" aria-label={`Step ${stepIndex + 1} of ${STEP_ORDER.length}`}>
-            {STEP_ORDER.map((key, index) => (
-              <i className={index < stepIndex ? 'done' : index === stepIndex ? 'now' : ''} key={key} />
-            ))}
-          </div>
+        <div className="new-head-back">
+          <button className="new-back tap-secondary" type="button" onClick={back}>
+            Back
+          </button>
+        </div>
+        <h1>{step === 'talk' ? 'Talk it through' : current?.title}</h1>
+        <div className="new-dots" role="img" aria-label={`Step ${stepIndex + 1} of ${STEP_ORDER.length}`}>
+          {STEP_ORDER.map((key, index) => (
+            <i className={index < stepIndex ? 'done' : index === stepIndex ? 'now' : ''} key={key} />
+          ))}
         </div>
       </header>
 
