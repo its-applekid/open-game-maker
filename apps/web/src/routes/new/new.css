@@ -585,7 +585,7 @@
 }
 
 @media (max-width: 600px) {
-  .new-game-screen:not(:has(.new-style-detail)) {
+  .new-game-screen {
     gap: 16px;
   }
   .new-option-grid {
