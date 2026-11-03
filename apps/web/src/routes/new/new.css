@@ -6,7 +6,6 @@
   grid-template-rows: auto 1fr auto;
   gap: 24px;
 }
-
 .new-game-head {
   display: grid;
   grid-template-columns: var(--tap-secondary) 1fr var(--tap-secondary);
@@ -127,6 +126,7 @@
 .new-style-grid-view,
 .new-style-detail {
   position: relative;
+  min-width: 0;
 }
 .new-style-grid-view > .new-style-icon-button {
   margin-bottom: 12px;
@@ -162,7 +162,7 @@
 }
 .new-style-detail-nav {
   display: grid;
-  grid-template-columns: var(--tap-secondary) 1fr auto;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   margin-bottom: 14px;
