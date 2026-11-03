@@ -107,7 +107,7 @@ export function GamesScreen() {
         <RetryLine onRetry={() => void gamesQuery.refetch()} />
       ) : (
         <>
-          {(gamesQuery.isError || jobsQuery.isError || branchesQuery.isError) && (
+          {(gamesQuery.isError || branchesQuery.isError) && (
             <RetryLine
               onRetry={() => void Promise.all([gamesQuery.refetch(), jobsQuery.refetch(), branchesQuery.refetch()])}
             />
