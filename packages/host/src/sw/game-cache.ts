@@ -1,21 +1,19 @@
-export const ASSET_CACHE = 'gm-assets';
-export const PAGE_CACHE = 'gm-pages';
+export const BLOB_CACHE = 'gm-blobs-v1';
+export const BUILD_CACHE = 'gm-builds-v1';
+export const RETIRED = ['gm-assets', 'gm-pages'] as const;
 
-export type CacheRoute =
-  { strategy: 'pass' } | { strategy: 'network-first' | 'cache-first' | 'stale-while-revalidate'; cacheName: string };
+export type CacheRoute = { strategy: 'pass' } | { strategy: 'cache-first'; cacheName: string };
 
 export function classifyGameRequest(request: Request, workerOrigin = location.origin): CacheRoute {
   const url = new URL(request.url);
-  if (request.method !== 'GET' || url.origin !== workerOrigin || !url.pathname.startsWith('/g/')) {
-    return { strategy: 'pass' };
+  if (request.method !== 'GET' || url.origin !== workerOrigin) return { strategy: 'pass' };
+  if (/^\/a\/[0-9a-f]{64}\.[a-z0-9]+$/.test(url.pathname)) {
+    return { strategy: 'cache-first', cacheName: BLOB_CACHE };
   }
-  if (request.mode === 'navigate' || /^\/g\/[^/]+\/[^/]+\/index\.html$/.test(url.pathname)) {
-    return { strategy: 'network-first', cacheName: PAGE_CACHE };
+  if (/^\/g\/[^/]+\/[^/]+\/.+/.test(url.pathname)) {
+    return { strategy: 'cache-first', cacheName: BUILD_CACHE };
   }
-  if (/^\/g\/[^/]+\/[^/]+\/assets\//.test(url.pathname)) {
-    return { strategy: 'cache-first', cacheName: ASSET_CACHE };
-  }
-  return { strategy: 'stale-while-revalidate', cacheName: PAGE_CACHE };
+  return { strategy: 'pass' };
 }
 
 interface ExtendableEventLike extends Event {
@@ -42,64 +40,37 @@ if (typeof worker.addEventListener === 'function' && 'clients' in worker) {
     event.waitUntil(worker.skipWaiting());
   }) as (event: never) => void);
   worker.addEventListener('activate', ((event: ExtendableEventLike) => {
-    event.waitUntil(
-      worker.caches
-        .keys()
-        .then((keys) =>
-          Promise.all(
-            keys.filter((key) => key !== ASSET_CACHE && key !== PAGE_CACHE).map((key) => worker.caches.delete(key)),
-          ),
-        )
-        .then(() => worker.clients.claim()),
-    );
+    event.waitUntil(retireCaches(worker.caches).then(() => worker.clients.claim()));
   }) as (event: never) => void);
   worker.addEventListener('fetch', ((event: FetchEventLike) => {
     const route = classifyGameRequest(event.request, worker.location.origin);
     if (route.strategy === 'pass') return;
-    if (route.strategy === 'network-first') event.respondWith(networkFirst(event.request, route.cacheName));
-    if (route.strategy === 'cache-first') event.respondWith(cacheFirst(event.request, route.cacheName));
-    if (route.strategy === 'stale-while-revalidate') {
-      event.respondWith(staleWhileRevalidate(event.request, route.cacheName, event));
-    }
+    event.respondWith(cacheFirst(event.request, route.cacheName, event));
   }) as (event: never) => void);
 }
 
-async function networkFirst(request: Request, cacheName: string): Promise<Response> {
-  const cache = await caches.open(cacheName);
-  try {
-    const response = await fetch(new Request(request, { cache: 'no-cache' }));
-    if (response.ok) await cache.put(request, response.clone());
-    return response;
-  } catch (error) {
-    const cached = await cache.match(request);
-    if (cached) return cached;
-    throw error;
-  }
+export async function retireCaches(cacheStorage: CacheStorage): Promise<void> {
+  await Promise.all(RETIRED.map((name) => cacheStorage.delete(name).catch(() => false)));
 }
 
-async function cacheFirst(request: Request, cacheName: string): Promise<Response> {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) await cache.put(request, response.clone());
-  return response;
-}
-
-async function staleWhileRevalidate(
+export async function cacheFirst(
   request: Request,
   cacheName: string,
-  event: ExtendableEventLike,
+  lifetime?: Pick<ExtendableEventLike, 'waitUntil'>,
 ): Promise<Response> {
-  const cache = await caches.open(cacheName);
-  const cached = await cache.match(request);
-  const fresh = fetch(request).then(async (response) => {
-    if (response.ok) await cache.put(request, response.clone());
-    return response;
-  });
-  if (cached) {
-    event.waitUntil(fresh.then(() => undefined));
-    return cached;
+  let cache: Cache;
+  try {
+    cache = await caches.open(cacheName);
+    const cached = await cache.match(request);
+    if (cached) return cached;
+  } catch {
+    return fetch(request);
   }
-  return fresh;
+
+  const response = await fetch(request);
+  if (response.ok) {
+    const cacheWrite = cache.put(request, response.clone()).catch(() => undefined);
+    lifetime?.waitUntil(cacheWrite);
+  }
+  return response;
 }

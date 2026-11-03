@@ -56,6 +56,7 @@ describe.skipIf(!enabled)('two-client scenario (OGM_SCENARIOS=1)', () => {
       expect(canary.watcherFrames).toBeGreaterThan(0);
       expect(canary.leaked).toBe(0);
       expect(Number(report.probes.peerMovedPx)).toBeGreaterThan(0);
+      expect(report.probes.step7FreshRoom).toBe(true);
       expect(report.probes.draftPin).toBe('b2');
     } finally {
       rmSync(out, { recursive: true, force: true });
