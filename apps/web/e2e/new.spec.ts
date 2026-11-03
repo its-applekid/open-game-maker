@@ -101,7 +101,7 @@ test('style detail fits its media and navigation into phone and desktop viewport
   await installAuthRoutes(page, { signedIn: true, github: 'kim' });
   await installNewRoutes(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/new?test&step=family');
+  await page.goto('/new?test&step=family', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
 
   const familyIcons = page.locator('[data-style-family] .new-option-icon svg');
@@ -179,7 +179,7 @@ test('style detail fits its media and navigation into phone and desktop viewport
 });
 
 async function openReadyNewGame(page: Page): Promise<Locator> {
-  await page.goto('/new?test&step=genre');
+  await page.goto('/new?test&step=genre', { waitUntil: 'domcontentloaded' });
   const adventure = page.getByRole('button', { name: 'Adventure' });
   await Promise.all([page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined), adventure.waitFor()]);
   return adventure;
