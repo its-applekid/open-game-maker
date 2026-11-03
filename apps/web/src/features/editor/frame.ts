@@ -1,4 +1,4 @@
-import { createGameFrame, type GameFrame, type GameFrameOptions } from '@gm/host';
+import { createGameFrame, type GameFrame, type GameFrameOptions, type GameLoadEvent } from '@gm/host';
 import type {
   DesignDoc,
   Envelope,
@@ -18,30 +18,10 @@ type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSet
   bridge: Pick<GameFrame['bridge'], 'dropped'>;
 };
 
-export type GameLoadProgress = {
-  phase: 'boot' | 'ready' | 'stream';
-  loaded: number;
-  total: number;
-  cachedBytes: number;
-};
-
-export type GameLoadDone = {
-  ms: number;
-  fetchedBytes: number;
-  cachedBytes: number;
-  fetchedFiles: number;
-  cachedFiles: number;
-  persisted: boolean | null;
-  usage?: number;
-  quota?: number;
-};
+export type GameLoadProgress = Extract<GameLoadEvent, { t: 'load.progress' }>['payload'];
+export type GameLoadDone = Extract<GameLoadEvent, { t: 'load.done' }>['payload'];
 
 export type GameLoadMeasurement = Pick<GameLoadDone, 'ms' | 'fetchedBytes' | 'cachedBytes'>;
-export type GameLoadEvent =
-  { t: 'load.progress'; payload: GameLoadProgress } | { t: 'load.done'; payload: GameLoadDone };
-
-type LoadAwareGameFrameOptions = GameFrameOptions & { onLoad?(event: GameLoadEvent): void };
-
 export type GameFrameState = {
   bridgeState: 'connecting' | 'ready' | 'error';
   dropped: number;
@@ -81,7 +61,7 @@ export type MountGameFrameOptions = {
   mode: 'play' | 'edit';
   design: { rev: number; doc: DesignDoc };
   build?: 'draft' | 'test' | 'published';
-  create?(options: LoadAwareGameFrameOptions): FrameLike;
+  create?(options: GameFrameOptions): FrameLike;
   onState?(state: GameFrameState): void;
   onSaveWrite?(payload: { saveSchemaVersion: number; data: unknown }): void;
   onEvent?(kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown): void;
@@ -136,8 +116,8 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
   };
   const handleLoad = (event: GameLoadEvent) => {
     if (disposed || loadTerminal) return;
-    loadObserved = true;
     if (event.t === 'load.done') {
+      loadObserved = true;
       loadTerminal = true;
       clearLoadStall();
       const load = current.load ?? { phase: 'ready' as const, loaded: 0, total: 0, done: false };
@@ -147,6 +127,7 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       return;
     }
     if (event.payload.phase === 'stream') return;
+    loadObserved = true;
     lastLoadProgress = event.payload;
     clearLoadStall();
     loadStallTimer = setTimeout(stallLoad, 20_000);
@@ -169,7 +150,7 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
   window.addEventListener('message', observeOrigin);
 
   try {
-    const create = (options.create ?? createGameFrame) as (frameOptions: LoadAwareGameFrameOptions) => FrameLike;
+    const create = options.create ?? createGameFrame;
     frame = create({
       container: options.container,
       gamesOrigin: trustedOrigin,

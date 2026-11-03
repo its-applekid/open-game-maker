@@ -61,15 +61,14 @@ describe('LoadingLayer', () => {
 
   it('removes the layer without a fade when reduced motion is requested', () => {
     vi.useFakeTimers();
-    vi.stubGlobal('matchMedia', vi.fn(() => ({ matches: true })));
-    const view = render(
-      <LoadingLayer game={game} load={{ phase: 'ready', loaded: 50, total: 100, done: false }} />,
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn(() => ({ matches: true })),
     );
+    const view = render(<LoadingLayer game={game} load={{ phase: 'ready', loaded: 50, total: 100, done: false }} />);
     act(() => vi.advanceTimersByTime(150));
 
-    view.rerender(
-      <LoadingLayer game={game} load={{ phase: 'ready', loaded: 50, total: 100, done: true }} />,
-    );
+    view.rerender(<LoadingLayer game={game} load={{ phase: 'ready', loaded: 50, total: 100, done: true }} />);
 
     expect(view.container.querySelector('[role="progressbar"][aria-label="Loading"]')).toBeNull();
   });

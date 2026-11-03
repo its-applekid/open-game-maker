@@ -5,25 +5,6 @@ import type { DesignDoc, GameManifest } from '@ogm/contracts/browser';
 
 import { mountGameFrame } from './frame';
 
-type LoadEvent =
-  | {
-      t: 'load.progress';
-      payload: { phase: 'boot' | 'ready' | 'stream'; loaded: number; total: number; cachedBytes: number };
-    }
-  | {
-      t: 'load.done';
-      payload: {
-        ms: number;
-        fetchedBytes: number;
-        cachedBytes: number;
-        fetchedFiles: number;
-        cachedFiles: number;
-        persisted: boolean | null;
-      };
-    };
-
-type LoadAwareFrameOptions = GameFrameOptions & { onLoad?(event: LoadEvent): void };
-
 const manifest = {
   id: 'cellar',
   title: 'Goblin Cellar',
@@ -77,12 +58,21 @@ describe('game frame adapter', () => {
       readyTimeoutMs: 10_000,
     });
     frameOptions?.onReady?.(manifest, []);
+    frameOptions?.onLoad?.({
+      t: 'load.progress',
+      payload: { phase: 'stream', loaded: 10, total: 100, cachedBytes: 0 },
+    });
     controller.setMode('edit');
     window.dispatchEvent(new MessageEvent('message', { origin: 'https://attacker.example' }));
 
     expect(frame.setMode).toHaveBeenCalledWith('edit');
     expect(frame.send).toHaveBeenCalledWith('design.apply', { rev: 4, doc: {}, patches: [] });
-    expect(controller.state()).toMatchObject({ bridgeState: 'ready', manifest, dropped: 3 });
+    expect(controller.state()).toMatchObject({
+      bridgeState: 'ready',
+      manifest,
+      dropped: 3,
+      load: { phase: 'ready', done: true },
+    });
     expect(states.at(-1)).toEqual({ bridgeState: 'ready', dropped: 3 });
 
     controller.pick(0.25, 0.75);
@@ -214,7 +204,7 @@ describe('game frame adapter', () => {
 
   it('tracks load progress and fails only after twenty seconds without progress', async () => {
     vi.useFakeTimers();
-    let frameOptions: LoadAwareFrameOptions | undefined;
+    let frameOptions: GameFrameOptions | undefined;
     const onLoadStalled = vi.fn();
     const states: unknown[] = [];
     const controller = mountGameFrame({
@@ -225,7 +215,7 @@ describe('game frame adapter', () => {
       mode: 'play',
       design: { rev: 0, doc: {} as DesignDoc },
       create: (options) => {
-        frameOptions = options as LoadAwareFrameOptions;
+        frameOptions = options;
         return {
           bridge: { dropped: 0 },
           on: vi.fn(() => vi.fn()),
@@ -239,13 +229,11 @@ describe('game frame adapter', () => {
       onState: (state) => states.push(state),
     });
 
-    frameOptions?.onReady?.(manifest, []);
-    expect(controller.state().load).toMatchObject({ done: true });
-
     frameOptions?.onLoad?.({
       t: 'load.progress',
       payload: { phase: 'ready', loaded: 25, total: 100, cachedBytes: 10 },
     });
+    frameOptions?.onReady?.(manifest, []);
     expect(controller.state().load).toEqual({ phase: 'ready', loaded: 25, total: 100, done: false });
 
     await vi.advanceTimersByTimeAsync(19_000);
@@ -264,7 +252,7 @@ describe('game frame adapter', () => {
 
   it('marks load.done terminal and cancels the stall timer', async () => {
     vi.useFakeTimers();
-    let frameOptions: LoadAwareFrameOptions | undefined;
+    let frameOptions: GameFrameOptions | undefined;
     const onLoadDone = vi.fn();
     const onLoadStalled = vi.fn();
     const controller = mountGameFrame({
@@ -275,7 +263,7 @@ describe('game frame adapter', () => {
       mode: 'play',
       design: { rev: 0, doc: {} as DesignDoc },
       create: (options) => {
-        frameOptions = options as LoadAwareFrameOptions;
+        frameOptions = options;
         return {
           bridge: { dropped: 0 },
           on: vi.fn(() => vi.fn()),
