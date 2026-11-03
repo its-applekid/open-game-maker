@@ -9,7 +9,7 @@ import { actorFromPrincipal, requireAuthorization } from '../accounts/families.j
 import { requirePrincipal } from '../app/principal.js';
 import { HttpError } from '../app/errors.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
-import { parseBody } from '../app/validate.js';
+import { parseBody, parseQuery } from '../app/validate.js';
 import { FsBaseDocSource } from '../design/base-doc.js';
 import { findGameForFamily, hasGameGrant } from '../games/games.js';
 import { countSavesAboveSchema } from '../saves/store.js';
@@ -28,6 +28,7 @@ import {
   updateBuild,
   type ReleaseRuntime,
 } from './service.js';
+import { publishPreview, rollbackPreview } from './preview.js';
 
 export const prefix = '/';
 export type { ReleaseRuntime } from './service.js';
@@ -105,9 +106,10 @@ function errorResponse(c: Parameters<Parameters<Hono<ApiBindings>['onError']>[0]
 async function releaseAction<T>(
   c: Parameters<Parameters<Hono<ApiBindings>['onError']>[0]>[1],
   action: () => Promise<T>,
+  status: 200 | 201 = 201,
 ): Promise<Response> {
   try {
-    return c.json(await action(), 201);
+    return c.json(await action(), status);
   } catch (error) {
     return errorResponse(c, error);
   }
@@ -144,6 +146,8 @@ const changelog = z
   }));
 const publishBody = z.object({ buildId: z.string().min(1), changelog: changelog.optional() }).strict();
 const rollbackBody = z.object({ releaseId: z.string().min(1) }).strict();
+const publishPreviewQuery = z.object({ buildId: z.string().min(1) }).strict();
+const rollbackPreviewQuery = z.object({ releaseId: z.string().min(1) }).strict();
 const changeNoteBody = z
   .object({ jobId: z.string().optional(), kind: note.shape.kind, text: note.shape.text })
   .strict();
@@ -175,6 +179,15 @@ const routes = new Hono<ApiBindings>()
     requirePublisher(c, c.req.param('gameId'));
     return c.json({ builds: listBuilds(c.get('deps'), c.req.param('gameId')) });
   })
+  .get('/api/v1/games/:gameId/publish-preview', async (c) => {
+    requirePublisher(c, c.req.param('gameId'));
+    const query = parseQuery(c, publishPreviewQuery);
+    return releaseAction(
+      c,
+      () => publishPreview(c.get('deps'), runtime(c), { gameId: c.req.param('gameId'), buildId: query.buildId }),
+      200,
+    );
+  })
   .post('/api/v1/games/:gameId/publish', async (c) => {
     const principal = requirePublisher(c, c.req.param('gameId'));
     const body = await parseBody(c, publishBody);
@@ -185,6 +198,15 @@ const routes = new Hono<ApiBindings>()
         actor: principal.userId,
         ...(body.changelog ? { changelog: body.changelog } : {}),
       }),
+    );
+  })
+  .get('/api/v1/games/:gameId/rollback-preview', async (c) => {
+    requirePublisher(c, c.req.param('gameId'));
+    const query = parseQuery(c, rollbackPreviewQuery);
+    return releaseAction(
+      c,
+      () => rollbackPreview(c.get('deps'), runtime(c), { gameId: c.req.param('gameId'), releaseId: query.releaseId }),
+      200,
     );
   })
   .post('/api/v1/games/:gameId/rollback', async (c) => {

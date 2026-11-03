@@ -1,22 +1,28 @@
-import type { BoundaryVerdict, Build, ChangeNote, Release } from '@ogm/contracts';
+import type { Build, ChangeNote, Release } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { fold, reduce, type VersionCounts } from '@ogm/design-log';
-import { and, asc, desc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
-import { createVersionCounts } from '../branches/version-counts.js';
 import type { BaseDocSource } from '../design/base-doc.js';
 import { readChain, stableId } from '../design/store.js';
 import type { CommitClient } from './commit-client.js';
+import { ReleaseError } from './errors.js';
+import {
+  affectedSaves,
+  type Changelog,
+  preparePublish,
+  releaseVersion,
+  requireGameBranch,
+  requireMainBuild,
+  requireRollbackTarget,
+} from './preview.js';
 import { withPublishLock } from './publish-lock.js';
 import type { RightsReason } from './rights.js';
 
-type Changelog = { summary: string; items: ChangeNote[] };
-type PreparedChangelog = { changelog: Changelog; noteIds: string[] };
 type BuildRow = typeof schema.builds.$inferSelect;
 type ReleaseRow = typeof schema.releases.$inferSelect;
 type SnapshotRow = typeof schema.overrideSnapshots.$inferSelect;
-type GameRow = typeof schema.games.$inferSelect;
 
 export type ReleaseRuntime = {
   source: BaseDocSource;
@@ -29,16 +35,7 @@ export type ReleaseRuntime = {
   now: () => Date;
 };
 
-export class ReleaseError extends Error {
-  constructor(
-    readonly code: string,
-    readonly status: 403 | 404 | 409 | 422 | 502,
-    readonly payload?: { verdict: BoundaryVerdict } | { rights: RightsReason[] },
-  ) {
-    super(code);
-    this.name = 'ReleaseError';
-  }
-}
+export { ReleaseError } from './errors.js';
 
 export function buildResponse(row: BuildRow): Build {
   return {
@@ -75,104 +72,8 @@ function releaseResponse(row: ReleaseRow): Release {
   };
 }
 
-function requireBuild(deps: AppDeps, gameId: string, buildId: string): BuildRow {
-  const build = deps.db
-    .select()
-    .from(schema.builds)
-    .where(and(eq(schema.builds.id, buildId), eq(schema.builds.gameId, gameId)))
-    .get();
-  if (!build) throw new ReleaseError('build_not_found', 404);
-  return build;
-}
-
-function requireGameBranch(deps: AppDeps, gameId: string, branchId: string) {
-  const branch = deps.db
-    .select()
-    .from(schema.branches)
-    .where(and(eq(schema.branches.id, branchId), eq(schema.branches.gameId, gameId)))
-    .get();
-  if (!branch) throw new ReleaseError('branch_not_found', 404);
-  return branch;
-}
-
-function requireMainBuild(deps: AppDeps, gameId: string, buildId: string): { build: BuildRow; game: GameRow } {
-  const build = requireBuild(deps, gameId, buildId);
-  if (build.status !== 'tested') throw new ReleaseError('not_tested', 409);
-  if (build.artifact !== 'present') throw new ReleaseError('artifact_missing', 409);
-  if (requireGameBranch(deps, gameId, build.branchId).name !== 'main') throw new ReleaseError('not_main', 409);
-  const game = deps.db.select().from(schema.games).where(eq(schema.games.id, gameId)).get();
-  if (!game) throw new ReleaseError('game_not_found', 404);
-  return { build, game };
-}
-
-async function releaseVersion(deps: AppDeps, runtime: ReleaseRuntime, gameId: string): Promise<string> {
-  const publishCount = await createVersionCounts(deps.sqlite).publishCount(gameId);
-  return runtime.deriveVersion({ publishCount: publishCount + 1, buildsSinceFork: 0, txSinceLatestBuild: 0 });
-}
-
-function lintText(text: string): string {
-  const unsafe = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b|(?:https?:\/\/|www\.)\S+|(^|\s)@[A-Z0-9_]+\b/i;
-  return unsafe.test(text) ? '(edited)' : text.trim();
-}
-
-function assembleChangelog(deps: AppDeps, gameId: string): PreparedChangelog {
-  const noteRows = deps.db
-    .select()
-    .from(schema.changeNotes)
-    .where(and(eq(schema.changeNotes.gameId, gameId), isNull(schema.changeNotes.releaseId)))
-    .orderBy(asc(schema.changeNotes.createdAt), asc(schema.changeNotes.id))
-    .all();
-  const notes = noteRows.map((note) => ({
-    ...(note.jobId ? { jobId: note.jobId } : {}),
-    ...(note.txId ? { txId: note.txId } : {}),
-    kind: note.kind,
-    text: lintText(note.text),
-  }));
-  let afterRev = 0;
-  const latestPublish = deps.db
-    .select()
-    .from(schema.releases)
-    .where(and(eq(schema.releases.gameId, gameId), eq(schema.releases.kind, 'publish')))
-    .orderBy(desc(schema.releases.seq))
-    .get();
-  if (latestPublish) {
-    afterRev =
-      deps.db
-        .select({ headRev: schema.overrideSnapshots.headRev })
-        .from(schema.overrideSnapshots)
-        .where(eq(schema.overrideSnapshots.id, latestPublish.snapshotId))
-        .get()?.headRev ?? 0;
-  }
-  const labels = deps.sqlite
-    .prepare<[string, number], { id: string; label: string }>(
-      `SELECT tx.id, tx.label FROM design_transactions tx
-       JOIN branches b ON b.id = tx.branch_id
-       WHERE tx.game_id = ? AND b.name = 'main' AND tx.kind = 'manual' AND tx.rev > ? ORDER BY tx.rev`,
-    )
-    .all(gameId, afterRev)
-    .map(({ id, label }) => ({ txId: id, kind: 'change' as const, text: lintText(label) }));
-  const seen = new Set<string>();
-  const items = [...notes, ...labels].filter(({ text }) => {
-    const key = text.trim().toLocaleLowerCase();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-  return {
-    changelog: { summary: items[0]?.text ?? 'Updates', items },
-    noteIds: noteRows.map(({ id }) => id),
-  };
-}
-
 function renderChangelog(changelog: Changelog): string {
   return `${changelog.summary}\n\n${changelog.items.map((item) => `- ${item.text}`).join('\n')}`.trim();
-}
-
-function sanitizeChangelog(changelog: Changelog): Changelog {
-  return {
-    summary: lintText(changelog.summary),
-    items: changelog.items.map((item) => ({ ...item, text: lintText(item.text) })),
-  };
 }
 
 export function registerBuild(
@@ -390,18 +291,7 @@ export async function publish(
     if (!current || current.publishedReleaseId !== expected) throw new ReleaseError('pointer_moved', 409);
 
     const snapshot = await prepareSnapshot(deps, runtime, build);
-    const prepared = input.changelog
-      ? {
-          changelog: sanitizeChangelog(input.changelog),
-          noteIds: deps.db
-            .select({ id: schema.changeNotes.id })
-            .from(schema.changeNotes)
-            .where(and(eq(schema.changeNotes.gameId, input.gameId), isNull(schema.changeNotes.releaseId)))
-            .all()
-            .map(({ id }) => id),
-        }
-      : assembleChangelog(deps, input.gameId);
-    const version = await releaseVersion(deps, runtime, input.gameId);
+    const { version, prepared } = await preparePublish(deps, runtime, input.gameId, input.changelog);
     const result = await runtime.commit.execute({
       kind: 'release',
       gameId: input.gameId,
@@ -431,21 +321,7 @@ export async function rollback(
   runtime: ReleaseRuntime,
   input: { gameId: string; releaseId: string; actor: string },
 ): Promise<Release & { affectedSaves: number | null }> {
-  const game = deps.db.select().from(schema.games).where(eq(schema.games.id, input.gameId)).get();
-  if (!game) throw new ReleaseError('game_not_found', 404);
-  const target = deps.db
-    .select()
-    .from(schema.releases)
-    .where(and(eq(schema.releases.id, input.releaseId), eq(schema.releases.gameId, input.gameId)))
-    .get();
-  if (!target) throw new ReleaseError('release_not_found', 404);
-  const snapshot = deps.db
-    .select()
-    .from(schema.overrideSnapshots)
-    .where(eq(schema.overrideSnapshots.id, target.snapshotId))
-    .get();
-  const build = deps.db.select().from(schema.builds).where(eq(schema.builds.id, target.buildId)).get();
-  if (!snapshot?.foldSha || !build) throw new ReleaseError('release_incomplete', 409);
+  const { game, target, snapshot, build } = requireRollbackTarget(deps, input.gameId, input.releaseId);
   /* The repo may have gone public since the restored release was checked. */
   const rights = await runtime.checkRights(build.artifactPath, game.repoVisibility);
   if (rights.length) throw new ReleaseError('rights', 422, { rights });
@@ -459,7 +335,7 @@ export async function rollback(
       .get();
     if (!current || current.publishedReleaseId !== expected) throw new ReleaseError('pointer_moved', 409);
 
-    const affectedSaves = await runtime.countSavesAboveSchema(input.gameId, build.saveSchemaVersion);
+    const saves = await affectedSaves(runtime, input.gameId, build);
     const version = await releaseVersion(deps, runtime, input.gameId);
     const changelog = { summary: `Restores ${target.version}`, items: [] };
     const result = await runtime.commit.execute({
@@ -483,7 +359,7 @@ export async function rollback(
     });
     return {
       ...releaseResponse(row),
-      affectedSaves,
+      affectedSaves: saves,
     };
   });
 }
