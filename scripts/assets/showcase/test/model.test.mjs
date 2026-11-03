@@ -200,6 +200,22 @@ test("rejects a duplicate design inside one region", () => {
   assert.ok(validateShowcase(project).some(({ code }) => code === "props.duplicated"));
 });
 
+test("rejects missing and malformed collision geometry", () => {
+  const project = validProject();
+  delete project.sequence.runner.collision;
+  project.regions["regions/corner-store.json"].sprites[0].collision = {
+    type: "solid",
+    footprint: [0, 16],
+    offset: [0, Number.POSITIVE_INFINITY],
+  };
+
+  const codes = validateShowcase(project).map(({ code }) => code);
+
+  assert.ok(codes.includes("collision.type"));
+  assert.ok(codes.includes("collision.footprint"));
+  assert.ok(codes.includes("collision.offset"));
+});
+
 test("publishes phone-ready H.264 video with GIF fallback", () => {
   const video = mp4Args({ width: 256, height: 256, fps: 24 });
   const gif = gifArgs({ fps: 12 });
