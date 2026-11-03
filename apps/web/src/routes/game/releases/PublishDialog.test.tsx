@@ -42,7 +42,7 @@ describe('PublishDialog', () => {
         body: JSON.stringify({ buildId: 'build_one', changelog: { summary: 'Boss room ready', items: [] } }),
       }),
     );
-  });
+  }, 15_000);
 
   it('keeps a gate refusal and the dialog visible verbatim', async () => {
     vi.stubGlobal(

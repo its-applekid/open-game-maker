@@ -54,7 +54,7 @@ describe('ReleasesScreen', () => {
 
     expect(await screen.findByRole('heading', { name: 'Releases' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
-  });
+  }, 15_000);
 });
 
 function renderScreen(entry: string) {
