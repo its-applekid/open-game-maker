@@ -6,7 +6,6 @@
   grid-template-rows: auto 1fr auto;
   gap: 24px;
 }
-
 .new-game-head {
   display: grid;
   grid-template-columns: var(--tap-secondary) 1fr var(--tap-secondary);
@@ -274,7 +273,7 @@
 }
 .new-style-stop img {
   width: 100%;
-  aspect-ratio: 1;
+  aspect-ratio: 16 / 9;
   object-fit: cover;
   border-radius: 9px;
 }

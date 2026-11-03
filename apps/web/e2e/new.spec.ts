@@ -121,6 +121,7 @@ test('style detail fits its media and navigation into phone and desktop viewport
   ]) {
     await test.step(`${viewport.width}x${viewport.height}`, async () => {
       await page.setViewportSize(viewport);
+      await page.evaluate(() => window.scrollTo(0, 0));
       const controls = page.locator(
         'button[aria-label="Previous scene"], button[aria-label="Next scene"], button[aria-label="Previous style"], button[aria-label="Next style"]',
       );
@@ -136,6 +137,12 @@ test('style detail fits its media and navigation into phone and desktop viewport
           return {
             width: box.width,
             height: box.height,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            left: box.left,
+            rendered: box.width > 0 && box.height > 0,
+            horizontallyContained: box.left >= 0 && box.right <= window.innerWidth,
             inViewport:
               box.width > 0 &&
               box.height > 0 &&
@@ -151,11 +158,22 @@ test('style detail fits its media and navigation into phone and desktop viewport
         stopRow.evaluateAll(boxesFor),
       ]);
       const [diorama, sheet] = trackBoxes;
+      const measured = [...controlBoxes, ...trackBoxes, ...stopRowBoxes];
 
       expect(controlBoxes).toHaveLength(4);
       expect(trackBoxes).toHaveLength(2);
       expect(stopRowBoxes).toHaveLength(1);
-      expect([...controlBoxes, ...trackBoxes, ...stopRowBoxes].every(({ inViewport }) => inViewport)).toBe(true);
+      expect(measured.every(({ rendered, horizontallyContained }) => rendered && horizontallyContained)).toBe(true);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth),
+      ).toBe(true);
+      if (viewport.height >= 720) {
+        expect(measured.every(({ inViewport }) => inViewport)).toBe(true);
+      } else {
+        const scrollHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+        expect(scrollHeight).toBeGreaterThan(viewport.height);
+        expect(measured.every(({ top, bottom }) => top >= 0 && bottom <= scrollHeight)).toBe(true);
+      }
       expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(diorama!.width - sheet!.width)).toBeLessThanOrEqual(1);
