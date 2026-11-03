@@ -34,21 +34,25 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
    all packs that must appear.
 2. Recreate the matching store thumbnail as a still before adding motion: preserve its ground, walls, prop choices,
    density, layering, and camera framing as closely as the installed pack allows. Put the reference beside the render
-   and fix the largest mismatch before continuing. Only deviate when the pack does not contain the pictured asset.
+   and fix the largest mismatch before continuing. When an accepted earlier showcase exists, normalize that authored
+   region instead of selecting a sparse replacement cast. Only deviate for a named correction or when the pack does not
+   contain the pictured asset.
 3. Plan compact adjacent regions, purposeful density, protected focal zones, and one story beat per region. Put every
    stop centre on one closed route, including the physical final-to-first seam. A beat names stable
    actor/target ids, a real card action, the target's one-shot reaction, and `[start, contact, end]` timing. An attack
    without a target and reaction is not a story.
 4. Make the world continuous. Use 45-degree diamond seams for isometric sets and grid seams for top-down sets. Ground
    must cover every edge with coherent roads, paths, borders, and transitions; do not leave empty canvas around a
-   diorama or place incompatible ground patterns edge-to-edge.
+   diorama or place incompatible ground patterns edge-to-edge. Use an opaque terrain-matched underlay plus ordered
+   ground cells when a tile has transparent margins.
 5. Choose a hero with a real `walk` action and a natural source-derived cadence. Declare one slower projected-pixel
    ground speed for the whole closed route. The square camera follows that hero; stop times derive from route distance.
    Measure every stop interval and keep all speeds within 2%. Do not substitute an idle bob or run animation.
 6. Put exactly 24 additional, non-scene assets on each stop's sheet. Every animated sheet sprite rotates through the
    set's full direction order on the same tempo. A design may appear in the world or its paired sheet, never both.
 7. Write `sequence.json`, `regions/*.json`, and `sheets/*.json` using [sequence.md](references/sequence.md). Every placed
-   sprite needs a unique stable id and collision classification. Reserve each actor or solid prop's complete footprint
+   sprite needs a unique stable id and collision classification. Source designs may back several intentional authored
+   instances; reject duplicate ids and colocated copies, not legitimate reuse. Reserve each sprite's complete footprint
    while placing it; never place by anchor point alone. Keep
    `tile_sprites`, `sheet_sprites`, story beats, stop start times, and `required_packs` explicit so the checker can audit
    the plan. Keep human-readable names as manifest/UI metadata; renderer inputs never contain label or caption fields.
@@ -61,9 +65,10 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
      --catalog <cards.index.json>
    ```
 
-   Keep the frame-by-frame report with the region evidence. Every frame must report zero footprint overlaps and zero
-   actor/solid-prop pixel intersections unless the actor is depth-sorted behind that prop. Fix the layout, footprint, or
-   path when either count is non-zero; never waive an intersection after rendering.
+   Keep the frame-by-frame report with the region evidence. Its route preflight must report zero corridor intersections,
+   and every frame must report zero footprint overlaps, zero disallowed actor/solid-prop intersections, and zero
+   later-drawn runner occlusions. Fix the layout, footprint, painter order, or path when a count is non-zero; never waive
+   an intersection after rendering.
 
 9. Render to a scratch output directory:
 
@@ -81,8 +86,9 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
    publishing `manifest.json`.
 10. QA the one-frame-per-second full-loop timeline plus start, contact, reaction, result, and seam stills from every
    stop using `gm-verify`. Inspect the final-to-first seam too. Look for cuts, empty edges, clipped feet, footprint-order mistakes,
-   hidden focal actors, floating wall props, misaligned composite parts, repeated props, unreadable action/reaction
-   pairs, synchronized particle patterns, and an unnatural walking cadence. Fix the worst visual defect and rerender
+   hidden focal actors, floating wall props, misaligned composite parts, repeated placements, unreadable action/reaction
+   pairs, upward rain or snow, synchronized particle patterns, and an unnatural walking cadence. Inspect every building
+   in a close-up: walls meet, one roof covers the shell, and doors sit in walls. Fix the worst visual defect and rerender
    before judging the next one.
 11. Publish the baked files and manifest to the style-picker detail surface. The client loads each shared track once,
     uses `autoplay loop muted playsinline`, and seeks both tracks to a stop's manifest `start_time`; it never swaps
@@ -92,7 +98,8 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
 ## Completion gate
 
 The checker and post-render media probe pass; the route closes physically; every interval is within 2% of the declared
-speed; every frame has zero footprint overlaps and zero disallowed actor/solid pixel intersections; every installed pack
+speed; the route has zero corridor intersections; every frame has zero footprint overlaps, zero disallowed actor/solid
+pixel intersections, and zero runner occlusions; rain and snow move down-screen with deterministic wind drift; every installed pack
 is represented; every stop and both shared tracks have been visually inspected; the one-frame-per-second timeline shows
 one hero in one filled world with no cut or burned text; each sheet interval shows 24 distinct sprites; protected focal
 elements and weather remain readable; paired world/sheet casts do not overlap; and the published surface seeks the two

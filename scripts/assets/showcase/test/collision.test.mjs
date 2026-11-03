@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "vitest";
 
-import { inspectCollisionFrame } from "../collision.mjs";
+import { inspectCollisionFrame, inspectRouteCorridor } from "../collision.mjs";
 
 function opaqueFrame(width, height) {
   const data = new Uint8Array(width * height * 4);
@@ -50,4 +50,39 @@ test("permits pixel occlusion when the actor is depth-sorted behind the solid", 
 
   assert.deepEqual(report.footprintOverlaps, []);
   assert.deepEqual(report.actorSolidPixelIntersections, []);
+});
+
+test("reports any later-drawn sprite that covers the continuous runner", () => {
+  const report = inspectCollisionFrame([
+    entity({ id: "runner", type: "actor", at: [10, 10], depth: 9, left: 6, top: 2 }),
+    entity({ id: "tree-canopy", type: "none", at: [18, 10], depth: 10, left: 10, top: 2 }),
+  ]);
+
+  assert.deepEqual(report.runnerOcclusions, [{ ids: ["runner", "tree-canopy"], pixels: 32 }]);
+});
+
+test("route corridor allows a boundary touch but rejects a closing-segment crossing", () => {
+  const points = [[0, 0], [20, 0], [20, 20], [0, 0]];
+  const runnerFootprint = [4, 4];
+  const touching = inspectRouteCorridor({
+    points,
+    runnerFootprint,
+    placements: [{
+      id: "touching-fence",
+      at: [15, 6],
+      collision: { type: "solid", footprint: [4, 4] },
+    }],
+  });
+  assert.deepEqual(touching, []);
+
+  const crossing = inspectRouteCorridor({
+    points,
+    runnerFootprint,
+    placements: [{
+      id: "closing-tree",
+      at: [10, 10],
+      collision: { type: "none", footprint: [4, 4] },
+    }],
+  });
+  assert.deepEqual(crossing, [{ entity: "closing-tree", segment: 2 }]);
 });

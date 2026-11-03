@@ -22,11 +22,20 @@ export async function verifyProjectAssets(project, library) {
       dir: direction,
     });
   }
+  if (project.sequence.world?.ground) {
+    await verify("sequence.world.ground", project.sequence.world.ground);
+    for (const [index, layer] of (project.sequence.world.ground.layers ?? []).entries()) {
+      await verify(`sequence.world.ground.layers[${index}]`, layer);
+    }
+  }
   for (const stop of project.sequence.stops ?? []) {
     const region = project.regions[stop.region];
     const sheet = project.sheets[stop.sheet];
     if (!region || !sheet) continue;
     await verify(`${stop.region}.ground`, region.ground);
+    for (const [index, layer] of (region.ground.layers ?? []).entries()) {
+      await verify(`${stop.region}.ground.layers[${index}]`, layer);
+    }
     for (const [index, sprite] of (region.sprites ?? []).entries()) {
       await verify(`${stop.region}.sprites[${index}]`, sprite);
     }
@@ -85,8 +94,10 @@ export async function checkShowcase({ projectRoot, assetsRoot, catalogFile }) {
   let collisionReport = {
     frames: [],
     issues: [],
+    corridorIntersections: [],
     footprintOverlapFrames: 0,
     actorSolidPixelIntersectionFrames: 0,
+    runnerOcclusionFrames: 0,
   };
   if (issues.length === 0) {
     collisionReport = await auditShowcaseCollisions({ project, library });

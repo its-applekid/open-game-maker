@@ -45,10 +45,12 @@ Keep the loop at or below 30 seconds.
 
 - Start from the closest store thumbnail or official pack screenshot. Match its setting, ground and walls, prop choices,
   density, layering, and camera framing in a still before adding the story beat.
+- If an earlier region already passed visual review, preserve its complete authored composition and count every retained
+  instance. Do not replace accepted terrain or a dense scene with a hand-picked sample.
 - Give every prop a purpose in the region's gameplay, structure, or silhouette. Meet an explicit scene-element target
   with buildings, boundaries, work areas, furniture, or other thematic clusters; repeated loose filler does not count.
-- Do not repeat one design inside a region. Crowd actors may use visibly different variants, never copies of the same
-  sprite.
+- Give every authored instance a unique stable id and placement. Reusing a source design for distinct intentional trees,
+  actors, or structural parts is valid; an accidental colocated copy is not.
 - Build one coherent ground language per region. Roads, paths, plots, curbs, and borders need compatible transition
   tiles instead of arbitrary patterns touching edge-to-edge.
 - Classify every region sprite as `actor`, `solid`, or `none`. Reserve the full declared footprint for actors and solid
@@ -60,6 +62,8 @@ Keep the loop at or below 30 seconds.
   output frame, and an actor may share visible pixels with a solid only while depth-sorted behind it.
 - Anchor multi-part props to one origin and facing. Check the assembled result: an effect fills its frame or arch, and
   no unrelated prop blocks the interactive opening.
+- Prefer a verified whole-building sprite. Otherwise assemble one closed shell whose walls meet at corners, whose one
+  roof covers the shell, and whose doors and windows are mounted in those walls; inspect a close-up before publication.
 - Make interiors read as connected cutaway rooms: continuous walls, doors and windows in those walls, furniture against
   plausible surfaces, and signs, banners, paintings, windows, or torches mounted rather than floating.
 - Use source-authentic walk timing. Parameterize the whole route by projected distance at one speed; do not give stops
@@ -70,7 +74,8 @@ Keep the loop at or below 30 seconds.
   plays a visible hit, stagger, knockback, or death response once and settles. “Raider attacks” is incomplete; “raider
   strikes the gate, gate recoils once” is judgeable.
 - Seed particle emitters so rerenders are deterministic, but vary position, speed, phase, and lifetime across the full
-  viewport. Inspect a timeline for synchronized rows, identical phases, sparse corners, and an obvious loop reset.
+  viewport. Rain and snow always move down-screen between wrap points; wind changes horizontal drift, never vertical
+  direction. Inspect a timeline for synchronized rows, identical phases, sparse corners, and an obvious loop reset.
 - Keep region and sheet casts disjoint, including alternate-resolution copies of the same design.
 - Put exactly 24 distinct source designs in every stop's sheet. Rotate every directional sprite through all directions
   at one shared beat and alternate actions only on that beat.

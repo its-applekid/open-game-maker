@@ -331,6 +331,40 @@ test("accepts a closed continuous route with one measured speed and 24-sprite sh
   });
 });
 
+test("preserves intentional continuous-world source reuse while rejecting colocated copies", () => {
+  const project = validContinuousProject();
+  project.regions["regions/east.json"].sprites[0].ref = "card:test-pack/west-prop";
+  project.sequence.stops[1].tile_sprites = [
+    "card:test-pack/east-ground",
+    "card:test-pack/west-prop",
+  ];
+
+  assert.deepEqual(validateShowcase(project), [], "distinct authored instances may reuse one source design");
+
+  project.regions["regions/east.json"].sprites.push({
+    ...project.regions["regions/east.json"].sprites[0],
+    id: "east-prop-copy",
+  });
+  assert.ok(validateShowcase(project).some(({ code }) => code === "props.duplicated_placement"));
+});
+
+test("accepts ordered ground cells and validates their geometry", () => {
+  const project = validContinuousProject();
+  const ground = project.regions["regions/west.json"].ground;
+  ground.underlay = "#477636";
+  ground.grid = { cell: [16, 8], origin: [0, 0] };
+  ground.layers = [{
+    ref: "card:test-pack/west-road",
+    cells: [[0, 0], [1, 0]],
+  }];
+  project.sequence.stops[0].tile_sprites.push("card:test-pack/west-road");
+
+  assert.deepEqual(validateShowcase(project), []);
+
+  ground.layers[0].cells.push([Number.NaN, 1]);
+  assert.ok(validateShowcase(project).some(({ code }) => code === "ground.cells"));
+});
+
 test("rejects continuous routes that cut, drift, duplicate the world, or burn text", () => {
   const project = validContinuousProject();
   project.sequence.runner.path.points[2] = [4, 0];
@@ -358,7 +392,7 @@ test("reserves runner identities across the continuous world", () => {
 
 test("rejects weather that the continuous compositor cannot draw", () => {
   const project = validContinuousProject();
-  project.sequence.stops[0].weather = { kind: "snow", count: 12 };
+  project.sequence.stops[0].weather = { kind: "hail", count: 12 };
 
   assert.ok(validateShowcase(project).some(({ code }) => code === "weather.invalid"));
 });

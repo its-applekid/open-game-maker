@@ -88,7 +88,13 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
     "ref": "card:pack-b/road",
     "fill": "area",
     "size": [320, 512],
-    "scale": 2
+    "scale": 2,
+    "underlay": "#596f42",
+    "grid": { "cell": [64, 32], "origin": [0, 0] },
+    "layers": [{
+      "ref": "card:pack-b/path",
+      "cells": [[-1, 0], [0, 0], [1, 0]]
+    }]
   },
   "sprites": [
     {
@@ -114,7 +120,9 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
 
 In v2 region ground uses `fill: "area"`; `size` is the region's world-space patch around its route point. The full-cover
 `world.ground` remains underneath every patch so camera corners never expose empty canvas. Region coordinates are local
-to that stop's route point. Sprites need globally unique stable `id` values and are anchored at bottom-center. Treat that anchor as the visible footprint: ordinary
+to that stop's route point. `underlay` is an opaque terrain-matched safety color for transparent tile margins. Optional
+ordered `layers` place catalog refs at `grid` cells; include every layer ref in `tile_sprites`. Sprites need globally
+unique stable `id` values and are anchored at bottom-center. Treat that anchor as the visible footprint: ordinary
 sprites depth-sort by projected footprint position, while `z` is only a narrow correction for a known structural layer,
 not a way to force every focal actor above the world.
 
@@ -142,6 +150,11 @@ every output frame before the renderer starts encoding. Touching edges are valid
 The checker also compares rendered alpha pixels for every actor/solid pair. Pixel overlap is allowed only when the actor
 has lower depth and is therefore drawn behind the solid. A foreground actor intersecting a solid fails even when their
 declared footprints do not overlap, which catches the actor-through-counter case.
+
+For v2, the checker expands every route segment by the runner footprint and rejects any placed footprint that crosses
+that open corridor, including the closing segment and moving sprites' swept bounds. It also rejects any sprite drawn
+after and visibly over the runner, regardless of collision class. The report's `corridor-intersections` and
+`runner-occlusion-frames` counts must both be zero before encoding.
 
 ## Sheet file
 

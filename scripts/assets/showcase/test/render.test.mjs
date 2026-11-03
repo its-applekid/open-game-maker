@@ -35,6 +35,13 @@ async function buildFixture(root) {
   await sharp({
     create: { width: 8, height: 8, channels: 4, background: "#60964f" },
   }).png().toFile(path.join(extracted, "grass.png"));
+  await sharp(Buffer.from(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8">' +
+    '<polygon points="4,0 8,4 4,8 0,4" fill="#60964f"/></svg>',
+  )).png().toFile(path.join(extracted, "diamond.png"));
+  await sharp({
+    create: { width: 8, height: 8, channels: 4, background: "#9b6b43" },
+  }).png().toFile(path.join(extracted, "road.png"));
   await sharp({
     create: { width: 8, height: 16, channels: 4, background: "#bd6c3d" },
   }).png().toFile(path.join(extracted, "door.png"));
@@ -61,6 +68,8 @@ async function buildFixture(root) {
   await json(path.join(root, "catalog.json"), {
     cards: [
       card("grass", "grass.png", { subkind: "terrain" }),
+      card("diamond", "diamond.png", { subkind: "terrain" }),
+      card("road", "road.png", { subkind: "terrain" }),
       card("door", "door.png", { subkind: "prop" }),
       card("hero", "hero.png", { subkind: "character", sprite: { animations: [animation("hero.png")] } }),
       card("shopper", "shopper.png", { subkind: "character", sprite: { animations: [animation("shopper.png")] } }),
@@ -299,7 +308,7 @@ test("preserves the published manifest when asset preflight fails", async () => 
   }
 });
 
-test("renders full-bleed isometric diamond ground (requires ffmpeg and ffprobe)", {
+test("renders layered isometric ground over an opaque underlay (requires ffmpeg and ffprobe)", {
   skip: ffmpegAvailable ? false : "ffmpeg and ffprobe are unavailable",
 }, async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
@@ -309,7 +318,27 @@ test("renders full-bleed isometric diamond ground (requires ffmpeg and ffprobe)"
     const sequence = JSON.parse(await readFile(sequenceFile, "utf8"));
     sequence.layout.projection = "isometric";
     sequence.layout.seam = "diamond";
+    sequence.stops[0].tile_sprites = [
+      "card:test-pack/diamond",
+      "card:test-pack/road",
+      "card:test-pack/door",
+    ];
     await json(sequenceFile, sequence);
+    await json(path.join(fixture.project, "regions/store.json"), {
+      ground: {
+        ref: "card:test-pack/diamond",
+        fill: "cover",
+        underlay: "#31552f",
+        grid: { cell: [8, 8], origin: [32, 32] },
+        layers: [{ ref: "card:test-pack/road", cells: [[0, 0]] }],
+      },
+      sprites: [{
+        id: "door",
+        ref: "card:test-pack/door",
+        at: [48, 8],
+        collision: { type: "solid", footprint: [8, 4] },
+      }],
+    });
     const output = path.join(root, "output");
 
     const manifest = await renderShowcase({
@@ -321,10 +350,13 @@ test("renders full-bleed isometric diamond ground (requires ffmpeg and ffprobe)"
     const poster = await sharp(path.join(output, manifest.stops[0].region.poster))
       .raw()
       .toBuffer();
-    const expectedGround = Buffer.from([0x60, 0x96, 0x4f, 0xff]);
+    const emptyBackground = "28332aff";
     for (const offset of [0, (64 - 1) * 4, (64 * 63) * 4, (64 * 64 - 1) * 4]) {
-      assert.deepEqual(poster.subarray(offset, offset + 4), expectedGround);
+      const pixel = poster.subarray(offset, offset + 4);
+      assert.notEqual(pixel.toString("hex"), emptyBackground);
+      assert.equal(pixel[3], 255);
     }
+    assert.equal(poster.includes(Buffer.from([0x9b, 0x6b, 0x43, 0xff])), true);
   } finally {
     await rm(root, { recursive: true, force: true });
   }

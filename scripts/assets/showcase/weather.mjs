@@ -5,7 +5,7 @@ const palettes = {
   embers: [[255, 94, 28], [255, 185, 58], [225, 52, 22]],
 };
 
-export const supportedWeatherKinds = new Set(["rain", ...Object.keys(palettes)]);
+export const supportedWeatherKinds = new Set(["rain", "snow", ...Object.keys(palettes)]);
 
 function seedNumber(value) {
   let seed = 2166136261;
@@ -35,21 +35,49 @@ function blend(frame, x, y, rgb, alpha) {
   }
 }
 
-function drawRain(frame, weather, tau, loopSeconds, opacity, next) {
-  const cycles = [8, 10, 12, 16];
-  const span = frame.height + 80;
+export function weatherTrajectories(frame, weather, tau, loopSeconds = 24) {
+  if (!["rain", "snow"].includes(weather?.kind) || !(weather.count > 0)) return [];
+  const loopTime = ((tau % loopSeconds) + loopSeconds) % loopSeconds;
+  const next = random(seedNumber(`${weather.kind}:${weather.seed ?? "showcase"}`));
+  const cycles = weather.kind === "snow" ? [2, 3, 4, 6] : [8, 10, 12, 16];
+  const margin = weather.kind === "snow" ? 24 : 80;
+  const span = frame.height + margin;
+  const wind = weather.wind ?? (weather.kind === "snow" ? 18 : 32);
+  const result = [];
   for (let index = 0; index < weather.count; index += 1) {
     const period = loopSeconds / cycles[Math.floor(next() * cycles.length)];
     const phase = next() * period;
     const baseX = next() * (frame.width + 120) - 60;
-    const y = (((tau + phase) % period) / period) * span - 40;
-    const length = 8 + Math.floor(next() * 16);
-    const width = 1 + Math.floor(next() * 3);
-    const x = baseX + (y / span) * 32;
-    const alpha = Math.round((70 + Math.floor(next() * 60)) * opacity);
+    const progress = ((loopTime + phase) % period) / period;
+    const swayPhase = next() * Math.PI * 2;
+    const y = progress * span - margin / 2;
+    const x = baseX + progress * wind +
+      (weather.kind === "snow" ? Math.sin(progress * Math.PI * 2 + swayPhase) * 5 : 0);
+    result.push({ id: index, x, y, progress, period, sizeSeed: next() });
+  }
+  return result;
+}
+
+function drawPrecipitation(frame, weather, tau, loopSeconds, opacity) {
+  for (const particle of weatherTrajectories(frame, weather, tau, loopSeconds)) {
+    if (weather.kind === "snow") {
+      const alpha = Math.round((120 + Math.floor(particle.sizeSeed * 80)) * opacity);
+      const radius = particle.sizeSeed > 0.65 ? 2 : 1;
+      for (let dy = -radius; dy <= radius; dy += 1) {
+        for (let dx = -radius; dx <= radius; dx += 1) {
+          if (Math.abs(dx) + Math.abs(dy) <= radius + 1) {
+            blend(frame, particle.x + dx, particle.y + dy, [232, 242, 245], alpha);
+          }
+        }
+      }
+      continue;
+    }
+    const length = 8 + Math.floor(particle.sizeSeed * 16);
+    const width = 1 + Math.floor(particle.sizeSeed * 3);
+    const alpha = Math.round((70 + Math.floor(particle.sizeSeed * 60)) * opacity);
     for (let step = 0; step < length; step += 1) {
       for (let dx = 0; dx < width; dx += 1) {
-        blend(frame, x + dx - step * 0.22, y + step, [184, 220, 226], alpha);
+        blend(frame, particle.x + dx - step * 0.22, particle.y + step, [184, 220, 226], alpha);
       }
     }
   }
@@ -84,8 +112,8 @@ export function drawWeather(frame, weather, tau, loopSeconds = 24, opacity = 1) 
   if (!weather?.kind || !(weather.count > 0) || opacity <= 0) return;
   const loopTime = ((tau % loopSeconds) + loopSeconds) % loopSeconds;
   const next = random(seedNumber(`${weather.kind}:${weather.seed ?? "showcase"}`));
-  if (weather.kind === "rain") {
-    drawRain(frame, weather, loopTime, loopSeconds, opacity, next);
+  if (weather.kind === "rain" || weather.kind === "snow") {
+    drawPrecipitation(frame, weather, loopTime, loopSeconds, opacity);
     return;
   }
   if (palettes[weather.kind]) drawMotes(frame, weather, loopTime, loopSeconds, opacity, next);

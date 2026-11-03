@@ -3,6 +3,8 @@ import {
   continuousTimeline,
   isContinuousShowcase,
 } from "./continuous.mjs";
+import { groundReferences, validateGroundLayers } from "./ground.mjs";
+import { designKey, globalPlacementKey } from "./identity.mjs";
 import { supportedWeatherKinds } from "./weather.mjs";
 
 const SHOWCASE_SCHEMA = "ogm.set-showcase/1";
@@ -30,19 +32,8 @@ export function packFromRef(ref) {
   return match?.[1];
 }
 
-export function designKey(ref) {
-  return String(ref ?? "")
-    .split(/[/|]/u)
-    .at(-1)
-    .toLowerCase()
-    .replace(/\.[a-z0-9]+$/u, "")
-    .replace(/[^a-z0-9_-]/gu, "")
-    .replace(/^\d+/u, "")
-    .replace(/(?:[-_/](?:idle|walk|run|attack|down|left|right|up|n|ne|e|se|s|sw|w|nw|\d+))+$/u, "");
-}
-
 function refsFromRegion(region) {
-  return [region?.ground?.ref, ...(region?.sprites ?? []).map(({ ref }) => ref)].filter(Boolean);
+  return [...groundReferences(region?.ground), ...(region?.sprites ?? []).map(({ ref }) => ref)].filter(Boolean);
 }
 
 function refsFromSheet(sheet) {
@@ -362,6 +353,7 @@ function validateContinuousStop(stop, index, project, issues, state, seconds) {
   if (region.ground?.fill !== "area" || !finitePair(region.ground?.size) || region.ground.size.some((value) => value <= 0)) {
     issues.push(issue("region.area", `${stop.region}.ground`, "continuous regions need a positive area size and fill=area"));
   }
+  issues.push(...validateGroundLayers(region.ground, `${stop.region}.ground`));
   if (hasRenderedText(region) || hasRenderedText(sheet)) {
     issues.push(issue("media.text_overlay", path, "rendered region and sheet data cannot contain text overlay fields"));
   }
@@ -388,11 +380,15 @@ function validateContinuousStop(stop, index, project, issues, state, seconds) {
     } else {
       state.entityIds.add(sprite.id);
     }
-    const key = designKey(sprite.ref);
-    if (state.propUses.has(key)) {
-      issues.push(issue("props.repeated", path, `${sprite.ref} repeats the world design used by ${state.propUses.get(key)}`));
+    const key = globalPlacementKey(sprite, project.sequence.runner.path.points[index]);
+    if (state.placementUses.has(key)) {
+      issues.push(issue(
+        "props.duplicated_placement",
+        `${stop.region}.sprites[${spriteIndex}]`,
+        `${sprite.id} duplicates the authored placement ${state.placementUses.get(key)}`,
+      ));
     } else {
-      state.propUses.set(key, stop.id);
+      state.placementUses.set(key, sprite.id);
     }
   }
 
@@ -448,6 +444,7 @@ export function validateShowcase(project) {
     if (sequence.world?.ground?.fill !== "cover" || !sequence.world.ground.ref) {
       issues.push(issue("world.ground", "sequence.world.ground", "continuous worlds need a full-cover base ground"));
     }
+    issues.push(...validateGroundLayers(sequence.world?.ground, "sequence.world.ground"));
     if (hasRenderedText(sequence.world)) {
       issues.push(issue("media.text_overlay", "sequence.world", "rendered world data cannot contain text overlay fields"));
     }
@@ -457,7 +454,7 @@ export function validateShowcase(project) {
         "runner",
         String(sequence.runner?.ref ?? "").split("/").at(-1),
       ]),
-      propUses,
+      placementUses: new Map(),
     };
     for (const [index, stop] of (sequence.stops ?? []).entries()) {
       validateContinuousStop(stop, index, project, issues, state, timeline.intervals[index]?.seconds);
