@@ -219,15 +219,23 @@ test('asking for a change with no build running starts an edit job and streams i
   };
   const streamed: string[] = [];
   let jobResponses = 0;
+  let firstJobResponseAt: number | undefined;
+  let admittedAt: number | undefined;
+  let postAdmissionJobRequestAt: number | undefined;
   // Registered after installGameApi, so these win over its catch-all.
   await page.route('**/api/v1/games', (route) => json(route, { games: [{ id: 'game' }] }));
   await page.route('**/api/v1/jobs?gameId=*', async (route) => {
+    if (admittedAt !== undefined && postAdmissionJobRequestAt === undefined) {
+      postAdmissionJobRequestAt = Date.now();
+    }
     await json(route, { jobs: created.length > 0 ? [editJob] : [] });
+    firstJobResponseAt ??= Date.now();
     jobResponses += 1;
   });
   await page.route('**/api/v1/jobs', async (route) => {
     if (route.request().method() !== 'POST') return route.fallback();
     created.push(route.request().postDataJSON() as Record<string, unknown>);
+    admittedAt = Date.now();
     return json(
       route,
       {
@@ -253,13 +261,16 @@ test('asking for a change with no build running starts an edit job and streams i
   await expect(page.getByRole('heading', { name: 'Goblin Cellar' })).toBeVisible();
 
   await page.getByRole('textbox', { name: 'Message the builder' }).fill('Make the door glow');
-  await page.getByRole('button', { name: 'Send' }).click();
+  await page.getByRole('button', { name: 'Send' }).click({ force: true });
 
   await expect.poll(() => created.length).toBe(1);
   expect(created[0]).toMatchObject({ gameId: 'game', branchId: 'main', kind: 'feature', start: 'now' });
   await expect.poll(() => streamed).toContain(`/api/v1/jobs/${editJob.id}/chat`);
   await expect(page.getByRole('heading', { name: 'Make the door glow' })).toBeVisible();
-  await expect.poll(() => jobResponses, { timeout: 2_000 }).toBeGreaterThan(1);
+  await expect.poll(() => postAdmissionJobRequestAt, { timeout: 2_000 }).not.toBeUndefined();
+  expect(postAdmissionJobRequestAt! - admittedAt!).toBeLessThan(2_000);
+  // A scheduled poll cannot start until five seconds after the initial response.
+  expect(postAdmissionJobRequestAt! - firstJobResponseAt!).toBeLessThan(4_000);
   await expect(page.locator('.play-bar .build-state')).toHaveText('Waiting for a free slot', { timeout: 2_000 });
 });
 
