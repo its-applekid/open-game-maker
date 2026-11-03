@@ -1,13 +1,13 @@
 import sharp from 'sharp';
 import { describe, expect, it } from 'vitest';
 
-import { compareScreenshots } from './visual-compare';
+import { compareScreenshots, prototypeThresholds } from './visual-compare';
 
 const viewports = [
   { width: 390, height: 844 },
   { width: 1280, height: 800 },
 ];
-const states = ['title', 'games', 'creation-option', 'creation-talk', 'editor'];
+const states = ['title', 'games', 'creation-option', 'creation-talk', 'editor'] as const;
 
 describe('visual comparison', () => {
   for (const state of states) {
@@ -17,7 +17,7 @@ describe('visual comparison', () => {
         const shifted = await image(viewport.width, viewport.height, true);
 
         expect((await compareScreenshots(reference, reference)).score).toBe(0);
-        expect((await compareScreenshots(reference, shifted)).score).toBeGreaterThan(0.01);
+        expect((await compareScreenshots(reference, shifted)).score).toBeGreaterThan(prototypeThresholds[state]);
       });
     }
   }

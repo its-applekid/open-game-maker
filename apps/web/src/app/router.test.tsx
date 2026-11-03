@@ -7,6 +7,14 @@ import { collectScreenRoutes, screenRouteObjects } from './router';
 import type { ScreenRoute } from './screen';
 
 const captureError = vi.hoisted(() => vi.fn());
+const soundApi = vi.hoisted(() => ({
+  getVolume: vi.fn(() => 1),
+  onChange: vi.fn(() => () => undefined),
+  setMuted: vi.fn(),
+  setVolume: vi.fn(),
+  status: vi.fn(() => 'off' as const),
+  unlock: vi.fn(),
+}));
 
 vi.mock('../features/bug-report', () => ({
   BugButton: () => null,
@@ -21,6 +29,8 @@ vi.mock('../lib/notify', () => ({
   Toasts: () => null,
   useNotificationFeed: () => undefined,
 }));
+
+vi.mock('../lib/sound', () => soundApi);
 
 const routeTable = [
   '/',
@@ -47,6 +57,9 @@ describe('screen route collection', () => {
   afterEach(() => {
     cleanup();
     captureError.mockReset();
+    soundApi.setMuted.mockReset();
+    soundApi.setVolume.mockReset();
+    soundApi.unlock.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -148,6 +161,7 @@ describe('screen route collection', () => {
 
     expect(sound).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('slider', { name: 'Volume' })).toBeVisible();
+    expect(soundApi.setMuted).toHaveBeenCalledWith(false);
   });
 
   it('retries a crashed screen', async () => {

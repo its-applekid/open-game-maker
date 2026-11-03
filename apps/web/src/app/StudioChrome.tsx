@@ -105,9 +105,9 @@ export function SoundControl() {
         <button
           type="button"
           className="sound-mute"
-          aria-label={sound === 'off' ? 'Unmute' : 'Mute'}
+          aria-label={sound === 'on' ? 'Mute' : 'Unmute'}
           tabIndex={open ? 0 : -1}
-          onClick={() => setMuted(sound !== 'off')}
+          onClick={() => setMuted(sound === 'on')}
         >
           <Icon name={sound === 'on' ? 'soundOn' : 'soundOff'} />
         </button>
@@ -131,6 +131,7 @@ export function SoundControl() {
         aria-expanded={open}
         onClick={() => {
           if (sound === 'tap') unlock();
+          if (sound === 'off') setMuted(false);
           setOpen((current) => !current);
         }}
       >

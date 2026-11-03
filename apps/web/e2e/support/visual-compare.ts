@@ -10,6 +10,14 @@ type Comparison = {
   diff: Buffer;
 };
 
+export const prototypeThresholds = {
+  title: 0.25,
+  games: 0.21,
+  'creation-option': 0.08,
+  'creation-talk': 0.14,
+  editor: 0.2,
+} as const;
+
 export async function compareScreenshots(reference: Buffer, actual: Buffer): Promise<Comparison> {
   const referenceMeta = await sharp(reference).metadata();
   const actualMeta = await sharp(actual).metadata();
@@ -28,9 +36,10 @@ export async function compareScreenshots(reference: Buffer, actual: Buffer): Pro
     pixels(reference),
     pixels(actual),
   ]);
-  let distance = 0;
+  let squaredDistance = 0;
   for (let index = 0; index < referenceSample.length; index += 1) {
-    distance += Math.abs(referenceSample[index]! - actualSample[index]!);
+    const distance = (referenceSample[index]! - actualSample[index]!) / 255;
+    squaredDistance += distance * distance;
   }
 
   const diffPixels = Buffer.alloc(referencePixels.length);
@@ -51,7 +60,7 @@ export async function compareScreenshots(reference: Buffer, actual: Buffer): Pro
       .toBuffer(),
   ]);
 
-  return { score: distance / referenceSample.length / 255, pair, diff };
+  return { score: Math.sqrt(squaredDistance / referenceSample.length), pair, diff };
 }
 
 export async function attachComparison(
