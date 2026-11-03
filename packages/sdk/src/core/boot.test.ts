@@ -1,8 +1,9 @@
 import type { Envelope, HostToGame } from '@ogm/contracts';
 import { z } from 'zod';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { boot } from './boot.js';
+import { RuntimeImpl } from './runtime.js';
 import { createCounterGame } from '../test/fixtures/counter-game.js';
 
 const bridge = vi.hoisted(() => ({
@@ -53,6 +54,12 @@ describe('boot', () => {
     bridge.onMessage = undefined;
   });
 
+  it('preserves the exported RuntimeImpl constructor positions', () => {
+    type RuntimeParameters = ConstructorParameters<typeof RuntimeImpl>;
+
+    expectTypeOf<RuntimeParameters[5]>().toEqualTypeOf<() => void>();
+  });
+
   it('mounts from schema defaults and answers hello with ready marks', async () => {
     const { module, runtime } = await start();
 
@@ -66,6 +73,20 @@ describe('boot', () => {
     expect(runtime.hooks.marks[0]?.[0]).toBe('start');
     expect(runtime.hooks.marks.at(-1)?.[0]).toBe('frame0');
     expect(runtime.hooks.ready).toBe(true);
+  });
+
+  it('exposes the game bridge sender for load messages', async () => {
+    const { runtime } = await start();
+    bridge.send.mockClear();
+
+    runtime.send('load.progress', { phase: 'ready', loaded: 4, total: 8, cachedBytes: 0 });
+
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: 'load.progress',
+        payload: { phase: 'ready', loaded: 4, total: 8, cachedBytes: 0 },
+      }),
+    );
   });
 
   it('applies valid designs once and returns the same revision', async () => {

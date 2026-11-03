@@ -1,4 +1,5 @@
 import type { AudioBuses, BusName } from './context.js';
+import { matchCachedAsset } from '../assets/cache.js';
 
 export interface AudioLoader {
   audio(id: string): Promise<AudioBuffer>;
@@ -41,7 +42,8 @@ export class SampleBank {
     const found = this.bytes.get(id);
     if (found) return found;
     const url = this.options.loader?.resolve?.(id).url ?? this.options.resolveUrl(id);
-    const request = this.options.fetch(url).then(async (response) => {
+    const request = matchCachedAsset(url).then(async (cached) => {
+      const response = cached ?? (await this.options.fetch(url));
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       return response.arrayBuffer();
     });

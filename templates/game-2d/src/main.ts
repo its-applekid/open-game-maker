@@ -1,4 +1,5 @@
 import { boot, type BuildKind } from '@gm/sdk/core';
+import { createAssetLoader, pickTier } from '@gm/sdk/assets';
 import { defaultInputMapping } from '@gm/sdk/camera';
 
 import { connectPhaserLifecycle, game, getGameContext } from './game.js';
@@ -17,6 +18,14 @@ async function main(): Promise<void> {
     headless: build === 'test',
   });
   runtime.hooks.ready = false;
+  const loader = createAssetLoader({
+    manifestUrl: new URL('assets/manifest.json', location.href).toString(),
+    planUrl: new URL('assets/cache-plan.json', location.href).toString(),
+    tier: pickTier(),
+    send: runtime.send,
+    channel: runtime.build,
+  });
+  await loader.prepare();
   runtime.onStep((dt, frames) => getGameContext().advance(dt, frames));
   getGameContext().editing = () => runtime.mode === 'edit';
 

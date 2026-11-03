@@ -45,6 +45,62 @@ describe('bridge contract', () => {
     expect(hello.t === 'hello' && hello.payload.tier).toBe('mobile');
   });
 
+  it('accepts load progress and completion messages from a game', () => {
+    const progress = {
+      v: 1,
+      id: 'load-1',
+      t: 'load.progress',
+      payload: { phase: 'ready', loaded: 64, total: 128, cachedBytes: 32 },
+    };
+    const done = {
+      v: 1,
+      id: 'load-2',
+      t: 'load.done',
+      payload: {
+        ms: 250,
+        fetchedBytes: 96,
+        cachedBytes: 32,
+        fetchedFiles: 2,
+        cachedFiles: 1,
+        persisted: null,
+        usage: 1_024,
+        quota: 4_096,
+      },
+    };
+
+    expect(gameToHostSchema.parse(progress)).toEqual(progress);
+    expect(gameToHostSchema.parse(done)).toEqual(done);
+    expect(bridgeJson(progress)).toBe(true);
+    expect(bridgeJson(done)).toBe(true);
+    expect(hostToGameSchema.safeParse(progress).success).toBe(false);
+    expect(hostToGameSchema.safeParse(done).success).toBe(false);
+  });
+
+  it('rejects invalid load progress counters and persistence states', () => {
+    const progress = {
+      v: 1,
+      id: 'load-1',
+      t: 'load.progress',
+      payload: { phase: 'ready', loaded: -1, total: 128, cachedBytes: 0 },
+    };
+    const done = {
+      v: 1,
+      id: 'load-2',
+      t: 'load.done',
+      payload: {
+        ms: 1,
+        fetchedBytes: 0,
+        cachedBytes: 0,
+        fetchedFiles: 0,
+        cachedFiles: 0,
+        persisted: 'yes',
+      },
+    };
+
+    expect(issuePaths(gameToHostSchema, progress)).toEqual(['payload.loaded']);
+    expect(issuePaths(gameToHostSchema, done)).toEqual(['payload.persisted']);
+  });
+
   // T07 §4.3 replaced T04's mp.* spelling with net.*; mp.* must stay unknown in both directions.
   it.each([hostToGameSchema, gameToHostSchema])('rejects the retired mp.snapshot type at t', (schema) => {
     const doc = loadJson('fixtures/bridge-negative/unknown-t.v1.json');
