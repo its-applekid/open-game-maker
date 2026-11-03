@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import type { StyleShowcase } from '@ogm/contracts';
 
 export type CatalogPack = {
   id: string;
@@ -17,17 +18,7 @@ export type CatalogSet = {
   showcase?: CatalogShowcase;
 };
 
-export type CatalogShowcase = {
-  tileVideoUrl?: string;
-  sheetVideoUrl?: string;
-  stops: {
-    id: string;
-    label: string;
-    startSeconds: number;
-    tileFallbackUrl?: string;
-    sheetFallbackUrl?: string;
-  }[];
-};
+export type CatalogShowcase = StyleShowcase;
 
 export type CatalogFamily = {
   id: string;

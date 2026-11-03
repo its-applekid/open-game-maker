@@ -1,9 +1,10 @@
-import { cpSync, mkdirSync, mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildIndex, loadFamilies, writeIndex } from '@ogm/asset-cards';
+import { styleShowcaseSchema } from '@ogm/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { createApp } from '../src/app/app.js';
@@ -72,6 +73,72 @@ async function libraryWithShowcase(): Promise<string> {
   writeFileSync(join(media, '1-fantasy.sheet.256.gif'), new Uint8Array([12, 13]));
   writeFileSync(join(media, '2-modern-zombie.tile.256.gif'), new Uint8Array([14, 15]));
   writeFileSync(join(media, '2-modern-zombie.sheet.256.gif'), new Uint8Array([16, 17]));
+  return root;
+}
+
+const v5Media = (id: string, kind: 'region' | 'sheet') => ({
+  mp4: `${id}.${kind}.720.mp4`,
+  gif: `${id}.${kind}.256.gif`,
+  poster: `${id}.${kind}.poster.png`,
+});
+
+async function libraryWithV5Showcase(): Promise<string> {
+  const root = await libraryWithShowcase();
+  const showcase = join(root, 'sets', 'smallscaleint', 'showcase');
+  const mediaRoot = join(showcase, 'out', 'media');
+  const ids = [
+    '1-fantasy',
+    '2-desert',
+    '3-dinosaurs',
+    '4-town',
+    '5-modern-zombie',
+    '6-zombie-city',
+    '7-interior',
+    '8-graveyard',
+  ];
+  const stops = ids.map((id, index) => ({
+    id,
+    label: index === 0 ? 'Portal glade ambush' : `V5 scene ${index + 1}`,
+    seconds: 3.75,
+    ...(index === 1 ? { startSeconds: 3.75 } : {}),
+    region: v5Media(id, 'region'),
+    sheet: v5Media(id, 'sheet'),
+  }));
+  const outlineOptions = {
+    id: 'outline-options',
+    label: 'Outline options',
+    seconds: 3.75,
+    sheet: v5Media('outline-options', 'sheet'),
+  };
+  writeFileSync(
+    join(mediaRoot, 'manifest.json'),
+    JSON.stringify({
+      schema: 'ogm.smallscaleint-showcase/5',
+      version: 5,
+      generatedFrom: 'fixture',
+      stops,
+      outlineOptions,
+    }),
+  );
+  let value = 20;
+  for (const entry of [...stops.flatMap((stop) => [stop.region, stop.sheet]), outlineOptions.sheet]) {
+    for (const file of Object.values(entry)) writeFileSync(join(mediaRoot, file), new Uint8Array([value++]));
+  }
+  return root;
+}
+
+async function libraryWithMalformedV5Showcase(): Promise<string> {
+  const root = await libraryWithShowcase();
+  writeFileSync(
+    join(root, 'sets', 'smallscaleint', 'showcase', 'out', 'media', 'manifest.json'),
+    JSON.stringify({ schema: 'ogm.smallscaleint-showcase/5', stops: [] }),
+  );
+  return root;
+}
+
+async function libraryWithMissingV5Media(): Promise<string> {
+  const root = await libraryWithV5Showcase();
+  rmSync(join(root, 'sets', 'smallscaleint', 'showcase', 'out', 'media', '3-dinosaurs.region.720.mp4'));
   return root;
 }
 
@@ -282,6 +349,97 @@ describe('GET /api/catalog/style-families', () => {
     });
     expect(unsatisfiable.status).toBe(416);
     expect(unsatisfiable.headers.get('content-range')).toBe('bytes */6');
+  });
+
+  it('prefers a v5 manifest and serves every declared per-stop media file', async () => {
+    const { app } = appWith(await libraryWithV5Showcase());
+    const families = (await (await get(app)).json()) as StyleFamilyApi[];
+    const showcase = styleShowcaseSchema.parse(
+      families.find((family) => family.id === 'isometric-2d')?.sets.find((set) => set.id === 'smallscaleint')?.showcase,
+    );
+
+    expect(showcase.stops).toHaveLength(8);
+    expect(showcase.stops.map((stop) => stop.id)).toEqual([
+      '1-fantasy',
+      '2-desert',
+      '3-dinosaurs',
+      '4-town',
+      '5-modern-zombie',
+      '6-zombie-city',
+      '7-interior',
+      '8-graveyard',
+    ]);
+    expect(showcase.stops[0]).toEqual({
+      id: '1-fantasy',
+      label: 'Portal glade ambush',
+      startSeconds: 0,
+      region: {
+        videoUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.region.720.mp4',
+        gifUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.region.256.gif',
+        posterUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.region.poster.png',
+      },
+      sheet: {
+        videoUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.sheet.720.mp4',
+        gifUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.sheet.256.gif',
+        posterUrl: '/api/catalog/style-sets/smallscaleint/showcase/1-fantasy.sheet.poster.png',
+      },
+    });
+    expect(showcase.stops[1]?.startSeconds).toBe(3.75);
+    expect(showcase.outlineOptions).toEqual({
+      id: 'outline-options',
+      label: 'Outline options',
+      sheet: {
+        videoUrl: '/api/catalog/style-sets/smallscaleint/showcase/outline-options.sheet.720.mp4',
+        gifUrl: '/api/catalog/style-sets/smallscaleint/showcase/outline-options.sheet.256.gif',
+        posterUrl: '/api/catalog/style-sets/smallscaleint/showcase/outline-options.sheet.poster.png',
+      },
+    });
+    expect(showcase).not.toHaveProperty('tileVideoUrl');
+    expect(showcase).not.toHaveProperty('sheetVideoUrl');
+
+    const urls = [
+      ...showcase.stops.flatMap((stop) => [...Object.values(stop.region ?? {}), ...Object.values(stop.sheet ?? {})]),
+      ...Object.values(showcase.outlineOptions?.sheet ?? {}),
+    ];
+    expect(urls).toHaveLength(51);
+    const statuses = await Promise.all(
+      urls.map(async (url) => {
+        const response = await app.request(url, { headers: asUser(CREATOR.userId) });
+        await response.arrayBuffer();
+        return response.status;
+      }),
+    );
+    expect(statuses).toEqual(Array.from({ length: 51 }, () => 200));
+  });
+
+  it('fails closed when a v5 manifest is present but malformed', async () => {
+    const { app } = appWith(await libraryWithMalformedV5Showcase());
+    const families = (await (await get(app)).json()) as StyleFamilyApi[];
+    const smallscaleint = families
+      .find((family) => family.id === 'isometric-2d')
+      ?.sets.find((set) => set.id === 'smallscaleint');
+
+    expect(smallscaleint?.showcase).toBeUndefined();
+  });
+
+  it('fails closed when a valid v5 manifest declares a missing media file', async () => {
+    const { app } = appWith(await libraryWithMissingV5Media());
+    const families = (await (await get(app)).json()) as StyleFamilyApi[];
+
+    expect(
+      families.find((family) => family.id === 'isometric-2d')?.sets.find((set) => set.id === 'smallscaleint')?.showcase,
+    ).toBeUndefined();
+  });
+
+  it('reuses a successful discovered-media allowlist across requests', async () => {
+    const root = await libraryWithV5Showcase();
+    const { app } = appWith(root);
+    const base = '/api/catalog/style-sets/smallscaleint/showcase/';
+    const headers = asUser(CREATOR.userId);
+
+    expect((await app.request(`${base}1-fantasy.region.poster.png`, { headers })).status).toBe(200);
+    rmSync(join(root, 'sets', 'smallscaleint', 'showcase', 'out', 'media', 'manifest.json'));
+    expect((await app.request(`${base}2-desert.region.poster.png`, { headers })).status).toBe(200);
   });
 
   it('refuses malformed ranges and files outside the discovered showcase allowlist', async () => {

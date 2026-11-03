@@ -34,7 +34,10 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
   await expect(page.getByText('SmallScaleInt')).toHaveCount(0);
   await activate(page, 'Pixel art');
   await activate(page, 'SmallScaleInt');
-  await expect(page.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
+  await expect(page.getByText('SmallScaleInt')).toHaveCount(0);
+  await expect(page.getByText('Portal glade ambush')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Portal glade ambush' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Outline options' })).toBeVisible();
   // Browser coverage stays on GIF fallbacks; the component spec owns video playback and synchronization.
   await expect(page.locator('.new-style-detail video')).toHaveCount(0);
   await expect(page.locator('.new-style-detail canvas')).toHaveCount(0);
@@ -100,27 +103,29 @@ test('style detail fits its media and navigation into phone and desktop viewport
   test.setTimeout(90_000);
   await installAuthRoutes(page, { signedIn: true, github: 'kim' });
   await installNewRoutes(page);
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/new?test&step=family', { waitUntil: 'domcontentloaded' });
-  await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
 
-  const familyIcons = page.locator('[data-style-family] .new-option-icon svg');
-  await expect(familyIcons).toHaveCount(5);
-  expect(await familyIcons.evaluateAll((icons) => icons.every((icon) => icon.getBoundingClientRect().width > 0))).toBe(
-    true,
-  );
-
-  await page.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
-  await page.locator('.new-style-detail').waitFor({ state: 'attached' });
-
-  for (const viewport of [
+  const viewports = [
     { width: 390, height: 844 },
+    { width: 390, height: 640 },
     { width: 430, height: 932 },
     { width: 844, height: 390 },
     { width: 1280, height: 720 },
-  ]) {
+  ];
+  for (const [index, viewport] of viewports.entries()) {
     await test.step(`${viewport.width}x${viewport.height}`, async () => {
       await page.setViewportSize(viewport);
+      await page.goto('/new?test&step=family', { waitUntil: 'domcontentloaded' });
+      await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
+      if (index === 0) {
+        const familyIcons = page.locator('[data-style-family] .new-option-icon svg');
+        await expect(familyIcons).toHaveCount(5);
+        expect(
+          await familyIcons.evaluateAll((icons) => icons.every((icon) => icon.getBoundingClientRect().width > 0)),
+        ).toBe(true);
+      }
+      await page.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
+      await page.locator('.new-style-detail').waitFor({ state: 'attached' });
+
       const controls = page.locator(
         'button[aria-label="Previous scene"], button[aria-label="Next scene"], button[aria-label="Previous style"], button[aria-label="Next style"]',
       );
@@ -150,10 +155,13 @@ test('style detail fits its media and navigation into phone and desktop viewport
               box.right <= window.innerWidth,
           };
         });
-      const [controlBoxes, trackBoxes, stopRowBoxes] = await Promise.all([
+      const [controlBoxes, trackBoxes, stopRowBoxes, layoutBoxes] = await Promise.all([
         controls.evaluateAll(boxesFor),
         tracks.evaluateAll(boxesFor),
         stopRow.evaluateAll(boxesFor),
+        page
+          .locator('.new-game-screen, .new-game-body, .new-style-step, .new-style-detail, .new-style-showcase-detail')
+          .evaluateAll(boxesFor),
       ]);
       const [diorama, sheet] = trackBoxes;
 
@@ -163,19 +171,67 @@ test('style detail fits its media and navigation into phone and desktop viewport
       const measuredBoxes = [...controlBoxes, ...trackBoxes, ...stopRowBoxes];
       expect(
         measuredBoxes.every(({ inViewport }) => inViewport),
-        `viewport ${viewport.width}x${viewport.height}: ${JSON.stringify(measuredBoxes)}`,
+        `viewport ${viewport.width}x${viewport.height}: ${JSON.stringify(measuredBoxes)} layout=${JSON.stringify(layoutBoxes)}`,
       ).toBe(true);
       expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(diorama!.width - sheet!.width)).toBeLessThanOrEqual(1);
+      const styleArrowBoxes = controlBoxes.filter(({ name }) => name === 'Previous style' || name === 'Next style');
+      if (viewport.width <= 600) {
+        expect(diorama!.bottom).toBeLessThanOrEqual(sheet!.top);
+        expect(
+          styleArrowBoxes.every((box) => Math.abs(box.top + box.height / 2 - (diorama.top + diorama.height / 2)) <= 1),
+        ).toBe(true);
+        expect(styleArrowBoxes[0]!.right).toBeLessThanOrEqual(diorama!.left);
+        expect(styleArrowBoxes[1]!.left).toBeGreaterThanOrEqual(diorama!.right);
+      } else {
+        expect(Math.abs(diorama!.top - sheet!.top)).toBeLessThanOrEqual(1);
+      }
+      expect(
+        Math.max(diorama!.bottom, sheet!.bottom),
+        `viewport ${viewport.width}x${viewport.height}: tracks=${JSON.stringify(trackBoxes)} stops=${JSON.stringify(stopRowBoxes)} layout=${JSON.stringify(layoutBoxes)}`,
+      ).toBeLessThanOrEqual(stopRowBoxes[0]!.top);
     });
   }
+
+  await expect(page.locator('.new-style-detail h2, .new-style-stop span, .new-style-set span')).toHaveCount(0);
 
   const [sceneArrowBackground, styleArrowBackground] = await Promise.all([
     page.getByRole('button', { name: 'Previous scene' }).evaluate((button) => getComputedStyle(button).backgroundColor),
     page.getByRole('button', { name: 'Previous style' }).evaluate((button) => getComputedStyle(button).backgroundColor),
   ]);
   expect(sceneArrowBackground).not.toBe(styleArrowBackground);
+
+  await test.step('390x640 embedding frame', async () => {
+    await page.setViewportSize({ width: 800, height: 720 });
+    await page.setContent(
+      '<iframe title="Embedded creation" src="/new?test&step=family" style="width:390px;height:640px;border:0"></iframe>',
+    );
+    const embedded = page.frameLocator('iframe[title="Embedded creation"]');
+    await embedded.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
+    const tracks = embedded.locator('.new-style-track');
+    const stops = embedded.locator('.new-style-stops');
+    const arrows = embedded.locator('button[aria-label="Previous style"], button[aria-label="Next style"]');
+    await expect(tracks).toHaveCount(2);
+
+    const [trackBoxes, stopBox, arrowBoxes, detailBox] = await Promise.all([
+      tracks.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON())),
+      stops.evaluate((element) => element.getBoundingClientRect().toJSON()),
+      arrows.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON())),
+      embedded.locator('.new-style-detail').evaluate((element) => element.getBoundingClientRect().toJSON()),
+    ]);
+    const [diorama, sheet] = trackBoxes;
+
+    expect(diorama!.width).toBeGreaterThan(0);
+    expect(diorama!.bottom).toBeLessThanOrEqual(sheet!.top);
+    expect(sheet!.bottom).toBeLessThanOrEqual(stopBox.top);
+    expect(stopBox.bottom).toBeLessThanOrEqual(detailBox.bottom);
+    expect(arrowBoxes[0]!.right).toBeLessThanOrEqual(diorama!.left);
+    expect(arrowBoxes[1]!.left).toBeGreaterThanOrEqual(diorama!.right);
+    expect(
+      arrowBoxes.every((box) => Math.abs(box.top + box.height / 2 - (diorama!.top + diorama!.height / 2)) <= 1),
+    ).toBe(true);
+  });
 });
 
 async function openReadyNewGame(page: Page): Promise<Locator> {

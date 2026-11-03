@@ -72,13 +72,118 @@
         "showcase": {
           "stops": [
             {
-              "id": "fantasy",
-              "label": "Fantasy",
+              "id": "1-fantasy",
+              "label": "Portal glade ambush",
               "startSeconds": 0,
-              "tileFallbackUrl": "/e2e/fantasy.tile.gif",
-              "sheetFallbackUrl": "/e2e/fantasy.sheet.gif"
+              "region": {
+                "gifUrl": "/e2e/1-fantasy.region.gif",
+                "posterUrl": "/e2e/1-fantasy.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/1-fantasy.sheet.gif",
+                "posterUrl": "/e2e/1-fantasy.sheet.png"
+              }
+            },
+            {
+              "id": "2-desert",
+              "label": "Caravan camp raid",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/2-desert.region.gif",
+                "posterUrl": "/e2e/2-desert.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/2-desert.sheet.gif",
+                "posterUrl": "/e2e/2-desert.sheet.png"
+              }
+            },
+            {
+              "id": "3-dinosaurs",
+              "label": "Raptors at the crossing",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/3-dinosaurs.region.gif",
+                "posterUrl": "/e2e/3-dinosaurs.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/3-dinosaurs.sheet.gif",
+                "posterUrl": "/e2e/3-dinosaurs.sheet.png"
+              }
+            },
+            {
+              "id": "4-town",
+              "label": "Market chase",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/4-town.region.gif",
+                "posterUrl": "/e2e/4-town.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/4-town.sheet.gif",
+                "posterUrl": "/e2e/4-town.sheet.png"
+              }
+            },
+            {
+              "id": "5-modern-zombie",
+              "label": "Morning farm chores",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/5-modern-zombie.region.gif",
+                "posterUrl": "/e2e/5-modern-zombie.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/5-modern-zombie.sheet.gif",
+                "posterUrl": "/e2e/5-modern-zombie.sheet.png"
+              }
+            },
+            {
+              "id": "6-zombie-city",
+              "label": "Neon shop break-in",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/6-zombie-city.region.gif",
+                "posterUrl": "/e2e/6-zombie-city.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/6-zombie-city.sheet.gif",
+                "posterUrl": "/e2e/6-zombie-city.sheet.png"
+              }
+            },
+            {
+              "id": "7-interior",
+              "label": "The sleeping-house burglary",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/7-interior.region.gif",
+                "posterUrl": "/e2e/7-interior.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/7-interior.sheet.gif",
+                "posterUrl": "/e2e/7-interior.sheet.png"
+              }
+            },
+            {
+              "id": "8-graveyard",
+              "label": "Graveyard ritual",
+              "startSeconds": 0,
+              "region": {
+                "gifUrl": "/e2e/8-graveyard.region.gif",
+                "posterUrl": "/e2e/8-graveyard.region.png"
+              },
+              "sheet": {
+                "gifUrl": "/e2e/8-graveyard.sheet.gif",
+                "posterUrl": "/e2e/8-graveyard.sheet.png"
+              }
             }
-          ]
+          ],
+          "outlineOptions": {
+            "id": "outline-options",
+            "label": "Outline options",
+            "sheet": {
+              "gifUrl": "/e2e/outline-options.sheet.gif",
+              "posterUrl": "/e2e/outline-options.sheet.png"
+            }
+          }
         }
       }
     ]

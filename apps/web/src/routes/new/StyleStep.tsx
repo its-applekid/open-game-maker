@@ -135,44 +135,23 @@ export function StyleStep({
       ) : null}
 
       {view.kind === 'detail' && active ? (
-        <div className="new-style-detail">
-          <div className="new-style-detail-nav">
-            <button
-              className="new-style-icon-button tap-secondary"
-              type="button"
-              aria-label={view.parent === 'grid' ? `Back to ${familyLabel} sets` : 'Back to styles'}
-              onClick={backFromDetail}
-            >
-              <span aria-hidden="true">←</span>
-            </button>
-            <h2>{active.label}</h2>
-            <span className="new-style-cycle">
-              <button
-                className="new-style-icon-button new-style-style-button tap-secondary"
-                type="button"
-                aria-label="Previous style"
-                onClick={() => cycle(-1)}
-              >
-                <span aria-hidden="true">‹</span>
-              </button>
-              <button
-                className="new-style-icon-button new-style-style-button tap-secondary"
-                type="button"
-                aria-label="Next style"
-                onClick={() => cycle(1)}
-              >
-                <span aria-hidden="true">›</span>
-              </button>
-            </span>
-          </div>
-          <ShowcaseDetail key={active.id} choice={active} />
+        <div className="new-style-detail" role="region" aria-label={active.label}>
+          <ShowcaseDetail
+            key={active.id}
+            choice={active}
+            backLabel={view.parent === 'grid' ? `Back to ${familyLabel} sets` : 'Back to styles'}
+            onBack={backFromDetail}
+            onPreviousStyle={() => cycle(-1)}
+            onNextStyle={() => cycle(1)}
+          />
           <button
             className="new-style-select tap-primary"
             type="button"
+            aria-label={`Select ${active.label}`}
             aria-pressed={selected.includes(active.id)}
             onClick={() => choose(active)}
           >
-            Select {active.label}
+            Select
           </button>
         </div>
       ) : null}
@@ -181,34 +160,73 @@ export function StyleStep({
 }
 
 function SetTile({ choice, onOpen }: { choice: StyleChoice; onOpen(): void }) {
+  const firstStop = choice.showcase?.stops[0];
   const preview =
-    choice.showcase?.stops[0]?.tileFallbackUrl ?? choice.packs.find((pack) => pack.thumbnailUrl)?.thumbnailUrl;
+    firstStop?.region?.gifUrl ??
+    firstStop?.region?.posterUrl ??
+    firstStop?.tileFallbackUrl ??
+    choice.packs.find((pack) => pack.thumbnailUrl)?.thumbnailUrl;
   return (
-    <button className="new-style-set tap-primary" type="button" data-style-set={choice.id} onClick={onOpen}>
+    <button
+      className="new-style-set tap-primary"
+      type="button"
+      aria-label={choice.label}
+      data-style-set={choice.id}
+      onClick={onOpen}
+    >
       {preview ? <img src={preview} alt="" /> : <Icon name="other" className="new-option-icon" />}
-      <span>{choice.label}</span>
     </button>
   );
 }
 
-function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
+function ShowcaseDetail({
+  choice,
+  backLabel,
+  onBack,
+  onPreviousStyle,
+  onNextStyle,
+}: {
+  choice: StyleChoice;
+  backLabel: string;
+  onBack(): void;
+  onPreviousStyle(): void;
+  onNextStyle(): void;
+}) {
   const [activeStop, setActiveStop] = useState(0);
   const tile = useRef<HTMLVideoElement>(null);
   const sheet = useRef<HTMLVideoElement>(null);
   const showcase = choice.showcase;
-  const stop = showcase?.stops[activeStop];
 
   if (!showcase) {
     const preview = choice.packs.find((pack) => pack.thumbnailUrl)?.thumbnailUrl;
     return (
-      <div className="new-style-still">
-        {preview ? <img src={preview} alt={`${choice.label} preview`} /> : <Icon name="other" />}
+      <div className="new-style-showcase-detail">
+        <div className="new-style-showcase">
+          <StyleBack label={backLabel} onClick={onBack} />
+          <StyleArrow direction="previous" onClick={onPreviousStyle} />
+          <div className="new-style-still new-style-region-track">
+            {preview ? <img src={preview} alt={`${choice.label} preview`} /> : <Icon name="other" />}
+          </div>
+          <StyleArrow direction="next" onClick={onNextStyle} />
+        </div>
       </div>
     );
   }
 
+  const outlineActive = Boolean(showcase.outlineOptions && activeStop === showcase.stops.length);
+  const stop = showcase.stops[Math.min(activeStop, showcase.stops.length - 1)];
+  const region = stop?.region;
+  const sheetMedia = outlineActive ? showcase.outlineOptions?.sheet : stop?.sheet;
+  const regionVideoUrl = region?.videoUrl ?? showcase.tileVideoUrl;
+  const sheetVideoUrl = sheetMedia?.videoUrl ?? showcase.sheetVideoUrl;
+  const regionFallbackUrl = region?.gifUrl ?? stop?.tileFallbackUrl;
+  const sheetFallbackUrl = sheetMedia?.gifUrl ?? stop?.sheetFallbackUrl;
+  const regionPosterUrl = region?.posterUrl;
+  const sheetPosterUrl = sheetMedia?.posterUrl;
+  const startSeconds = stop?.startSeconds ?? 0;
+
   const seek = (index: number) => {
-    const next = showcase.stops[index];
+    const next = showcase.stops[Math.min(index, showcase.stops.length - 1)];
     if (!next) return;
     setActiveStop(index);
     if (tile.current) tile.current.currentTime = next.startSeconds;
@@ -216,30 +234,49 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
   };
 
   const cycleScene = (offset: number) => {
-    const count = showcase.stops.length;
+    const count = showcase.stops.length + (showcase.outlineOptions ? 1 : 0);
     if (count === 0) return;
     seek((activeStop + offset + count) % count);
   };
 
   return (
-    <>
+    <div className="new-style-showcase-detail">
       <div className="new-style-showcase">
+        <StyleBack label={backLabel} onClick={onBack} />
+        <StyleArrow direction="previous" onClick={onPreviousStyle} />
         <ShowcaseTrack
+          key={regionVideoUrl ?? regionFallbackUrl ?? regionPosterUrl ?? 'region'}
+          className="new-style-region-track"
           label="Diorama preview"
-          videoUrl={showcase.tileVideoUrl}
-          fallbackUrl={stop?.tileFallbackUrl}
+          videoUrl={regionVideoUrl}
+          fallbackUrl={regionFallbackUrl}
+          posterUrl={regionPosterUrl}
+          startSeconds={startSeconds}
           fallbackAlt={`${stop?.label ?? choice.label} diorama fallback`}
           videoRef={tile}
-          onTimeUpdate={() => {
-            if (tile.current && sheet.current && Math.abs(tile.current.currentTime - sheet.current.currentTime) > 0.12)
-              sheet.current.currentTime = tile.current.currentTime;
-          }}
+          onTimeUpdate={
+            outlineActive
+              ? undefined
+              : () => {
+                  if (
+                    tile.current &&
+                    sheet.current &&
+                    Math.abs(tile.current.currentTime - sheet.current.currentTime) > 0.12
+                  )
+                    sheet.current.currentTime = tile.current.currentTime;
+                }
+          }
         />
+        <StyleArrow direction="next" onClick={onNextStyle} />
         <ShowcaseTrack
+          key={sheetVideoUrl ?? sheetFallbackUrl ?? sheetPosterUrl ?? 'sheet'}
+          className="new-style-sheet-track"
           label="Sprite sheets preview"
-          videoUrl={showcase.sheetVideoUrl}
-          fallbackUrl={stop?.sheetFallbackUrl}
-          fallbackAlt={`${stop?.label ?? choice.label} sprite sheets fallback`}
+          videoUrl={sheetVideoUrl}
+          fallbackUrl={sheetFallbackUrl}
+          posterUrl={sheetPosterUrl}
+          startSeconds={outlineActive ? 0 : startSeconds}
+          fallbackAlt={`${outlineActive ? showcase.outlineOptions?.label : (stop?.label ?? choice.label)} sprite sheets fallback`}
           videoRef={sheet}
         />
       </div>
@@ -257,14 +294,32 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
             <button
               className="new-style-stop"
               type="button"
+              aria-label={candidate.label}
               aria-pressed={index === activeStop}
               onClick={() => seek(index)}
               key={candidate.id}
             >
-              {candidate.tileFallbackUrl ? <img src={candidate.tileFallbackUrl} alt="" /> : null}
-              <span>{candidate.label}</span>
+              {candidate.region?.posterUrl || candidate.region?.gifUrl || candidate.tileFallbackUrl ? (
+                <img
+                  src={candidate.region?.posterUrl ?? candidate.region?.gifUrl ?? candidate.tileFallbackUrl}
+                  alt=""
+                />
+              ) : null}
             </button>
           ))}
+          {showcase.outlineOptions ? (
+            <button
+              className="new-style-stop"
+              type="button"
+              aria-label={showcase.outlineOptions.label}
+              aria-pressed={outlineActive}
+              onClick={() => seek(showcase.stops.length)}
+            >
+              {showcase.outlineOptions.sheet.posterUrl || showcase.outlineOptions.sheet.gifUrl ? (
+                <img src={showcase.outlineOptions.sheet.posterUrl ?? showcase.outlineOptions.sheet.gifUrl} alt="" />
+              ) : null}
+            </button>
+          ) : null}
         </div>
         <button
           className="new-style-scene-button tap-secondary"
@@ -275,39 +330,87 @@ function ShowcaseDetail({ choice }: { choice: StyleChoice }) {
           <span aria-hidden="true">›|</span>
         </button>
       </div>
-    </>
+    </div>
+  );
+}
+
+function StyleBack({ label, onClick }: { label: string; onClick(): void }) {
+  return (
+    <button
+      className="new-style-icon-button new-style-back-button tap-secondary"
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+    >
+      <span aria-hidden="true">←</span>
+    </button>
+  );
+}
+
+function StyleArrow({ direction, onClick }: { direction: 'previous' | 'next'; onClick(): void }) {
+  const previous = direction === 'previous';
+  return (
+    <button
+      className={`new-style-icon-button new-style-style-button new-style-style-${direction} tap-secondary`}
+      type="button"
+      aria-label={`${previous ? 'Previous' : 'Next'} style`}
+      onClick={onClick}
+    >
+      <span aria-hidden="true">{previous ? '‹' : '›'}</span>
+    </button>
   );
 }
 
 function ShowcaseTrack({
+  className,
   label,
   videoUrl,
   fallbackUrl,
+  posterUrl,
+  startSeconds,
   fallbackAlt,
   videoRef,
   onTimeUpdate,
 }: {
+  className: string;
   label: string;
   videoUrl: string | undefined;
   fallbackUrl: string | undefined;
+  posterUrl: string | undefined;
+  startSeconds: number;
   fallbackAlt: string;
   videoRef: RefObject<HTMLVideoElement | null>;
   onTimeUpdate?(): void;
 }) {
   const [ready, setReady] = useState(false);
   return (
-    <div className="new-style-track" data-ready={ready}>
-      {fallbackUrl ? <img src={fallbackUrl} alt={fallbackAlt} /> : <Icon name="other" />}
+    <div className={`new-style-track ${className}`} data-ready={ready}>
+      {fallbackUrl || posterUrl ? (
+        <img
+          src={fallbackUrl ?? posterUrl}
+          alt={fallbackAlt}
+          onError={(event) => {
+            if (posterUrl && event.currentTarget.src !== new URL(posterUrl, window.location.href).href)
+              event.currentTarget.src = posterUrl;
+          }}
+        />
+      ) : (
+        <Icon name="other" />
+      )}
       {videoUrl ? (
         <video
           ref={videoRef}
           src={videoUrl}
+          poster={posterUrl}
           aria-label={label}
           autoPlay
           loop
           muted
           playsInline
           preload="metadata"
+          onLoadedMetadata={(event) => {
+            event.currentTarget.currentTime = startSeconds;
+          }}
           onCanPlay={() => setReady(true)}
           onError={() => setReady(false)}
           onTimeUpdate={onTimeUpdate}
