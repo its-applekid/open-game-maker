@@ -144,7 +144,7 @@ describe('deploy API origin', () => {
     expect(run.stderr).toMatch(/^deploy: VITE_API_ORIGIN is not set/m);
   });
 
-  it('prints the generated redirects during a dry run before building', async () => {
+  it('prints the generated redirects before checking host-local build inputs', async () => {
     const script = fileURLToPath(new URL('../tools/deploy.sh', import.meta.url));
     const commands = await mkdtemp(join(tmpdir(), 'ogm-web-commands-'));
     await writeFile(join(commands, 'pnpm'), '#!/usr/bin/env bash\nexit 73\n', { mode: 0o755 });
@@ -156,7 +156,10 @@ describe('deploy API origin', () => {
       },
     });
 
-    expect([run.status, run.stderr]).toEqual([73, '']);
+    expect(run.status).toBe(1);
+    expect(run.stderr).toMatch(
+      /^deploy: required host-local directory is missing: .*(?:assets-local|scripts\/audio\/\.venv)$/m,
+    );
     expect(run.stdout).toBe(
       'games origin: https://games.example:10000 (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' +
         'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n' +
