@@ -10,6 +10,13 @@ import {
 } from 'three';
 import type { GLTF } from 'three/addons/loaders/GLTFLoader.js';
 
+import {
+  matchCachedAsset,
+  prepare as prepareCache,
+  type LedgerBuild,
+  type LoadSender,
+  type PrepareResult,
+} from './cache.js';
 import { AssetNotFound, AssetUnavailable } from './errors.js';
 import { createGltf, type GltfHandle } from '../three/gltf.js';
 
@@ -30,6 +37,10 @@ export interface AssetLoaderOptions {
   fetch?: typeof globalThis.fetch;
   audioContext?: BaseAudioContext;
   basisPath?: string;
+  planUrl?: string;
+  send?: LoadSender;
+  channel?: LedgerBuild['channel'];
+  cacheStorage?: Pick<CacheStorage, 'open'>;
 }
 
 const TIER_CHAINS = {
@@ -74,6 +85,10 @@ export class AssetLoader {
   readonly #basisPath: string;
   readonly #fetch: typeof globalThis.fetch;
   readonly #audioContext: BaseAudioContext | undefined;
+  readonly #planUrl: string;
+  readonly #send: LoadSender | undefined;
+  readonly #channel: LedgerBuild['channel'];
+  readonly #cacheStorage: Pick<CacheStorage, 'open'> | undefined;
   readonly #files = new Map<string, Promise<ArrayBuffer>>();
   readonly #gltfs = new Map<string, Promise<GLTF>>();
   #manifest: AssetManifest | undefined;
@@ -87,11 +102,23 @@ export class AssetLoader {
     this.#basisPath = new URL(options.basisPath ?? 'basis/', this.#manifestUrl).toString();
     this.#fetch = options.fetch ?? globalThis.fetch;
     this.#audioContext = options.audioContext;
+    this.#planUrl = new URL(options.planUrl ?? 'cache-plan.json', this.#manifestUrl).toString();
+    this.#send = options.send;
+    this.#channel = options.channel ?? 'test';
+    this.#cacheStorage = options.cacheStorage;
   }
 
   load(): Promise<AssetManifest> {
     this.#manifestPromise ??= this.#loadManifest();
     return this.#manifestPromise;
+  }
+
+  prepare(): Promise<PrepareResult | undefined> {
+    if (!this.#send) throw new Error('prepare() requires a load message sender');
+    return prepareCache(
+      { plan: this.#planUrl, tier: this.tier, send: this.#send, channel: this.#channel },
+      { fetcher: this.#fetch, cacheStorage: this.#cacheStorage },
+    );
   }
 
   resolve(id: string): ResolvedAsset {
@@ -187,7 +214,8 @@ export class AssetLoader {
     if (existing) return existing;
 
     const url = new URL(file, this.#manifestUrl).toString();
-    const request = this.#fetch(url).then(async (response) => {
+    const request = matchCachedAsset(url, this.#cacheStorage).then(async (cached) => {
+      const response = cached ?? (await this.#fetch(url));
       if (!response.ok) throw new Error(`Failed to fetch asset file ${url}: HTTP ${response.status}`);
       return response.arrayBuffer();
     });

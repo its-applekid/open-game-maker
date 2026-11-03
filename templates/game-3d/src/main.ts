@@ -1,5 +1,5 @@
 import { boot, RuntimeImpl } from '@gm/sdk/core';
-import { pickTier } from '@gm/sdk/assets';
+import { createAssetLoader, pickTier } from '@gm/sdk/assets';
 import { createRig, EditorCamera, RigSet, type ThreeCameraRig } from '@gm/sdk/camera';
 import { createRenderer, type RendererHandle } from '@gm/sdk/three';
 import { SDK_PROTOCOL } from '@ogm/contracts/bridge';
@@ -72,18 +72,27 @@ async function start() {
 
   try {
     const controller = createGame();
+    const tier = pickTier();
     runtime = (await boot(controller.module, {
       build: __GM_BUILD__,
       headless: true,
       hostOrigin: window.parent === window ? window.location.origin : undefined,
     })) as RuntimeImpl<LevelDesign, GameSave>;
     runtime.hooks.ready = false;
+    const loader = createAssetLoader({
+      manifestUrl: new URL('assets/manifest.json', location.href).toString(),
+      planUrl: new URL('assets/cache-plan.json', location.href).toString(),
+      tier,
+      send: runtime.send,
+      channel: runtime.build,
+    });
+    await loader.prepare();
     document.documentElement.dataset.bootStage = 'runtime';
 
     const canvas = document.querySelector<HTMLCanvasElement>('#game');
     if (!canvas) throw new Error('game canvas is missing');
     rendererHandle = createRenderer(canvas, {
-      tier: pickTier(),
+      tier,
       preserveDrawingBuffer: __GM_BUILD__ === 'test',
       onContextLost: () => {
         runtime?.clock.pause();

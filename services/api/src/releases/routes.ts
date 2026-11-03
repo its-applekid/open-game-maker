@@ -15,6 +15,7 @@ import { findGameForFamily, hasGameGrant } from '../games/games.js';
 import { countSavesAboveSchema } from '../saves/store.js';
 import { CommitUnavailable, HttpCommitClient } from './commit-client.js';
 import { checkPublishRights, RightsCheckUnavailable } from './rights.js';
+import { collectBuildArtifact } from './gc.js';
 import {
   ReleaseError,
   addChangeNote,
@@ -131,7 +132,10 @@ const buildBody = z
     changeNotes: z.array(note).optional(),
   })
   .strict();
-const buildPatch = z.object({ status: z.enum(['building', 'tested', 'failed']) }).strict();
+const buildPatch = z.union([
+  z.object({ status: z.enum(['building', 'tested', 'failed']) }).strict(),
+  z.object({ artifact: z.literal('gc') }).strict(),
+]);
 const changelog = z
   .object({ summary: z.string().trim().min(1), items: z.array(note).optional() })
   .transform((value) => ({
@@ -158,7 +162,11 @@ const routes = new Hono<ApiBindings>()
     requireBuilder(c);
     const body = await parseBody(c, buildPatch);
     try {
-      return c.json(await updateBuild(c.get('deps'), runtime(c), c.req.param('buildId'), body.status));
+      return c.json(
+        'status' in body
+          ? await updateBuild(c.get('deps'), runtime(c), c.req.param('buildId'), body.status)
+          : await collectBuildArtifact(c.get('deps'), c.req.param('buildId')),
+      );
     } catch (error) {
       return errorResponse(c, error);
     }

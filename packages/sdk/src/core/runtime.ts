@@ -4,6 +4,7 @@ import { FixedClock, type Clock, type StepListener } from './clock.js';
 import { EventRing } from './events.js';
 import type { SdkHostApi } from './host-api.js';
 import { SeededRng, type Rng } from './rng.js';
+import type { LoadMessage, LoadSender } from '../assets/cache.js';
 import type { RuntimeHooks } from '../test/hooks.js';
 import { InputMerger, type InputMergerOptions } from '../input/merger.js';
 import type { GmNet, NetController, NetDiagnostics, NetPlayer } from '../net/index.js';
@@ -23,6 +24,7 @@ export interface Runtime<D, S> {
   readonly build: BuildKind;
   readonly mode: GameMode;
   readonly localPlayerIndex: number;
+  readonly send: LoadSender;
   onFrame(callback: (dt: number) => void): () => void;
   onStep(callback: StepListener): () => void;
   onNet(callback: (type: string, payload: unknown) => void): () => void;
@@ -62,7 +64,12 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   private currentLocalPlayerIndex = 0;
   private readonly pendingHostFrames: ActionFrame[] = [];
   private netController: NetController | undefined;
+  private sender: ((type: LoadMessage['t'], payload: LoadMessage['payload']) => void) | undefined;
   private disposed = false;
+  readonly send: LoadSender = (type, payload) => {
+    if (!this.sender) throw new Error('runtime sender is unavailable');
+    this.sender(type, payload);
+  };
 
   constructor(
     readonly instance: GameInstance<D, S>,
@@ -101,6 +108,10 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
 
   get localPlayerIndex(): number {
     return this.currentLocalPlayerIndex;
+  }
+
+  attachSender(send: (type: LoadMessage['t'], payload: LoadMessage['payload']) => void): void {
+    this.sender = send;
   }
 
   attachHooks(hooks: RuntimeHooks): void {

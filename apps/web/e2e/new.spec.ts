@@ -78,6 +78,79 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
   expect(routes.admissions[1]).toMatchObject({ start: 'at_reset', idempotencyKey: expect.stringMatching(/:2$/) });
 });
 
+test('style detail fits its media and navigation into phone and desktop viewports', async ({ page }) => {
+  test.setTimeout(90_000);
+  await installAuthRoutes(page, { signedIn: true, github: 'kim' });
+  await installNewRoutes(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/new?test&step=family');
+  await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
+
+  const familyIcons = page.locator('[data-style-family] .new-option-icon svg');
+  await expect(familyIcons).toHaveCount(5);
+  expect(await familyIcons.evaluateAll((icons) => icons.every((icon) => icon.getBoundingClientRect().width > 0))).toBe(
+    true,
+  );
+
+  await page.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
+  await page.locator('.new-style-detail').waitFor({ state: 'attached' });
+
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 430, height: 932 },
+    { width: 844, height: 390 },
+    { width: 1280, height: 720 },
+  ]) {
+    await test.step(`${viewport.width}x${viewport.height}`, async () => {
+      await page.setViewportSize(viewport);
+      const controls = page.locator(
+        'button[aria-label="Previous scene"], button[aria-label="Next scene"], button[aria-label="Previous style"], button[aria-label="Next style"]',
+      );
+      const tracks = page.locator('.new-style-track');
+      const stopRow = page.locator('.new-style-stops');
+
+      await expect(controls).toHaveCount(4);
+      await expect(tracks).toHaveCount(2);
+      await expect(stopRow).toHaveCount(1);
+      const boxesFor = (elements: Element[]) =>
+        elements.map((element) => {
+          const box = element.getBoundingClientRect();
+          return {
+            width: box.width,
+            height: box.height,
+            inViewport:
+              box.width > 0 &&
+              box.height > 0 &&
+              box.top >= 0 &&
+              box.left >= 0 &&
+              box.bottom <= window.innerHeight &&
+              box.right <= window.innerWidth,
+          };
+        });
+      const [controlBoxes, trackBoxes, stopRowBoxes] = await Promise.all([
+        controls.evaluateAll(boxesFor),
+        tracks.evaluateAll(boxesFor),
+        stopRow.evaluateAll(boxesFor),
+      ]);
+      const [diorama, sheet] = trackBoxes;
+
+      expect(controlBoxes).toHaveLength(4);
+      expect(trackBoxes).toHaveLength(2);
+      expect(stopRowBoxes).toHaveLength(1);
+      expect([...controlBoxes, ...trackBoxes, ...stopRowBoxes].every(({ inViewport }) => inViewport)).toBe(true);
+      expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(diorama!.width - sheet!.width)).toBeLessThanOrEqual(1);
+    });
+  }
+
+  const [sceneArrowBackground, styleArrowBackground] = await Promise.all([
+    page.getByRole('button', { name: 'Previous scene' }).evaluate((button) => getComputedStyle(button).backgroundColor),
+    page.getByRole('button', { name: 'Previous style' }).evaluate((button) => getComputedStyle(button).backgroundColor),
+  ]);
+  expect(sceneArrowBackground).not.toBe(styleArrowBackground);
+});
+
 async function openReadyNewGame(page: Page): Promise<Locator> {
   await page.goto('/new?test&step=genre');
   const adventure = page.getByRole('button', { name: 'Adventure' });

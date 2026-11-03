@@ -17,6 +17,8 @@ import { isTerminal } from '../jobs/state.js';
 import { markTerminal } from '../jobs/spend-cap.js';
 import { releaseRuntimeFor } from '../releases/routes.js';
 import { registerBuild, updateBuild } from '../releases/service.js';
+import { withArtifactMutation } from './artifact-lock.js';
+import { BuildCacheError, completeBuildCache } from './cache-plan.js';
 import { untarGz } from './untar.js';
 
 // Jobs whose merged PR must become a playable build before the job is done; a scope job ships no build.
@@ -100,34 +102,47 @@ export async function publishStaged(deps: AppDeps, jobId: string): Promise<Publi
     }
     const saveSchemaVersion = (manifest.data as Record<string, unknown>).saveSchemaVersion;
     const achievements = await readFile(join(files, 'achievements.json')).catch(() => Buffer.alloc(0));
-    const branch = resolveBranch(deps.sqlite, job.gameId, job.branchId);
+    const published = await withArtifactMutation(async () => {
+      const branch = resolveBranch(deps.sqlite, job.gameId, job.branchId);
+      const previousBuildId = branch.latestBuildId;
+      const build = registerBuild(deps, release, job.gameId, {
+        branchId: branch.id,
+        gitSha: (await readFile(join(staged, 'git-sha'), 'utf8')).trim(),
+        jobId,
+        sdkVersion: manifest.data.sdk,
+        saveSchemaVersion: Number.isSafeInteger(saveSchemaVersion) ? (saveSchemaVersion as number) : 0,
+        achievementCatalogHash: createHash('sha256').update(achievements).digest('hex'),
+        artifactPath: join(deps.config.gamesRoot, job.gameId),
+      });
+      buildId = build.id;
+      const buildTarget = buildDir(deps.config.gamesRoot, job.gameId, build.id);
+      target = buildTarget;
+      deps.db.update(schema.builds).set({ artifactPath: buildTarget }).where(eq(schema.builds.id, build.id)).run();
 
-    const build = registerBuild(deps, release, job.gameId, {
-      branchId: branch.id,
-      gitSha: (await readFile(join(staged, 'git-sha'), 'utf8')).trim(),
-      jobId,
-      sdkVersion: manifest.data.sdk,
-      saveSchemaVersion: Number.isSafeInteger(saveSchemaVersion) ? (saveSchemaVersion as number) : 0,
-      achievementCatalogHash: createHash('sha256').update(achievements).digest('hex'),
-      artifactPath: join(deps.config.gamesRoot, job.gameId),
+      await mkdir(join(deps.config.gamesRoot, job.gameId), { recursive: true });
+      await completeBuildCache({
+        root: deps.config.gamesRoot,
+        files,
+        gameId: job.gameId,
+        buildId: build.id,
+        previousBuildId,
+        sdkVersion: manifest.data.sdk,
+      });
+      await rename(files, buildTarget);
+      await markComplete(buildTarget);
+      const switchTx = await switchToBuild(deps, design, job.gameId, branch.id, build.id);
+      switched = true;
+      return { branchId: branch.id, buildId: build.id, switchTx };
     });
-    buildId = build.id;
-    target = buildDir(deps.config.gamesRoot, job.gameId, build.id);
-    deps.db.update(schema.builds).set({ artifactPath: target }).where(eq(schema.builds.id, build.id)).run();
-
-    await mkdir(join(deps.config.gamesRoot, job.gameId), { recursive: true });
-    await rename(files, target);
-    await markComplete(target);
-    const switchTx = await switchToBuild(deps, design, job.gameId, branch.id, build.id);
-    switched = true;
-    design.stream.publish(branch.id, switchTx.transaction);
-    await updateBuild(deps, release, build.id, 'tested');
+    design.stream.publish(published.branchId, published.switchTx.transaction);
+    await updateBuild(deps, release, published.buildId, 'tested');
 
     settle(deps, jobId, 'done');
-    deps.log({ event: 'build_published', jobId, gameId: job.gameId, buildId: build.id });
-    return { state: 'done', buildId: build.id };
+    deps.log({ event: 'build_published', jobId, gameId: job.gameId, buildId: published.buildId });
+    return { state: 'done', buildId: published.buildId };
   } catch (error) {
-    const reason = error instanceof PublishFailure ? error.message : errorName(error);
+    const reason =
+      error instanceof PublishFailure || error instanceof BuildCacheError ? error.message : errorName(error);
     if (switched && buildId) {
       settle(deps, jobId, 'done');
       deps.log({ event: 'build_publish_incomplete', jobId, gameId: job.gameId, buildId, reason });

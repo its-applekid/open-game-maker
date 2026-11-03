@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAudio } from './index.js';
 import { SampleBank } from './samples.js';
@@ -26,6 +26,8 @@ function setup(values: number[]) {
 }
 
 describe('sample playback', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
   it('uses only the injected RNG for pitch variation', async () => {
     const { audio, context } = setup([0.25, 0.75]);
     const random = vi.spyOn(Math, 'random').mockImplementation(() => {
@@ -97,5 +99,31 @@ describe('sample playback', () => {
     expect(loader.resolve).toHaveBeenCalledWith('hit');
     expect(fetcher).toHaveBeenCalledWith('/resolved/hit.mp3');
     expect(decoder.decodeAudioData).toHaveBeenCalledOnce();
+  });
+
+  it('reads offline render samples from gm-blobs-v1 before the network', async () => {
+    const context = new FakeAudioContext();
+    const buffer = asAudioBuffer(new FakeAudioBuffer());
+    const digest = 'a'.repeat(64);
+    const url = `https://game.test/a/${digest}.mp3`;
+    const loader = {
+      audio: vi.fn(async () => Promise.reject(new Error('live decoder must not run'))),
+      resolve: vi.fn(() => ({ url })),
+    };
+    const fetcher = vi.fn(async () => Promise.reject(new Error('network must not run')));
+    const match = vi.fn(async () => new Response(new Uint8Array([1, 2, 3])));
+    vi.stubGlobal('caches', { open: vi.fn(async () => ({ match })) });
+    const decoder = { decodeAudioData: vi.fn(async () => buffer) } as unknown as BaseAudioContext;
+    const bank = new SampleBank({
+      context: context as unknown as AudioContext,
+      loader,
+      fetch: fetcher as typeof globalThis.fetch,
+      resolveUrl: (id) => id,
+      logger: console,
+    });
+
+    await expect(bank.loadForRender('hit', decoder)).resolves.toBe(buffer);
+    expect(match).toHaveBeenCalledWith(url);
+    expect(fetcher).not.toHaveBeenCalled();
   });
 });

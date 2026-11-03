@@ -8,6 +8,8 @@ const templateRoots = new Map([
   ['game-2d', fileURLToPath(new URL('../../../templates/game-2d/dist/', import.meta.url))],
   ['game-3d', fileURLToPath(new URL('../../../templates/game-3d/dist/', import.meta.url))],
 ]);
+const sharedBlobPath = `/a/${'a'.repeat(64)}.glb`;
+const requestCounts = new Map<string, number>();
 
 function html(response: ServerResponse, body: string): void {
   response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
@@ -46,7 +48,18 @@ const app = createServer(async (request, response) => {
 
 const game = createServer(async (request, response) => {
   const path = new URL(request.url ?? '/', 'http://127.0.0.1:4174').pathname;
+  if (path === '/test/request-counts') {
+    if (request.method === 'DELETE') requestCounts.clear();
+    response.writeHead(200, { 'content-type': 'application/json' });
+    return response.end(JSON.stringify(Object.fromEntries(requestCounts)));
+  }
+  if (path === sharedBlobPath || /^\/g\/cache-game\/[^/]+\/game\.js$/.test(path)) {
+    requestCounts.set(path, (requestCounts.get(path) ?? 0) + 1);
+  }
   if (path === '/game.js') return file(response, `${root}/dist/test/stub-game/main.js`);
+  if (/^\/g\/[^/]+\/[^/]+\/game\.js$/.test(path)) {
+    return file(response, `${root}/dist/test/stub-game/main.js`, { 'cache-control': 'no-store' });
+  }
   if (path === '/game-cache.js') {
     return file(response, `${root}/dist/game-cache.js`, { 'service-worker-allowed': '/g/' });
   }
@@ -56,7 +69,7 @@ const game = createServer(async (request, response) => {
       '<script>parent.postMessage(JSON.stringify({v:1,id:"forged",t:"ready",payload:{protocol:1,manifest:{},marks:[]}}),"http://127.0.0.1:4173")</script>',
     );
   }
-  if (path.endsWith('/assets/x.3f9a.glb')) {
+  if (path === sharedBlobPath) {
     response.writeHead(200, { 'content-type': 'model/gltf-binary', 'cache-control': 'no-store' });
     return response.end('fixture-asset');
   }
@@ -77,7 +90,7 @@ const game = createServer(async (request, response) => {
   }
   return html(
     response,
-    '<!doctype html><meta charset="utf-8"><style>#canvas{width:160px;height:160px;background:#123}</style><button id="relay">relay audio</button><div id="canvas">game canvas</div><script type="module" src="/game.js"></script>',
+    '<!doctype html><meta charset="utf-8"><style>#canvas{width:160px;height:160px;background:#123}</style><button id="relay">relay audio</button><div id="canvas">game canvas</div><div id="cache-result"></div><script>navigator.serviceWorker?.register("/game-cache.js",{scope:"/g/"}).catch(()=>undefined)</script><script type="module" src="./game.js"></script>',
   );
 });
 

@@ -195,6 +195,35 @@ describe('AssetLoader', () => {
     expect(fetch.mock.calls.filter(([url]) => String(url).endsWith('kit-castle.3f9a1c.glb'))).toHaveLength(1);
   });
 
+  it('reads content-addressed files from gm-blobs-v1 before the network', async () => {
+    const digest = 'a'.repeat(64);
+    const file = `/a/${digest}.glb`;
+    const contentAddressed = structuredClone(manifest);
+    contentAddressed.files[file] = { bytes: 4, decoders: ['meshopt'] };
+    contentAddressed.assets['content-addressed/model'] = {
+      file: { '*': file },
+      license: { id: 'CC0-1.0', use: 'any' },
+    };
+    const fetch = fetchFor(contentAddressed);
+    const match = vi.fn(async () => response({ bytes: fileBytes }));
+    const cacheStorage = {
+      open: vi.fn(async () => ({ match }) as unknown as Cache),
+    };
+    const loader = new AssetLoader({
+      manifestUrl: 'https://game.test/g/game/build/assets/manifest.json',
+      tier: 'desktop',
+      fetch,
+      cacheStorage,
+    });
+    await loader.load();
+
+    await loader.preload(['content-addressed/model']);
+
+    expect(cacheStorage.open).toHaveBeenCalledWith('gm-blobs-v1');
+    expect(match).toHaveBeenCalledWith(`https://game.test/a/${digest}.glb`);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
   it('throws named errors for unknown and unavailable assets', async () => {
     const unavailable = structuredClone(manifest);
     unavailable.assets['castle/tower-alt']!.file = {};
