@@ -1682,6 +1682,11 @@
                       "minLength": 1,
                       "maxLength": 80
                     },
+                    "hostOrigin": {
+                      "type": "string",
+                      "format": "uri",
+                      "pattern": "^https?:\\/\\/[^/?#@]+$"
+                    },
                     "inputs": {
                       "type": "object",
                       "properties": {

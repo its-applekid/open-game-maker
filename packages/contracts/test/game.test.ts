@@ -22,6 +22,18 @@ describe('game contract', () => {
     expect(gameJson(manifest())).toBe(true);
   });
 
+  it('accepts an optional trusted host origin and rejects non-origin URLs', () => {
+    const trusted = { ...manifest(), hostOrigin: 'https://host-a.example.test:8443' };
+    expect(gameManifestSchema.safeParse(trusted).success).toBe(true);
+    expect(gameJson(trusted)).toBe(true);
+
+    for (const hostOrigin of ['https://host-a.example.test/path', 'https://user@host-a.example.test', 'file:///game']) {
+      const untrusted = { ...manifest(), hostOrigin };
+      expect(gameManifestSchema.safeParse(untrusted).success).toBe(false);
+      expect(gameJson(untrusted)).toBe(false);
+    }
+  });
+
   it('rejects editor tools outside the host vocabulary', () => {
     const doc = { ...manifest(), tools: ['select', 'lasso'] };
     expect(gameManifestSchema.safeParse(doc).error?.issues[0]?.path).toEqual(['tools', 1]);
