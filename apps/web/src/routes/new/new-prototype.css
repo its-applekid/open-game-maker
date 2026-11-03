@@ -147,3 +147,32 @@
     font-size: 14px;
   }
 }
+
+@media (max-height: 600px) and (min-width: 601px) {
+  .new-game-screen:has(.new-style-detail) {
+    padding-bottom: 0;
+  }
+
+  .new-game-screen:has(.new-style-detail) .new-game-head {
+    padding-block: 0;
+  }
+
+  .new-style-scene-row {
+    margin-top: 4px;
+  }
+
+  .new-style-stops {
+    grid-auto-columns: 56px;
+    gap: 6px;
+  }
+
+  .new-style-stop {
+    padding: 3px;
+    border-radius: 10px;
+  }
+
+  .new-style-stop span {
+    padding-top: 2px;
+    font-size: 11px;
+  }
+}

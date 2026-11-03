@@ -179,6 +179,7 @@ async function prepareTitle(app: Page, reference: Page): Promise<Masks> {
     app.goto('/?test', { waitUntil: 'domcontentloaded' }),
     reference.goto(`${referenceOrigin}/studio/index.html#library`, { waitUntil: 'domcontentloaded' }),
   ]);
+  await expect(reference.locator('#lib-grid .tile').first()).toBeVisible();
   await showStudioScreen(reference, 's-title');
   await app.locator('.title-town').evaluate((town) => {
     town.replaceChildren();

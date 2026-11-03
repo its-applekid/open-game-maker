@@ -116,6 +116,11 @@ test('style detail fits its media and navigation into phone and desktop viewport
         elements.map((element) => {
           const box = element.getBoundingClientRect();
           return {
+            name: element.getAttribute('aria-label') ?? element.className,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            left: box.left,
             width: box.width,
             height: box.height,
             inViewport:
@@ -137,7 +142,11 @@ test('style detail fits its media and navigation into phone and desktop viewport
       expect(controlBoxes).toHaveLength(4);
       expect(trackBoxes).toHaveLength(2);
       expect(stopRowBoxes).toHaveLength(1);
-      expect([...controlBoxes, ...trackBoxes, ...stopRowBoxes].every(({ inViewport }) => inViewport)).toBe(true);
+      const measuredBoxes = [...controlBoxes, ...trackBoxes, ...stopRowBoxes];
+      expect(
+        measuredBoxes.every(({ inViewport }) => inViewport),
+        `viewport ${viewport.width}x${viewport.height}: ${JSON.stringify(measuredBoxes)}`,
+      ).toBe(true);
       expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(diorama!.width - sheet!.width)).toBeLessThanOrEqual(1);
