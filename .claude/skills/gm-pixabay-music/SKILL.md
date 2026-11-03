@@ -21,4 +21,4 @@ Pixabay has no music API, its terms disallow systematic mass downloads, and its 
 - Login check fails (no Download event): rerun login.mjs.
 
 ## Filing (no tagging)
-After a run: move `assets-local/inbox/pixabay-curated/<playlist>/` into `assets-local/packs/pixabay-music-curated/<date>/extracted/<playlist>/` with a root `pack.json` (vendor pixabay, licence `LicenseRef-Pixabay-Content-License`, rights in-game/derive, redistribution none, attribution none required, source per track from the `.json`), rebuild the catalog. Cards, moods and search come later (#364, #355, #357). Credits: the `.json` carries what #367 needs.
+After a run: `python3 -I scripts/assets/pixabay/file-pack.py [date]` from the repo root moves each playlist folder into `assets-local/packs/pixabay-music-curated/<date>/extracted/`, writes `pack.json` (licence, rights, per-track source and credit for #367) and rebuilds the catalog. Rerun after a retry pass to merge new tracks. Cards, moods and search come later (#364, #355, #357).
