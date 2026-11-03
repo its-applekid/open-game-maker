@@ -10,3 +10,4 @@ scripts/drive-sync/.venv/
 __pycache__/
 docs/research/v0.5/schemas/tools/node_modules/
 scripts/audio/.venv/
+scripts/assets/pixabay/node_modules

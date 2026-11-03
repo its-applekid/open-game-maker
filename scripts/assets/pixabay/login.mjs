@@ -1,0 +1,14 @@
+import { chromium } from 'playwright';
+import fs from 'node:fs';
+const env = Object.fromEntries(fs.readFileSync(process.env.HOME + '/.config/ogm/pixabay.env', 'utf8').split('\n').filter(l => l.includes('=')).map(l => [l.slice(0, l.indexOf('=')), l.slice(l.indexOf('=') + 1)]));
+const ctx = await chromium.launchPersistentContext(process.argv[2], { headless: false, ignoreDefaultArgs: ['--enable-automation'], args: ['--disable-blink-features=AutomationControlled'], viewport: { width: 1280, height: 900 } });
+const p = ctx.pages()[0] || await ctx.newPage();
+await p.goto('https://pixabay.com/accounts/login/', { waitUntil: 'domcontentloaded', timeout: 60000 }); await p.waitForTimeout(4000);
+const c = p.locator('button:has-text("Accept Cookies")'); if (await c.count()) await c.first().click().catch(()=>{});
+await p.locator('input[name=login_user]').click(); await p.keyboard.type(env.PIXABAY_EMAIL, { delay: 90 });
+await p.waitForTimeout(700); await p.locator('input[name=login_pass]').click(); await p.keyboard.type(env.PIXABAY_PASSWORD, { delay: 110 });
+await p.waitForTimeout(900); await p.keyboard.press('Enter'); await p.waitForTimeout(6000);
+const err = (await p.locator("body").innerText()).match(new RegExp("(incorrect|invalid|captcha|verify|robot|try again).{0,80}", "i")); if (err) console.log("FORM SAYS:", err[0]);
+await p.waitForTimeout(10000); await p.goto('https://pixabay.com/', {waitUntil:'domcontentloaded'}); await p.waitForTimeout(4000);
+console.log((await p.locator('button:has-text("Log in")').count()) ? 'NOT LOGGED IN' : 'LOGGED IN');
+await ctx.close();
