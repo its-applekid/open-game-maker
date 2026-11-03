@@ -165,4 +165,19 @@ describe('GamesScreen', () => {
     expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
     expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
   });
+
+  it('loads the library without an error banner when only the jobs poll fails', async () => {
+    vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('/api/v1/games')) return json({ games });
+      if (url.includes('/api/v1/jobs')) return json({ error: 'unavailable' }, 503);
+      return json({ error: 'not_found' }, 404);
+    });
+
+    const { container } = renderGames();
+
+    await screen.findByRole('button', { name: /Midnight Crumbs/ });
+    expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
 });
