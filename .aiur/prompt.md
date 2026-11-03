@@ -18,9 +18,8 @@ The web screens (title town, games selection, creation, editor, chat panel) keep
 
 ## Host-local outputs
 
-Your workspace is deleted when the ticket closes. Anything gitignored you produce (renders, downloads, datasets) must be
-written to its real home with an absolute path (`assets-local` in your workspace is a symlink to the shared library; keep
-it that way), and the PR cites `ls -la` of that absolute path.
+`assets-local` in your workspace is a symlink to the shared library: write library outputs there. Keep scratch files inside
+your workspace; never create directories elsewhere in `$HOME`.
 
 ## Host names
 
