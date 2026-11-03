@@ -50,6 +50,13 @@ function writeLock(cwd: string, assets: LockAsset[], family = 'chunky-low-poly')
           redistribution: asset.private ? 'in-build' : 'free',
           attribution: asset.private ? 'Private vendor' : null,
         },
+        credit: {
+          pack: asset.private ? 'fixture-private' : 'fixture-free',
+          title: asset.private ? 'Private fixture assets' : 'Free fixture assets',
+          licenseSource: asset.private ? 'Fixture vendor licence' : 'Fixture CC0 declaration',
+          attribution: asset.private ? 'Private vendor' : 'none required',
+          source: { label: 'test fixture' },
+        },
         ...(asset.meta ? { meta: asset.meta } : {}),
         added: '2026-11-01',
       };

@@ -51,6 +51,13 @@ async function addBlobEntry(cwd: string, blobs: string): Promise<void> {
     source: 'blob',
     license: 'LicenseRef-made-by-agent',
     rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+    credit: {
+      pack: 'coin-hop:made',
+      title: 'Made for this game',
+      licenseSource: 'Created for this game',
+      attribution: 'none required',
+      source: { label: 'agent-generated' },
+    },
     added: '2026-11-02',
   });
   lock.assets.sort((left, right) => left.id.localeCompare(right.id));

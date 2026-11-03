@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { DesignDocSchema, gameManifestSchema } from '@ogm/contracts';
+import { creditsDocumentSchema, DesignDocSchema, gameManifestSchema } from '@ogm/contracts';
 import { build } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -30,5 +30,9 @@ describe('the build writes the files a published build needs', () => {
 
   it('dist/design/design.json is the folded template design', () => {
     expect(DesignDocSchema.parse(readJson('design/design.json'))).toEqual(defaultDesign);
+  });
+
+  it('dist/credits.json is regenerated from the template lock', () => {
+    expect(creditsDocumentSchema.parse(readJson('credits.json'))).toEqual({ version: 1, packs: [] });
   });
 });

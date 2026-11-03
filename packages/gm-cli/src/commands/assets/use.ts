@@ -7,6 +7,7 @@ import { povIdSchema, styleFamilyIdSchema, type AssetMetadata, type AssetsLock, 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { repoVisibility, requireAssetsRoot, resolveContainedPath } from '../../context.js';
 import { renderCredits } from '../../credits.js';
+import { creditForCard } from '../../license-metadata.js';
 import { readLock, sha256File, upsertLock, writeGeneratedText, writeLock } from '../../lock.js';
 import { collectionParts, libraryRoot, repoPaths } from '../../resolve.js';
 import { refusalsForUse, rightsForCard, type Refusal } from '../../rules.js';
@@ -234,6 +235,7 @@ export const command: GmCommand = {
       files: SourceFile[];
       existing?: LockEntry;
       familyException: boolean;
+      credit: NonNullable<LockEntry['credit']>;
     }> = [];
     for (const id of ids) {
       const card = byId.get(id);
@@ -261,10 +263,6 @@ export const command: GmCommand = {
       }
       const familyException = withoutException.some((item) => item.rule === 'family-mismatch');
       const existing = lock.assets.find((entry) => entry.id === id);
-      if (flags.refresh === true && existing) {
-        accepted.push({ card, files: [], existing, familyException });
-        continue;
-      }
       const collection = card.collection === undefined ? undefined : index.collections[card.collection];
       if (!collection) {
         refusals.push({
@@ -273,6 +271,20 @@ export const command: GmCommand = {
           id,
           detail: 'asset collection is not present in the index',
         });
+        continue;
+      }
+      const metadata = await creditForCard(assetsRoot, card, collection);
+      if (metadata.credit === undefined) {
+        refusals.push({
+          code: 'rights',
+          rule: 'missing-license-metadata',
+          id,
+          detail: metadata.detail ?? 'card and pack.json have no credit metadata',
+        });
+        continue;
+      }
+      if (flags.refresh === true && existing) {
+        accepted.push({ card, files: [], existing, familyException, credit: metadata.credit });
         continue;
       }
       const sources = await librarySources(assetsRoot, card, collection);
@@ -301,7 +313,7 @@ export const command: GmCommand = {
         }
         for (const copy of copies) vendoredBytes.set(copy.path, { id, sha256: copy.sha256 });
       }
-      accepted.push({ card, files: sources.files, existing, familyException });
+      accepted.push({ card, files: sources.files, existing, familyException, credit: metadata.credit });
     }
 
     if (refusals.length > 0 && flags.partial !== true) {
@@ -339,6 +351,7 @@ export const command: GmCommand = {
         ...located,
         license: item.card.resolved.license,
         rights: rightsForCard(item.card, index.collections),
+        credit: item.credit,
         ...(meta === undefined ? {} : { meta }),
         added: item.existing?.added ?? new Date().toISOString().slice(0, 10),
       });

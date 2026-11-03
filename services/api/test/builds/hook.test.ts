@@ -33,6 +33,7 @@ function workspace(build = COPY_WEB) {
   mkdirSync(join(dir, 'web'));
   cpSync(join(built, 'index.html'), join(dir, 'web', 'index.html'));
   cpSync(join(built, 'assets'), join(dir, 'web', 'assets'), { recursive: true });
+  cpSync(join(built, 'credits.json'), join(dir, 'web', 'credits.json'));
   cpSync(join(built, 'manifest.json'), join(dir, 'manifest.json'));
   cpSync(join(built, 'design'), join(dir, 'design'), { recursive: true });
   writeFileSync(join(dir, 'build.mjs'), build);

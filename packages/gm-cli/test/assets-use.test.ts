@@ -28,10 +28,48 @@ describe('gm assets use', () => {
         path: 'Models/GLB format/character-orc.glb',
         sha256: sha('orc-bytes'),
         license: 'CC0-1.0',
+        credit: {
+          pack: 'kenney-mini-dungeon',
+          title: 'Mini Dungeon (Kenney)',
+          licenseSource: 'License.txt',
+          attribution: 'none required',
+          source: { label: 'Kenney', url: 'https://assets.example/kenney-mini-dungeon' },
+        },
       }),
     ]);
     expect(lock.assets[0]).not.toHaveProperty('files');
     expect(readFileSync(join(cwd, 'CREDITS.md'), 'utf8')).toContain('CC0 assets from: kenney-mini-dungeon');
+  });
+
+  it('falls back to explicit card metadata when pack.json is absent', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    rmSync(join(root, 'packs/kenney-mini-dungeon/pack.json'));
+
+    const result = await useOrc(cwd, root);
+
+    expect(result.code).toBe(0);
+    const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    expect(lock.assets[0]?.credit).toMatchObject({
+      licenseSource: 'License.txt',
+      attribution: 'none required',
+      source: { label: 'kenney' },
+    });
+  });
+
+  it('refuses a pack that carries incomplete credit metadata', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    const path = join(root, 'packs/kenney-mini-dungeon/pack.json');
+    const pack = JSON.parse(readFileSync(path, 'utf8')) as Record<string, unknown>;
+    delete pack.source;
+    writeFileSync(path, JSON.stringify(pack));
+
+    const result = await useOrc(cwd, root);
+
+    expect(result.code).toBe(2);
+    expect(result.err.join('\n')).toContain(`${ORC}  missing-license-metadata`);
+    expect(existsSync(join(cwd, 'assets.lock.json'))).toBe(false);
   });
 
   it('copies card metadata into the lock without changing it', async () => {
@@ -265,6 +303,11 @@ describe('gm assets use', () => {
       env: { OGM_ASSETS_ROOT: root, GM_EVENTS_FILE: events },
     });
     expect(accepted.code).toBe(0);
+    const lock = JSON.parse(readFileSync(join(cwd, 'assets.lock.json'), 'utf8')) as AssetsLock;
+    expect(lock.assets.find((entry) => entry.id === SYNTY)).toMatchObject({
+      license: 'LicenseRef-synty-personal',
+      credit: { licenseSource: 'Synty personal-use licence' },
+    });
     const eventNames = readFileSync(events, 'utf8')
       .trim()
       .split('\n')

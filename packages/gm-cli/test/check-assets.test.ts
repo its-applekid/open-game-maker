@@ -26,6 +26,13 @@ function writeBlobLock(cwd: string, bytes: string): void {
           source: 'blob',
           license: 'LicenseRef-made-by-agent',
           rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+          credit: {
+            pack: 'coin-hop',
+            title: 'Made for this game',
+            licenseSource: 'created for this game',
+            attribution: 'none required',
+            source: { label: 'agent-generated' },
+          },
           added: '2026-11-02',
         },
       ],
@@ -96,6 +103,21 @@ describe('gm check assets', () => {
     const result = await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } });
     expect(result.code).toBe(1);
     expect(result.err.join('\n')).toContain(`${ORC}  stale-rights`);
+  });
+
+  it('fails a legacy lock entry that has no credit metadata', async () => {
+    const cwd = tempDir();
+    const root = preparedLibrary();
+    await useOrc(cwd, root);
+    const path = join(cwd, 'assets.lock.json');
+    const lock = JSON.parse(readFileSync(path, 'utf8')) as AssetsLock;
+    delete lock.assets[0]!.credit;
+    writeFileSync(path, `${JSON.stringify(lock, null, 2)}\n`);
+
+    const result = await gm(['check', 'assets'], { cwd, env: { OGM_ASSETS_ROOT: root } });
+
+    expect(result.code).toBe(1);
+    expect(result.err.join('\n')).toContain(`${ORC}  missing-license-metadata`);
   });
 
   it('returns a BoundaryVerdict-compatible JSON refusal for a private Synty asset in a public repo', async () => {

@@ -31,6 +31,13 @@ function writeImageLock(cwd: string, path = 'assets/image.png', digest = sha256(
             path,
             license: 'CC0-1.0',
             rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: null },
+            credit: {
+              pack: 'fixture',
+              title: 'Fixture assets',
+              licenseSource: 'Fixture CC0 declaration',
+              attribution: 'none required',
+              source: { label: 'test fixture' },
+            },
             added: '2026-11-01',
           },
         ],

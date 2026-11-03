@@ -1,13 +1,38 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
-import { gameManifestSchema, StrictDesignDocSchema, type DesignDoc, type GameManifest } from '@ogm/contracts';
+import {
+  AssetsLockSchema,
+  creditsFromLock,
+  gameManifestSchema,
+  renderCredits,
+  StrictDesignDocSchema,
+  type CreditsDocument,
+  type DesignDoc,
+  type GameManifest,
+} from '@ogm/contracts';
 
 /* Node-only (a Vite plugin for game builds): tsc emits it; the browser bundle in scripts/build.mjs leaves it out. */
 
 /** Where the games host and the API read a build's manifest and design (services/api/src/design/base-doc.ts). */
 export const MANIFEST_FILE = 'manifest.json';
 export const DESIGN_FILE = 'design/design.json';
+export const CREDITS_FILE = 'credits.json';
+
+export function regenerateCredits(lockFile: string, creditsFile: string): CreditsDocument {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(readFileSync(lockFile, 'utf8'));
+  } catch (error) {
+    throw new Error(`assets lock is not valid JSON: ${error instanceof Error ? error.message : String(error)}`, {
+      cause: error,
+    });
+  }
+  const lock = AssetsLockSchema.parse(raw);
+  const document = creditsFromLock(lock);
+  writeFileSync(creditsFile, renderCredits(lock));
+  return document;
+}
 
 function mergeDisjoint<T>(into: Record<string, T>, from: Record<string, T>, what: string, file: string): void {
   for (const [key, value] of Object.entries(from)) {
@@ -49,15 +74,26 @@ export function foldDesignFiles(designDir: string): DesignDoc {
 
 type EmitContext = { emitFile(file: { type: 'asset'; fileName: string; source: string }): string };
 
-/** Vite plugin: write `manifest.json` and `design/design.json` next to the bundle so a build dir can be published. */
-export function gmBuildArtifacts(options: { manifest: GameManifest; designDir: string }) {
+/** Vite plugin: publish the host artifacts and refresh the game's checked-in credits from its current lock. */
+export function gmBuildArtifacts(options: {
+  manifest: GameManifest;
+  designDir: string;
+  assetsLockFile?: string;
+  creditsFile?: string;
+}) {
+  const gameRoot = dirname(resolve(options.designDir));
   return {
     name: 'gm-build-artifacts',
     generateBundle(this: EmitContext) {
       const manifest = gameManifestSchema.parse(options.manifest);
       const design = foldDesignFiles(options.designDir);
+      const credits = regenerateCredits(
+        options.assetsLockFile ?? join(gameRoot, 'assets.lock.json'),
+        options.creditsFile ?? join(gameRoot, 'CREDITS.md'),
+      );
       this.emitFile({ type: 'asset', fileName: MANIFEST_FILE, source: `${JSON.stringify(manifest, null, 2)}\n` });
       this.emitFile({ type: 'asset', fileName: DESIGN_FILE, source: `${JSON.stringify(design, null, 2)}\n` });
+      this.emitFile({ type: 'asset', fileName: CREDITS_FILE, source: `${JSON.stringify(credits, null, 2)}\n` });
     },
   };
 }

@@ -55,6 +55,9 @@ assets-local/
   "title": "POLYGON - Shopping Plaza Map",
   "category": null,
   "license": "synty-personal",
+  "license_source": "Synty personal-use licence",
+  "attribution": "none required",
+  "source": {"label": "Synty Studios", "url": "https://example.com/vendor-pack"},
   "requires": ["synty-polygon-shops"],
   "current": "v2",
   "versions": {
@@ -70,6 +73,9 @@ assets-local/
 ```
 
 - `license` is an SPDX id (`CC0-1.0`) or a vendor class (`synty-personal`: personal purchase under the Synty EULA, never committed or redistributed). `license_source` says where the license came from when the pack has no license file.
+- `attribution` is the exact credit line, or the literal `none required`. `source` names the vendor or drop and may
+  include its public source URL. These four fields are copied into every game lock entry; paid pack bytes and download
+  locations are never exposed.
 - `format` is one of:
   - `source-zip`: the vendor's engine-neutral FBX/PNG download;
   - `unitypackage`: unpacked without Unity, with Unity `.meta` files dropped and `.prefab`/`.mat` kept as references;
@@ -87,6 +93,8 @@ assets-local/
 
 ## Scripts (`scripts/assets/`)
 
+- `audit_license_metadata.py`: lists every installed pack whose `pack.json` lacks licence, licence source, explicit
+  attribution, or source metadata. Run `python3 scripts/assets/audit_license_metadata.py assets-local` after imports.
 - `import_synty.py`: moves the listed Synty downloads from `~/Downloads` into `packs/`, then unpacks and writes `pack.json`. Add new rows to `PACKS` for new downloads. Packs already extracted are skipped.
 - `import_kenney_bundle.py`: splits the Kenney All-in-1 zip into one pack per folder, reads each `License.txt`, and installs the launcher under `tools/`. Some archive packs ship as a zip inside the bundle; those were unpacked afterwards, and `pack.json` records them in `inner_archives_unpacked`.
 - `build_catalog.py`: rebuilds `catalog.json`. Run it after any import.

@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { DesignDocSchema, gameManifestSchema } from '@ogm/contracts';
+import { creditsDocumentSchema, DesignDocSchema, gameManifestSchema } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { buildDir, markComplete } from '@ogm/games-host/layout';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -94,6 +94,9 @@ export async function publishStaged(deps: AppDeps, jobId: string): Promise<Publi
     if (!manifest.success) throw new PublishFailure('manifest_invalid');
     if (!DesignDocSchema.safeParse(await readJson(join(files, 'design', 'design.json'))).success) {
       throw new PublishFailure('design_invalid');
+    }
+    if (!creditsDocumentSchema.safeParse(await readJson(join(files, 'credits.json'))).success) {
+      throw new PublishFailure('credits_invalid');
     }
     const saveSchemaVersion = (manifest.data as Record<string, unknown>).saveSchemaVersion;
     const achievements = await readFile(join(files, 'achievements.json')).catch(() => Buffer.alloc(0));

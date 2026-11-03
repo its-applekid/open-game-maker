@@ -1,11 +1,13 @@
 // @vitest-environment node
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { foldDesignFiles } from './index.js';
+import { creditsDocumentSchema, type GameManifest } from '@ogm/contracts';
+
+import { foldDesignFiles, gmBuildArtifacts, regenerateCredits } from './index.js';
 
 const entity = (id: string) => ({ id, prefab: 'spawn', level: 'main', origin: 'build', props: {} });
 const A = 'spawn_01K8ZTEMP00000000000000001';
@@ -63,5 +65,53 @@ describe('foldDesignFiles', () => {
       'b.json': { schemaVersion: 2, globals: {}, entities: {} },
     });
     expect(() => foldDesignFiles(dir)).toThrow('design/b.json: schemaVersion 2 differs from 1');
+  });
+});
+
+describe('regenerateCredits', () => {
+  it('keeps the original manifest-and-design plugin call compatible', () => {
+    expect(gmBuildArtifacts({ manifest: {} as GameManifest, designDir: '/game/design' }).name).toBe(
+      'gm-build-artifacts',
+    );
+  });
+
+  it('writes markdown and machine-readable credits from the current lock', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'gm-credits-'));
+    const lockFile = join(dir, 'assets.lock.json');
+    const creditsFile = join(dir, 'CREDITS.md');
+    writeFileSync(
+      lockFile,
+      JSON.stringify({
+        version: 1,
+        family: 'pixel-art',
+        pov: 'side',
+        assets: [
+          {
+            id: 't1:example-pack/hero@1',
+            sha256: 'a'.repeat(64),
+            path: 'hero.png',
+            source: 'library',
+            license: 'CC-BY-4.0',
+            rights: { uses: ['in-game'], audience: 'public', redistribution: 'free', attribution: 'Example Artist' },
+            credit: {
+              pack: 'example-pack',
+              title: 'Example Pack',
+              licenseSource: 'https://example.test/license',
+              attribution: 'Example Artist',
+              source: { label: 'Example', url: 'https://example.test/source' },
+            },
+            added: '2026-11-02',
+          },
+        ],
+      }),
+    );
+
+    const document = regenerateCredits(lockFile, creditsFile);
+
+    expect(creditsDocumentSchema.parse(document).packs[0]).toMatchObject({
+      pack: 'example-pack',
+      attribution: 'Example Artist',
+    });
+    expect(readFileSync(creditsFile, 'utf8')).toContain('Example Pack — Example Artist');
   });
 });

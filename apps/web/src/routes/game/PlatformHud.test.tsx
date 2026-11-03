@@ -203,4 +203,41 @@ describe('PlatformHud', () => {
     test.event('achievement', { title: 'Opened the crypt' });
     expect(toast).toHaveBeenCalledWith('Opened the crypt (test)');
   });
+
+  it('shows exact-build credits from pause, including private packs without a download action', async () => {
+    const test = frameHarness();
+    const credits = vi.fn().mockResolvedValue({
+      version: 1,
+      packs: [
+        {
+          pack: 'synty',
+          title: 'Synty Pack',
+          license: 'LicenseRef-synty-personal',
+          licenseSource: 'Synty licence',
+          attribution: 'none required',
+          source: { label: 'Synty', url: 'https://example.test/synty' },
+          private: true,
+        },
+      ],
+    });
+    render(
+      <PlatformHud
+        build="draft"
+        frame={test.frame}
+        gameId="game"
+        saveContext={saveContext}
+        saves={false}
+        creditsApi={credits}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Credits' }));
+
+    expect(await screen.findByText('Synty Pack')).toBeVisible();
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Back' })).toHaveFocus());
+    expect(credits).toHaveBeenCalledWith('game', saveContext.buildId);
+    expect(screen.queryByRole('button', { name: /download/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /download/i })).not.toBeInTheDocument();
+  });
 });
