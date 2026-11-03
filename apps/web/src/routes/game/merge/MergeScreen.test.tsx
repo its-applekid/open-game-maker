@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -111,6 +111,61 @@ describe('MergeScreen', () => {
     expect(useDock.getState()).toMatchObject({ view: 'chat', openJobId: 'job_conflict' });
   }, 10_000);
 
+  it('retries a failed code-job lookup before opening conflict chat', async () => {
+    plan = { ...plan, code: { conflictJobId: 'job_conflict' } };
+    editor.listJobs
+      .mockRejectedValueOnce(new Error('jobs unavailable'))
+      .mockResolvedValue({ jobs: [{ id: 'job_conflict', state: 'running' }] });
+    stubMergeApi();
+    renderMerge();
+
+    expect(await screen.findByText('Conflict build unavailable.')).toBeVisible();
+    const open = screen.getByRole('button', { name: 'Open conflict build' });
+    expect(open).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => expect(open).toBeEnabled());
+  });
+
+  it('shows and retries a failed branch comparison', async () => {
+    let targetAttempts = 0;
+    editor.getDesignSnapshot.mockImplementation((_gameId: string, branchId: string) => {
+      if (branchId === 'target' && targetAttempts++ === 0) return Promise.reject(new Error('snapshot unavailable'));
+      return Promise.resolve({
+        buildId: `${branchId}_build`,
+        rev: 2,
+        doc: { schemaVersion: 1, globals: {}, entities: {} },
+      });
+    });
+    stubMergeApi();
+    renderMerge();
+
+    expect(await screen.findByText('Comparison unavailable.')).toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText(/Mine false Theirs true/)).toBeVisible();
+  });
+
+  it('submits abandon only once while the request is pending', async () => {
+    let resolveAbandon!: (response: Response) => void;
+    const abandonResponse = new Promise<Response>((resolve) => {
+      resolveAbandon = resolve;
+    });
+    const fetchMock = stubMergeApi(200, abandonResponse);
+    renderMerge();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Abandon' }));
+    const confirm = screen.getByRole('button', { name: 'Abandon merge' });
+    fireEvent.click(confirm);
+    fireEvent.click(confirm);
+
+    expect(screen.getByRole('button', { name: 'Abandoning…' })).toBeDisabled();
+    expect(fetchMock.mock.calls.filter(([path]) => path.toString().endsWith('/abandon'))).toHaveLength(1);
+
+    await act(async () => resolveAbandon(json({ ...plan, status: 'abandoned' })));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('/g/game/versions?v=target'));
+  });
+
   it('shows target movement, releases the lease, and stays on the merge', async () => {
     plan = {
       ...plan,
@@ -139,6 +194,7 @@ function renderMerge() {
         <Routes>
           <Route path="/g/:gameId/merge/:planId" element={<MergeScreen />} />
           <Route path="/g/:gameId" element={<p>Game</p>} />
+          <Route path="/g/:gameId/versions" element={<p>Versions</p>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -150,7 +206,7 @@ function Location() {
   return <output data-testid="location">{location.pathname + location.search}</output>;
 }
 
-function stubMergeApi(landStatus = 200) {
+function stubMergeApi(landStatus = 200, abandonResponse?: Promise<Response>) {
   const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const path = input.toString();
     if (path.endsWith('/resolve-all')) {
@@ -169,6 +225,9 @@ function stubMergeApi(landStatus = 200) {
     }
     if (path.endsWith('/land') && init?.method === 'POST') {
       return Promise.resolve(landStatus === 200 ? json({ rev: 4 }) : json({ error: 'target_moved' }, landStatus));
+    }
+    if (path.endsWith('/abandon') && init?.method === 'POST') {
+      return abandonResponse ?? Promise.resolve(json({ ...plan, status: 'abandoned' }));
     }
     if (path.endsWith('/plan_one')) return Promise.resolve(json(plan));
     return Promise.resolve(json({ error: 'not_found' }, 404));

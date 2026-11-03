@@ -72,7 +72,7 @@ export function VersionsScreen() {
 
       <div className="versioning-body">
         {branches.isPending || builds.isPending ? <p className="versioning-state">Loading versions…</p> : null}
-        {(branches.isError || builds.isError) && rows.length === 0 ? (
+        {branches.isError || builds.isError ? (
           <p className="versioning-state" role="alert">
             Versions unavailable.{' '}
             <button type="button" onClick={() => void Promise.all([branches.refetch(), builds.refetch()])}>
@@ -90,6 +90,7 @@ export function VersionsScreen() {
                 key={branch.id}
                 branch={branch}
                 build={builds.data?.find(({ id }) => id === branch.latestBuildId)}
+                buildStatusUnavailable={builds.isError}
                 current={branch.id === current?.id}
                 mainBranchId={main?.id}
                 onOpen={open}

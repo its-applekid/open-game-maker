@@ -42,12 +42,12 @@ export function MergeScreen() {
   const mine = useQuery({
     queryKey: ['game', gameId, 'merge-snapshot', plan?.targetBranchId],
     queryFn: () => getDesignSnapshot(gameId, plan!.targetBranchId),
-    enabled: plan !== undefined,
+    enabled: plan !== undefined && plan.conflicts.length > 0,
   });
   const theirs = useQuery({
     queryKey: ['game', gameId, 'merge-snapshot', plan?.sourceBranchId],
     queryFn: () => getDesignSnapshot(gameId, plan!.sourceBranchId),
-    enabled: plan !== undefined,
+    enabled: plan !== undefined && plan.conflicts.length > 0,
   });
   const jobs = useQuery({
     queryKey: ['game-jobs', gameId],
@@ -62,6 +62,7 @@ export function MergeScreen() {
   const [landBusy, setLandBusy] = useState(false);
   const [actionError, setActionError] = useState<string>();
   const [confirmAbandon, setConfirmAbandon] = useState(false);
+  const [abandonBusy, setAbandonBusy] = useState(false);
   const gamePath = `/g/${encodeURIComponent(gameId)}`;
 
   useEffect(() => {
@@ -156,13 +157,15 @@ export function MergeScreen() {
   };
 
   const abandon = async () => {
-    if (plan === undefined || planId === undefined) return;
+    if (plan === undefined || planId === undefined || abandonBusy) return;
+    setAbandonBusy(true);
     setActionError(undefined);
     try {
       await abandonMerge(gameId, plan.targetBranchId, planId);
       navigate(`${gamePath}/versions?v=${encodeURIComponent(plan.targetBranchId)}`);
     } catch (error) {
       setActionError(mergeErrorMessage(error));
+      setAbandonBusy(false);
       setConfirmAbandon(false);
     }
   };
@@ -208,6 +211,14 @@ export function MergeScreen() {
         {codeJobId !== undefined ? (
           <section className="merge-code-conflict" role="alert">
             <p>The code build needs attention before this merge can land.</p>
+            {jobs.isError ? (
+              <p>
+                Conflict build unavailable.{' '}
+                <button type="button" onClick={() => void jobs.refetch()}>
+                  Try again
+                </button>
+              </p>
+            ) : null}
             <button
               className="tap-primary"
               type="button"
@@ -219,7 +230,14 @@ export function MergeScreen() {
           </section>
         ) : null}
 
-        {conflict && mine.data && theirs.data ? (
+        {plan.conflicts.length > 0 && (mine.isError || theirs.isError) ? (
+          <p className="versioning-state" role="alert">
+            Comparison unavailable.{' '}
+            <button type="button" onClick={() => void Promise.all([mine.refetch(), theirs.refetch()])}>
+              Try again
+            </button>
+          </p>
+        ) : conflict && mine.data && theirs.data ? (
           <>
             <div className="merge-conflict-progress">
               <span>
@@ -298,14 +316,19 @@ export function MergeScreen() {
       </div>
 
       {confirmAbandon ? (
-        <VersioningDialog title="Abandon merge?" onClose={() => setConfirmAbandon(false)}>
+        <VersioningDialog title="Abandon merge?" busy={abandonBusy} onClose={() => setConfirmAbandon(false)}>
           <p>Your versions stay unchanged.</p>
           <div className="versioning-dialog-actions">
-            <button className="tap-secondary" type="button" onClick={() => setConfirmAbandon(false)}>
+            <button
+              className="tap-secondary"
+              type="button"
+              disabled={abandonBusy}
+              onClick={() => setConfirmAbandon(false)}
+            >
               Cancel
             </button>
-            <button className="tap-primary" type="button" onClick={() => void abandon()}>
-              Abandon merge
+            <button className="tap-primary" type="button" disabled={abandonBusy} onClick={() => void abandon()}>
+              {abandonBusy ? 'Abandoning…' : 'Abandon merge'}
             </button>
           </div>
         </VersioningDialog>

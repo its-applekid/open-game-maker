@@ -7,6 +7,7 @@ export function VersionRow({
   build,
   current,
   mainBranchId,
+  buildStatusUnavailable,
   onOpen,
   onArchive,
   onMerge,
@@ -15,6 +16,7 @@ export function VersionRow({
   build?: Build;
   current: boolean;
   mainBranchId?: string;
+  buildStatusUnavailable?: boolean;
   onOpen(branchId: string, mode?: 'play' | 'edit'): void;
   onArchive(branch: VersionBranch): void;
   onMerge(sourceBranchId: string, targetBranchId: string): void;
@@ -31,7 +33,7 @@ export function VersionRow({
         <div className="version-row-badges">
           {current ? <span>Current</span> : null}
           <span>{branch.status}</span>
-          <span>{build?.status ?? 'No build'}</span>
+          <span>{buildStatusUnavailable ? 'Build unavailable' : (build?.status ?? 'No build')}</span>
         </div>
       </header>
       {!main && active ? <p className="version-builder-note">Builders work on the main version</p> : null}

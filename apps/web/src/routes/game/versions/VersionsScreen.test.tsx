@@ -79,6 +79,16 @@ describe('VersionsScreen', () => {
     ).toHaveLength(1);
   });
 
+  it('keeps branch rows visible and marks build state unavailable when builds fail', async () => {
+    stubVersionApi([branch('main', { name: 'main' }), branch('blue')], 503);
+    renderVersions('/g/game/versions?v=blue');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Versions unavailable');
+    expect(screen.getByRole('article', { name: 'blue version' })).toHaveTextContent('Build unavailable');
+    expect(screen.queryByText('No build')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+  });
+
   it.each([
     ['Bring blue into main', '/g/game/merge?source=blue&target=main'],
     ['Bring main into blue', '/g/game/merge?source=main&target=blue'],
@@ -112,10 +122,14 @@ function Location() {
   return <output data-testid="location">{location.pathname + location.search}</output>;
 }
 
-function stubVersionApi(branches: VersionBranch[]) {
+function stubVersionApi(branches: VersionBranch[], buildStatus = 200) {
   const fetchMock = vi.fn((input: string | URL | Request, init?: RequestInit) => {
     const path = input.toString();
-    if (path.endsWith('/builds')) return Promise.resolve(json({ builds: [] }));
+    if (path.endsWith('/builds')) {
+      return Promise.resolve(
+        buildStatus === 200 ? json({ builds: [] }) : json({ error: 'builds_unavailable' }, buildStatus),
+      );
+    }
     if (path.endsWith('/archive') && init?.method === 'POST') {
       return Promise.resolve(json({ ...branches.find(({ id }) => path.includes(id)), status: 'archived' }));
     }

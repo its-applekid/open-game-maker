@@ -15,6 +15,10 @@ test('shows derived versions and disables creation at five active versions', asy
   await expect(page.getByRole('article', { name: 'main version' })).toContainText('2.1.0');
   await expect(page.getByRole('article', { name: 'ae3 version' })).toContainText('0.3.0');
   await expect(page.getByRole('button', { name: 'New version from here' })).toBeEnabled();
+  if (testInfo.project.name === 'phone') {
+    await expectTarget(page.getByRole('button', { name: 'Switch to main' }), 64);
+    await expectTarget(page.getByRole('button', { name: 'Play main' }), 64);
+  }
 
   api.useFiveActiveVersions();
   await page.reload({ waitUntil: 'domcontentloaded' });
@@ -29,20 +33,22 @@ test('shows derived versions and disables creation at five active versions', asy
   }
 });
 
-test('publishes edited preview text only from main', async ({ page }) => {
+test('publishes edited preview text only from main', async ({ page }, testInfo) => {
   test.slow(); // this case opens a second game shell to prove the branch-specific publish gate
   const api = await installVersioningRoutes(page);
   await installAuthRoutes(page, { signedIn: true });
   await page.goto('/g/game/releases?v=main');
 
-  await page.getByRole('button', { name: 'Publish' }).click();
+  const publish = page.getByRole('button', { name: 'Publish' });
+  if (testInfo.project.name === 'phone') await expectTarget(publish, 64);
+  await publish.click();
   const changelog = page.getByRole('textbox', { name: 'What changed' });
   await expect(changelog).toHaveValue('Door puzzles\n\nA locked cellar door');
   await changelog.fill('A sharper release note');
   await page.getByRole('button', { name: 'Publish 2.2.0' }).click();
-  await expect.poll(() => api.publishes).toEqual([
-    { buildId: 'build_main', changelog: { summary: 'A sharper release note', items: [] } },
-  ]);
+  await expect
+    .poll(() => api.publishes)
+    .toEqual([{ buildId: 'build_main', changelog: { summary: 'A sharper release note', items: [] } }]);
 
   await page.goto('/g/game/releases?v=ae3', { waitUntil: 'domcontentloaded' });
   await expect(page.getByRole('heading', { name: 'Releases' })).toBeVisible();
@@ -60,14 +66,20 @@ test('previews affected saves before rollback', async ({ page }) => {
   await expect.poll(() => api.rollbacks).toEqual([{ releaseId: 'release_200' }]);
 });
 
-test('resolves the AE3 conflict, previews, and lands with one target lease', async ({ page }) => {
+test('resolves the AE3 conflict, previews, and lands with one target lease', async ({ page }, testInfo) => {
   const api = await installVersioningRoutes(page);
   await installAuthRoutes(page, { signedIn: true });
   await page.goto('/g/game/merge/plan_ae3?target=main');
 
   await expect(page.getByText('Mine:')).toContainText('false');
   await expect(page.getByText('Theirs:')).toContainText('true');
+  await expect(page.getByLabel('Mine')).toBeVisible();
+  await expect(page.getByLabel('Theirs')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Both' })).toHaveCount(0);
+  if (testInfo.project.name === 'phone') {
+    await expectTarget(page.getByRole('button', { name: 'Land' }), 64);
+    await expectTarget(page.getByRole('button', { name: 'Abandon' }), 44);
+  }
   await page.getByRole('button', { name: 'Keep all of mine' }).click();
   await expect.poll(() => api.resolveAll).toEqual([{ resolution: 'ours' }]);
 

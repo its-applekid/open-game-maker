@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -55,6 +55,43 @@ describe('ReleasesScreen', () => {
     expect(await screen.findByRole('heading', { name: 'Releases' })).toBeVisible();
     expect(screen.queryByRole('button', { name: 'Publish' })).not.toBeInTheDocument();
   }, 15_000);
+
+  it('waits for repository visibility before enabling Publish', async () => {
+    let resolveGame!: (response: Response) => void;
+    const gameResponse = new Promise<Response>((resolve) => {
+      resolveGame = resolve;
+    });
+    stubReleaseApi([main], [tested], { gameResponse });
+    renderScreen('/g/game/releases?v=branch_main');
+
+    const publish = await screen.findByRole('button', { name: 'Publish' });
+    expect(publish).toBeDisabled();
+
+    await act(async () =>
+      resolveGame(
+        json({
+          id: 'game',
+          familyId: 'family',
+          ownerId: 'user',
+          title: 'Goblin Cellar',
+          visibility: 'private',
+          repoVisibility: 'public',
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(publish).toBeEnabled());
+    fireEvent.click(publish);
+    expect(await screen.findByText('These words will be public.')).toBeVisible();
+  });
+
+  it('does not describe an unavailable release history as empty', async () => {
+    stubReleaseApi([main], [tested], { releaseStatus: 503 });
+    renderScreen('/g/game/releases?v=branch_main');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Releases unavailable');
+    expect(screen.queryByText('Nothing published yet.')).not.toBeInTheDocument();
+  });
 });
 
 function renderScreen(entry: string) {
@@ -70,24 +107,34 @@ function renderScreen(entry: string) {
   );
 }
 
-function stubReleaseApi(branches: VersionBranch[], builds: Build[]) {
+function stubReleaseApi(
+  branches: VersionBranch[],
+  builds: Build[],
+  options: { gameResponse?: Promise<Response>; releaseStatus?: number } = {},
+) {
   vi.stubGlobal(
     'fetch',
     vi.fn((input: string | URL | Request) => {
       const path = input.toString();
       if (path.endsWith('/branches')) return Promise.resolve(json({ branches }));
       if (path.endsWith('/builds')) return Promise.resolve(json({ builds }));
-      if (path.endsWith('/releases')) return Promise.resolve(json({ releases: [] }));
+      if (path.endsWith('/releases')) {
+        const status = options.releaseStatus ?? 200;
+        return Promise.resolve(status === 200 ? json({ releases: [] }) : json({ error: 'unavailable' }, status));
+      }
       if (path.endsWith('/games/game')) {
-        return Promise.resolve(
-          json({
-            id: 'game',
-            familyId: 'family',
-            ownerId: 'user',
-            title: 'Goblin Cellar',
-            visibility: 'private',
-            repoVisibility: 'private',
-          }),
+        return (
+          options.gameResponse ??
+          Promise.resolve(
+            json({
+              id: 'game',
+              familyId: 'family',
+              ownerId: 'user',
+              title: 'Goblin Cellar',
+              visibility: 'private',
+              repoVisibility: 'private',
+            }),
+          )
         );
       }
       return Promise.resolve(json({ error: 'not_found' }, 404));

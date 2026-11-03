@@ -43,7 +43,7 @@ export function ReleasesScreen() {
           <button
             className="tap-primary release-publish"
             type="button"
-            disabled={eligibleBuild === undefined}
+            disabled={eligibleBuild === undefined || game.data === undefined}
             onClick={() => setPublishingBuildId(eligibleBuild?.id)}
           >
             Publish
@@ -68,7 +68,7 @@ export function ReleasesScreen() {
             </button>
           </p>
         ) : null}
-        {!releases.isPending && history.length === 0 ? (
+        {!releases.isPending && !releases.isError && history.length === 0 ? (
           <p className="versioning-state">Nothing published yet.</p>
         ) : null}
         {published ? (
@@ -108,11 +108,11 @@ export function ReleasesScreen() {
         ) : null}
       </div>
 
-      {publishingBuildId ? (
+      {publishingBuildId && game.data ? (
         <PublishDialog
           gameId={gameId}
           buildId={publishingBuildId}
-          publicRepo={game.data?.repoVisibility === 'public'}
+          publicRepo={game.data.repoVisibility === 'public'}
           onPublished={returnToGame}
           onClose={() => setPublishingBuildId(undefined)}
         />
