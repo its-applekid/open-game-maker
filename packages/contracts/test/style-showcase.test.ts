@@ -22,6 +22,7 @@ const v5Manifest = () => ({
       id,
       label: `Scene ${index + 1}`,
       seconds: 3.75,
+      ...(index === 1 ? { startSeconds: 3.75 } : {}),
       story: { summary: 'authoring metadata' },
       region: media(id, 'region'),
       sheet: media(id, 'sheet'),
@@ -62,7 +63,6 @@ describe('style showcase contracts', () => {
 
   it('accepts v5 scene media and outline options while ignoring generator metadata', () => {
     const input = v5Manifest();
-    input.stops[1] = { ...input.stops[1]!, startSeconds: 3.75 };
     const parsed = smallScaleIntShowcaseV5Schema.parse(input);
 
     expect(parsed.stops).toHaveLength(8);
