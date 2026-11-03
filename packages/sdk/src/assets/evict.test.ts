@@ -107,7 +107,9 @@ function setup(
         },
       },
       locks: {
-        async request(_name, _options, callback) {
+        async request(name, lockOptions, callback) {
+          expect(name).toBe('gm-cache');
+          expect(lockOptions).toEqual({ mode: 'exclusive', ifAvailable: true });
           return callback(options.lockAvailable === false ? null : ({} as Lock));
         },
       },
@@ -242,6 +244,27 @@ describe('evictAssetCaches', () => {
     expect(timeout).toBe(5_000);
     expect(ledger.builds.has(stale.key)).toBe(true);
     idleCallback?.({ didTimeout: false, timeRemaining: () => 10 });
+    await vi.waitFor(() => expect(ledger.builds.has(stale.key)).toBe(false));
+  });
+
+  it('falls back to a five-second timer when idle callbacks are unavailable', async () => {
+    const stale = build({ gameId: 'game', buildId: 'stale', lastPlayedAt: NOW - 31 * DAY_MS });
+    const current = build({ gameId: 'game', buildId: 'current' });
+    const { dependencies, ledger } = setup([stale, current]);
+    let timeoutCallback: (() => void) | undefined;
+    let timeout: number | undefined;
+
+    scheduleAssetCacheEviction(dependencies, {
+      setTimeout(callback, delay) {
+        timeoutCallback = callback;
+        timeout = delay;
+        return 1 as ReturnType<typeof setTimeout>;
+      },
+    });
+
+    expect(timeout).toBe(5_000);
+    expect(ledger.builds.has(stale.key)).toBe(true);
+    timeoutCallback?.();
     await vi.waitFor(() => expect(ledger.builds.has(stale.key)).toBe(false));
   });
 });
