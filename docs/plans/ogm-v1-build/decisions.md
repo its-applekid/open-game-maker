@@ -81,3 +81,17 @@ Filed by the aiur agent (2026-11-01, third batch): slow envelope resume after a 
 **Why.** Keeps gigabytes and mixed licences out of git so any game repo can be open-sourced at any moment by construction; the lock's sha pins keep builds reproducible; the export covers the "give someone a clone" case without re-adding bytes to the repo.
 
 **Supersedes.** OGM-062's "copies the files" step and OGM-063's "the repo copies" source; `gm assets vendor` (explicit, redistributable-only) remains for a self-contained snapshot. Tickets: see the four `feature:asset-pipeline` / `feature:commit-safety` tickets filed 2026-11-02 (reference-only use/build, tier-3 blob store, boundary rule + vendor, export/import).
+
+## D-COMPOSABLE-DEPENDENCIES — capabilities are versioned packages, curated by the executor (Kevin, voice review 2026-11-02)
+
+Source: `docs/plans/2026-11-02-architecture-handoff.md` (Kevin's voice conversation). Agreed:
+- **Real, versioned dependencies, not copied templates.** The engine is a dependency; substantial capabilities (multiplayer, input, networking, presentation, gameplay systems) are separately consumable packages; games pin versions and upgrade deliberately; older versions stay available. A monorepo with real package boundaries is fine.
+- **Organize by capability, not genre.** Layers: platform → spatial/presentation → composable gameplay systems → the game. Archetypes are optional bundles. Chess changes must not break a shooter; a 2D and a 3D RPG can share gameplay systems.
+- **Asset ingestion spans a spectrum:** asset understanding (metadata) / reusable presentation (animation, directions, layering, tiles) / gameplay interpretation (game-level only). Packs never prescribe gameplay. A tiny pack stays lightweight. Improve shared presentation capabilities instead of per-pack engines.
+- **Metadata:** preserve source metadata, add enrichment with provenance; enrichment may be authoritative.
+- **Dioramas:** automatic render → inspect → repair loop (bounded); successful dioramas become regression fixtures; diorama details stay with the current work.
+- **Asset packs are versioned dependencies** resolving to stable asset sets (adding wizards = new pack version; games opt in by updating).
+- **AIUR owns orchestration and merge authority;** command requests escalate significant shared decisions to the executor; the executor curates which components are registered as reusable.
+- **`gm` CLI discovers packages and components, not just assets;** skills say search before building.
+- **Two scopes:** core OGM repo vs an implementation repo (that implementation's games + components, monorepo); promotion path game → implementation-shared → core, via an agent-driven contribution workflow that does not assume write access to core.
+Open items are listed in §16 of the handoff; the reconciliation ticket turns them into a plan.
