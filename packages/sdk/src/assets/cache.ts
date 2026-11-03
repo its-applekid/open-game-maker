@@ -182,25 +182,28 @@ async function fetchPhase(
   const progress = createProgressReporter(send, phase, total, cachedBytes, dependencies.now ?? defaultNow);
   progress.update(cachedBytes);
 
-  await concurrent(misses, FETCH_CONCURRENCY, async ({ entry, url }) => {
-    const fetcher = dependencies.fetcher ?? globalThis.fetch;
-    const response = await fetcher(url, { priority: phase === 'ready' ? 'high' : 'low' } as RequestInit);
-    if (!response.ok) throw new Error(`Failed to fetch cache asset ${url}: HTTP ${response.status}`);
-    const cacheResponse = cache ? response.clone() : undefined;
-    const bytes = await countResponseBytes(response, (chunkBytes) => {
-      fetchedBytes += chunkBytes;
-      progress.update(Math.min(total, cachedBytes + fetchedBytes));
-    });
-    if (bytes === 0 && entry.bytes > 0) progress.update(Math.min(total, cachedBytes + fetchedBytes));
-    if (cache && cacheResponse) {
-      try {
-        await cache.put(url, cacheResponse);
-      } catch (error) {
-        if (!isQuotaExceeded(error)) throw error;
+  try {
+    await concurrent(misses, FETCH_CONCURRENCY, async ({ entry, url }) => {
+      const fetcher = dependencies.fetcher ?? globalThis.fetch;
+      const response = await fetcher(url, { priority: phase === 'ready' ? 'high' : 'low' } as RequestInit);
+      if (!response.ok) throw new Error(`Failed to fetch cache asset ${url}: HTTP ${response.status}`);
+      const cacheWrite = cache ? putAsset(cache, url, response.clone()) : Promise.resolve();
+      const byteCount = countResponseBytes(response, (chunkBytes) => {
+        fetchedBytes += chunkBytes;
+        progress.update(Math.min(total, cachedBytes + fetchedBytes));
+      });
+      const [counted, cached] = await Promise.allSettled([byteCount, cacheWrite]);
+      if (counted.status === 'rejected') throw counted.reason;
+      if (cached.status === 'rejected') throw cached.reason;
+      if (counted.value === 0 && entry.bytes > 0) {
+        progress.update(Math.min(total, cachedBytes + fetchedBytes));
       }
-    }
-  });
-  await progress.finish(total);
+    });
+    await progress.finish(total);
+  } catch (error) {
+    progress.cancel();
+    throw error;
+  }
 
   return {
     fetchedBytes,
@@ -224,6 +227,14 @@ async function safeMatch(cache: Cache, url: string): Promise<Response | undefine
     return (await cache.match(url)) ?? undefined;
   } catch {
     return undefined;
+  }
+}
+
+async function putAsset(cache: Cache, url: string, response: Response): Promise<void> {
+  try {
+    await cache.put(url, response);
+  } catch (error) {
+    if (!isQuotaExceeded(error)) throw error;
   }
 }
 
@@ -295,21 +306,40 @@ function createProgressReporter(
       }
       if (lastSentLoaded !== loaded) emit(loaded);
     },
+    cancel() {
+      if (timer !== undefined) clearTimeout(timer);
+      timer = undefined;
+      pendingLoaded = undefined;
+      resolvePending?.();
+      resolvePending = undefined;
+    },
   };
 }
 
 async function concurrent<T>(items: T[], limit: number, task: (item: T) => Promise<void>): Promise<void> {
   let next = 0;
+  let failed = false;
+  let firstError: unknown;
   await Promise.all(
     Array.from({ length: Math.min(limit, items.length) }, async () => {
       for (;;) {
+        if (failed) return;
         const index = next++;
         const item = items[index];
         if (item === undefined) return;
-        await task(item);
+        try {
+          await task(item);
+        } catch (error) {
+          if (!failed) {
+            failed = true;
+            firstError = error;
+          }
+          return;
+        }
       }
     }),
   );
+  if (failed) throw firstError;
 }
 
 async function recordPlay(
@@ -326,10 +356,11 @@ async function recordPlay(
   });
   try {
     const key = `${plan.gameId}/${plan.buildId}`;
-    const previous = await database.get('builds', key);
+    const transaction = database.transaction('builds', 'readwrite');
+    const previous = await transaction.store.get(key);
     const playedAt = (dependencies.dateNow ?? Date.now)();
     const selected = plan.entries.filter((entry) => entry.tiers.includes('*') || entry.tiers.includes(tier));
-    await database.put('builds', {
+    await transaction.store.put({
       key,
       gameId: plan.gameId,
       buildId: plan.buildId,
@@ -341,6 +372,7 @@ async function recordPlay(
       lastPlayedAt: playedAt,
       plays: (previous?.plays ?? 0) + 1,
     });
+    await transaction.done;
   } finally {
     database.close();
   }

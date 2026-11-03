@@ -16,6 +16,7 @@ import {
 const databases: string[] = [];
 
 afterEach(async () => {
+  vi.useRealTimers();
   await Promise.all(databases.splice(0).map((name) => deleteDB(name)));
 });
 
@@ -171,6 +172,94 @@ describe('prepare asset cache', () => {
     expect(context.cacheStorage.opened).toContain(ASSET_CACHE_NAME);
   });
 
+  it('limits progress to ten updates per second and still reports the final total', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const ready = entry('a', 6);
+    const cachePlan = plan([ready]);
+    const context = setup(cachePlan);
+    context.now = () => Date.now();
+    context.fetcher.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.endsWith('cache-plan.json')) return Response.json(cachePlan);
+      return new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.enqueue(new Uint8Array([1, 2]));
+            controller.enqueue(new Uint8Array([3, 4]));
+            controller.enqueue(new Uint8Array([5, 6]));
+            controller.close();
+          },
+        }),
+      );
+    });
+
+    const pending = prepare(
+      { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+      context,
+    );
+    await vi.advanceTimersByTimeAsync(0);
+    expect(context.messages.filter((message) => message.t === 'load.progress')).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(99);
+    expect(context.messages.filter((message) => message.t === 'load.progress')).toHaveLength(1);
+
+    await vi.advanceTimersByTimeAsync(1);
+    await vi.runAllTimersAsync();
+    await pending;
+    expect(
+      context.messages.filter((message) => message.t === 'load.progress').map((message) => message.payload.loaded),
+    ).toEqual([0, 6]);
+  });
+
+  it('waits for started workers and cancels progress before rejecting a failed phase', async () => {
+    const entries = Array.from({ length: 7 }, (_, index) => entry(String(index + 1), 10));
+    const cachePlan = plan(entries);
+    const context = setup(cachePlan);
+    let resolveSlow!: (response: Response) => void;
+    const slowResponse = new Promise<Response>((resolve) => {
+      resolveSlow = resolve;
+    });
+    context.fetcher.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      context.requestOrder.push(
+        `${url}:${String((init as (RequestInit & { priority?: string }) | undefined)?.priority ?? '')}`,
+      );
+      if (url.endsWith('cache-plan.json')) return Response.json(cachePlan);
+      if (url.endsWith(entries[0]!.url)) return new Response(null, { status: 500 });
+      if (url.endsWith(entries[1]!.url)) return slowResponse;
+      return new Response(new Uint8Array(10));
+    });
+
+    const pending = prepare(
+      { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+      context,
+    );
+    let settled = false;
+    void pending.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    await vi.waitFor(() => expect(context.requestOrder.filter((request) => request.endsWith(':high'))).toHaveLength(6));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+
+    resolveSlow(new Response(new Uint8Array(10)));
+    await expect(pending).rejects.toThrow('HTTP 500');
+    expect(
+      context.requestOrder.some((request) =>
+        request.startsWith(new URL(entries[6]!.url, 'https://game.test').toString()),
+      ),
+    ).toBe(false);
+    const messageCount = context.messages.length;
+    await new Promise((resolve) => setTimeout(resolve, 110));
+    expect(context.messages).toHaveLength(messageCount);
+  });
+
   it('does no asset fetches for a warm plan and reports zero fetched bytes', async () => {
     const ready = entry('a', 10);
     const cachePlan = plan([ready]);
@@ -308,6 +397,24 @@ describe('prepare asset cache', () => {
       plays: 2,
     });
     expect(row.lastPlayedAt).toBeGreaterThanOrEqual(row.firstPlayedAt);
+  });
+
+  it('atomically increments the build ledger for concurrent plays', async () => {
+    const cachePlan = plan([]);
+    const context = setup(cachePlan);
+    const options = {
+      plan: 'https://game.test/g/game/build/assets/cache-plan.json',
+      tier: 'desktop' as const,
+      channel: 'published' as const,
+      send: context.send,
+    };
+
+    await Promise.all([prepare(options, context), prepare(options, context)]);
+
+    const database = await openDB(context.databaseName, 1);
+    const row = (await database.get('builds', 'game/build')) as LedgerBuild;
+    database.close();
+    expect(row.plays).toBe(2);
   });
 
   it('requests persistence once per partition and skips a Gecko prompt', async () => {

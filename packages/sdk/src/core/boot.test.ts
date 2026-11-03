@@ -1,8 +1,9 @@
 import type { Envelope, HostToGame } from '@ogm/contracts';
 import { z } from 'zod';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, expectTypeOf, it, vi } from 'vitest';
 
 import { boot } from './boot.js';
+import { RuntimeImpl } from './runtime.js';
 import { createCounterGame } from '../test/fixtures/counter-game.js';
 
 const bridge = vi.hoisted(() => ({
@@ -51,6 +52,12 @@ describe('boot', () => {
     bridge.close.mockReset();
     bridge.send.mockReset();
     bridge.onMessage = undefined;
+  });
+
+  it('preserves the exported RuntimeImpl constructor positions', () => {
+    type RuntimeParameters = ConstructorParameters<typeof RuntimeImpl>;
+
+    expectTypeOf<RuntimeParameters[5]>().toEqualTypeOf<() => void>();
   });
 
   it('mounts from schema defaults and answers hello with ready marks', async () => {
