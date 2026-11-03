@@ -352,12 +352,8 @@ export function GameScreen() {
       </PlayEditBar>
       <div className="game-stage">
         <div className="game-frame" ref={containerRef} />
-        {game.data !== undefined && frameState.bridgeState !== 'error' ? (
-          <LoadingLayer
-            key={`${activeSnapshot?.buildId ?? 'pending'}-${frameAttempt}`}
-            game={game.data}
-            load={frameState.load}
-          />
+        {game.data !== undefined && activeSnapshot !== undefined && frameState.bridgeState !== 'error' ? (
+          <LoadingLayer key={`${activeSnapshot.buildId}-${frameAttempt}`} game={game.data} load={frameState.load} />
         ) : null}
         {mode === 'edit' &&
         frameRef.current !== undefined &&

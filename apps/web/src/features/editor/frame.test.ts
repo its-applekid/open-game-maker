@@ -229,11 +229,13 @@ describe('game frame adapter', () => {
       onState: (state) => states.push(state),
     });
 
+    frameOptions?.onReady?.(manifest, []);
+    expect(controller.state().load).toMatchObject({ done: true });
+
     frameOptions?.onLoad?.({
       t: 'load.progress',
       payload: { phase: 'ready', loaded: 25, total: 100, cachedBytes: 10 },
     });
-    frameOptions?.onReady?.(manifest, []);
     expect(controller.state().load).toEqual({ phase: 'ready', loaded: 25, total: 100, done: false });
 
     await vi.advanceTimersByTimeAsync(19_000);

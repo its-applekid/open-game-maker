@@ -218,6 +218,19 @@ describe('GameScreen', () => {
     expect(host.controller.dispose).toHaveBeenCalled();
   });
 
+  it('does not start the load layer before a build is available', async () => {
+    editorApi.getDesignSnapshot.mockImplementation(() => new Promise(() => undefined));
+
+    renderGame();
+    await screen.findByText('Goblin Cellar');
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 180));
+    });
+
+    expect(screen.queryByRole('progressbar', { name: 'Loading' })).not.toBeInTheDocument();
+    expect(host.mountGameFrame).not.toHaveBeenCalled();
+  });
+
   it('posts the terminal load measurement through OGM-014 analytics', async () => {
     renderGame();
     await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalled());
@@ -243,6 +256,7 @@ describe('GameScreen', () => {
     const options = host.mountGameFrame.mock.calls.at(-1)?.[0];
 
     act(() => {
+      options?.onLoadStalled?.({ ms: 20_000, fetchedBytes: 1024, cachedBytes: 1024 });
       options?.onState?.({
         bridgeState: 'error',
         dropped: 0,
@@ -251,6 +265,15 @@ describe('GameScreen', () => {
         load: { phase: 'ready', loaded: 20, total: 100, done: false },
       });
     });
+
+    await waitFor(() =>
+      expect(editorApi.postAnalyticsEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          gameId: 'game',
+          meta: expect.objectContaining({ system: 'game-load', command: 'partial', result: 'fail' }),
+        }),
+      ),
+    );
 
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(host.mountGameFrame).toHaveBeenCalledTimes(2));
