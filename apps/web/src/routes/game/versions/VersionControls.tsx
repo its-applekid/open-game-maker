@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router';
 
 import type { GameExtraProps } from '../extras';
 
-export function VersionControls({ gameId, branchId }: GameExtraProps) {
+export function VersionControls({ gameId, branchId, mode }: GameExtraProps) {
   const navigate = useNavigate();
   const query = `?v=${encodeURIComponent(branchId)}`;
+  if (mode === 'edit') return null;
+
   return (
     <div className="version-controls" role="group" aria-label="Versions and releases">
       <button
