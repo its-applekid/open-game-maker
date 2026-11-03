@@ -36,16 +36,28 @@ if [[ "$DRY_RUN" == true ]]; then
 fi
 
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
+# The archived prototype's generated art/, demo/, and town/ payload is gitignored.
+bash "$ROOT/prototypes/studio-v0/tools/build.sh"
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
+node "$ROOT/apps/web/tools/stage-prototype.mjs" \
+  "$ROOT/prototypes/studio-v0" "$ROOT/prototypes/ui-v0/site" "$DEPLOY_DIR/proto"
 printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
 if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete
 fi
 
-sed -i "s/__BUILD__/$(date +%s)/" "$DEPLOY_DIR/sw.js"
-if grep -q '__BUILD__' "$DEPLOY_DIR/sw.js"; then
-  printf '%s\n' 'service-worker build stamp was not replaced' >&2
-  exit 1
+BUILD_STAMP="$(date +%s)"
+for WORKER in "$DEPLOY_DIR/sw.js" "$DEPLOY_DIR/proto/sw.js"; do
+  sed -i "s/__BUILD__/$BUILD_STAMP/" "$WORKER"
+  if grep -q '__BUILD__' "$WORKER"; then
+    printf 'service-worker build stamp was not replaced: %s\n' "$WORKER" >&2
+    exit 1
+  fi
+done
+
+if [[ "$DRY_RUN" == true ]]; then
+  printf '%s\n' 'prototype payload:'
+  find "$DEPLOY_DIR/proto" -type f -printf 'proto/%P\n' | LC_ALL=C sort
 fi
 
 RECORD_DIR="$(mktemp -d)"
