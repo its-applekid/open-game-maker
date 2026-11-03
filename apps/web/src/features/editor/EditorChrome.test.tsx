@@ -48,6 +48,15 @@ function Screen() {
 afterEach(cleanup);
 
 describe('EditorChrome', () => {
+  it('maps real editor controls into the prototype rail, tray, and inspector regions', () => {
+    const { container } = render(<Screen />);
+
+    expect(container.querySelector('.editor-chrome > .editor-rail')).toBeVisible();
+    expect(container.querySelector('.editor-chrome > .editor-palette')).toHaveTextContent('Actors');
+    expect(container.querySelector('.editor-chrome > .editor-inspector-stack .editor-tools')).toBeVisible();
+    expect(container.querySelector('.editor-chrome > .editor-inspector-stack .editor-inspector')).toBeVisible();
+  });
+
   // A creator who taps a palette item and then the canvas must place that item. If the canvas learns the pick a
   // task after the palette shows it, a quick tap lands as a select-pick and nothing is placed (#297).
   it('hands the picked prefab to the canvas in the same commit that shows the pick', async () => {

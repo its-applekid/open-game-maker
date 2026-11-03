@@ -75,7 +75,13 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'OGM_VOICE_PORT', unit: 'voice-host', kind: 'port', doc: 'loopback port of the voice host' },
   { name: 'OGM_PUBLIC_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:8443' },
   { name: 'OGM_GAMES_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://<tailnet-host>:10000' },
-  { name: 'OGM_APP_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://ogm2000.netlify.app (frame-ancestors, CORS)' },
+  { name: 'OGM_APP_ORIGIN', unit: 'shared', kind: 'url', doc: 'https://makeopen.games (frame-ancestors, CORS)' },
+  {
+    name: 'OGM_PUBLIC_APP_ORIGIN',
+    unit: 'web',
+    kind: 'url',
+    doc: 'public app origin deploy.sh uses for the retired Netlify-host redirect',
+  },
   {
     name: 'VITE_GAMES_ORIGIN',
     unit: 'web',

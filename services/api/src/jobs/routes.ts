@@ -7,7 +7,7 @@ import { authorize } from '@ogm/policy';
 import { eq } from 'drizzle-orm';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
-import { hasGameGrant } from '../games/games.js';
+import { hasGameGrant, listGames as listVisibleGames } from '../games/games.js';
 import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
@@ -16,10 +16,11 @@ import { AdmissionRefused, admit } from './admission.js';
 import { createControlsRoutes, storedDaemonFor } from './controls.js';
 import { findJob, findJobRow, listJobs } from './repo.js';
 import { raiseCap } from './spend-cap.js';
+import { isTerminal } from './state.js';
 
 export const prefix = '/api/v1';
 
-const listQuery = z.object({ gameId: Id }).strict();
+const listQuery = z.union([z.object({ gameId: Id }).strict(), z.object({ state: z.literal('active') }).strict()]);
 const patchBody = z.object({ plan: JobPlan }).strict();
 const raiseBody = z.object({ amountMicroUsd: MicroUsd }).strict();
 
@@ -70,10 +71,18 @@ const routes = new Hono<ApiBindings>()
   })
   .get('/jobs', (c) => {
     const principal = requirePrincipal(c, ['user']);
-    const { gameId } = parseQuery(c, listQuery);
+    const query = parseQuery(c, listQuery);
     const deps = c.get('deps');
-    requireRead(deps, gameId, actorFromPrincipal(principal));
-    return c.json({ jobs: listJobs(deps.db, gameId) });
+    const actor = actorFromPrincipal(principal);
+    if ('gameId' in query) {
+      requireRead(deps, query.gameId, actor);
+      return c.json({ jobs: listJobs(deps.db, query.gameId) });
+    }
+
+    requireAuthorization(authorize(actor, 'game.play', { familyId: principal.familyId, visibility: 'listed' }));
+    const visibleGameIds = listVisibleGames(deps.db, principal.familyId, principal.userId).map((game) => game.id);
+    const jobs = listJobs(deps.db, visibleGameIds).filter((job) => !isTerminal(job.state));
+    return c.json({ jobs });
   })
   .get('/jobs/:id', (c) => {
     const principal = requirePrincipal(c, ['user']);

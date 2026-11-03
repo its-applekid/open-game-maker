@@ -1,0 +1,20 @@
+{
+  "name": "@ogm/gm-editor-tuning",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "pretypecheck": "pnpm --filter @ogm/gm-cli --filter @ogm/contracts build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/gm-cli --filter @ogm/contracts build",
+    "test": "vitest run skill.test.ts",
+    "lint": "eslint skill.test.ts"
+  },
+  "devDependencies": {
+    "@ogm/contracts": "workspace:*",
+    "@ogm/gm-cli": "workspace:*",
+    "typescript": "6.0.3",
+    "vitest": "5.0.5"
+  }
+}

@@ -40,7 +40,28 @@ export function Inspector({
   });
 
   return (
-    <FocusZone id={EDITOR_FOCUS_ZONES.inspector} className="editor-inspector">
+    <FocusZone
+      id={EDITOR_FOCUS_ZONES.inspector}
+      className={`editor-inspector${selected || visible.length > 0 ? ' has-content' : ''}`}
+    >
+      {!selected && visible.length === 0 ? (
+        <div className="inspector-empty">
+          <h3>Nothing selected</h3>
+          <p>Tap something in your game to change it. Drag it to move it.</p>
+          <ul>
+            <li>
+              <b>R</b> turn
+            </li>
+            <li>
+              <b>Del</b> remove
+            </li>
+            <li>
+              <b>Ctrl+Z</b> undo
+            </li>
+          </ul>
+        </div>
+      ) : null}
+      {selected ? <h3>{selected.prefab}</h3> : null}
       {selected && (onDelete !== undefined || onDuplicate !== undefined) ? (
         <div className="entity-actions" role="group" aria-label={`This ${selected.prefab}`}>
           <button className="tap-secondary" type="button" onClick={() => onDuplicate?.(selected.id)}>

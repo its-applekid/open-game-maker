@@ -7,6 +7,7 @@ import { useSession } from '../lib/api/session';
 import { Toasts, useNotificationFeed } from '../lib/notify';
 import { ScreenErrorBoundary } from './ScreenErrorBoundary';
 import type { ScreenRoute } from './screen';
+import { SoundControl, StudioBackdrop, StudioLogo } from './StudioChrome';
 
 type ScreenModule = { route?: ScreenRoute };
 
@@ -80,7 +81,9 @@ function AppChrome({ children }: { children: ReactNode }) {
   useNotificationFeed();
   return (
     <div className="app-chrome">
-      <div id="app-logo-slot" aria-hidden="true" />
+      <StudioBackdrop />
+      <StudioLogo />
+      <SoundControl />
       <main>{children}</main>
       <Toasts />
       <div id="bug-fab-slot">

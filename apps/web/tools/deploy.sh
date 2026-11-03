@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build, inspect, and manually deploy the existing ogm2000.netlify.app site.
+# Build, inspect, and manually deploy the public app site.
 set -euo pipefail
 
 ROOT="$(realpath "$(dirname "${BASH_SOURCE[0]}")/../../..")"
@@ -31,6 +31,9 @@ printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for fra
 
 # The /api and /auth proxy target is a host value, so _redirects is written here and never kept in the repo.
 REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"
+if [[ "$DRY_RUN" == true ]]; then
+  printf '%s\n' "$REDIRECTS"
+fi
 
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
@@ -84,5 +87,5 @@ if [[ "$DRY_RUN" == true ]]; then
   exit 0
 fi
 
-netlify deploy --prod --no-build --dir "$DEPLOY_DIR" \
+netlify deploy --prod --no-build --filter @ogm/web --dir "$DEPLOY_DIR" \
   --site "$(<"$ROOT/apps/web/.netlify-site-id")"

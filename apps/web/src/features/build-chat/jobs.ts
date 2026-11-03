@@ -13,6 +13,7 @@ type JobsData = { jobs: Job[] };
 const EMPTY_JOBS: Job[] = [];
 
 export const myJobsQueryKey = ['build-chat', 'jobs'] as const;
+export const gameJobsQueryKey = (gameId: string) => ['game-jobs', gameId] as const;
 
 export function useMyJobs() {
   const { data: session } = useSession();

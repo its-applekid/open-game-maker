@@ -11,6 +11,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { kaiju } from './rampage.js';
 import { earthbound } from './earthbound.js';
+import { loopedSceneTime } from './timeline.js';
 
 const Q = new URLSearchParams(location.search);
 const CAPTURE = Q.has('capture'), POSTER = Q.has('poster'), CAM = Q.get('cam') || 'a', EMBED = Q.has('embed'), SCENE = Q.get('scene'), SCENE_V = Q.get('var') || 'a';
@@ -903,7 +904,7 @@ const makeSfx = SNDS => SNDS.length && !CAPTURE ? (() => {
   }
   const last = new Map();
   const f = t => { for (const s of SNDS) {
-    const lt = s.local(mod(t, s.per)), was = last.get(s) ?? lt; last.set(s, lt);
+    const lt = s.local(t), was = last.get(s) ?? lt; last.set(s, lt);
     for (const c of s.sounds) if ((was < lt ? c.t > was && c.t <= lt : lt < was && (c.t > was || c.t <= lt)) && !(c.tag != null && s.dead?.(c.tag))) play(c.s, c.v, c.r);   // a cue whose event the player prevented stays quiet
     for (const l of s.loops) loopGain(l.s, lt > l.t0 && lt < l.t1 ? l.v * Math.min(1, (lt - l.t0) / .8, (l.t1 - lt) / .4) : 0);
   } };
@@ -927,7 +928,7 @@ async function startScenes(join) {
   const OFF0 = 38, OFF1 = 48, offAt = k => OFF0 + (OFF1 - OFF0) * hash2(k, 77);
   const cycle = list.length > 1 ? Math.max(list[0].per, OFF1 + list[1].per) : 0;
   list.forEach((s, i) => { s.off = i ? offAt(0) : 0;
-    s.local = !cycle ? t => t - join : !i ? t => Math.min(mod(t - join, cycle), s.per - .001)
+    s.local = !cycle ? t => t - join : !i ? t => loopedSceneTime(t - join, cycle, s.per)
       : t => { const u = Math.max(0, t - join), k = Math.floor(u / cycle); return Math.min(Math.max(u - k * cycle - offAt(k), 0), s.per - .001); }; });
   const snds = list.filter(s => s.sounds?.length);
   if (snds.length) window.__sounds = { per: cycle || snds[0].per, cues: snds.flatMap(s => s.sounds.map(c => ({ ...c, t: c.t + (s.off || 0) }))).sort((a, b) => a.t - b.t),   // for tools/mix_sound.mjs

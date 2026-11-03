@@ -7,6 +7,7 @@ import type { Entity, ReapplyReport } from '@ogm/contracts/browser';
 
 import type { OgmHost } from '../../app/testHook';
 import { useDock } from '../../features/build-chat/dock';
+import { gameJobsQueryKey } from '../../features/build-chat/jobs';
 import {
   acquireLease,
   getDesignSnapshot,
@@ -53,6 +54,7 @@ import { PlatformHud } from './PlatformHud';
 import { UpdateIndicator } from './UpdateIndicator';
 import { gameExtras, type GameExtraProps } from './extras';
 import './game.css';
+import './game-prototype.css';
 
 const initialFrameState: GameFrameState = { bridgeState: 'connecting', dropped: 0 };
 
@@ -84,7 +86,7 @@ export function GameScreen() {
     enabled: gameId !== '',
   });
   const jobs = useQuery({
-    queryKey: ['game-jobs', gameId],
+    queryKey: gameJobsQueryKey(gameId),
     queryFn: () => listJobs(gameId),
     enabled: gameId !== '',
     refetchInterval: 5_000,
@@ -332,7 +334,7 @@ export function GameScreen() {
   };
 
   return (
-    <section className="game-screen" aria-label="Play and edit">
+    <section className={`game-screen is-${mode === 'edit' ? 'editing' : 'playing'}`} aria-label="Play and edit">
       <PlayEditBar
         title={game.data?.title ?? ''}
         mode={mode}
