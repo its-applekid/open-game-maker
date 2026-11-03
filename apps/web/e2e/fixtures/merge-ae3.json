@@ -1,0 +1,48 @@
+{
+  "plan": {
+    "id": "plan_ae3",
+    "gameId": "game",
+    "sourceBranchId": "ae3",
+    "targetBranchId": "main",
+    "baseRev": 2,
+    "auto": [],
+    "conflicts": [
+      {
+        "id": "conflict_locked",
+        "path": "/entities/door/props/locked",
+        "entityId": "door",
+        "controlId": "locked",
+        "kind": "both_changed",
+        "ours": {
+          "path": "/entities/door/props/locked",
+          "before": false,
+          "after": false,
+          "txId": "tx_mine"
+        },
+        "theirs": {
+          "path": "/entities/door/props/locked",
+          "before": false,
+          "after": true,
+          "txId": "tx_theirs"
+        }
+      }
+    ],
+    "code": "clean",
+    "status": "resolving"
+  },
+  "mine": {
+    "buildId": "build_main",
+    "rev": 4,
+    "doc": { "schemaVersion": 1, "globals": {}, "entities": {} }
+  },
+  "theirs": {
+    "buildId": "build_ae3",
+    "rev": 3,
+    "doc": { "schemaVersion": 1, "globals": {}, "entities": {} }
+  },
+  "preview": {
+    "previewBuildId": "build_preview",
+    "rev": 5,
+    "doc": { "schemaVersion": 1, "globals": {}, "entities": {} }
+  }
+}

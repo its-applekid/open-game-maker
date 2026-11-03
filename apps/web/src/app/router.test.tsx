@@ -42,6 +42,8 @@ const routeTable = [
   '/g/game-1',
   '/g/game-1/versions',
   '/g/game-1/releases',
+  '/g/game-1/merge',
+  '/g/game-1/merge/plan-1',
   '/join/invite-1',
   '/admin',
   '/admin/members',
