@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
-import { copyFile, link, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises';
+import { copyFile, link, mkdir, open, readFile, readdir, realpath, rename, rm, stat } from 'node:fs/promises';
 import { basename, isAbsolute, join, relative, sep } from 'node:path';
 import { pid } from 'node:process';
 
-import { StableIdSchema } from '@ogm/contracts';
+import { cachePlanSchema, StableIdSchema } from '@ogm/contracts';
 
 const LEGACY_ID_RE = /^[a-z0-9][a-z0-9_-]{0,63}$/u;
 const BLOB_FILE_RE = /^[0-9a-f]{64}\.(?:glb|webp|png|mp3|ogg|woff2|ktx2|json)$/u;
@@ -71,6 +71,31 @@ export async function putBlob(root: string, source: string): Promise<string> {
   } finally {
     await rm(temporary, { force: true });
   }
+}
+
+/** Delete shared blobs absent from every present build's validated cache plan. */
+export async function gcBlobs(root: string, liveBuilds: readonly string[]): Promise<void> {
+  const live = new Set<string>();
+  for (const build of liveBuilds) {
+    const raw = await readFile(join(build, 'assets', 'cache-plan.json'), 'utf8').catch((error: unknown) => {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      throw error;
+    });
+    if (raw === null) continue; // Builds published before cache plans have no shared blob references.
+    const plan = cachePlanSchema.parse(JSON.parse(raw) as unknown);
+    for (const entry of plan.entries) live.add(entry.sha256);
+  }
+
+  const directory = join(root, '_a');
+  const entries = await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
+    throw error;
+  });
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isFile() && BLOB_FILE_RE.test(entry.name) && !live.has(entry.name.slice(0, 64)))
+      .map((entry) => rm(join(directory, entry.name))),
+  );
 }
 
 export function buildDir(root: string, gameId: string, buildId: string): string {
