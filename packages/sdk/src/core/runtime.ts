@@ -2,7 +2,7 @@ import type { ActionFrame, GameInstance, GmTestHooks, HostApi } from '@ogm/contr
 
 import { FixedClock, type Clock, type StepListener } from './clock.js';
 import { EventRing } from './events.js';
-import type { SdkHostApi } from './host-api.js';
+import type { SdkHostApi, SendEnvelope } from './host-api.js';
 import { SeededRng, type Rng } from './rng.js';
 import type { RuntimeHooks } from '../test/hooks.js';
 import { InputMerger, type InputMergerOptions } from '../input/merger.js';
@@ -23,6 +23,7 @@ export interface Runtime<D, S> {
   readonly build: BuildKind;
   readonly mode: GameMode;
   readonly localPlayerIndex: number;
+  readonly send: SendEnvelope;
   onFrame(callback: (dt: number) => void): () => void;
   onStep(callback: StepListener): () => void;
   onNet(callback: (type: string, payload: unknown) => void): () => void;
@@ -70,6 +71,7 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
     readonly build: BuildKind,
     mode: GameMode,
     readonly events: EventRing,
+    readonly send: SendEnvelope,
     private readonly closeBridge: () => void,
     clock = new FixedClock(),
     rng = new SeededRng(),

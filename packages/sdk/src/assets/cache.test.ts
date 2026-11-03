@@ -1,0 +1,338 @@
+import 'fake-indexeddb/auto';
+
+import type { CachePlan, CachePlanEntry } from '@ogm/contracts/assets';
+import { deleteDB, openDB } from 'idb';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import {
+  ASSET_CACHE_NAME,
+  prepare,
+  type LedgerBuild,
+  type LoadMessage,
+  type LoadSender,
+  type PrepareDependencies,
+} from './cache.js';
+
+const databases: string[] = [];
+
+afterEach(async () => {
+  await Promise.all(databases.splice(0).map((name) => deleteDB(name)));
+});
+
+class MemoryCache {
+  readonly entries = new Map<string, Response>();
+  readonly quotaUrls = new Set<string>();
+
+  async match(request: RequestInfo | URL): Promise<Response | undefined> {
+    return this.entries.get(String(request))?.clone();
+  }
+
+  async put(request: RequestInfo | URL, response: Response): Promise<void> {
+    const url = String(request);
+    if (this.quotaUrls.has(url)) throw new DOMException('full', 'QuotaExceededError');
+    this.entries.set(url, response.clone());
+  }
+}
+
+class MemoryCacheStorage {
+  readonly cache = new MemoryCache();
+  readonly opened: string[] = [];
+
+  async open(name: string): Promise<Cache> {
+    this.opened.push(name);
+    return this.cache as unknown as Cache;
+  }
+}
+
+interface TestContext extends PrepareDependencies {
+  cacheStorage: MemoryCacheStorage;
+  databaseName: string;
+  fetcher: ReturnType<typeof vi.fn<typeof globalThis.fetch>>;
+  localStorage: Map<string, string>;
+  locks: NonNullable<PrepareDependencies['locks']>;
+  messages: LoadMessage[];
+  requestOrder: string[];
+  send: LoadSender;
+  storage: NonNullable<PrepareDependencies['storage']> & {
+    persisted: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
+    estimate: ReturnType<typeof vi.fn<() => Promise<{ usage: number; quota: number }>>>;
+    persist: ReturnType<typeof vi.fn<() => Promise<boolean>>>;
+  };
+}
+
+const entry = (digest: string, bytes: number, phase: CachePlanEntry['phase'] = 'ready'): CachePlanEntry => ({
+  sha256: digest.repeat(64),
+  url: `/a/${digest.repeat(64)}.${phase === 'stream' ? 'mp3' : 'webp'}`,
+  bytes,
+  kind: phase === 'stream' ? 'music' : 'sprite',
+  phase,
+  tiers: ['*'],
+});
+
+function plan(entries: CachePlanEntry[]): CachePlan {
+  const totals = Object.fromEntries(
+    ['desktop', 'mobile', 'low'].map((tier) => [
+      tier,
+      Object.fromEntries(
+        ['boot', 'ready', 'stream'].map((phase) => {
+          const selected = entries.filter(
+            (item) => item.phase === phase && (item.tiers.includes('*') || item.tiers.includes(tier as never)),
+          );
+          return [phase, { bytes: selected.reduce((sum, item) => sum + item.bytes, 0), files: selected.length }];
+        }),
+      ),
+    ]),
+  ) as CachePlan['totals'];
+  return {
+    version: 1,
+    gameId: 'game',
+    buildId: 'build',
+    built: '2026-11-02T20:00:00.000Z',
+    sdkVersion: 'test',
+    tiers: ['desktop', 'mobile', 'low'],
+    entries,
+    totals,
+  };
+}
+
+function setup(cachePlan: CachePlan, cacheStorage = new MemoryCacheStorage()): TestContext {
+  const messages: LoadMessage[] = [];
+  const requestOrder: string[] = [];
+  const databaseName = `gm-cache-test-${crypto.randomUUID()}`;
+  databases.push(databaseName);
+  const fetcher = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    requestOrder.push(`${url}:${String((init as (RequestInit & { priority?: string }) | undefined)?.priority ?? '')}`);
+    if (url.endsWith('cache-plan.json')) return Response.json(cachePlan);
+    const item = cachePlan.entries.find((candidate) => new URL(candidate.url, url).toString() === url);
+    return new Response(new Uint8Array(item?.bytes ?? 0).fill(1));
+  });
+  const locks: NonNullable<PrepareDependencies['locks']> = {
+    async request<T>(_name: string, options: LockOptions, callback: () => Promise<T>): Promise<T> {
+      expect(options.mode).toBe('shared');
+      return callback();
+    },
+  };
+  const storage = {
+    persisted: vi.fn(async () => false),
+    estimate: vi.fn(async () => ({ usage: 123, quota: 456 })),
+    persist: vi.fn(async () => false),
+  };
+  const localStorage = new Map<string, string>();
+  return {
+    cacheStorage,
+    databaseName,
+    fetcher,
+    localStorage,
+    locks,
+    messages,
+    requestOrder,
+    storage,
+    send: ((type, payload) => {
+      messages.push({ t: type, payload } as LoadMessage);
+    }) as LoadSender,
+  };
+}
+
+describe('prepare asset cache', () => {
+  it('fetches a cold ready set six at a time with monotonic byte progress', async () => {
+    const entries = Array.from({ length: 7 }, (_, index) => entry(String(index + 1), index + 1));
+    const cachePlan = plan(entries);
+    const context = setup(cachePlan);
+    let active = 0;
+    let maximumActive = 0;
+    context.fetcher.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      context.requestOrder.push(
+        `${url}:${String((init as (RequestInit & { priority?: string }) | undefined)?.priority ?? '')}`,
+      );
+      if (url.endsWith('cache-plan.json')) return Response.json(cachePlan);
+      active += 1;
+      maximumActive = Math.max(maximumActive, active);
+      await Promise.resolve();
+      active -= 1;
+      const item = entries.find((candidate) => url.endsWith(candidate.url));
+      return new Response(new Uint8Array(item?.bytes ?? 0));
+    });
+
+    await prepare(
+      { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+      context,
+    );
+
+    const progress = context.messages.filter((message) => message.t === 'load.progress');
+    expect(progress.length).toBeGreaterThan(0);
+    expect(progress.map((message) => message.payload.loaded)).toEqual(
+      [...progress.map((message) => message.payload.loaded)].sort((left, right) => left - right),
+    );
+    expect(progress.at(-1)?.payload).toMatchObject({ loaded: 28, total: 28, cachedBytes: 0 });
+    expect(maximumActive).toBe(6);
+    expect(context.requestOrder.filter((request) => request.endsWith(':high'))).toHaveLength(7);
+    expect(context.cacheStorage.opened).toContain(ASSET_CACHE_NAME);
+  });
+
+  it('does no asset fetches for a warm plan and reports zero fetched bytes', async () => {
+    const ready = entry('a', 10);
+    const cachePlan = plan([ready]);
+    const context = setup(cachePlan);
+    context.cacheStorage.cache.entries.set(new URL(ready.url, 'https://game.test').toString(), new Response('cached'));
+
+    await prepare(
+      { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+      context,
+    );
+
+    expect(context.fetcher).toHaveBeenCalledTimes(1);
+    expect(context.messages.find((message) => message.t === 'load.done')?.payload).toMatchObject({
+      fetchedBytes: 0,
+      fetchedFiles: 0,
+      cachedBytes: 10,
+      cachedFiles: 1,
+      persisted: false,
+      usage: 123,
+      quota: 456,
+    });
+  });
+
+  it('fetches only the missing hashes from a half-warm plan', async () => {
+    const warm = entry('a', 10);
+    const missing = entry('b', 20);
+    const cachePlan = plan([warm, missing]);
+    const context = setup(cachePlan);
+    context.cacheStorage.cache.entries.set(new URL(warm.url, 'https://game.test').toString(), new Response('cached'));
+
+    await prepare(
+      { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+      context,
+    );
+
+    expect(context.requestOrder.filter((request) => request.endsWith(':high'))).toEqual([
+      `${new URL(missing.url, 'https://game.test')}:high`,
+    ]);
+  });
+
+  it('starts stream fetches only after load.done', async () => {
+    const ready = entry('a', 10);
+    const stream = entry('b', 20, 'stream');
+    const cachePlan = plan([ready, stream]);
+    const context = setup(cachePlan);
+    const events: string[] = [];
+    const send: LoadSender = (type, payload) => {
+      events.push(type);
+      context.messages.push({ t: type, payload } as LoadMessage);
+    };
+    context.send = send;
+    context.fetcher.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith('cache-plan.json')) return Response.json(cachePlan);
+      events.push(`fetch:${String((init as (RequestInit & { priority?: string }) | undefined)?.priority)}`);
+      const item = cachePlan.entries.find((candidate) => url.endsWith(candidate.url));
+      return new Response(new Uint8Array(item?.bytes ?? 0));
+    });
+
+    await prepare(
+      { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+      context,
+    );
+
+    await vi.waitFor(() => expect(events).toContain('fetch:low'));
+    expect(events.indexOf('load.done')).toBeLessThan(events.indexOf('fetch:low'));
+  });
+
+  it('continues when a completed response cannot be cached for quota', async () => {
+    const ready = entry('a', 10);
+    const cachePlan = plan([ready]);
+    const context = setup(cachePlan);
+    context.cacheStorage.cache.quotaUrls.add(new URL(ready.url, 'https://game.test').toString());
+
+    await expect(
+      prepare(
+        { plan: 'https://game.test/g/game/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+        context,
+      ),
+    ).resolves.toBeDefined();
+    expect(context.messages.some((message) => message.t === 'load.done')).toBe(true);
+    expect(context.cacheStorage.cache.entries).toHaveLength(0);
+  });
+
+  it('sends no load messages when the build has no cache plan', async () => {
+    const context = setup(plan([]));
+    context.fetcher.mockResolvedValue(new Response(null, { status: 404 }));
+
+    await expect(
+      prepare(
+        { plan: 'https://game.test/g/old/build/assets/cache-plan.json', tier: 'desktop', send: context.send },
+        context,
+      ),
+    ).resolves.toBeUndefined();
+    expect(context.messages).toEqual([]);
+  });
+
+  it('treats an HTML app fallback as a missing cache plan', async () => {
+    const context = setup(plan([]));
+    context.fetcher.mockResolvedValue(
+      new Response('<!doctype html><title>Game</title>', { headers: { 'content-type': 'text/html' } }),
+    );
+
+    await expect(
+      prepare({ plan: 'https://game.test/assets/cache-plan.json', tier: 'desktop', send: context.send }, context),
+    ).resolves.toBeUndefined();
+    expect(context.messages).toEqual([]);
+  });
+
+  it('writes the build ledger after load.done and increments repeat plays', async () => {
+    const ready = entry('a', 10);
+    const cachePlan = plan([ready]);
+    const context = setup(cachePlan);
+    const options = {
+      plan: 'https://game.test/g/game/build/assets/cache-plan.json',
+      tier: 'desktop' as const,
+      channel: 'published' as const,
+      send: context.send,
+    };
+    await prepare(options, context);
+    await prepare(options, context);
+
+    const database = await openDB(context.databaseName, 1);
+    const row = (await database.get('builds', 'game/build')) as LedgerBuild;
+    database.close();
+    expect(context.messages.findIndex((message) => message.t === 'load.done')).toBeGreaterThanOrEqual(0);
+    expect(row).toMatchObject({
+      key: 'game/build',
+      gameId: 'game',
+      buildId: 'build',
+      channel: 'published',
+      tier: 'desktop',
+      hashes: [ready.sha256],
+      bytes: 10,
+      plays: 2,
+    });
+    expect(row.lastPlayedAt).toBeGreaterThanOrEqual(row.firstPlayedAt);
+  });
+
+  it('requests persistence once per partition and skips a Gecko prompt', async () => {
+    const cachePlan = plan([]);
+    const sharedLocalStorage = new Map<string, string>();
+    const first = setup(cachePlan);
+    const second = setup(cachePlan);
+    first.localStorage = sharedLocalStorage;
+    second.localStorage = sharedLocalStorage;
+
+    const options = {
+      plan: 'https://game.test/g/game/build/assets/cache-plan.json',
+      tier: 'desktop' as const,
+      send: first.send,
+    };
+    await prepare(options, first);
+    await prepare({ ...options, send: second.send }, second);
+    await vi.waitFor(() => expect(first.storage.persist).toHaveBeenCalledOnce());
+    expect(first.storage.persist).toHaveBeenCalledOnce();
+    expect(second.storage.persist).not.toHaveBeenCalled();
+
+    const gecko = setup(cachePlan);
+    gecko.permissions = { query: vi.fn(async () => ({ state: 'prompt' })) };
+    gecko.userAgent = 'Mozilla/5.0 Gecko/20100101 Firefox/145.0';
+    await prepare({ ...options, send: gecko.send }, gecko);
+    expect(gecko.storage.persist).not.toHaveBeenCalled();
+  });
+});

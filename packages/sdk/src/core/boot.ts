@@ -116,6 +116,7 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
       build,
       hello.payload.mode === 'edit' ? 'edit' : 'play',
       events,
+      send,
       () => bridge.close(),
     );
     runtime.setLocalPlayerIndex(hello.payload.playerIndex);

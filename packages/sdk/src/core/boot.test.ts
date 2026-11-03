@@ -68,6 +68,20 @@ describe('boot', () => {
     expect(runtime.hooks.ready).toBe(true);
   });
 
+  it('exposes the game bridge sender for load messages', async () => {
+    const { runtime } = await start();
+    bridge.send.mockClear();
+
+    runtime.send('load.progress', { phase: 'ready', loaded: 4, total: 8, cachedBytes: 0 });
+
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: 'load.progress',
+        payload: { phase: 'ready', loaded: 4, total: 8, cachedBytes: 0 },
+      }),
+    );
+  });
+
   it('applies valid designs once and returns the same revision', async () => {
     const { metrics } = await start();
     bridge.onMessage!(
