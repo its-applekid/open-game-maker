@@ -29,7 +29,7 @@ describe('achievement and creator analytics storage', () => {
 
     sqlite.exec("INSERT INTO families VALUES ('f', 'Family', 'u', 0, 'now')");
     sqlite.exec(
-      "INSERT INTO games VALUES ('g', 'f', 'u', 'Game', 'listed', NULL, NULL, 'private', NULL, 'now', NULL, NULL)",
+      "INSERT INTO games (id, family_id, owner_id, title, visibility, repo_visibility, created_at) VALUES ('g', 'f', 'u', 'Game', 'listed', 'private', 'now')",
     );
     sqlite.exec(
       "INSERT INTO achievement_defs VALUES ('g', 'first', 'First', 'First award', 'icon.png', 0, NULL, 'r1', NULL)",
@@ -48,7 +48,7 @@ describe('achievement and creator analytics storage', () => {
     migrate({ sqlite });
     sqlite.exec("INSERT INTO families VALUES ('f', 'Family', 'u', 0, 'now')");
     sqlite.exec(
-      "INSERT INTO games VALUES ('g', 'f', 'u', 'Game', 'listed', NULL, NULL, 'private', NULL, 'now', NULL, NULL)",
+      "INSERT INTO games (id, family_id, owner_id, title, visibility, repo_visibility, created_at) VALUES ('g', 'f', 'u', 'Game', 'listed', 'private', 'now')",
     );
 
     const insert = sqlite.prepare(
