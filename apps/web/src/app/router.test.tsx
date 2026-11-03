@@ -124,6 +124,32 @@ describe('screen route collection', () => {
     );
   }, 10_000);
 
+  it('wraps app routes in the prototype studio chrome', async () => {
+    const routes = collectScreenRoutes({
+      '../routes/games/route.tsx': {
+        route: {
+          path: '/games',
+          element: <h1>Games</h1>,
+          chrome: 'app',
+          auth: 'none',
+        },
+      },
+    });
+    const router = createMemoryRouter(routes, { initialEntries: ['/games'] });
+
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByRole('link', { name: 'Open Game Maker 2000' })).toHaveAttribute('href', '/');
+    expect(document.querySelector('.studio-backdrop canvas')).toBeInTheDocument();
+    const sound = screen.getByRole('button', { name: /sound/i });
+    expect(sound).toHaveAttribute('aria-expanded', 'false');
+
+    fireEvent.click(sound);
+
+    expect(sound).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('slider', { name: 'Volume' })).toBeVisible();
+  });
+
   it('retries a crashed screen', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => undefined);
     let crashing = true;
