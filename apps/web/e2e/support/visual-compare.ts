@@ -78,7 +78,7 @@ export async function attachComparison(
 }
 
 async function sample(image: Buffer): Promise<Buffer> {
-  return sharp(image).resize(160, 100, { fit: 'fill' }).grayscale().blur(2).raw().toBuffer();
+  return sharp(image).resize(160, 100, { fit: 'fill' }).removeAlpha().blur(2).raw().toBuffer();
 }
 
 async function pixels(image: Buffer): Promise<Buffer> {

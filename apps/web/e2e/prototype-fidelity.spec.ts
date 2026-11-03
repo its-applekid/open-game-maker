@@ -47,12 +47,22 @@ for (const scenario of scenarios) {
       });
       const reference = await referenceContext.newPage();
       const appErrors: string[] = [];
+      const failedResponses: string[] = [];
       page.on('console', (message) => {
         if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) {
           appErrors.push(message.text());
         }
       });
       page.on('pageerror', (error) => appErrors.push(error.message));
+      page.on('response', (response) => {
+        const expectedVoiceFallback = response.url().endsWith('/api/v1/voice/token') && response.status() === 503;
+        const pathname = new URL(response.url()).pathname;
+        const expectedMissingGameResource =
+          response.status() === 404 && ['/api/v1/games/game/published', '/api/v1/games/game/saves'].includes(pathname);
+        if (response.status() >= 400 && !expectedVoiceFallback && !expectedMissingGameResource) {
+          failedResponses.push(`${response.status()} ${response.url()}`);
+        }
+      });
 
       try {
         await page.setViewportSize(viewport);
@@ -70,6 +80,7 @@ for (const scenario of scenarios) {
         });
         expect(score, `${artifactName} normalized shell distance`).toBeLessThanOrEqual(scenario.threshold);
         expect(appErrors, `${artifactName} app console errors`).toEqual([]);
+        expect(failedResponses, `${artifactName} failed responses`).toEqual([]);
       } finally {
         await referenceContext.close();
       }
@@ -208,6 +219,9 @@ async function prepareEditor(app: Page, reference: Page): Promise<Masks> {
   await Promise.all([neutralizeAppAssets(app), neutralizeReferenceAssets(reference)]);
   await installAuthRoutes(app, { signedIn: true });
   await installGameApi(app);
+  await app.route('**/api/v1/games/game/branches', (route) => route.fulfill({ json: { branches: [] } }));
+  await app.route('**/api/v1/games', (route) => route.fulfill({ json: { games: [] } }));
+  await app.route('**/api/v1/budget/status', (route) => route.fulfill({ json: { unitLabel: 'coins' } }));
   await Promise.all([
     app.goto('/g/game?mode=edit&test', { waitUntil: 'domcontentloaded' }),
     reference.goto(`${referenceOrigin}/ui/index.html`, { waitUntil: 'domcontentloaded' }),
