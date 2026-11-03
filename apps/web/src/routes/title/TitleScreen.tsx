@@ -1,48 +1,52 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 
-import { SoundControl } from '../../app/StudioChrome';
+import { Icon } from '../../components/Icon';
 import { useSession } from '../../lib/api/session';
 import { FocusZone, useFocusable, useInitialFocus } from '../../lib/input';
-import { set, unlock } from '../../lib/sound';
+import { onChange, set, setMuted, status, unlock, type SoundStatus } from '../../lib/sound';
 import { TitleTown } from './TitleTown';
 import './title.css';
 
-const EXIT_MS = 450;
+const SOUND_LABEL: Record<SoundStatus, string> = { on: 'Sound on', off: 'Sound off', tap: 'Tap to start sound' };
 
 export function TitleScreen({ townSrc }: { townSrc?: string }) {
   const { data: session } = useSession();
   const navigate = useNavigate();
-  const leavingRef = useRef(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const [leaving, setLeaving] = useState(false);
+  const sound = useSyncExternalStore(onChange, status);
   useInitialFocus('title-menu');
 
   useEffect(() => set('title'), []);
-  useEffect(() => () => clearTimeout(timer.current), []);
 
-  const start = () => {
-    if (leavingRef.current) return;
-    leavingRef.current = true;
-    setLeaving(true);
-    unlock();
-    const destination = session ? '/games' : `/age?next=${encodeURIComponent('/connect/github')}`;
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    timer.current = setTimeout(() => navigate(destination), reduced ? 0 : EXIT_MS);
+  const toggleSound = () => {
+    if (sound === 'off') setMuted(false);
+    else if (sound === 'on') setMuted(true);
+    else unlock();
   };
 
   return (
-    <div className={`title-screen${leaving ? ' leaving' : ''}`}>
+    <div className="title-screen">
       <TitleTown active src={townSrc} />
       <h1 className="title-logo">
         <img src="/art/logo.webp" alt="Open Game Maker 2000" />
       </h1>
       <FocusZone id="title-menu" className="title-menu">
-        <MenuButton className="title-start" onClick={start}>
+        <MenuButton
+          className="title-start"
+          onClick={() => navigate(session ? '/games' : `/age?next=${encodeURIComponent('/connect/github')}`)}
+        >
           Start
         </MenuButton>
       </FocusZone>
-      <SoundControl />
+      <button
+        type="button"
+        className="title-sound"
+        aria-label={SOUND_LABEL[sound]}
+        aria-pressed={sound === 'on'}
+        onClick={toggleSound}
+      >
+        <Icon name={sound === 'on' ? 'soundOn' : 'soundOff'} />
+      </button>
     </div>
   );
 }
