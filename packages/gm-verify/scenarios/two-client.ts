@@ -504,10 +504,12 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
 
     log('7 reopened host loads a draft; both clients ready and the pin changes');
     stepStartedAt = Date.now();
-    const draftRoom = await createRoom();
     const host2 = await openClient(browser, appUrl, consoleEntries);
     await peer.page.goto(appUrl);
     await peer.page.waitForFunction(() => window.__harness !== undefined);
+    const draftRoom = await createRoom();
+    assert(draftRoom !== roomId, 'step 7 reused the room that step 6 ended');
+    probes.step7FreshRoom = true;
     await joinRoom(host2, joinArgs(draftRoom, await grant(draftRoom, OWNER, 'owner')));
     await joinRoom(peer, joinArgs(draftRoom, await grant(draftRoom, PEER, 'player')));
     await until(host2.page, () => window.__harness.gameReady > 0, 30_000, 'reopened host game');
