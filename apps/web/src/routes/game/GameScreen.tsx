@@ -7,6 +7,7 @@ import type { Entity, ReapplyReport } from '@ogm/contracts/browser';
 
 import type { OgmHost } from '../../app/testHook';
 import { useDock } from '../../features/build-chat/dock';
+import { gameJobsQueryKey } from '../../features/build-chat/jobs';
 import {
   acquireLease,
   getDesignSnapshot,
@@ -84,7 +85,7 @@ export function GameScreen() {
     enabled: gameId !== '',
   });
   const jobs = useQuery({
-    queryKey: ['game-jobs', gameId],
+    queryKey: gameJobsQueryKey(gameId),
     queryFn: () => listJobs(gameId),
     enabled: gameId !== '',
     refetchInterval: 5_000,
