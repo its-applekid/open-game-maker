@@ -54,6 +54,7 @@ import { PlatformHud } from './PlatformHud';
 import { UpdateIndicator } from './UpdateIndicator';
 import { gameExtras, type GameExtraProps } from './extras';
 import './game.css';
+import './game-prototype.css';
 
 const initialFrameState: GameFrameState = { bridgeState: 'connecting', dropped: 0 };
 
@@ -333,7 +334,7 @@ export function GameScreen() {
   };
 
   return (
-    <section className="game-screen" aria-label="Play and edit">
+    <section className={`game-screen is-${mode === 'edit' ? 'editing' : 'playing'}`} aria-label="Play and edit">
       <PlayEditBar
         title={game.data?.title ?? ''}
         mode={mode}
