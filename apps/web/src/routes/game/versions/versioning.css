@@ -7,6 +7,10 @@
   color: var(--ink);
 }
 
+.app-chrome:has(.versioning-screen) main {
+  z-index: 50;
+}
+
 .versioning-head {
   position: sticky;
   top: 0;

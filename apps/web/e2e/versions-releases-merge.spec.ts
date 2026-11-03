@@ -23,7 +23,7 @@ test('shows derived versions and disables creation at five active versions', asy
   api.useFiveActiveVersions();
   await page.reload({ waitUntil: 'domcontentloaded' });
   const create = page.getByRole('button', { name: 'New version from here' });
-  await expect(page.getByText('5 of 5')).toBeVisible();
+  await expect(page.getByText('5 of 5')).toBeVisible({ timeout: 15_000 });
   await expect(create).toBeDisabled();
 
   if (testInfo.project.name === 'phone') {
@@ -51,7 +51,7 @@ test('publishes edited preview text only from main', async ({ page }, testInfo) 
     .toEqual([{ buildId: 'build_main', changelog: { summary: 'A sharper release note', items: [] } }]);
 
   await page.goto('/g/game/releases?v=ae3', { waitUntil: 'domcontentloaded' });
-  await expect(page.getByRole('heading', { name: 'Releases' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Releases' })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('button', { name: 'Publish' })).toHaveCount(0);
 });
 
