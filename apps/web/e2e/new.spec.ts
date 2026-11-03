@@ -35,8 +35,13 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
   await activate(page, 'Pixel art');
   await activate(page, 'SmallScaleInt');
   await expect(page.getByRole('heading', { name: 'SmallScaleInt' })).toBeVisible();
-  await expect(page.locator('.new-style-detail video')).toHaveCount(2);
+  // Browser coverage stays on GIF fallbacks; the component spec owns video playback and synchronization.
+  await expect(page.locator('.new-style-detail video')).toHaveCount(0);
   await expect(page.locator('.new-style-detail canvas')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Previous style' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Next style' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Previous scene' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Next scene' })).toBeVisible();
   await expect
     .poll(() =>
       page
@@ -44,6 +49,19 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
         .evaluateAll((images) => images.every((image) => image instanceof HTMLImageElement && image.naturalWidth > 0)),
     )
     .toBe(true);
+  await expect
+    .poll(() =>
+      page.locator('.new-style-track').evaluateAll((tracks) =>
+        tracks.every((track) => {
+          const box = track.getBoundingClientRect();
+          return Math.abs(box.width - box.height) <= 1;
+        }),
+      ),
+    )
+    .toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(
+    true,
+  );
   await activate(page, 'Select SmallScaleInt');
   await expect.poll(() => newGameState(page).then((state) => state?.picks.family?.picks)).toContain('smallscaleint');
   await activate(page, 'Next');
@@ -83,7 +101,7 @@ test('style detail fits its media and navigation into phone and desktop viewport
   await installAuthRoutes(page, { signedIn: true, github: 'kim' });
   await installNewRoutes(page);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/new?test&step=family');
+  await page.goto('/new?test&step=family', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
 
   const familyIcons = page.locator('[data-style-family] .new-option-icon svg');
@@ -116,6 +134,11 @@ test('style detail fits its media and navigation into phone and desktop viewport
         elements.map((element) => {
           const box = element.getBoundingClientRect();
           return {
+            name: element.getAttribute('aria-label') ?? element.className,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            left: box.left,
             width: box.width,
             height: box.height,
             inViewport:
@@ -137,7 +160,11 @@ test('style detail fits its media and navigation into phone and desktop viewport
       expect(controlBoxes).toHaveLength(4);
       expect(trackBoxes).toHaveLength(2);
       expect(stopRowBoxes).toHaveLength(1);
-      expect([...controlBoxes, ...trackBoxes, ...stopRowBoxes].every(({ inViewport }) => inViewport)).toBe(true);
+      const measuredBoxes = [...controlBoxes, ...trackBoxes, ...stopRowBoxes];
+      expect(
+        measuredBoxes.every(({ inViewport }) => inViewport),
+        `viewport ${viewport.width}x${viewport.height}: ${JSON.stringify(measuredBoxes)}`,
+      ).toBe(true);
       expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(diorama!.width - sheet!.width)).toBeLessThanOrEqual(1);
@@ -152,7 +179,7 @@ test('style detail fits its media and navigation into phone and desktop viewport
 });
 
 async function openReadyNewGame(page: Page): Promise<Locator> {
-  await page.goto('/new?test&step=genre');
+  await page.goto('/new?test&step=genre', { waitUntil: 'domcontentloaded' });
   const adventure = page.getByRole('button', { name: 'Adventure' });
   await Promise.all([page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined), adventure.waitFor()]);
   return adventure;

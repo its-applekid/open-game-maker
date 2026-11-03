@@ -125,7 +125,7 @@ describe('deploy API origin', () => {
     const ok = runCli(await envDir(`${games}VITE_API_ORIGIN=https://api.example:8443\n`), 'redirects.mjs');
     expect([ok.status, ok.stderr]).toEqual([0, '']);
     expect(ok.stdout).toBe(
-      'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n/api/*  https://api.example:8443/api/:splat  200\n/auth/*  https://api.example:8443/auth/:splat  200\n/*  /index.html  200\n',
+      'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n/api/*  https://api.example:8443/api/:splat  200\n/auth/*  https://api.example:8443/auth/:splat  200\n/proto  /proto/  301\n/proto/*  /proto/:splat  200\n/*  /index.html  200\n',
     );
 
     const missing = runCli(await envDir(games), 'redirects.mjs');
@@ -162,6 +162,8 @@ describe('deploy API origin', () => {
         'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n' +
         '/api/*  https://api.example:8443/api/:splat  200\n' +
         '/auth/*  https://api.example:8443/auth/:splat  200\n' +
+        '/proto  /proto/  301\n' +
+        '/proto/*  /proto/:splat  200\n' +
         '/*  /index.html  200\n',
     );
   });

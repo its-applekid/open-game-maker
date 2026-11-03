@@ -91,7 +91,24 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
 ```
 
 `fill` must be `cover`. Coordinates are world pixels. The camera offsets the world to keep the runner centered. Sprites
-need unique stable `id` values, are anchored at bottom-center, and are depth-sorted by world y plus optional `z`.
+need unique stable `id` values and are anchored at bottom-center. Treat that anchor as the visible footprint: ordinary
+sprites depth-sort by projected footprint position, while `z` is only a narrow correction for a known structural layer,
+not a way to force every focal actor above the world.
+
+The portable schema intentionally stays small: it carries the shared collision type, footprint, and optional offset,
+while a set-specific authoring tool may retain composite anchors, focal zones, wall mounts, or particle emitters in its
+private source data. The baked result must also satisfy these rules:
+
+- protect the runner, objective or portal, contact effect, and active actor/target pair from accidental occlusion;
+- keep composite parts on one anchor and facing, and keep openings clear of unrelated props;
+- join interior walls and mount doors, windows, signs, banners, paintings, and torches to a real wall surface;
+- make every route exit meet the following entrance at the declared natural walk speed; and
+- seed full-viewport particles while varying position, speed, phase, and lifetime so the loop is deterministic without
+  obvious synchronized bands.
+
+Do not add those set-specific facts to `tile_sprites`; that list remains the exact catalog-reference manifest for the
+region. Validate private compositor metadata with the set's own preflight and preserve the generic
+`ogm.set-showcase/1` contract for other projects.
 
 Every runner and region sprite needs `collision.type`: `actor` for characters and creatures, `solid` for props, walls,
 and vehicles, or `none` for non-solid effects. Actors and solids also need a positive `[width, depth]` footprint in

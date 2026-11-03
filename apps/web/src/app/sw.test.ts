@@ -12,6 +12,11 @@ describe('service worker shell', () => {
     expect(worker).toContain("ASSETS = 'ogm-assets'");
   });
 
+  it('preserves prototype caches while removing stale app caches', () => {
+    expect(worker).toContain("key.startsWith('ogm-')");
+    expect(worker).toContain("!key.startsWith('ogm-proto-')");
+  });
+
   it('never handles API, auth, or service-worker requests', () => {
     expect(worker).toContain("pathname.startsWith('/api/')");
     expect(worker).toContain("pathname.startsWith('/auth/')");
