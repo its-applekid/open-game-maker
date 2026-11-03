@@ -16,6 +16,12 @@ Rules that hold on every ticket:
 ## Design is fixed
 The web screens (title town, games selection, creation, editor, chat panel) keep the design landed in the studio-v0 / title-town prototype (`apps/web/title-town`, archived `prototypes/`): same layout, flow, motion and copy. Implement the logic behind it; never redesign, restyle or add chrome (no new nav, panels, labels or helper text). Where a ticket and the prototype differ in look or flow, the prototype wins; say so in the PR.
 
+## Host-local outputs
+
+Your workspace is deleted when the ticket closes. Anything gitignored you produce (renders, downloads, datasets) must be
+written to its real home with an absolute path (`assets-local` in your workspace is a symlink to the shared library; keep
+it that way), and the PR cites `ls -la` of that absolute path.
+
 ## Host names
 
 The repo is public. Docs, fixtures, config examples and `_redirects` never contain a real host, tailnet node, service-account
