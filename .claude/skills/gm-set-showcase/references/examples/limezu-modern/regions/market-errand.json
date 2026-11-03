@@ -9,14 +9,16 @@
     {
       "id": "mall",
       "ref": "card:limezu-modern-exteriors/mall",
-      "at": [300, 340]
+      "at": [300, 260],
+      "collision": { "type": "solid", "footprint": [176, 72] }
     },
     {
       "id": "fruit-cart",
       "ref": "card:limezu-modern-exteriors/fruit-cart",
-      "at": [390, 420],
+      "at": [430, 420],
       "scale": 2,
-      "z": 1
+      "z": 1,
+      "collision": { "type": "solid", "footprint": [48, 24] }
     }
   ]
 }

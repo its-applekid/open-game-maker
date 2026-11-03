@@ -85,6 +85,7 @@ async function buildFixture(root) {
       action: "walk",
       path: { from: [0, 32], to: [64, 32] },
       speed: 64,
+      collision: { type: "actor", footprint: [8, 4] },
     },
     stops: [{
       id: "store",
@@ -98,7 +99,12 @@ async function buildFixture(root) {
   });
   await json(path.join(project, "regions/store.json"), {
     ground: { ref: "card:test-pack/grass", fill: "cover" },
-    sprites: [{ id: "door", ref: "card:test-pack/door", at: [48, 32] }],
+    sprites: [{
+      id: "door",
+      ref: "card:test-pack/door",
+      at: [48, 8],
+      collision: { type: "solid", footprint: [8, 4] },
+    }],
   });
   await json(path.join(project, "sheets/store.json"), {
     sprites: [{
@@ -246,6 +252,48 @@ test("preflight rejects a story facing the renderer may select", async () => {
     assert.ok(issues.some(({ code, path: at }) =>
       code === "asset.unresolved" && at.endsWith("story[0].action.left")
     ));
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("checker audits every rendered frame for collision", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildFixture(root);
+    const { issues, collisionReport } = await checkShowcase({
+      projectRoot: fixture.project,
+      assetsRoot: fixture.assets,
+      catalogFile: fixture.catalog,
+    });
+
+    assert.deepEqual(issues, []);
+    assert.equal(collisionReport.frames.length, 4);
+    assert.equal(collisionReport.footprintOverlapFrames, 0);
+    assert.equal(collisionReport.actorSolidPixelIntersectionFrames, 0);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("renderer rejects a moving footprint collision before encoding", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildFixture(root);
+    const regionFile = path.join(fixture.project, "regions/store.json");
+    const region = JSON.parse(await readFile(regionFile, "utf8"));
+    region.sprites[0].at = [32, 32];
+    await json(regionFile, region);
+
+    await assert.rejects(
+      renderShowcase({
+        projectRoot: fixture.project,
+        assetsRoot: fixture.assets,
+        catalogFile: fixture.catalog,
+        outputRoot: path.join(root, "output"),
+      }),
+      /collision\.footprint_overlap/u,
+    );
   } finally {
     await rm(root, { recursive: true, force: true });
   }

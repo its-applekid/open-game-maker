@@ -30,13 +30,21 @@ For top-down art, repeat or extend grid-aligned ground beyond the camera. For is
 
 ## Composition rules
 
+- Start from the closest store thumbnail or official pack screenshot. Match its setting, ground and walls, prop choices,
+  density, layering, and camera framing in a still before adding the story beat.
 - Give every prop a purpose in the region's gameplay, structure, or silhouette. Meet an explicit scene-element target
   with buildings, boundaries, work areas, furniture, or other thematic clusters; repeated loose filler does not count.
+- Do not repeat one design inside a region. Crowd actors may use visibly different variants, never copies of the same
+  sprite.
 - Build one coherent ground language per region. Roads, paths, plots, curbs, and borders need compatible transition
   tiles instead of arbitrary patterns touching edge-to-edge.
+- Classify every region sprite as `actor`, `solid`, or `none`. Reserve the full declared footprint for actors and solid
+  props before placing the next entity; anchor points alone are not collision geometry. Effects such as rain use `none`.
 - Treat the ground contact point as a sprite's footprint. Sort ordinary sprites by projected footprint depth, then use
   narrow priority exceptions only for protected focal elements. Tall art may overlap plausibly, but it must not hide the
   hero, objective, portal opening, contact effect, or active story pair.
+- Check the complete motion path, not only the authored still. Moving actors must keep their footprints disjoint on every
+  output frame, and an actor may share visible pixels with a solid only while depth-sorted behind it.
 - Anchor multi-part props to one origin and facing. Check the assembled result: an effect fills its frame or arch, and
   no unrelated prop blocks the interactive opening.
 - Make interiors read as connected cutaway rooms: continuous walls, doors and windows in those walls, furniture against

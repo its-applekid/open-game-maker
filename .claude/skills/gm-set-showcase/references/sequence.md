@@ -24,7 +24,8 @@ relative to the project directory and may not escape it.
     "action": "walk",
     "path": { "from": [-48, 320], "to": [560, 320] },
     "speed": 48,
-    "scale": 2
+    "scale": 2,
+    "collision": { "type": "actor", "footprint": [20, 12] }
   },
   "stops": [
     {
@@ -73,7 +74,8 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
       "ref": "card:pack-b/cart",
       "at": [360, 300],
       "scale": 2,
-      "z": 0
+      "z": 0,
+      "collision": { "type": "solid", "footprint": [64, 28] }
     },
     {
       "id": "dog",
@@ -81,6 +83,7 @@ card. `timing` is `[start, contact, end]`: the action plays once before contact,
       "action": "walk",
       "dir": "right",
       "at": [180, 340],
+      "collision": { "type": "actor", "footprint": [18, 10] },
       "walk": { "to": [280, 340], "seconds": 2.5, "offset": 0.5 }
     }
   ]
@@ -92,9 +95,9 @@ need unique stable `id` values and are anchored at bottom-center. Treat that anc
 sprites depth-sort by projected footprint position, while `z` is only a narrow correction for a known structural layer,
 not a way to force every focal actor above the world.
 
-The portable schema intentionally stays small. A set-specific authoring tool may retain footprint bounds, composite
-anchors, focal zones, wall mounts, or particle emitters in its private source data, but the baked result must satisfy
-these rules:
+The portable schema intentionally stays small: it carries the shared collision type, footprint, and optional offset,
+while a set-specific authoring tool may retain composite anchors, focal zones, wall mounts, or particle emitters in its
+private source data. The baked result must also satisfy these rules:
 
 - protect the runner, objective or portal, contact effect, and active actor/target pair from accidental occlusion;
 - keep composite parts on one anchor and facing, and keep openings clear of unrelated props;
@@ -106,6 +109,16 @@ these rules:
 Do not add those set-specific facts to `tile_sprites`; that list remains the exact catalog-reference manifest for the
 region. Validate private compositor metadata with the set's own preflight and preserve the generic
 `ogm.set-showcase/1` contract for other projects.
+
+Every runner and region sprite needs `collision.type`: `actor` for characters and creatures, `solid` for props, walls,
+and vehicles, or `none` for non-solid effects. Actors and solids also need a positive `[width, depth]` footprint in
+world pixels. The rectangle is bottom-centered on `at`; optional `collision.offset: [x, y]` moves its anchor for an
+asymmetric source. Measure occupied ground, not the full visible sprite. The checker reserves those rectangles and scans
+every output frame before the renderer starts encoding. Touching edges are valid; overlapping areas are not.
+
+The checker also compares rendered alpha pixels for every actor/solid pair. Pixel overlap is allowed only when the actor
+has lower depth and is therefore drawn behind the solid. A foreground actor intersecting a solid fails even when their
+declared footprints do not overlap, which catches the actor-through-counter case.
 
 ## Sheet file
 

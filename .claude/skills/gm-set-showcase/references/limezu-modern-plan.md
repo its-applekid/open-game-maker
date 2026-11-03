@@ -16,7 +16,8 @@ the example catalog overlay records the four measured render crops without shipp
 - Sheet cast: a different farmer, rotating `down,left,right,up` on a shared 1.25-second beat.
 - Coverage: `limezu-modern-exteriors` and `limezu-modern-farm`.
 - QA: start/middle/end region stills show ground coverage and the mall/cart composition; sheet stills cover all four
-  directions. The poster is the middle frame.
+  directions. The poster is the middle frame. The all-frame collision report must stay at zero for full footprints and
+  disallowed actor/solid pixel intersections.
 
 Files under `examples/limezu-modern/` are the runnable project. Use `catalog.example.json` only as a local overlay for
 an installed licensed copy of those packs. Render output belongs in scratch storage and is deliberately not committed.
