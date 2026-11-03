@@ -13,6 +13,8 @@ describe('Netlify static configuration', () => {
       'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!',
       '/api/*  https://api.example:8443/api/:splat  200',
       '/auth/*  https://api.example:8443/auth/:splat  200',
+      '/proto  /proto/  301',
+      '/proto/*  /proto/:splat  200',
       '/*  /index.html  200',
     ]);
   });
@@ -54,5 +56,17 @@ describe('Netlify static configuration', () => {
     const deploy = readFileSync(resolve(process.cwd(), 'tools/deploy.sh'), 'utf8');
 
     expect(deploy).toContain('netlify deploy --prod --no-build --filter @ogm/web --dir "$DEPLOY_DIR"');
+  });
+
+  it('stages the prototype and stamps both service workers before previewing the payload', () => {
+    const deploy = readFileSync(resolve(process.cwd(), 'tools/deploy.sh'), 'utf8');
+
+    const buildPrototype = deploy.indexOf('prototypes/studio-v0/tools/build.sh');
+    const stagePrototype = deploy.indexOf('tools/stage-prototype.mjs');
+    expect(buildPrototype).toBeGreaterThan(-1);
+    expect(stagePrototype).toBeGreaterThan(buildPrototype);
+    expect(deploy).toContain('tools/stage-prototype.mjs');
+    expect(deploy).toContain('"$DEPLOY_DIR/proto"');
+    expect(deploy).toContain('"$DEPLOY_DIR/proto/sw.js"');
   });
 });

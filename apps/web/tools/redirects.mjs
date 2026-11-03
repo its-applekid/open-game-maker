@@ -15,6 +15,8 @@ export function renderRedirects(apiOrigin, publicAppOrigin) {
     `${RETIRED_APP_ORIGIN}/*  ${publicAppOrigin}/:splat  301!`,
     `/api/*  ${apiOrigin}/api/:splat  200`,
     `/auth/*  ${apiOrigin}/auth/:splat  200`,
+    '/proto  /proto/  301',
+    '/proto/*  /proto/:splat  200',
     '/*  /index.html  200',
     '',
   ].join('\n');

@@ -15,6 +15,10 @@ type GameHook = {
 
 type FixtureHook = { mode: string; messages: Array<{ t: string; payload: unknown }> };
 
+// eslint-disable-next-line no-restricted-properties
+const bridgePort = process.env.OGM_WEB_BRIDGE_PORT ?? '10001';
+const bridgeOrigin = `http://127.0.0.1:${bridgePort}`;
+
 test.use({ serviceWorkers: 'block' });
 
 test('runs the cross-origin editor transaction, undo, and mode flow', async ({ page }, testInfo) => {
@@ -99,7 +103,7 @@ function gameState(page: Page): Promise<GameHook | undefined> {
 }
 
 async function playFrameState(page: Page): Promise<{ attached: boolean; bridgeState?: string; mode?: string }> {
-  const frame = page.frames().find((candidate) => candidate.url().startsWith('http://127.0.0.1:10001/g/'));
+  const frame = page.frames().find((candidate) => candidate.url().startsWith(`${bridgeOrigin}/g/`));
   if (!frame || frame.isDetached()) return { attached: false };
 
   try {
