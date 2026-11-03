@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { tierSchema } from './assets.js';
+import { loadPhaseSchema, tierSchema } from './assets.js';
 import { gameManifestSchema, poseSchema, targetRefSchema } from './game.js';
 import { actionFrameSchema, insetsSchema, MAX_PLAYERS } from './input.js';
 
@@ -185,6 +185,28 @@ export const gameToHostSchema = z
         protocol: z.number().int().min(1),
         manifest: gameManifestSchema,
         marks: z.array(z.tuple([z.string(), z.number()])),
+      }),
+    ),
+    envelope(
+      'load.progress',
+      z.looseObject({
+        phase: loadPhaseSchema,
+        loaded: z.number().min(0),
+        total: z.number().min(0),
+        cachedBytes: z.number().min(0),
+      }),
+    ),
+    envelope(
+      'load.done',
+      z.looseObject({
+        ms: z.number().min(0),
+        fetchedBytes: z.number().min(0),
+        cachedBytes: z.number().min(0),
+        fetchedFiles: z.number().int().min(0),
+        cachedFiles: z.number().int().min(0),
+        persisted: z.boolean().nullable(),
+        usage: z.number().min(0).optional(),
+        quota: z.number().min(0).optional(),
       }),
     ),
     envelope(

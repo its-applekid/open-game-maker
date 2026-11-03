@@ -2011,6 +2011,148 @@
             },
             "t": {
               "type": "string",
+              "const": "load.progress"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "phase": {
+                  "type": "string",
+                  "enum": [
+                    "boot",
+                    "ready",
+                    "stream"
+                  ]
+                },
+                "loaded": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "total": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "cachedBytes": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "phase",
+                "loaded",
+                "total",
+                "cachedBytes"
+              ],
+              "additionalProperties": {}
+            },
+            "replyTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "v",
+            "id",
+            "t",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "type": "number",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "t": {
+              "type": "string",
+              "const": "load.done"
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "ms": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "fetchedBytes": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "cachedBytes": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "fetchedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "cachedFiles": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "persisted": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "usage": {
+                  "type": "number",
+                  "minimum": 0
+                },
+                "quota": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "ms",
+                "fetchedBytes",
+                "cachedBytes",
+                "fetchedFiles",
+                "cachedFiles",
+                "persisted"
+              ],
+              "additionalProperties": {}
+            },
+            "replyTo": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            }
+          },
+          "required": [
+            "v",
+            "id",
+            "t",
+            "payload"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "properties": {
+            "v": {
+              "type": "number",
+              "const": 1
+            },
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "t": {
+              "type": "string",
               "const": "design.applied"
             },
             "payload": {
