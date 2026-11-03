@@ -7,7 +7,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { MIGRATIONS_DIR, migrate } from '../src/migrate.js';
 import { openDb } from '../src/open.js';
 
-const migration = '20261103012250_games_forked_from.sql';
+const migration = '20261103023559_games_forked_from.sql';
 const dirs: string[] = [];
 
 afterEach(() => {
