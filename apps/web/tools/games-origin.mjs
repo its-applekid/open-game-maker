@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Print the games origin deploy.sh bakes into the build, read from <env dir>/web.env.
-// readApiOrigin reads the Netlify proxy target the same way (redirects.mjs).
+// The API and public app origin readers use the same validation for deploy-time redirects.
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -19,7 +19,7 @@ function readValue(file, name) {
 }
 
 // web.env holds the value; the matching name in the serving unit's env file must agree when that file exists.
-function readOrigin(envDir, name, unitFile, unitName) {
+function readOrigin(envDir, name, servingUnit) {
   const file = join(envDir, 'web.env');
   if (!existsSync(file)) throw new Error(`${name} is not set: ${file} is missing (run ogm-env-init web)`);
   const raw = readValue(file, name);
@@ -34,19 +34,25 @@ function readOrigin(envDir, name, unitFile, unitName) {
   if (url.protocol !== 'https:' || url.origin !== raw.replace(/\/$/, '')) {
     throw new Error(`${name} in ${file} must be a bare https origin`);
   }
-  const servingFile = join(envDir, unitFile);
-  const accepted = existsSync(servingFile) ? readValue(servingFile, unitName).replace(/\/$/, '') : '';
-  if (accepted && accepted !== url.origin) {
-    throw new Error(`${name} in ${file} differs from ${unitName} in ${servingFile}`);
+  if (servingUnit) {
+    const [unitFile, unitName] = servingUnit;
+    const servingFile = join(envDir, unitFile);
+    const accepted = existsSync(servingFile) ? readValue(servingFile, unitName).replace(/\/$/, '') : '';
+    if (accepted && accepted !== url.origin) {
+      throw new Error(`${name} in ${file} differs from ${unitName} in ${servingFile}`);
+    }
   }
   return url.origin;
 }
 
 // Rooms accepts only draft URLs on its OGM_GAMES_ORIGIN; a stale web.env would ship an app whose drafts it drops.
-export const readGamesOrigin = (envDir) => readOrigin(envDir, 'VITE_GAMES_ORIGIN', 'rooms.env', 'OGM_GAMES_ORIGIN');
+export const readGamesOrigin = (envDir) => readOrigin(envDir, 'VITE_GAMES_ORIGIN', ['rooms.env', 'OGM_GAMES_ORIGIN']);
 
 // The API serves auth on OGM_PUBLIC_ORIGIN; proxying anywhere else would break sign-in.
-export const readApiOrigin = (envDir) => readOrigin(envDir, 'VITE_API_ORIGIN', 'api.env', 'OGM_PUBLIC_ORIGIN');
+export const readApiOrigin = (envDir) => readOrigin(envDir, 'VITE_API_ORIGIN', ['api.env', 'OGM_PUBLIC_ORIGIN']);
+
+// The custom domain is deployment configuration, so previews and self-hosted deployments do not bake in this host's URL.
+export const readPublicAppOrigin = (envDir) => readOrigin(envDir, 'OGM_PUBLIC_APP_ORIGIN');
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const envDir = process.env.OGM_ENV_DIR || join(homedir(), '.config', 'ogm', 'env');

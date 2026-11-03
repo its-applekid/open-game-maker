@@ -1,6 +1,6 @@
 # Netlify proxy and auth origin
 
-Safari blocks third-party cookies, so the browser must only ever see `https://ogm2000.netlify.app`. The API's auth
+Safari blocks third-party cookies, so the browser must only ever see `https://makeopen.games`. The API's auth
 routes reach it through Netlify 200 rewrites; cookies never cross to `ts.net` (D-ORIGIN). [ingress.md](ingress.md) has
 the full origin map.
 
@@ -8,14 +8,15 @@ the full origin map.
 
 | Where | Value |
 | --- | --- |
+| `_redirects`, written by `apps/web/tools/deploy.sh` from `OGM_PUBLIC_APP_ORIGIN` in `web.env` | `https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!` |
 | `_redirects`, written by `apps/web/tools/deploy.sh` from `VITE_API_ORIGIN` in `web.env`, before the SPA fallback | `/api/*  https://<tailnet-host>:8443/api/:splat  200` |
 | | `/auth/*  https://<tailnet-host>:8443/auth/:splat  200` |
-| `OGM_APP_ORIGIN` in `~/.config/ogm/env/api.env` | `https://ogm2000.netlify.app` (Better Auth `baseURL`, `trustedOrigins`, passkey `origin`) |
+| `OGM_APP_ORIGIN` in `~/.config/ogm/env/api.env` | `https://makeopen.games` (Better Auth `baseURL`, `trustedOrigins`, passkey `origin`) |
 | Better Auth `basePath` | `/auth` |
-| Passkey `rpID` | `ogm2000.netlify.app` (host of `OGM_APP_ORIGIN`) |
-| Google authorized JavaScript origin | `https://ogm2000.netlify.app` |
-| Google authorized redirect URI | `https://ogm2000.netlify.app/auth/callback/google` |
-| Magic link | `https://ogm2000.netlify.app/auth/magic-link/verify?token=…` (15 min, one use) |
+| Passkey `rpID` | `makeopen.games` (host of `OGM_APP_ORIGIN`) |
+| Google authorized JavaScript origin | `https://makeopen.games` |
+| Google authorized redirect URI | `https://makeopen.games/auth/callback/google` |
+| Magic link | `https://makeopen.games/auth/magic-link/verify?token=…` (15 min, one use) |
 
 `ts.net` is never a trusted origin or the RP ID. Google stays off until `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`
 are both set (GATE-GOOGLE-OAUTH); magic link and passkey work without it.
@@ -26,7 +27,7 @@ are both set (GATE-GOOGLE-OAUTH); magic link and passkey work without it.
   leaves `ogm_age=refused` for 365 days and the API refuses further answers from that browser.
 - `__Secure-better-auth.session_token`: the session, 7 days, renewed daily, same attributes.
 
-Neither sets `Domain`, so both stay host-only on `ogm2000.netlify.app`. `_headers` must not add caching to `/api/*` or
+Neither sets `Domain`, so both stay host-only on `makeopen.games`. `_headers` must not add caching to `/api/*` or
 `/auth/*`.
 
 ## Sockets
@@ -44,6 +45,6 @@ those headers itself, so the per-email limit is the one that holds against it.
 
 ## iPhone check (after OGM-006 and OGM-070 are live)
 
-1. Open `https://ogm2000.netlify.app` in Safari, pass the age screen, sign in by magic link from the admin inbox.
+1. Open `https://makeopen.games` in Safari, pass the age screen, sign in by magic link from the admin inbox.
 2. Register a passkey, sign out, sign in with the passkey.
 3. Note the iOS and Safari versions. If `Set-Cookie` arrives without `Secure` or with a `Domain`, the proxy rewrote it.

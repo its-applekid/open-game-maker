@@ -38,7 +38,7 @@ describe('games-host server', () => {
   function app() {
     return createApp({
       root,
-      appOrigin: 'https://ogm2000.netlify.app',
+      appOrigin: 'https://makeopen.games',
       version: '0123456789abcdef0123456789abcdef01234567',
       uptimeSec: () => 12.9,
       workerScript,
@@ -50,7 +50,7 @@ describe('games-host server', () => {
 
     expect(response.status).toBe(200);
     expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8');
-    expect(response.headers.get('content-security-policy')).toContain('frame-ancestors https://ogm2000.netlify.app');
+    expect(response.headers.get('content-security-policy')).toContain('frame-ancestors https://makeopen.games');
     expect(response.headers.get('cross-origin-opener-policy')).toBe('same-origin');
     expect(response.headers.get('cross-origin-resource-policy')).toBe('cross-origin');
     expect(response.headers.get('cache-control')).toBe('public, max-age=31536000, immutable');
@@ -226,7 +226,7 @@ describe('games-host server', () => {
         OGM_GAMES_BIND: '0.0.0.0',
         OGM_GAMES_PORT: '3400',
         OGM_GAMES_ROOT: root,
-        OGM_APP_ORIGIN: 'https://ogm2000.netlify.app',
+        OGM_APP_ORIGIN: 'https://makeopen.games',
       }),
     ).toThrow('OGM_GAMES_BIND must be 127.0.0.1');
   });
@@ -246,7 +246,7 @@ describe('games-host server', () => {
       const server = main({
         OGM_GAMES_PORT: String(address.port),
         OGM_GAMES_ROOT: root,
-        OGM_APP_ORIGIN: 'https://ogm2000.netlify.app',
+        OGM_APP_ORIGIN: 'https://makeopen.games',
       });
 
       await once(server, 'error');
