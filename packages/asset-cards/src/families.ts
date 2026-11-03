@@ -3,7 +3,11 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
+import type { StyleShowcase } from '@ogm/contracts';
+
 import type { CardIndex, ResolvedCard } from './types.js';
+
+export type { StyleShowcase } from '@ogm/contracts';
 
 /** C3 §4 `style_family` ids that are families (`photoreal` and `any` never are). */
 export const STYLE_FAMILY_IDS = [
@@ -51,18 +55,6 @@ export type StyleSet = {
   traits: StyleSetTraits;
   packs: StyleSetPack[];
   previews?: StyleSetPreviews;
-};
-
-export type StyleShowcase = {
-  tileVideoUrl?: string;
-  sheetVideoUrl?: string;
-  stops: {
-    id: string;
-    label: string;
-    startSeconds: number;
-    tileFallbackUrl?: string;
-    sheetFallbackUrl?: string;
-  }[];
 };
 
 export type StyleFamily = {
