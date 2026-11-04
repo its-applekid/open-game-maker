@@ -315,7 +315,7 @@ erDiagram
 <section aria-labelledby="s-versions">
   <div class="col"><p class="eyebrow">Release plan</p><h2 id="s-versions">What ships when</h2></div>
   <div class="versions">
-    <div class="sheet"><h3><span class="chip v1">V1</span> MVP for adults</h3><p>Voice creation, the editor, branching, first-class multiplayer, the asset pipeline with Drive intake and tagging, budgets and admin, sandboxed builds, releases, saves, forks. Adults only, behind an age screen.</p></div>
+    <div class="sheet"><h3><span class="chip v1">V1</span> MVP for adults</h3><p>Voice creation, the editor, branching, first-class multiplayer, the asset pipeline with Drive intake and tagging, budgets and admin, sandboxed builds, releases, saves, forks. Adults only, admitted by the operator allow-list.</p></div>
     <div class="sheet"><h3><span class="chip v2">V2</span> Teens and polish</h3><p>Teens as creators once vendor approvals arrive, split-screen and multi-editor multiplayer, gameplay rewind, drawing tools, image restyling, a CDN, paid generators if packs fall short, self-service credentials.</p></div>
     <div class="sheet"><h3><span class="chip v3">V3</span> Kids and families</h3><p>Child accounts with guardian consent, one parental-controls module, self-hosted child voice, child repos, a parent help overlay, player voice chat, and possibly native packaging.</p></div>
   </div>
@@ -388,7 +388,7 @@ const FEATURES = [
   { g: 'Multiplayer', n: 'First-class online multiplayer', ver: 'V1', st: 'decided', one: 'Play together over the network, each with your own controls and view.',
     d: ['A generic Colyseus room run by the platform, with no game code on the server; the owner\'s sandboxed browser runs the simulation.', 'Each player reads only their own devices, has their own camera and HUD, and never sees others\' controls.', 'Rooms are pinned to a version and build; reconnection within a time window.', 'Fine for co-op and friendly play; not cheat-proof (competitive play would need server-side simulation later).'], src: 'C2 §6 · A7 R12' },
   { g: 'Multiplayer', n: 'Easy invites', ver: 'V1', st: 'decided', one: 'Share a link; friends sign in and land straight in the game.',
-    d: ['Room-scoped, expiring, revocable grants.', 'Every friend must pass the 18+ age screen in V1.', 'Inviting people outside the family depends on the lawyer review.'], src: 'C2 §6' },
+    d: ['Room-scoped, expiring, revocable grants.', 'Every friend must be on the operator allow-list in V1.', 'Inviting people outside the family depends on the lawyer review.'], src: 'C2 §6' },
   { g: 'Multiplayer', n: 'Watch the editor live', ver: 'V1', st: 'decided', one: 'Players without editor access see exactly what the editor is changing, as it happens.',
     d: ['Watchers receive the same design transaction stream the editor saves, plus the editor\'s cursor, selection and camera.', 'Follow the editor\'s camera or look around freely.', 'Private panels (prompts, budgets, admin) never reach watchers.', 'Pressing Play drops everyone into gameplay at once.'], src: 'C2 §6 · B7 §9' },
   { g: 'Multiplayer', n: 'Split screen, shared editing, competitive rooms', ver: 'V2', st: 'working', one: 'Same-device multiplayer, more than one editor at once, server-side simulation.', d: ['Server-authoritative rooms cost about $50 per vCPU-month while live.'], src: 'Release plan V2 · A7' },
@@ -412,7 +412,7 @@ const FEATURES = [
   { g: 'Assets', n: 'CDN', ver: 'V2', st: 'working', one: 'An advanced CDN, added when evidence calls for it.', d: ['V1 serves straight from the bucket.'], src: 'B6' },
 
   // Accounts, admin and money
-  { g: 'Accounts, admin and money', n: 'Sign-in', ver: 'V1', st: 'decided', one: 'Email is required as the recovery path, plus passkey and Google.', d: ['Passkey and Google both recommended (the method is still a working choice).', 'An age screen turns away under-18s.'], src: 'Release plan V1 · B10' },
+  { g: 'Accounts, admin and money', n: 'Sign-in', ver: 'V1', st: 'decided', one: 'Email is required as the recovery path, plus passkey and Google.', d: ['Passkey and Google both recommended (the method is still a working choice).', 'The operator allow-list controls admission; there is no age screen.'], src: 'Release plan V1 · B10' },
   { g: 'Accounts, admin and money', n: 'Families, admins and invites', ver: 'V1', st: 'decided', one: 'An owner and admins, peer admin management, member invites, invite-only play.', d: ['Admins cannot take over another adult\'s game.'], src: 'Release plan V1' },
   { g: 'Accounts, admin and money', n: 'Spending limits and build slots', ver: 'V1', st: 'decided', one: 'Admins set every spending limit; default concurrency is 1 new game + 3 edits.', d: ['Money is reserved per job from a p80 estimate; jobs pause at 1× and stop at the hard cap.', 'Rolling-window caps per family plus one platform-wide cap.'], src: 'B8 §5 · decision log' },
   { g: 'Accounts, admin and money', n: 'Admin UI', ver: 'V1', st: 'working', one: 'Membership, invites, budgets, concurrency and game oversight.', d: ['Oversight means listing and abuse handling, not editing others\' games.'], src: 'Release plan V1' },

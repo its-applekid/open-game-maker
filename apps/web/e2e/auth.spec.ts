@@ -4,20 +4,11 @@ import { installAuthRoutes } from './fixtures/auth-routes';
 
 test.use({ serviceWorkers: 'block' });
 
-test('Start goes through age to the magic-link sent state', async ({ page }) => {
+test('Start goes straight to the magic-link sent state', async ({ page }) => {
   await installAuthRoutes(page);
   await page.goto('/');
 
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await expect(page).toHaveURL(/\/age\?next=%2Fconnect%2Fgithub$/);
-  await expect(page.getByRole('heading', { name: 'When were you born?' })).toBeVisible();
-
-  const continueButton = page.getByRole('button', { name: 'Continue' });
-  expect((await continueButton.boundingBox())!.height).toBeGreaterThanOrEqual(64);
-  await page.getByLabel('Birth month').selectOption('5');
-  await page.getByLabel('Birth year').selectOption('1990');
-  await continueButton.click();
-
   await expect(page).toHaveURL(/\/signin\?next=%2Fconnect%2Fgithub$/);
   const sendButton = page.getByRole('button', { name: 'Send sign-in link' });
   expect((await sendButton.boundingBox())!.height).toBeGreaterThanOrEqual(64);

@@ -11,7 +11,6 @@ import {
   revokeRoomAccess,
 } from '../src/rooms/rooms.js';
 import { hashOf } from '../src/invites/tokens.js';
-import { adultCookie } from './auth-helpers.js';
 import { asUser, installUsers, makeApp, makeDeps, type TestUser } from './helpers.js';
 
 const now = '2026-11-01T00:00:00.000Z';
@@ -318,7 +317,7 @@ describe('room lifecycle service', () => {
     });
   });
 
-  it('mounts room creation, age-gated join, and fresh grant routes', async () => {
+  it('mounts room creation, direct join, and fresh grant routes', async () => {
     const deps = setup();
     const relay = vi.spyOn(globalThis, 'fetch').mockResolvedValue(createdRoomResponse());
 
@@ -346,13 +345,8 @@ describe('room lifecycle service', () => {
       expect(inviteResponse.headers.get('cache-control')).toBe('no-store');
       const token = invite.url.split('/').at(-1) ?? '';
 
-      const noAge = await app.request(`/api/v1/join/${token}`, { headers: asUser(member.userId) });
-      expect(noAge.status).toBe(403);
-      expect(await noAge.json()).toEqual({ error: 'age_required' });
-
-      const cookie = await adultCookie(app);
       const joined = await app.request(`/api/v1/join/${token}`, {
-        headers: { ...asUser(member.userId), cookie },
+        headers: asUser(member.userId),
       });
       expect(joined.status).toBe(200);
       expect(joined.headers.get('cache-control')).toBe('no-store');
@@ -376,10 +370,8 @@ describe('room lifecycle service', () => {
     const unauthenticated = await app.request('/api/v1/join/unknown');
     expect(unauthenticated.status).toBe(401);
 
-    const cookie = await adultCookie(app);
     const headers = {
       ...asUser(member.userId),
-      cookie,
       'x-forwarded-for': '198.51.100.8',
     };
     for (let attempt = 0; attempt < 10; attempt += 1) {
