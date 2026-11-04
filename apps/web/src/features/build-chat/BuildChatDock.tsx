@@ -6,7 +6,6 @@ import { registerTestApi } from '../../app/testHook';
 import { Bar } from './Bar';
 import { Chat } from './Chat';
 import { useDock, visibleJobs } from './dock';
-import { Fab } from './Fab';
 import { JobList } from './JobList';
 import { isTerminal, useBudgetUnitLabel, useMyJobs } from './jobs';
 import type { StreamedChatMessage } from './stream';
@@ -34,11 +33,6 @@ export function BuildChatDock() {
 
   useEffect(() => dock.sync(jobs), [dock.sync, jobs]);
 
-  useEffect(() => {
-    document.body.classList.toggle('builds-on', shownJobs.length > 0);
-    return () => document.body.classList.remove('builds-on');
-  }, [shownJobs.length]);
-
   testState.dockState = dock.view;
   testState.jobs = jobs;
   useEffect(() => {
@@ -53,6 +47,9 @@ export function BuildChatDock() {
       get messagesByJob() {
         return testState.messagesByJob;
       },
+      open(jobId: string) {
+        useDock.getState().openChat(jobId, testState.jobs);
+      },
     });
     testApiRegistered = true;
   }, []);
@@ -61,43 +58,40 @@ export function BuildChatDock() {
     testState.messagesByJob[jobId] = messages;
   }, []);
 
-  if (shownJobs.length === 0 && !draft) return null;
+  if (dock.view === 'collapsed') return null;
 
   const openJob = (job: Job) => dock.openChat(job.id, jobs);
   return (
     <aside className="build-chat-dock" data-state={dock.view}>
-      {dock.view === 'collapsed' ? <Fab jobs={shownJobs} fresh={dock.fresh} onOpen={() => dock.open(jobs)} /> : null}
-      {dock.view !== 'collapsed' ? (
-        <div className="build-chat-panel">
-          {dock.view === 'chat' && (selected || draft) ? (
-            <div className="build-chat-chat-layout">
-              <div className="build-chat-landscape-list">
-                <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} />
-              </div>
-              <Chat
-                key={dock.chatKey}
-                jobId={dock.openJobId ?? selected?.id}
-                job={selected}
-                draft={draft}
-                onBack={() => dock.back(jobs)}
-                onAdmitted={dock.admitted}
-                onMessages={recordMessages}
-              />
+      <div className="build-chat-panel">
+        {dock.view === 'chat' && (selected || draft) ? (
+          <div className="build-chat-chat-layout">
+            <div className="build-chat-landscape-list">
+              <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} />
             </div>
-          ) : (
-            <>
-              <header className="build-chat-panel-head">
-                <h3>Builds</h3>
-                <button className="build-chat-close tap-secondary" type="button" onClick={() => dock.close(jobs)}>
-                  Close
-                </button>
-              </header>
-              <Bar jobs={shownJobs} expanded={dock.view === 'expanded'} onToggle={() => dock.toggleList(jobs)} />
-              {dock.view === 'expanded' ? <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} /> : null}
-            </>
-          )}
-        </div>
-      ) : null}
+            <Chat
+              key={dock.chatKey}
+              jobId={dock.openJobId ?? selected?.id}
+              job={selected}
+              draft={draft}
+              onBack={() => dock.back(jobs)}
+              onAdmitted={dock.admitted}
+              onMessages={recordMessages}
+            />
+          </div>
+        ) : (
+          <>
+            <header className="build-chat-panel-head">
+              <h3>Builds</h3>
+              <button className="build-chat-close tap-secondary" type="button" onClick={() => dock.close(jobs)}>
+                Close
+              </button>
+            </header>
+            <Bar jobs={shownJobs} expanded={dock.view === 'expanded'} onToggle={() => dock.toggleList(jobs)} />
+            {dock.view === 'expanded' ? <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} /> : null}
+          </>
+        )}
+      </div>
     </aside>
   );
 }

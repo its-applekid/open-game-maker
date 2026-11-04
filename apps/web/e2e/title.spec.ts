@@ -67,14 +67,14 @@ test('title passes a tap on the town through to it', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => (window as StubbedWindow).__tapSeen)).toEqual([0.5, 0.5]);
 });
 
-test('title Start is a primary-size target and the sound toggle is labelled', async ({ page }) => {
+test('title Start is a primary-size target and the menu is labelled', async ({ page }) => {
   await stubTown(page);
   await page.goto('/');
 
   const start = page.getByRole('button', { name: 'Start', exact: true });
   const box = (await start.boundingBox())!;
   expect(box.height).toBeGreaterThanOrEqual(64);
-  await expect(page.getByRole('button', { name: /sound/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
 
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page).toHaveURL(/\/age\?next=%2Fconnect%2Fgithub$/);

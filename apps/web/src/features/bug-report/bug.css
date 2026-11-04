@@ -1,23 +1,3 @@
-.bug-fab {
-  position: fixed;
-  right: max(16px, var(--safe-r));
-  bottom: max(16px, var(--safe-b));
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  width: var(--tap-secondary);
-  height: var(--tap-secondary);
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  background: var(--paper);
-  backdrop-filter: var(--glass);
-  color: var(--ink);
-  box-shadow: var(--pop-sm);
-  cursor: pointer;
-}
-
-.bug-fab .icon,
 .bug-close .icon {
   display: grid;
   width: 24px;
@@ -25,27 +5,23 @@
 }
 
 .bug-sheet {
-  position: fixed;
-  right: max(16px, var(--safe-r));
-  bottom: calc(max(16px, var(--safe-b)) + var(--tap-secondary) + 12px);
-  z-index: 30;
+  position: static;
   display: grid;
   gap: 10px;
-  width: min(22rem, calc(100vw - 32px));
-  padding: 14px;
-  border: 1px solid var(--rule);
-  border-radius: var(--r);
-  background: var(--paper);
-  backdrop-filter: var(--glass);
-  box-shadow: var(--pop);
+  width: 100%;
+  padding: 10px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--night-3);
+  box-shadow: none;
 }
 
 .bug-sheet textarea {
   resize: vertical;
   padding: 10px;
-  border: 1px solid var(--rule);
+  border: 0;
   border-radius: 12px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--night);
   color: var(--ink);
   font: 600 16px var(--body);
 }

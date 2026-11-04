@@ -73,14 +73,8 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await installBuildRoutes(page);
   await page.goto('/games?test');
 
-  const fab = page.getByRole('button', { name: '1 build running, 50% done. Show progress' });
-  await expect(fab).toBeVisible();
-  expect((await fab.boundingBox())!.width).toBeGreaterThanOrEqual(64);
-  expect((await fab.boundingBox())!.height).toBeGreaterThanOrEqual(64);
-
-  await fab.click();
-  await page.getByRole('button', { name: /Show each build/ }).click();
-  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+  await expect(page.getByRole('button', { name: 'Menu' })).toHaveAttribute('data-building', 'true');
+  await openBuildChat(page);
 
   const panel = page.locator('.build-chat-panel');
   await expect(panel).toBeVisible();
@@ -151,9 +145,7 @@ test('attaches files with the button and by pasting an image, then sends them wi
     );
   });
   await page.goto('/games?test');
-  await page.getByRole('button', { name: '1 build running, 50% done. Show progress' }).click();
-  await page.getByRole('button', { name: /Show each build/ }).click();
-  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+  await openBuildChat(page);
 
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Attach files' }).click();
@@ -197,9 +189,7 @@ test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   await page.goto('/games?test');
 
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
-  await expect(
-    page.locator('#chat-dock-slot').getByRole('button', { name: '1 build running, 50% done. Show progress' }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
 });
 
 test('asking for a change with no build running starts an edit job and streams it', async ({ page }) => {
@@ -271,7 +261,8 @@ test('asking for a change with no build running starts an edit job and streams i
   expect(postAdmissionJobRequestAt! - admittedAt!).toBeLessThan(2_000);
   // A scheduled poll cannot start until five seconds after the initial response.
   expect(postAdmissionJobRequestAt! - firstJobResponseAt!).toBeLessThan(4_000);
-  await expect(page.locator('.play-bar .build-state')).toHaveText('Waiting for a free slot', { timeout: 2_000 });
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(page.getByText('Waiting for a free slot')).toBeVisible({ timeout: 2_000 });
 });
 
 async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean; posts?: unknown[] } = {}) {
@@ -288,7 +279,7 @@ async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean;
               createdAt: job.createdAt,
             },
           ]
-        : [{ id: job.gameId }],
+        : [{ id: job.gameId, title: 'Moonlit Door' }],
     }),
   );
   await page.route('**/api/v1/jobs?gameId=*', (route) => json(route, { jobs: [job] }));
@@ -320,6 +311,22 @@ async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean;
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#7b4f9d"/></svg>',
     });
   });
+}
+
+async function openBuildChat(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        type TestWindow = Window & { __ogmHost?: { get(name: string): unknown } };
+        return Boolean((window as TestWindow).__ogmHost?.get('jobs'));
+      }),
+    )
+    .toBe(true);
+  await page.evaluate((id) => {
+    type JobsApi = { open(jobId: string): void };
+    type TestWindow = Window & { __ogmHost?: { get(name: string): unknown } };
+    ((window as TestWindow).__ogmHost?.get('jobs') as JobsApi).open(id);
+  }, jobId);
 }
 
 function message(id: string, kind: string, overrides: Record<string, unknown>) {

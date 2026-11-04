@@ -8,9 +8,10 @@ import { api, ApiError } from '../../lib/api/client';
 import { useSession } from '../../lib/api/session';
 import { subscribeNotification } from '../../lib/notify';
 
-type GameSummary = { id: string };
-type JobsData = { jobs: Job[] };
+type GameSummary = { id: string; title?: string };
+type JobsData = { jobs: Job[]; games: GameSummary[] };
 const EMPTY_JOBS: Job[] = [];
+const EMPTY_GAMES: GameSummary[] = [];
 
 export const myJobsQueryKey = ['build-chat', 'jobs'] as const;
 export const gameJobsQueryKey = (gameId: string) => ['game-jobs', gameId] as const;
@@ -29,7 +30,12 @@ export function useMyJobs() {
   useEffect(() => subscribeNotification(refreshJobsForNotification), []);
 
   const jobs = query.data?.jobs ?? EMPTY_JOBS;
-  return { ...query, jobs, active: jobs.filter((job) => !isTerminal(job.state)) };
+  return {
+    ...query,
+    jobs,
+    games: query.data?.games ?? EMPTY_GAMES,
+    active: jobs.filter((job) => !isTerminal(job.state)),
+  };
 }
 
 export function useBudgetUnitLabel(): string {
@@ -70,6 +76,7 @@ export async function fetchMyJobs(creatorId: string): Promise<JobsData> {
     throw results.find((result): result is PromiseRejectedResult => result.status === 'rejected')?.reason;
   }
   return {
+    games,
     jobs: pages
       .flatMap(({ jobs }) => jobs)
       .filter((job) => job.creatorId === creatorId)

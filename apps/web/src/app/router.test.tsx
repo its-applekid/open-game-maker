@@ -25,6 +25,15 @@ vi.mock('../features/build-chat/BuildChatDock', () => ({
   BuildChatDock: () => <button type="button">Build chat</button>,
 }));
 
+vi.mock('../features/build-chat/jobs', () => ({
+  isTerminal: (value: string) => ['done', 'failed', 'cancelled'].includes(value),
+  useMyJobs: () => ({ jobs: [], active: [], games: [] }),
+}));
+
+vi.mock('../routes/admin/api', () => ({
+  useAdminMe: () => ({ data: undefined }),
+}));
+
 vi.mock('../lib/notify', () => ({
   Toasts: () => null,
   useNotificationFeed: () => undefined,
@@ -156,14 +165,13 @@ describe('screen route collection', () => {
 
     expect(await screen.findByRole('link', { name: 'Open Game Maker 2000' })).toHaveAttribute('href', '/');
     expect(document.querySelector('.studio-backdrop canvas')).toBeInTheDocument();
-    const sound = screen.getByRole('button', { name: /sound/i });
-    expect(sound).toHaveAttribute('aria-expanded', 'false');
+    const menu = screen.getByRole('button', { name: 'Menu' });
+    expect(menu).toHaveAttribute('aria-expanded', 'false');
 
-    fireEvent.click(sound);
+    fireEvent.click(menu);
 
-    expect(sound).toHaveAttribute('aria-expanded', 'true');
+    expect(menu).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByRole('slider', { name: 'Volume' })).toBeVisible();
-    expect(soundApi.setMuted).toHaveBeenCalledWith(false);
   });
 
   it('retries a crashed screen', async () => {

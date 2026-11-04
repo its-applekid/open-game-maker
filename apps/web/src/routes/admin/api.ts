@@ -45,8 +45,8 @@ export async function invalidateAdmin(...keys: readonly (readonly unknown[])[]):
   await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
-export function useAdminMe() {
-  return useQuery({ queryKey: adminKeys.me(), queryFn: () => adminRequest<AdminMe>('/me'), retry: false });
+export function useAdminMe(enabled = true) {
+  return useQuery({ queryKey: adminKeys.me(), queryFn: () => adminRequest<AdminMe>('/me'), retry: false, enabled });
 }
 
 export function useMembers() {
