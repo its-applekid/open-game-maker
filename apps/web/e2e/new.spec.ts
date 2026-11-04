@@ -54,12 +54,13 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
     .toBe(true);
   await expect
     .poll(() =>
-      page.locator('.new-style-track').evaluateAll((tracks) =>
-        tracks.every((track) => {
+      page.locator('.new-style-track').evaluateAll((tracks) => {
+        const viewportWidth = document.documentElement.clientWidth;
+        return tracks.every((track) => {
           const box = track.getBoundingClientRect();
-          return Math.abs(box.width - box.height) <= 1;
-        }),
-      ),
+          return Math.abs(box.width - viewportWidth) <= 1;
+        });
+      }),
     )
     .toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(
