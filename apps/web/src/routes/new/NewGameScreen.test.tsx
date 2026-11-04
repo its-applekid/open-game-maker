@@ -50,6 +50,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  Reflect.deleteProperty(window.navigator, 'vibrate');
 });
 
 function renderScreen(entry = '/new?step=genre') {
@@ -81,15 +82,42 @@ describe('NewGameScreen', () => {
     expect(screen.queryByText(/Create your game|Game setup|Choose a template/)).toBeNull();
   });
 
-  it('enforces pick limits and flips Other into a typed value', () => {
+  it('shows pick capacity and rejects a fourth pick without text', async () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(window.navigator, 'vibrate', { configurable: true, value: vibrate });
     renderScreen();
 
-    for (const name of ['Shooter', 'Adventure', 'RPG']) fireEvent.click(button(name));
+    const capacity = screen.getByRole('img', { name: '0 of 3 picked' });
+    expect(capacity.querySelectorAll('.filled')).toHaveLength(0);
+    expect(screen.queryByText('Pick up to 3')).not.toBeInTheDocument();
+
+    for (const name of ['Shooter', 'Adventure']) fireEvent.click(button(name));
+    expect(capacity).toHaveAccessibleName('2 of 3 picked');
+    expect(capacity.querySelectorAll('.filled')).toHaveLength(2);
+
+    fireEvent.click(button('Adventure'));
+    expect(capacity).toHaveAccessibleName('1 of 3 picked');
+    expect(capacity.querySelectorAll('.filled')).toHaveLength(1);
+
+    for (const name of ['Adventure', 'RPG']) fireEvent.click(button(name));
+    expect(capacity).toHaveAccessibleName('3 of 3 picked');
+    expect(capacity.querySelectorAll('.filled')).toHaveLength(3);
     fireEvent.click(button('Sports'));
     expect(button('Sports')).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('status')).toHaveTextContent('Unpick one first');
+    for (const name of ['Shooter', 'Adventure', 'RPG']) expect(button(name)).toHaveClass('new-limit-shake');
+    expect(screen.queryByText('Unpick one first.')).not.toBeInTheDocument();
+    expect(vibrate).toHaveBeenCalledWith(10);
+    await waitFor(
+      () => {
+        for (const name of ['Shooter', 'Adventure', 'RPG']) expect(button(name)).not.toHaveClass('new-limit-shake');
+      },
+      { timeout: 600 },
+    );
+  });
 
-    fireEvent.click(button('RPG'));
+  it('flips Other into a typed value', () => {
+    renderScreen();
+
     fireEvent.click(button('Other'));
     fireEvent.click(screen.getByRole('button', { name: 'Type it' }));
     fireEvent.change(screen.getByRole('textbox', { name: 'Your own genre' }), { target: { value: 'Delivery' } });

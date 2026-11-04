@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
 import { installNewRoutes } from './fixtures/new-routes';
@@ -10,6 +10,49 @@ type NewGameTestApi = {
 };
 
 test.use({ serviceWorkers: 'block', reducedMotion: 'reduce' });
+
+test('phone multi-pick capacity shows 0, 2, and 3 picks', async ({ page, isMobile }, testInfo) => {
+  test.skip(!isMobile, 'phone screenshot acceptance path');
+  await installAuthRoutes(page, { signedIn: true, github: 'kim' });
+  await installNewRoutes(page);
+  const adventure = await openReadyNewGame(page);
+  const capacity = page.locator('.new-pick-capacity');
+
+  await expect(capacity).toBeVisible();
+  await expect(capacity).toHaveAccessibleName('0 of 3 picked');
+  await expect(page.getByText('Pick up to 3')).toHaveCount(0);
+  await attachScreenshot(page, testInfo, 'pick-capacity-0');
+
+  await selectOption(page, adventure, 'genre', 'adventure');
+  await selectOption(page, page.getByRole('button', { name: 'RPG' }), 'genre', 'rpg');
+  await expect(capacity).toHaveAccessibleName('2 of 3 picked');
+  await attachScreenshot(page, testInfo, 'pick-capacity-2');
+
+  await selectOption(page, page.getByRole('button', { name: 'Puzzle' }), 'genre', 'puzzle');
+  await expect(capacity).toHaveAccessibleName('3 of 3 picked');
+  await attachScreenshot(page, testInfo, 'pick-capacity-3');
+
+  const sports = page.getByRole('button', { name: 'Sports' });
+  const overflowFeedback = await sports.evaluate(async (button) => {
+    button.click();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const selected = Array.from(document.querySelectorAll<HTMLButtonElement>('.new-option[aria-pressed="true"]'));
+
+    return {
+      rejectedPressed: button.getAttribute('aria-pressed'),
+      selectedCount: selected.length,
+      selectedShakeCount: selected.filter((tile) => tile.classList.contains('new-limit-shake')).length,
+      animationName: selected[0] ? getComputedStyle(selected[0]).animationName : '',
+    };
+  });
+
+  expect(overflowFeedback).toEqual({
+    rejectedPressed: 'false',
+    selectedCount: 3,
+    selectedShakeCount: 3,
+    animationName: 'new-limit-pulse-a',
+  });
+});
 
 test('phone creation flow reaches scope admission and queues at reset', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone acceptance path');
@@ -256,6 +299,13 @@ async function selectOption(page: Page, button: Locator, key: string, id: string
   await button.evaluate((element: HTMLButtonElement) => element.click());
   await expect(button).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => newGameState(page).then((state) => state?.picks[key]?.picks)).toContain(id);
+}
+
+async function attachScreenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+  await testInfo.attach(name, {
+    body: await page.screenshot({ animations: 'disabled', fullPage: true }),
+    contentType: 'image/png',
+  });
 }
 
 function newGameState(page: Page): Promise<NewGameTestApi | undefined> {
