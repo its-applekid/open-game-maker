@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
 
@@ -41,3 +41,68 @@ test('a signed-in creator sees the connected GitHub account', async ({ page }) =
   await expect(page.getByText('@octocat')).toBeVisible();
   await expect(page.getByRole('button', { name: /private/i })).toHaveAttribute('aria-pressed', 'true');
 });
+
+test('passkey registration makes one options and verify request per click', async ({ page, baseURL }) => {
+  if (!baseURL) throw new Error('Playwright baseURL is required for the passkey test.');
+  const registration = { options: 0, verify: 0, rejectFirstVerify: true };
+  await installAuthRoutes(page, { signedIn: true, passkeyRegistration: registration });
+  await installVirtualAuthenticator(page);
+
+  const signInUrl = new URL('/signin?next=%2Fgames&magic=1', baseURL);
+  signInUrl.hostname = 'localhost';
+  await page.goto(signInUrl.href);
+  await expect(page.getByRole('button', { name: 'Add a passkey' })).toBeVisible();
+  expect(registration).toMatchObject({ options: 0, verify: 0 });
+  await page.getByRole('button', { name: 'Add a passkey' }).click({ force: true });
+  await expect(page.getByRole('alert')).toContainText('You can still sign in with an email link.');
+  expect(registration).toMatchObject({ options: 1, verify: 1 });
+
+  await page.getByRole('button', { name: 'Add a passkey' }).click({ force: true });
+  await expect(page).toHaveURL(/\/games$/);
+  expect(registration).toMatchObject({ options: 2, verify: 2 });
+});
+
+test('leaving passkey enrollment aborts an in-flight verification request', async ({ page, baseURL }) => {
+  if (!baseURL) throw new Error('Playwright baseURL is required for the passkey test.');
+  let releaseVerification!: () => void;
+  const verifyGate = new Promise<void>((resolve) => (releaseVerification = resolve));
+  const registration = { options: 0, verify: 0, verifyGate };
+  await installAuthRoutes(page, { signedIn: true, passkeyRegistration: registration });
+  await installVirtualAuthenticator(page);
+
+  const signInUrl = new URL('/signin?next=%2Fgames&magic=1', baseURL);
+  signInUrl.hostname = 'localhost';
+  await page.goto(signInUrl.href);
+  const failedVerification = page.waitForEvent('requestfailed', {
+    predicate: (request) => new URL(request.url()).pathname === '/auth/passkey/verify-registration',
+    timeout: 5_000,
+  });
+  await page.getByRole('button', { name: 'Add a passkey' }).click({ force: true });
+  await expect.poll(() => registration.verify).toBe(1);
+
+  await page.evaluate(() => {
+    history.pushState(null, '', '/');
+    dispatchEvent(new PopStateEvent('popstate'));
+  });
+
+  const request = await failedVerification;
+  expect(request.failure()?.errorText).toContain('ERR_ABORTED');
+  await expect(page).toHaveURL(/\/$/);
+  releaseVerification();
+  await expect(page).not.toHaveURL(/\/games$/);
+});
+
+async function installVirtualAuthenticator(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('WebAuthn.enable');
+  await cdp.send('WebAuthn.addVirtualAuthenticator', {
+    options: {
+      protocol: 'ctap2',
+      transport: 'internal',
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+}
