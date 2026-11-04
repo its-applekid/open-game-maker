@@ -355,19 +355,21 @@ steps:
         check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
         cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
       - kind: hand
-        text: Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
+        text: Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, include the host library assets its screens use, build the town, and approve the manual deployment.
         command: |-
           # Write the Netlify site id to apps/web/.netlify-site-id.
           pnpm --filter @ogm/config exec ogm-env-init web
           # Set OGM_PUBLIC_APP_ORIGIN=<app-origin> in web.env; each instance uses its own subdomain or domain.
+          # OGM_INSTANCE_ALL_ASSETS=1 is the generated instance default; licensed files stay gitignored and are staged only for this deploy.
           # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
           # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
+          # Optional: export OGM_DEPLOY_LOAD_SECONDS=<seconds> to override the 60-second title readiness window.
           # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
-          apps/web/tools/town.sh --public
+          apps/web/tools/town.sh
           apps/web/tools/deploy.sh --dry-run
           apps/web/tools/deploy.sh
         writes: [apps/web/.netlify-site-id, ~/.config/ogm/env/web.env, ~/.config/ogm/env/games.env]
-        check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
+        check: <app-origin> plays Underground on the title and Camelot on Games/New Game, <app-origin>/api/healthz answers, and a game opens on a phone
         cites:
           [
             docs/ops/self-host.md,
@@ -375,6 +377,7 @@ steps:
             apps/web/tools/deploy.sh,
             apps/web/tools/games-origin.mjs,
             apps/web/tools/redirects.mjs,
+            packages/config/src/names.ts,
           ]
       - kind: hand
         text: Set the sign-in allow-list, verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
