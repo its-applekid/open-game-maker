@@ -11,10 +11,11 @@ Sources:
 ## Positioning (owner direction)
 
 - **A general game maker for everyone, with parental controls.** The product is not kid-focused. Child rules live in one parental-controls module that applies only to child accounts. (Kevin, 2026-10-22; restates spec §1.1.)
-- **All child-account and parental-control scope moves to V3** (Kevin, 2026-10-25). That covers child accounts, guardian consent, parental controls, child-specific voice and vendor rules, and COPPA work. V1 and V2 are for creators who aren't children. V1 still needs an age screen that turns away under-18 sign-ups (see the next bullet); knowingly collecting a child's data would trigger COPPA. Family roles that aren't about children stay in V1: admins, spending limits and invite-only play.
+- **All child-account and parental-control scope moves to V3** (Kevin, 2026-10-25). That covers child accounts, guardian consent, parental controls, child-specific voice and vendor rules, and COPPA work. V1 and V2 are for creators who aren't children. Family roles that aren't about children stay in V1: admins, spending limits and invite-only play.
 - **V1 is adults only (18+)** (Kevin, 2026-10-25: "adults only"). This removes every vendor rule for minors from V1, including ElevenLabs approval. Teens (13–17) come later, when vendor approvals arrive.
+- **V1 sign-in has no age check** (Kevin, 2026-11-03: "remove the age check"). The instance operator's allow-list admits the intended adults, so the birth-date screen, server attestation and age cookie are removed. This supersedes the V1 age-screen parts of B3, B9 and B10; unrelated family roles and spending limits remain.
 - **Name:** Open Game Maker 2000. The repo is `its-everdred/open-game-maker-2000`. (Kevin, 2026-10-21.)
-- *Recommended, not yet confirmed (the child-account parts are now V3):* legally, build as **mixed audience by design**, per B9. A neutral age screen comes first. Under-13 users go to a parent-created child account. COPPA duties apply to child accounts only.
+- *Recommended, not yet confirmed (V3 only):* legally, build as **mixed audience by design**, per B9. A neutral age screen comes first when child accounts ship. Under-13 users go to a parent-created child account. COPPA duties apply to child accounts only.
 - *Recommended:* three age bands.
   - **Adult (18+).**
   - **Teen (13–17):** an ordinary creator, but counted as a minor when choosing vendors.

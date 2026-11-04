@@ -1,8 +1,8 @@
 import { index, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 // Better Auth core tables (user, session, account, verification) and the passkey plugin's table, as
-// its SQLite generator shapes them, with snake_case columns. `age_band`/`age_attested_at` are copied
-// from the age cookie when a user is created; `mail_outbox` is the admin inbox (D-MAIL).
+// its SQLite generator shapes them, with snake_case columns. The nullable age columns are retained only
+// because applied migrations are immutable; new sign-ins do not populate or read them. `mail_outbox` is the admin inbox.
 export const user = sqliteTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),

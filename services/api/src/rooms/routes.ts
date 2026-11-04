@@ -9,7 +9,6 @@ import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
 import type { AppDeps } from '../app/types.js';
-import { hasAdultAgeAttestation } from '../auth/routes.js';
 import { clientIp, createRateLimiter } from '../auth/rate-limit.js';
 import {
   createRoom,
@@ -76,7 +75,6 @@ const routes = new Hono<ApiBindings>()
   })
   .get('/api/v1/join/:inviteToken', async (c) => {
     const principal = requirePrincipal(c, ['user']);
-    if (!hasAdultAgeAttestation(c)) throw new HttpError(403, 'age_required');
     if (!joinLimiter(c)(clientIp(c.req.raw.headers))) throw new HttpError(429, 'rate_limited');
     c.header('cache-control', 'no-store');
     return c.json(await joinRoom(c.get('deps'), principal, c.req.param('inviteToken')));

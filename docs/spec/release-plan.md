@@ -13,7 +13,7 @@ This is the single place that says what ships in each version. Every research re
 
 | Version | Users | Legal and vendor posture |
 |---|---|---|
-| **V1 (MVP)** | **Adults only (18+), creators and players** (Decided, 2026-10-25). Kevin's own instance, his household's adults, and adults he invites. | No minors' data, so no COPPA duties and no vendor rules for minors. A neutral age screen turns away anyone under 18. Each vendor's ordinary adult terms apply. A lawyer reviews before any outside family joins. |
+| **V1 (MVP)** | **Adults only (18+), creators and players** (Decided, 2026-10-25). Kevin's own instance, his household's adults, and adults he invites. | The operator's sign-in allow-list admits the intended adults; there is no age screen. Each vendor's ordinary adult terms apply. A lawyer reviews before any outside family joins. |
 | **V2** | Adults, plus **teens (13–17)** once vendor approvals arrive (Working). | Teens are ordinary creators, but count as minors when choosing vendors (B9 vendor table). |
 | **V3** | Adds **child accounts (under 13)** with **parental controls** (Decided, 2026-10-25). | Mixed audience by design. COPPA duties apply to child accounts only. Needs the COPPA document set and guardian consent first. |
 
@@ -25,7 +25,7 @@ The product has to make sense on its own at every version. V1 is a complete game
 
 | Area | V1 scope | Status |
 |---|---|---|
-| Sign-in | Email required as the recovery path, plus passkey and/or Google (passkey + Google both recommended, B10). The age screen turns away under-18s | Decided (email, 18+); method Working |
+| Sign-in | Email required as the recovery path, plus passkey and/or Google (passkey + Google both recommended, B10). The operator allow-list controls admission; there is no age screen | Decided (email, allow-list); method Working |
 | Accounts and family | Owner and admins, peer admin management, member invites, invite-only play for adult player accounts. Admins set spending limits and build concurrency (default: 1 creation + 3 edit builds). Admins cannot take over another adult's game | Decided (roles, limits); takeover rule Working |
 | Admin UI | Membership, invites, budgets, concurrency, game oversight (listing and abuse handling, not editing others' games) | Working |
 | Build analytics | Admins see each build's aiur phase timeline (dispatch → implement → test → PR → merge), cost and retries, plus Game Maker's game-activity breakdown (animation, playtesting, level building and so on), per build and rolled up. No prompt or source text is stored (C2) | Decided |
@@ -128,7 +128,7 @@ The product has to make sense on its own at every version. V1 is a complete game
 | B2 voice | aiur package, ElevenLabs/OpenAI, narration | Self-hosted voice for child accounts (V3) |
 | B5 art and audio | Code tools and packs | Paid generators (V2) |
 | B7 editor, SDK, input | Core V1, including the multiplayer hooks (§9), now V1 | — |
-| B9 legal | Adult vendor terms, the age screen | Teen vendor rules (V2), COPPA (V3) |
+| B9 legal | Adult vendor terms; its V1 age-screen analysis is superseded by the operator allow-list | Teen vendor rules (V2), COPPA (V3) |
 | B10 product reframe | Adult defaults, column (b) | Parental-controls module, column (c) (V3) |
 | B3 child accounts | None | All of it (V3) |
 | v0.3 A1–A9 | Superseded where B-reports differ; see each report's version note | — |
