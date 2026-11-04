@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build and manually deploy the static site (splash at /, /setup). Never run by CI: Netlify credits are limited.
+# Build and manually deploy the separate marketing site (splash at /, /setup). Never run by CI: Netlify credits are limited.
 set -euo pipefail
 
 SITE="$(realpath "$(dirname "${BASH_SOURCE[0]}")/..")"
@@ -13,6 +13,12 @@ esac
 if [[ "$DRY_RUN" == false && ! -s "$SITE/.netlify-site-id" ]]; then
   printf 'missing %s: create the site'"'"'s Netlify project and write its id there\n' "$SITE/.netlify-site-id" >&2
   exit 1
+fi
+
+# App-shaped paths leave the marketing site for the configured try-it instance. The instance host stays out of git.
+REDIRECTS="$(node "$SITE/tools/redirects.mjs")"
+if [[ "$DRY_RUN" == true ]]; then
+  printf '%s\n' "$REDIRECTS"
 fi
 
 # build from a clean dist/ so files removed from public/ or src/ are not published
@@ -31,6 +37,7 @@ while IFS= read -r source; do
   [[ "$stem" == page/* ]] || rm -f "$DEPLOY_DIR/$stem.js"
 done < <(find "$SITE/src" -name '*.ts')
 rm -f "$DEPLOY_DIR"/*.tsbuildinfo
+printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
 find "$DEPLOY_DIR" -type d -empty -delete
 find "$DEPLOY_DIR" -type f | sed "s#^$DEPLOY_DIR##" | sort
 

@@ -66,6 +66,12 @@ describe('content/setup.yaml', () => {
   it('names no private host of this machine, so a self-hoster can follow it as written', () => {
     expect(source).not.toMatch(/\.tail[0-9a-f]+\.ts\.net|\/home\/[a-z]/);
   });
+
+  it('configures every instance on its own origin without naming the project or hosted instance', () => {
+    expect(source).toContain('own subdomain or domain');
+    expect(source).toContain('OGM_PUBLIC_APP_ORIGIN=<app-origin>');
+    expect(source).not.toContain('makeopen.games');
+  });
 });
 
 describe('repo path tokens', () => {

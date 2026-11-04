@@ -2,14 +2,11 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
-import { loadSplashContent } from '../src/splash.js';
+import { renderRedirects } from '../tools/redirects.mjs';
 
 /* dist/ is written by tools/build.mts in the pretest step; nothing here touches the network */
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
-const appOrigin = new URL(
-  loadSplashContent(fileURLToPath(new URL('../content/splash.yaml', import.meta.url))).app_origin,
-);
 
 const allowedHosts = new Set([
   'github.com',
@@ -19,10 +16,14 @@ const allowedHosts = new Set([
   'khala.aiur.team',
   'fonts.googleapis.com',
   'fonts.gstatic.com',
-  /* the splash's Sign in CTA: whatever origin a self-hoster sets in splash.yaml */
-  appOrigin.host,
 ]);
 const siteHost = 'site.invalid';
+const redirectedPaths = new Set(
+  renderRedirects('https://app.example')
+    .split('\n')
+    .map((line) => line.split(/\s+/)[0]!)
+    .filter((path) => path && !path.includes('*')),
+);
 const repoBlob = /^\/its-everdred\/open-game-maker-2000\/blob\/[^/]+\/(.+)$/;
 
 function htmlFiles(dir: string): string[] {
@@ -53,7 +54,8 @@ function servedFile(dist: string, pathname: string): string | undefined {
 /* returns why `reference` on the page at `pagePath` (a path under dist/) is broken, or undefined if it resolves */
 function brokenLink(reference: string, pagePath: string, dist: string, checkout: string): string | undefined {
   const url = new URL(reference, `https://${siteHost}/${pagePath}`);
-  if (url.host === siteHost) return servedFile(dist, url.pathname) ? undefined : 'no file in dist/';
+  if (url.host === siteHost)
+    return servedFile(dist, url.pathname) || redirectedPaths.has(url.pathname) ? undefined : 'no file in dist/';
   if (url.protocol !== 'https:') return `scheme ${url.protocol}`;
   if (!allowedHosts.has(url.host)) return `host ${url.host} is not allow-listed`;
   const blob = url.host === 'github.com' ? repoBlob.exec(url.pathname) : null;
