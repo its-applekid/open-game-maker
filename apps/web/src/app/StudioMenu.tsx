@@ -35,6 +35,7 @@ export function StudioMenu() {
   const gameTitles = useMemo(() => new Map(builds.games.map(({ id, title }) => [id, title])), [builds.games]);
   const visibleBuilds = useMemo(() => recentBuilds(builds.jobs), [builds.jobs, buildClock]);
   const buildGroups = useMemo(() => groupBuilds(visibleBuilds, gameTitles), [gameTitles, visibleBuilds]);
+  const buildingJobs = useMemo(() => builds.jobs.filter(isBuilding), [builds.jobs]);
   const outstandingRequests = visibleBuilds.reduce((total, job) => total + (job.openRequestCount ?? 0), 0);
 
   useEffect(() => {
@@ -57,9 +58,9 @@ export function StudioMenu() {
 
   useEffect(() => {
     if (!creatorId) return;
-    const messages = buildAnnouncements(creatorId, builds.jobs, builds.active, gameTitles);
+    const messages = buildAnnouncements(creatorId, builds.jobs, buildingJobs, gameTitles);
     if (messages.length > 0) setAnnouncement(messages.join('. '));
-  }, [builds.active, builds.jobs, creatorId, gameTitles]);
+  }, [buildingJobs, builds.jobs, creatorId, gameTitles]);
 
   useEffect(() => {
     const nextExpiry = nextRecentBuildExpiry(builds.jobs);
@@ -94,7 +95,7 @@ export function StudioMenu() {
         ref={trigger}
         type="button"
         className="studio-menu-button"
-        data-building={builds.active.length > 0}
+        data-building={buildingJobs.length > 0}
         aria-label="Menu"
         aria-describedby={outstandingRequests > 0 ? 'studio-menu-requests' : undefined}
         aria-expanded={open}
@@ -273,6 +274,12 @@ function menuJobState(job: Job): MenuJobState {
     return 'not-started';
   }
   return 'active';
+}
+
+function isBuilding(job: Job): boolean {
+  if (isTerminal(job.state)) return false;
+  if (job.stage) return job.stage === 'building' || job.stage === 'final_tests' || job.stage === 'fixing';
+  return job.state === 'running';
 }
 
 function menuJobStateLabel(state: MenuJobState): string {

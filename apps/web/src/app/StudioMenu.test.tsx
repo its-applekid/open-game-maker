@@ -202,6 +202,7 @@ describe('StudioMenu', () => {
     renderMenu('/games');
 
     const trigger = screen.getByRole('button', { name: 'Menu' });
+    expect(trigger).toHaveAttribute('data-building', 'false');
     expect(trigger).toHaveAttribute('aria-describedby', 'studio-menu-requests');
     expect(screen.getByText('3', { selector: '.studio-menu-badge' })).toBeVisible();
     expect(document.getElementById('studio-menu-requests')).toHaveTextContent('3 requests need your attention');
