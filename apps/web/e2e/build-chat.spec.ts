@@ -78,7 +78,7 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
 
   const panel = page.locator('.build-chat-panel');
   await expect(panel).toBeVisible();
-  expect((await panel.boundingBox())!.height).toBe(844);
+  expect((await panel.boundingBox())!.height).toBeCloseTo(page.viewportSize()!.height, 4);
   expect(
     Number.parseFloat(await panel.evaluate((element) => getComputedStyle(element).paddingBottom)),
   ).toBeGreaterThanOrEqual(12);

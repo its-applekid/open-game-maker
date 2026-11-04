@@ -89,12 +89,12 @@ test('title only shows its thin aqua focus outline for keyboard input', async ({
   await expect(start).toBeFocused();
   await expect(start).toHaveCSS('outline-style', 'none');
 
-  await page.keyboard.press('Tab');
-  const sound = page.getByRole('button', { name: /sound/i });
-  await expect(sound).toBeFocused();
-  await expect(sound).toHaveCSS('outline-width', '2px');
-  await expect(sound).toHaveCSS('outline-color', 'rgb(142, 192, 124)');
+  await page.keyboard.press('Shift+Tab');
+  const menu = page.getByRole('button', { name: 'Menu' });
+  await expect(menu).toBeFocused();
+  await expect(menu).toHaveCSS('outline-width', '2px');
+  await expect(menu).toHaveCSS('outline-color', 'rgb(142, 192, 124)');
 
   await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown')));
-  await expect(sound).toHaveCSS('outline-style', 'none');
+  await expect(menu).toHaveCSS('outline-style', 'none');
 });
