@@ -35,6 +35,20 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
    starts now. Content tickets that need a creative choice (music direction, character look) open their own option
    Commands with samples (see the design skill's question protocol).
 
+## Evidence and review states
+
+- **Foundation before replication.** Prove the risky base first (one assembled structure at the right scale, actors,
+  depth and collision, movement and combat transitions, the physical interaction, saves) before tickets that multiply
+  content built on it. A known-broken base is repaired, never copied.
+- Every visual or audio ticket ends with real evidence (screenshots and short captures at phone portrait, phone
+  landscape and desktop; audio previews) that the agent has looked at itself.
+- Review states: generated → agent-reviewed → player review requested → player-approved or provisional default.
+  Silence is never approval; low-confidence work (a new or poorly preprocessed pack) asks for review in small batches.
+- Fairness across aspect ratios is gameplay: test encounter visibility, threat cues, aiming and puzzles on narrow and
+  wide screens, not only menus.
+- Private context (references to other games, the player's words) stays in private storage for authorised agents;
+  public tickets describe behaviour and acceptance only, with no commercial game comparisons.
+
 ## File it in aiur
 
 - Child issues in the instance repo, each linking the parent, with: goal, owned files, interface contract, acceptance

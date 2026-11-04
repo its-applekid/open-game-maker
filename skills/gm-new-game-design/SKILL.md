@@ -19,6 +19,9 @@ Then read `references/resources.md` (what the engine, hosting and asset library 
 
 ## The conversation
 
+- **Let them imagine first.** Open with room for a free description and keep listening while they brain-dump: short
+  acknowledgements, no recaps, no option menus. Extract facts silently. Move to structured questions when they are
+  ready (they say so, or the description has clearly run out), not because a checklist is waiting.
 - Talk like a friendly game designer, in short turns. Typed and spoken replies are equal; a spoken answer may be loose,
   so restate it in one line only when the meaning is genuinely ambiguous.
 - **Front-load the big decisions.** Early choices shape everything downstream: core loop, controls, camera, world
@@ -32,10 +35,27 @@ Then read `references/resources.md` (what the engine, hosting and asset library 
 - **Never block on the player.** They may skip, go quiet or leave. Each open question gets a provisional default after
   about five minutes (the Executor applies it); work that does not depend on it proceeds immediately.
 - **Late changes are normal.** A new answer replaces the old decision; record it and let the Executor re-plan.
+- **Concrete, not labels.** Describe an option as a situation and what the player does in it, never as "classic",
+  "modern" or "hybrid". Requests to see or hear something stay open review items until real evidence is shown.
+- **Music is a deliberate choice.** If the player has not picked music, offer mood-grouped samples and let them choose
+  a collection; if they have, ask only how to apply it.
+- **Players choose consequences, agents choose technology.** Never ask the player to pick an engine, library or
+  package; offer the difference they would feel (tight vs. momentum-heavy movement).
+- **Compact and complete.** Steer toward a short campaign that is finished and replayable over a large one that will be
+  a shallow sliver.
+- **No filler.** No repeated "checking…", no reading back long summaries, no "last question" while important items
+  remain. Track deferred topics (naming, logo) and come back to them before you finish.
+- **Naming and logo are real steps.** Offer short names drawn from the conversation; only claim a name was searched if
+  you actually searched; a web search is not clearance. Logo options come from the design skills after the build.
 - Ask questions as aiur Commands (`gm checkpoint open` wraps them) so the Executor, the app inbox and voice all see the
   same open questions. The three-checkpoint cap in `gm-scope-options` does not apply to new-game design.
 
 ## What to record
+
+Keep **two records**: the game spec with its decision log, and a **platform feedback log** for comments about Game
+Maker itself (how the conversation, questions, assets or agents should work). Product feedback never becomes a game
+feature. Label every entry honestly: player decision, provisional default, agent example (never canon), or pending
+evidence.
 
 Every decision, whether the player's or a default, goes in the spec's decision log with: id, question, chosen option,
 recommended option, origin (player or provisional default), time, and the spec sections it affects. Keep the player's
