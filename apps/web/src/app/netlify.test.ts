@@ -116,6 +116,13 @@ describe('Netlify static configuration', () => {
     expect(deploy).toContain('deploy: load check did not report town-ready; refusing to deploy');
   });
 
+  it('gives the load check a configurable 60-second readiness window', () => {
+    const deploy = readFileSync(resolve(process.cwd(), 'tools/deploy.sh'), 'utf8');
+
+    expect(deploy).toContain('LOAD_SECONDS="${OGM_DEPLOY_LOAD_SECONDS:-60}"');
+    expect(deploy).toContain('"$RECORD_DIR" http://127.0.0.1:43171/ "$LOAD_SECONDS"');
+  });
+
   it('bundles the copied timeline in the public town payload', () => {
     const publicTown = readFileSync(resolve(process.cwd(), 'tools/town.sh'), 'utf8');
 
