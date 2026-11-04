@@ -1,6 +1,7 @@
 import { blit, spriteFrame } from "./canvas.mjs";
 
 const sortedLayerPositions = new WeakMap();
+const flushSurfaceFrames = new WeakMap();
 
 function finitePair(value) {
   return Array.isArray(value) && value.length === 2 && value.every(Number.isFinite);
@@ -28,6 +29,9 @@ export function validContinuousGround(ground) {
 
 export function validateGroundLayers(ground, path) {
   const issues = [];
+  if (ground?.surface !== undefined && ground.surface !== "flush") {
+    issues.push(issue("ground.surface", `${path}.surface`, "ground surface must be flush"));
+  }
   if (ground?.underlay !== undefined && !/^#[0-9a-f]{6}$/iu.test(ground.underlay)) {
     issues.push(issue("ground.underlay", `${path}.underlay`, "underlay must be a six-digit hex color"));
   }
@@ -59,8 +63,46 @@ export function validateGroundLayers(ground, path) {
     if (layer?.scale !== undefined && (!(layer.scale > 0) || !Number.isFinite(layer.scale))) {
       issues.push(issue("ground.scale", `${layerPath}.scale`, "ground layer scale must be positive"));
     }
+    if (layer?.surface !== undefined && layer.surface !== "flush") {
+      issues.push(issue("ground.surface", `${layerPath}.surface`, "ground layer surface must be flush"));
+    }
   }
   return issues;
+}
+
+function flushSurface(tile, surface, projection) {
+  if (surface !== "flush" || projection !== "isometric") return tile;
+  const cached = flushSurfaceFrames.get(tile);
+  if (cached) return cached;
+  const height = Math.min(tile.height, Math.ceil(tile.width / 2));
+  const data = new Uint8Array(tile.width * height * 4);
+  const halfWidth = tile.width / 2;
+  const halfHeight = height / 2;
+  for (let y = 0; y < height; y += 1) {
+    for (let x = 0; x < tile.width; x += 1) {
+      const inside = Math.abs(x + 0.5 - halfWidth) / halfWidth +
+          Math.abs(y + 0.5 - halfHeight) / halfHeight <= 1;
+      if (!inside) continue;
+      const index = (y * tile.width + x) * 4;
+      data.set(tile.data.subarray(index, index + 4), index);
+    }
+  }
+  const frame = {
+    ...tile,
+    data,
+    height,
+    frameHeight: Math.min(tile.frameHeight ?? height, height),
+  };
+  flushSurfaceFrames.set(tile, frame);
+  return frame;
+}
+
+export async function groundTileFrame(library, spec, scale, projection) {
+  return flushSurface(
+    await spriteFrame(library, spec, 0, scale),
+    spec.surface,
+    projection,
+  );
 }
 
 function paintRect(target, color, clip) {
@@ -81,7 +123,7 @@ function paintRect(target, color, clip) {
 }
 
 async function drawFill(target, library, ground, offsetX, offsetY, projection, clip) {
-  const tile = await spriteFrame(library, ground, 0, ground.scale ?? 1);
+  const tile = await groundTileFrame(library, ground, ground.scale ?? 1, projection);
   if (tile.width === 0 || tile.height === 0) throw new Error(`${ground.ref} has an empty ground frame`);
   // Isometric packs commonly center a 2:1 power-of-two diamond near the
   // bottom of a much larger transparent frame. The painted bounds may include
@@ -135,7 +177,12 @@ function cellPosition(ground, cell, projection) {
 
 export async function drawGroundLayers(target, library, ground, offsetX, offsetY, projection, clip) {
   for (const layer of ground.layers ?? []) {
-    const tile = await spriteFrame(library, layer, 0, layer.scale ?? ground.scale ?? 1);
+    const tile = await groundTileFrame(
+      library,
+      layer,
+      layer.scale ?? ground.scale ?? 1,
+      projection,
+    );
     if (tile.width === 0 || tile.height === 0) throw new Error(`${layer.ref} has an empty ground frame`);
     let positions = sortedLayerPositions.get(layer);
     if (!positions) {

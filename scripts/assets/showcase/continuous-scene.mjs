@@ -59,6 +59,7 @@ async function entityFrame({
   cameraX,
   cameraY,
   depthOffset = 0,
+  depthOverride,
 }) {
   const renderSpec = storySpec(spec, state, at, positions, project.sequence.layout.directions);
   const resolved = await library.resolve(renderSpec);
@@ -73,12 +74,13 @@ async function entityFrame({
     frame,
     left: at[0] + cameraX - frame.frameWidth / 2 + frame.offsetX,
     top: at[1] + cameraY - frame.frameHeight + frame.offsetY + transform.offsetY * scale,
-    depth: at[1] + (spec.z ?? depthOffset),
+    depth: depthOverride ?? at[1] + (spec.z ?? depthOffset),
   };
 }
 
 export async function prepareContinuousFrame({ project, library, tau, width, height, spriteFps }) {
   const runner = continuousRunnerPosition(project.sequence, tau);
+  const runnerForeground = project.regions[runner.stop.region].runner_foreground === true;
   const [runnerX, runnerY] = runner.position;
   const cameraX = width / 2 - runnerX;
   const cameraY = height / 2 - runnerY;
@@ -143,6 +145,7 @@ export async function prepareContinuousFrame({ project, library, tau, width, hei
     cameraX,
     cameraY,
     depthOffset: 0.5,
+    depthOverride: runnerForeground ? Number.POSITIVE_INFINITY : undefined,
   }));
   entities.sort((left, right) => left.depth - right.depth);
   return { cameraX, cameraY, entities, runner };

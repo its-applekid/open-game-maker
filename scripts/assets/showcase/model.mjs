@@ -358,6 +358,13 @@ function validateContinuousStop(stop, index, project, issues, state, seconds) {
     ));
   }
   issues.push(...validateGroundLayers(region.ground, `${stop.region}.ground`));
+  if (region.runner_foreground !== undefined && typeof region.runner_foreground !== "boolean") {
+    issues.push(issue(
+      "region.runner_foreground",
+      `${stop.region}.runner_foreground`,
+      "runner_foreground must be a boolean",
+    ));
+  }
   if (hasRenderedText(region) || hasRenderedText(sheet)) {
     issues.push(issue("media.text_overlay", path, "rendered region and sheet data cannot contain text overlay fields"));
   }
