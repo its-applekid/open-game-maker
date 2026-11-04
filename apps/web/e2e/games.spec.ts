@@ -59,7 +59,7 @@ test('browses three real game tiles with the keyboard', async ({ page }) => {
 
   const tiles = page.locator('.game-tile');
   await expect(tiles).toHaveCount(3);
-  await expect(page.getByText('Building 40%')).toBeVisible();
+  await expect(tiles.getByText('Building 40%')).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() => ((window as GamesWindow).__ogmHost?.get('games') as GamesTestApi | undefined)?.tiles()),
