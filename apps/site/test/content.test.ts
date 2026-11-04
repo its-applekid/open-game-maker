@@ -70,6 +70,7 @@ describe('content/setup.yaml', () => {
   it('configures every instance on its own origin without naming the project or hosted instance', () => {
     expect(source).toContain('own subdomain or domain');
     expect(source).toContain('OGM_PUBLIC_APP_ORIGIN=<app-origin>');
+    expect(source).toContain('OGM_INSTANCE_ALL_ASSETS=1');
     expect(source).not.toContain('makeopen.games');
   });
 });

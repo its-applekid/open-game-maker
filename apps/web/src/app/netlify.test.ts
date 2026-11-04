@@ -86,7 +86,11 @@ describe('Netlify static configuration', () => {
     expect(publicTown).toBeGreaterThan(titleSounds);
     expect(webBuild).toBeGreaterThan(publicTown);
     expect(prototypeBuild).toBeGreaterThan(webBuild);
-    expect(deploy).toContain('bash "$ROOT/apps/web/tools/town.sh" --public');
+    expect(deploy).toContain('OGM_INSTANCE_ALL_ASSETS');
+    expect(deploy).toContain('bash "$ROOT/apps/web/tools/town.sh" "${ASSET_FILTER_ARGS[@]}"');
+    expect(deploy).toContain('"$DEPLOY_DIR/proto" "${ASSET_FILTER_ARGS[@]}"');
+    expect(deploy).toContain('[[ "$INSTANCE_ALL_ASSETS" == 0 && -d "$DEPLOY_DIR/art/packs" ]]');
+    expect(deploy).toContain("-name 'synty-*' -delete");
   });
 
   it('checks every ignored deploy input before building', () => {
@@ -128,6 +132,14 @@ describe('Netlify static configuration', () => {
 
     expect(publicTown).toContain('"$TC/timeline.js"');
     expect(publicTown).toMatch(/\{city,rampage,earthbound,fx,timeline\}\.js/);
+  });
+
+  it('keeps the music fallback when the licensed title tracks are unavailable', () => {
+    const publicTown = readFileSync(resolve(process.cwd(), 'tools/town.sh'), 'utf8');
+
+    expect(publicTown).toContain('[[ -f "$CAMELOT" && -f "$UNDERGROUND" ]]');
+    expect(publicTown).toContain('rm -f "$A/music/camelot.mp3" "$A/music/underground.mp3"');
+    expect(publicTown).toContain('town: licensed music unavailable; using built-in fallbacks');
   });
 
   it('falls back to the title source timeline for the frozen prototype build', () => {
