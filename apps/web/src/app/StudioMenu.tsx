@@ -145,46 +145,43 @@ export function StudioMenu() {
           {buildGroups.length > 0 ? (
             <ul className="studio-menu-builds" aria-label="Build progress">
               {buildGroups.map((group) => (
-                <li
-                  key={group.gameId}
-                  className="studio-menu-build-group"
-                  role="group"
-                  aria-label={`${group.title} builds`}
-                >
-                  <div className="studio-menu-build-heading">
-                    <strong>{group.title}</strong>
-                    {group.playable ? (
-                      <Link to={buildPath(group.playable)} onClick={close}>
-                        Ready to try
-                      </Link>
-                    ) : null}
+                <li key={group.gameId}>
+                  <div className="studio-menu-build-group" role="group" aria-label={`${group.title} builds`}>
+                    <div className="studio-menu-build-heading">
+                      <strong>{group.title}</strong>
+                      {group.playable ? (
+                        <Link to={buildPath(group.playable)} onClick={close}>
+                          Ready to try
+                        </Link>
+                      ) : null}
+                    </div>
+                    <ul>
+                      {group.jobs.map((job) => {
+                        const state = menuJobState(job);
+                        const percent = buildPercent(job);
+                        return (
+                          <li key={job.id}>
+                            <Link
+                              className="studio-menu-job"
+                              data-status={state}
+                              data-success={job.state === 'done'}
+                              data-action-needed={(job.openRequestCount ?? 0) > 0}
+                              to={buildPath(job)}
+                              onClick={close}
+                            >
+                              <strong>{job.plan.title}</strong>
+                              <span className="studio-menu-job-state">{menuJobStateLabel(state)}</span>
+                              <span className="studio-menu-job-stage">{buildStage(job)}</span>
+                              <span className="studio-menu-job-percent">{percent}%</span>
+                              <span className="studio-menu-job-progress" aria-hidden="true">
+                                <span style={{ width: `${percent}%` }} />
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
-                  <ul>
-                    {group.jobs.map((job) => {
-                      const state = menuJobState(job);
-                      const percent = buildPercent(job);
-                      return (
-                        <li key={job.id}>
-                          <Link
-                            className="studio-menu-job"
-                            data-status={state}
-                            data-success={job.state === 'done'}
-                            data-action-needed={(job.openRequestCount ?? 0) > 0}
-                            to={buildPath(job)}
-                            onClick={close}
-                          >
-                            <strong>{job.plan.title}</strong>
-                            <span className="studio-menu-job-state">{menuJobStateLabel(state)}</span>
-                            <span className="studio-menu-job-stage">{buildStage(job)}</span>
-                            <span className="studio-menu-job-percent">{percent}%</span>
-                            <span className="studio-menu-job-progress" aria-hidden="true">
-                              <span style={{ width: `${percent}%` }} />
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
                 </li>
               ))}
             </ul>
