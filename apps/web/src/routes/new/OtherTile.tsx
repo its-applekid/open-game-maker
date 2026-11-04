@@ -15,6 +15,7 @@ export function OtherTile({
   title,
   value,
   full,
+  limitFeedback = 0,
   onChange,
   onFull,
   dictation: providedDictation,
@@ -22,6 +23,7 @@ export function OtherTile({
   title: string;
   value?: string;
   full: boolean;
+  limitFeedback?: number;
   onChange(value?: string): void;
   onFull(): void;
   dictation?: OtherDictation;
@@ -47,7 +49,11 @@ export function OtherTile({
 
   if (value) {
     return (
-      <div className="new-option new-other filled" aria-pressed="true">
+      <div
+        className={`new-option new-other filled${limitFeedback ? ' new-limit-shake' : ''}`}
+        aria-pressed="true"
+        data-limit-feedback={limitFeedback ? limitFeedback % 2 : undefined}
+      >
         <span className="new-other-text">“{value}”</span>
         <span className="new-other-actions">
           <button

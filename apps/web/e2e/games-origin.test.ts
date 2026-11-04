@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { readApiOrigin, readGamesOrigin, readPublicAppOrigin } from '../tools/games-origin.mjs';
+import { readApiOrigin, readGamesOrigin, readInstanceAllAssets, readPublicAppOrigin } from '../tools/games-origin.mjs';
 
 async function envDir(contents?: string, rooms?: string, api?: string): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'ogm-web-env-'));
@@ -23,8 +23,8 @@ async function readFrom(contents?: string, rooms?: string): Promise<() => string
   return () => readGamesOrigin(dir);
 }
 
-function runCli(dir: string, tool = 'games-origin.mjs') {
-  return spawnSync(process.execPath, [fileURLToPath(new URL(`../tools/${tool}`, import.meta.url))], {
+function runCli(dir: string, tool = 'games-origin.mjs', args: string[] = []) {
+  return spawnSync(process.execPath, [fileURLToPath(new URL(`../tools/${tool}`, import.meta.url)), ...args], {
     encoding: 'utf8',
     env: { OGM_ENV_DIR: dir },
   });
@@ -96,6 +96,31 @@ describe('deploy games origin', () => {
   });
 });
 
+describe('instance asset mode', () => {
+  it('defaults to every host-library asset and accepts the config boolean forms', async () => {
+    expect(readInstanceAllAssets(await envDir(''))).toBe(true);
+    expect(readInstanceAllAssets(await envDir('OGM_INSTANCE_ALL_ASSETS=1\n'))).toBe(true);
+    expect(readInstanceAllAssets(await envDir('OGM_INSTANCE_ALL_ASSETS=true\n'))).toBe(true);
+    expect(readInstanceAllAssets(await envDir('OGM_INSTANCE_ALL_ASSETS=0\n'))).toBe(false);
+    expect(readInstanceAllAssets(await envDir('OGM_INSTANCE_ALL_ASSETS=false\n'))).toBe(false);
+  });
+
+  it('rejects an invalid value without echoing another web.env line', async () => {
+    const dir = await envDir('OGM_SECRET=do-not-print\nOGM_INSTANCE_ALL_ASSETS=sometimes\n');
+
+    expect(() => readInstanceAllAssets(dir)).toThrow(/expected true, false, 1, or 0/);
+    expect(() => readInstanceAllAssets(dir)).not.toThrow(/do-not-print/);
+  });
+
+  it('prints the resolved mode for deploy.sh', async () => {
+    const enabled = runCli(await envDir(''), 'games-origin.mjs', ['--instance-all-assets']);
+    const disabled = runCli(await envDir('OGM_INSTANCE_ALL_ASSETS=0\n'), 'games-origin.mjs', ['--instance-all-assets']);
+
+    expect([enabled.status, enabled.stdout, enabled.stderr]).toEqual([0, '1\n', '']);
+    expect([disabled.status, disabled.stdout, disabled.stderr]).toEqual([0, '0\n', '']);
+  });
+});
+
 // The /api and /auth proxies are written at deploy time so the repo never names the host (#317).
 describe('deploy API origin', () => {
   const games = 'VITE_GAMES_ORIGIN=https://games.example:10000\nOGM_PUBLIC_APP_ORIGIN=https://makeopen.games\n';
@@ -162,6 +187,7 @@ describe('deploy API origin', () => {
     );
     expect(run.stdout).toBe(
       'games origin: https://games.example:10000 (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' +
+        'instance assets: every host-library asset used by the screens is enabled\n' +
         'https://ogm2000.netlify.app/*  https://makeopen.games/:splat  301!\n' +
         '/api/*  https://api.example:8443/api/:splat  200\n' +
         '/auth/*  https://api.example:8443/auth/:splat  200\n' +

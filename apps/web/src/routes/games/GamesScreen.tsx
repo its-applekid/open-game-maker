@@ -10,6 +10,7 @@ import { indexActiveJobs, useActiveJobs } from './useActiveJobs';
 import { useBranches } from './useBranches';
 import { useGames } from './useGames';
 import { measureGridColumns, useGridNav } from './useGridNav';
+import { useGridCapacity } from './useGridCapacity';
 import './games.css';
 import './games-responsive.css';
 
@@ -32,16 +33,21 @@ export function GamesScreen() {
   const activeJobs = useMemo(() => indexActiveJobs(jobs), [jobs]);
   const sortedGames = useMemo(() => sortGames(games, activeJobs), [games, activeJobs]);
   const selectedIndex = selected ? sortedGames.findIndex((game) => game.id === selected.id) : null;
+  const gridCapacity = useGridCapacity(gridRef, sortedGames.length > 0);
+  const initialViewChosen = useRef(false);
+  const fitsThumbnailRow = gridCapacity !== null && sortedGames.length <= gridCapacity;
 
   const select = (index: number) => {
     const game = sortedGames[index];
     if (!game) return;
+    initialViewChosen.current = true;
     const next = new URLSearchParams(searchParams);
     next.set('spotlight', game.id);
     setSearchParams(next);
   };
 
   const close = () => {
+    initialViewChosen.current = true;
     const returningTo = selected?.id;
     const next = new URLSearchParams(searchParams);
     next.delete('spotlight');
@@ -73,6 +79,27 @@ export function GamesScreen() {
     containerRef: gridRef,
   });
 
+  useEffect(() => {
+    if (initialViewChosen.current || gamesQuery.isPending || jobsQuery.isPending) return;
+    if (sortedGames.length === 0) return;
+    if (gridCapacity === null) return;
+
+    initialViewChosen.current = true;
+    if (selectedId || !fitsThumbnailRow) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('spotlight', sortedGames[0]!.id);
+    setSearchParams(next, { replace: true });
+  }, [
+    fitsThumbnailRow,
+    gamesQuery.isPending,
+    gridCapacity,
+    jobsQuery.isPending,
+    searchParams,
+    selectedId,
+    setSearchParams,
+    sortedGames,
+  ]);
+
   useLayoutEffect(() => {
     glideTiles(gridRef.current, previousRects.current);
     previousRects.current = measureTiles(gridRef.current);
@@ -92,7 +119,7 @@ export function GamesScreen() {
   if (gamesQuery.isPending) return <p className="games-status">Loading your games…</p>;
 
   return (
-    <div className="games-screen">
+    <div className={`games-screen${fitsThumbnailRow ? ' games-single-row' : ''}`}>
       {selected && (
         <Spotlight
           game={selected}

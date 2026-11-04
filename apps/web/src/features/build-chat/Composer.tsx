@@ -15,8 +15,10 @@ import type { VoiceTarget } from '@ogm/contracts';
 import { Icon } from '../../components/Icon';
 import { ApiError } from '../../lib/api/client';
 import {
+  addPastedText,
   addAttachments,
   ATTACH_ACCEPT,
+  isLargeTextPaste,
   uploadAll,
   uploadChatAttachment,
   type PendingAttachment,
@@ -139,7 +141,8 @@ export function Composer({
   const submit = async () => {
     const value = text.trim();
     const files = attachments;
-    if ((startJob ? !value : !value && files.length === 0) || submittingRef.current) return;
+    const instruction = value || (files.some(({ preview }) => preview !== undefined) ? 'Pasted text attached.' : '');
+    if ((startJob ? !instruction : !value && files.length === 0) || submittingRef.current) return;
     submittingRef.current = true;
     setSubmitting(true);
     setText('');
@@ -147,13 +150,13 @@ export function Composer({
     try {
       if (!startJob) return await post(jobId, value, files);
       // With no job yet, the text starts one; files can only be uploaded to a job, so they follow into the new job.
-      const instruction = optimisticMessage(jobId, value, []);
-      onOptimistic?.(instruction);
+      const optimistic = optimisticMessage(jobId, instruction, []);
+      onOptimistic?.(optimistic);
       let started: string | undefined;
       try {
-        started = await startJob(value);
+        started = await startJob(instruction);
       } catch {
-        onFailed?.(instruction.id);
+        onFailed?.(optimistic.id);
         setText(value);
         setAttachments(files);
         setNotice('Message not sent. Try again.');
@@ -259,17 +262,12 @@ export function Composer({
       </label>
       {attachments.length > 0 ? (
         <ul className="build-chat-attachments">
-          {attachments.map(({ key, file }) => (
-            <li key={key}>
-              <span>{file.name}</span>
-              <button
-                type="button"
-                aria-label={`Remove ${file.name}`}
-                onClick={() => setAttachments((current) => current.filter((item) => item.key !== key))}
-              >
-                <Icon name="close" />
-              </button>
-            </li>
+          {attachments.map((attachment) => (
+            <PendingAttachmentChip
+              key={attachment.key}
+              attachment={attachment}
+              onRemove={() => setAttachments((current) => current.filter((item) => item.key !== attachment.key))}
+            />
           ))}
         </ul>
       ) : null}
@@ -279,10 +277,16 @@ export function Composer({
         value={text}
         onChange={(event) => setText(event.target.value)}
         onPaste={(event) => {
+          const pastedText = event.clipboardData.getData?.('text/plain') ?? '';
           const images = Array.from(event.clipboardData.files).filter((file) => file.type.startsWith('image/'));
-          if (images.length === 0) return;
-          if (!event.clipboardData.types.includes('text/plain')) event.preventDefault();
-          setAttachments((current) => addAttachments(current, images));
+          let next = attachments;
+          if (isLargeTextPaste(pastedText)) next = addPastedText(next, pastedText);
+          const attachedPaste = next.length > attachments.length;
+          next = addAttachments(next, images);
+          if (next.length > attachments.length) setAttachments(next);
+          if (attachedPaste || (images.length > 0 && !event.clipboardData.types.includes('text/plain'))) {
+            event.preventDefault();
+          }
         }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' && !event.shiftKey) {
@@ -346,7 +350,12 @@ export function Composer({
         <button
           className="build-chat-send tap-primary"
           type="button"
-          disabled={submitting || (!text.trim() && (startJob !== undefined || attachments.length === 0))}
+          disabled={
+            submitting ||
+            (startJob
+              ? !text.trim() && !attachments.some(({ preview }) => preview !== undefined)
+              : !text.trim() && attachments.length === 0)
+          }
           onClick={() => void submit()}
         >
           Send
@@ -360,6 +369,40 @@ function voiceTargetKey(target: VoiceTarget): string {
   return target.kind === 'scope'
     ? `scope:${target.game_id}:${target.session_id}:${target.creator_id}`
     : `build:${target.game_id}:${target.job_id}:${target.ticket}:${target.creator_id}`;
+}
+
+function PendingAttachmentChip({
+  attachment: { file, preview, title },
+  onRemove,
+}: {
+  attachment: PendingAttachment;
+  onRemove(): void;
+}) {
+  const label = title ?? file.name;
+  return (
+    <li className={preview === undefined ? undefined : 'build-chat-paste'}>
+      {preview === undefined ? (
+        <span>{label}</span>
+      ) : (
+        <details>
+          <summary>
+            <span>{label}</span>
+            <small>{formatAttachmentSize(file.size)}</small>
+          </summary>
+          <pre>{preview}</pre>
+        </details>
+      )}
+      <button type="button" aria-label={`Remove ${label}`} onClick={onRemove}>
+        <Icon name="close" />
+      </button>
+    </li>
+  );
+}
+
+function formatAttachmentSize(bytes: number): string {
+  if (bytes < 1_024) return `${bytes} B`;
+  const kilobytes = bytes / 1_024;
+  return `${kilobytes < 10 ? kilobytes.toFixed(1) : Math.round(kilobytes)} KB`;
 }
 
 function VoiceSide({ label, lines }: { label: string; lines: string[] }) {

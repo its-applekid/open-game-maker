@@ -6,6 +6,8 @@
 - **Labels:** **[V]** verified against the primary text today. **[I]** inferred. **[U]** unverified.
 - **Scope:** research only. Nothing was signed up for or sent to any vendor. **I am not a lawyer. This memo is not legal advice.**
 
+> **Operational supersession (2026-11-03):** V1 keeps its adult-only product scope, but the operator allow-list now controls admission and sign-in has no birth-date screen, server attestation or age cookie. The V1 screen-specific analysis below is retained as a dated research record, not current implementation guidance. V3's mixed-audience recommendations remain future research.
+
 > **Version scope (2026-10-25):** Read this memo through `docs/spec/release-plan.md`; the decision log wins on conflict. The three age bands now arrive one per version: **V1 is adults only (18+)**, **V2 adds teens (13–17)**, **V3 adds children (under 13)** with parental controls. What applies where:
 > - **V1:** §2a (new, adult-only posture), the general-audience column of §3, the age-screen specifics in §3 (screening at 18), §4 (sign-in), the "Adult accounts OK?" column of §5, the adult-account line in §6, §7 rows marked V1, §9 Q7–Q9.
 > - **V2 (teens):** under-18 vendor routing (§5 key distinction, §6 "minor accounts"), D2, §9 Q5.
