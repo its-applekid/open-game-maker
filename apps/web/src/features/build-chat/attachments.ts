@@ -8,6 +8,8 @@ import {
 import { api } from '../../lib/api/client';
 
 export const ATTACH_ACCEPT = 'image/*,.txt,.md,.markdown,.json,text/plain,text/markdown,application/json';
+export const LARGE_PASTE_CHARACTERS = 1_500;
+export const LARGE_PASTE_LINES = 20;
 
 const TEXT_BY_EXTENSION: Record<string, string> = {
   txt: 'text/plain',
@@ -17,7 +19,14 @@ const TEXT_BY_EXTENSION: Record<string, string> = {
 };
 const TEXT_TYPES = new Set(Object.values(TEXT_BY_EXTENSION));
 
-export type PendingAttachment = { key: string; file: File; type: string; uploaded?: ChatAttachment };
+export type PendingAttachment = {
+  key: string;
+  file: File;
+  type: string;
+  title?: string;
+  preview?: string;
+  uploaded?: ChatAttachment;
+};
 export type UploadAttachment = (jobId: string, file: File, type: string) => Promise<ChatAttachment>;
 
 // The type to upload with, or null when the server would refuse the file. Browsers often leave `.md` untyped, so text
@@ -40,6 +49,18 @@ export function addAttachments(current: PendingAttachment[], files: Iterable<Fil
     if (type !== null && file.size > 0) next.push({ key: `attachment-${(nextKey += 1)}`, file, type });
   }
   return next;
+}
+
+export function isLargeTextPaste(text: string): boolean {
+  return text.length > LARGE_PASTE_CHARACTERS || text.split(/\r\n|\r|\n/).length > LARGE_PASTE_LINES;
+}
+
+export function addPastedText(current: PendingAttachment[], text: string): PendingAttachment[] {
+  const file = new File([text], 'pasted-text.txt', { type: 'text/plain' });
+  const next = addAttachments(current, [file]);
+  if (next.length === current.length) return current;
+  const added = next[next.length - 1]!;
+  return [...next.slice(0, -1), { ...added, title: 'Pasted text', preview: text }];
 }
 
 export async function uploadChatAttachment(jobId: string, file: File, type: string): Promise<ChatAttachment> {
