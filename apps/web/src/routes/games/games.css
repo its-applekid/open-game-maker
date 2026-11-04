@@ -410,13 +410,15 @@
 
 .games-new .plus {
   display: grid;
-  width: 28px;
-  height: 28px;
+  width: 16px;
+  height: 1em;
+  flex: none;
   place-items: center;
-  border-radius: 50%;
-  background: var(--dark);
-  color: var(--yellow-b);
-  font: 700 20px/1 var(--display);
+  color: inherit;
+}
+
+.games-new .plus svg {
+  display: block;
 }
 
 .games-new:hover {

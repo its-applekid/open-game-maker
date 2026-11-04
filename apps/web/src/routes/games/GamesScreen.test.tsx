@@ -141,7 +141,10 @@ describe('GamesScreen', () => {
     const { container } = renderGames();
 
     await screen.findByRole('button', { name: 'New game' });
-    expect(container.querySelector('.games-new .plus')).toHaveTextContent('+');
+    const plus = container.querySelector('.games-new .plus');
+    expect(plus).not.toHaveTextContent('+');
+    expect(plus?.querySelector('svg')).toHaveAttribute('viewBox', '0 0 16 16');
+    expect(plus?.querySelector('path')).toHaveAttribute('d', 'M8 2.5v11M2.5 8h11');
     expect(screen.queryByText(/Create a new game|Add another game|Start creating/)).toBeNull();
   });
 

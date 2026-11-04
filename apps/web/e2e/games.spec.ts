@@ -50,6 +50,22 @@ test('keeps spotlight actions and the fixed New game control touch sized on a ph
     expect(box.height).toBeGreaterThanOrEqual(64);
   }
 
+  const plus = create.locator('.plus');
+  const icon = plus.locator('svg');
+  await expect(icon).toHaveAttribute('viewBox', '0 0 16 16');
+  const [buttonColor, plusStyle] = await Promise.all([
+    create.evaluate((element) => getComputedStyle(element).color),
+    plus.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundColor: style.backgroundColor, color: style.color };
+    }),
+  ]);
+  expect(plusStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', color: buttonColor });
+
+  const label = create.getByText('New game', { exact: true });
+  const [iconBox, labelBox] = await Promise.all([icon.boundingBox(), label.boundingBox()]);
+  expect(Math.abs(iconBox!.y + iconBox!.height / 2 - (labelBox!.y + labelBox!.height / 2))).toBeLessThanOrEqual(1);
+
   const spotlight = (await page.locator('.games-spotlight').boundingBox())!;
   const viewport = page.viewportSize()!;
   expect(spotlight.height).toBeLessThanOrEqual(viewport.height);
