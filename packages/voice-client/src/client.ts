@@ -67,6 +67,7 @@ export class VoiceClient {
       this.ended = false;
       this.endRequested = false;
       this.send({ type: 'start', target: this.options.target });
+      this.watchVisibility();
     } catch (error) {
       this.stopCapture();
       this.player.close();
@@ -77,10 +78,12 @@ export class VoiceClient {
   }
 
   end(): void {
+    if (this.ended && !this.socket) return;
     this.endRequested = true;
     if (this.socket?.readyState === WebSocket.OPEN) this.send({ type: 'end' });
-    this.stopCapture();
-    this.player.close();
+    this.ended = true;
+    this.finishSession(true);
+    this.emit({ v: 1, type: 'ended', reason: 'user_end' });
   }
 
   sendText(text: string): void {
@@ -183,9 +186,7 @@ export class VoiceClient {
     }
     if (frame.type === 'ended') {
       this.ended = true;
-      this.finishTimer();
-      this.stopCapture();
-      this.player.close();
+      this.finishSession(true);
     }
     this.emit(frame);
   }
@@ -193,10 +194,8 @@ export class VoiceClient {
   private handleClose(socket: WebSocket, code: number): void {
     if (this.socket !== socket) return;
 
-    this.finishTimer();
-    this.stopCapture();
-    this.player.close();
     this.socket = undefined;
+    this.finishSession(false);
 
     if (code === 4401) {
       this.emit({
@@ -205,7 +204,6 @@ export class VoiceClient {
         code: 'unauthorized',
         message: 'Voice connection was not authorized.',
       });
-      return;
     }
 
     if (!this.ended) {
@@ -248,6 +246,29 @@ export class VoiceClient {
 
   private finishTimer(): void {
     if (this.startedAt !== undefined && this.stoppedAt === undefined) this.stoppedAt = Date.now();
+  }
+
+  private finishSession(closeSocket: boolean): void {
+    this.finishTimer();
+    this.stopCapture();
+    this.player.close();
+    this.unwatchVisibility();
+    if (!closeSocket) return;
+    const socket = this.socket;
+    this.socket = undefined;
+    if (socket?.readyState === WebSocket.CONNECTING || socket?.readyState === WebSocket.OPEN) socket.close();
+  }
+
+  private readonly handleVisibility = () => {
+    if (document.visibilityState === 'hidden') this.end();
+  };
+
+  private watchVisibility(): void {
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  private unwatchVisibility(): void {
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.handleVisibility);
   }
 
   private startError(error: unknown): VoiceClientError {

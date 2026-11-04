@@ -65,6 +65,7 @@ export class Dictation {
     }
 
     const generation = this.reset();
+    this.watchVisibility();
     void this.beginCapture(generation);
     void this.beginSocket(generation);
   }
@@ -74,6 +75,12 @@ export class Dictation {
     this.released = true;
     this.stopCapture();
     this.commitIfReady();
+  }
+
+  cancel(): void {
+    if (!this.started || this.finished) return;
+    if (this.socket?.readyState === WebSocket.OPEN) this.send({ v: 1, type: 'stop' });
+    this.finish();
   }
 
   private reset(): number {
@@ -205,6 +212,7 @@ export class Dictation {
     this.stopCapture();
     this.pendingChunks = [];
     this.pendingBytes = 0;
+    this.unwatchVisibility();
     this.socket?.close();
     this.socket = undefined;
   }
@@ -216,6 +224,18 @@ export class Dictation {
 
   private send(frame: object): void {
     this.socket?.send(JSON.stringify(frame));
+  }
+
+  private readonly handleVisibility = () => {
+    if (document.visibilityState === 'hidden') this.cancel();
+  };
+
+  private watchVisibility(): void {
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  private unwatchVisibility(): void {
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.handleVisibility);
   }
 
   private captureError(error: unknown): DictationError {

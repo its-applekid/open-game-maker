@@ -63,6 +63,8 @@ function deferred<T>() {
 }
 
 describe('Dictation', () => {
+  let visibility: EventTarget & { visibilityState: string };
+
   beforeEach(() => {
     FakeWebSocket.instances = [];
     audio.stop.mockClear();
@@ -74,6 +76,9 @@ describe('Dictation', () => {
     vi.stubGlobal('WebSocket', FakeWebSocket);
     vi.stubGlobal('AudioContext', class {});
     vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn() } });
+    visibility = new EventTarget() as EventTarget & { visibilityState: string };
+    visibility.visibilityState = 'visible';
+    vi.stubGlobal('document', visibility);
   });
 
   afterEach(() => {
@@ -149,5 +154,22 @@ describe('Dictation', () => {
 
     expect(errors).toEqual([{ code: 'mic_denied', message: 'Microphone permission denied.' }]);
     expect(FakeWebSocket.instances[0]?.close).toHaveBeenCalledOnce();
+  });
+
+  it('stops the provider and closes capture when the page is hidden', async () => {
+    const dictation = new Dictation({
+      connection: async () => ({ token: 'token', url: 'ws://127.0.0.1/ws/voice?mode=dictate' }),
+    });
+
+    dictation.pressStart();
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const socket = FakeWebSocket.instances[0]!;
+    socket.open();
+    visibility.visibilityState = 'hidden';
+    visibility.dispatchEvent(new Event('visibilitychange'));
+
+    expect(socket.sent.map((frame) => JSON.parse(frame))).toContainEqual({ v: 1, type: 'stop' });
+    expect(audio.stop).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 });

@@ -35,6 +35,10 @@ class FakeWebSocket {
   readyState = FakeWebSocket.CONNECTING;
   sent: string[] = [];
   listeners = new Map<string, Set<Listener>>();
+  close = vi.fn(() => {
+    this.readyState = 3;
+    this.emit('close', { code: 1000 });
+  });
 
   constructor(readonly url: string) {
     FakeWebSocket.instances.push(this);
@@ -88,6 +92,8 @@ async function startedClient() {
 }
 
 describe('VoiceClient', () => {
+  let visibility: EventTarget & { visibilityState: string };
+
   beforeEach(() => {
     FakeWebSocket.instances = [];
     audio.players.length = 0;
@@ -99,6 +105,9 @@ describe('VoiceClient', () => {
       return { stop: audio.captureStop, context: {} };
     });
     vi.stubGlobal('WebSocket', FakeWebSocket);
+    visibility = new EventTarget() as EventTarget & { visibilityState: string };
+    visibility.visibilityState = 'visible';
+    vi.stubGlobal('document', visibility);
   });
 
   afterEach(() => {
@@ -218,11 +227,26 @@ describe('VoiceClient', () => {
 
   it('ends the wire session and releases browser audio resources', async () => {
     const { client, socket } = await startedClient();
+    const ended: string[] = [];
+    client.on('ended', (frame) => ended.push(frame.reason));
 
     client.end();
 
     expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ type: 'end' });
     expect(audio.captureStop).toHaveBeenCalledOnce();
     expect(audio.players[0]?.close).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
+    expect(ended).toEqual(['user_end']);
+  });
+
+  it('ends and closes the session when the page is hidden', async () => {
+    const { socket } = await startedClient();
+
+    visibility.visibilityState = 'hidden';
+    visibility.dispatchEvent(new Event('visibilitychange'));
+
+    expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ type: 'end' });
+    expect(audio.captureStop).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 });
