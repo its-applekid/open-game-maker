@@ -50,9 +50,29 @@ defmodule OgmVoice.E2EFakeProviderTest do
     {_, ws} = WsClient.await(ws, &match?(%{"type" => "state", "state" => "listening"}, &1))
     provider = provider_ref()
 
+    :ok = FakeProvider.emit(provider, %Events.UserTranscript{text: "Make it red", final?: true})
     :ok = FakeProvider.emit(provider, %Events.AgentText{turn_id: "t1", text: "What should change?", final?: true})
     {frame, ws} = WsClient.await(ws, &match?(%{"type" => "agent_text"}, &1))
     assert %{"text" => "What should change?", "final" => true} = frame
+
+    assert_receive {:api_stub, "POST", "/internal/voice/transcript", [@internal_secret], creator_body}, 2_000
+    assert_receive {:api_stub, "POST", "/internal/voice/transcript", [@internal_secret], agent_body}, 2_000
+
+    assert %{
+             "actor" => "creator",
+             "conversation_id" => conversation_id,
+             "target" => @target,
+             "text" => "Make it red",
+             "turn_id" => "user-1"
+           } = Jason.decode!(creator_body)
+
+    assert %{
+             "actor" => "agent",
+             "conversation_id" => ^conversation_id,
+             "target" => @target,
+             "text" => "What should change?",
+             "turn_id" => "t1"
+           } = Jason.decode!(agent_body)
 
     :ok =
       FakeProvider.emit(provider, %Events.ToolCall{

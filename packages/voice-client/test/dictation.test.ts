@@ -1,81 +1,153 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+const audio = vi.hoisted(() => ({
+  startCapture: vi.fn(),
+  stop: vi.fn(),
+  onChunk: undefined as ((chunk: string) => void) | undefined,
+}));
+
+vi.mock('../src/audio/capture.js', () => ({
+  startCapture: audio.startCapture,
+}));
+
 import { Dictation } from '../src/dictation.js';
 
-type Result = { isFinal: boolean; 0: { transcript: string } };
+type Listener = (event: Record<string, unknown>) => void;
 
-class FakeRecognition {
-  static current: FakeRecognition | undefined;
-  continuous = true;
-  interimResults = false;
-  lang = '';
-  onresult: ((event: { resultIndex: number; results: ArrayLike<Result> }) => void) | null = null;
-  onerror: ((event: { error: string }) => void) | null = null;
-  onend: (() => void) | null = null;
-  start = vi.fn();
-  stop = vi.fn(() => this.onend?.());
+class FakeWebSocket {
+  static readonly CONNECTING = 0;
+  static readonly OPEN = 1;
+  static readonly CLOSED = 3;
+  static instances: FakeWebSocket[] = [];
+  readyState = FakeWebSocket.CONNECTING;
+  sent: string[] = [];
+  close = vi.fn(() => {
+    this.readyState = FakeWebSocket.CLOSED;
+  });
+  private readonly listeners = new Map<string, Set<Listener>>();
 
-  constructor() {
-    FakeRecognition.current = this;
+  constructor(readonly url: string) {
+    FakeWebSocket.instances.push(this);
   }
 
-  result(...results: Result[]) {
-    this.onresult?.({ resultIndex: 0, results });
+  addEventListener(type: string, listener: Listener) {
+    const listeners = this.listeners.get(type) ?? new Set();
+    listeners.add(listener);
+    this.listeners.set(type, listeners);
+  }
+
+  send(frame: string) {
+    this.sent.push(frame);
+  }
+
+  open() {
+    this.readyState = FakeWebSocket.OPEN;
+    this.emit('open', {});
+  }
+
+  message(frame: object) {
+    this.emit('message', { data: JSON.stringify(frame) });
+  }
+
+  private emit(type: string, event: Record<string, unknown>) {
+    for (const listener of this.listeners.get(type) ?? []) listener(event);
   }
 }
 
-function result(text: string, isFinal: boolean): Result {
-  return { isFinal, 0: { transcript: text } };
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
 }
 
 describe('Dictation', () => {
   beforeEach(() => {
-    Object.assign(globalThis, { SpeechRecognition: FakeRecognition });
+    FakeWebSocket.instances = [];
+    audio.stop.mockClear();
+    audio.startCapture.mockReset();
+    audio.startCapture.mockImplementation(async (onChunk: (chunk: string) => void) => {
+      audio.onChunk = onChunk;
+      return { stop: audio.stop, context: {} };
+    });
+    vi.stubGlobal('WebSocket', FakeWebSocket);
+    vi.stubGlobal('AudioContext', class {});
+    vi.stubGlobal('navigator', { mediaDevices: { getUserMedia: vi.fn() } });
   });
 
   afterEach(() => {
-    Reflect.deleteProperty(globalThis, 'SpeechRecognition');
-    Reflect.deleteProperty(globalThis, 'webkitSpeechRecognition');
+    vi.unstubAllGlobals();
   });
 
-  it('emits interim text immediately but holds final text until pressEnd', () => {
-    const dictation = new Dictation();
+  it('is available through microphone capture without a browser speech-recognition API', () => {
+    expect('SpeechRecognition' in globalThis).toBe(false);
+    expect(Dictation.isSupported()).toBe(true);
+  });
+
+  it('streams PCM to Scribe, publishes partial text, and commits exactly once on release', async () => {
+    const dictation = new Dictation({
+      connection: async () => ({ token: 'dictate-token', url: 'ws://127.0.0.1/ws/voice?mode=dictate' }),
+    });
     const transcripts: Array<{ kind: string; text: string }> = [];
     dictation.on('transcript', (frame) => transcripts.push(frame));
 
     dictation.pressStart();
-    FakeRecognition.current?.result(result('mak', false));
-    FakeRecognition.current?.result(result('make the', false));
-    FakeRecognition.current?.result(result('make the door', true));
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const socket = FakeWebSocket.instances[0]!;
+    socket.open();
+    audio.onChunk?.('AA==');
+    socket.message({ v: 1, type: 'transcript', kind: 'partial', text: 'make the' });
 
-    expect(transcripts).toEqual([
-      { kind: 'partial', text: 'mak' },
-      { kind: 'partial', text: 'make the' },
+    dictation.pressEnd();
+    dictation.pressEnd();
+    socket.message({ v: 1, type: 'transcript', kind: 'final', text: 'make the door red' });
+
+    expect(String(socket.url)).toContain('token=dictate-token');
+    expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+      { v: 1, type: 'audio', data_b64: 'AA==' },
+      { v: 1, type: 'commit' },
     ]);
-
-    dictation.pressEnd();
-    expect(transcripts.at(-1)).toEqual({ kind: 'final', text: 'make the door' });
+    expect(transcripts).toEqual([
+      { kind: 'partial', text: 'make the' },
+      { kind: 'final', text: 'make the door red' },
+    ]);
+    expect(audio.stop).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 
-  it('emits one empty final transcript when push-to-talk ends without speech', () => {
-    const dictation = new Dictation();
-    const transcripts: Array<{ kind: string; text: string }> = [];
-    dictation.on('transcript', (frame) => transcripts.push(frame));
+  it('replays an early release after buffered audio reaches the socket', async () => {
+    const connection = deferred<{ token: string; url: string }>();
+    const dictation = new Dictation({ connection: () => connection.promise });
 
     dictation.pressStart();
+    await vi.waitFor(() => expect(audio.startCapture).toHaveBeenCalledOnce());
+    audio.onChunk?.('AQ==');
     dictation.pressEnd();
+    connection.resolve({ token: 'token', url: 'ws://127.0.0.1/ws/voice?mode=dictate' });
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const socket = FakeWebSocket.instances[0]!;
+    socket.open();
 
-    expect(transcripts).toEqual([{ kind: 'final', text: '' }]);
+    expect(socket.sent.map((frame) => JSON.parse(frame))).toEqual([
+      { v: 1, type: 'audio', data_b64: 'AQ==' },
+      { v: 1, type: 'commit' },
+    ]);
+    expect(audio.stop).toHaveBeenCalledOnce();
   });
 
-  it('maps denied browser permission to mic_denied', () => {
-    const dictation = new Dictation();
-    const errors: Array<{ code: string }> = [];
+  it('maps microphone denial and releases resources on connection failure', async () => {
+    audio.startCapture.mockRejectedValueOnce(new DOMException('denied', 'NotAllowedError'));
+    const dictation = new Dictation({
+      connection: async () => ({ token: 'token', url: 'ws://127.0.0.1/ws/voice?mode=dictate' }),
+    });
+    const errors: Array<{ code: string; message: string }> = [];
     dictation.on('error', (error) => errors.push(error));
 
     dictation.pressStart();
-    FakeRecognition.current?.onerror?.({ error: 'not-allowed' });
+    await vi.waitFor(() => expect(errors).toHaveLength(1));
 
     expect(errors).toEqual([{ code: 'mic_denied', message: 'Microphone permission denied.' }]);
+    expect(FakeWebSocket.instances[0]?.close).toHaveBeenCalledOnce();
   });
 });

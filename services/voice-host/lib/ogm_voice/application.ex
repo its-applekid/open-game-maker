@@ -18,6 +18,7 @@ defmodule OgmVoice.Application do
     [
       OgmVoice.Cache,
       {OgmVoice.Delivery, api_url: config.api_internal_url, secret: config.internal_secret},
+      {OgmVoice.TranscriptDelivery, api_url: config.api_internal_url, secret: config.internal_secret},
       {OgmVoice.NoCleanup, OgmVoice.Config.instance()},
       VoiceConverse.child_spec(OgmVoice.Config.voice_converse(config)),
       Supervisor.child_spec(

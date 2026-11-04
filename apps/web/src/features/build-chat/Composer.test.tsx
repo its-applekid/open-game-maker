@@ -46,6 +46,7 @@ describe('Composer', () => {
     const dictate = screen.getByRole('button', { name: 'Hold to talk' });
     expect(dictate).toHaveTextContent('');
     fireEvent.pointerDown(dictate);
+    expect(screen.getByRole('status')).toHaveTextContent('Dictation uses ElevenLabs transcription credits.');
     dictation.finish('make the door red');
 
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('make the door red'));
@@ -163,6 +164,7 @@ describe('Composer', () => {
     fireEvent.click(start);
     fireEvent.click(start);
 
+    expect(screen.getByRole('status')).toHaveTextContent('Voice chat uses ElevenLabs conversational-AI credits.');
     expect(createVoiceClient).toHaveBeenCalledOnce();
     expect(startFromGesture).toHaveBeenCalledOnce();
     expect(start).toBeDisabled();

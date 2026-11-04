@@ -12,7 +12,7 @@ defmodule OgmVoice.Transport do
   """
   @behaviour Plug
 
-  alias OgmVoice.{Delivery, Target}
+  alias OgmVoice.{Delivery, Target, TranscriptDelivery}
   alias VoiceConverse.Ports
   alias VoiceConverse.Transport.WebSock, as: PackageTransport
 
@@ -36,9 +36,24 @@ defmodule OgmVoice.Transport do
   defp api(instance, %{subject: subject, target: authorized_target}) do
     %{
       start_session: fn instance, target ->
-        if target == authorized_target and Target.creator(target) == subject,
-          do: VoiceConverse.start_session(instance, target),
-          else: {:error, :forbidden}
+        if target == authorized_target and Target.creator(target) == subject do
+          case VoiceConverse.start_session(instance, target) do
+            {:ok, conversation_id} = started ->
+              case TranscriptDelivery.watch(instance, conversation_id, target) do
+                :ok ->
+                  started
+
+                {:error, reason} ->
+                  _ = VoiceConverse.end_session(instance, conversation_id, :transcript_delivery_unavailable)
+                  {:error, reason}
+              end
+
+            {:error, _reason} = error ->
+              error
+          end
+        else
+          {:error, :forbidden}
+        end
       end,
       confirm_draft: fn conversation_id, draft_id, edited_text ->
         :ok = Delivery.watch(draft_id, conversation_id, self())

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Dictation, type DictationTranscript } from '@ogm/voice-client';
+import type { DictationTranscript } from '@ogm/voice-client';
 
 import { Icon } from '../../components/Icon';
 
@@ -28,9 +28,7 @@ export function OtherTile({
 }) {
   const [mode, setMode] = useState<Mode>('face');
   const [draft, setDraft] = useState(value ?? '');
-  const [dictation] = useState<OtherDictation | undefined>(
-    () => providedDictation ?? (Dictation.isSupported() ? new Dictation() : undefined),
-  );
+  const [dictation] = useState<OtherDictation | undefined>(() => providedDictation);
 
   useEffect(() => {
     if (!dictation) return;

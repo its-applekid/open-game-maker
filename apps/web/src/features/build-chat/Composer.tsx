@@ -6,6 +6,7 @@ import {
   VoiceClient,
   type Captions,
   type DictationError,
+  type DictationConnection,
   type DictationTranscript,
   type VoiceClientOptions,
 } from '@ogm/voice-client';
@@ -22,7 +23,11 @@ import {
   type UploadAttachment,
 } from './attachments';
 import type { StreamedChatMessage } from './stream';
-import { probeVoice as defaultProbeVoice, type VoiceAvailability } from './voice';
+import {
+  connectDictation as defaultConnectDictation,
+  probeVoice as defaultProbeVoice,
+  type VoiceAvailability,
+} from './voice';
 
 export type DictationPort = {
   pressStart(): void;
@@ -44,6 +49,7 @@ export function Composer({
   startJob,
   uploadAttachment = uploadChatAttachment,
   probeVoice = defaultProbeVoice,
+  connectDictation = defaultConnectDictation,
   createVoiceClient = (options) => new VoiceClient(options),
   onOptimistic,
   onPosted,
@@ -56,13 +62,18 @@ export function Composer({
   startJob?: StartJob;
   uploadAttachment?: UploadAttachment;
   probeVoice?: (target: VoiceTarget) => Promise<VoiceAvailability>;
+  connectDictation?: (target: VoiceTarget) => Promise<DictationConnection>;
   createVoiceClient?: (options: VoiceClientOptions) => VoiceClient;
   onOptimistic?: (message: StreamedChatMessage) => void;
   onPosted?: (message: StreamedChatMessage) => void;
   onFailed?: (messageId: string) => void;
 }) {
   const [dictation] = useState<DictationPort | undefined>(
-    () => providedDictation ?? (Dictation.isSupported() ? new Dictation() : undefined),
+    () =>
+      providedDictation ??
+      (voiceTarget && Dictation.isSupported()
+        ? new Dictation({ connection: () => connectDictation(voiceTarget) })
+        : undefined),
   );
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
@@ -169,6 +180,7 @@ export function Composer({
     if (!voice.available || !voiceTarget || voiceStartingRef.current) return;
     voiceStartingRef.current = true;
     setVoiceStarting(true);
+    setNotice('Voice chat uses ElevenLabs conversational-AI credits.');
     const client = createVoiceClient({ url: voice.url, token: voice.token, target: voiceTarget });
     for (const type of ['transcript', 'agent_text', 'interrupted'] as const) {
       client.on(type, (frame) => setCaptions((current) => captionsReducer(current, frame)));
@@ -205,7 +217,7 @@ export function Composer({
   }
 
   const startDictation = () => {
-    setNotice('');
+    setNotice('Dictation uses ElevenLabs transcription credits.');
     dictation?.pressStart();
   };
   const endDictation = () => dictation?.pressEnd();

@@ -596,17 +596,22 @@ Check: complete the iPhone check in docs/ops/netlify-proxy.md
 
 Hand back to the human: Set the sign-in allow-list, verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
 
-### 7.5 Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending. (OPTIONAL)
+### 7.5 Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values. (HAND)
 
 Command:
 
 ```sh
-# Keep OGM_VOICE_PROVIDER=fake in voice-host.env for the no-spend setup.
+# No-spend default: keep OGM_VOICE_PROVIDER=fake in voice-host.env.
+# Live only after accepting provider charges: set OGM_VOICE_PROVIDER=elevenlabs_agents,
+# ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, OGM_VOICE_LLM, and an absolute
+# durable OGM_VOICE_CLEANUP_ROOT in voice-host.env, then restart ogm-voice-host.
 ```
 
-Writes: `~/.config/ogm/env/voice-host.env`
+Writes: `~/.config/ogm/env/voice-host.env`, `<voice-cleanup-root>`
 
-Check: grep '^OGM_VOICE_PROVIDER=fake$' ~/.config/ogm/env/voice-host.env
+Check: curl --fail --silent http://127.0.0.1:40401/healthz
+
+Hand back to the human: Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values.
 
 ### 7.6 Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
 
@@ -653,7 +658,7 @@ Check: test -r the path named by OGM_VAPID_KEY_FILE
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 7, Configure**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, build the town, and approve the manual deployment`; `Set the sign-in allow-list, verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
+> Hand steps in this step: `Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, build the town, and approve the manual deployment`; `Set the sign-in allow-list, verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
 
 ## 8. Verify
 

@@ -1,6 +1,10 @@
 # Voice host
 
-The voice host supervises one `voice_converse` instance. It accepts short-lived OGM tokens on a loopback WebSocket, serves briefings from an in-memory cache, and forwards confirmed instruction drafts to the API. It stores no transcript or other durable state.
+The voice host supervises one `voice_converse` instance and ElevenLabs Scribe sessions. It accepts short-lived OGM tokens on a loopback WebSocket, serves briefings from an in-memory cache, and forwards confirmed instruction drafts and final voice turns to the API. It stores no audio or transcript; final text follows the normal API chat-retention policy.
+
+## Reuse boundary
+
+OGM pins Aiur's `voice_converse` and `voice_transcribe` packages for provider connections, normalized events, limits, and cleanup. OGM owns target authorization, short-lived tokens, chat delivery, environment wiring, and the existing browser presentation. Provider fixes belong in Aiur rather than local forks.
 
 ## Build
 
@@ -23,7 +27,9 @@ pnpm --filter @ogm/config exec ogm-env-init api
 pnpm --filter @ogm/config exec ogm-env-init voice-host
 ```
 
-Set `OGM_API_INTERNAL_URL` to the loopback API base URL and `OGM_VOICE_WS_URL` to the public `/ws/voice` URL. The voice host defaults to `OGM_VOICE_PROVIDER=fake`, which needs no provider key. Live adapters read `ELEVENLABS_API_KEY` or `OPENAI_API_KEY` from `voice-host.env` only when used; set `OGM_VOICE_LLM` with either live provider. Keep every env file mode `0600`.
+Set `OGM_API_INTERNAL_URL` to the loopback API base URL and `OGM_VOICE_WS_URL` to the public `/ws/voice` URL. The voice host defaults to `OGM_VOICE_PROVIDER=fake`, which needs no provider key and spends nothing. To enable ElevenLabs after accepting its charges, set `OGM_VOICE_PROVIDER=elevenlabs_agents`, `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `OGM_VOICE_LLM`, and an absolute durable `OGM_VOICE_CLEANUP_ROOT` in `voice-host.env`. Keep every env file mode `0600`; the key and agent id never reach the browser.
+
+One-way dictation consumes ElevenLabs transcription credits while its press-to-talk session is active. Two-way voice consumes conversational-AI credits until the call ends. Batch narration consumes text-to-speech credits only when separately enabled below. The host requests `record_voice: false`, keeps no audio or provider transcript, and stores only bounded final text through the API's normal chat history. The cleanup root holds provider-conversation cleanup work, not transcript text, so it must survive service restarts.
 
 Batch narration is off until `OGM_VOICE_NARRATION_ENABLED=true`; until then `POST /internal/narration` answers
 501 `narration_disabled` and games fall back to browser speech, even with a provider key present. When on, it
