@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { verifyWsToken } from '../src/app/app.js';
+import type { Auth } from '../src/auth/auth.js';
+import { sessionResolver } from '../src/auth/principal.js';
 import { signIn, WS_SECRET } from './auth-helpers.js';
 import { makeApp } from './helpers.js';
 
@@ -41,6 +43,22 @@ describe('session principal resolver', () => {
   it('stays anonymous for a forged session token', async () => {
     const { app } = await setup();
     expect(await whoami(app, { authorization: 'Bearer not-a-session-token' })).toEqual({ kind: 'anonymous' });
+  });
+
+  it('treats an existing session as anonymous after its email is removed from the allow-list', async () => {
+    const { app, deps } = await setup();
+    const auth: Auth = {
+      handler: async () => new Response(null, { status: 404 }),
+      api: {
+        getSession: async () => ({
+          user: { id: 'u_removed', name: 'Removed', email: 'removed@example.com' },
+          session: { id: 's_removed' },
+        }),
+      },
+    };
+    deps.registry.principalResolvers.push(sessionResolver(auth, deps.sqlite, new Set(), new Set()));
+
+    expect(await whoami(app, { 'x-removed-session': '1' })).toEqual({ kind: 'anonymous' });
   });
 
   it('names maintainers from OGM_MAINTAINER_EMAILS, case-insensitively', async () => {

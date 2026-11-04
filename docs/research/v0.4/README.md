@@ -1,6 +1,6 @@
 # v0.4 research index
 
-Product: **Open Game Maker 2000**, a general game maker. V1 is adults only (18+); teens (13–17) are V2; child accounts and parental controls are V3. B9 and B10 set the general-first framing and supersede kid-first scoping in earlier reports. What ships in each version: `../../spec/release-plan.md`.
+Product: **Open Game Maker 2000**, a general game maker. V1 is adults only (18+); teens (13–17) are V2; child accounts and parental controls are V3. The V1 age-screen recommendations in this dated research are superseded by the 2026-11-03 operator allow-list decision; B9 and B10 still set the general-first framing. What ships in each version: `../../spec/release-plan.md`.
 
 | Report | Topic |
 |---|---|
@@ -12,7 +12,7 @@ Product: **Open Game Maker 2000**, a general game maker. V1 is adults only (18+)
 | B6 | Asset storage, CDN, narration reuse |
 | B7 | Editor, SDK, controller and touch input |
 | B8 | aiur integration, budgets, bug routing |
-| **B9** | **Legal positioning: mixed audience, Google sign-in, vendor terms by age band** (V1 adult vendor terms and age screen; V2 teen vendor rules; V3 COPPA) |
+| **B9** | **Legal positioning: mixed audience, Google sign-in, vendor terms by age band** (V1 age-screen analysis superseded by operator allow-list; V2 teen vendor rules; V3 COPPA) |
 | **B10** | **General-first product reframe and parental-controls module** (§8 reconciles with B9; V1 adult defaults, V2 teens, V3 parental-controls module) |
 | **B11** | **Asset pack library: three tiers, `gm` CLI, namespaces, tier 2 adapters, agent skills list** (2026-10-25) |
 | **B12** | **Asset sources, bundles and licensing (own games vs platform library)** |

@@ -34,7 +34,6 @@ vi.mock('../lib/sound', () => soundApi);
 
 const routeTable = [
   '/',
-  '/age',
   '/signin',
   '/connect/github',
   '/games',

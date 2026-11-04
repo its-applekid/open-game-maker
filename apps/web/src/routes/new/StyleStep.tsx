@@ -6,9 +6,7 @@ import { FamilyStep } from './FamilyStep';
 import { OtherTile } from './OtherTile';
 
 type View =
-  | { kind: 'families' }
-  | { kind: 'grid'; familyId: string }
-  | { kind: 'detail'; familyId: string; setId: string; parent: 'families' | 'grid' };
+  { kind: 'families' } | { kind: 'grid'; familyId: string } | { kind: 'detail'; familyId: string; setId: string };
 
 type FocusTarget = { kind: 'family' | 'set'; id: string };
 
@@ -73,21 +71,10 @@ export function StyleStep({
   const openFamily = (familyId: string) => {
     const choices = setsForFamily(families, familyId);
     if (choices.length === 1) {
-      setView({ kind: 'detail', familyId, setId: choices[0]!.id, parent: 'families' });
+      setView({ kind: 'detail', familyId, setId: choices[0]!.id });
       return;
     }
     setView({ kind: 'grid', familyId });
-  };
-
-  const backFromDetail = () => {
-    if (view.kind !== 'detail') return;
-    if (view.parent === 'grid') {
-      focusTarget.current = { kind: 'set', id: view.setId };
-      setView({ kind: 'grid', familyId: view.familyId });
-      return;
-    }
-    focusTarget.current = { kind: 'family', id: view.familyId };
-    setView({ kind: 'families' });
   };
 
   const choose = (choice: StyleChoice) => {
@@ -127,7 +114,7 @@ export function StyleStep({
               <SetTile
                 key={choice.id}
                 choice={choice}
-                onOpen={() => setView({ kind: 'detail', familyId: view.familyId, setId: choice.id, parent: 'grid' })}
+                onOpen={() => setView({ kind: 'detail', familyId: view.familyId, setId: choice.id })}
               />
             ))}
           </div>
@@ -139,8 +126,6 @@ export function StyleStep({
           <ShowcaseDetail
             key={active.id}
             choice={active}
-            backLabel={view.parent === 'grid' ? `Back to ${familyLabel} sets` : 'Back to styles'}
-            onBack={backFromDetail}
             onPreviousStyle={() => cycle(-1)}
             onNextStyle={() => cycle(1)}
           />
@@ -181,14 +166,10 @@ function SetTile({ choice, onOpen }: { choice: StyleChoice; onOpen(): void }) {
 
 function ShowcaseDetail({
   choice,
-  backLabel,
-  onBack,
   onPreviousStyle,
   onNextStyle,
 }: {
   choice: StyleChoice;
-  backLabel: string;
-  onBack(): void;
   onPreviousStyle(): void;
   onNextStyle(): void;
 }) {
@@ -202,7 +183,6 @@ function ShowcaseDetail({
     return (
       <div className="new-style-showcase-detail">
         <div className="new-style-showcase">
-          <StyleBack label={backLabel} onClick={onBack} />
           <StyleArrow direction="previous" onClick={onPreviousStyle} />
           <div className="new-style-still new-style-region-track">
             {preview ? <img src={preview} alt={`${choice.label} preview`} /> : <Icon name="other" />}
@@ -242,7 +222,6 @@ function ShowcaseDetail({
   return (
     <div className="new-style-showcase-detail">
       <div className="new-style-showcase">
-        <StyleBack label={backLabel} onClick={onBack} />
         <StyleArrow direction="previous" onClick={onPreviousStyle} />
         <ShowcaseTrack
           key={regionVideoUrl ?? regionFallbackUrl ?? regionPosterUrl ?? 'region'}
@@ -303,6 +282,8 @@ function ShowcaseDetail({
                 <img
                   src={candidate.region?.posterUrl ?? candidate.region?.gifUrl ?? candidate.tileFallbackUrl}
                   alt=""
+                  loading="eager"
+                  decoding="sync"
                 />
               ) : null}
             </button>
@@ -316,7 +297,12 @@ function ShowcaseDetail({
               onClick={() => seek(showcase.stops.length)}
             >
               {showcase.outlineOptions.sheet.posterUrl || showcase.outlineOptions.sheet.gifUrl ? (
-                <img src={showcase.outlineOptions.sheet.posterUrl ?? showcase.outlineOptions.sheet.gifUrl} alt="" />
+                <img
+                  src={showcase.outlineOptions.sheet.posterUrl ?? showcase.outlineOptions.sheet.gifUrl}
+                  alt=""
+                  loading="eager"
+                  decoding="sync"
+                />
               ) : null}
             </button>
           ) : null}
@@ -331,19 +317,6 @@ function ShowcaseDetail({
         </button>
       </div>
     </div>
-  );
-}
-
-function StyleBack({ label, onClick }: { label: string; onClick(): void }) {
-  return (
-    <button
-      className="new-style-icon-button new-style-back-button tap-secondary"
-      type="button"
-      aria-label={label}
-      onClick={onClick}
-    >
-      <span aria-hidden="true">←</span>
-    </button>
   );
 }
 

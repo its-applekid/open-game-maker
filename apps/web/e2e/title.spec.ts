@@ -77,7 +77,7 @@ test('title Start is a primary-size target and the sound toggle is labelled', as
   await expect(page.getByRole('button', { name: /sound/i })).toBeVisible();
 
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page).toHaveURL(/\/age\?next=%2Fconnect%2Fgithub$/);
+  await expect(page).toHaveURL(/\/signin\?next=%2Fconnect%2Fgithub$/);
   await expect(page.locator('.title-town iframe')).toHaveCount(0);
 });
 

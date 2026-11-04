@@ -11,7 +11,11 @@ async function loadSound(): Promise<{ sound: Sound; ctx: FakeAudioContext }> {
   return { sound, ctx: FakeAudioContext.last! };
 }
 
-const fetchMock = vi.fn(async () => new Response(new ArrayBuffer(8)));
+const audioResponse = () => new Response(new ArrayBuffer(8), { headers: { 'content-type': 'audio/mpeg' } });
+const fetchMock = vi.fn(async (input: string) => {
+  void input;
+  return audioResponse();
+});
 
 beforeEach(() => {
   vi.stubGlobal('fetch', fetchMock);
@@ -21,6 +25,7 @@ beforeEach(() => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
   fetchMock.mockClear();
 });
 
@@ -98,6 +103,50 @@ describe('ext', () => {
     sound.extSilence();
 
     expect(loops.map((g) => g.gain.value)).toEqual([0, 0]);
+  });
+});
+
+describe('music fallback', () => {
+  it('treats the SPA HTML fallback as a missing track without trying to decode it', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    fetchMock
+      .mockResolvedValueOnce(new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } }))
+      .mockResolvedValueOnce(audioResponse());
+    const { sound, ctx } = await loadSound();
+    await sound.titleReady;
+
+    sound.unlock();
+    sound.set('title', 0);
+    await flush();
+    await flush();
+
+    expect(fetchMock.mock.calls.map(([url]) => url)).toEqual([
+      '/art/music/underground.mp3',
+      '/art/music/space-cadet.mp3',
+    ]);
+    expect(ctx.decodeAudioData).toHaveBeenCalledOnce();
+    expect(info).toHaveBeenCalledOnce();
+    expect(info).toHaveBeenCalledWith('sound: licensed music unavailable; using built-in fallback');
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('keeps the normal warning when the built-in fallback is also unavailable', async () => {
+    const info = vi.spyOn(console, 'info').mockImplementation(() => undefined);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    fetchMock.mockResolvedValue(new Response('<!doctype html>', { headers: { 'content-type': 'text/html' } }));
+    const { sound, ctx } = await loadSound();
+    await sound.titleReady;
+
+    sound.unlock();
+    sound.set('title', 0);
+    await flush();
+    await flush();
+
+    expect(ctx.decodeAudioData).not.toHaveBeenCalled();
+    expect(info).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn).toHaveBeenCalledWith('sound', 'music/space-cadet', expect.any(Error));
   });
 });
 

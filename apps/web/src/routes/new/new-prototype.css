@@ -109,6 +109,11 @@
     padding-top: 48px;
   }
 
+  .new-game-screen:has(.new-style-detail) {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
   .new-game-head {
     grid-template-columns: auto 1fr;
   }

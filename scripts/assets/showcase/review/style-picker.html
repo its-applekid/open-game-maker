@@ -1,11 +1,11 @@
 <!doctype html>
 <!--
-  Style picker review page: the reference layout Kevin approved on 2026-11-03 (phone: diorama on top, sprite sheet
-  under it, scene thumbnails at the bottom, filling the screen with no overlap at any height; style arrows in the side
-  margins; no labels on screen, names in aria-label only). The app's style step (apps/web/src/routes/new/StyleStep.tsx)
-  should match it.
+  Style picker review page: the reference layout Kevin approved on 2026-11-03 and corrected on 2026-11-03 (phone:
+  diorama on top, sprite sheet under it, scene thumbnails at the bottom, filling the screen with no overlap at any
+  height; style arrows over the diorama edges; no labels on screen, names in aria-label only). The app's style step
+  (apps/web/src/routes/new/StyleStep.tsx) should match it.
   Media is licensed and never committed: serve the repo root on the host and open
-  /scripts/assets/showcase/review/style-picker.html?root=<media dir relative to this page>; the default reads the v5
+  /scripts/assets/showcase/review/style-picker.html?root=<media dir relative to this page>; the default reads the v6
   media from the shared library (assets-local is a symlink in aiur workspaces).
 -->
 <html lang="en">
@@ -48,51 +48,46 @@
 
       .picker {
         display: grid;
-        grid-template-rows: auto auto auto;
-        align-content: start;
-        gap: 10px;
+        grid-template-rows: minmax(0, 1fr) auto;
+        align-content: stretch;
+        gap: 8px;
         width: min(100%, 960px);
         height: 100svh;
         margin: 0 auto;
-        padding: max(10px, env(safe-area-inset-top)) 10px max(10px, env(safe-area-inset-bottom));
+        padding: 0;
         overflow: hidden;
-      }
-
-      .set-nav {
-        display: grid;
-        grid-template-columns: 48px minmax(0, 1fr) 48px;
-        align-items: center;
-        gap: 8px;
-        min-height: 48px;
-      }
-
-      .set-nav h1 {
-        min-width: 0;
-        margin: 0;
-        overflow: hidden;
-        font-size: clamp(19px, 5vw, 28px);
-        text-align: center;
-        text-overflow: ellipsis;
-        white-space: nowrap;
       }
 
       .style-button {
+        position: absolute;
+        z-index: 1;
+        top: 50%;
         display: grid;
         place-items: center;
-        width: 48px;
-        height: 42px;
+        width: 44px;
+        height: 44px;
         padding: 0;
         border: 0;
-        border-radius: 9px;
-        background: transparent;
-        color: var(--ink);
+        border-radius: 50%;
+        background: rgb(17 19 27 / 72%);
+        color: #fff;
         font-size: 36px;
         line-height: 1;
+        transform: translateY(-50%);
+      }
+
+      [data-previous-style] {
+        left: 8px;
+      }
+
+      [data-next-style] {
+        right: 8px;
       }
 
       .previews {
-        --media-size: min(calc((100vw - 34px) / 2), calc(100svh - 190px), 360px);
+        --media-size: min(calc((100cqw - 10px) / 2), 100cqh, 360px);
 
+        container-type: size;
         display: grid;
         grid-template-columns: repeat(2, var(--media-size));
         place-content: center;
@@ -118,6 +113,10 @@
         object-fit: cover;
       }
 
+      [data-region-track] video {
+        transform: translateX(-4%) scale(1.14);
+      }
+
       .track figcaption {
         position: absolute;
         right: 6px;
@@ -135,7 +134,9 @@
         grid-template-columns: 48px minmax(0, 1fr) 48px;
         align-items: stretch;
         gap: 8px;
-        min-height: 82px;
+        height: 48px;
+        min-height: 48px;
+        margin-inline: 8px;
       }
 
       .scene-button {
@@ -201,38 +202,7 @@
       }
 
       @media (max-aspect-ratio: 1/1) {
-        .picker {
-          position: relative;
-          grid-template-rows: minmax(0, 1fr) auto;
-          align-content: stretch;
-        }
-
-        .set-nav {
-          display: contents;
-        }
-
-        .set-nav h1 {
-          display: none;
-        }
-
-        .style-button {
-          position: absolute;
-          z-index: 1;
-          top: calc(6px + (100svh - 94px) / 2 - min(100vw - 88px, (100svh - 102px) / 2) / 2);
-          width: 40px;
-          transform: translateY(-50%);
-        }
-
-        [data-previous-style] {
-          left: 2px;
-        }
-
-        [data-next-style] {
-          right: 2px;
-        }
-
         .previews {
-          container-type: size;
           grid-template-columns: minmax(0, 1fr);
           grid-template-rows: auto auto;
           align-content: center;
@@ -241,11 +211,11 @@
         }
 
         .track {
-          width: min(100cqw - 88px, (100cqh - 8px) / 2);
+          width: min(100cqw, (100cqh - 8px) / 2);
         }
 
         .scene-row {
-          min-height: 64px;
+          min-height: 48px;
         }
 
         .stop {
@@ -262,23 +232,14 @@
       @media (max-height: 500px) {
         .picker {
           gap: 6px;
-          padding-block: 6px;
-        }
-
-        .set-nav {
-          min-height: 40px;
-        }
-
-        .style-button {
-          height: 38px;
         }
 
         .previews {
-          --media-size: min(calc((100vw - 34px) / 2), calc(100svh - 154px), 360px);
+          --media-size: min(calc((100vw - 10px) / 2), calc(100svh - 64px), 360px);
         }
 
         .scene-row {
-          min-height: 70px;
+          min-height: 50px;
         }
 
         .stop span,
@@ -296,15 +257,11 @@
   </head>
   <body>
     <main class="picker" data-review-picker>
-      <header class="set-nav">
-        <button class="style-button" type="button" aria-label="Previous style" data-previous-style>‹</button>
-        <h1 data-title style="visibility: hidden"></h1>
-        <button class="style-button" type="button" aria-label="Next style" data-next-style>›</button>
-      </header>
-
       <section class="previews" aria-label="Style previews">
         <figure class="track" data-region-track>
           <video muted loop autoplay playsinline aria-label="Diorama preview"></video>
+          <button class="style-button" type="button" aria-label="Previous style" data-previous-style>‹</button>
+          <button class="style-button" type="button" aria-label="Next style" data-next-style>›</button>
         </figure>
         <figure class="track" data-sheet-track>
           <video muted loop autoplay playsinline aria-label="Sprite sheets preview"></video>
@@ -320,13 +277,12 @@
 
     <script type="module">
       const styles = [
-        { label: 'SmallScaleInt', root: new URLSearchParams(location.search).get('root') ?? '../../../../assets-local/sets/smallscaleint/showcase/out/media-v5' },
+        { label: 'SmallScaleInt', root: new URLSearchParams(location.search).get('root') ?? '../../../../assets-local/sets/smallscaleint/showcase/out/media' },
       ];
       const state = { style: 0, scene: 0, outline: false, manifest: undefined };
       const region = document.querySelector('[data-region-track] video');
       const sheet = document.querySelector('[data-sheet-track] video');
       const stops = document.querySelector('[data-stops]');
-      const title = document.querySelector('[data-title]');
 
       function sceneLabel(stop) {
         return stop.label ?? stop.story?.title ?? stop.story?.summary ?? stop.id.replace(/^\d+-/, '').replaceAll('-', ' ');
@@ -336,15 +292,29 @@
         video.play().catch(() => {});
       }
 
+      function useSource(video, source) {
+        if (video.src !== new URL(source, location.href).href) video.src = source;
+      }
+
+      function seek(video, seconds) {
+        video.dataset.seekTime = String(seconds);
+        const apply = () => {
+          video.currentTime = Number(video.dataset.seekTime ?? seconds);
+          play(video);
+        };
+        if (video.readyState >= HTMLMediaElement.HAVE_METADATA) apply();
+        else video.addEventListener('loadedmetadata', apply, { once: true });
+      }
+
       function selectScene(index, ensureVisible = true) {
         const style = styles[state.style];
         const scenes = state.manifest.stops;
         state.scene = (index + scenes.length) % scenes.length;
         const stop = scenes[state.scene];
         state.outline = false;
-        region.src = `${style.root}/${stop.region.mp4}`;
+        useSource(region, `${style.root}/${state.manifest.tracks.region.mp4}`);
         region.poster = `${style.root}/${stop.region.poster}`;
-        sheet.src = `${style.root}/${stop.sheet.mp4}`;
+        useSource(sheet, `${style.root}/${state.manifest.tracks.sheet.mp4}`);
         sheet.poster = `${style.root}/${stop.sheet.poster}`;
         for (const [buttonIndex, button] of [...stops.children].entries())
           button.setAttribute('aria-pressed', String(buttonIndex === state.scene));
@@ -356,8 +326,8 @@
               behavior: 'smooth',
             });
         }
-        play(region);
-        play(sheet);
+        seek(region, stop.start_time);
+        seek(sheet, stop.start_time);
       }
 
       function renderScenes() {
@@ -369,7 +339,7 @@
             button.dataset.scene = stop.id;
             button.setAttribute('aria-pressed', String(index === state.scene));
             button.setAttribute('aria-label', sceneLabel(stop));
-            button.innerHTML = `<img src="${style.root}/${stop.region.poster}" alt="">`;
+            button.innerHTML = `<img src="${style.root}/${stop.region.poster}" alt="" loading="eager" decoding="sync">`;
             button.addEventListener('click', () => selectScene(index));
             return button;
           });
@@ -380,7 +350,7 @@
           outline.dataset.outlineOptions = '';
           outline.setAttribute('aria-label', 'Outline options sheet');
           outline.setAttribute('aria-pressed', 'false');
-          outline.innerHTML = `<img src="${style.root}/${state.manifest.outlineOptions.sheet.poster}" alt="">`;
+          outline.innerHTML = `<img src="${style.root}/${state.manifest.outlineOptions.sheet.poster}" alt="" loading="eager" decoding="sync">`;
           outline.addEventListener('click', selectOutline);
           buttons.push(outline);
         }
@@ -393,7 +363,7 @@
         selectScene(state.manifest.stops.length - 1, false);
         state.outline = true;
         const style = styles[state.style];
-        sheet.src = `${style.root}/${outline.sheet.mp4}`;
+        useSource(sheet, `${style.root}/${outline.sheet.mp4}`);
         sheet.poster = `${style.root}/${outline.sheet.poster}`;
         for (const button of stops.children)
           button.setAttribute('aria-pressed', String(button.hasAttribute('data-outline-options')));
@@ -402,7 +372,7 @@
           left: selected.offsetLeft - (stops.clientWidth - selected.clientWidth) / 2,
           behavior: 'smooth',
         });
-        play(sheet);
+        seek(sheet, 0);
       }
 
       async function selectStyle(index) {
@@ -414,13 +384,13 @@
           if (!response.ok) throw new Error(`Could not load ${style.label} manifest`);
           return response.json();
         });
-        title.textContent = style.label;
         renderScenes();
         stops.scrollLeft = 0;
         selectScene(0, false);
       }
 
       region.addEventListener('timeupdate', () => {
+        if (state.outline) return;
         if (Math.abs(region.currentTime - sheet.currentTime) > 0.12) sheet.currentTime = region.currentTime;
       });
       document.querySelector('[data-previous-style]').addEventListener('click', () => selectStyle(state.style - 1));
