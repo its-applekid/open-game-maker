@@ -1,7 +1,7 @@
 import { prepareRegionFrame } from "./scene.mjs";
 import { prepareContinuousFrame } from "./continuous-scene.mjs";
 import { isContinuousShowcase } from "./continuous.mjs";
-import { spriteFrame } from "./canvas.mjs";
+import { groundTileFrame } from "./ground.mjs";
 
 function footprintBounds(entity) {
   const [width, depth] = entity.collision.footprint;
@@ -179,9 +179,14 @@ export function inspectPathCoverage({ ground, point, projection, groundLayerFram
   return false;
 }
 
-async function loadGroundLayerFrames(library, ground) {
+async function loadGroundLayerFrames(library, ground, projection) {
   return Promise.all((ground.layers ?? [])
-    .map((layer) => spriteFrame(library, layer, 0, layer.scale ?? ground.scale ?? 1)));
+    .map((layer) => groundTileFrame(
+      library,
+      layer,
+      layer.scale ?? ground.scale ?? 1,
+      projection,
+    )));
 }
 
 function continuousPlacements(project) {
@@ -244,7 +249,11 @@ export async function auditShowcaseCollisions({ project, library, stops }) {
     }
     const groundLayerFrames = new Map(await Promise.all(project.sequence.stops.map(async (stop) => [
       stop.region,
-      await loadGroundLayerFrames(library, project.regions[stop.region].ground),
+      await loadGroundLayerFrames(
+        library,
+        project.regions[stop.region].ground,
+        project.sequence.layout.projection,
+      ),
     ])));
     const frameCount = Math.round(project.sequence.loop_seconds * fps);
     for (let index = 0; index < frameCount; index += 1) {

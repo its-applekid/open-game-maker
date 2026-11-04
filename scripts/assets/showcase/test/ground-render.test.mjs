@@ -7,7 +7,7 @@ import { test } from "vitest";
 
 import { loadAssetLibrary } from "../assets.mjs";
 import { canvas } from "../canvas.mjs";
-import { drawGroundBase } from "../ground.mjs";
+import { drawGroundBase, drawGroundLayers } from "../ground.mjs";
 import { renderShowcase } from "../render.mjs";
 import { buildFixture, ffmpegAvailable, json } from "./render-fixture.mjs";
 
@@ -106,6 +106,69 @@ test("keeps the painted pitch for non-power-of-two isometric tiles", async () =>
       "isometric",
     );
     assertNoUnderlay(frame);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test("clips raised isometric art to a flush ground surface", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-ground-surface-test-"));
+  try {
+    const { library } = await loadPaddedGround(root, (pixel) => {
+      for (let y = 0; y < 10; y += 1) {
+        for (let x = 0; x < 20; x += 1) pixel(x, y);
+      }
+    });
+    const file = path.join(root, "assets/packs/test-pack/v1/extracted/grass.png");
+    const data = paddedTile(20, 16, (pixel) => {
+      for (let y = 0; y < 10; y += 1) {
+        for (let x = 0; x < 20; x += 1) pixel(x, y);
+      }
+    });
+    for (let y = 10; y < 16; y += 1) {
+      for (let x = 0; x < 20; x += 1) {
+        const offset = (y * 20 + x) * 4;
+        data.set([0x82, 0x52, 0x32, 0xff], offset);
+      }
+    }
+    for (let y = 5; y < 10; y += 1) {
+      const sideWidth = y - 4;
+      for (const x of [...Array(sideWidth).keys(), ...Array(sideWidth).keys()].map((value, index) =>
+        index < sideWidth ? value : 19 - value
+      )) {
+        const offset = (y * 20 + x) * 4;
+        data.set([0x82, 0x52, 0x32, 0xff], offset);
+      }
+    }
+    await sharp(data, { raw: { width: 20, height: 16, channels: 4 } }).png().toFile(file);
+
+    const layerFrame = canvas(20, 20);
+    await drawGroundLayers(
+      layerFrame,
+      library,
+      {
+        grid: { cell: [20, 10], origin: [10, 10] },
+        layers: [{ ref: "card:test-pack/grass", surface: "flush", cells: [[0, 0]] }],
+      },
+      0,
+      0,
+      "isometric",
+    );
+
+    const baseFrame = canvas(20, 20);
+    await drawGroundBase(
+      baseFrame,
+      library,
+      { ref: "card:test-pack/grass", fill: "area", surface: "flush" },
+      0,
+      0,
+      "isometric",
+    );
+
+    for (const [label, frame] of [["layer", layerFrame], ["base", baseFrame]]) {
+      assert.equal(frame.data.includes(0x82), false, `${label} raised side face should be clipped`);
+      assert.equal(frame.data.includes(0x60), true, `${label} top surface should remain visible`);
+    }
   } finally {
     await rm(root, { recursive: true, force: true });
   }

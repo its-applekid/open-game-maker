@@ -44,10 +44,13 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
 4. Make the world continuous. Use 45-degree diamond seams for isometric sets and grid seams for top-down sets. Ground
    must cover every edge with coherent roads, paths, borders, and transitions; do not leave empty canvas around a
    diorama or place incompatible ground patterns edge-to-edge. Use an opaque terrain-matched underlay plus ordered
-   ground cells when a tile has transparent margins.
+   ground cells when a tile has transparent margins. Render isometric paving, floors, and paths as flush surfaces;
+   do not leave their source art's raised side face standing above adjacent terrain.
 5. Choose a hero with a real `walk` action and a natural source-derived cadence. Declare one slower projected-pixel
    ground speed for the whole closed route. The square camera follows that hero; stop times derive from route distance.
-   Measure every stop interval and keep all speeds within 2%. Do not substitute an idle bob or run animation.
+   Measure every stop interval and keep all speeds within 2%. Route the hero through visible rooms in an open cut-away,
+   using its runner-foreground layer when the shell would otherwise hide the hero. Do not substitute an idle bob or run
+   animation.
 6. Put exactly 24 additional, non-scene assets on each stop's sheet. Every animated sheet sprite rotates through the
    set's full direction order on the same tempo. A design may appear in the world or its paired sheet, never both.
 7. Write `sequence.json`, `regions/*.json`, and `sheets/*.json` using [sequence.md](references/sequence.md). Every placed

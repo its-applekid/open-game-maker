@@ -320,6 +320,7 @@ test("publishes phone-ready H.264 video with GIF fallback", () => {
 
 test("accepts a closed continuous route with one measured speed and 24-sprite sheets", () => {
   const project = validContinuousProject();
+  project.regions["regions/west.json"].runner_foreground = true;
 
   assert.deepEqual(validateShowcase(project), []);
   assert.deepEqual(continuousTimeline(project.sequence), {
@@ -329,6 +330,9 @@ test("accepts a closed continuous route with one measured speed and 24-sprite sh
       { id: "east", startTime: 1, seconds: 1, distance: 32, speed: 32, deviation: 0 },
     ],
   });
+
+  project.regions["regions/west.json"].runner_foreground = "yes";
+  assert.ok(validateShowcase(project).some(({ code }) => code === "region.runner_foreground"));
 });
 
 test("preserves intentional continuous-world source reuse while rejecting colocated copies", () => {
@@ -356,6 +360,7 @@ test("accepts ordered ground cells and validates their geometry", () => {
   ground.grid = { cell: [16, 8], origin: [0, 0] };
   ground.layers = [{
     ref: "card:test-pack/west-road",
+    surface: "flush",
     cells: [[0, 0], [1, 0]],
   }];
   project.sequence.stops[0].tile_sprites.push("card:test-pack/west-road");
@@ -366,6 +371,9 @@ test("accepts ordered ground cells and validates their geometry", () => {
   ground.bounds_offset = [Number.POSITIVE_INFINITY, 0];
   assert.ok(validateShowcase(project).some(({ code }) => code === "ground.cells"));
   assert.ok(validateShowcase(project).some(({ code }) => code === "ground.bounds_offset"));
+
+  ground.surface = "raised";
+  assert.ok(validateShowcase(project).some(({ code }) => code === "ground.surface"));
 });
 
 test("accepts layer-only continuous region ground over the shared world base", () => {

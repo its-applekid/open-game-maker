@@ -94,11 +94,13 @@ supported `kind` and a positive integer `count`; precipitation may also declare 
     "size": [320, 512],
     "bounds_offset": [16, 0],
     "scale": 2,
+    "surface": "flush",
     "underlay": "#596f42",
     "grid": { "cell": [64, 32], "origin": [0, 0] },
     "layers": [{
       "ref": "card:pack-b/path",
       "role": "path",
+      "surface": "flush",
       "cells": [[-1, 0], [0, 0], [1, 0]]
     }]
   },
@@ -130,10 +132,17 @@ moving the region's route origin. The full-cover `world.ground` remains undernea
 expose empty canvas. Region coordinates are local to that stop's route point. `underlay` is an opaque terrain-matched
 safety color for transparent base-tile margins. Ordered `layers` place catalog refs at `grid` cells; include every base
 and layer ref in `tile_sprites`. Mark the continuous cells under the complete runner route with `role: "path"`; the
-frame audit samples the hero's foot point against those rendered isometric diamonds. Sprites need globally
+frame audit samples the hero's foot point against those rendered isometric diamonds. For isometric art that includes a
+raised side face but represents paving, a floor, or a path, set `surface: "flush"` on the base or layer to render only
+its top diamond at ground level. Sprites need globally
 unique stable `id` values and are anchored at bottom-center. Treat that anchor as the visible footprint: ordinary
 sprites depth-sort by projected footprint position, while `z` is only a narrow correction for a known structural layer,
 not a way to force every focal actor above the world.
+
+Set optional `runner_foreground: true` only for an open cut-away interior whose route passes through its visible rooms.
+It keeps the camera-followed hero readable above the cut-away shell and furnishings while retaining their normal depth
+order. Add `"runner_foreground": true` at the top level of that cut-away region. Leave it absent for ordinary exterior
+scenes.
 
 The portable schema intentionally stays small: it carries the shared collision type, footprint, and optional offset,
 while a set-specific authoring tool may retain composite anchors, focal zones, wall mounts, or particle emitters in its
