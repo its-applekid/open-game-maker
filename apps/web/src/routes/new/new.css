@@ -329,8 +329,8 @@
   padding-inline: 18px;
   border: 0;
   border-radius: 18px;
-  background: color-mix(in srgb, var(--new-color) 20%, var(--action-secondary));
-  color: var(--ink);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   cursor: pointer;
 }
 
@@ -417,14 +417,14 @@
   border-radius: 20px;
   background: var(--action-primary);
   color: var(--action-primary-text);
-  box-shadow: 0 10px 30px -10px var(--yellow-b);
+  box-shadow: 0 10px 30px -10px var(--action-primary);
   cursor: pointer;
 }
 .new-retry {
   text-align: center;
 }
 .new-retry button {
-  color: var(--yellow-b);
+  color: var(--aqua-b);
   border: 0;
   background: none;
   text-decoration: underline;

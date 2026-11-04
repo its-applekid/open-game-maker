@@ -7,6 +7,7 @@
   --gruvbox-fg: #ebdbb2;
   --gruvbox-fg4: #a89984;
   --gruvbox-red: #fb4934;
+  --gruvbox-green-neutral: #98971a;
   --gruvbox-green: #b8bb26;
   --gruvbox-yellow: #fabd2f;
   --gruvbox-blue: #83a598;
@@ -19,8 +20,9 @@
   --surface-raised: var(--gruvbox-bg2);
   --text: var(--gruvbox-fg);
   --text-muted: color-mix(in srgb, var(--gruvbox-fg4) 50%, var(--gruvbox-fg));
+  --text-danger: color-mix(in srgb, var(--gruvbox-red) 60%, var(--gruvbox-fg));
   --border: var(--gruvbox-bg2);
-  --action-primary: var(--gruvbox-yellow);
+  --action-primary: var(--gruvbox-green-neutral);
   --action-primary-text: var(--gruvbox-bg0-h);
   --action-secondary: var(--gruvbox-bg1);
   --action-secondary-text: var(--gruvbox-fg);
@@ -93,9 +95,13 @@ select {
   font: inherit;
 }
 
-:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
+:root:not([data-focus-input='pointer']) :focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+:root[data-focus-input='pointer'] :focus {
+  outline: none;
 }
 
 .sr {

@@ -97,12 +97,17 @@
 }
 
 .game-screen .mode-segment button[data-mode='play'][aria-pressed='true'] {
-  background: var(--action-primary);
-  color: var(--action-primary-text);
+  background: var(--yellow-b);
+  color: var(--dark);
 }
 
-.game-screen .mode-segment button[data-mode='edit'][aria-pressed='true'],
+.game-screen .mode-segment button[data-mode='edit'][aria-pressed='true'] {
+  background: var(--yellow-b);
+  color: var(--dark);
+}
+
 .game-screen .ask-change {
+  border-color: transparent;
   background: var(--action-primary);
   color: var(--action-primary-text);
 }
@@ -185,8 +190,8 @@
 
 .game-screen .editor-rail button[aria-pressed='true'] {
   border-color: var(--ink);
-  background: var(--action-primary);
-  color: var(--action-primary-text);
+  background: var(--yellow-b);
+  color: var(--dark);
   box-shadow: var(--pop-sm);
 }
 

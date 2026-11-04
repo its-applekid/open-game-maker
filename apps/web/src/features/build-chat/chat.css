@@ -122,6 +122,7 @@
 .build-chat-send {
   margin-left: auto;
   padding-inline: 18px;
+  border-color: transparent !important;
   background: var(--action-primary) !important;
   color: var(--action-primary-text) !important;
 }

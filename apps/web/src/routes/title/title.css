@@ -81,12 +81,6 @@
   cursor: pointer;
 }
 
-.title-start:focus-visible,
-.title-sound:focus-visible {
-  outline: 3px solid var(--focus-ring);
-  outline-offset: 3px;
-}
-
 .title-sound {
   position: absolute;
   z-index: 2;
@@ -99,7 +93,7 @@
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 50%;
-  background: var(--paper);
+  background: var(--surface-card);
   backdrop-filter: var(--glass);
   color: var(--ink);
   cursor: pointer;

@@ -107,14 +107,19 @@
 }
 
 .mode-segment button[data-mode='play'][aria-pressed='true'] {
-  background: var(--action-primary);
-  color: var(--action-primary-text);
-}
-
-.mode-segment button[data-mode='edit'][aria-pressed='true'],
-.ask-change {
   background: var(--yellow-b);
   color: var(--dark);
+}
+
+.mode-segment button[data-mode='edit'][aria-pressed='true'] {
+  background: var(--yellow-b);
+  color: var(--dark);
+}
+
+.ask-change {
+  border-color: transparent;
+  background: var(--action-primary);
+  color: var(--action-primary-text);
 }
 
 .game-stage {
@@ -142,6 +147,10 @@
   color: var(--action-primary-text);
   box-shadow: var(--pop-sm);
   font: 800 20px var(--display);
+}
+
+.room-invite {
+  border-color: transparent;
 }
 
 .room-invite-control output {
@@ -278,6 +287,7 @@
   min-width: 64px;
   min-height: 64px;
   border: 3px solid var(--ink);
+  border-color: transparent;
   border-radius: 999px;
   background: var(--action-primary);
   color: var(--action-primary-text);
@@ -471,6 +481,21 @@
   flex-wrap: wrap;
   gap: 6px;
   margin-block: 6px;
+}
+
+.platform-pause-dialog button,
+.reapply-card button {
+  border: 1px solid var(--rule);
+  border-radius: 12px;
+  background: var(--action-secondary);
+  color: var(--action-secondary-text);
+}
+
+.platform-pause-dialog .tap-primary,
+.reapply-card > .tap-primary {
+  border-color: transparent;
+  background: var(--action-primary);
+  color: var(--action-primary-text);
 }
 
 @media (max-width: 600px) {

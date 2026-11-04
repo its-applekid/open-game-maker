@@ -56,7 +56,7 @@
   width: min(80%, 420px);
   height: 6px;
   border-radius: 99px 0 0 99px;
-  background: var(--action-primary);
+  background: var(--yellow-b);
   clip-path: polygon(0 0, 100% 45%, 100% 55%, 0 100%);
   content: '';
 }

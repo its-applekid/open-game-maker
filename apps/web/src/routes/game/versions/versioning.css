@@ -118,8 +118,9 @@
 .version-row-actions .tap-primary,
 .version-new,
 .versioning-dialog .tap-primary {
-  background: var(--yellow-b);
-  color: var(--dark);
+  border-color: transparent;
+  background: var(--action-primary);
+  color: var(--action-primary-text);
 }
 
 .version-controls button {
@@ -185,7 +186,7 @@
 
 .versioning-dialog-error {
   overflow-wrap: anywhere;
-  color: var(--purple-b);
+  color: var(--text-danger);
   font-weight: 800;
 }
 

@@ -7,9 +7,7 @@
   }
 
   .game-tile:hover {
-    box-shadow:
-      0 0 0 2px var(--yellow-b),
-      0 24px 64px -8px var(--shadow-color);
+    box-shadow: 0 24px 64px -8px var(--shadow-color);
   }
 
   .game-tile:focus-visible {

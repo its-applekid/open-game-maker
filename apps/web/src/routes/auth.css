@@ -60,7 +60,7 @@
 
 .auth-error {
   margin: 0;
-  color: var(--red-b);
+  color: var(--text-danger);
 }
 
 .auth-refusal {
