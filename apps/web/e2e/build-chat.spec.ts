@@ -127,9 +127,7 @@ test('large pasted text is a compact expandable attachment on phone and desktop'
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page);
   await page.goto('/games?test', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: '1 build running, 50% done. Show progress' }).click();
-  await page.getByRole('button', { name: /Show each build/ }).click();
-  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+  await openBuildChat(page);
 
   const textbox = page.getByRole('textbox', { name: 'Message the builder' });
   const smallPasteAccepted = await textbox.evaluate((element) => {
