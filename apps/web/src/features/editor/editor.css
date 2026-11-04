@@ -44,8 +44,8 @@
 }
 
 .placement-ghost[data-state='invalid'] {
-  border-color: var(--red, #ff5b67);
-  background: color-mix(in srgb, var(--red, #ff5b67) 28%, transparent);
+  border-color: var(--red);
+  background: color-mix(in srgb, var(--red) 28%, transparent);
 }
 
 .gizmo-controls {

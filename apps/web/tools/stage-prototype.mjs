@@ -83,7 +83,7 @@ async function isolateServiceWorker(destination) {
   await writeFile(workerPath, isolated);
 }
 
-export async function stagePrototype(prototypeDirectory, shellDirectory, destination) {
+export async function stagePrototype(prototypeDirectory, shellDirectory, destination, { publicOnly = false } = {}) {
   await Promise.all(GENERATED_DIRECTORIES.map((directory) => requireDirectory(join(prototypeDirectory, directory))));
   await rm(destination, { recursive: true, force: true });
   await mkdir(destination, { recursive: true });
@@ -106,7 +106,7 @@ export async function stagePrototype(prototypeDirectory, shellDirectory, destina
 
   const fragment = await readFile(join(prototypeDirectory, 'index.html'), 'utf8');
   await writeFile(join(destination, 'index.html'), wrapIndex(fragment));
-  await removePrivateFiles(destination);
+  if (publicOnly) await removePrivateFiles(destination);
   await isolateServiceWorker(destination);
 
   const remaining = [];
@@ -120,17 +120,19 @@ export async function stagePrototype(prototypeDirectory, shellDirectory, destina
     }
   }
   await inspect(destination);
-  const leaked = remaining.find(isPrivatePrototypePath);
+  const leaked = publicOnly ? remaining.find(isPrivatePrototypePath) : undefined;
   if (leaked) throw new Error(`private prototype asset remained in deploy payload: ${leaked}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
-  const [, command, prototypeDirectory, shellDirectory, destination] = process.argv;
-  if (!prototypeDirectory || !shellDirectory || !destination) {
-    process.stderr.write(`usage: ${basename(command)} <prototype-dir> <shell-dir> <destination>\n`);
+  const [, command, prototypeDirectory, shellDirectory, destination, mode, ...extra] = process.argv;
+  if (!prototypeDirectory || !shellDirectory || !destination || extra.length > 0 || (mode && mode !== '--public')) {
+    process.stderr.write(`usage: ${basename(command)} <prototype-dir> <shell-dir> <destination> [--public]\n`);
     process.exit(2);
   }
-  stagePrototype(resolve(prototypeDirectory), resolve(shellDirectory), resolve(destination)).catch((error) => {
+  stagePrototype(resolve(prototypeDirectory), resolve(shellDirectory), resolve(destination), {
+    publicOnly: mode === '--public',
+  }).catch((error) => {
     process.stderr.write(`deploy: ${error.message}\n`);
     process.exit(1);
   });

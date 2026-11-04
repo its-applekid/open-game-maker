@@ -34,7 +34,11 @@ function setup(startJob: Props['startJob']) {
   const input = view.container.querySelector<HTMLInputElement>('input[type="file"]')!;
   const pick = (...files: File[]) => fireEvent.change(input, { target: { files } });
   const type = (value: string) => fireEvent.change(screen.getByRole('textbox'), { target: { value } });
-  return { postText, uploadAttachment, pick, type };
+  const paste = (text: string) =>
+    fireEvent.paste(screen.getByRole('textbox'), {
+      clipboardData: { files: [], types: ['text/plain'], getData: () => text },
+    });
+  return { postText, uploadAttachment, pick, type, paste };
 }
 
 const markdown = () => new File(['# Door\n'], 'door.md', { type: 'text/markdown' });
@@ -66,6 +70,18 @@ describe('Composer starting a job', () => {
     const { pick } = setup(vi.fn());
     pick(markdown());
     expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
+  });
+
+  it('starts an editor job from a large pasted-text attachment', async () => {
+    const startJob = vi.fn<NonNullable<Props['startJob']>>().mockResolvedValue('j_new');
+    const { paste, postText, uploadAttachment } = setup(startJob);
+    paste('a'.repeat(1_501));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+
+    await waitFor(() => expect(postText).toHaveBeenCalledWith('j_new', '', ['a_pasted-text.txt']));
+    expect(startJob).toHaveBeenCalledWith('Pasted text attached.');
+    expect(uploadAttachment.mock.calls.map(([jobId]) => jobId)).toEqual(['j_new']);
   });
 
   it('keeps the files when admission is refused', async () => {

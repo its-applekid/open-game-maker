@@ -8,7 +8,7 @@ Out of scope here: aiur internals (A6) and vendor/legal policy, including COPPA 
 
 > **Version scope (2026-10-25):** Read through `docs/spec/release-plan.md`. V1 (adults only, 18+): R05 sandboxing and topology (E2B with an egress allowlist is now Decided, B4), R04 for adult roles and invites, R07 leakage and fork rules. V2: R12 multiplayer gameplay, spectators and room guests (V1 reserves the architecture only). V3: every supervision, guardian, child-flag and parent-claim element of R04, and child rules in R07.
 > Kid-first framing is superseded: this is a general game maker, and child rules live only in the V3 parental-controls module.
-> Superseded where they differ: auth and accounts → **B9** (age screen, sign-in by age band) and **B10** (adult defaults, parental-controls module); sign-in is email plus passkey and/or Google (decision log). Repo strategy (S1 private monorepo) → Decided: the user connects their own GitHub and Game Maker creates a repo per game, public or private. Multiplayer → **V2** (B7 hooks).
+> Superseded where they differ: auth and accounts → the 2026-11-03 operator allow-list decision (no V1 age screen), then **B9** and **B10** for future age-band and parental-control work; sign-in is email plus passkey and/or Google (decision log). Repo strategy (S1 private monorepo) → Decided: the user connects their own GitHub and Game Maker creates a repo per game, public or private. Multiplayer → **V2** (B7 hooks).
 
 ---
 

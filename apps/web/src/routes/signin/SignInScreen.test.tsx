@@ -14,8 +14,6 @@ const auth = vi.hoisted(() => ({
   },
   authErrorMessage: (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
   getAuthCapabilities: vi.fn(),
-  isAgeRequiredError: vi.fn((error: { code?: string }) => error?.code === 'AGE_REQUIRED'),
-  requireAge: vi.fn(),
   safeNext: (value: string | null, fallback: string) => value ?? fallback,
   useSession: vi.fn(),
 }));
@@ -48,7 +46,6 @@ beforeEach(() => {
   auth.authClient.passkey.addPasskey.mockResolvedValue({ data: {}, error: null });
   auth.authClient.useListPasskeys.mockReturnValue({ data: [], isPending: false });
   auth.getAuthCapabilities.mockResolvedValue({ providers: ['magic-link', 'passkey', 'google'] });
-  auth.requireAge.mockResolvedValue(undefined);
   auth.useSession.mockReturnValue({ data: null, isPending: false });
 });
 
@@ -124,19 +121,6 @@ describe('SignInScreen', { timeout: 10_000 }, () => {
     expect(auth.authClient.signIn.passkey).not.toHaveBeenCalled();
   });
 
-  it('routes an age-required auth response through the age screen', async () => {
-    enablePasskeys();
-    auth.authClient.signIn.passkey.mockResolvedValue({
-      data: null,
-      error: { status: 403, code: 'AGE_REQUIRED' },
-    });
-    renderSignIn();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Use a passkey' }));
-
-    await waitFor(() => expect(auth.requireAge).toHaveBeenCalledWith('/signin'));
-  });
-
   it('shows ordinary sign-in errors and permits a retry', async () => {
     enablePasskeys();
     auth.authClient.signIn.passkey.mockRejectedValueOnce(new Error('Passkey was cancelled.'));
@@ -157,8 +141,33 @@ describe('SignInScreen', { timeout: 10_000 }, () => {
 
     fireEvent.click(await screen.findByRole('button', { name: 'Add a passkey' }));
 
-    await waitFor(() => expect(auth.authClient.passkey.addPasskey).toHaveBeenCalledWith());
+    await waitFor(() =>
+      expect(auth.authClient.passkey.addPasskey).toHaveBeenCalledWith({
+        fetchOptions: { signal: expect.any(AbortSignal) },
+      }),
+    );
     expect(await screen.findByRole('heading', { name: 'Games destination' })).toBeVisible();
+  });
+
+  it('starts only one passkey registration when activation re-enters before rendering', async () => {
+    enablePasskeys();
+    auth.useSession.mockReturnValue({ data: { user: { id: 'u1' } }, isPending: false });
+    auth.authClient.passkey.addPasskey.mockReturnValue(new Promise(() => undefined));
+    const view = renderSignIn('/signin?next=%2Fgames&magic=1');
+
+    const button = await screen.findByRole('button', { name: 'Add a passkey' });
+    act(() => {
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+    });
+
+    expect(auth.authClient.passkey.addPasskey).toHaveBeenCalledTimes(1);
+    expect(auth.authClient.passkey.addPasskey).toHaveBeenCalledWith({
+      fetchOptions: { signal: expect.any(AbortSignal) },
+    });
+    const signal = auth.authClient.passkey.addPasskey.mock.calls[0]?.[0]?.fetchOptions.signal as AbortSignal;
+    view.unmount();
+    expect(signal.aborted).toBe(true);
   });
 
   it('keeps passkey enrollment recoverable and prevents skipping a pending save', async () => {
@@ -172,9 +181,33 @@ describe('SignInScreen', { timeout: 10_000 }, () => {
     expect(screen.getByRole('button', { name: 'Not now' })).toBeDisabled();
     await act(async () => reject(new Error('Registration cancelled.')));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Registration cancelled.');
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Registration cancelled. You can still sign in with an email link.',
+    );
     expect(screen.getByRole('button', { name: 'Add a passkey' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Not now' })).toBeEnabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Not now' }));
+    expect(await screen.findByRole('heading', { name: 'Games destination' })).toBeVisible();
+  });
+
+  it('uses a fresh registration request after a failed attempt', async () => {
+    enablePasskeys();
+    auth.useSession.mockReturnValue({ data: { user: { id: 'u1' } }, isPending: false });
+    auth.authClient.passkey.addPasskey.mockRejectedValueOnce(new Error('Registration cancelled.'));
+    renderSignIn('/signin?next=%2Fgames&magic=1');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Add a passkey' }));
+    await screen.findByRole('alert');
+    const firstSignal = auth.authClient.passkey.addPasskey.mock.calls[0]?.[0]?.fetchOptions.signal as AbortSignal;
+    expect(firstSignal.aborted).toBe(false);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add a passkey' }));
+
+    expect(firstSignal.aborted).toBe(false);
+    const retrySignal = auth.authClient.passkey.addPasskey.mock.calls[1]?.[0]?.fetchOptions.signal as AbortSignal;
+    expect(retrySignal).not.toBe(firstSignal);
+    expect(retrySignal.aborted).toBe(false);
+    expect(await screen.findByRole('heading', { name: 'Games destination' })).toBeVisible();
   });
 
   it('sends an existing session to next', async () => {

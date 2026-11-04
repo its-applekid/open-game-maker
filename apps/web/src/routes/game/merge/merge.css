@@ -42,8 +42,13 @@
 }
 
 .merge-actions .tap-primary,
-.merge-choices button[aria-pressed='true'],
 .merge-code-conflict button {
+  border-color: transparent;
+  background: var(--action-primary);
+  color: var(--action-primary-text);
+}
+
+.merge-choices button[aria-pressed='true'] {
   background: var(--yellow-b);
   color: var(--dark);
 }

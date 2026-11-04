@@ -22,6 +22,7 @@ export type EnvName = {
   readonly unit: EnvUnit;
   readonly kind: EnvKind;
   readonly doc: string;
+  readonly initial?: string;
 };
 
 export const OGM_ENV_NAMES: readonly EnvName[] = [
@@ -81,6 +82,13 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     unit: 'web',
     kind: 'url',
     doc: 'public app origin deploy.sh uses for the retired Netlify-host redirect',
+  },
+  {
+    name: 'OGM_INSTANCE_ALL_ASSETS',
+    unit: 'web',
+    kind: 'bool',
+    doc: 'ship every host-library asset used by instance screens (default true)',
+    initial: '1',
   },
   {
     name: 'VITE_GAMES_ORIGIN',
@@ -165,7 +173,6 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'service -> API bearer (X-Ogm-Service names the caller)',
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
-  { name: 'OGM_AGE_COOKIE_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for the ogm_age cookie' },
   {
     name: 'OGM_ALLOWED_EMAILS',
     unit: 'api',

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
 import type { ChatAttachment } from '@ogm/contracts';
@@ -32,7 +32,11 @@ function setup(overrides: { postText?: Mock<Props['postText']> } = {}) {
   );
   const input = view.container.querySelector<HTMLInputElement>('input[type="file"]')!;
   const pick = (...files: File[]) => fireEvent.change(input, { target: { files } });
-  return { postText, uploadAttachment, input, pick };
+  const paste = (text: string) =>
+    fireEvent.paste(screen.getByRole('textbox'), {
+      clipboardData: { files: [], types: ['text/plain'], getData: () => text },
+    });
+  return { postText, uploadAttachment, input, pick, paste };
 }
 
 const markdown = () => new File(['# Castle\n'], 'notes.md', { type: '' });
@@ -92,6 +96,40 @@ describe('Composer attachments', () => {
     expect(screen.getByText('pasted.png')).toBeVisible();
   });
 
+  it.each([
+    ['1,500 characters', 'a'.repeat(1_500)],
+    ['20 lines', Array.from({ length: 20 }, (_, index) => `line ${index + 1}`).join('\n')],
+  ])('keeps a paste of %s inline', (_label, text) => {
+    const { paste } = setup();
+
+    expect(paste(text)).toBe(true);
+    expect(screen.queryByText('Pasted text')).not.toBeInTheDocument();
+  });
+
+  it.each([
+    ['1,501 characters', 'a'.repeat(1_501)],
+    ['21 lines', Array.from({ length: 21 }, (_, index) => `line ${index + 1}`).join('\n')],
+  ])('turns a paste of %s into a readable text attachment', async (_label, text) => {
+    const { paste, postText, uploadAttachment } = setup();
+
+    expect(paste(text)).toBe(false);
+    const chip = screen.getByRole('listitem');
+    expect(within(chip).getByText('Pasted text')).toBeVisible();
+    expect(within(chip).getByText(/^\d+(?:\.\d)? (?:B|KB)$/)).toBeVisible();
+    const preview = chip.querySelector('details')!;
+    expect(preview).not.toHaveAttribute('open');
+
+    fireEvent.click(within(chip).getByText('Pasted text'));
+    expect(preview).toHaveAttribute('open');
+    expect(preview.querySelector('pre')?.textContent).toBe(text);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    await waitFor(() => expect(postText).toHaveBeenCalledWith('j_1', '', ['a_pasted-text.txt']));
+    const file = uploadAttachment.mock.calls[0]?.[1] as File;
+    expect(file.name).toBe('pasted-text.txt');
+    expect(await readFile(file)).toBe(text);
+  });
+
   it('keeps the files after a failed post and reuses their uploads on retry', async () => {
     const postText = vi
       .fn<Props['postText']>()
@@ -123,3 +161,12 @@ describe('Composer attachments', () => {
     expect(uploadAttachment).toHaveBeenCalledTimes(2);
   });
 });
+
+function readFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsText(file);
+  });
+}

@@ -34,7 +34,6 @@ vi.mock('../lib/sound', () => soundApi);
 
 const routeTable = [
   '/',
-  '/age',
   '/signin',
   '/connect/github',
   '/games',
@@ -155,7 +154,8 @@ describe('screen route collection', () => {
     render(<RouterProvider router={router} />);
 
     expect(await screen.findByRole('link', { name: 'Open Game Maker 2000' })).toHaveAttribute('href', '/');
-    expect(document.querySelector('.studio-backdrop canvas')).toBeInTheDocument();
+    expect(document.querySelector('.studio-backdrop')).toBeInTheDocument();
+    expect(document.querySelector('.studio-backdrop canvas')).not.toBeInTheDocument();
     const sound = screen.getByRole('button', { name: /sound/i });
     expect(sound).toHaveAttribute('aria-expanded', 'false');
 
