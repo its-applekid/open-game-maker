@@ -9,8 +9,15 @@ let started = false;
 export function initFocus(): void {
   if (started) return;
   started = true;
+  document.documentElement.dataset.focusInput = 'pointer';
+  window.addEventListener('keydown', () => setFocusInput('keyboard'), true);
+  window.addEventListener('pointerdown', () => setFocusInput('pointer'), true);
   init({ shouldFocusDOMNode: true });
   window.addEventListener(ZONE_EVENT, (e) => cycleZone((e as CustomEvent<'prev' | 'next'>).detail));
+}
+
+function setFocusInput(input: 'keyboard' | 'pointer'): void {
+  document.documentElement.dataset.focusInput = input;
 }
 
 export function FocusZone({ id, children, className }: { id: string; children: ReactNode; className?: string }) {

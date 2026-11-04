@@ -3,9 +3,7 @@
   min-height: 100svh;
   place-items: center;
   padding: max(24px, var(--safe-t)) max(16px, var(--safe-r)) max(24px, var(--safe-b)) max(16px, var(--safe-l));
-  background:
-    radial-gradient(circle at 20% 10%, rgba(254, 128, 25, 0.2), transparent 36%),
-    radial-gradient(circle at 85% 80%, rgba(131, 165, 152, 0.18), transparent 38%), var(--night);
+  background: var(--surface-page);
 }
 
 .auth-card {
@@ -29,7 +27,7 @@
   padding: 0 18px;
   border: 1px solid var(--rule);
   border-radius: 16px;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--surface-deep);
   color: var(--ink);
 }
 
@@ -44,10 +42,14 @@
 }
 
 .auth-primary {
-  background:
-    linear-gradient(rgba(254, 128, 25, 0.32), rgba(254, 128, 25, 0.18)) padding-box,
-    linear-gradient(to bottom, rgba(254, 128, 25, 0.3), var(--orange-b)) border-box;
-  box-shadow: 0 12px 32px -14px var(--orange-b);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
+  box-shadow: var(--pop-sm);
+}
+
+.auth-method {
+  background: var(--action-secondary);
+  color: var(--action-secondary-text);
 }
 
 .auth-primary:disabled,
@@ -58,7 +60,7 @@
 
 .auth-error {
   margin: 0;
-  color: var(--red-b);
+  color: var(--text-danger);
 }
 
 .auth-refusal {
