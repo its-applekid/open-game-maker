@@ -2,7 +2,7 @@
   position: relative;
   min-height: 100svh;
   padding: max(16px, var(--safe-t)) max(16px, var(--safe-r)) max(16px, var(--safe-b)) max(16px, var(--safe-l));
-  background: #0f0e16;
+  background: var(--surface-page);
 }
 
 .app-chrome main {
@@ -18,38 +18,7 @@
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
-  background: #0f0e16;
-}
-
-.studio-backdrop canvas {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-}
-
-.studio-backdrop::before {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.07),
-    transparent 38%,
-    rgba(255, 255, 255, 0.025) 62%,
-    transparent 80%
-  );
-  content: '';
-}
-
-.studio-backdrop::after {
-  position: absolute;
-  z-index: 1;
-  inset: 0;
-  opacity: 0.16;
-  background-image: repeating-linear-gradient(0deg, transparent 0 3px, rgba(255, 255, 255, 0.035) 3px 4px);
-  mix-blend-mode: overlay;
-  content: '';
+  background: var(--surface-page);
 }
 
 .studio-logo {
@@ -65,7 +34,7 @@
 .studio-logo img {
   width: auto;
   height: 100%;
-  filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.45));
+  filter: drop-shadow(0 5px 12px var(--shadow-color));
 }
 
 .studio-menu-control {
@@ -336,9 +305,9 @@
 
 .screen-error button {
   padding-inline: 24px;
-  border: 3px solid var(--ink);
+  border: 0;
   border-radius: 999px;
-  background: var(--yellow-b);
-  color: var(--dark);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   font-weight: 700;
 }

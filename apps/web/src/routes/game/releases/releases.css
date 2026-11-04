@@ -5,10 +5,10 @@
 
 .release-publish,
 .release-history button {
-  border: 3px solid var(--ink);
+  border: 3px solid transparent;
   border-radius: 999px;
-  background: var(--yellow-b);
-  color: var(--dark);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   font-weight: 800;
   box-shadow: var(--pop-sm);
 }
@@ -56,7 +56,7 @@
 }
 
 .release-public-note {
-  color: var(--pink-b);
+  color: var(--text-muted);
   font-weight: 800;
 }
 

@@ -16,7 +16,7 @@
   max-width: 88%;
   padding: 9px 12px;
   border-radius: 14px 14px 14px 4px;
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--surface-raised);
 }
 
 .build-chat-row.text.creator {
@@ -71,7 +71,7 @@
   padding: 12px;
   border: 1px solid var(--rule);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-card);
 }
 
 .build-chat-options {
@@ -122,8 +122,9 @@
 .build-chat-send {
   margin-left: auto;
   padding-inline: 18px;
-  background: var(--green-b) !important;
-  color: var(--dark) !important;
+  border-color: transparent !important;
+  background: var(--action-primary) !important;
+  color: var(--action-primary-text) !important;
 }
 
 .build-chat-dictate .icon,
@@ -150,7 +151,7 @@
   padding: 4px 4px 4px 10px;
   border: 1px solid var(--rule);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-raised);
   font-size: 13px;
 }
 
@@ -259,14 +260,11 @@
   height: 88px;
   margin-block: 7px;
   border-radius: 10px;
-  background:
-    repeating-linear-gradient(0deg, transparent 0 15px, rgba(69, 133, 136, 0.18) 15px 16px),
-    repeating-linear-gradient(90deg, transparent 0 15px, rgba(69, 133, 136, 0.18) 15px 16px), #fbf1c7;
+  background: var(--aqua-b);
 }
 
 .build-chat-orb {
-  background:
-    radial-gradient(circle, var(--yellow-b), var(--orange-b) 30%, var(--purple-b) 58%, transparent 70%), var(--night-2);
+  background: var(--purple-b);
 }
 
 .build-chat-captions {
@@ -296,7 +294,7 @@
   padding-inline: 16px;
   border: 1px solid var(--rule);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
+  background: var(--surface-raised);
   color: var(--ink);
 }
 

@@ -163,7 +163,8 @@ describe('screen route collection', () => {
     render(<RouterProvider router={router} />);
 
     expect(await screen.findByRole('link', { name: 'Open Game Maker 2000' })).toHaveAttribute('href', '/');
-    expect(document.querySelector('.studio-backdrop canvas')).toBeInTheDocument();
+    expect(document.querySelector('.studio-backdrop')).toBeInTheDocument();
+    expect(document.querySelector('.studio-backdrop canvas')).not.toBeInTheDocument();
     const menu = screen.getByRole('button', { name: 'Menu' });
     expect(menu).toHaveAttribute('aria-expanded', 'false');
 

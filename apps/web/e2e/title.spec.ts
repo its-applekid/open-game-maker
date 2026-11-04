@@ -80,3 +80,21 @@ test('title Start is a primary-size target and the menu is labelled', async ({ p
   await expect(page).toHaveURL(/\/signin\?next=%2Fconnect%2Fgithub$/);
   await expect(page.locator('.title-town iframe')).toHaveCount(0);
 });
+
+test('title only shows its thin aqua focus outline for keyboard input', async ({ page }) => {
+  await stubTown(page);
+  await page.goto('/');
+
+  const start = page.getByRole('button', { name: 'Start', exact: true });
+  await expect(start).toBeFocused();
+  await expect(start).toHaveCSS('outline-style', 'none');
+
+  await page.keyboard.press('Tab');
+  const sound = page.getByRole('button', { name: /sound/i });
+  await expect(sound).toBeFocused();
+  await expect(sound).toHaveCSS('outline-width', '2px');
+  await expect(sound).toHaveCSS('outline-color', 'rgb(142, 192, 124)');
+
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown')));
+  await expect(sound).toHaveCSS('outline-style', 'none');
+});
