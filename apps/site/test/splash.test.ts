@@ -28,7 +28,7 @@ describe('splash page', () => {
     expect(count(/<h1[\s>]/g)).toBe(1);
     expect(html.split(content.line)).toHaveLength(2);
     expect(html).toContain(`<a class="s-cta" href="/setup">${content.cta.setup}</a>`);
-    expect(html).toContain(`<a class="s-cta" href="${content.app_origin}">${content.cta.sign_in}</a>`);
+    expect(html).toContain(`<a class="s-cta" href="/signin">${content.cta.sign_in}</a>`);
   });
 
   it('renders three muted looping inline videos whose clips and posters are committed', () => {
@@ -71,7 +71,7 @@ describe('splash page', () => {
 
   it('rejects content that breaks the schema', () => {
     const valid = readFileSync(splashPath, 'utf8');
-    expect(() => parseSplashContent(valid.replace('https://makeopen.games', 'http://makeopen.games'))).toThrow();
+    expect(() => parseSplashContent(`app_origin: https://app.example\n${valid}`)).toThrow();
     expect(() =>
       parseSplashContent(valid.replace(/  - heading: Play on a phone[\s\S]*?poster: [^\n]+\n/, '')),
     ).toThrow();

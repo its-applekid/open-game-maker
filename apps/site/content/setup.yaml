@@ -182,31 +182,31 @@ steps:
         cites: [AGENTS.md]
 
   - id: 4
-    title: Set up the games private repo
+    title: Set up the instance repository
     time: ~30 min, mostly hand steps
-    outcome: Builder and intake machine users can create private gm-<gameId> repositories through the GitHub App.
+    outcome: Builder and intake automation can update games and shared packages in one private instance repository, with the GitHub App installed on that repository only.
     preconditions: Step 3 is complete and a GitHub owner is chosen.
     agent_prompt: *agent_prompt
     substeps:
       - kind: hand
-        text: Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>.
-        command: '# In GitHub, choose or create <github-owner>; game repositories remain private by default.'
-        writes: ['<github-owner>/gm-<gameId>']
-        check: <github-owner> is recorded for the remaining setup steps
-        cites: [services/builder/src/provision.ts, packages/game-repo-template]
+        text: Choose the GitHub account or free organization and create one private <github-owner>/<instance-repo> repository for this running Game Maker instance. Games live under games/<game-slug>/ and components shared by this instance's games live under packages/<name>/.
+        command: '# In GitHub, choose or create <github-owner>, then create one private <github-owner>/<instance-repo> repository.'
+        writes: ['<github-owner>/<instance-repo>']
+        check: <github-owner>/<instance-repo> is recorded in the instance environment for the remaining setup steps
+        cites: [services/builder/src/provision.ts, packages/game-repo-template, packages/config/src/names.ts]
       - kind: hand
-        text: Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env.
+        text: Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles.
         command: |-
-          # Create the two machine users and scoped PATs in GitHub.
+          # Create one or two machine users and scoped PATs in GitHub.
           # Set OGM_INTAKE_GITHUB_TOKEN, OGM_INTAKE_BOT_LOGIN,
           # OGM_BUILDER_BOT_TOKEN, and OGM_BUILDER_BOT_LOGIN in api.env.
         writes: [~/.config/ogm/env/api.env, ~/.aiur/.env]
         check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/env/api.env
         cites: [.env.example, docs/ops/runbook.md]
       - kind: hand
-        text: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
+        text: Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
         command: |-
-          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
+          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App only on <github-owner>/<instance-repo>.
           chmod 600 ~/.config/ogm/ogm-github-app.pem
           systemctl --user restart ogm-commit
           # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
@@ -355,11 +355,11 @@ steps:
         check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
         cites: [ops/bin/ogm-ingress.sh, docs/ops/ingress.md]
       - kind: hand
-        text: Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
+        text: Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
         command: |-
           # Write the Netlify site id to apps/web/.netlify-site-id.
           pnpm --filter @ogm/config exec ogm-env-init web
-          # Set OGM_PUBLIC_APP_ORIGIN=https://makeopen.games in web.env; deploy.sh redirects the retired Netlify host to it.
+          # Set OGM_PUBLIC_APP_ORIGIN=<app-origin> in web.env; each instance uses its own subdomain or domain.
           # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
           # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
           # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
