@@ -9,6 +9,7 @@ export default defineConfig({
       OGM_SESSION_SECRET: 'session-secret-for-tests-0123456789abcdef',
       OGM_AGE_COOKIE_SECRET: 'age-cookie-secret-for-tests-0123456789',
       OGM_WS_TOKEN_SECRET: 'ws-token-secret-for-tests-0123456789',
+      OGM_ALLOWED_EMAILS: 'kim@example.com,sam@example.com,kevin@example.com',
       OGM_MAINTAINER_EMAILS: '',
       GOOGLE_CLIENT_ID: '',
       GOOGLE_CLIENT_SECRET: '',

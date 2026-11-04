@@ -18,10 +18,11 @@ import {
   signAgeCookie,
   verifyAgeCookie,
 } from './age.js';
+import { mergeAllowedEmails, parseEmailList } from './access.js';
 import { createAuth, type Auth } from './auth.js';
 import { loadAuthEnv, type AuthEnv } from './env.js';
 import { selectMailSender } from './mail.js';
-import { parseMaintainers, sessionResolver } from './principal.js';
+import { sessionResolver } from './principal.js';
 import { clientIp, createRateLimiter } from './rate-limit.js';
 import { createUserDirectory } from './user-directory.js';
 import { signWsToken } from './ws-token.js';
@@ -34,7 +35,11 @@ const contexts = new WeakMap<AppDeps, AuthContext>();
 export function setup(deps: AppDeps): void {
   const env = loadAuthEnv();
   const mail = selectMailSender(env, deps.sqlite);
-  const auth = createAuth({ db: deps.db, env, mail: mail.sender, log: deps.log });
+  const configuredAllowedEmails = parseEmailList(env.OGM_ALLOWED_EMAILS);
+  const maintainers = parseEmailList(env.OGM_MAINTAINER_EMAILS);
+  const allowedEmails = mergeAllowedEmails(configuredAllowedEmails, maintainers);
+  if (configuredAllowedEmails.size === 0) deps.log({ event: 'auth-allowed-emails-empty', level: 'warn' });
+  const auth = createAuth({ db: deps.db, env, mail: mail.sender, allowedEmails, log: deps.log });
   contexts.set(deps, { auth, env, agePerIp: createRateLimiter(10) });
   deps.registry.mailSender ??= {
     send: async (message) => {
@@ -42,9 +47,7 @@ export function setup(deps: AppDeps): void {
     },
   };
   deps.registry.userDirectory ??= createUserDirectory(deps.sqlite);
-  deps.registry.principalResolvers.push(
-    sessionResolver(auth, deps.sqlite, parseMaintainers(env.OGM_MAINTAINER_EMAILS)),
-  );
+  deps.registry.principalResolvers.push(sessionResolver(auth, deps.sqlite, allowedEmails, maintainers));
   deps.log({
     event: 'auth-ready',
     mailSender: mail.kind,

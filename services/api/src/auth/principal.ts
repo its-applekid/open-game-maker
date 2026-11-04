@@ -2,6 +2,7 @@ import type { Principal } from '@ogm/contracts';
 import type { Sqlite } from '@ogm/db';
 
 import type { Resolver } from '../app/registry.js';
+import { emailIsAllowed } from './access.js';
 import type { Auth } from './auth.js';
 
 type Membership = { family_id: string; role: string; capability: string };
@@ -16,25 +17,22 @@ function membership(sqlite: Sqlite, userId: string): Membership | undefined {
     .get(userId);
 }
 
-export function parseMaintainers(list: string | undefined): Set<string> {
-  return new Set(
-    (list ?? '')
-      .split(',')
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
-
 export function sessionDisplayName(name: string, email: string): string {
   const trimmed = name.trim().slice(0, 40);
   return trimmed && trimmed.toLowerCase() !== email.trim().toLowerCase() ? trimmed : FALLBACK_DISPLAY_NAME;
 }
 
 // A session cookie or `Authorization: Bearer <session token>` (bearer plugin) becomes a `user`.
-export function sessionResolver(auth: Auth, sqlite: Sqlite, maintainers: Set<string>): Resolver {
+export function sessionResolver(
+  auth: Auth,
+  sqlite: Sqlite,
+  allowedEmails: ReadonlySet<string>,
+  maintainers: ReadonlySet<string>,
+): Resolver {
   return async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return null;
+    if (!emailIsAllowed(session.user.email, allowedEmails)) return null;
 
     const member = membership(sqlite, session.user.id);
     const platformRole: Extract<Principal, { kind: 'user' }>['platformRole'] = maintainers.has(
