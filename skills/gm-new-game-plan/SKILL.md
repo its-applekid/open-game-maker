@@ -59,6 +59,30 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
   the right edges, then queue the unblocked children (`aiur-main --todo`).
 - Post the plan summary on the parent: architecture sketch, ticket list by lane, prototype set, open decisions.
 
+## Deep-dive every ticket before implementation (always, unasked)
+
+Once the high-level plan and the proposed Build Order exist (your own brainstorm → plan loop), do not dispatch any
+implementation ticket yet. Nobody has to ask for this step; it is part of planning every new game.
+
+1. **One research ticket per implementation ticket**, filed at once and run in parallel (label `kind:research`, same
+   feature and epic, priority above implementation). Each one blocks its implementation ticket (native blocked-by).
+   Library and asset tickets that already are research get no extra spike.
+2. **Each research agent** loads `ce-brainstorm` then `ce-plan` (compound-engineering) on its ticket, reads the private
+   context it cites, the code and the assets it touches, and the related tickets' contracts. It writes
+   `games/<name>/docs/research/<ticket>.md`: the design for that piece, the interfaces it consumes and provides,
+   step-by-step implementation units, exact files, test scenarios with expected values, asset ids, evidence to produce,
+   risks, and open questions with a recommended default. Public-safe wording; private detail stays in private storage
+   and is referenced, never copied.
+3. **You weave them.** When the research for a lane or milestone lands, reconcile contradictions across tickets (shared
+   contracts, names, data formats, effect vocabulary), write `games/<name>/docs/spec/<area>.md` as the final design for
+   that area, and rewrite each implementation ticket to point at its research doc and spec section, with acceptance
+   restated as checkable items.
+4. **Write for a weaker implementer.** Assume the implementation agent is less capable than you: no step left implicit,
+   no "as appropriate", exact paths and names, and one obvious next action per unit. If a ticket still needs judgment
+   beyond that, split it or keep the judgment in the spec.
+5. Then queue implementation in Build Order priority. Questions raised by research go to the player as Commands with a
+   recommendation; they never block unrelated tickets (provisional defaults apply as usual).
+
 ## Keep it moving
 
 - Apply provisional defaults to open Commands after about five minutes; record them as decisions (origin: default).
