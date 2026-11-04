@@ -10,26 +10,30 @@ import { signOut } from '../lib/api/auth';
 import { useSession } from '../lib/api/session';
 import { getVolume, onChange, setMuted, setVolume, status } from '../lib/sound';
 import { useAdminMe } from '../routes/admin/api';
+import { requireAdmin } from '../routes/admin/guard';
 
 const RECENT_BUILD_MS = 5 * 60 * 1000;
+const MAX_TRACKED_BUILDS = 100;
+const activeBuildsByCreator = new Map<string, Set<string>>();
 
 export function StudioMenu() {
   const root = useRef<HTMLDivElement>(null);
   const trigger = useRef<HTMLButtonElement>(null);
-  const previousActive = useRef(new Map<string, Job>());
-  const announcedStarts = useRef(new Set<string>());
   const location = useLocation();
   const { data: session } = useSession();
+  const creatorId = session?.user.id;
   const admin = useAdminMe(Boolean(session));
   const builds = useMyJobs();
   const sound = useSyncExternalStore(onChange, status);
   const [open, setOpen] = useState(false);
   const [volume, setLocalVolume] = useState(getVolume);
   const [announcement, setAnnouncement] = useState('');
+  const [buildClock, setBuildClock] = useState(0);
+  const [signingOut, setSigningOut] = useState(false);
   const game = matchPath('/g/:gameId/*', location.pathname);
   const gameId = game?.params.gameId;
   const gameTitles = useMemo(() => new Map(builds.games.map(({ id, title }) => [id, title])), [builds.games]);
-  const visibleBuilds = useMemo(() => recentBuilds(builds.jobs), [builds.jobs]);
+  const visibleBuilds = useMemo(() => recentBuilds(builds.jobs), [builds.jobs, buildClock]);
 
   useEffect(() => {
     if (!open) return;
@@ -50,23 +54,34 @@ export function StudioMenu() {
   }, [open]);
 
   useEffect(() => {
-    const next = new Map(builds.active.map((job) => [job.id, job]));
-    const messages: string[] = [];
-    for (const job of builds.active) {
-      if (announcedStarts.current.has(job.id)) continue;
-      announcedStarts.current.add(job.id);
-      messages.push(`Building ${buildName(job, gameTitles)}`);
-    }
-    for (const [jobId, job] of previousActive.current) {
-      if (!next.has(jobId)) messages.push(`Finished building ${buildName(job, gameTitles)}`);
-    }
-    previousActive.current = next;
+    if (!creatorId) return;
+    const messages = buildAnnouncements(creatorId, builds.jobs, builds.active, gameTitles);
     if (messages.length > 0) setAnnouncement(messages.join('. '));
-  }, [builds.active, gameTitles]);
+  }, [builds.active, builds.jobs, creatorId, gameTitles]);
+
+  useEffect(() => {
+    const nextExpiry = nextRecentBuildExpiry(builds.jobs);
+    if (nextExpiry === undefined) return;
+    const timer = window.setTimeout(
+      () => setBuildClock((current) => current + 1),
+      Math.max(0, nextExpiry - Date.now() + 1),
+    );
+    return () => window.clearTimeout(timer);
+  }, [buildClock, builds.jobs]);
 
   const changeVolume = (next: number) => {
     setLocalVolume(next);
     setVolume(next);
+  };
+  const handleSignOut = async () => {
+    if (signingOut) return;
+    setSigningOut(true);
+    try {
+      await signOut();
+    } catch {
+      setAnnouncement('Sign out failed. Try again.');
+      setSigningOut(false);
+    }
   };
   const close = () => setOpen(false);
   const gamePath = gameId === undefined ? undefined : `/g/${encodeURIComponent(gameId)}`;
@@ -145,14 +160,12 @@ export function StudioMenu() {
                 type="button"
                 className="studio-menu-action"
                 aria-label="Sign out"
-                onClick={() => {
-                  close();
-                  void signOut();
-                }}
+                disabled={signingOut}
+                onClick={() => void handleSignOut()}
               >
                 <Icon name="signOut" />
               </button>
-              {admin.data?.platformRole === 'maintainer' || admin.data?.platformRole === 'admin' ? (
+              {requireAdmin(admin.data ?? null) === 'ok' ? (
                 <MenuLink label="Admin" icon="admin" to="/admin" close={close} />
               ) : null}
             </div>
@@ -177,6 +190,40 @@ function recentBuilds(jobs: readonly Job[], now = Date.now()): Job[] {
     const finishedAt = Date.parse(job.terminalAt ?? job.updatedAt);
     return Number.isFinite(finishedAt) && now - finishedAt <= RECENT_BUILD_MS;
   });
+}
+
+function nextRecentBuildExpiry(jobs: readonly Job[], now = Date.now()): number | undefined {
+  const expiries = jobs.flatMap((job) => {
+    if (!isTerminal(job.state)) return [];
+    const finishedAt = Date.parse(job.terminalAt ?? job.updatedAt);
+    const expiry = finishedAt + RECENT_BUILD_MS;
+    return Number.isFinite(expiry) && expiry > now ? [expiry] : [];
+  });
+  return expiries.length > 0 ? Math.min(...expiries) : undefined;
+}
+
+function buildAnnouncements(
+  creatorId: string,
+  jobs: readonly Job[],
+  active: readonly Job[],
+  names: ReadonlyMap<string, string | undefined>,
+): string[] {
+  const known = activeBuildsByCreator.get(creatorId) ?? new Set<string>();
+  const messages: string[] = [];
+  for (const job of active) {
+    if (known.has(job.id)) continue;
+    known.add(job.id);
+    messages.push(`Building ${buildName(job, names)}`);
+  }
+  for (const job of jobs) {
+    if (isTerminal(job.state) && known.delete(job.id)) {
+      messages.push(`Finished building ${buildName(job, names)}`);
+    }
+  }
+  while (known.size > MAX_TRACKED_BUILDS) known.delete(known.values().next().value!);
+  if (known.size > 0) activeBuildsByCreator.set(creatorId, known);
+  else activeBuildsByCreator.delete(creatorId);
+  return messages;
 }
 
 function buildName(job: Job, names: ReadonlyMap<string, string | undefined>): string {

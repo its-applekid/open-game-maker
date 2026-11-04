@@ -210,6 +210,15 @@
   .studio-logo {
     height: 40px;
   }
+
+  .app-chrome:has(.new-style-detail) {
+    --studio-menu-row: calc(max(16px, var(--safe-t)) + 58px);
+    padding-top: var(--studio-menu-row);
+  }
+
+  .app-chrome:has(.new-style-detail) .new-game-screen {
+    height: calc(100dvh - var(--studio-menu-row) - max(16px, var(--safe-b)));
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

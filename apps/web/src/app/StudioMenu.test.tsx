@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -17,13 +17,14 @@ const sound = vi.hoisted(() => ({
   setVolume: vi.fn(),
   status: vi.fn(() => 'on' as const),
 }));
+const auth = vi.hoisted(() => ({ signOut: vi.fn() }));
 
 vi.mock('../features/build-chat/jobs', () => ({
   isTerminal: (value: string) => ['done', 'failed', 'cancelled'].includes(value),
   useMyJobs: () => state.jobs,
 }));
 vi.mock('../lib/api/session', () => ({ useSession: () => state.session }));
-vi.mock('../lib/api/auth', () => ({ signOut: vi.fn() }));
+vi.mock('../lib/api/auth', () => auth);
 vi.mock('../lib/sound', () => sound);
 vi.mock('../routes/admin/api', () => ({ useAdminMe: () => state.admin }));
 
@@ -59,6 +60,8 @@ afterEach(() => {
   state.session = { data: null };
   sound.setMuted.mockReset();
   sound.setVolume.mockReset();
+  auth.signOut.mockReset();
+  vi.useRealTimers();
 });
 
 describe('StudioMenu', () => {
@@ -112,6 +115,10 @@ describe('StudioMenu', () => {
     const build = screen.getByRole('link', { name: /Moon Vault.*Building rooms.*42%/ });
     expect(build).toHaveAttribute('href', '/g/game-1?v=main');
 
+    view.unmount();
+    const remounted = renderMenu('/games');
+    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+
     const finished = runningJob({
       state: 'done',
       stage: 'done',
@@ -120,7 +127,7 @@ describe('StudioMenu', () => {
       terminalAt: new Date().toISOString(),
     });
     state.jobs = { jobs: [finished], active: [], games: [{ id: 'game-1', title: 'Moon Vault' }] };
-    view.rerender(
+    remounted.rerender(
       <MemoryRouter initialEntries={['/games']}>
         <StudioMenu />
       </MemoryRouter>,
@@ -128,6 +135,40 @@ describe('StudioMenu', () => {
 
     expect(screen.getByRole('button', { name: 'Menu' })).toHaveAttribute('data-building', 'false');
     expect(screen.getByRole('status')).toHaveTextContent('Finished building Moon Vault');
+  });
+
+  it('removes a just-finished build when its recent window expires', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-03T18:00:00.000Z'));
+    const finished = runningJob({
+      state: 'done',
+      stage: 'done',
+      stageText: 'Ready to try',
+      progressPercent: 100,
+      terminalAt: new Date().toISOString(),
+    });
+    state.session = { data: { user: { id: 'user-1' } } };
+    state.jobs = { jobs: [finished], active: [], games: [{ id: 'game-1', title: 'Moon Vault' }] };
+    renderMenu('/games');
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+    expect(screen.getByRole('link', { name: /Moon Vault.*Ready to try.*100%/ })).toBeVisible();
+
+    act(() => vi.advanceTimersByTime(5 * 60 * 1000 + 1));
+
+    expect(screen.queryByRole('link', { name: /Moon Vault/ })).not.toBeInTheDocument();
+  });
+
+  it('keeps sign out retryable when the auth request fails', async () => {
+    state.session = { data: { user: { id: 'user-1' } } };
+    auth.signOut.mockRejectedValueOnce(new Error('offline'));
+    renderMenu('/games');
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Sign out failed. Try again.'));
+    expect(screen.getByRole('dialog', { name: 'Menu' })).toBeVisible();
+    expect(screen.getByRole('button', { name: 'Sign out' })).toBeEnabled();
   });
 
   it('closes on Escape and returns focus to the hamburger', () => {

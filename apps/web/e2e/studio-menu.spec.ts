@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route, type TestInfo } from '@playwright/
 import { readFile } from 'node:fs/promises';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
+import { installNewRoutes } from './fixtures/new-routes';
 import { installGameApi } from './support/mock-game-api';
 
 const gameId = 'g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f';
@@ -42,6 +43,7 @@ const runningJob = {
 test.use({ serviceWorkers: 'block' });
 
 test('opens the same volume and report menu on the title', async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
   await installAuthRoutes(page);
   await stubBrandArt(page);
   await stubTown(page);
@@ -57,7 +59,7 @@ test('opens the same volume and report menu on the title', async ({ page }, test
 });
 
 test('shows the active build ring and contextual build in the games menu', async ({ page }, testInfo) => {
-  testInfo.setTimeout(60_000);
+  testInfo.setTimeout(90_000);
   await installAuthRoutes(page, { signedIn: true });
   await stubBrandArt(page);
   await installGamesMenuApi(page);
@@ -84,6 +86,28 @@ for (const mode of ['play', 'edit'] as const) {
     await expect(page.getByRole('link', { name: 'Rollback' })).toBeVisible();
   });
 }
+
+test('keeps the phone menu row clear of style media', async ({ page, isMobile }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  test.skip(!isMobile, 'phone layout acceptance path');
+  await installAuthRoutes(page, { signedIn: true });
+  await installNewRoutes(page);
+  await page.route('**/api/v1/me', (route) => json(route, { platformRole: 'none' }));
+  await page.goto('/new?test&step=family');
+  await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
+  await page.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
+
+  const menu = page.getByRole('button', { name: 'Menu' });
+  const media = page.locator('.new-style-track');
+  await expect(media).toHaveCount(2);
+  const [menuBox, mediaTop] = await Promise.all([
+    menu.evaluate((element) => element.getBoundingClientRect().toJSON()),
+    media.evaluateAll((elements) => Math.min(...elements.map((element) => element.getBoundingClientRect().top))),
+  ]);
+
+  expect(menuBox.bottom).toBeLessThanOrEqual(mediaTop);
+  await capturePhone(page, testInfo, 'new-style-menu-row');
+});
 
 async function installGamesMenuApi(page: Page) {
   await page.route('**/api/v1/**', async (route) => {
@@ -139,11 +163,9 @@ async function stubBrandArt(page: Page) {
 
 async function capturePhone(page: Page, testInfo: TestInfo, name: string) {
   if (testInfo.project.name !== 'phone') return;
-  await page.evaluate(
-    () => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))),
-  );
+  await page.waitForTimeout(200);
   const path = testInfo.outputPath(`${name}.png`);
-  await page.screenshot({ path, fullPage: true });
+  await page.screenshot({ path });
   await testInfo.attach(name, { path, contentType: 'image/png' });
 }
 

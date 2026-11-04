@@ -5,7 +5,7 @@ import type { Job } from '@ogm/contracts';
 import { registerTestApi } from '../../app/testHook';
 import { Bar } from './Bar';
 import { Chat } from './Chat';
-import { useDock, visibleJobs } from './dock';
+import { useDock } from './dock';
 import { JobList } from './JobList';
 import { isTerminal, useBudgetUnitLabel, useMyJobs } from './jobs';
 import type { StreamedChatMessage } from './stream';
@@ -23,15 +23,12 @@ export function BuildChatDock() {
   const { jobs } = useMyJobs();
   const unitLabel = useBudgetUnitLabel();
   const dock = useDock();
-  const shownJobs = visibleJobs(jobs, dock);
   const { draft } = dock;
   const selected =
     dock.openJobId !== undefined
       ? jobs.find(({ id }) => id === dock.openJobId)
       : draft &&
         jobs.find((job) => job.gameId === draft.gameId && job.branchId === draft.branchId && !isTerminal(job.state));
-
-  useEffect(() => dock.sync(jobs), [dock.sync, jobs]);
 
   testState.dockState = dock.view;
   testState.jobs = jobs;
@@ -67,7 +64,7 @@ export function BuildChatDock() {
         {dock.view === 'chat' && (selected || draft) ? (
           <div className="build-chat-chat-layout">
             <div className="build-chat-landscape-list">
-              <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} />
+              <JobList jobs={jobs} unitLabel={unitLabel} onOpen={openJob} />
             </div>
             <Chat
               key={dock.chatKey}
@@ -87,8 +84,8 @@ export function BuildChatDock() {
                 Close
               </button>
             </header>
-            <Bar jobs={shownJobs} expanded={dock.view === 'expanded'} onToggle={() => dock.toggleList(jobs)} />
-            {dock.view === 'expanded' ? <JobList jobs={shownJobs} unitLabel={unitLabel} onOpen={openJob} /> : null}
+            <Bar jobs={jobs} expanded={dock.view === 'expanded'} onToggle={() => dock.toggleList(jobs)} />
+            {dock.view === 'expanded' ? <JobList jobs={jobs} unitLabel={unitLabel} onOpen={openJob} /> : null}
           </>
         )}
       </div>

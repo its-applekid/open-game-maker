@@ -34,7 +34,7 @@ export function BugButton() {
         <Icon name="bug" />
       </button>
       {open && (
-        <form className="bug-sheet is-menu" aria-label="Report a problem" onSubmit={submit}>
+        <form className="bug-sheet" aria-label="Report a problem" onSubmit={submit}>
           <textarea
             aria-label="What went wrong?"
             aria-invalid={state === 'failed'}
