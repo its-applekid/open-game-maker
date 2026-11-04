@@ -15,11 +15,18 @@ let users = 0;
 let source: EventSource | null = null;
 let retry: ReturnType<typeof setTimeout> | undefined;
 let failedOpens = 0;
-const listeners = new Set<NotificationListener>();
+const listeners = new Map<NotificationListener, number>();
 
 export function subscribeNotification(listener: NotificationListener): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  listeners.set(listener, (listeners.get(listener) ?? 0) + 1);
+  let active = true;
+  return () => {
+    if (!active) return;
+    active = false;
+    const subscriberCount = listeners.get(listener) ?? 0;
+    if (subscriberCount <= 1) listeners.delete(listener);
+    else listeners.set(listener, subscriberCount - 1);
+  };
 }
 
 export function useNotificationFeed(): void {
@@ -40,7 +47,7 @@ function open(): void {
     es.addEventListener(name, (event) => {
       const message = event as MessageEvent<string>;
       pushToast(toastText(message));
-      for (const listener of listeners) listener(name, message);
+      for (const listener of listeners.keys()) listener(name, message);
     });
   }
   es.onerror = () => {

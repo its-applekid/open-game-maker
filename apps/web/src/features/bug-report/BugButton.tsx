@@ -26,7 +26,7 @@ export function BugButton() {
     <>
       <button
         type="button"
-        className="bug-fab"
+        className="studio-menu-action"
         aria-label="Report a problem"
         aria-expanded={open}
         onClick={() => setOpen(!open)}

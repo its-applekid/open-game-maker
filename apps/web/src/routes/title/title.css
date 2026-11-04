@@ -81,26 +81,7 @@
   cursor: pointer;
 }
 
-.title-sound {
-  position: absolute;
-  z-index: 2;
-  top: max(16px, var(--safe-t));
-  right: max(16px, var(--safe-r));
-  display: grid;
-  place-items: center;
-  width: var(--tap-secondary);
-  height: var(--tap-secondary);
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  background: var(--surface-card);
-  backdrop-filter: var(--glass);
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.title-sound .icon {
-  display: grid;
-  width: 24px;
-  height: 24px;
+.title-start:focus-visible {
+  outline: 3px solid var(--yellow-b);
+  outline-offset: 3px;
 }

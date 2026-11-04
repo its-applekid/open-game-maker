@@ -104,6 +104,47 @@ describe('jobs routes', () => {
       })
       .run();
     deps.db
+      .insert(schema.checkpoints)
+      .values([
+        {
+          decisionId: 'decision-open-1',
+          jobId,
+          daemonSlug: 'owner-game',
+          version: 1,
+          question: 'Which gate?',
+          options: '[]',
+          recommend: null,
+          status: 'open',
+          openedAt: '2026-11-01T16:00:00.000Z',
+          answeredAt: null,
+        },
+        {
+          decisionId: 'decision-open-2',
+          jobId,
+          daemonSlug: 'owner-game',
+          version: 1,
+          question: 'Which moon?',
+          options: '[]',
+          recommend: null,
+          status: 'open',
+          openedAt: '2026-11-01T16:01:00.000Z',
+          answeredAt: null,
+        },
+        {
+          decisionId: 'decision-answered',
+          jobId,
+          daemonSlug: 'owner-game',
+          version: 1,
+          question: 'Which path?',
+          options: '[]',
+          recommend: null,
+          status: 'answered',
+          openedAt: '2026-11-01T15:00:00.000Z',
+          answeredAt: '2026-11-01T15:01:00.000Z',
+        },
+      ])
+      .run();
+    deps.db
       .insert(schema.games)
       .values({
         id: ids.otherGame,
@@ -121,13 +162,17 @@ describe('jobs routes', () => {
 
     const byGame = await app.request(`/api/v1/jobs?gameId=${ids.game}`, { headers: asUser(ids.user) });
     expect(byGame.status).toBe(200);
-    expect(await byGame.json()).toMatchObject({ jobs: [{ id: jobId, stage: 'building', phase: 'work' }] });
+    expect(await byGame.json()).toMatchObject({
+      jobs: [{ id: jobId, stage: 'building', phase: 'work', openRequestCount: 2 }],
+    });
 
     const active = await app.request('/api/v1/jobs?state=active', { headers: asUser(ids.user) });
     expect(active.status).toBe(200);
     const activeBody = (await active.json()) as { jobs: { id: string }[] };
     expect(activeBody.jobs.map(({ id }) => id).sort()).toEqual([jobId, otherJobId].sort());
-    expect(activeBody.jobs).toContainEqual(expect.objectContaining({ id: jobId, stage: 'building', phase: 'work' }));
+    expect(activeBody.jobs).toContainEqual(
+      expect.objectContaining({ id: jobId, stage: 'building', phase: 'work', openRequestCount: 2 }),
+    );
 
     const read = await app.request(`/api/v1/jobs/${jobId}`, { headers: asUser(ids.user) });
     expect(await read.json()).toMatchObject({
@@ -135,6 +180,7 @@ describe('jobs routes', () => {
       plan: { targetControls: ['enemy.color'] },
       stageText: 'Building',
       progressPercent: 40,
+      openRequestCount: 2,
     });
 
     deps.db.update(schema.jobs).set({ state: 'done' }).where(eq(schema.jobs.id, jobId)).run();

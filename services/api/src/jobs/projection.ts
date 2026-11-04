@@ -29,6 +29,7 @@ const TRACKER_STAGES: Record<string, JobStage> = {
   'ci-wait': 'final_tests',
   rework: 'fixing',
   'human-review': 'ready',
+  parked: 'parked',
   merging: 'done',
   done: 'done',
   error: 'failed',

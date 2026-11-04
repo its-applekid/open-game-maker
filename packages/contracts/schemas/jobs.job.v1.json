@@ -288,6 +288,7 @@
         "final_tests",
         "fixing",
         "ready",
+        "parked",
         "out_of_budget",
         "paused",
         "done",
@@ -311,6 +312,11 @@
       "type": "integer",
       "minimum": 0,
       "maximum": 100
+    },
+    "openRequestCount": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9007199254740991
     }
   },
   "required": [

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { queryClient } from '../../app/query';
 import { MessageList } from './MessageList';
 import type { StreamedChatMessage } from './stream';
 
@@ -25,6 +26,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -87,6 +89,7 @@ describe('MessageList', () => {
   });
 
   it('loads the checkpoint budget and posts the selected option through the row', async () => {
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined);
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input);
       if (url.endsWith('/checkpoints/budget')) {
@@ -129,6 +132,7 @@ describe('MessageList', () => {
       );
     });
     expect(screen.getByRole('button', { name: 'Wooden' })).toBeDisabled();
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['build-chat', 'jobs'] });
   });
 
   it('falls back to text for an unknown kind', () => {
