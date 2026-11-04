@@ -40,12 +40,14 @@ export function GamesScreen() {
   const select = (index: number) => {
     const game = sortedGames[index];
     if (!game) return;
+    initialViewChosen.current = true;
     const next = new URLSearchParams(searchParams);
     next.set('spotlight', game.id);
     setSearchParams(next);
   };
 
   const close = () => {
+    initialViewChosen.current = true;
     const returningTo = selected?.id;
     const next = new URLSearchParams(searchParams);
     next.delete('spotlight');

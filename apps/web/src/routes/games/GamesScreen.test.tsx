@@ -240,6 +240,35 @@ describe('GamesScreen', () => {
     expect(tile).toHaveFocus();
   });
 
+  it('does not auto-select again when a user chooses and closes a game before measurement settles', async () => {
+    let template = 'none';
+    vi.stubGlobal('ResizeObserver', undefined);
+    const original = window.getComputedStyle.bind(window);
+    vi.spyOn(window, 'getComputedStyle').mockImplementation((element, pseudoElement) => {
+      const styles = original(element, pseudoElement);
+      if (!element.classList.contains('games-grid')) return styles;
+      return new Proxy(styles, {
+        get(target, property, receiver) {
+          if (property === 'gridTemplateColumns') return template;
+          return Reflect.get(target, property, receiver);
+        },
+      });
+    });
+    renderGames('/games?test');
+    const tile = await screen.findByRole('button', { name: /Goblin Cellar/ });
+
+    fireEvent.click(tile);
+    const close = await screen.findByRole('button', { name: 'Close game' });
+    fireEvent.keyDown(close, { key: 'Escape' });
+    await waitFor(() => expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight'));
+
+    template = '320px 320px 320px';
+    fireEvent(window, new Event('resize'));
+
+    expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight');
+    expect(screen.queryByRole('region', { name: /spotlight/ })).toBeNull();
+  });
+
   it('keeps cached tiles visible and offers retry when a refresh fails', async () => {
     vi.mocked(fetch).mockImplementation(async (input: RequestInfo | URL) => {
       const url = String(input);
