@@ -6,6 +6,14 @@ import { OtherTile } from './OtherTile';
 afterEach(() => cleanup());
 
 describe('OtherTile dictation', () => {
+  it('marks a picked Other tile for limit feedback', () => {
+    render(<OtherTile title="Vibe" value="Moonlit" full limitFeedback={1} onChange={vi.fn()} onFull={vi.fn()} />);
+
+    const tile = screen.getByText('“Moonlit”').closest('.new-other');
+    expect(tile).toHaveClass('new-limit-shake');
+    expect(tile).toHaveAttribute('data-limit-feedback', '1');
+  });
+
   it('keeps a final transcript editable until Add', () => {
     let listener: ((transcript: { kind: 'partial' | 'final'; text: string }) => void) | undefined;
     const onChange = vi.fn();
