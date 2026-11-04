@@ -9,8 +9,10 @@ import {
   cookiePair,
   signIn,
 } from './auth-helpers.js';
-import { createAuthLogger } from '../src/auth/auth.js';
-import { makeApp } from './helpers.js';
+import { signAgeCookie } from '../src/auth/age.js';
+import { createAuth, createAuthLogger } from '../src/auth/auth.js';
+import { loadAuthEnv } from '../src/auth/env.js';
+import { makeApp, makeDeps } from './helpers.js';
 
 afterEach(() => {
   vi.unstubAllEnvs();
@@ -28,6 +30,40 @@ const post = (path: string, body: unknown, headers: Record<string, string> = {})
     headers: { 'content-type': 'application/json', origin: APP_ORIGIN, ...headers },
     body: JSON.stringify(body),
   });
+
+function mutableAllowListAuth() {
+  const deps = makeDeps();
+  const env = loadAuthEnv();
+  const allowedEmails = new Set(['kim@example.com']);
+  const mails: { text: string }[] = [];
+  const auth = createAuth({
+    db: deps.db,
+    env,
+    allowedEmails,
+    log: deps.log,
+    mail: {
+      send: async ({ text }) => {
+        mails.push({ text });
+        return { id: `mail-${mails.length}` };
+      },
+    },
+  });
+  const ageValue = signAgeCookie(
+    { band: 'adult', attestedAt: new Date().toISOString(), exp: Math.floor(Date.now() / 1_000) + 3_600 },
+    env.OGM_AGE_COOKIE_SECRET,
+  );
+  return { allowedEmails, auth, deps, mails, age: `ogm_age=${ageValue}` };
+}
+
+async function directMagicLink(auth: ReturnType<typeof mutableAllowListAuth>['auth'], age: string) {
+  return auth.handler(post('/auth/sign-in/magic-link', { email: 'kim@example.com' }, { cookie: age }));
+}
+
+function mailLink(text: string): URL {
+  const match = /https:\/\/\S+/.exec(text);
+  if (!match) throw new Error('no link in mail text');
+  return new URL(match[0]);
+}
 
 describe('age gate on Better Auth', () => {
   it('refuses a magic link without the age cookie and sends nothing', async () => {
@@ -62,12 +98,59 @@ describe('age gate on Better Auth', () => {
     expect(Date.parse(user.age_attested_at)).toBeGreaterThan(Date.now() - 60_000);
   });
 
+  it('gives listed and unlisted addresses the same answer without storing or mailing for the unlisted address', async () => {
+    vi.stubEnv('OGM_ALLOWED_EMAILS', ' KIM@Example.com, sam@example.com ');
+    const { app, deps } = await makeApp();
+    const age = await adultCookie(app);
+    const listed = await requestMagicLink(app, 'kim@example.com', age);
+    const unlisted = await requestMagicLink(app, 'stranger@example.com', age);
+    const neutral = { status: true, message: 'If this address can sign in, a link is on its way' };
+
+    expect(listed.status).toBe(200);
+    expect(unlisted.status).toBe(200);
+    expect(await listed.json()).toEqual(neutral);
+    expect(await unlisted.json()).toEqual(neutral);
+    expect(outbox(deps)().map(({ to }) => to)).toEqual(['kim@example.com']);
+    expect(deps.sqlite.prepare('SELECT count(*) FROM verification').pluck().get()).toBe(1);
+    expect(users(deps)).toEqual([]);
+  });
+
   it('does not create an account when the link is opened without the age cookie', async () => {
     const { app, deps } = await makeApp();
     await requestMagicLink(app, 'kim@example.com', await adultCookie(app));
     const verified = await followLink(app, outbox(deps)()[0].text);
     expect(cookiePair(verified, SESSION_COOKIE)).toBeUndefined();
     expect(users(deps)).toEqual([]);
+  });
+
+  it('rechecks the allow-list in the shared user-creation hook before opening an issued link', async () => {
+    const { allowedEmails, auth, deps, mails, age } = mutableAllowListAuth();
+    expect((await directMagicLink(auth, age)).status).toBe(200);
+    allowedEmails.clear();
+
+    const response = await auth.handler(new Request(mailLink(mails[0].text), { headers: { cookie: age } }));
+
+    expect(response.status).not.toBe(200);
+    expect(deps.sqlite.prepare('SELECT count(*) FROM user').pluck().get()).toBe(0);
+    expect(deps.sqlite.prepare('SELECT count(*) FROM session').pluck().get()).toBe(0);
+  });
+
+  it('refuses passkey registration when an existing user is removed from the allow-list', async () => {
+    const { allowedEmails, auth, mails, age } = mutableAllowListAuth();
+    await directMagicLink(auth, age);
+    const signedIn = await auth.handler(new Request(mailLink(mails[0].text), { headers: { cookie: age } }));
+    const session = cookiePair(signedIn, SESSION_COOKIE);
+    expect(session).toBeDefined();
+    allowedEmails.clear();
+
+    const response = await auth.handler(
+      new Request(`${APP_ORIGIN}/auth/passkey/generate-register-options`, {
+        headers: { cookie: `${session}; ${age}`, origin: APP_ORIGIN },
+      }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toMatchObject({ code: 'SIGN_IN_NOT_ALLOWED' });
   });
 
   it('refuses passkey registration without the age cookie even with a session', async () => {
@@ -97,13 +180,17 @@ describe('age gate on Better Auth', () => {
     expect((await requestMagicLink(app, 'sam@example.com', age, from('198.51.100.2'))).status).toBe(200);
   });
 
-  it('answers 502 MAIL_FAILED when the SMTP sender fails', async () => {
+  it('keeps the neutral response and logs when the SMTP sender fails', async () => {
     vi.stubEnv('SMTP_URL', 'smtp://127.0.0.1:1');
     const { app, deps } = await makeApp();
     const response = await requestMagicLink(app, 'kim@example.com', await adultCookie(app));
-    expect(response.status).toBe(502);
-    expect(await response.json()).toMatchObject({ code: 'MAIL_FAILED' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      status: true,
+      message: 'If this address can sign in, a link is on its way',
+    });
     expect(deps.sqlite.prepare('SELECT count(*) FROM verification').pluck().get()).toBe(0);
+    expect(deps.lines).toContainEqual({ event: 'auth-magic-link-mail-failed', level: 'error' });
   });
 
   it('does not copy untrusted request values into Better Auth logs', () => {
@@ -115,6 +202,24 @@ describe('age gate on Better Auth', () => {
 });
 
 describe('sign-in methods', () => {
+  it('allows maintainers when the explicit allow-list is empty and logs one fail-closed warning', async () => {
+    vi.stubEnv('OGM_ALLOWED_EMAILS', ' , ');
+    vi.stubEnv('OGM_MAINTAINER_EMAILS', ' Other@example.com, KIM@example.com ');
+    const { app, deps } = await makeApp();
+    const response = await requestMagicLink(app, 'kim@example.com', await adultCookie(app));
+    const denied = await requestMagicLink(app, 'stranger@example.com', await adultCookie(app));
+
+    expect(response.status).toBe(200);
+    expect(await denied.json()).toEqual({
+      status: true,
+      message: 'If this address can sign in, a link is on its way',
+    });
+    expect(outbox(deps)()).toHaveLength(1);
+    expect(deps.lines.filter(({ event }) => event === 'auth-allowed-emails-empty')).toEqual([
+      { event: 'auth-allowed-emails-empty', level: 'warn' },
+    ]);
+  });
+
   it('lists only the social providers configured at boot', async () => {
     const withoutGoogle = await makeApp();
     expect(await (await withoutGoogle.app.request('/auth/providers')).json()).toEqual({

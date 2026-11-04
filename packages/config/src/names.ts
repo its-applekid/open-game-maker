@@ -166,6 +166,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
   { name: 'OGM_AGE_COOKIE_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for the ogm_age cookie' },
+  {
+    name: 'OGM_ALLOWED_EMAILS',
+    unit: 'api',
+    kind: 'string',
+    doc: 'comma-separated sign-in allow-list (optional; empty admits maintainers only)',
+  },
   { name: 'OGM_MAINTAINER_EMAILS', unit: 'api', kind: 'string', doc: 'comma-separated maintainer emails (optional)' },
   {
     name: 'GOOGLE_CLIENT_ID',
