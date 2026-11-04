@@ -35,17 +35,17 @@ export function createTownReadyGate() {
 }
 
 export function formatHttpError(response) {
-  if (response.ok()) return undefined;
+  if (response.status() < 400) return undefined;
   return `http ${response.status()} ${response.url()}`;
 }
 
-export async function recordLoad([output, url = 'http://127.0.0.1:43171/', seconds = '60']) {
+export async function recordLoad([output, url = 'http://127.0.0.1:43171/', seconds = '60'], browserType = chromium) {
   if (!output) throw new Error('usage: loadrec.mjs <out-dir> [url] [seconds]');
   const loadMilliseconds = loadWindowMilliseconds(seconds);
   await mkdir(output, { recursive: true });
 
   const software = globalThis.process.env.GM_VERIFY_SOFTWARE_GL === '1';
-  const browser = await chromium.launch({
+  const browser = await browserType.launch({
     args: software ? ['--use-angle=swiftshader'] : ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'],
   });
   const context = await browser.newContext({
