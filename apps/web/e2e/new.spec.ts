@@ -262,9 +262,9 @@ test('style detail fits its media and navigation into phone and desktop viewport
       tracks.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON())),
       stops.evaluate((element) => element.getBoundingClientRect().toJSON()),
       arrows.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON())),
-      embedded.getByRole('button', { name: 'Select SmallScaleInt' }).evaluate((element) =>
-        element.getBoundingClientRect().toJSON(),
-      ),
+      embedded
+        .getByRole('button', { name: 'Select SmallScaleInt' })
+        .evaluate((element) => element.getBoundingClientRect().toJSON()),
       embedded.locator('.new-style-detail').evaluate((element) => element.getBoundingClientRect().toJSON()),
     ]);
     const [diorama, sheet] = trackBoxes;
