@@ -152,7 +152,7 @@ describe('StyleStep', () => {
     expect(screen.queryByRole('img', { name: /pack preview/i })).not.toBeInTheDocument();
   });
 
-  it('opens an aliased set from Pixel art, restores grid focus, and selects from detail', () => {
+  it('opens an aliased set from Pixel art and selects from detail without an extra back control', () => {
     const onSelect = renderStep();
     fireEvent.click(screen.getByRole('button', { name: 'Pixel art' }));
 
@@ -162,11 +162,7 @@ describe('StyleStep', () => {
     fireEvent.click(smallscaleint);
     expect(screen.queryByText('SmallScaleInt')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Select SmallScaleInt' })).toBeVisible();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Back to Pixel art sets' }));
-    expect(screen.getByRole('button', { name: 'SmallScaleInt' })).toHaveFocus();
-
-    fireEvent.click(screen.getByRole('button', { name: 'SmallScaleInt' }));
+    expect(screen.queryByRole('button', { name: 'Back to Pixel art sets' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Select SmallScaleInt' }));
     expect(onSelect).toHaveBeenCalledWith('smallscaleint');
     expect(screen.getByRole('button', { name: 'Pixel art' })).toBeVisible();
@@ -180,8 +176,7 @@ describe('StyleStep', () => {
     expect(screen.getByRole('button', { name: 'Select SmallScaleInt' })).toBeVisible();
     fireEvent.keyDown(document, { key: 'ArrowLeft' });
     expect(screen.getByRole('button', { name: 'Select SmallScaleInt' })).toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: 'Back to styles' }));
-    expect(screen.getByRole('button', { name: 'Isometric' })).toHaveFocus();
+    expect(screen.queryByRole('button', { name: 'Back to styles' })).not.toBeInTheDocument();
   });
 
   it('swaps v5 scene media, keeps tracks synced, and renders outline options last without visible labels', () => {
@@ -275,6 +270,14 @@ describe('StyleStep', () => {
 
     expect(region).toHaveAttribute('src', '/showcase/showcase.region.mp4');
     expect(sheet).toHaveAttribute('src', '/showcase/showcase.sheet.mp4');
+    expect(screen.getByRole('button', { name: 'Portal glade ambush' }).querySelector('img')).toHaveAttribute(
+      'src',
+      '/showcase/1-fantasy.region.png',
+    );
+    expect(screen.getByRole('button', { name: 'Caravan camp raid' }).querySelector('img')).toHaveAttribute(
+      'src',
+      '/showcase/2-desert.region.png',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Caravan camp raid' }));
     expect(screen.getByLabelText('Diorama preview')).toBe(region);
     expect(screen.getByLabelText('Sprite sheets preview')).toBe(sheet);
