@@ -8,7 +8,7 @@ import process from 'node:process';
 import { pathToFileURL, URL } from 'node:url';
 
 // Read only this name; never echo other lines, since unit files also hold secrets.
-function readValue(file, name) {
+export function readEnvValue(file, name) {
   const lines = readFileSync(file, 'utf8')
     .split(/\r?\n/)
     .filter((line) => line.startsWith(`${name}=`));
@@ -22,7 +22,7 @@ function readValue(file, name) {
 function readOrigin(envDir, name, servingUnit) {
   const file = join(envDir, 'web.env');
   if (!existsSync(file)) throw new Error(`${name} is not set: ${file} is missing (run ogm-env-init web)`);
-  const raw = readValue(file, name);
+  const raw = readEnvValue(file, name);
   if (!raw) throw new Error(`${name} is not set in ${file}`);
   let url;
   try {
@@ -37,7 +37,7 @@ function readOrigin(envDir, name, servingUnit) {
   if (servingUnit) {
     const [unitFile, unitName] = servingUnit;
     const servingFile = join(envDir, unitFile);
-    const accepted = existsSync(servingFile) ? readValue(servingFile, unitName).replace(/\/$/, '') : '';
+    const accepted = existsSync(servingFile) ? readEnvValue(servingFile, unitName).replace(/\/$/, '') : '';
     if (accepted && accepted !== url.origin) {
       throw new Error(`${name} in ${file} differs from ${unitName} in ${servingFile}`);
     }

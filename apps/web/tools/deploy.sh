@@ -39,6 +39,8 @@ if [[ -z "$GAMES_ORIGIN" ]]; then
 fi
 printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
 
+INSTANCE_LOGO_URL="$(node "$ROOT/apps/web/tools/instance-branding.mjs")"
+
 # The /api and /auth proxy target is a host value, so _redirects is written here and never kept in the repo.
 REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"
 if [[ "$DRY_RUN" == true ]]; then
@@ -64,7 +66,8 @@ if [[ ! -d "$ROOT/apps/web/title-town/models/sounds" ]]; then
 fi
 bash "$ROOT/apps/web/tools/town.sh" --public
 
-VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
+VITE_GAMES_ORIGIN="$GAMES_ORIGIN" VITE_INSTANCE_LOGO_URL="$INSTANCE_LOGO_URL" \
+  pnpm --dir "$ROOT" --filter @ogm/web build
 # The archived prototype's generated art/, demo/, and town/ payload is gitignored.
 bash "$ROOT/prototypes/studio-v0/tools/build.sh"
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"

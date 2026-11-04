@@ -68,6 +68,11 @@
   filter: drop-shadow(0 5px 12px rgba(0, 0, 0, 0.45));
 }
 
+.studio-logo img[data-instance-logo='custom'] {
+  width: min(40vw, 10rem);
+  object-fit: contain;
+}
+
 .sound-control {
   position: fixed;
   z-index: 45;

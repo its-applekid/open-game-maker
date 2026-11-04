@@ -17,7 +17,7 @@ describe('setup content', () => {
       [4, 'Set up the games private repo', 4],
       [5, 'Find assets', 4],
       [6, 'Local asset pipeline, optional Google Drive drop', 4],
-      [7, 'Configure', 8],
+      [7, 'Configure', 9],
       [8, 'Verify', 4],
     ]);
   });

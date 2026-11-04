@@ -12,6 +12,10 @@ const poster = Buffer.from(
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==',
   'base64',
 );
+// eslint-disable-next-line no-restricted-properties
+const configuredLogo = process.env.VITE_INSTANCE_LOGO_URL;
+const testLogo =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 100"><rect width="400" height="100" fill="#fb4934"/><text x="200" y="68" text-anchor="middle" font-size="54">TEST</text></svg>';
 
 // the built town (tools/town.sh) is not in CI: serve the stub and a poster in its place
 async function stubTown(page: Page) {
@@ -79,4 +83,17 @@ test('title Start is a primary-size target and the sound toggle is labelled', as
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
   await expect(page).toHaveURL(/\/age\?next=%2Fconnect%2Fgithub$/);
   await expect(page.locator('.title-town iframe')).toHaveCount(0);
+});
+
+test('a configured logo uses the default title box without stretching', async ({ page }) => {
+  test.skip(!configuredLogo, 'run with VITE_INSTANCE_LOGO_URL to exercise custom instance branding');
+  await stubTown(page);
+  await page.route(`**${configuredLogo}`, (route) => route.fulfill({ contentType: 'image/svg+xml', body: testLogo }));
+  await page.goto('/');
+
+  const logo = page.getByRole('img', { name: 'Open Game Maker 2000' });
+  await expect(logo).toHaveAttribute('src', configuredLogo!);
+  const box = (await page.locator('.title-logo').boundingBox())!;
+  expect(box.width / box.height).toBeCloseTo(1400 / 788, 2);
+  await expect(logo).toHaveCSS('object-fit', 'contain');
 });

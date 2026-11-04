@@ -98,13 +98,13 @@ describe('ogm-env-init', () => {
     if (unit === 'intake') expect(contents).toContain('OGM_STATE_DIR=');
   });
 
-  it('creates a web file with only the deploy origins, since the build and _redirects are public', () => {
+  it('creates a web file with only public build settings', () => {
     const home = temporaryDirectory();
     const result = runInitializer(home, 'web');
     const contents = readFileSync(join(home, '.config', 'ogm', 'env', 'web.env'), 'utf8');
 
     expect(result.status, result.stderr).toBe(0);
-    expect(contents).toBe('OGM_PUBLIC_APP_ORIGIN=\nVITE_GAMES_ORIGIN=\nVITE_API_ORIGIN=\n');
+    expect(contents).toBe('OGM_PUBLIC_APP_ORIGIN=\nVITE_GAMES_ORIGIN=\nVITE_API_ORIGIN=\nVITE_INSTANCE_LOGO_URL=\n');
   });
 
   it('creates a repair file with its existing shared API and games settings', () => {

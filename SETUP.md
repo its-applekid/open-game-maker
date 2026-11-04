@@ -579,7 +579,23 @@ Check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and 
 
 Hand back to the human: Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
 
-### 7.4 Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
+### 7.4 Choose instance branding for the logo shown on the title, sign-in, and games screens without changing the app icons. (OPTIONAL)
+
+Command:
+
+```sh
+# In web.env, leave VITE_INSTANCE_LOGO_URL blank for the Open Game Maker 2000 logo.
+# Or set it to a root-relative path or HTTPS URL ending in .png, .webp, or .svg.
+# The configured image is fitted into the existing logo boxes; favicon and app icons stay separate.
+apps/web/tools/deploy.sh --dry-run
+# After checking the preview on a phone, run apps/web/tools/deploy.sh to publish it.
+```
+
+Writes: `~/.config/ogm/env/web.env`
+
+Check: the title and app screens use the selected logo without stretching, while the favicon and app icons are unchanged
+
+### 7.5 Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
 
 Command:
 
@@ -595,7 +611,7 @@ Check: complete the iPhone check in docs/ops/netlify-proxy.md
 
 Hand back to the human: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
 
-### 7.5 Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending. (OPTIONAL)
+### 7.6 Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending. (OPTIONAL)
 
 Command:
 
@@ -607,7 +623,7 @@ Writes: `~/.config/ogm/env/voice-host.env`
 
 Check: grep '^OGM_VOICE_PROVIDER=fake$' ~/.config/ogm/env/voice-host.env
 
-### 7.6 Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
+### 7.7 Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
 
 Command:
 
@@ -620,7 +636,7 @@ Writes: `~/.config/ogm/env/api.env`
 
 Check: /admin/budgets shows the configured defaults after sign-in
 
-### 7.7 Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof. (HAND)
+### 7.8 Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof. (HAND)
 
 Command:
 
@@ -636,7 +652,7 @@ Check: bash ops/test/backup-restore.sh && ops/bin/ogm-status --check
 
 Hand back to the human: Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof.
 
-### 7.8 Configure a VAPID key file and subject when web push is wanted. (OPTIONAL)
+### 7.9 Configure a VAPID key file and subject when web push is wanted. (OPTIONAL)
 
 Command:
 

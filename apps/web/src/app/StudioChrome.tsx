@@ -3,6 +3,7 @@ import { Link } from 'react-router';
 
 import { Icon } from '../components/Icon';
 import { getVolume, onChange, setMuted, setVolume, status, unlock, type SoundStatus } from '../lib/sound';
+import { InstanceLogo } from './InstanceLogo';
 
 const SOUND_LABEL: Record<SoundStatus, string> = {
   on: 'Sound on',
@@ -67,7 +68,7 @@ export function StudioBackdrop() {
 export function StudioLogo() {
   return (
     <Link className="studio-logo" to="/" aria-label="Open Game Maker 2000">
-      <img src="/art/gm.webp" alt="" />
+      <InstanceLogo defaultSource="/art/gm.webp" alt="" />
     </Link>
   );
 }

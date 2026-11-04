@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { useNavigate } from 'react-router';
 
+import { InstanceLogo } from '../../app/InstanceLogo';
 import { Icon } from '../../components/Icon';
 import { useSession } from '../../lib/api/session';
 import { FocusZone, useFocusable, useInitialFocus } from '../../lib/input';
@@ -28,7 +29,7 @@ export function TitleScreen({ townSrc }: { townSrc?: string }) {
     <div className="title-screen">
       <TitleTown active src={townSrc} />
       <h1 className="title-logo">
-        <img src="/art/logo.webp" alt="Open Game Maker 2000" />
+        <InstanceLogo defaultSource="/art/logo.webp" alt="Open Game Maker 2000" width="1400" height="788" />
       </h1>
       <FocusZone id="title-menu" className="title-menu">
         <MenuButton

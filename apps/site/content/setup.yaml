@@ -376,6 +376,17 @@ steps:
             apps/web/tools/games-origin.mjs,
             apps/web/tools/redirects.mjs,
           ]
+      - kind: optional
+        text: Choose instance branding for the logo shown on the title, sign-in, and games screens without changing the app icons.
+        command: |-
+          # In web.env, leave VITE_INSTANCE_LOGO_URL blank for the Open Game Maker 2000 logo.
+          # Or set it to a root-relative path or HTTPS URL ending in .png, .webp, or .svg.
+          # The configured image is fitted into the existing logo boxes; favicon and app icons stay separate.
+          apps/web/tools/deploy.sh --dry-run
+          # After checking the preview on a phone, run apps/web/tools/deploy.sh to publish it.
+        writes: [~/.config/ogm/env/web.env]
+        check: the title and app screens use the selected logo without stretching, while the favicon and app icons are unchanged
+        cites: [.env.example, packages/config, apps/web/tools/instance-branding.mjs]
       - kind: hand
         text: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
         command: |-

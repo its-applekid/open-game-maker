@@ -63,6 +63,11 @@
   filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
 }
 
+.title-logo img[data-instance-logo='custom'] {
+  aspect-ratio: 1400 / 788;
+  object-fit: contain;
+}
+
 .title-menu {
   position: relative;
   z-index: 2;

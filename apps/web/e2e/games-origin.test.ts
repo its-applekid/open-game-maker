@@ -91,7 +91,7 @@ describe('deploy games origin', () => {
     expect([run.status, run.stdout]).toEqual([1, '']);
     expect(run.stderr).toMatch(/^deploy: VITE_GAMES_ORIGIN is not set/);
     expect(readFileSync(script, 'utf8')).toContain(
-      'VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build',
+      'VITE_GAMES_ORIGIN="$GAMES_ORIGIN" VITE_INSTANCE_LOGO_URL="$INSTANCE_LOGO_URL"',
     );
   });
 });
