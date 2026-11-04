@@ -96,14 +96,30 @@ test('keeps spotlight actions and the fixed New game control touch sized on a ph
   const plus = create.locator('.plus');
   const icon = plus.locator('svg');
   await expect(icon).toHaveAttribute('viewBox', '0 0 16 16');
-  const [buttonColor, plusStyle] = await Promise.all([
-    create.evaluate((element) => getComputedStyle(element).color),
+  const [buttonStyle, plusStyle] = await Promise.all([
+    create.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        borderColor: style.borderTopColor,
+        boxShadow: style.boxShadow,
+        color: style.color,
+      };
+    }),
     plus.evaluate((element) => {
       const style = getComputedStyle(element);
       return { backgroundColor: style.backgroundColor, color: style.color };
     }),
   ]);
-  expect(plusStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', color: buttonColor });
+  expect(buttonStyle).toEqual({
+    backgroundColor: 'rgb(152, 151, 26)',
+    backgroundImage: 'none',
+    borderColor: 'rgba(0, 0, 0, 0)',
+    boxShadow: 'none',
+    color: 'rgb(29, 32, 33)',
+  });
+  expect(plusStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', color: buttonStyle.color });
 
   const label = create.getByText('New game', { exact: true });
   const [iconBox, labelBox] = await Promise.all([icon.boundingBox(), label.boundingBox()]);

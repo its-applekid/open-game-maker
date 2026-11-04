@@ -379,9 +379,8 @@
   gap: 8px;
   border-radius: 999px;
   font-size: 18px;
-  transition:
-    transform 0.5s var(--games-ease),
-    box-shadow 0.5s var(--games-ease);
+  box-shadow: none;
+  transition: transform 0.5s var(--games-ease);
 }
 
 .games-new .plus {
