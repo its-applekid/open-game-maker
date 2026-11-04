@@ -1,6 +1,6 @@
-import type { BriefingPush, JobState, VoiceTarget } from '@ogm/contracts';
+import type { BriefingPush, VoiceTarget } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, asc, desc, eq, notInArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 import { sizeClassRow } from '../budget/estimate.js';
@@ -34,7 +34,6 @@ export type PushDeps = BriefingDeps & {
 };
 
 const SIZES = ['small', 'medium', 'large', 'huge'] as const;
-const TERMINAL: JobState[] = ['done', 'failed', 'cancelled'];
 const PAUSED = 'Build paused at its reservation: ask an admin to raise it, or trim';
 
 export const targetKey = (target: VoiceTarget) =>
@@ -95,12 +94,19 @@ function budgetText(
 
 export function jobFor(db: Db, target: VoiceTarget) {
   if (target.kind === 'build') return db.select().from(schema.jobs).where(eq(schema.jobs.id, target.job_id)).get();
-  return db
+
+  const session = db
     .select()
-    .from(schema.jobs)
-    .where(and(eq(schema.jobs.gameId, target.game_id), notInArray(schema.jobs.state, TERMINAL)))
-    .orderBy(desc(schema.jobs.createdAt))
+    .from(schema.scopeSessions)
+    .where(
+      and(
+        eq(schema.scopeSessions.id, target.session_id),
+        eq(schema.scopeSessions.gameId, target.game_id),
+        eq(schema.scopeSessions.creatorId, target.creator_id),
+      ),
+    )
     .get();
+  return session ? db.select().from(schema.jobs).where(eq(schema.jobs.id, session.jobId)).get() : undefined;
 }
 
 export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Promise<Briefing> {

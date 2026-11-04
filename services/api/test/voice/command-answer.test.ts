@@ -4,7 +4,7 @@ import { eq } from 'drizzle-orm';
 import { describe, expect, it, vi } from 'vitest';
 
 import { answerVoiceCommand } from '../../src/voice/command-answer.js';
-import { ids, NOW, worked } from '../budget/fixture.js';
+import { ids, insertJob, NOW, worked } from '../budget/fixture.js';
 import { makeApp } from '../helpers.js';
 
 const target = {
@@ -121,6 +121,12 @@ describe('answerVoiceCommand', () => {
 
   it('answers the same game Command from a valid scope conversation', async () => {
     const deps = fixture();
+    insertJob(deps, {
+      id: 'j_18000000-0000-4000-8000-000000000099',
+      creatorId: ids.other,
+      createdAt: '2026-10-31T20:01:00.000Z',
+      updatedAt: '2026-10-31T20:01:00.000Z',
+    });
     const decide = vi.fn().mockResolvedValue({ decision_id: 'decision-1' });
     deps.aiurClientForRepo = async () => ({ decide }) as never;
 

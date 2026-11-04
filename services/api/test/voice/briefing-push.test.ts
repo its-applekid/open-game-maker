@@ -17,7 +17,7 @@ import {
   startBriefingPush,
   type VoiceTarget,
 } from '../../src/voice/briefing-push.js';
-import { ids, NOW, worked } from '../budget/fixture.js';
+import { ids, insertJob, NOW, worked } from '../budget/fixture.js';
 import { makeApiEnv } from '../env-fixture.js';
 
 const SECRET = 'voice-internal-secret-for-tests';
@@ -221,8 +221,76 @@ describe('buildBriefing', () => {
     ]);
   });
 
+  it("uses the scope session's job when a newer job exists for the game", async () => {
+    const deps = worked();
+    deps.db
+      .insert(schema.scopeSessions)
+      .values({
+        id: scope.session_id,
+        gameId: ids.game,
+        creatorId: ids.creator,
+        jobId: ids.running,
+        status: 'open',
+        revision: 0,
+        choices: '[]',
+        createdAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      })
+      .run();
+    const otherJob = 'j_18000000-0000-4000-8000-000000000099';
+    insertJob(deps, {
+      id: otherJob,
+      creatorId: ids.other,
+      createdAt: '2026-10-31T20:01:00.000Z',
+      updatedAt: '2026-10-31T20:01:00.000Z',
+    });
+    deps.db
+      .insert(schema.checkpoints)
+      .values([
+        {
+          decisionId: 'd_scope',
+          jobId: ids.running,
+          daemonSlug: 'daemon',
+          version: 1,
+          question: 'Which scope should this request use?',
+          options: '[]',
+          status: 'open',
+          openedAt: NOW.toISOString(),
+        },
+        {
+          decisionId: 'd_other',
+          jobId: otherJob,
+          daemonSlug: 'daemon',
+          version: 1,
+          question: 'Should another request ship?',
+          options: '[]',
+          status: 'open',
+          openedAt: NOW.toISOString(),
+        },
+      ])
+      .run();
+
+    const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
+
+    expect(briefing.commands.map(({ id }) => id)).toEqual(['d_scope']);
+  });
+
   it('omits budget claims when estimate data is unavailable', async () => {
     const deps = worked();
+    deps.db
+      .insert(schema.scopeSessions)
+      .values({
+        id: scope.session_id,
+        gameId: ids.game,
+        creatorId: ids.creator,
+        jobId: ids.running,
+        status: 'open',
+        revision: 0,
+        choices: '[]',
+        createdAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      })
+      .run();
     deps.db.delete(schema.sizeClasses).run();
 
     const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, scope);
