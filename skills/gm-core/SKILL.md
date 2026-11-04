@@ -37,7 +37,7 @@ Keep one style family per game. Use `gm assets sheet` for visual choices and rec
 ## Build loop
 
 Before a large visible choice, offer distinct options through `gm checkpoint open` (at most three checkpoints per
-creation build), then wait for the choice. Build the selected slice, run it, and look at the result. After every
+edit; new games follow gm-new-game-design), then wait for the choice. Build the selected slice, run it, and look at the result. After every
 `gm run`, send exactly one still or clip with `gm chat post`; do not make the creator ask to see progress.
 
 Done means `gm check`, `gm test`, and `gm run` are green and the PR's binary checklist is answered from the
@@ -84,6 +84,8 @@ Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animat
 | gm-audio | Adding or tuning music and sound effects. |
 | gm-multiplayer-ready | Structuring player state or building multiplayer. |
 | gm-scope-options | Turning a vague brief into distinct creator-facing options. |
+| gm-new-game-design | Scoping a new game from the New Game flow with the player. |
+| gm-new-game-plan | Executor: turning a new-game spec into tickets, epics and a Build Order. |
 | gm-editor-tuning | Exposing safe creator-tunable values. |
 | gm-repair | Repairing a failed build or verification gate. |
 | gm-set-<set> | Using a set's adapter named by `gm.lock.json`. |

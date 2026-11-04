@@ -7,7 +7,6 @@ export default defineConfig({
     env: {
       OGM_APP_ORIGIN: 'https://makeopen.games',
       OGM_SESSION_SECRET: 'session-secret-for-tests-0123456789abcdef',
-      OGM_AGE_COOKIE_SECRET: 'age-cookie-secret-for-tests-0123456789',
       OGM_WS_TOKEN_SECRET: 'ws-token-secret-for-tests-0123456789',
       OGM_ALLOWED_EMAILS: 'kim@example.com,sam@example.com,kevin@example.com',
       OGM_MAINTAINER_EMAILS: '',

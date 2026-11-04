@@ -119,6 +119,44 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await expect(page.locator('.build-chat-panel')).toHaveCSS('height', '390px');
 });
 
+test('large pasted text is a compact expandable attachment on phone and desktop', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize(
+    testInfo.project.name === 'phone' ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+  );
+  await installAuthRoutes(page, { signedIn: true });
+  await installBuildRoutes(page);
+  await page.goto('/games?test', { waitUntil: 'domcontentloaded' });
+  await page.getByRole('button', { name: '1 build running, 50% done. Show progress' }).click();
+  await page.getByRole('button', { name: /Show each build/ }).click();
+  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+
+  const textbox = page.getByRole('textbox', { name: 'Message the builder' });
+  const smallPasteAccepted = await textbox.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'a'.repeat(1_500));
+    return element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  expect(smallPasteAccepted).toBe(true);
+
+  const largePaste = 'a'.repeat(1_501);
+  const largePasteAccepted = await textbox.evaluate((element, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    return element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, largePaste);
+  expect(largePasteAccepted).toBe(false);
+
+  const composer = page.locator('.build-chat-composer');
+  const chip = composer.getByRole('listitem');
+  await expect(chip.getByText('Pasted text')).toBeVisible();
+  await expect(chip.getByText('1.5 KB')).toBeVisible();
+  expect((await chip.boundingBox())!.width).toBeLessThanOrEqual((await composer.boundingBox())!.width);
+
+  await chip.getByText('Pasted text').click();
+  await expect(chip.locator('pre')).toHaveText(largePaste);
+});
+
 // #222: files reach the builder as attachment ids on the message; the composer only shows their names.
 test('attaches files with the button and by pasting an image, then sends them with the message', async ({ page }) => {
   // Two uploads and a post on top of the dock flow, which alone takes most of the default budget on software GL.

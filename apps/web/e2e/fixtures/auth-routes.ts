@@ -13,7 +13,6 @@ export async function installAuthRoutes(page: Page, fixture: AuthFixture = {}) {
   await page.route('**/auth/**', async (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
-    if (path === '/auth/age' && request.method() === 'POST') return empty(route, 204);
     if (path === '/auth/providers') return json(route, { providers: ['magic-link', 'passkey'] });
     if (path === '/auth/get-session') {
       return json(
@@ -75,8 +74,4 @@ function registrationOptions(rpId: string) {
 
 async function json(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
-}
-
-async function empty(route: Route, status: number) {
-  await route.fulfill({ status, body: '' });
 }

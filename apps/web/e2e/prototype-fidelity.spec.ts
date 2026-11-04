@@ -260,6 +260,12 @@ async function prepareCreationOption(app: Page, reference: Page): Promise<Masks>
     expect(appChoice).toHaveAttribute('aria-pressed', 'true'),
     expect(referenceChoice).toHaveAttribute('aria-pressed', 'true'),
   ]);
+  // #462 intentionally replaces the prototype's pick-limit hint with capacity dots.
+  // Remove both affordances so this comparison continues to own the surrounding shell.
+  await Promise.all([
+    app.locator('.new-pick-capacity').evaluate((capacity) => capacity.remove()),
+    reference.locator('#wz-hint').evaluate((hint) => hint.remove()),
+  ]);
   return { app: [], reference: [] };
 }
 

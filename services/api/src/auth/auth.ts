@@ -10,7 +10,6 @@ import { eq } from 'drizzle-orm';
 import { schema, type Db } from '@ogm/db';
 
 import { emailIsAllowed, normalizeEmail } from './access.js';
-import { AGE_COOKIE, readCookie, verifyAgeCookie } from './age.js';
 import type { AuthEnv } from './env.js';
 import type { MailSender } from './mail.js';
 import { clientIp, createRateLimiter } from './rate-limit.js';
@@ -31,22 +30,8 @@ export function createAuthLogger(log: (line: Record<string, unknown>) => void) {
   };
 }
 
-// Endpoints that start a sign-up or attach a credential: each needs a valid `ogm_age` cookie.
-const AGE_GATED_PATHS = new Set([
-  '/sign-in/magic-link',
-  '/sign-in/social',
-  '/link-social',
-  '/passkey/generate-register-options',
-  '/passkey/verify-registration',
-]);
-
-const ageRequired = () => new APIError('FORBIDDEN', { message: 'age attestation required', code: 'AGE_REQUIRED' });
 const signInNotAllowed = () =>
   new APIError('FORBIDDEN', { message: 'sign in is not allowed', code: 'SIGN_IN_NOT_ALLOWED' });
-
-function ageCookieFrom(headers: Headers | undefined, secret: string) {
-  return verifyAgeCookie(readCookie(headers?.get('cookie'), AGE_COOKIE), secret);
-}
 
 // The two surfaces the API uses; the full inferred type drags in WebAuthn types this package cannot name.
 export interface Auth {
@@ -92,12 +77,6 @@ export function createAuth(deps: {
     }),
     emailAndPassword: { enabled: false },
     session: { expiresIn: 7 * 24 * 60 * 60, updateAge: 24 * 60 * 60 },
-    user: {
-      additionalFields: {
-        ageBand: { type: 'string', required: false, input: false },
-        ageAttestedAt: { type: 'string', required: false, input: false },
-      },
-    },
     socialProviders: google,
     plugins: [
       magicLink({
@@ -123,8 +102,6 @@ export function createAuth(deps: {
     ],
     hooks: {
       before: createAuthMiddleware(async (ctx) => {
-        if (!AGE_GATED_PATHS.has(ctx.path)) return;
-        if (!ageCookieFrom(ctx.headers, env.OGM_AGE_COOKIE_SECRET)) throw ageRequired();
         if (ctx.path === '/sign-in/magic-link') {
           const email = normalizeEmail(String((ctx.body as { email?: unknown } | undefined)?.email ?? ''));
           if (!magicLinkPerIp(clientIp(ctx.headers ?? new Headers())) || !magicLinkPerEmail(email)) {
@@ -146,12 +123,9 @@ export function createAuth(deps: {
     databaseHooks: {
       user: {
         create: {
-          // Every account creation (magic-link verify, Google callback) carries the attestation.
-          before: async (user, ctx) => {
-            const age = ageCookieFrom(ctx?.headers ?? ctx?.request?.headers, env.OGM_AGE_COOKIE_SECRET);
-            if (!age) throw ageRequired();
+          before: async (user) => {
             if (!emailIsAllowed(user.email, allowedEmails)) throw signInNotAllowed();
-            return { data: { ...user, ageBand: age.band, ageAttestedAt: age.attestedAt } };
+            return { data: user };
           },
         },
       },

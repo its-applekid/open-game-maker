@@ -380,14 +380,14 @@ steps:
             packages/config/src/names.ts,
           ]
       - kind: hand
-        text: Set the sign-in allow-list, verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
+        text: Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console.
         command: |-
           # Set OGM_ALLOWED_EMAILS=<email>,<email> in api.env.
           # OGM_MAINTAINER_EMAILS is always admitted; an empty OGM_ALLOWED_EMAILS admits maintainers only.
           # Optional Google redirect: <app-origin>/auth/callback/google
           # Set SMTP_URL, SMTP_FROM, GOOGLE_CLIENT_ID, and GOOGLE_CLIENT_SECRET only for the options you enable.
         writes: [~/.config/ogm/env/api.env]
-        check: complete the iPhone check in docs/ops/netlify-proxy.md
+        check: complete the iPhone check in docs/ops/netlify-proxy.md, including Start → email → magic link with no birth-date step
         cites: [docs/ops/netlify-proxy.md, .env.example]
       - kind: optional
         text: Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending.

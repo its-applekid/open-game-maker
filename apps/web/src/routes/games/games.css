@@ -248,7 +248,7 @@
   min-width: 0;
 }
 
-.games-grid [role='gridcell'].is-selected {
+.games-screen:not(.games-single-row) .games-grid [role='gridcell'].is-selected {
   display: none;
 }
 

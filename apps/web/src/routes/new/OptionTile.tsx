@@ -16,15 +16,23 @@ export function OptionTile({
   id,
   label,
   pressed,
+  limitFeedback = 0,
   onToggle,
 }: {
   id: string;
   label: string;
   pressed: boolean;
+  limitFeedback?: number;
   onToggle(): void;
 }) {
   return (
-    <button className="new-option tap-primary" type="button" aria-pressed={pressed} onClick={onToggle}>
+    <button
+      className={`new-option tap-primary${pressed && limitFeedback ? ' new-limit-shake' : ''}`}
+      type="button"
+      aria-pressed={pressed}
+      data-limit-feedback={pressed && limitFeedback ? limitFeedback % 2 : undefined}
+      onClick={onToggle}
+    >
       <Icon name={ICON_ALIASES[id] ?? id} className="new-option-icon" />
       <span>{label}</span>
     </button>

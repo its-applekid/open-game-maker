@@ -11,12 +11,55 @@ test.beforeEach(async ({ page }) => {
   await mockGamesRoutes(page);
 });
 
+test('switches from the selected game to the grid only when the thumbnail row overflows', async ({
+  page,
+}, testInfo) => {
+  const visit = async (count: number) => {
+    await page.goto(`/games?test&games=${count}`);
+    await expect(page.getByRole('button', { name: 'New game' })).toBeVisible();
+  };
+
+  await visit(1);
+  const grid = page.locator('.games-grid');
+  const capacity = await grid.evaluate((element) => {
+    const template = getComputedStyle(element).gridTemplateColumns;
+    return template.split(/\s+/).filter(Boolean).length;
+  });
+  expect(capacity).toBeGreaterThan(0);
+  await expect(page.locator('.games-spotlight')).toBeVisible();
+  await expect(page.locator('.game-tile')).toHaveCount(1);
+  await testInfo.attach(`${testInfo.project.name}-one-game`, {
+    body: await page.screenshot(),
+    contentType: 'image/png',
+  });
+
+  await visit(0);
+  await expect(page.getByText('No games yet. Start with a new idea.')).toBeVisible();
+  await expect(page.locator('.games-spotlight')).toHaveCount(0);
+  await testInfo.attach(`${testInfo.project.name}-zero-games`, {
+    body: await page.screenshot(),
+    contentType: 'image/png',
+  });
+
+  await visit(capacity);
+  await expect(page.locator('.games-spotlight')).toBeVisible();
+  await expect(page.locator('.game-tile')).toHaveCount(capacity);
+
+  await visit(capacity + 1);
+  await expect(page.locator('.games-spotlight')).toHaveCount(0);
+  await expect(page.locator('.game-tile')).toHaveCount(capacity + 1);
+  await testInfo.attach(`${testInfo.project.name}-full-grid`, {
+    body: await page.screenshot(),
+    contentType: 'image/png',
+  });
+});
+
 test('browses three real game tiles with the keyboard', async ({ page }) => {
   await page.goto('/games?test');
 
   const tiles = page.locator('.game-tile');
   await expect(tiles).toHaveCount(3);
-  await expect(page.getByText('Building 40%')).toBeVisible();
+  await expect(tiles.getByText('Building 40%')).toBeVisible();
   await expect
     .poll(() =>
       page.evaluate(() => ((window as GamesWindow).__ogmHost?.get('games') as GamesTestApi | undefined)?.tiles()),

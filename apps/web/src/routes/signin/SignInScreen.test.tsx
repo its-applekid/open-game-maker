@@ -14,8 +14,6 @@ const auth = vi.hoisted(() => ({
   },
   authErrorMessage: (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback),
   getAuthCapabilities: vi.fn(),
-  isAgeRequiredError: vi.fn((error: { code?: string }) => error?.code === 'AGE_REQUIRED'),
-  requireAge: vi.fn(),
   safeNext: (value: string | null, fallback: string) => value ?? fallback,
   useSession: vi.fn(),
 }));
@@ -48,7 +46,6 @@ beforeEach(() => {
   auth.authClient.passkey.addPasskey.mockResolvedValue({ data: {}, error: null });
   auth.authClient.useListPasskeys.mockReturnValue({ data: [], isPending: false });
   auth.getAuthCapabilities.mockResolvedValue({ providers: ['magic-link', 'passkey', 'google'] });
-  auth.requireAge.mockResolvedValue(undefined);
   auth.useSession.mockReturnValue({ data: null, isPending: false });
 });
 
@@ -122,19 +119,6 @@ describe('SignInScreen', { timeout: 10_000 }, () => {
     await act(async () => availability(true));
 
     expect(auth.authClient.signIn.passkey).not.toHaveBeenCalled();
-  });
-
-  it('routes an age-required auth response through the age screen', async () => {
-    enablePasskeys();
-    auth.authClient.signIn.passkey.mockResolvedValue({
-      data: null,
-      error: { status: 403, code: 'AGE_REQUIRED' },
-    });
-    renderSignIn();
-
-    fireEvent.click(await screen.findByRole('button', { name: 'Use a passkey' }));
-
-    await waitFor(() => expect(auth.requireAge).toHaveBeenCalledWith('/signin'));
   });
 
   it('shows ordinary sign-in errors and permits a retry', async () => {
