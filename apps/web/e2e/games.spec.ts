@@ -105,6 +105,7 @@ test('keeps spotlight actions and the fixed New game control touch sized on a ph
         borderColor: style.borderTopColor,
         boxShadow: style.boxShadow,
         color: style.color,
+        gap: style.columnGap,
       };
     }),
     plus.evaluate((element) => {
@@ -118,6 +119,7 @@ test('keeps spotlight actions and the fixed New game control touch sized on a ph
     borderColor: 'rgba(0, 0, 0, 0)',
     boxShadow: 'none',
     color: 'rgb(29, 32, 33)',
+    gap: '8px',
   });
   expect(plusStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', color: buttonStyle.color });
 
