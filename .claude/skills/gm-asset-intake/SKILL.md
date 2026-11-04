@@ -42,6 +42,12 @@ Turns a downloaded Drive drop into a library entry. The listener (`scripts/drive
 6. **Catalog.** Run `python3 -I scripts/assets/build_catalog.py`, and confirm the new pack id appears in `assets-local/catalog.json`.
 7. **Tagging hand-off.** Set the manifest's `tagging` block aside for the tagging pass. Follow `docs/research/v0.5/C3-asset-metadata-standard.md` §13 (and its schemas in `docs/research/v0.5/schemas/`) once they're final: measure with code first, render contact sheets, and use a vision model only if the effective rights include `vision-input` and Kevin has approved the spend. Until C3 lands, record `"tagging": "pending"` in `intake.json`.
 7b. **Preprocess** so an agent can use the drop at once through the CLI (`gm assets search`) and a lineup, without opening the files. Decide what is needed by kind (Kevin, 2026-11-01: "whatever you anticipate the agent would need to do in order to quickly use the asset"):
+   - **Assembly kit (sets with modular pieces: buildings, walls, roofs, interiors):** a filename catalog is not enough.
+     Produce an audited index with previews; a coordinate and assembly guide (scale, projection, anchors, floor
+     alignment, depth order, transparent margins); verified assemblies (a building, an interior, a village fragment,
+     an entrance) with footprints, collision, walkable areas and entry markers; a character and animation coverage
+     report; good and bad examples with fixes; and a small rendered test scene per assembly. Build from pieces to
+     assemblies to scenes; each later game adds proven assemblies back. Status labels: provisional or validated.
    - **Sprites and sheets:** split packed sheets where the pack ships no atlas, name frames, and render a contact sheet per sheet (`scripts/assets/sprite_libraries.py` style). Characters and creatures get a lineup page like `gm-assets` uses.
    - **3D models:** convert to glTF when the pack ships FBX/OBJ only, render a thumbnail per model and a lineup per category, record polycounts in the cards (device tiers, OGM-026), and build the pack's **thumbnail scene** (a standardized scene composed from the pack, rendered once, so a creator picking a visual style sees the pack at a glance; spec in the thumbnail-scenes ticket).
    - **Audio:** tag with the local audio model pipeline the music plan chose (`docs/plans/2026-10-27-001-feat-music-library-preprocessing-plan.md`: key, tempo, energy, instrumentation, mood, loopability, sections) into C3 audio cards; SFX get a one-line contact listing with durations.
