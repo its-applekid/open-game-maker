@@ -175,6 +175,7 @@ async function prepareTitle(app: Page, reference: Page): Promise<Masks> {
     installAuthRoutes(app, { signedIn: true }),
   ]);
   await app.route('**/town/index.html*', (route) => route.fulfill({ contentType: 'text/html', body: townStub }));
+  await app.route('**/api/v1/games', (route) => route.fulfill({ json: { games: [] } }));
   await Promise.all([
     app.goto('/?test', { waitUntil: 'domcontentloaded' }),
     reference.goto(`${referenceOrigin}/studio/index.html#library`, { waitUntil: 'domcontentloaded' }),
