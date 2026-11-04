@@ -142,6 +142,32 @@ describe('VoiceClient', () => {
     await Promise.all([first, second]);
   });
 
+  it('cancels a pending start without reopening the session', async () => {
+    const client = new VoiceClient({
+      url: 'ws://127.0.0.1:4567/voice',
+      token: 'token',
+      target: { id: 'ticket-42' },
+    });
+    const ended: string[] = [];
+    const errors: string[] = [];
+    client.on('ended', (frame) => ended.push(frame.reason));
+    client.on('error', (frame) => errors.push(frame.code));
+
+    const started = client.startFromGesture();
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const socket = FakeWebSocket.instances[0]!;
+    client.end();
+
+    await expect(started).resolves.toBeUndefined();
+    socket.open();
+
+    expect(socket.sent).toEqual([]);
+    expect(socket.close).toHaveBeenCalledOnce();
+    expect(audio.captureStop).toHaveBeenCalledOnce();
+    expect(ended).toEqual(['user_end']);
+    expect(errors).toEqual([]);
+  });
+
   it('ignores a failed socket closing after a retry connects', async () => {
     const client = new VoiceClient({
       url: 'ws://127.0.0.1:4567/voice',

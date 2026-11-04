@@ -54,22 +54,30 @@ export class VoiceClient {
   }
 
   private async start(): Promise<void> {
+    this.ended = false;
+    this.endRequested = false;
     const playbackReady = this.player.unlock();
     const captureReady = startCapture((chunk) => this.sendAudio(chunk));
 
     try {
       const capture = await captureReady;
+      if (this.endRequested) {
+        capture.stop();
+        await playbackReady.catch(() => undefined);
+        return;
+      }
       this.capture = capture;
       await playbackReady;
+      if (this.endRequested) return;
       await this.connect();
+      if (this.endRequested) return;
       this.startedAt = Date.now();
       this.stoppedAt = undefined;
-      this.ended = false;
-      this.endRequested = false;
       this.send({ type: 'start', target: this.options.target });
       this.watchVisibility();
     } catch (error) {
       this.stopCapture();
+      if (this.endRequested) return;
       this.player.close();
       const mapped = this.startError(error);
       this.emit({ v: 1, type: 'error', code: mapped.code, message: mapped.message });
