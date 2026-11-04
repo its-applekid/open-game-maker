@@ -567,6 +567,7 @@ pnpm --filter @ogm/config exec ogm-env-init web
 # Set OGM_PUBLIC_APP_ORIGIN=<app-origin> in web.env; each instance uses its own subdomain or domain.
 # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
 # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
+# Optional: export OGM_DEPLOY_LOAD_SECONDS=<seconds> to override the 60-second title readiness window.
 # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
 apps/web/tools/town.sh --public
 apps/web/tools/deploy.sh --dry-run

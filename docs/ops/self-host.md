@@ -24,6 +24,9 @@ VITE_GAMES_ORIGIN=https://<tailnet-host>:10000
 VITE_API_ORIGIN=https://<tailnet-host>:8443
 ```
 
+The deploy load check waits up to 60 seconds for `town-ready` and stops recording as soon as it arrives. Override the
+window for a slower host by exporting `OGM_DEPLOY_LOAD_SECONDS=<seconds>` before running `apps/web/tools/deploy.sh`.
+
 The commit unit needs no edit: `ops/systemd/ogm-commit.service` uses `@REPO@` like every other unit, and
 `ops/bin/ogm-host-setup.sh` fills in the checkout path.
 

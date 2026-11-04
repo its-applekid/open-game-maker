@@ -92,6 +92,7 @@ fi
 RECORD_DIR="$(mktemp -d)"
 PREVIEW_LOG="$RECORD_DIR/preview.log"
 LOAD_LOG="$RECORD_DIR/loadrec.log"
+LOAD_SECONDS="${OGM_DEPLOY_LOAD_SECONDS:-60}"
 pnpm --dir "$ROOT/apps/web" exec vite preview \
   --host 127.0.0.1 --port 43171 --outDir "$DEPLOY_DIR" \
   >"$PREVIEW_LOG" 2>&1 &
@@ -108,7 +109,7 @@ if ! curl --fail --silent --output /dev/null http://127.0.0.1:43171/; then
 fi
 
 node "$ROOT/apps/web/tools/loadrec.mjs" \
-  "$RECORD_DIR" http://127.0.0.1:43171/ 22 >"$LOAD_LOG"
+  "$RECORD_DIR" http://127.0.0.1:43171/ "$LOAD_SECONDS" >"$LOAD_LOG"
 sed -n '1,160p' "$LOAD_LOG"
 
 VIDEO="$(find "$RECORD_DIR" -maxdepth 1 -type f -name '*.webm' | head -n 1)"
