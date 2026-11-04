@@ -117,9 +117,7 @@ function parseColors(css: string): Map<string, string> {
     const value = declarations.get(name);
     if (!value) throw new Error(`missing colour token ${name}`);
     const alias = value.match(/^var\((--[\w-]+)\)$/);
-    const mix = value.match(
-      /^color-mix\(in srgb,\s*var\((--[\w-]+)\)\s+([\d.]+)%,\s*var\((--[\w-]+)\)\)$/,
-    );
+    const mix = value.match(/^color-mix\(in srgb,\s*var\((--[\w-]+)\)\s+([\d.]+)%,\s*var\((--[\w-]+)\)\)$/);
     const color = alias
       ? resolveColor(alias[1]!)
       : mix
@@ -141,7 +139,11 @@ function parseColors(css: string): Map<string, string> {
 }
 
 function mixHex(first: string, second: string, firstWeight: number): string {
-  const channels = (hex: string) => hex.slice(1).match(/.{2}/g)!.map((value) => Number.parseInt(value, 16));
+  const channels = (hex: string) =>
+    hex
+      .slice(1)
+      .match(/.{2}/g)!
+      .map((value) => Number.parseInt(value, 16));
   const secondChannels = channels(second);
   return `#${channels(first)
     .map((value, index) => Math.round(value * firstWeight + secondChannels[index]! * (1 - firstWeight)))
