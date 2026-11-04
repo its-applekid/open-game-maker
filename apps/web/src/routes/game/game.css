@@ -107,8 +107,8 @@
 }
 
 .mode-segment button[data-mode='play'][aria-pressed='true'] {
-  background: var(--green-b);
-  color: var(--dark);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
 }
 
 .mode-segment button[data-mode='edit'][aria-pressed='true'],
@@ -138,8 +138,8 @@
   min-height: 64px;
   border: 3px solid var(--ink);
   border-radius: 999px;
-  background: var(--green-b);
-  color: var(--dark);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   box-shadow: var(--pop-sm);
   font: 800 20px var(--display);
 }
@@ -279,8 +279,8 @@
   min-height: 64px;
   border: 3px solid var(--ink);
   border-radius: 999px;
-  background: var(--green-b);
-  color: var(--dark);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   font-weight: 800;
 }
 
@@ -325,9 +325,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background:
-    radial-gradient(circle at 30% 20%, hsl(var(--game-hue) 70% 66% / 0.72), transparent 38%),
-    linear-gradient(145deg, hsl(var(--game-hue) 42% 38%), var(--night-2));
+  background: var(--surface-raised);
 }
 
 .game-loading-cover .game-cover-placeholder span {
@@ -343,7 +341,7 @@
   display: grid;
   place-items: center;
   padding: 24px;
-  background: rgba(12, 11, 18, 0.7);
+  background: var(--surface-deep);
   -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
 }

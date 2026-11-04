@@ -142,7 +142,7 @@
   padding: 12px 20px;
   background: var(--yellow-b);
   color: var(--dark);
-  box-shadow: 0 8px 20px rgba(250, 189, 47, 0.2);
+  box-shadow: var(--pop-sm);
 }
 
 .admin-secondary {
@@ -154,8 +154,8 @@
 
 .admin-danger {
   padding: 12px 20px;
-  background: var(--red-b);
-  color: var(--dark);
+  background: var(--action-danger);
+  color: var(--action-danger-text);
 }
 
 .admin-primary:disabled,
@@ -271,7 +271,7 @@
   display: grid;
   place-items: center;
   padding: 20px;
-  background: rgba(29, 27, 22, 0.78);
+  background: var(--surface-deep);
   backdrop-filter: blur(8px);
 }
 
@@ -388,7 +388,7 @@
   height: 100%;
   min-width: 2px;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--orange-b), var(--yellow-b));
+  background: var(--action-primary);
 }
 
 .admin-rollup-legend {

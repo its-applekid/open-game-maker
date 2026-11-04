@@ -1,21 +1,19 @@
 .game-screen {
-  --ink: #3a2a20;
-  --ink-2: rgba(58, 42, 32, 0.78);
-  --muted: rgba(58, 42, 32, 0.62);
-  --paper: #fdf1d8;
-  --paper-2: #fffaf0;
-  --paper-3: #f3e6cc;
-  --rule: rgba(58, 42, 32, 0.24);
-  --editor-card: #fffaf0;
-  --editor-shadow: 0 5px 0 rgba(58, 42, 32, 0.22), 0 12px 26px rgba(58, 42, 32, 0.14);
+  --ink: var(--text);
+  --ink-2: var(--text);
+  --muted: var(--text-muted);
+  --paper: var(--surface-card);
+  --paper-2: var(--surface-raised);
+  --paper-3: var(--surface-raised);
+  --rule: var(--border);
+  --editor-card: var(--surface-card);
+  --editor-shadow: var(--pop-sm);
   display: grid;
   height: 100dvh;
   padding: max(12px, var(--safe-t)) max(12px, var(--safe-r)) max(12px, var(--safe-b)) max(12px, var(--safe-l));
   gap: 12px;
   overflow: hidden;
-  background:
-    radial-gradient(circle at 20% 10%, rgba(255, 255, 255, 0.4), transparent 28%),
-    repeating-linear-gradient(2deg, rgba(58, 42, 32, 0.025) 0 1px, transparent 1px 5px), var(--paper);
+  background: var(--surface-page);
   color: var(--ink);
 }
 
@@ -82,7 +80,7 @@
   border-color: var(--ink);
   background: var(--editor-card);
   color: var(--ink);
-  box-shadow: 0 3px 0 rgba(58, 42, 32, 0.25);
+  box-shadow: var(--pop-sm);
 }
 
 .game-screen .back,
@@ -99,12 +97,14 @@
 }
 
 .game-screen .mode-segment button[data-mode='play'][aria-pressed='true'] {
-  background: linear-gradient(#a9d66c, #8cc152);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
 }
 
 .game-screen .mode-segment button[data-mode='edit'][aria-pressed='true'],
 .game-screen .ask-change {
-  background: linear-gradient(#f9cf6e, #f8b93a);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
 }
 
 .game-screen .saved-state,
@@ -120,9 +120,9 @@
 }
 
 .game-screen .build-state {
-  border-color: #6fa23a;
-  background: rgba(140, 193, 82, 0.2);
-  color: #3f6e15;
+  border-color: var(--green-b);
+  background: var(--green-b);
+  color: var(--surface-deep);
 }
 
 .game-stage {
@@ -130,7 +130,7 @@
   min-width: 0;
   min-height: 0;
   overflow: hidden;
-  background: #2d2a3a;
+  background: var(--surface-deep);
   isolation: isolate;
 }
 
@@ -183,11 +183,11 @@
   font: 600 18px var(--display);
 }
 
-.editor-rail button[aria-pressed='true'] {
+.game-screen .editor-rail button[aria-pressed='true'] {
   border-color: var(--ink);
-  background: #ffd9b8;
-  color: var(--ink);
-  box-shadow: 0 4px 0 rgba(58, 42, 32, 0.25);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
+  box-shadow: var(--pop-sm);
 }
 
 .editor-rail img,
@@ -239,9 +239,9 @@
 }
 
 .palette-item:focus-visible {
-  border-color: #f2726a;
-  background: #ffe2c9;
-  box-shadow: 0 4px 0 rgba(58, 42, 32, 0.2);
+  border-color: var(--focus-ring);
+  background: var(--surface-raised);
+  box-shadow: var(--pop-sm);
   transform: translateY(-3px);
 }
 
@@ -276,13 +276,13 @@
   border-radius: 11px;
   background: var(--editor-card);
   color: var(--ink);
-  box-shadow: 0 2px 0 rgba(58, 42, 32, 0.25);
+  box-shadow: var(--pop-sm);
 }
 
 .editor-tools button[aria-pressed='true'],
 .choice-segment button[aria-pressed='true'] {
-  background: #9fd3f2;
-  color: var(--ink);
+  background: var(--aqua-b);
+  color: var(--surface-deep);
 }
 
 .editor-inspector {
@@ -341,7 +341,7 @@
   border: 3px solid var(--ink);
   border-radius: 999px;
   background: var(--editor-card);
-  box-shadow: 0 3px 0 rgba(58, 42, 32, 0.3);
+  box-shadow: var(--pop-sm);
   font: 600 16px var(--display);
   translate: none;
   pointer-events: none;
@@ -459,8 +459,8 @@
     overflow: auto;
     border: 2px solid var(--ink);
     border-radius: 14px;
-    background: rgba(255, 250, 240, 0.92);
-    box-shadow: 0 3px 0 rgba(58, 42, 32, 0.25);
+    background: var(--surface-card);
+    box-shadow: var(--pop-sm);
   }
 
   .editor-inspector {

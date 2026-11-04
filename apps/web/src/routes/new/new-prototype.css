@@ -27,7 +27,7 @@
   padding: 6px 12px;
   border: 1px solid var(--rule);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--action-secondary);
   backdrop-filter: var(--glass);
 }
 
@@ -76,18 +76,12 @@
 .new-next {
   min-width: 128px;
   padding-inline: 40px;
-  border: 1.5px solid transparent;
+  border: 1.5px solid var(--action-primary);
   border-radius: 999px;
-  background:
-    linear-gradient(
-        color-mix(in srgb, var(--green-b) 72%, rgba(255, 255, 255, 0.12)),
-        color-mix(in srgb, var(--green-b) 72%, rgba(255, 255, 255, 0.12))
-      )
-      padding-box,
-    linear-gradient(to bottom, color-mix(in srgb, var(--green-b) 45%, #fbf1c7), var(--green-b)) border-box;
-  color: var(--dark);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   font: 700 20px var(--display);
-  box-shadow: 0 10px 30px -10px var(--green-b);
+  box-shadow: var(--pop-sm);
 }
 
 .new-summary {

@@ -16,7 +16,7 @@
   padding: 0;
   border: 1px solid var(--rule);
   border-radius: 50%;
-  background: rgba(30, 27, 40, 0.55);
+  background: var(--surface-card);
   color: var(--ink);
   box-shadow: var(--pop-sm);
   backdrop-filter: var(--glass);
@@ -59,7 +59,8 @@
 
 .build-chat-fab.ready {
   border-color: var(--green-b);
-  background: rgba(120, 170, 60, 0.38);
+  background: var(--green-b);
+  color: var(--surface-deep);
   animation: build-chat-glow 2.2s ease-in-out infinite;
 }
 
@@ -71,7 +72,8 @@
   height: 25px;
   padding-inline: 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--purple-b) 45%, rgba(40, 36, 52, 0.7));
+  background: var(--purple-b);
+  color: var(--surface-deep);
   font: 700 13px/25px var(--display);
 }
 
@@ -80,7 +82,7 @@
   padding: 12px;
   border: 1px solid var(--rule);
   border-radius: 18px;
-  background: rgba(28, 25, 38, 0.75);
+  background: var(--surface-card);
   box-shadow: var(--pop);
   backdrop-filter: var(--glass);
   animation: build-chat-rise 0.2s;
@@ -121,7 +123,7 @@
 .build-chat-type {
   border: 1px solid var(--rule);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--surface-raised);
   color: var(--ink);
   font-weight: 700;
 }
@@ -131,7 +133,7 @@
   padding: 10px 12px;
   border: 1px solid var(--rule);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-raised);
   color: var(--ink);
   display: grid;
   grid-template-columns: 1fr auto;
@@ -162,15 +164,13 @@
   overflow: hidden;
   border: 1px solid var(--rule);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-deep);
 }
 
 .build-chat-bar > span {
   display: block;
   height: 100%;
-  background: repeating-linear-gradient(-45deg, var(--yellow-b) 0 8px, var(--orange-b) 8px 16px);
-  background-size: 22px 22px;
-  animation: build-chat-stripe 1s linear infinite;
+  background: var(--action-primary);
   transition: width 0.3s;
 }
 
@@ -270,7 +270,7 @@
 @keyframes build-chat-glow {
   50% {
     box-shadow:
-      0 0 0 8px rgba(184, 187, 38, 0.18),
+      0 0 0 8px color-mix(in srgb, var(--green-b) 24%, transparent),
       var(--pop-sm);
   }
 }
@@ -279,12 +279,6 @@
   from {
     opacity: 0;
     transform: translateY(8px);
-  }
-}
-
-@keyframes build-chat-stripe {
-  to {
-    background-position: 22px 0;
   }
 }
 
@@ -353,7 +347,6 @@
   .build-chat-fab,
   .build-chat-hammer,
   .build-chat-ring-progress,
-  .build-chat-bar > span,
   .build-chat-panel {
     animation: none;
     transition: none;

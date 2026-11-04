@@ -1,36 +1,65 @@
 :root {
   color-scheme: dark;
-  --paper: rgba(30, 27, 40, 0.62);
-  --paper-2: rgba(255, 255, 255, 0.06);
-  --paper-3: rgba(255, 255, 255, 0.1);
-  --ink: #f2ead6;
-  --ink-2: rgba(242, 234, 214, 0.82);
-  --muted: rgba(242, 234, 214, 0.6);
-  --rule: rgba(242, 234, 214, 0.18);
-  --dark: #1d1b16;
-  --glass: blur(22px) saturate(1.4);
-  --night: #282828;
-  --night-2: #32302f;
-  --night-3: #3c3836;
-  --cream: #ebdbb2;
-  --red: #cc241d;
-  --red-b: #fb4934;
-  --green: #98971a;
-  --green-b: #b8bb26;
-  --yellow: #d79921;
-  --yellow-b: #fabd2f;
-  --blue: #458588;
-  --blue-b: #83a598;
-  --purple: #b16286;
-  --purple-b: #d3869b;
-  --aqua: #689d6a;
-  --aqua-b: #8ec07c;
-  --orange: #d65d0e;
-  --orange-b: #fe8019;
+  --gruvbox-bg: #282828;
+  --gruvbox-bg0-h: #1d2021;
+  --gruvbox-bg1: #3c3836;
+  --gruvbox-bg2: #504945;
+  --gruvbox-fg: #ebdbb2;
+  --gruvbox-fg4: #a89984;
+  --gruvbox-red: #fb4934;
+  --gruvbox-green: #b8bb26;
+  --gruvbox-yellow: #fabd2f;
+  --gruvbox-blue: #83a598;
+  --gruvbox-purple: #d3869b;
+  --gruvbox-aqua: #8ec07c;
+  --gruvbox-orange: #fe8019;
+  --surface-page: var(--gruvbox-bg);
+  --surface-deep: var(--gruvbox-bg0-h);
+  --surface-card: var(--gruvbox-bg1);
+  --surface-raised: var(--gruvbox-bg2);
+  --text: var(--gruvbox-fg);
+  --text-muted: color-mix(in srgb, var(--gruvbox-fg4) 50%, var(--gruvbox-fg));
+  --border: var(--gruvbox-bg2);
+  --action-primary: var(--gruvbox-yellow);
+  --action-primary-text: var(--gruvbox-bg0-h);
+  --action-secondary: var(--gruvbox-bg1);
+  --action-secondary-text: var(--gruvbox-fg);
+  --focus-ring: var(--gruvbox-aqua);
+  --action-danger: var(--gruvbox-red);
+  --action-danger-text: var(--gruvbox-bg0-h);
+  --paper: var(--surface-card);
+  --paper-2: var(--surface-raised);
+  --paper-3: var(--surface-raised);
+  --ink: var(--text);
+  --ink-2: var(--text);
+  --muted: var(--text-muted);
+  --rule: var(--border);
+  --dark: var(--surface-deep);
+  --glass: none;
+  --night: var(--surface-page);
+  --night-2: var(--surface-card);
+  --night-3: var(--surface-raised);
+  --cream: var(--text);
+  --red: var(--gruvbox-red);
+  --red-b: var(--gruvbox-red);
+  --green: var(--gruvbox-green);
+  --green-b: var(--gruvbox-green);
+  --yellow: var(--gruvbox-yellow);
+  --yellow-b: var(--gruvbox-yellow);
+  --blue: var(--gruvbox-blue);
+  --blue-b: var(--gruvbox-blue);
+  --purple: var(--gruvbox-purple);
+  --purple-b: var(--gruvbox-purple);
+  --aqua: var(--gruvbox-aqua);
+  --aqua-b: var(--gruvbox-aqua);
+  --orange: var(--gruvbox-orange);
+  --orange-b: var(--gruvbox-orange);
+  --shadow-color: rgba(0, 0, 0, 0.35);
+  --shadow-color-strong: rgba(0, 0, 0, 0.6);
   --display: 'Fredoka', 'Nunito', system-ui, sans-serif;
   --body: 'Nunito', system-ui, sans-serif;
-  --pop: 0 12px 32px rgba(0, 0, 0, 0.35);
-  --pop-sm: 0 6px 18px rgba(0, 0, 0, 0.3);
+  --pop: 0 12px 32px var(--shadow-color);
+  --pop-sm: 0 6px 18px var(--shadow-color);
   --r: 20px;
   --tap-primary: 64px;
   --tap-secondary: 44px;
@@ -46,7 +75,7 @@
 
 html {
   min-height: 100%;
-  background: #a69b8d;
+  background: var(--surface-page);
 }
 
 body {
@@ -65,7 +94,7 @@ select {
 }
 
 :focus-visible {
-  outline: 3px solid var(--yellow-b);
+  outline: 3px solid var(--focus-ring);
   outline-offset: 3px;
 }
 
