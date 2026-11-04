@@ -16,6 +16,9 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
 
 ## Plan the whole game, prototype first
 
+The general rules for cutting tickets, typing dependencies, waves and the critical path are in the `build-order` skill;
+this section adds what is specific to games.
+
 1. **Architecture.** Lay out the game's skeleton before any ticket: folder layout under `games/<name>/`, the systems
    (input, player, world/map, entities, UI, audio, saves, progression), their interfaces and the seams where tickets
    meet. Prefer existing SDK modules, pack adapters and `packages/` code; note likely shared pieces, but do not promote
@@ -61,27 +64,16 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
 
 ## Deep-dive every ticket before implementation (always, unasked)
 
-Once the high-level plan and the proposed Build Order exist (your own brainstorm → plan loop), do not dispatch any
-implementation ticket yet. Nobody has to ask for this step; it is part of planning every new game.
+Once the high-level plan and the proposed Build Order exist, do not dispatch implementation yet. Run the deep dives
+from the general `research-spike` skill (steps 3–5: one research agent per ticket, brainstorm → plan, woven specs,
+tickets rewritten for a weaker implementer). Game specifics on top of it:
 
-1. **One research ticket per implementation ticket**, filed at once and run in parallel (label `kind:research`, same
-   feature and epic, priority above implementation). Each one blocks its implementation ticket (native blocked-by).
-   Library and asset tickets that already are research get no extra spike.
-2. **Each research agent** loads `ce-brainstorm` then `ce-plan` (compound-engineering) on its ticket, reads the private
-   context it cites, the code and the assets it touches, and the related tickets' contracts. It writes
-   `games/<name>/docs/research/<ticket>.md`: the design for that piece, the interfaces it consumes and provides,
-   step-by-step implementation units, exact files, test scenarios with expected values, asset ids, evidence to produce,
-   risks, and open questions with a recommended default. Public-safe wording; private detail stays in private storage
-   and is referenced, never copied.
-3. **You weave them.** When the research for a lane or milestone lands, reconcile contradictions across tickets (shared
-   contracts, names, data formats, effect vocabulary), write `games/<name>/docs/spec/<area>.md` as the final design for
-   that area, and rewrite each implementation ticket to point at its research doc and spec section, with acceptance
-   restated as checkable items.
-4. **Write for a weaker implementer.** Assume the implementation agent is less capable than you: no step left implicit,
-   no "as appropriate", exact paths and names, and one obvious next action per unit. If a ticket still needs judgment
-   beyond that, split it or keep the judgment in the spec.
-5. Then queue implementation in Build Order priority. Questions raised by research go to the player as Commands with a
-   recommendation; they never block unrelated tickets (provisional defaults apply as usual).
+- Research tickets carry `kind:research`, the game's feature, epic and `game:<slug>` labels, and block their
+  implementation tickets; library and asset tickets are already research and get no extra spike.
+- Research docs go to `games/<name>/docs/research/<ticket>.md` and woven specs to `games/<name>/docs/spec/<area>.md`;
+  private detail stays in the game's private context and is referenced, never copied.
+- Give each research agent the game skills its lane needs (a biome ticket gets the set and asset skills, a combat ticket
+  gets input and effects skills), and the rest by name only.
 
 ## Keep it moving
 
