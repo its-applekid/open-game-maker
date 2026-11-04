@@ -65,13 +65,22 @@ describe('prototype deploy staging', () => {
     await expect(readFile(join(destination, 'icons', 'icon-192.png'), 'utf8')).resolves.toBe('icon');
   });
 
-  it('removes licensed paths and isolates the prototype service worker', async () => {
+  it('keeps every asset for an instance and isolates the prototype service worker', async () => {
     const { destination, prototype, shell } = await fixture();
 
     await stagePrototype(prototype, shell, destination);
 
-    expect(await readdir(join(destination, 'art', 'packs'))).toEqual(['kenney-safe.webp']);
-    expect(await readdir(join(destination, 'art', 'music'))).toEqual([]);
+    expect(await readdir(join(destination, 'art', 'packs'))).toEqual([
+      'kenney-safe.webp',
+      'smallscaleint-private.webp',
+      'synty',
+      'synty-private.webp',
+    ]);
+    expect(await readdir(join(destination, 'art', 'music'))).toEqual([
+      'camelot.mp3',
+      'sidetrax-theme.mp3',
+      'underground.mp3',
+    ]);
     expect(await readFile(join(destination, 'app.js'), 'utf8')).toContain(
       "navigator.serviceWorker.register('sw.js', { scope: './' })",
     );
@@ -81,7 +90,16 @@ describe('prototype deploy staging', () => {
     expect(worker).toContain("ks.filter(k => k.startsWith('ogm-proto-') && k !== CACHE && k !== ASSETS)");
   });
 
-  it('rejects symbolic links before they can escape asset filtering', async () => {
+  it('removes licensed paths only for an explicit public-only payload', async () => {
+    const { destination, prototype, shell } = await fixture();
+
+    await stagePrototype(prototype, shell, destination, { publicOnly: true });
+
+    expect(await readdir(join(destination, 'art', 'packs'))).toEqual(['kenney-safe.webp']);
+    expect(await readdir(join(destination, 'art', 'music'))).toEqual([]);
+  });
+
+  it('rejects symbolic links from the staged payload', async () => {
     const { destination, prototype, shell } = await fixture();
     await symlink(
       join(prototype, 'art', 'packs', 'synty-private.webp'),

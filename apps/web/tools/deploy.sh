@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build, inspect, and manually deploy the public app site.
-# Host-local inputs (all gitignored) are OGM_PUBLIC_APP_ORIGIN in web.env, assets-local/, scripts/audio/.venv/,
+# Host-local inputs (all gitignored) are the origins and OGM_INSTANCE_ALL_ASSETS in web.env, assets-local/,
+# scripts/audio/.venv/,
 # prototypes/ui-v0/site/assets/, prototypes/studio-v0/{town,demo}/, and
 # apps/web/title-town/models/{bake,sprites,variants,candidates,mdungeon}/.
 set -euo pipefail
@@ -39,6 +40,15 @@ if [[ -z "$GAMES_ORIGIN" ]]; then
 fi
 printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
 
+INSTANCE_ALL_ASSETS="$(node "$ROOT/apps/web/tools/games-origin.mjs" --instance-all-assets)"
+ASSET_FILTER_ARGS=()
+if [[ "$INSTANCE_ALL_ASSETS" == 1 ]]; then
+  printf '%s\n' 'instance assets: every host-library asset used by the screens is enabled'
+else
+  printf '%s\n' 'instance assets: public-only mode is enabled'
+  ASSET_FILTER_ARGS+=(--public)
+fi
+
 # The /api and /auth proxy target is a host value, so _redirects is written here and never kept in the repo.
 REDIRECTS="$(node "$ROOT/apps/web/tools/redirects.mjs")"
 if [[ "$DRY_RUN" == true ]]; then
@@ -62,16 +72,16 @@ fi
 if [[ ! -d "$ROOT/apps/web/title-town/models/sounds" ]]; then
   bash "$ROOT/apps/web/title-town/tools/sounds.sh"
 fi
-bash "$ROOT/apps/web/tools/town.sh" --public
+bash "$ROOT/apps/web/tools/town.sh" "${ASSET_FILTER_ARGS[@]}"
 
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" pnpm --dir "$ROOT" --filter @ogm/web build
 # The archived prototype's generated art/, demo/, and town/ payload is gitignored.
 bash "$ROOT/prototypes/studio-v0/tools/build.sh"
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
 node "$ROOT/apps/web/tools/stage-prototype.mjs" \
-  "$ROOT/prototypes/studio-v0" "$ROOT/prototypes/ui-v0/site" "$DEPLOY_DIR/proto"
+  "$ROOT/prototypes/studio-v0" "$ROOT/prototypes/ui-v0/site" "$DEPLOY_DIR/proto" "${ASSET_FILTER_ARGS[@]}"
 printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
-if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
+if [[ "$INSTANCE_ALL_ASSETS" == 0 && -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete
 fi
 
