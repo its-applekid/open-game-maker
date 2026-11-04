@@ -93,7 +93,7 @@ function budgetText(
   return { remaining, sizes };
 }
 
-function jobFor(db: Db, target: VoiceTarget) {
+export function jobFor(db: Db, target: VoiceTarget) {
   if (target.kind === 'build') return db.select().from(schema.jobs).where(eq(schema.jobs.id, target.job_id)).get();
   return db
     .select()

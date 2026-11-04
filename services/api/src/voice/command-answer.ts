@@ -5,6 +5,7 @@ import { and, eq } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
 import { parseCommandOptions, type CommandOption } from '../checkpoints/options.js';
+import { jobFor } from './briefing-push.js';
 
 function selectedOption(available: CommandOption[], choice: string): CommandOption | null {
   const exact = available.find(({ id, label }) => id === choice || label === choice);
@@ -21,17 +22,28 @@ export async function answerVoiceCommand(
   request: VoiceCommandAnswerRequest,
 ): Promise<VoiceCommandAnswerResponse> {
   const target = request.target;
-  if (target.kind !== 'build') return { status: 'failed' };
-  const job = deps.db.select().from(schema.jobs).where(eq(schema.jobs.id, target.job_id)).get();
+  const job = jobFor(deps.db, target);
   if (
     !job ||
     job.gameId !== target.game_id ||
     job.creatorId !== target.creator_id ||
     job.aiurRepo === null ||
-    job.aiurIssueNumber === null ||
-    String(job.aiurIssueNumber) !== target.ticket
+    job.aiurIssueNumber === null
   ) {
     return { status: 'failed' };
+  }
+  if (target.kind === 'build' && (job.id !== target.job_id || String(job.aiurIssueNumber) !== target.ticket)) {
+    return { status: 'failed' };
+  }
+  if (target.kind === 'scope') {
+    const session = deps.db
+      .select()
+      .from(schema.scopeSessions)
+      .where(eq(schema.scopeSessions.id, target.session_id))
+      .get();
+    if (!session || session.gameId !== target.game_id || session.creatorId !== target.creator_id) {
+      return { status: 'failed' };
+    }
   }
 
   const command = deps.db

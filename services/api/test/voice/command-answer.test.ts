@@ -14,6 +14,12 @@ const target = {
   ticket: '7',
   creator_id: ids.creator,
 };
+const scopeTarget = {
+  kind: 'scope' as const,
+  game_id: ids.game,
+  session_id: 'scope-voice-1',
+  creator_id: ids.creator,
+};
 
 function fixture() {
   const deps = worked();
@@ -36,6 +42,20 @@ function fixture() {
       ]),
       status: 'open',
       openedAt: NOW.toISOString(),
+    })
+    .run();
+  deps.db
+    .insert(schema.scopeSessions)
+    .values({
+      id: scopeTarget.session_id,
+      gameId: ids.game,
+      creatorId: ids.creator,
+      jobId: ids.running,
+      status: 'open',
+      revision: 0,
+      choices: '[]',
+      createdAt: NOW.toISOString(),
+      updatedAt: NOW.toISOString(),
     })
     .run();
   return deps;
@@ -99,6 +119,22 @@ describe('answerVoiceCommand', () => {
     expect(await answered.json()).toEqual({ status: 'answered' });
   });
 
+  it('answers the same game Command from a valid scope conversation', async () => {
+    const deps = fixture();
+    const decide = vi.fn().mockResolvedValue({ decision_id: 'decision-1' });
+    deps.aiurClientForRepo = async () => ({ decide }) as never;
+
+    await expect(
+      answerVoiceCommand(deps, {
+        target: scopeTarget,
+        command_id: 'decision-1',
+        choice: 'ship',
+        idempotency_key: 'voice-call-scope',
+      }),
+    ).resolves.toEqual({ status: 'answered' });
+    expect(decide).toHaveBeenCalledWith('decision-1', expect.objectContaining({ option: 'ship' }));
+  });
+
   it('returns stale without calling Aiur when the Command is no longer open', async () => {
     const deps = fixture();
     deps.db.update(schema.checkpoints).set({ status: 'answered' }).run();
@@ -135,6 +171,14 @@ describe('answerVoiceCommand', () => {
         command_id: 'decision-1',
         choice: 'delete everything',
         idempotency_key: 'voice-call-4',
+      }),
+    ).resolves.toEqual({ status: 'failed' });
+    await expect(
+      answerVoiceCommand(deps, {
+        target: { ...scopeTarget, session_id: 'scope-forged' },
+        command_id: 'decision-1',
+        choice: 'ship',
+        idempotency_key: 'voice-call-5',
       }),
     ).resolves.toEqual({ status: 'failed' });
     expect(decide).not.toHaveBeenCalled();
