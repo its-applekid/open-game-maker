@@ -36,11 +36,50 @@ function localDependencies(manifest: Record<string, unknown>): string[] {
   });
 }
 
+/** Copy the local workspace dependency closure into another pnpm workspace for offline evaluation or tests. */
+export function copyWorkspacePackageClosure(packageRoot: string, manifestPaths: string[]): void {
+  const localPackages = workspacePackageDirs();
+  mkdirSync(packageRoot, { recursive: true });
+  const suppliedPackages = new Map<string, string>();
+  for (const entry of readdirSync(packageRoot)) {
+    const manifestPath = join(packageRoot, entry, 'package.json');
+    if (!statSync(manifestPath, { throwIfNoEntry: false })?.isFile()) continue;
+    const name = json<{ name?: unknown }>(manifestPath).name;
+    if (typeof name === 'string') suppliedPackages.set(name, manifestPath);
+  }
+  const queue = manifestPaths.flatMap((path) => localDependencies(json<Record<string, unknown>>(path)));
+  const copied = new Set<string>();
+  for (let index = 0; index < queue.length; index += 1) {
+    const name = queue[index]!;
+    if (copied.has(name)) continue;
+    const suppliedManifest = suppliedPackages.get(name);
+    if (suppliedManifest) {
+      copied.add(name);
+      queue.push(...localDependencies(json<Record<string, unknown>>(suppliedManifest)));
+      continue;
+    }
+    const source = localPackages.get(name);
+    if (!source) throw new Error(`scratch dependency ${name} is not a local workspace package`);
+    const destination = join(packageRoot, name.replaceAll('/', '__').replace(/^@/, ''));
+    cpSync(source, destination, {
+      recursive: true,
+      filter: (path) => !path.split('/').includes('node_modules'),
+    });
+    const manifestPath = join(destination, 'package.json');
+    const manifest = json<Record<string, unknown>>(manifestPath);
+    delete manifest.devDependencies;
+    delete manifest.scripts;
+    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+    copied.add(name);
+    for (const dependency of localDependencies(manifest)) {
+      if (!copied.has(dependency)) queue.push(dependency);
+    }
+  }
+}
+
 /** Keep scratch installs out of the parent monorepo and copy private packages inside the agent's sandbox. */
 export function isolateGameWorkspace(gameDir: string, template: 'game-2d' | 'game-3d'): void {
-  const localPackages = workspacePackageDirs();
   const packageRoot = join(gameDir, '.ogm-packages');
-  mkdirSync(packageRoot, { recursive: true });
   const gameManifestPath = join(gameDir, 'package.json');
   const gameManifest = json<Record<string, unknown>>(gameManifestPath);
   const platformManifest = json<{ devDependencies?: Record<string, string> }>(join(repoRoot, 'package.json'));
@@ -60,28 +99,7 @@ export function isolateGameWorkspace(gameDir: string, template: 'game-2d' | 'gam
     writeFileSync(join(gameDir, 'tsconfig.base.json'), readFileSync(join(repoRoot, 'tsconfig.base.json'), 'utf8'));
   }
 
-  const queue = localDependencies(gameManifest);
-  const copied = new Set<string>();
-  for (let index = 0; index < queue.length; index += 1) {
-    const name = queue[index]!;
-    if (copied.has(name)) continue;
-    const source = localPackages.get(name);
-    if (!source) throw new Error(`scratch dependency ${name} is not a local workspace package`);
-    const destination = join(packageRoot, name.replaceAll('/', '__').replace(/^@/, ''));
-    cpSync(source, destination, {
-      recursive: true,
-      filter: (path) => !path.split('/').includes('node_modules'),
-    });
-    const manifestPath = join(destination, 'package.json');
-    const manifest = json<Record<string, unknown>>(manifestPath);
-    delete manifest.devDependencies;
-    delete manifest.scripts;
-    writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-    copied.add(name);
-    for (const dependency of localDependencies(manifest)) {
-      if (!copied.has(dependency)) queue.push(dependency);
-    }
-  }
+  copyWorkspacePackageClosure(packageRoot, [gameManifestPath]);
   writeFileSync(join(gameDir, 'pnpm-workspace.yaml'), "packages:\n  - '.'\n  - '.ogm-packages/*'\n");
   writeFileSync(join(gameDir, 'pnpm-lock.yaml'), readFileSync(join(dataRoot, `locks/${template}.yaml`), 'utf8'));
 }

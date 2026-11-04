@@ -16,6 +16,8 @@ import { dirname, join, resolve } from 'node:path';
 import { loadFamilies } from '@ogm/asset-cards';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
+import { resolveContainedPath } from '../../context.js';
+import { isEmptyDirectory } from '../../filesystem.js';
 import { AGENTS_MD } from '../../skills/agents-md.js';
 import {
   gmCliVersion,
@@ -26,6 +28,7 @@ import {
 } from '../../skills/pack.js';
 
 const TEMPLATES = new Set(['game-2d', 'game-3d', 'game-multiplayer']);
+const GAME_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function copyContents(source: string, destination: string): void {
   for (const entry of readdirSync(source)) {
@@ -85,14 +88,57 @@ function pinAdapter(gameDir: string, set: string, version: string): void {
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 
-function destinationIsEmpty(path: string): boolean {
-  return existsSync(path) && statSync(path).isDirectory() && readdirSync(path).length === 0;
+async function findInstanceGames(start: string): Promise<string | null> {
+  let current = resolve(start);
+  for (;;) {
+    const packagePath = join(current, 'package.json');
+    if (existsSync(packagePath)) {
+      const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as {
+        gameMaker?: { instance?: unknown };
+      };
+      const gamesPath = join(current, 'games');
+      const packagesPath = join(current, 'packages');
+      if (packageJson.gameMaker?.instance === true && existsSync(join(current, 'pnpm-workspace.yaml'))) {
+        const [games, packages] = await Promise.all([
+          resolveContainedPath(current, gamesPath).catch(() => null),
+          resolveContainedPath(current, packagesPath).catch(() => null),
+        ]);
+        if (games && packages && statSync(games).isDirectory() && statSync(packages).isDirectory()) return games;
+      }
+    }
+    const parent = dirname(current);
+    if (parent === current) return null;
+    current = parent;
+  }
+}
+
+function nameGamePackage(gameDir: string, slug: string): void {
+  const packagePath = join(gameDir, 'package.json');
+  const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as Record<string, unknown>;
+  packageJson.name = `@game/${slug}`;
+  writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
+}
+
+function removeCoreWorkspaceReferences(gameDir: string): void {
+  const tsconfigPath = join(gameDir, 'tsconfig.json');
+  if (!existsSync(tsconfigPath)) return;
+  const tsconfig = JSON.parse(readFileSync(tsconfigPath, 'utf8')) as {
+    references?: Array<{ path?: unknown }>;
+  };
+  if (!tsconfig.references) return;
+  tsconfig.references = tsconfig.references.filter(
+    (reference) =>
+      typeof reference.path !== 'string' ||
+      !/^\.\.\/\.\.\/packages\/(contracts|iframe-bridge|sdk)$/.test(reference.path),
+  );
+  if (tsconfig.references.length === 0) delete tsconfig.references;
+  writeFileSync(tsconfigPath, `${JSON.stringify(tsconfig, null, 2)}\n`);
 }
 
 export const command: GmCommand = {
   name: 'new',
-  summary: 'create a scaffold-only game repo with the committed skill pack',
-  usage: '<game-2d|game-3d|game-multiplayer> <dir> [--family id] [--set id] [--pov id]',
+  summary: 'add a scaffold-only game to the instance repository',
+  usage: '<game-2d|game-3d|game-multiplayer> <slug> [--family id] [--set id] [--pov id]',
   example: 'new game-2d my-game --family isometric-2d --set smallscaleint --pov side',
   flags: {
     family: { type: 'string', help: 'record the chosen style-family id' },
@@ -100,16 +146,23 @@ export const command: GmCommand = {
     pov: { type: 'string', help: 'record the chosen point-of-view id' },
   },
   async run(ctx, args, flags) {
-    if (args.length !== 2) throw new UsageError('gm new needs a template and directory', 'gm help new');
+    if (args.length !== 2) throw new UsageError('gm new needs a template and game slug', 'gm help new');
     const [template, requested] = args;
     if (!TEMPLATES.has(template)) throw new UsageError(`unknown template "${template}"`, 'gm help new');
+    if (!GAME_SLUG.test(requested)) {
+      throw new UsageError(`invalid game slug "${requested}"`, 'use lower-case letters, numbers, and single hyphens');
+    }
+    const gamesRoot = await findInstanceGames(ctx.cwd);
+    if (!gamesRoot) {
+      throw new UsageError('not inside a Game Maker instance repository', 'run gm instance init <dir> first');
+    }
     const templates = locateTemplates(ctx.cwd);
     const source = templates ? join(templates, template) : '';
     if (!source || !existsSync(source) || !statSync(source).isDirectory()) {
       throw new UsageError(`template "${template}" is unavailable`, 'install the matching platform template');
     }
-    const destination = resolve(ctx.cwd, requested);
-    if (existsSync(destination) && !destinationIsEmpty(destination)) {
+    const destination = join(gamesRoot, requested);
+    if (existsSync(destination) && !isEmptyDirectory(destination)) {
       throw new UsageError(`destination is not empty: ${destination}`, 'choose an empty directory');
     }
     const family = typeof flags.family === 'string' ? flags.family : undefined;
@@ -122,6 +175,8 @@ export const command: GmCommand = {
     const staging = mkdtempSync(join(dirname(destination), '.gm-new-stage-'));
     try {
       copyContents(source, staging);
+      nameGamePackage(staging, requested);
+      removeCoreWorkspaceReferences(staging);
       if (set) pinAdapter(staging, set, adapterVersion(ctx.cwd, set));
       syncSkillPack({ repoDir: staging, packDir, set });
       writeFileSync(join(staging, 'AGENTS.md'), AGENTS_MD);
@@ -147,7 +202,7 @@ export const command: GmCommand = {
       if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });
     }
     ctx.out(`created ${destination}. Next: cd ${destination} && pnpm install --offline`);
-    ctx.emit('new.create', { template, family: family ?? null, set: set ?? null, pov: pov ?? null });
+    ctx.emit('new.create', { game: requested, template, family: family ?? null, set: set ?? null, pov: pov ?? null });
     return EXIT.ok;
   },
 };

@@ -205,10 +205,16 @@ describe('runner guard and dry run', () => {
   it('uses gm new, removes genre skills for baseline, and records a skipped agent', async () => {
     const out = await temp('ogm-eval-dry-out-');
     const calls: string[][] = [];
-    const process = async (_command: string, args: string[]): Promise<ProcessResult> => {
+    const process = async (_command: string, args: string[], options: { cwd: string }): Promise<ProcessResult> => {
       calls.push(args);
-      if (args.includes('new')) {
-        const destination = args.at(-1)!;
+      if (args.includes('instance')) {
+        const instance = args.at(-1)!;
+        write(join(instance, 'package.json'), '{"private":true,"gameMaker":{"instance":true}}\n');
+        write(join(instance, 'pnpm-workspace.yaml'), "packages:\n  - 'games/*'\n  - 'packages/*'\n");
+        write(join(instance, 'games/README.md'), '# Games\n');
+        write(join(instance, 'packages/README.md'), '# Packages\n');
+      } else if (args.includes('new')) {
+        const destination = join(options.cwd, 'games', args.at(-1)!);
         write(join(destination, 'package.json'), '{"name":"fixture","dependencies":{"@gm/sdk":"workspace:*"}}\n');
         write(join(destination, '.claude/skills/gm-core/SKILL.md'), 'core\n');
         write(join(destination, '.claude/skills/gm-genre-platformer/SKILL.md'), 'genre\n');
@@ -223,8 +229,9 @@ describe('runner guard and dry run', () => {
       { process, now: () => new Date('2026-11-02T01:02:03.000Z') },
     );
 
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toContain('new');
+    expect(calls).toHaveLength(2);
+    expect(calls[0]).toEqual(expect.arrayContaining(['instance', 'init']));
+    expect(calls[1]).toEqual(expect.arrayContaining(['new', 'game-2d', 'eval-game']));
     const recordedDir = result.runs[0]!.dir;
     const scratch = isAbsolute(recordedDir) ? recordedDir : resolve(root, recordedDir);
     expect(readdirSync(join(scratch, '.claude/skills'))).not.toContain('gm-genre-platformer');
@@ -269,13 +276,19 @@ describe('runner guard and dry run', () => {
     const runFrames: string[] = [];
     let installArgs: string[] = [];
     let runAttempts = 0;
-    const process = async (command: string, args: string[]): Promise<ProcessResult> => {
-      if (args.includes('new')) {
-        const destination = args.at(-1)!;
+    const process = async (command: string, args: string[], options: { cwd: string }): Promise<ProcessResult> => {
+      if (args.includes('instance')) {
+        const instance = args.at(-1)!;
+        write(join(instance, 'package.json'), '{"private":true,"gameMaker":{"instance":true}}\n');
+        write(join(instance, 'pnpm-workspace.yaml'), "packages:\n  - 'games/*'\n  - 'packages/*'\n");
+        write(join(instance, 'games/README.md'), '# Games\n');
+        write(join(instance, 'packages/README.md'), '# Packages\n');
+      } else if (args.includes('new')) {
+        const destination = join(options.cwd, 'games', args.at(-1)!);
         newTemplates.push(args.at(-2)!);
         write(join(destination, 'package.json'), '{"name":"fixture"}\n');
         write(join(destination, 'src/main.ts'), 'export const scaffold = true;\n');
-        if (!destination.endsWith('/.fresh')) gameDir = destination;
+        if (!options.cwd.includes('/.fresh-')) gameDir = destination;
       } else if (command === 'codex') {
         const card = readFileSync(
           join(root, 'skills/gm-genre-platformer/references/cards/jump-buffer-coyote.md'),

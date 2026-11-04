@@ -1,6 +1,7 @@
 import { renderRepoTemplate, type RepoTemplate, type TemplateCtx } from './repo.js';
 
 export { renderDaemonFiles, type DaemonFiles } from './daemon-files.js';
+export { renderInstanceTemplate, type InstanceTemplate } from './instance.js';
 export { LABELS, type TemplateLabel } from './labels.js';
 export {
   parseTemplateRef,
