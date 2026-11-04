@@ -168,7 +168,7 @@ describe('buildBriefing', () => {
           daemonSlug: 'daemon',
           version: 1,
           question: 'Which color should the camp use?',
-          options: '[]',
+          options: JSON.stringify([{ id: 'blue', label: 'Blue' }]),
           status: 'open',
           openedAt: '2026-10-31T19:02:00.000Z',
         },
@@ -189,7 +189,10 @@ describe('buildBriefing', () => {
           daemonSlug: 'daemon',
           version: 1,
           question: 'How many goblins should appear?',
-          options: '[]',
+          options: JSON.stringify([
+            { id: 'three', label: 'Three' },
+            { id: 'five', label: 'Five' },
+          ]),
           status: 'open',
           openedAt: '2026-10-31T19:01:00.000Z',
         },
@@ -199,6 +202,23 @@ describe('buildBriefing', () => {
     const briefing = await buildBriefing({ db: deps.db, defaults, now: () => NOW }, build);
 
     expect(briefing.questions).toEqual(['How many goblins should appear?', 'Which color should the camp use?']);
+    expect(briefing.commands).toEqual([
+      {
+        id: 'd_first',
+        version: 1,
+        question: 'How many goblins should appear?',
+        options: [
+          { id: 'three', label: 'Three' },
+          { id: 'five', label: 'Five' },
+        ],
+      },
+      {
+        id: 'd_second',
+        version: 1,
+        question: 'Which color should the camp use?',
+        options: [{ id: 'blue', label: 'Blue' }],
+      },
+    ]);
   });
 
   it('omits budget claims when estimate data is unavailable', async () => {
@@ -234,7 +254,17 @@ describe('pushBriefing', () => {
     expect(host.received).toHaveLength(1);
     expect(host.received[0].auth).toBe(`Bearer ${SECRET}`);
     expect(Object.keys(host.received[0].body).sort()).toEqual(
-      ['current_task', 'extra', 'next_steps', 'observed_at', 'questions', 'sections', 'summary', 'target_key'].sort(),
+      [
+        'commands',
+        'current_task',
+        'extra',
+        'next_steps',
+        'observed_at',
+        'questions',
+        'sections',
+        'summary',
+        'target_key',
+      ].sort(),
     );
   });
 

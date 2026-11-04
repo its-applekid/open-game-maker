@@ -21,7 +21,19 @@ defmodule OgmVoice.Transport do
 
   @impl true
   def call(%{method: "GET"} = conn, opts) do
-    claims = claims(conn, opts)
+    conn = Plug.Conn.fetch_query_params(conn)
+
+    if conn.query_params["mode"] == "dictate" do
+      upgrade_dictation(conn, opts)
+    else
+      upgrade_conversation(conn, opts)
+    end
+  end
+
+  def call(conn, _opts), do: Plug.Conn.send_resp(conn, 404, "not found")
+
+  defp upgrade_conversation(conn, opts) do
+    claims = claims(conn, opts, "converse")
     api = if claims, do: api(opts[:instance], claims), else: %{}
     state = PackageTransport.socket_state(Keyword.put(opts, :api, api), not is_nil(claims))
 
@@ -31,7 +43,35 @@ defmodule OgmVoice.Transport do
     )
   end
 
-  def call(conn, _opts), do: Plug.Conn.send_resp(conn, 404, "not found")
+  defp upgrade_dictation(conn, opts) do
+    with %{nonce: nonce, subject: subject, target: target} <- claims(conn, opts, "dictate"),
+         ^subject <- Target.creator(target),
+         dictation when is_list(dictation) <- Keyword.get(opts, :dictation),
+         transcriber when is_atom(transcriber) <- Keyword.get(dictation, :transcriber) do
+      state = %{
+        nonce: nonce,
+        leases: Keyword.get(dictation, :leases, OgmVoice.DictationLeases),
+        transcriber: transcriber,
+        transcriber_opts: Keyword.get(dictation, :transcriber_opts, [])
+      }
+
+      WebSockAdapter.upgrade(conn, OgmVoice.DictationSocket, state,
+        max_frame_size: PackageTransport.max_frame_bytes(),
+        max_fragmented_message_size: PackageTransport.max_frame_bytes()
+      )
+    else
+      _unauthorized -> upgrade_unauthorized(conn, opts)
+    end
+  end
+
+  defp upgrade_unauthorized(conn, opts) do
+    state = PackageTransport.socket_state(opts, false)
+
+    WebSockAdapter.upgrade(conn, OgmVoice.Transport.Socket, state,
+      max_frame_size: PackageTransport.max_frame_bytes(),
+      max_fragmented_message_size: PackageTransport.max_frame_bytes()
+    )
+  end
 
   defp api(instance, %{subject: subject, target: authorized_target}) do
     %{
@@ -67,10 +107,10 @@ defmodule OgmVoice.Transport do
     }
   end
 
-  defp claims(conn, opts) do
+  defp claims(conn, opts, scope) do
     with token when is_binary(token) <- token(conn),
          {:ok, %{subject: subject, target: target} = claims} when is_binary(subject) and is_map(target) <-
-           Ports.call_port(opts[:token_issuer], :verify, [token, "converse", []], :token) do
+           Ports.call_port(opts[:token_issuer], :verify, [token, scope, []], :token) do
       claims
     else
       _ -> nil

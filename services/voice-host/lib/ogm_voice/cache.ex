@@ -152,7 +152,7 @@ defmodule OgmVoice.Cache do
         options = Map.get(command, "options", [])
         version = Map.get(command, "version")
 
-        if is_list(options) and Enum.all?(options, &is_binary/1) and
+        if is_list(options) and Enum.all?(options, &valid_option?/1) and
              (is_nil(version) or is_binary(version) or is_number(version)),
            do: {:ok, %{id: id, version: version, question: question, options: options}},
            else: :error
@@ -163,6 +163,13 @@ defmodule OgmVoice.Cache do
   end
 
   defp commands(_list), do: {:error, :invalid_push}
+
+  defp valid_option?(option) when is_binary(option), do: true
+
+  defp valid_option?(%{"id" => id, "label" => label}) when is_binary(id) and is_binary(label),
+    do: id != "" and label != ""
+
+  defp valid_option?(_option), do: false
 
   defp collect(list, fun) do
     Enum.reduce_while(list, {:ok, []}, fn item, {:ok, acc} ->

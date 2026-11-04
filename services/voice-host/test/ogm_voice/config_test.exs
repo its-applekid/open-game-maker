@@ -24,6 +24,13 @@ defmodule OgmVoice.ConfigTest do
            } = config
 
     assert [
+             transcriber: VoiceTranscribe.ElevenLabs.Scribe,
+             transcriber_opts: [api_key_fun: api_key_fun]
+           ] = Config.dictation(config)
+
+    assert is_function(api_key_fun, 0)
+
+    assert [
              render_dir: "/tmp/ogm-voice-test-renders",
              provider: VoiceConverse.Testing.FakeProvider,
              provider_id: :fake,

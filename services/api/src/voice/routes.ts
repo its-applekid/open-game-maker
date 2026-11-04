@@ -3,7 +3,13 @@ import { createHash, timingSafeEqual } from 'node:crypto';
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 
-import { InstructRequest, VoiceTokenRequest, VoiceTranscriptRequest, type VoiceTokenResponse } from '@ogm/contracts';
+import {
+  InstructRequest,
+  VoiceCommandAnswerRequest,
+  VoiceTokenRequest,
+  VoiceTranscriptRequest,
+  type VoiceTokenResponse,
+} from '@ogm/contracts';
 import { authorize } from '@ogm/policy';
 import { schema } from '@ogm/db';
 import { eq } from 'drizzle-orm';
@@ -18,6 +24,7 @@ import { createRateLimiter } from '../auth/rate-limit.js';
 import { findGameForFamily } from '../games/games.js';
 import { findJobRow } from '../jobs/repo.js';
 import { registerVoiceTarget } from './briefing-push.js';
+import { answerVoiceCommand } from './command-answer.js';
 import { deliverInstruction } from './instruct.js';
 import { mintVoiceToken, VOICE_DICTATION_TOKEN_SCOPE } from './token.js';
 import { appendVoiceTranscript } from './transcript.js';
@@ -123,6 +130,18 @@ routes.post('/internal/voice/transcript', async (c) => {
   const request = await parseBody(c, VoiceTranscriptRequest);
   const response = appendVoiceTranscript(deps, request);
   if (response === null) throw new HttpError(404, 'voice_target_not_found');
+  return c.json(response);
+});
+
+routes.post('/internal/voice/command-answer', async (c) => {
+  const deps = c.get('deps');
+  if (!internalSecret(c.req.header('x-ogm-internal'), deps.config.voiceInternalSecret)) {
+    throw new HttpError(401, 'unauthorized');
+  }
+  const request = await parseBody(c, VoiceCommandAnswerRequest);
+  const response = await answerVoiceCommand(deps, request);
+  if (response.status === 'stale') return c.json(response, 409);
+  if (response.status === 'failed') return c.json(response, 500);
   return c.json(response);
 });
 

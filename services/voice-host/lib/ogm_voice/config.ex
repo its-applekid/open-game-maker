@@ -19,7 +19,9 @@ defmodule OgmVoice.Config do
     "elevenlabs_agents" => :elevenlabs_agents,
     "openai_realtime" => :openai_realtime
   }
-  @allowed_tools ~w(get_status get_details list_open_commands propose_instruction record_summary end_conversation)
+  @allowed_tools ~w(
+    get_status get_details list_open_commands answer_command propose_instruction record_summary end_conversation
+  )
 
   @enforce_keys [
     :port,
@@ -32,7 +34,12 @@ defmodule OgmVoice.Config do
     :token_secret,
     :internal_secret
   ]
-  defstruct @enforce_keys ++ [narration_enabled: false]
+  defstruct @enforce_keys ++
+              [
+                narration_enabled: false,
+                dictation_transcriber: VoiceTranscribe.ElevenLabs.Scribe,
+                dictation_transcriber_opts: nil
+              ]
 
   @type secret :: (-> String.t() | nil)
   @type t :: %__MODULE__{
@@ -44,6 +51,8 @@ defmodule OgmVoice.Config do
           api_internal_url: String.t(),
           render_dir: Path.t(),
           narration_enabled: boolean(),
+          dictation_transcriber: module(),
+          dictation_transcriber_opts: keyword() | nil,
           token_secret: secret(),
           internal_secret: secret()
         }
@@ -113,6 +122,15 @@ defmodule OgmVoice.Config do
       credentials: OgmVoice.Ports.Credentials,
       privacy: privacy()
     ]
+  end
+
+  @doc "The credential-safe options for one Scribe dictation WebSocket."
+  @spec dictation(t()) :: keyword()
+  def dictation(%__MODULE__{} = config) do
+    transcriber_opts =
+      config.dictation_transcriber_opts || [api_key_fun: fn -> System.get_env("ELEVENLABS_API_KEY") end]
+
+    [transcriber: config.dictation_transcriber, transcriber_opts: transcriber_opts]
   end
 
   defp privacy do

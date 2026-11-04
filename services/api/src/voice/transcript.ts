@@ -39,12 +39,7 @@ export function appendVoiceTranscript(deps: AppDeps, request: VoiceTranscriptReq
   const jobId = targetJob(deps, request.target);
   if (jobId === null) return null;
 
-  const identity = JSON.stringify([
-    targetKey(request.target),
-    request.conversation_id,
-    request.actor,
-    request.turn_id,
-  ]);
+  const identity = JSON.stringify([targetKey(request.target), request.conversation_id, request.actor, request.turn_id]);
   const id = `m_${stableUuid(identity)}`;
   const { row, inserted } = insertChatRow(deps.sqlite, {
     id,

@@ -42,7 +42,7 @@ export const BriefingPush = z.object({
         id: z.string(),
         version: z.union([z.string(), z.number()]).optional(),
         question: z.string(),
-        options: z.array(z.string()).optional(),
+        options: z.array(z.union([z.string(), z.object({ id: z.string(), label: z.string() }).strict()])).optional(),
       }),
     )
     .optional(),
@@ -75,6 +75,19 @@ export const VoiceTranscriptResponse = z.object({
   inserted: z.boolean(),
 });
 
+// Voice host → API: one spoken answer to an open Aiur Command.
+export const VoiceCommandAnswerRequest = z
+  .object({
+    target: VoiceTarget,
+    command_id: z.string().min(1).max(200),
+    choice: z.string().trim().min(1).max(4000),
+    idempotency_key: z.string().min(1).max(200),
+  })
+  .strict();
+export const VoiceCommandAnswerResponse = z.object({
+  status: z.enum(['answered', 'stale', 'failed']),
+});
+
 export type VoiceTarget = z.infer<typeof VoiceTarget>;
 export type VoiceTokenRequest = z.infer<typeof VoiceTokenRequest>;
 export type VoiceTokenResponse = z.infer<typeof VoiceTokenResponse>;
@@ -83,6 +96,8 @@ export type InstructRequest = z.infer<typeof InstructRequest>;
 export type InstructResponse = z.infer<typeof InstructResponse>;
 export type VoiceTranscriptRequest = z.infer<typeof VoiceTranscriptRequest>;
 export type VoiceTranscriptResponse = z.infer<typeof VoiceTranscriptResponse>;
+export type VoiceCommandAnswerRequest = z.infer<typeof VoiceCommandAnswerRequest>;
+export type VoiceCommandAnswerResponse = z.infer<typeof VoiceCommandAnswerResponse>;
 
 export const voiceSchemas = {
   'voice.token.request.v1': VoiceTokenRequest,
@@ -92,4 +107,6 @@ export const voiceSchemas = {
   'voice.instruct.response.v1': InstructResponse,
   'voice.transcript.request.v1': VoiceTranscriptRequest,
   'voice.transcript.response.v1': VoiceTranscriptResponse,
+  'voice.command-answer.request.v1': VoiceCommandAnswerRequest,
+  'voice.command-answer.response.v1': VoiceCommandAnswerResponse,
 } satisfies Record<string, z.ZodType>;

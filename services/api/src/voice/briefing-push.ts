@@ -7,6 +7,7 @@ import { sizeClassRow } from '../budget/estimate.js';
 import { getBudgetSettings, type BudgetDefaults } from '../budget/settings.js';
 import { budgetStatus } from '../budget/status.js';
 import { toUnits } from '../budget/units.js';
+import { parseCommandOptions } from '../checkpoints/options.js';
 
 export type { VoiceTarget } from '@ogm/contracts';
 
@@ -120,15 +121,24 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
     ? (deps.db.select().from(schema.jobProjections).where(eq(schema.jobProjections.jobId, job.id)).get()?.stageText ??
       job.state)
     : null;
-  const questions = job
+  const commandRows = job
     ? deps.db
-        .select({ question: schema.checkpoints.question })
+        .select({
+          id: schema.checkpoints.decisionId,
+          version: schema.checkpoints.version,
+          question: schema.checkpoints.question,
+          options: schema.checkpoints.options,
+        })
         .from(schema.checkpoints)
         .where(and(eq(schema.checkpoints.jobId, job.id), eq(schema.checkpoints.status, 'open')))
         .orderBy(asc(schema.checkpoints.openedAt))
         .all()
-        .map(({ question }) => question)
     : [];
+  const questions = commandRows.map(({ question }) => question);
+  const commands = commandRows.flatMap(({ id, version, question, options }) => {
+    const parsed = parseCommandOptions(options);
+    return parsed === null ? [] : [{ id, version, question, options: parsed.map(({ id, label }) => ({ id, label })) }];
+  });
   let budget: { remaining: string; sizes: string } | undefined;
   try {
     budget = budgetText(deps, familyId, target.creator_id, now);
@@ -154,6 +164,7 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
     next_steps: target.kind === 'scope' ? ['Confirm the plan', 'Start the build or queue it for the reset'] : [],
     ...(waitingOn ? { waiting_on: waitingOn } : {}),
     questions,
+    commands,
     extra: budgetSummary ? [{ title: 'Budget', text: budgetSummary }] : [],
     sections,
     observed_at: now.toISOString(),

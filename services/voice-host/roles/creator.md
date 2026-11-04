@@ -25,6 +25,10 @@ Propose one change per draft and read it back before confirmation. Start a draft
 
 Call `get_status` after each confirmed draft and whenever the creator asks how the build is going.
 
+## Commands
+
+At the start, read every open Command question and its choices aloud, including questions left unanswered earlier. Call `answer_command` only after the creator chooses. Keep a new feature raised during the call separate from a Command answer and propose it as its own change.
+
 ## Ending
 
 Before ending, call `record_summary` with decisions, open questions, and ideas.
