@@ -123,6 +123,21 @@
   animation: studio-menu-spin 0.9s linear infinite;
 }
 
+.studio-menu-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: grid;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--red-b);
+  color: var(--night);
+  font: 800 13px/1 var(--body);
+}
+
 .studio-menu-button[data-building='true'] .studio-menu-ring {
   display: block;
 }
@@ -172,7 +187,42 @@
   list-style: none;
 }
 
-.studio-menu-builds a {
+.studio-menu-build-group,
+.studio-menu-build-group > ul {
+  display: grid;
+  gap: 6px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+
+.studio-menu-build-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 2px;
+}
+
+.studio-menu-build-heading strong {
+  overflow: hidden;
+  font: 700 16px var(--display);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio-menu-build-heading a {
+  flex: none;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: var(--green-b);
+  color: var(--night);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.studio-menu-job {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 10px;
@@ -183,21 +233,62 @@
   text-decoration: none;
 }
 
-.studio-menu-builds strong,
-.studio-menu-builds span:first-of-type {
+.studio-menu-job[data-action-needed='true'] {
+  background: color-mix(in srgb, var(--orange-b) 28%, var(--night-3));
+}
+
+.studio-menu-job[data-status='finished'][data-success='true'] {
+  background: color-mix(in srgb, var(--green-b) 28%, var(--night-3));
+}
+
+.studio-menu-job[data-status='parked'] {
+  opacity: 0.78;
+}
+
+.studio-menu-job strong,
+.studio-menu-job-stage {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.studio-menu-builds strong {
+.studio-menu-job strong {
   grid-column: 1 / -1;
-  font: 700 16px var(--display);
+  font: 700 14px var(--display);
 }
 
-.studio-menu-builds span {
+.studio-menu-job span {
   color: var(--ink-2);
   font-size: 14px;
+}
+
+.studio-menu-job-state {
+  color: var(--cream) !important;
+  font-weight: 800;
+}
+
+.studio-menu-job-percent {
+  grid-column: 2;
+  grid-row: 3;
+}
+
+.studio-menu-job-progress {
+  grid-column: 1 / -1;
+  height: 4px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--cream) 16%, transparent);
+}
+
+.studio-menu-job-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--orange-b);
+}
+
+.studio-menu-job[data-status='finished'][data-success='true'] .studio-menu-job-progress > span {
+  background: var(--green-b);
 }
 
 @keyframes studio-menu-spin {

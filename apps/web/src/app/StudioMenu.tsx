@@ -34,6 +34,8 @@ export function StudioMenu() {
   const gameId = game?.params.gameId;
   const gameTitles = useMemo(() => new Map(builds.games.map(({ id, title }) => [id, title])), [builds.games]);
   const visibleBuilds = useMemo(() => recentBuilds(builds.jobs), [builds.jobs, buildClock]);
+  const buildGroups = useMemo(() => groupBuilds(visibleBuilds, gameTitles), [gameTitles, visibleBuilds]);
+  const outstandingRequests = visibleBuilds.reduce((total, job) => total + (job.openRequestCount ?? 0), 0);
 
   useEffect(() => {
     if (!open) return;
@@ -94,13 +96,24 @@ export function StudioMenu() {
         className="studio-menu-button"
         data-building={builds.active.length > 0}
         aria-label="Menu"
+        aria-describedby={outstandingRequests > 0 ? 'studio-menu-requests' : undefined}
         aria-expanded={open}
         aria-controls="studio-menu-panel"
         onClick={() => setOpen((current) => !current)}
       >
         <span className="studio-menu-ring" aria-hidden="true" />
         <Icon name="menu" />
+        {outstandingRequests > 0 ? (
+          <span className="studio-menu-badge" aria-hidden="true">
+            {outstandingRequests}
+          </span>
+        ) : null}
       </button>
+      {outstandingRequests > 0 ? (
+        <span id="studio-menu-requests" className="sr">
+          {outstandingRequests} {outstandingRequests === 1 ? 'request needs' : 'requests need'} your attention
+        </span>
+      ) : null}
       <span className="sr" role="status" aria-live="polite">
         {announcement}
       </span>
@@ -128,18 +141,49 @@ export function StudioMenu() {
 
           <BugButton />
 
-          {visibleBuilds.length > 0 ? (
+          {buildGroups.length > 0 ? (
             <ul className="studio-menu-builds" aria-label="Build progress">
-              {visibleBuilds.map((job) => (
-                <li key={job.id}>
-                  <Link
-                    to={`/g/${encodeURIComponent(job.gameId)}?v=${encodeURIComponent(job.branchId)}`}
-                    onClick={close}
-                  >
-                    <strong>{buildName(job, gameTitles)}</strong>
-                    <span>{buildStage(job)}</span>
-                    <span>{buildPercent(job)}%</span>
-                  </Link>
+              {buildGroups.map((group) => (
+                <li
+                  key={group.gameId}
+                  className="studio-menu-build-group"
+                  role="group"
+                  aria-label={`${group.title} builds`}
+                >
+                  <div className="studio-menu-build-heading">
+                    <strong>{group.title}</strong>
+                    {group.playable ? (
+                      <Link to={buildPath(group.playable)} onClick={close}>
+                        Ready to try
+                      </Link>
+                    ) : null}
+                  </div>
+                  <ul>
+                    {group.jobs.map((job) => {
+                      const state = menuJobState(job);
+                      const percent = buildPercent(job);
+                      return (
+                        <li key={job.id}>
+                          <Link
+                            className="studio-menu-job"
+                            data-status={state}
+                            data-success={job.state === 'done'}
+                            data-action-needed={(job.openRequestCount ?? 0) > 0}
+                            to={buildPath(job)}
+                            onClick={close}
+                          >
+                            <strong>{job.plan.title}</strong>
+                            <span className="studio-menu-job-state">{menuJobStateLabel(state)}</span>
+                            <span className="studio-menu-job-stage">{buildStage(job)}</span>
+                            <span className="studio-menu-job-percent">{percent}%</span>
+                            <span className="studio-menu-job-progress" aria-hidden="true">
+                              <span style={{ width: `${percent}%` }} />
+                            </span>
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </li>
               ))}
             </ul>
@@ -190,6 +234,55 @@ function recentBuilds(jobs: readonly Job[], now = Date.now()): Job[] {
     const finishedAt = Date.parse(job.terminalAt ?? job.updatedAt);
     return Number.isFinite(finishedAt) && now - finishedAt <= RECENT_BUILD_MS;
   });
+}
+
+type BuildGroup = { gameId: string; title: string; jobs: Job[]; playable?: Job };
+type MenuJobState = 'not-started' | 'active' | 'paused' | 'parked' | 'finished';
+
+function groupBuilds(jobs: readonly Job[], names: ReadonlyMap<string, string | undefined>): BuildGroup[] {
+  const groups = new Map<string, BuildGroup>();
+  for (const job of jobs) {
+    const group = groups.get(job.gameId) ?? {
+      gameId: job.gameId,
+      title: buildName(job, names),
+      jobs: [],
+    };
+    group.jobs.push(job);
+    if (job.state === 'done' && job.kind !== 'scope' && group.playable === undefined) group.playable = job;
+    groups.set(job.gameId, group);
+  }
+  return [...groups.values()];
+}
+
+function buildPath(job: Job): string {
+  return `/g/${encodeURIComponent(job.gameId)}?v=${encodeURIComponent(job.branchId)}`;
+}
+
+function menuJobState(job: Job): MenuJobState {
+  if (isTerminal(job.state)) return 'finished';
+  if (job.stage === 'parked') return 'parked';
+  if (job.stage === 'paused' || job.stage === 'out_of_budget') return 'paused';
+  if (
+    job.state === 'queued' ||
+    job.state === 'admitted' ||
+    job.state === 'filed' ||
+    job.stage === 'queued_ogm' ||
+    job.stage === 'waiting_capacity' ||
+    job.stage === 'waiting_provider'
+  ) {
+    return 'not-started';
+  }
+  return 'active';
+}
+
+function menuJobStateLabel(state: MenuJobState): string {
+  return {
+    'not-started': 'Not started',
+    active: 'Active',
+    paused: 'Paused',
+    parked: 'Parked',
+    finished: 'Finished',
+  }[state];
 }
 
 function nextRecentBuildExpiry(jobs: readonly Job[], now = Date.now()): number | undefined {

@@ -38,6 +38,7 @@ const runningJob = {
   stage: 'building',
   stageText: 'Building the moon gate',
   progressPercent: 42,
+  openRequestCount: 2,
 };
 
 test.use({ serviceWorkers: 'block' });
@@ -68,11 +69,16 @@ test('shows the active build ring and contextual build in the games menu', async
   const trigger = page.getByRole('button', { name: 'Menu' });
   await expect(trigger).toHaveAttribute('data-building', 'true');
   await expect(page.locator('.studio-menu-control [role="status"]')).toHaveText('Building Moon Vault');
+  await expect(page.locator('.studio-menu-badge')).toHaveText('2');
   await capturePhone(page, testInfo, 'games-menu-building');
 
   await trigger.click();
-  await expect(page.getByRole('link', { name: /Moon Vault.*Building the moon gate.*42%/ })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Moon Vault builds' })).toBeVisible();
+  await expect(
+    page.getByRole('link', { name: /Add the moon gate.*Active.*Building the moon gate.*42%/ }),
+  ).toBeVisible();
   await expect(page.locator('.bug-fab')).toHaveCount(0);
+  await capturePhone(page, testInfo, 'games-menu-open');
 });
 
 for (const mode of ['play', 'edit'] as const) {

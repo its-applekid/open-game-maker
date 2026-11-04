@@ -32,10 +32,13 @@ type TestJob = {
   id: string;
   gameId: string;
   branchId: string;
-  state: 'running' | 'done';
-  stage?: 'building' | 'done';
+  state: 'queued' | 'running' | 'done';
+  stage?: 'queued_ogm' | 'building' | 'paused' | 'parked' | 'done';
   stageText?: string;
   progressPercent?: number;
+  openRequestCount?: number;
+  kind: 'new_game' | 'feature' | 'repair' | 'scope';
+  plan: { title: string };
   updatedAt: string;
   terminalAt: string | null;
 };
@@ -48,6 +51,9 @@ const runningJob = (overrides: Partial<TestJob> = {}): TestJob => ({
   stage: 'building',
   stageText: 'Building rooms',
   progressPercent: 42,
+  openRequestCount: 0,
+  kind: 'feature',
+  plan: { title: 'Build the moon gate' },
   updatedAt: new Date().toISOString(),
   terminalAt: null,
   ...overrides,
@@ -112,7 +118,7 @@ describe('StudioMenu', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Building Moon Vault');
 
     fireEvent.click(trigger);
-    const build = screen.getByRole('link', { name: /Moon Vault.*Building rooms.*42%/ });
+    const build = screen.getByRole('link', { name: /Build the moon gate.*Active.*Building rooms.*42%/ });
     expect(build).toHaveAttribute('href', '/g/game-1?v=main');
 
     view.unmount();
@@ -151,11 +157,69 @@ describe('StudioMenu', () => {
     state.jobs = { jobs: [finished], active: [], games: [{ id: 'game-1', title: 'Moon Vault' }] };
     renderMenu('/games');
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
-    expect(screen.getByRole('link', { name: /Moon Vault.*Ready to try.*100%/ })).toBeVisible();
+    expect(screen.getByRole('link', { name: /Build the moon gate.*Finished.*Ready to try.*100%/ })).toBeVisible();
 
     act(() => vi.advanceTimersByTime(5 * 60 * 1000 + 1));
 
-    expect(screen.queryByRole('link', { name: /Moon Vault/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: /Moon Vault builds/ })).not.toBeInTheDocument();
+  });
+
+  it('groups jobs by game, badges open requests, and distinguishes paused, parked, and playable work', () => {
+    const paused = runningJob({
+      id: 'job-paused',
+      openRequestCount: 2,
+      plan: { title: 'Choose the moon gate' },
+      stage: 'paused',
+      stageText: 'Waiting for your answer',
+    });
+    const parked = runningJob({
+      id: 'job-parked',
+      openRequestCount: 1,
+      plan: { title: 'Paint the observatory' },
+      stage: 'parked',
+      stageText: 'Parked',
+    });
+    const playable = runningJob({
+      id: 'job-playable',
+      gameId: 'game-2',
+      state: 'done',
+      stage: 'done',
+      stageText: 'Ready to try',
+      progressPercent: 100,
+      terminalAt: new Date().toISOString(),
+      plan: { title: 'Prototype the forest' },
+    });
+    state.session = { data: { user: { id: 'user-1' } } };
+    state.jobs = {
+      jobs: [paused, parked, playable],
+      active: [paused, parked],
+      games: [
+        { id: 'game-1', title: 'Moon Vault' },
+        { id: 'game-2', title: 'Forest Run' },
+      ],
+    };
+
+    renderMenu('/games');
+
+    const trigger = screen.getByRole('button', { name: 'Menu' });
+    expect(trigger).toHaveAttribute('aria-describedby', 'studio-menu-requests');
+    expect(screen.getByText('3', { selector: '.studio-menu-badge' })).toBeVisible();
+    expect(document.getElementById('studio-menu-requests')).toHaveTextContent('3 requests need your attention');
+
+    fireEvent.click(trigger);
+    const moon = screen.getByRole('group', { name: 'Moon Vault builds' });
+    expect(moon).toHaveTextContent('Choose the moon gatePausedWaiting for your answer');
+    expect(moon).toHaveTextContent('Paint the observatoryParked');
+    const forest = screen.getByRole('group', { name: 'Forest Run builds' });
+    expect(forest).toHaveTextContent('Ready to try');
+    expect(screen.getByRole('link', { name: /Prototype the forest.*Finished.*Ready to try/ })).toHaveAttribute(
+      'data-status',
+      'finished',
+    );
+    expect(screen.getByRole('link', { name: /Prototype the forest.*Finished.*Ready to try/ })).toHaveAttribute(
+      'data-success',
+      'true',
+    );
   });
 
   it('keeps sign out retryable when the auth request fails', async () => {
