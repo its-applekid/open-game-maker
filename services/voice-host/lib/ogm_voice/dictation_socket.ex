@@ -23,7 +23,7 @@ defmodule OgmVoice.DictationSocket do
     state = %{transcriber: transcriber, session: nil, committed?: false, closed?: false}
 
     with :ok <- OgmVoice.DictationLeases.claim(leases, nonce, self()),
-         {:ok, session} <- transcriber.start(transcriber_opts) do
+         {:ok, session} <- start_transcriber(transcriber, transcriber_opts) do
       scheduler.(@deadline_ms)
       {:ok, %{state | session: session}}
     else
@@ -115,6 +115,14 @@ defmodule OgmVoice.DictationSocket do
 
   defp stop(%{session: session, transcriber: transcriber}) when is_pid(session), do: transcriber.stop(session)
   defp stop(_state), do: :ok
+
+  # A pin whose sparse checkout does not carry the configured transcriber must report the same
+  # provider-unconfigured error as a missing key rather than crash the socket.
+  defp start_transcriber(transcriber, opts) do
+    if Code.ensure_loaded?(transcriber), do: transcriber.start(opts), else: {:error, :unconfigured}
+  rescue
+    UndefinedFunctionError -> {:error, :unconfigured}
+  end
 
   defp push(state, frame), do: {:push, {:text, Jason.encode!(frame)}, state}
 

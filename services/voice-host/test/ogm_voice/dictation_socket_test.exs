@@ -61,6 +61,23 @@ defmodule OgmVoice.DictationSocketTest do
            }
   end
 
+  test "a transcriber missing from the pinned dependency reports unconfigured", %{leases: leases} do
+    assert {:ok, state} =
+             DictationSocket.init(%{
+               nonce: "nonce-missing",
+               leases: leases,
+               transcriber: OgmVoice.DictationSocketTest.MissingTranscriber,
+               transcriber_opts: [],
+               deadline_scheduler: fn _delay -> :ok end
+             })
+
+    assert_receive {:dictation_start_error, code, message}
+    assert code == "provider_unconfigured"
+
+    assert {:push, {:text, error}, _next} = DictationSocket.handle_info({:dictation_start_error, code, message}, state)
+    assert Jason.decode!(error)["code"] == "provider_unconfigured"
+  end
+
   test "the server deadline stops the paid transcriber", %{leases: leases} do
     assert {:ok, state} =
              DictationSocket.init(%{
