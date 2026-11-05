@@ -202,6 +202,19 @@ describe('the link decorator', () => {
     expect(harness.inner.opens).toHaveLength(2);
   });
 
+  it('drops a send that arrives after close, without counting it against the link', async () => {
+    const harness = link(CLEAN_LINK);
+    await harness.open();
+
+    harness.transport.close('done');
+    harness.transport.send('input', fill(4));
+    harness.clock.advance(100);
+
+    expect(harness.received).toEqual([]);
+    expect(harness.inner.closes).toEqual(['done']);
+    expect(harness.transport.stats().sent).toBe(0);
+  });
+
   it('forwards what the inner transport receives, untransformed', async () => {
     const harness = link(CLEAN_LINK);
     await harness.open();

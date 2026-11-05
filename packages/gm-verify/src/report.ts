@@ -1,7 +1,7 @@
 import { mkdirSync, renameSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { tierSchema, viewIdSchema } from '@ogm/contracts';
+import { LIMITS, tierSchema, viewIdSchema } from '@ogm/contracts';
 import { z } from 'zod';
 
 export const GM_VERIFY_VERSION = '0.1.0';
@@ -52,8 +52,8 @@ export const perfSchema = z.object({
 });
 export type PerfResult = z.infer<typeof perfSchema>;
 
-/** Netcode diagnostics cap the report at eight seats (contracts `LIMITS.maxPlayersCeiling`). */
-export const MAX_REPORT_SEATS = 8;
+/** A room's seat ceiling is the contract's, not a number restated here. */
+export const MAX_REPORT_SEATS = LIMITS.maxPlayersCeiling;
 
 /**
  * The simulated link a multiplayer run used (N6): one object, echoed into the report so a failing run reproduces from

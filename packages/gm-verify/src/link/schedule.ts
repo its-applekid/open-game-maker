@@ -1,5 +1,7 @@
 import type { ChannelName } from '@ogm/contracts';
 
+import type { LinkProfile } from '../report.js';
+
 /**
  * Bad-network simulation, the pure half (netcode platform §8.3, research #499 §3.7).
  *
@@ -8,21 +10,12 @@ import type { ChannelName } from '@ogm/contracts';
  * order the decisions are asked in. `transport.ts` applies them through an injected clock.
  */
 
-export type Disconnect = { seat: number; atMs: number; downMs: number };
-
-export type LinkConfig = {
-  seed: number;
-  /** One way, in ms. The design's "latency 80 ms" is an RTT, so it is 40 here. */
-  latencyMs: number;
-  /** ± this, uniform. */
-  jitterMs: number;
-  /** `input` and `state` only. */
-  lossPct: number;
-  /** `input` and `state` only. */
-  reorderPct: number;
-  /** Applied by wall-clock time by whoever drives the run, not per message. */
-  disconnects: Disconnect[];
-};
+/**
+ * The profile is the report's `link` object (§4.1): one declaration, so a config that the simulator accepts can never be
+ * one the report rejects. `disconnects` are applied by wall-clock time by whoever drives the run, not per message.
+ */
+export type Disconnect = LinkProfile['disconnects'][number];
+export type LinkConfig = LinkProfile;
 
 export type Delivery = { dropped: boolean; delayMs: number; reordered: boolean };
 

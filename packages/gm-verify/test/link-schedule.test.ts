@@ -9,7 +9,9 @@ import { BAD_LINK, CLEAN_LINK, createLinkSchedule, type Delivery, type LinkConfi
 const FIXTURE = fileURLToPath(new URL('../fixtures/link/seed-1234.json', import.meta.url));
 const CHANNELS: ChannelName[] = ['input', 'state', 'event'];
 
-type Fixture = { channel: ChannelName; link: LinkConfig; decisions: Delivery & { index: number }[] };
+/** One row per decision: `[index, dropped, delayMs, reordered]`. */
+type Row = [number, boolean, number, boolean];
+type Fixture = { channel: ChannelName; link: LinkConfig; decisions: Row[] };
 
 function fixture(): Fixture {
   return JSON.parse(readFileSync(FIXTURE, 'utf8')) as Fixture;
@@ -26,16 +28,19 @@ describe('the seeded link schedule', () => {
     const decide = createLinkSchedule(committed.link);
 
     expect(committed.decisions).toHaveLength(200);
-    expect(committed.decisions.map(({ index }) => ({ index, ...decide(committed.channel, index) }))).toEqual(
-      committed.decisions,
-    );
+    expect(
+      committed.decisions.map(([index]) => {
+        const { dropped, delayMs, reordered } = decide(committed.channel, index);
+        return [index, dropped, delayMs, reordered];
+      }),
+    ).toEqual(committed.decisions);
   });
 
   it('gives one decision per message that does not depend on the order the decisions are asked in', () => {
     const decide = createLinkSchedule(BAD_LINK);
-    const row = fixture().decisions[137]!;
+    const [, dropped, delayMs, reordered] = fixture().decisions[137]!;
 
-    expect(decide('input', 137)).toEqual({ dropped: row.dropped, delayMs: row.delayMs, reordered: row.reordered });
+    expect(decide('input', 137)).toEqual({ dropped, delayMs, reordered });
     expect(decide('input', 137)).toEqual(decide('input', 137));
   });
 

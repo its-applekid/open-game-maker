@@ -46,6 +46,7 @@ export class LinkTransport implements Transport {
   private readonly pendingDue: Record<ChannelName, number> = { input: 0, state: 0, event: 0 };
   private readonly timers = new Set<() => void>();
   private handlers: TransportHandlers | undefined;
+  private closed = false;
   private sent = 0;
   private delivered = 0;
   private dropped = 0;
@@ -70,14 +71,14 @@ export class LinkTransport implements Transport {
 
   async open(handlers: TransportHandlers): Promise<void> {
     this.handlers = handlers;
-    await this.inner.open({
-      message: (channel, bytes) => handlers.message(channel, bytes),
-      stats: (stats) => handlers.stats({ ...stats, ...this.counters(stats) }),
-      closed: (reason) => handlers.closed(reason),
-    });
+    this.closed = false;
+    await this.inner.open(this.wrap(handlers));
   }
 
   send(channel: ChannelName, bytes: Uint8Array): void {
+    /* A closed link is not a bad link: a send after close is dropped without touching the schedule or the counters. */
+    if (this.closed) return;
+
     const decision = this.decide(channel, this.sends[channel]!);
     this.sends[channel] = this.sends[channel]! + 1;
     this.sent += 1;
@@ -116,6 +117,7 @@ export class LinkTransport implements Transport {
   }
 
   close(reason: string): void {
+    this.closed = true;
     for (const cancel of [...this.timers]) cancel();
     this.timers.clear();
     this.inner.close(reason);
@@ -130,16 +132,21 @@ export class LinkTransport implements Transport {
     const cancel = this.clock.later(downMs, () => {
       this.timers.delete(cancel);
       const handlers = this.handlers;
-      if (!handlers) return;
+      if (!handlers || this.closed) return;
       void this.inner
-        .open({
-          message: (channel, bytes) => handlers.message(channel, bytes),
-          stats: (stats) => handlers.stats({ ...stats, ...this.counters(stats) }),
-          closed: (reason) => handlers.closed(reason),
-        })
+        .open(this.wrap(handlers))
         .catch((error: unknown) => handlers.closed(error instanceof Error ? error.message : String(error)));
     });
     this.timers.add(cancel);
+  }
+
+  /** The inner transport's callbacks, with the decorator's own numbers folded into `stats`. */
+  private wrap(handlers: TransportHandlers): TransportHandlers {
+    return {
+      message: (channel, bytes) => handlers.message(channel, bytes),
+      stats: (stats) => handlers.stats(this.counters(stats)),
+      closed: (reason) => handlers.closed(reason),
+    };
   }
 
   /** Send-side numbers are the decorator's — it is the only sender — and receive-side numbers pass through. */
