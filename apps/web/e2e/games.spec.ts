@@ -93,6 +93,40 @@ test('keeps spotlight actions and the fixed New game control touch sized on a ph
     expect(box.height).toBeGreaterThanOrEqual(64);
   }
 
+  const plus = create.locator('.plus');
+  const icon = plus.locator('svg');
+  await expect(icon).toHaveAttribute('viewBox', '0 0 16 16');
+  const [buttonStyle, plusStyle] = await Promise.all([
+    create.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundColor: style.backgroundColor,
+        backgroundImage: style.backgroundImage,
+        borderColor: style.borderTopColor,
+        boxShadow: style.boxShadow,
+        color: style.color,
+        gap: style.columnGap,
+      };
+    }),
+    plus.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return { backgroundColor: style.backgroundColor, color: style.color };
+    }),
+  ]);
+  expect(buttonStyle).toEqual({
+    backgroundColor: 'rgb(152, 151, 26)',
+    backgroundImage: 'none',
+    borderColor: 'rgba(0, 0, 0, 0)',
+    boxShadow: 'none',
+    color: 'rgb(29, 32, 33)',
+    gap: '8px',
+  });
+  expect(plusStyle).toEqual({ backgroundColor: 'rgba(0, 0, 0, 0)', color: buttonStyle.color });
+
+  const label = create.getByText('New game', { exact: true });
+  const [iconBox, labelBox] = await Promise.all([icon.boundingBox(), label.boundingBox()]);
+  expect(Math.abs(iconBox!.y + iconBox!.height / 2 - (labelBox!.y + labelBox!.height / 2))).toBeLessThanOrEqual(1);
+
   const spotlight = (await page.locator('.games-spotlight').boundingBox())!;
   const viewport = page.viewportSize()!;
   expect(spotlight.height).toBeLessThanOrEqual(viewport.height);
