@@ -24,6 +24,34 @@ axes, material slots, textures, animation names, and triangle count before the g
 Blender MCP is optional operator tooling. Document the upstream server when an operator wants an interactive session,
 but do not install its add-on, edit MCP configuration, open a local control socket, or make a build depend on it.
 
+## Prepare an item for a set
+
+A model is ready for a game when it is the right size and stands on its own origin, not when the export finished. For
+every item: real metres from a looked-up height (a desk phone is about 0.12 m, a mug 0.095 m) or exact dims for a boxy
+prop the generator invented depth for; bottom-centre origin; front facing -Y, which is the renderer convention; and the
+mesh data rotated and scaled, never the object, so later imports do not compound the transform. Importing from a
+generator? Drop its framing rotation before turning the mesh, or the model arrives 20-30 degrees off.
+
+Budgets per item, with a LOD1 at about a quarter of LOD0 and textures at 2K or less:
+
+| Detail | Triangles | Textures | LOD1 |
+|---|---|---|---|
+| low | 20,000 | 1K | ~5,000 |
+| medium | 100,000 | 2K | ~25,000 |
+| high | 200,000 | 2K | ~50,000 |
+
+Gate the export before anything loads it, and keep the report with the item:
+
+```sh
+python3 -I scripts/assets/check_glb.py --budget medium --height 0.32 --require-lod1 out/items/mug/mug.glb
+```
+
+`--lineup` prints the to-scale x positions for the set and the scale bar to draw under them; put the bar under the
+still and look at it, because proportion between items is what a single thumbnail cannot show. A rebuild is retry-safe:
+`--jobs scenes/prep.json` lists what is still `pending` and treats an item whose `stats.json` is newer than its GLB and
+than the jobs file as done, so a rerun never redoes a finished item. Where each of these comes from, and what was
+skipped: `docs/research/anykit-lessons-2026-11.md`.
+
 ## Gate the output
 
 Render diagnostic angles with a neutral world and explicit lights. For a turntable, keep the object fixed and move the
