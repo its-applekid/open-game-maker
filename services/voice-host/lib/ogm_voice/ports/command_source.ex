@@ -5,7 +5,10 @@ defmodule OgmVoice.Ports.CommandSource do
   alias OgmVoice.Ports.BriefingSource
 
   @settings_key {__MODULE__, :settings}
-  @request_timeout_ms 250
+  # The API answers through Aiur's Decision API before it replies, so the bound matches
+  # `OgmVoice.Delivery`'s loopback call rather than a local round trip.
+  @request_timeout_ms 5_000
+  @connect_timeout_ms 1_000
 
   @doc false
   @spec install(String.t(), (-> String.t() | nil), keyword()) :: :ok
@@ -65,7 +68,7 @@ defmodule OgmVoice.Ports.CommandSource do
     case :httpc.request(
            :post,
            request,
-           [timeout: @request_timeout_ms, connect_timeout: 100],
+           [timeout: @request_timeout_ms, connect_timeout: @connect_timeout_ms],
            body_format: :binary
          ) do
       {:ok, {{_http_version, status, _reason}, _headers, body}} ->

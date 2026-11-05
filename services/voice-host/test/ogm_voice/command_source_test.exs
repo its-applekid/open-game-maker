@@ -2,6 +2,7 @@ defmodule OgmVoice.CommandSourceTest do
   use ExUnit.Case, async: false
 
   alias OgmVoice.Ports.CommandSource
+  alias OgmVoice.Test.ApiStub
 
   @target %{"kind" => "build", "game_id" => "g1", "job_id" => "j1", "ticket" => "7", "creator_id" => "u1"}
 
@@ -28,6 +29,15 @@ defmodule OgmVoice.CommandSourceTest do
                       choice: "blue",
                       idempotency_key: "call-1"
                     }}
+  end
+
+  test "waits for the API's Decision call instead of failing on a local round-trip budget" do
+    {stub, api_url} = ApiStub.start!(self(), 200, 600, ~s({"status":"answered"}))
+    on_exit(fn -> Process.exit(stub, :shutdown) end)
+
+    CommandSource.install(api_url, fn -> "secret" end)
+
+    assert :ok = CommandSource.answer(@target, "decision-1", "blue", "call-slow")
   end
 
   test "maps stale and opaque failures without exposing response details" do
