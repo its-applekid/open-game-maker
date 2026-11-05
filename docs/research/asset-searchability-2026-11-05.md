@@ -119,7 +119,8 @@ queries through five engines:
 
 - `linear` — a port of `packages/asset-cards/src/search.ts`: full scan, every card's fields re-tokenized per query.
   This is what `gm assets search` does today.
-- `cached` — the same scan with token lists built once: the cheapest a full scan can ever be.
+- `cached` — the same scan with the card token lists built once: a conservative floor for a full scan (the query
+  words are still tokenized per card, as `score()` does).
 - `postings` — the JSON index plus inverted postings (token → card + weight), intersected per query.
 - `fts5` — SQLite FTS5 (`node:sqlite`), `kind`/`subkind`/`family`/`status`/`uses` as columns, ranked `MATCH`.
 - `shards` — JSON shards by kind, parsed and scanned per query.
@@ -154,8 +155,8 @@ Build cost, same runs: postings 0.33 s → 52 s, FTS5 0.08 s → 35 s, cached fi
   library; at a realistic 20 000 cards that is ~1.6 s of scan and 0.4 s of parse **per search**, and the same index
   parse also happens for `facets`, `info`, `sheet` and `list`. Every one of those is in a game-build loop an agent runs
   tens of times per session.
-- **Caching the tokens is not enough.** The `cached` column is 10× better and still 3.8 s at 200 000, and it needs
-  ~1 GB of token lists in memory. A full scan cannot reach "instant".
+- **Caching the card tokens is not enough.** The `cached` column is 10-13× better than today and still 3.8 s at
+  200 000, and it needs the token lists of every card in memory. A full scan cannot reach "instant".
 - **FTS5 is the one that stays flat** — 0.68 ms → 12.8 ms over a 100× size change, because `MATCH … ORDER BY rank
   LIMIT` reads only the posting lists it needs, and the columns it joins against are indexed. It also keeps the
   words and the filters in one place, so a facet count is a second cheap query instead of a second scan.

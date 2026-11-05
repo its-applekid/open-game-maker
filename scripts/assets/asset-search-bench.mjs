@@ -7,7 +7,8 @@
 //
 // Engines:
 //   linear     today: full scan, every card's fields re-tokenized on every query
-//   cached     the same scan with the token lists built once, i.e. the cheapest a full scan can be
+//   cached     the same scan with the card token lists built once: a conservative floor for a full scan
+//              (the query words are still tokenized per card, as search.ts's score() does)
 //   postings   the JSON index plus inverted postings, built once at preprocess time
 //   fts5       SQLite FTS5 through node:sqlite (no new dependency), kind/family/status as columns
 //   shards     JSON shards by kind, parsed and scanned per query
