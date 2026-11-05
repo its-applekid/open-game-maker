@@ -6,6 +6,7 @@ import { authorize } from '@ogm/policy';
 import { eq } from 'drizzle-orm';
 
 import { actorFromPrincipal, requireAuthorization } from '../accounts/families.js';
+import { HttpError } from '../app/errors.js';
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
@@ -19,6 +20,7 @@ import {
   provisionGame,
   requireGithubConnection,
 } from './games.js';
+import { assignSlug, findGameBySlugOrId } from './slug.js';
 import { CommitServiceRepoProvisioner } from './repo-provisioner.js';
 
 export const prefix = '/api/v1';
@@ -84,6 +86,21 @@ const routes = new Hono<ApiBindings>()
     );
     return c.json(gameResponse(game));
   })
+  // Every shareable `/play/<ref>` link lands here: the current slug, a slug the game has outgrown, or its id.
+  .get('/games/resolve/:ref', (c) => {
+    const principal = requirePrincipal(c, ['user']);
+    const game = findGameBySlugOrId(c.get('deps').db, c.req.param('ref'));
+    if (!game) throw new HttpError(404, 'game_not_found');
+    requireAuthorization(
+      authorize(actorFromPrincipal(principal), 'game.play', {
+        familyId: game.familyId,
+        ownerId: game.ownerId,
+        visibility: game.visibility,
+        granted: hasGameGrant(c.get('deps').db, game.id, principal.userId),
+      }),
+    );
+    return c.json({ game: gameResponse(game) });
+  })
   .patch('/games/:id', async (c) => {
     const principal = requirePrincipal(c, ['user']);
     const game = findGameForFamily(c.get('deps').db, c.req.param('id'), principal.familyId);
@@ -91,8 +108,16 @@ const routes = new Hono<ApiBindings>()
       authorize(actorFromPrincipal(principal), 'game.edit', { familyId: game.familyId, ownerId: game.ownerId }),
     );
     const body = await parseBody(c, patchBody);
-    c.get('deps').db.update(schema.games).set(body).where(eq(schema.games.id, game.id)).run();
-    return c.json(gameResponse(findGame(c.get('deps').db, game.id)));
+    const db = c.get('deps').db;
+    const title = body.title;
+    const renamed = title !== undefined && title !== game.title;
+    const slug =
+      renamed && title !== undefined ? assignSlug(db, title, { gameId: game.id, slug: game.slug }) : game.slug;
+    db.update(schema.games)
+      .set({ ...body, slug })
+      .where(eq(schema.games.id, game.id))
+      .run();
+    return c.json(gameResponse(findGame(db, game.id)));
   })
   .post('/games/:id/provision', async (c) => {
     const principal = requirePrincipal(c, ['user']);
