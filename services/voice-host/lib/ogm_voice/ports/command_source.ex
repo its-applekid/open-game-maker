@@ -72,7 +72,8 @@ defmodule OgmVoice.Ports.CommandSource do
           command -> {:ok, command}
         end
 
-      _missing -> {:error, :unavailable}
+      _missing ->
+        {:error, :unavailable}
     end
   end
 
