@@ -6,11 +6,11 @@ At conversation start, the briefing includes every open Aiur Command for the cur
 
 ## Reuse boundary
 
-OGM pins Aiur's `voice_converse` and `voice_transcribe` packages for provider connections, normalized events, limits, and cleanup. OGM owns target authorization, short-lived tokens, chat delivery, environment wiring, and the existing browser presentation. Provider fixes belong in Aiur rather than local forks.
+OGM pins Aiur's `voice_converse` package for provider connections, normalized events, limits, cleanup, and the Command tools, and consumes Aiur's Scribe transcriber package for one-way dictation rather than carrying a transcriber of its own. OGM owns target authorization, short-lived tokens, chat delivery, environment wiring, and the existing browser presentation. Provider fixes belong in Aiur rather than local forks.
 
 ## Build
 
-The Mix project pins `voice_converse` to commit `0f692a45b04bb4ce3e7d8256e134028894bd128b`. On the OGM host, use the local aiur checkout so dependency resolution does not need GitHub access:
+The Mix project pins `voice_converse` at the Aiur commit in `mix.exs` (`@aiur_pin`, mirrored in `mix.lock`). On the OGM host, use the local aiur checkout so dependency resolution does not need GitHub access:
 
 ```sh
 OGM_AIUR_GIT=$HOME/github/aiur HEX_OFFLINE=1 mise exec -C services/voice-host -- mix deps.get
