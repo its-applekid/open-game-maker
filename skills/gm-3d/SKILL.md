@@ -28,9 +28,11 @@ but do not install its add-on, edit MCP configuration, open a local control sock
 
 A model is ready for a game when it is the right size and stands on its own origin, not when the export finished. For
 every item: real metres from a looked-up height (a desk phone is about 0.12 m, a mug 0.095 m) or exact dims for a boxy
-prop the generator invented depth for; bottom-centre origin; front facing -Y, which is the renderer convention; and the
-mesh data rotated and scaled, never the object, so later imports do not compound the transform. Importing from a
-generator? Drop its framing rotation before turning the mesh, or the model arrives 20-30 degrees off.
+prop the generator invented depth for; bottom-centre origin, which in glTF's Y-up space means the model stands on min Y
+and is centred on X and Z; one forward axis for the whole set, recorded beside it, because glTF has no facing
+convention and a set that faces six ways reads as six sets; and the mesh data rotated and scaled, never the object, so
+later imports do not compound the transform. Importing from a generator? Drop its framing rotation before turning the
+mesh, or the model arrives 20-30 degrees off.
 
 Budgets per item, with a LOD1 at about a quarter of LOD0 and textures at 2K or less:
 

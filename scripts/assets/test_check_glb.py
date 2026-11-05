@@ -29,8 +29,8 @@ def png_header(width: int, height: int) -> bytes:
 def glb(
     path: Path,
     *,
-    lo: tuple[float, float, float] = (-0.05, -0.04, 0.0),
-    hi: tuple[float, float, float] = (0.05, 0.04, 0.32),
+    lo: tuple[float, float, float] = (-0.05, 0.0, -0.04),
+    hi: tuple[float, float, float] = (0.05, 0.32, 0.04),
     tris: int = 3000,
     texture: tuple[int, int] | None = (512, 512),
 ) -> Path:
@@ -85,16 +85,16 @@ class CheckModelTest(unittest.TestCase):
     def test_a_prepared_item_passes_every_gate(self) -> None:
         report = check_glb.check_model(glb(self.dir / "mug.glb"), height=0.32)
         self.assertEqual(report["failures"], [])
-        self.assertEqual(report["dims_m"], [0.1, 0.08, 0.32])
+        self.assertEqual(report["dims_m"], [0.1, 0.32, 0.08])
         self.assertEqual(report["tris"], 3000)
         self.assertEqual(report["textures"][0]["width"], 512)
 
     def test_a_model_standing_off_its_origin_fails(self) -> None:
-        report = check_glb.check_model(glb(self.dir / "float.glb", lo=(-0.05, -0.04, 0.1), hi=(0.05, 0.04, 0.42)))
+        report = check_glb.check_model(glb(self.dir / "float.glb", lo=(-0.05, 0.1, -0.04), hi=(0.05, 0.42, 0.04)))
         self.assertTrue(any("not on the origin" in failure for failure in report["failures"]), report["failures"])
 
     def test_a_model_off_centre_fails(self) -> None:
-        report = check_glb.check_model(glb(self.dir / "wide.glb", lo=(-0.2, -0.04, 0.0), hi=(0.0, 0.04, 0.32)))
+        report = check_glb.check_model(glb(self.dir / "wide.glb", lo=(-0.2, 0.0, -0.04), hi=(0.0, 0.32, 0.04)))
         self.assertTrue(any("not centred on x" in failure for failure in report["failures"]), report["failures"])
 
     def test_triangles_over_the_detail_budget_fail(self) -> None:

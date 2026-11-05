@@ -102,7 +102,7 @@ def stalled(history: list) -> bool:
 
 def round_verdict(round_doc: dict) -> dict:
     """Keep fixing, deliver, or stop. Going past the round cap never blocks delivery: the best version ships."""
-    number = int(round_doc.get("round", 1))
+    number = int(round_doc.get("round") or 1)
     scored = score_round(round_doc.get("scores") or {})
     todo = fixes_to_do(round_doc.get("fixes"))
     stop = scored["passed"] or number >= MAX_ROUNDS or stalled(round_doc.get("history"))

@@ -5,7 +5,7 @@ three.js, no network. It answers the questions a generator's raw output always g
 this repository checks without opening a browser:
 
 - is the model a real-world size in metres (``--height`` compares the measured height to the looked-up height);
-- does it stand on its own origin (bottom-centre: ``min z`` at 0, centred on x and y);
+- does it stand on its own origin (bottom-centre: ``min y`` at 0 in glTF's Y-up space, centred on x and z);
 - is the triangle count inside a detail budget (``low`` 20k, ``medium`` 100k, ``high`` 200k);
 - are the textures at or below the cap (2K by default);
 - is there a LOD1 beside it, at roughly a quarter of the triangles;
@@ -39,6 +39,9 @@ CHUNK_JSON = 0x4E4F534A
 CHUNK_BIN = 0x004E4942
 TRIANGLE_MODES = {4}  # glTF primitive mode TRIANGLES; anything else is not counted as tris here
 DETAIL_BUDGET = {"low": 20_000, "medium": 100_000, "high": 200_000}
+UP_AXIS = 1  # glTF is Y-up: height is Y, and a model stands on its min Y
+WIDTH_AXIS = 0
+DEPTH_AXIS = 2
 ORIGIN_TOLERANCE_M = 0.002  # 2 mm: a bottom-centre origin is exact, this only allows float round-off
 CENTRE_TOLERANCE_M = 0.01
 HEIGHT_TOLERANCE = 0.05  # 5%: a looked-up real height is a judgement, not a measurement
@@ -275,24 +278,24 @@ def check_model(
         lo, hi = shape["min"], shape["max"]
         dims = [round(hi[axis] - lo[axis], 4) for axis in range(3)]
         report["dims_m"] = dims
-        report["height_m"] = dims[2]
-        if abs(lo[2]) > ORIGIN_TOLERANCE_M:
-            failures.append(f"bottom of the model sits at z={lo[2]:.4f} m, not on the origin")
-        for axis, name in ((0, "x"), (1, "y")):
+        report["height_m"] = dims[UP_AXIS]
+        if abs(lo[UP_AXIS]) > ORIGIN_TOLERANCE_M:
+            failures.append(f"bottom of the model sits at y={lo[UP_AXIS]:.4f} m, not on the origin")
+        for axis in (WIDTH_AXIS, DEPTH_AXIS):
             centre = (lo[axis] + hi[axis]) / 2
             if abs(centre) > CENTRE_TOLERANCE_M:
-                failures.append(f"not centred on {name}: centre is {centre:.4f} m")
-        if height is not None and dims[2] > 0:
-            drift = abs(dims[2] - height) / height
+                failures.append(f"not centred on {'x' if axis == WIDTH_AXIS else 'z'}: centre is {centre:.4f} m")
+        if height is not None and dims[UP_AXIS] > 0:
+            drift = abs(dims[UP_AXIS] - height) / height
             report["expected_height_m"] = height
             if drift > HEIGHT_TOLERANCE:
                 failures.append(
-                    f"height {dims[2]:.3f} m is {drift * 100:.0f}% off the looked-up {height:.3f} m"
+                    f"height {dims[UP_AXIS]:.3f} m is {drift * 100:.0f}% off the looked-up {height:.3f} m"
                 )
     else:
         report["dims_m"] = None
         failures.append("no POSITION bounds: cannot check scale or origin")
-    report["facing"] = "unchecked: front -Y is a renderer convention, look at the lineup still"
+    report["facing"] = "unchecked: there is no glTF facing convention, so pick one for the set and look at it"
     if require_lod1:
         lod1 = path.with_name(f"{path.stem}_lod1.glb")
         if not lod1.exists():
@@ -341,16 +344,16 @@ def scale_bar(width_m: float) -> dict:
 
 def lineup_layout(items: list[dict]) -> dict:
     """To-scale x positions for a lineup, and the scale bar to draw under it. ``items`` carry measured ``dims_m``."""
-    gap = max(0.06, 0.12 * max((item["dims_m"][2] for item in items), default=0.0))
+    gap = max(0.06, 0.12 * max((item["dims_m"][UP_AXIS] for item in items), default=0.0))
     placed, x = [], 0.0
     for item in items:
-        width = item["dims_m"][0]
+        width = item["dims_m"][WIDTH_AXIS]
         placed.append(
             {
                 "name": item.get("name", ""),
                 "x_centre_m": round(x + width / 2, 4),
                 "width_m": round(width, 4),
-                "height_m": item["dims_m"][2],
+                "height_m": item["dims_m"][UP_AXIS],
             }
         )
         x += width + gap

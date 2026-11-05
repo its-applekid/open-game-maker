@@ -18,7 +18,7 @@
 | One shared style paragraph per set | Ten props from ten prompts read as ten worlds | No. `gm-asset-variants` could recolor one model; nothing described a set once | `gm-asset-variants` (a set's style line is written once, beside the variant specs) | Yes |
 | Real-world scale from a looked-up height | Generators invent size: a mug as tall as a fridge | Partly: cards record pack facts, not a per-model height | `skills/gm-3d` (prep step) and `scripts/assets/check_glb.py` (`--height`) | Yes |
 | A lineup with a scale bar | Nothing shows whether a set is in proportion | No: our lineups are thumbnail grids at unrelated scales | `check_glb.py --lineup` (to-scale x positions plus the bar), used by `gm-asset-intake` and the showcase skill | Yes |
-| Orientation and origin normalization | Models face different ways and float above their origin | No | `skills/gm-3d`: front -Y, bottom-centre origin, rotate mesh data not the object | Yes |
+| Orientation and origin normalization | Models face different ways and float above their origin | No | `skills/gm-3d`: one forward axis per set, bottom-centre origin in glTF's Y-up space, mesh data rotated not the object | Yes |
 | Triangle and texture budgets with a simplified LOD | Raw output is two million triangles and 4K textures | No | `skills/gm-3d` budget table, `check_glb.py --budget/--texture-cap/--require-lod1` | Yes |
 | An independent critic that scores the whole set against the reference | The agent that built a set stops seeing its flaws | Partly: `gm-verify` looks at one game screen, item by item | `set_critic.py` (bar, caps, stall rule) plus the rubric line in `gm-verify` and the showcase skill | Yes |
 | A Stop hook that keeps working until every deliverable exists | "Done" claimed with files missing | Partly: the showcase skill lists a completion gate in prose | `set_critic.py missing_deliverables()` and the same gate in the showcase skill | Yes (as a gate, not a hook) |
@@ -33,9 +33,10 @@
 ## What changed
 
 **`skills/gm-3d`** — the prep step a set needs before a game consumes it: real metres from a looked-up height (dims
-for boxy props), bottom-centre origin, front -Y, the mesh data rotated rather than the object, a triangle and texture
-budget table with a LOD1 at about a quarter, the `check_glb.py` gate, the to-scale lineup, and the retry-safe rule
-that a rebuild never redoes an item whose output is newer than its inputs.
+for boxy props), a bottom-centre origin in glTF's Y-up space, one forward axis for the whole set (glTF has none of its
+own), the mesh data rotated rather than the object, a triangle and texture budget table with a LOD1 at about a quarter,
+the `check_glb.py` gate, the to-scale lineup, and the retry-safe rule that a rebuild never redoes an item whose output
+is newer than its inputs.
 
 **`scripts/assets/check_glb.py`** (new, with `test_check_glb.py`) — the local gate behind that skill text. It reads
 the GLB container directly: no Blender, no browser, no network. Checks metres and origin, triangle budget, texture
