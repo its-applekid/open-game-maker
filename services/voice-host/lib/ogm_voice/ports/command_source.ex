@@ -13,6 +13,7 @@ defmodule OgmVoice.Ports.CommandSource do
   alias OgmVoice.Ports.BriefingSource
 
   @settings_key {__MODULE__, :settings}
+  @answer_path "/internal/voice/command-answer"
   @request_timeout_ms 5_000
   @connect_timeout_ms 1_000
 
@@ -44,7 +45,7 @@ defmodule OgmVoice.Ports.CommandSource do
     with {url, secret, request} <- :persistent_term.get(@settings_key, nil),
          {:ok, command} <- open_command(target, id),
          {:ok, selection} <- selection(command, choice) do
-      post_answer(request, url, secret, %{
+      post_answer(request, url <> @answer_path, secret, %{
         target: target,
         command_id: id,
         choice: selection,
