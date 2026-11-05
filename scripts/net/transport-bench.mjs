@@ -461,6 +461,10 @@ function summarise(values) {
 async function relay({ seconds = 6 }) {
   const lines = ['## --relay', ''];
   const say = (line = '') => lines.push(line);
+  if (typeof WebSocket !== 'function') {
+    say('skipped: this Node has no global WebSocket (needs Node 22+). `--wire` and `--select` still work.');
+    return lines.join('\n');
+  }
   say(
     `measured on this host over loopback WebSockets: peer and host each run the runtime's fixed ${STEP_MS.toFixed(1)} ms ` +
       'step, the peer sends one input per step, the host snapshots every third tick and the peer renders ' +
