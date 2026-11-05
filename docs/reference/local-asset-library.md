@@ -19,7 +19,7 @@ assets-local/
     <version>/extracted/               # bundle-level leftovers (readme, vendor index, goodies)
   tools/<tool-id>/<version>/           # vendor apps, e.g. the Kenney launcher AppImage
   inspiration/<id>/<version>/          # reference-only collections (no in-game rights), same shape as packs/
-  previews/<hh>/<hash>-<kind>.webp     # card previews (thumb, sheet, waveform, clip) of shareable assets
+  previews/<hh>/<hash>-<kind>.<ext>   # card previews (thumb, sheet, waveform PNG, 2 s clip OGG) of shareable assets
   private/
     previews/<hh>/...                  # previews of private vendors' assets (never served publicly)
     hash-manifests/<name>.txt          # "sha256  bytes  path" of every file of a collection, carded or not

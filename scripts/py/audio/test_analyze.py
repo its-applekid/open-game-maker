@@ -31,3 +31,10 @@ def test_long_music_gets_typical_and_loudest_without_overlap():
 def test_sound_effects_keep_one_whole_file_excerpt():
     """Short SFX are embedded whole; splitting a 0.3 s click would only add noise."""
     assert a.excerpts([], 0.3, music=False) == [("whole", 0.0, 0.3)]
+
+
+def test_the_music_families_come_from_the_name_layer():
+    """Sidetrax and Kenney music alone left the #509 families carded as effects: no key, tempo or loop points asked for."""
+    for pack in ("pixabay-music-curated", "abstraction-music-loop-01", "drive-barbarian-chiptune"):
+        assert a.is_music(pack), pack
+    assert not a.is_music("sonniss-gdc2026-part9-1of5")
