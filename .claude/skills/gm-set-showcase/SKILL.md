@@ -94,7 +94,17 @@ first showcase, read [smallscaleint-example.md](references/smallscaleint-example
    pairs, upward rain or snow, synchronized particle patterns, and an unnatural walking cadence. Inspect every building
    in a close-up: walls meet, one roof covers the shell, and doors sit in walls. Fix the worst visual defect and rerender
    before judging the next one.
-11. Publish the baked files and manifest to the style-picker detail surface. The client loads each shared track once,
+11. **Judge the set as a set, once per round, with the numbers written down.** Score the eight categories
+    (`cohesion`, `reference_fidelity`, `brief`, `mesh_quality`, `texture_quality`, `assembly`, `scale`, `labels`) against
+    the reference, most damaging problem first, and pass only with no category below 6 and an average of 7 or more.
+    Write the round as JSON and let `python3 -I scripts/assets/set_critic.py round.json` hold the bar for you: it caps
+    the fixes at five and stops the loop at eight rounds, or at three rounds without beating the best round. When the
+    set also writes a manifest, a lineup still and a thumb folder, pass `--work <output-dir>` and it refuses a pass
+    while any of them is missing. Put the to-scale lineup and its scale bar beside the render
+    (`python3 -I scripts/assets/check_glb.py --lineup` gives the positions and the bar), because a diorama hides
+    proportion and a thumbnail grid is not to scale. Deliver the best version when the cap is reached; do not keep
+    iterating on the look.
+12. Publish the baked files and manifest to the style-picker detail surface. The client loads each shared track once,
     uses `autoplay loop muted playsinline`, and seeks both tracks to a stop's manifest `start_time`; it never swaps
     per-stop videos, imports these tools, runs a game engine, or renders a canvas preview. Follow
     [publication.md](references/publication.md).
@@ -107,4 +117,5 @@ pixel intersections, zero runner occlusions, and zero runner-off-path results; r
 deterministic wind drift; every installed pack is represented; every stop and both shared tracks have been visually inspected; the one-frame-per-second timeline shows
 one hero in one filled world with no cut or burned text; each sheet interval shows 24 distinct sprites; protected focal
 elements and weather remain readable; paired world/sheet casts do not overlap; and the published surface seeks the two
-generated shared tracks by manifest time. Report any device or physical-phone check that was not run.
+generated shared tracks by manifest time; and the last critic round is recorded and passes (`set_critic.py`), with every
+deliverable it gates present. Report any device or physical-phone check that was not run.
