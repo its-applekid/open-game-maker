@@ -1,5 +1,10 @@
-"""Tests for the excerpt windows: card tags average CLAP over excerpts, so every music track needs two distinct views."""
+"""Tests for the excerpt windows and the run's work list: card tags average CLAP over excerpts, so every music track
+needs two distinct views."""
+import json
+import shutil
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
@@ -33,8 +38,38 @@ def test_sound_effects_keep_one_whole_file_excerpt():
     assert a.excerpts([], 0.3, music=False) == [("whole", 0.0, 0.3)]
 
 
-def test_the_music_families_come_from_the_name_layer():
-    """Sidetrax and Kenney music alone left the #509 families carded as effects: no key, tempo or loop points asked for."""
-    for pack in ("pixabay-music-curated", "abstraction-music-loop-01", "drive-barbarian-chiptune"):
-        assert a.is_music(pack), pack
-    assert not a.is_music("sonniss-gdc2026-part9-1of5")
+class MusicFamilyTests(unittest.TestCase):
+    def test_the_music_families_come_from_the_name_layer(self):
+        """Sidetrax and Kenney music alone left the #509 families carded as effects: no key, tempo or loop points."""
+        for pack in ("pixabay-music-curated", "abstraction-music-loop-01", "drive-barbarian-chiptune"):
+            self.assertTrue(a.is_music(pack), pack)
+        self.assertFalse(a.is_music("sonniss-gdc2026-part9-1of5"))
+
+
+class JobListTests(unittest.TestCase):
+    """The pool's work list: which files a run touches, and whether an existing sidecar is honoured."""
+
+    def setUp(self):
+        self.packs = Path(tempfile.mkdtemp())
+        pack = self.packs / "sonniss-gdc2026-part9-1of5" / "v1" / "extracted" / "weapons"
+        pack.mkdir(parents=True)
+        (self.packs / "sonniss-gdc2026-part9-1of5" / "pack.json").write_text(json.dumps({"current": "v1"}))
+        (pack / "Sword_Slice_01.wav").write_bytes(b"")
+        (pack / "Sword_Slice_01.ogg").write_bytes(b"")  # one sound in two formats: the ogg is the one carded
+
+    def tearDown(self):
+        shutil.rmtree(self.packs, ignore_errors=True)
+
+    def test_one_job_per_sound_not_per_format(self):
+        jobs = a.job_list(self.packs, "*")
+        self.assertEqual(len(jobs), 1)
+        self.assertEqual(jobs[0][2].suffix, ".ogg")
+
+    def test_refresh_reaches_every_job(self):
+        """`--refresh` is the only way a new sidecar field reaches files carded before it existed."""
+        self.assertTrue(all(job[3] for job in a.job_list(self.packs, "*", refresh=True)))
+        self.assertFalse(any(job[3] for job in a.job_list(self.packs, "*")))
+
+    def test_a_pack_glob_can_narrow_the_run(self):
+        self.assertEqual(a.job_list(self.packs, "pixabay-*"), [])
+        self.assertEqual(len(a.job_list(self.packs, "sonniss-*", limit=1)), 1)

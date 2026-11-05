@@ -1,13 +1,14 @@
 """Analyse every audio file in assets-local/packs once (plan U2/U5): name tags, code facts, vendor tags, a CLAP embedding,
 a waveform preview and a two-second clip.
 
-usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N]
+usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N] [--refresh]
 writes, per file, packs/<id>/<ver>/analysis/<path without ext>.analysis.json:
   {"file", "sha256", "bytes", "music", "names": {ucs, group, subkind, terms}, "measure": {audio, sidecar, timing_s},
    "vendor": {...}, "clap": {"model", "windows": [...], "excerpts": [{"name", "start_s", "end_s", "embedding": [512 floats]}]},
    "preview": {"waveform": key, "clip": key}}
 Labels are not scored here: the card step scores any label set against the stored embeddings, so labels can change without
-re-listening. Re-runs skip files whose sidecar already has the same sha256.
+re-listening. Re-runs skip files whose sidecar already has the same sha256; `--refresh` re-does them, which is how a run
+adds a newly recorded field to files carded earlier.
 Run with `--limit 20` first: the summary prints what the rest of the run will cost."""
 import argparse, fnmatch, hashlib, json, os, re, struct, subprocess, sys, time
 from multiprocessing import Pool
@@ -55,6 +56,13 @@ def audio_files(packs: Path, only: str):
 def sidecar_path(vdir: Path, f: Path) -> Path:
     rel = f.relative_to(vdir / "extracted").with_suffix("")
     return vdir / "analysis" / (rel.as_posix() + ".analysis.json")
+
+
+def job_list(packs: Path, only: str, limit: int = 0, refresh: bool = False):
+    """The work for the pool: (pack id, version dir, file, whether to ignore an existing sidecar)."""
+    jobs = audio_files(packs, only)
+    jobs = jobs[:limit] if limit else jobs
+    return [(pid, vdir, f, refresh) for pid, vdir, f in jobs]
 
 
 def sha256(f: Path) -> str:
@@ -161,10 +169,10 @@ def waveform_png(y, out: Path):
 
 
 def analyse(job):
-    pid, vdir, f = job
+    pid, vdir, f, refresh = job
     sc = sidecar_path(vdir, f)
     h = sha256(f)
-    if sc.exists():
+    if sc.exists() and not refresh:
         try:
             if json.loads(sc.read_text()).get("sha256") == h:
                 return {"file": str(f), "status": "skip"}
@@ -215,9 +223,9 @@ def main():
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
     ap.add_argument("--only", default="*")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--refresh", action="store_true", help="re-analyse a file whose sidecar already matches its sha256")
     a = ap.parse_args()
-    jobs = audio_files(a.packs, a.only)
-    jobs = jobs[:a.limit] if a.limit else jobs
+    jobs = job_list(a.packs, a.only, a.limit, a.refresh)
     print(json.dumps({"files": len(jobs), "workers": a.workers}), flush=True)
     counts = {}
     secs, timed = 0.0, 0

@@ -50,12 +50,12 @@ UCS_CATEGORIES = {
 # `<8-character CatID>_<the rest>`: four letters of category glued to four of subcategory, no separator between them.
 UCS_STEM = re.compile(r"^([A-Z]{4})([A-Za-z]{3,4})_(.+)$")
 
-# Folder or filename words that name a kind of sound, first match wins. The weakness of a filename is that it is often
-# the only thing we have; the order runs from the specific (a footstep is never anything else) to the vague.
+# Folder or filename words that name a kind of sound. The table order decides, not the word order: a `Wood_Impact_01`
+# is an impact (its material is written to `describe.materials` elsewhere) and a bare `Step` is not enough evidence for a
+# footstep, so the specific kinds come first and the vague material words last.
 WORD_SUBKINDS = (
     ("footstep", "sfx/footstep"),
     ("footsteps", "sfx/footstep"),
-    ("step", "sfx/footstep"),
     ("footwear", "sfx/footstep"),
     ("weapon", "sfx/weapon"),
     ("weapons", "sfx/weapon"),
@@ -212,11 +212,14 @@ def subkind_of(ucs, folder="", stem=""):
     if ucs.get("subkind"):
         return ucs["subkind"]
     for source in (stem, folder):
-        for word in split_words(source):
-            word = word.lower()
-            for needle, subkind in WORD_SUBKINDS:
-                if word == needle:
-                    return subkind
+        words = {word.lower() for word in split_words(source)}
+        if not words:
+            continue
+        # The table's order, not the word order: `Wood_Impact_01` is an impact because `impact` is listed before the
+        # material words, which only ever light a generic foley card.
+        for needle, subkind in WORD_SUBKINDS:
+            if needle in words:
+                return subkind
     return None
 
 

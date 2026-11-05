@@ -55,6 +55,9 @@ python3 -I scripts/py/audio/card_coverage.py --packs assets-local/packs
 - **Coverage** (`card_coverage.py`, standard library only) prints one row per pack and a totals row for music and for
   effects. `--min 0.9` gates on the fields a card must carry to be searchable and exits 1 naming the pack that is short;
   without `--min` it only reports. A loop pack is additionally held to `audio.loop_points`.
+- **Re-runs** skip a file whose sidecar still matches its sha256. `analyze.py --refresh` redoes them, which is how a new
+  sidecar field (the name tags and the clip, for example) reaches files that were carded before it existed. Run it with
+  `--only` so a refresh stays inside one family.
 
 From the repository root:
 

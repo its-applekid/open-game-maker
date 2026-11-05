@@ -95,6 +95,15 @@ class SubkindTests(unittest.TestCase):
         self.assertEqual(name_tags.subkind_of({}, "foley", "footstep_gravel_01"), "sfx/footstep")
         self.assertEqual(name_tags.subkind_of({}, "weapons", "generic_01"), "sfx/weapon")
 
+    def test_a_material_word_does_not_outrank_the_kind_in_the_same_name(self):
+        """`Wood_Impact_01` is an impact: the material goes to `describe.materials`, not to the subkind."""
+        self.assertEqual(name_tags.subkind_of({}, "", "Wood_Impact_01"), "sfx/impact")
+        self.assertEqual(name_tags.subkind_of({}, "wood", "Door_Open_01"), "sfx/foley")
+
+    def test_a_bare_step_is_not_a_footstep(self):
+        """`step` is an ordinary English word; without the `foot` it is not evidence of a footstep sound."""
+        self.assertIsNone(name_tags.subkind_of({}, "", "One_Step_Closer"))
+
     def test_nothing_named_returns_none_so_the_model_answers(self):
         """A bare numbered take names nothing; a guessed subkind would be worse than CLAP's reading."""
         self.assertIsNone(name_tags.subkind_of({}, "", "01_take_03"))

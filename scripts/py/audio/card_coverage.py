@@ -215,6 +215,8 @@ def main():
     ap.add_argument("--json", action="store_true", help="print the report as JSON instead of tables")
     ap.add_argument("--min", type=float, default=0.0, help="fraction (0-1) every required field must reach; exits 1 when one does not")
     args = ap.parse_args()
+    if not 0.0 <= args.min <= 1.0:
+        ap.error(f"--min takes a fraction between 0 and 1, not {args.min}")
     rows = load(args.packs)
     if not rows:
         print(json.dumps({"packs": {}, "min": args.min, "error": f"no cards under {args.packs}"}))
