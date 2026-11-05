@@ -33,6 +33,7 @@ def glb(
     hi: tuple[float, float, float] = (0.05, 0.32, 0.04),
     tris: int = 3000,
     texture: tuple[int, int] | None = (512, 512),
+    node: dict | None = None,
 ) -> Path:
     """Write a minimal binary glTF: one mesh node, one POSITION accessor with bounds, one optional texture."""
     binary = b""
@@ -46,7 +47,7 @@ def glb(
         "asset": {"version": "2.0"},
         "scene": 0,
         "scenes": [{"nodes": [0]}],
-        "nodes": [{"mesh": 0, "name": "item"}],
+        "nodes": [{"mesh": 0, "name": "item", **(node or {})}],
         "meshes": [{"primitives": [{"attributes": {"POSITION": 0}}]}],
         "accessors": [
             {
@@ -127,6 +128,24 @@ class CheckModelTest(unittest.TestCase):
         glb(self.dir / "chair_lod1.glb", tris=6000)
         heavy = check_glb.check_model(item, require_lod1=True)
         self.assertTrue(any("expected about a quarter" in f for f in heavy["failures"]), heavy["failures"])
+
+    def test_a_node_transform_is_applied_before_the_gates(self) -> None:
+        scaled = glb(
+            self.dir / "scaled.glb", lo=(-0.5, 0.0, -0.5), hi=(0.5, 2.0, 0.5), node={"scale": [0.1, 0.1, 0.1]}
+        )
+        report = check_glb.check_model(scaled, height=0.2)
+        self.assertEqual(report["failures"], [])
+        self.assertEqual(report["dims_m"], [0.1, 0.2, 0.1])
+
+        turned = glb(
+            self.dir / "turned.glb",
+            lo=(0.0, 0.0, 0.0),
+            hi=(1.0, 2.0, 1.0),
+            node={"rotation": [0.0, 0.0, 0.7071068, 0.7071068]},
+        )
+        report = check_glb.check_model(turned)
+        self.assertEqual(report["dims_m"], [2.0, 1.0, 1.0], "a 90 degree Z rotation swaps width and height")
+        self.assertTrue(any("not centred on x" in failure for failure in report["failures"]), report["failures"])
 
     def test_a_file_that_is_not_a_glb_fails(self) -> None:
         plain = self.dir / "notes.glb"
