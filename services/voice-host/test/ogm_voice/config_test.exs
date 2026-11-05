@@ -79,13 +79,36 @@ defmodule OgmVoice.ConfigTest do
   end
 
   test "switches to a live adapter by env, which then needs a model" do
-    env = Map.merge(@env, %{"OGM_VOICE_PROVIDER" => "elevenlabs_agents", "OGM_VOICE_LLM" => "gpt-4o-mini"})
+    env =
+      Map.merge(@env, %{
+        "OGM_VOICE_PROVIDER" => "elevenlabs_agents",
+        "OGM_VOICE_LLM" => "gpt-4o-mini",
+        "OGM_VOICE_CLEANUP_ROOT" => "/var/lib/ogm/voice-cleanup"
+      })
+
     {:ok, vc} = VoiceConverse.Config.new(Config.voice_converse(Config.from_env!(env)))
     assert vc.provider == {VoiceConverse.Providers.ElevenLabsAgents, []}
 
     assert_raise Config.Error, ~r/OGM_VOICE_LLM is missing/, fn ->
       Config.from_env!(Map.put(@env, "OGM_VOICE_PROVIDER", "openai_realtime"))
     end
+  end
+
+  test "queues provider deletion only when a durable cleanup root is configured" do
+    {:ok, fake} = VoiceConverse.Config.new(Config.voice_converse(Config.from_env!(@env)))
+    assert fake.provider_cleanup == false and fake.cleanup_root == nil
+
+    live = Map.merge(@env, %{"OGM_VOICE_PROVIDER" => "elevenlabs_agents", "OGM_VOICE_LLM" => "gpt-4o-mini"})
+
+    assert_raise Config.Error, ~r/OGM_VOICE_CLEANUP_ROOT is missing/, fn -> Config.from_env!(live) end
+
+    assert_raise Config.Error, ~r/OGM_VOICE_CLEANUP_ROOT is not an absolute path/, fn ->
+      Config.from_env!(Map.put(live, "OGM_VOICE_CLEANUP_ROOT", "relative/cleanup"))
+    end
+
+    config = Config.from_env!(Map.put(live, "OGM_VOICE_CLEANUP_ROOT", "/var/lib/ogm/voice-cleanup"))
+    {:ok, vc} = VoiceConverse.Config.new(Config.voice_converse(config))
+    assert vc.provider_cleanup == true and vc.cleanup_root == "/var/lib/ogm/voice-cleanup"
   end
 
   test "refuses to boot without a strong token secret, naming the variable and never the value" do
