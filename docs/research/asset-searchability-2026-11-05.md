@@ -169,6 +169,30 @@ Build cost, same runs: postings 0.33 s → 52 s, FTS5 0.08 s → 35 s, cached fi
   shape. Node is 22.16 here (the repo wants ≥ 24) and `node:sqlite` still prints an ExperimentalWarning there;
   Node 24 keeps the API and FTS5 (verify with `node -e "const {DatabaseSync}=require('node:sqlite');…"` on the host).
 
+### Two ranking and tokenizer failures from the KayKit host pass
+
+The Executor's KayKit pass (`docs/plans/ogm-v1-build/asset-qa/kaykit.md` on `research`) reported two search failures that
+this design has to answer, because both are easy to reintroduce:
+
+1. **Characters rank below props with the same word.** `gm assets search skeleton` puts two SmallScaleInt sprites and a
+   clip library above the six KayKit skeleton characters, which land 31-35 and 42 of 42; `search knight` ranks the
+   rigged knight 18th of 35. The class rule already exists in code — `characterTier()` (commit `7db39149`, "Rank
+   characters first in asset search") — so the tiers are a **card-field** rank, not a text score. Consequence for this
+   design: FTS5's `bm25` chooses the candidate window, then the existing tier/status rules re-rank it in code
+   (`ORDER BY rank LIMIT 200`, then the `characterTier`/status/family sort). Ranking must never be left to `bm25` alone,
+   or the fix regresses silently the day the index changes.
+2. **`gm assets search "Rig_Medium"` returns nothing while `rig medium` returns the 20 `Rig_Medium_*` libraries.** I
+   could not reproduce this from the tokenizer: `tokens('Rig_Medium')` is `['rig','medium']` — `_`, `-`, `.`, and the
+   camel/digit boundaries are all separators — and the same query against a `Rig Medium General` card returns the hit
+   (checked with the port in `scripts/assets/asset-search-bench.mjs`, not with a built CLI). SQLite FTS5 splits it the
+   same way (`MATCH '"rig_medium"'` finds `Rig_Medium`, measured). So the miss is *not* in the shared tokenizer; the
+   likely causes are a stale built `dist/` at QA time, or the scene-root name never reaching a searched field:
+   `fieldsOf()` covers clips and file paths but not `rig.rig_type`/scene-root names.
+   - **Requirement either way**: one tokenizer for query and index, and it must be the *same* table the search runs on.
+     The index therefore needs `rig_names` (scene-root names: `Rig_Medium`, `Rig_Large`) and `describe.search_terms` as
+     searchable columns, and the pre-processing PRs must add a regression test with exactly these three queries:
+     `skeleton` (characters above props), `knight` (rigged knight in the top 5), `"Rig_Medium"` (the 20 libraries).
+
 ### Recommended index
 
 `assets-local/index/assets.db` (SQLite, built by `gm packs index`, rebuilt incrementally on card mtime — `isStale()`
