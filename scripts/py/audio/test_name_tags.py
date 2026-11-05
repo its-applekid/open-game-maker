@@ -168,6 +168,12 @@ class CardNameFieldTests(unittest.TestCase):
         """A bare numbered take must leave the card fields alone rather than write an empty value."""
         self.assertEqual(name_tags.card_name_fields({"subkind": None, "group": "", "terms": []}), {})
 
+    def test_a_group_key_the_card_schema_would_reject_is_left_off(self):
+        """C3 caps `audio.variation_group` at 120 characters; a longer path is not a set anyone searches for."""
+        long_key = "/".join(["library"] * 20) + "/sword-slice"
+        self.assertGreater(len(long_key), name_tags.MAX_GROUP_KEY)
+        self.assertNotIn("variation_group", name_tags.card_name_fields({"group": long_key}, group_size=4))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -104,6 +104,10 @@ WORD_SUBKINDS = (
 # A trailing variation number: `_01`, `-2`, ` 03`, `(4)`, and the same prefixed with v/var/variation/take/alt.
 VARIATION_SUFFIX = re.compile(r"[\s_-]*(?:v|var|variation|take|alt)?[\s_-]*\(?\d{1,3}\)?$", re.IGNORECASE)
 
+# C3 caps `audio.variation_group` at 120 characters. A deeper path than that is not a set anyone searches for, so it is
+# left off the card rather than truncated into a key that groups two unrelated families.
+MAX_GROUP_KEY = 120
+
 # Words too generic to search on their own; the folder or the category already says them.
 UCS_STOPWORDS = frozenset(
     {
@@ -250,7 +254,7 @@ def card_name_fields(names, group_size=1):
         cat_id = names["ucs"]["ucs_cat_id"]
         out["ucs_cat_id"] = (cat_id, f"UCS CatID {cat_id} in the filename")
     group = names.get("group")
-    if group and group_size > 1:
+    if group and group_size > 1 and len(group) <= MAX_GROUP_KEY:
         out["variation_group"] = (group, f"filename minus its variation suffix; {group_size} files share it")
     return out
 

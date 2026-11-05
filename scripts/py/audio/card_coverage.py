@@ -164,6 +164,12 @@ def label(path):
     return path.rsplit(".", 1)[-1]
 
 
+def cell(counts):
+    """One percentage cell, or a dash where the kind has no cards carrying that field."""
+    pct = (counts or {}).get("pct")
+    return f"{pct:>9}" if pct is not None else f"{'-':>9}"
+
+
 def render(report):
     """A table per kind, one row per pack plus a totals row; only the fields that kind of card can carry."""
     lines = []
@@ -178,16 +184,10 @@ def render(report):
         lines.append(f"{kind}: {len(rows)} packs")
         lines.append(header)
         for pack, entry in rows:
-            cells = []
-            for path in paths:
-                counts = entry["fields"].get(path)
-                cells.append(f"{(counts['pct'] if counts and counts['pct'] is not None else '-'):>9}")
-            lines.append(f"{pack:<{width}}  {entry['kinds'][kind]:>5}  " + "  ".join(cells))
-        cells = [
-            f"{(every['fields'][path]['pct'] if path in every['fields'] and every['fields'][path]['pct'] is not None else '-'):>9}"
-            for path in paths
-        ]
-        lines.append(f"{'TOTAL':<{width}}  {every['kinds'][kind]:>5}  " + "  ".join(cells))
+            cells = "  ".join(cell(entry["fields"].get(path)) for path in paths)
+            lines.append(f"{pack:<{width}}  {entry['kinds'][kind]:>5}  {cells}")
+        cells = "  ".join(cell(every["fields"].get(path)) for path in paths)
+        lines.append(f"{'TOTAL':<{width}}  {every['kinds'][kind]:>5}  {cells}")
         lines.append("")
     short = [(pack, entry["short"]) for pack, entry in report["packs"].items() if entry["short"]]
     if short:

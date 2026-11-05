@@ -189,11 +189,14 @@ def analyse(job):
         waveform_png(y, ROOT / key)
         preview = {"waveform": key}
         clip_key = previews.clip_key(prefix, h)
-        try:
-            previews.clip(f, ROOT / clip_key)
-            preview["clip"] = clip_key
-        except (OSError, RuntimeError, ValueError) as e:  # a missing preview must not cost the file its card
-            print(json.dumps({"file": str(f), "preview": "fail", "error": str(e)[:300]}), flush=True)
+        # Asked once per worker process, not once per file: an encoder that cannot start is a fact card_coverage reports
+        # as a missing `previews.clip` column, not ten thousand identical lines.
+        if previews.have_ffmpeg():
+            try:
+                previews.clip(f, ROOT / clip_key)
+                preview["clip"] = clip_key
+            except (OSError, RuntimeError, ValueError) as e:  # a missing preview must not cost the file its card
+                print(json.dumps({"file": str(f), "preview": "fail", "error": str(e)[:300]}), flush=True)
         res = {"file": rel.as_posix(), "pack": pid, "sha256": h, "bytes": f.stat().st_size, "music": music,
                "measure": meas, "vendor": vendor_tags(f), "names": names, "clap": {"model": CLAP_ID, "excerpts": embed(y, spans)},
                "preview": preview, "analysed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "secs": round(time.time() - t0, 1)}
