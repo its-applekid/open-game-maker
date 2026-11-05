@@ -320,6 +320,201 @@
       "minimum": 1,
       "maximum": 9007199254740991
     },
+    "seats": {
+      "default": [],
+      "maxItems": 8,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "seat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "buildId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "rulesetHash": {
+            "type": "string"
+          },
+          "epoch": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "host",
+              "per-seat",
+              "rollback"
+            ]
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "rttMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "jitterMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "lossPct": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 100
+          },
+          "clockOffsetMs": {
+            "type": "number"
+          },
+          "lateStartTicks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "inputDelayTicks": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "inputGaps": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "localResponseMs": {
+            "type": "number",
+            "minimum": 0
+          },
+          "remoteUpdateP95Ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "eventDelayP95Ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "desyncs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "recoveries": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "hardResyncs": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "droppedBytes": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "oversized": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "seat",
+          "buildId",
+          "mode",
+          "tick",
+          "rttMs",
+          "jitterMs",
+          "lossPct",
+          "clockOffsetMs",
+          "lateStartTicks",
+          "inputDelayTicks",
+          "inputGaps",
+          "localResponseMs",
+          "remoteUpdateP95Ms",
+          "eventDelayP95Ms",
+          "desyncs",
+          "recoveries",
+          "hardResyncs",
+          "droppedBytes",
+          "oversized"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "link": {
+      "type": "object",
+      "properties": {
+        "seed": {
+          "type": "integer",
+          "minimum": -9007199254740991,
+          "maximum": 9007199254740991
+        },
+        "latencyMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "jitterMs": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000
+        },
+        "lossPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "reorderPct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "disconnects": {
+          "maxItems": 8,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "seat": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              },
+              "atMs": {
+                "type": "number",
+                "minimum": 0
+              },
+              "downMs": {
+                "type": "number",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "seat",
+              "atMs",
+              "downMs"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "seed",
+        "latencyMs",
+        "jitterMs",
+        "lossPct",
+        "reorderPct",
+        "disconnects"
+      ],
+      "additionalProperties": false
+    },
     "unchecked": {
       "type": "array",
       "items": {
@@ -374,6 +569,7 @@
     "budgets",
     "probes",
     "clients",
+    "seats",
     "unchecked",
     "verdict",
     "startedAt",

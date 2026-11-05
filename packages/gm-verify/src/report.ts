@@ -52,6 +52,69 @@ export const perfSchema = z.object({
 });
 export type PerfResult = z.infer<typeof perfSchema>;
 
+/** Netcode diagnostics cap the report at eight seats (contracts `LIMITS.maxPlayersCeiling`). */
+export const MAX_REPORT_SEATS = 8;
+
+/**
+ * The simulated link a multiplayer run used (N6): one object, echoed into the report so a failing run reproduces from
+ * its seed instead of being retyped.
+ */
+export const linkProfileSchema = z.object({
+  seed: z.number().int(),
+  latencyMs: z.number().min(0).max(1_000),
+  jitterMs: z.number().min(0).max(1_000),
+  lossPct: z.number().min(0).max(100),
+  reorderPct: z.number().min(0).max(100),
+  disconnects: z
+    .array(
+      z.object({
+        seat: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_REPORT_SEATS - 1),
+        atMs: z.number().min(0),
+        downMs: z.number().min(0),
+      }),
+    )
+    .max(MAX_REPORT_SEATS),
+});
+export type LinkProfile = z.infer<typeof linkProfileSchema>;
+
+/**
+ * One client's own view of its seat (design §8.1). A metric is local: the verify scenario joins one entry per seat
+ * because it owns every page, and no client uploads its numbers to another. The seat index is the identity; an account
+ * id in a report file under `shots/` would be a leak for no gain.
+ */
+export const seatMetricsSchema = z.object({
+  seat: z
+    .number()
+    .int()
+    .min(0)
+    .max(MAX_REPORT_SEATS - 1),
+  buildId: z.string().min(1),
+  rulesetHash: z.string().optional(),
+  epoch: z.string().optional(),
+  mode: z.enum(['host', 'per-seat', 'rollback']),
+  tick: z.number().int().min(0),
+  rttMs: z.number().min(0),
+  jitterMs: z.number().min(0),
+  lossPct: z.number().min(0).max(100),
+  clockOffsetMs: z.number(),
+  lateStartTicks: z.number().int().min(0),
+  inputDelayTicks: z.number().int().min(0),
+  inputGaps: z.number().int().min(0),
+  localResponseMs: z.number().min(0),
+  remoteUpdateP95Ms: z.number().min(0),
+  eventDelayP95Ms: z.number().min(0),
+  desyncs: z.number().int().min(0),
+  recoveries: z.number().int().min(0),
+  hardResyncs: z.number().int().min(0),
+  droppedBytes: z.number().int().min(0),
+  oversized: z.number().int().min(0),
+});
+export type SeatMetrics = z.infer<typeof seatMetricsSchema>;
+
 /** The verify report (T10 §4, C2): `shots/report.json`, read by the build chat, analytics, repair and evals. */
 export const verifyReportSchema = z.object({
   runId: z.string().min(1),
@@ -75,6 +138,10 @@ export const verifyReportSchema = z.object({
   probes: z.record(z.string(), z.union([z.number(), z.string(), z.boolean()])),
   perf: perfSchema.optional(),
   clients: z.number().int().min(1),
+  /** N6 addition, additive with a default: every report written before it still parses, with no seats. */
+  seats: z.array(seatMetricsSchema).max(MAX_REPORT_SEATS).default([]),
+  /** N6 addition: the simulated link this run used, when it had a link simulator. */
+  link: linkProfileSchema.optional(),
   unchecked: z.array(z.string()).refine((list) => ALWAYS_UNCHECKED.every((item) => list.includes(item)), {
     message: `unchecked must list ${ALWAYS_UNCHECKED.join(' and ')}`,
   }),
@@ -119,6 +186,11 @@ export function summaryLines(report: VerifyReport): string[] {
   }
   for (const entry of report.console) lines.push(`console ${entry.level} x${entry.count} ${oneLine(entry.text)}`);
   if (report.error) lines.push(`error ${oneLine(report.error)}`);
+  /* One line, only for a run that reported seats, so a single-client report's summary stays byte-identical. */
+  if (report.seats.length > 0) {
+    const sum = (key: 'desyncs' | 'recoveries') => report.seats.reduce((total, seat) => total + seat[key], 0);
+    lines.push(`seats ${report.seats.length} desyncs ${sum('desyncs')} recoveries ${sum('recoveries')}`);
+  }
   lines.push(`unchecked ${report.unchecked.join(', ')}`);
   lines.push(`verdict ${report.verdict}`);
   return lines;

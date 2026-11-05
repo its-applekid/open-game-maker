@@ -30,6 +30,7 @@ function example(): VerifyReport {
     },
     probes: { alive: true, won: false },
     clients: 1,
+    seats: [],
     unchecked: ['iPhone Safari', 'sound'],
     verdict: 'fail',
     startedAt: '2026-11-01T10:00:00.000Z',

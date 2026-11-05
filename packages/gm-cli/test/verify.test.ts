@@ -103,6 +103,7 @@ describe('gm run', () => {
       budgets: unknownBudgets(),
       probes: {},
       clients: 1,
+      seats: [],
       unchecked: ['iPhone Safari', 'sound'],
       verdict: 'error',
       error: 'ffmpeg not found on PATH',
