@@ -121,6 +121,9 @@ Three of §8.1's rows have no producer even after N2: `eventDelayMs`, `droppedBy
 (`rttMs`/`jitterMs`/`lossPct`). [C] The first two are SDK fields N6 adds (§4.2); the trio is the transport's, which N4
 owns and N6 only reads.
 
+Two of §8.1's rows are delays the report aggregates to p95 (`remoteUpdateP95Ms`, `eventDelayP95Ms`) and the overlay
+shows as p95 too, so a single bad frame cannot hide inside an average.
+
 ### 3.3 Where each number comes from
 
 | Source | Read by | Fields |
@@ -159,6 +162,9 @@ desync 0 · recoveries 0 · hard 0 · dropped 0 B · oversized 0
 
 Four lines, one per group: identity and agreement, path quality, simulation delays, failure counters. Values that are
 not yet known render as `–` rather than `0`, because "0 ms of RTT" and "not measured" must not look alike. [D]
+
+A game with no net controller (a single-player build) has no `net.mode`, and the overlay says so: the identity row reads
+`solo` and the path and delay rows read `–`. Showing zeros there would read as a perfect connection.
 
 The remote seats are not in the overlay: it has room for the local seat's numbers, and inventing rows for other seats
 would show either stale room facts or fabricated numbers (§3.1). The verify report is where per-seat comparison lives.
@@ -222,7 +228,9 @@ file under `apps/web/src` other than a test may import `gm-verify`, and the same
 
 `packages/gm-verify/scenarios/multi-client.ts` replaces the harness's two seats with four and keeps the seven assertions
 of the two-client scenario. Two profiles run it: `clean` (`CLEAN_LINK`, all zeroes) and `bad` (`BAD_LINK`:
-`latencyMs: 40`, `jitterMs: 20`, `lossPct: 2`, `reorderPct: 1`, disconnect seat 2 at 4 000 ms for 3 000 ms).
+`latencyMs: 40`, `jitterMs: 20`, `lossPct: 2`, `reorderPct: 1`, disconnect seat 2 at 4 000 ms for 3 000 ms). A
+third form, `--link @<file>`, takes the `link` object a report carries, so a failing run is replayed from its seed rather
+than retyped.
 | Step | Action                                                     | Assertions                                                                                                                                                                                     | Probes                              |
 | ---- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- |
 | 1    | create a v2 room, invite three seats, all four join        | each `welcomeMs` ≤ 2 000; seats assigned 0–3; four distinct sessions                                                                                                                           | `welcomeMs`, `welcomeMs.seat1..3`   |
@@ -232,7 +240,7 @@ of the two-client scenario. Two profiles run it: `clean` (`CLEAN_LINK`, all zero
 | 5    | each of the three peers holds `{ move: 1 }` for 1 s        | each peer's avatar moves on all four renders; the primary's avatar never moves                                                                                                                 | `peerMovedPx` per seat              |
 | 6    | seat 2 drops 3 s and returns; seat 3 drops past the window | `net.seat.offline` + pause everywhere; on rejoin `net.seat.online`, `recoveries` ≥ 1, resume at the same tick; seat 3 gets `net.seat.forfeit`, the room does not end, the primary is unchanged | `reconnectMs`, `forfeitMs`          |
 | 7    | load the draft build                                       | all four report `draft.ready` for `b2` and the pin changes on all four                                                                                                                         | `draftPin`                          |
-| 8    | collect metrics from every page                            | §3.10's bands; every seat's `seats[]` entry present; `clients: 4`                                                                                                                              | `seats`, `link`                     |
+| 8    | collect metrics from every page                            | §3.10's bands; every seat's `seats[]` entry present; `clients: 4`; `unchecked` names what the run cannot see (WAN latency, a real phone, iPhone Safari, sound)                                  | `seats`, `link`                     |
 
 The two-client scenario's step 6 (the host leaves, the room ends `host-left`) becomes step 6 above: a v2 room does
 not end when the creator leaves (D-NET-13), so the assertion moves from "the room ended" to "the seat forfeited and the
@@ -522,7 +530,7 @@ load-bearing.
 | **U8**  | `apps/web/src/net/diagnostics/metrics.ts`, `useNetMetrics.ts`, `log.ts`, `apps/web/src/net/diagnostics/metrics.test.ts`, `log.test.ts`                                                              | `collectNetMetrics`, `metricLines`, `logLine`, the 500 ms/10 s sampler                                                                                                                         | T6 exact line set; T7 one line per 10 s with the metric field names                                                                                                   | the exact-line and cadence assertions                                |
 | **U9**  | `apps/web/src/net/diagnostics/DiagnosticsOverlay.tsx`, `GameScreen.tsx`, `apps/web/src/features/editor/frame.ts`, `DiagnosticsOverlay.test.tsx`                                                     | The overlay component, the route wiring, `frame.netInfo()`                                                                                                                                     | T5 gating; the overlay renders the four lines for a fixed snapshot                                                                                                    | T5: without the gate, a published build renders and requests         |
 | **U10** | `packages/gm-verify/test/link-is-test-only.test.ts`, `apps/web/src/net/diagnostics/published.test.tsx`                                                                                              | A scan of `apps/web/src` for `gm-verify` imports and the simulator's own no-wall-clock check; the published-build assertion                                                                    | T10, and T5's second half (zero `test.renderInfo` requests in a published build)                                                                                      | the scan and the request-count assertion                             |
-| **U11** | `skills/gm-multiplayer-ready/SKILL.md`, `skills/gm-multiplayer-ready/references/convert-single-to-multiplayer.md`                                                                                   | The "Two-client verify" section becomes "Multi-client verify": `scenario multi-client --game <dir> --link bad`, `clients: 4`, and one sentence naming the v1 `two-client` command for v1 games | documentation; checked by review                                                                                                                                      | —                                                                    |
+| **U11** | `skills/gm-multiplayer-ready/SKILL.md`, `skills/gm-multiplayer-ready/references/convert-single-to-multiplayer.md`                                                                                   | The "Two-client verify" section becomes "Multi-client verify": `scenario multi-client --game <dir> --link bad`, `clients: 4`, and one sentence naming the v1 `two-client` command for v1 games. (Design §11.4 calls this "the `gm-verify` skill's two-client section"; the section actually lives in `skills/gm-multiplayer-ready/SKILL.md:76`, and `.claude/skills/gm-verify/SKILL.md` has no two-client text to change.) | documentation; checked by review                                                                                                                                      | —                                                                    |
 
 Ordering: U1–U4 are pure and land first (schema, SDK, schedule, decorator — each testable without a browser), then U5
 and U6 together (the harness and the scenario that drives it), then U7, then U8–U10 (the app surface), then U11. U2
@@ -570,8 +578,8 @@ need Chromium and a built rooms service and stay behind `OGM_SCENARIOS=1`, exact
 - **T8 — four clients on a clean link.** Every `welcomeMs` ≤ 2 000; `playSwitchMs` ≤ 500; the canary leaks into 0
   frames of three watchers; the three design revs match on all four clients; `report.clients === 4`;
   `report.seats.length === 4`; on every seat `localResponseMs ≤ 17`, `remoteUpdateP95Ms ≤ 100`, `eventDelayP95Ms ≤ 150`,
-  `desyncs === 0`, `inputGaps ≤ 1`, `oversized === 0`, `droppedBytes === 0`; `report.verdict === 'pass'`; 28
-  screenshots written.
+  `desyncs === 0`, `inputGaps ≤ 1`, `oversized === 0`, `droppedBytes === 0`; `report.unchecked` contains `WAN
+  latency`, `a real phone`, `iPhone Safari` and `sound`; `report.verdict === 'pass'`; 28 screenshots written.
 - **T9 — four clients on a bad link.** `BAD_LINK`: seat 2's `recoveries ≥ 1` after its 3 s drop and its `desyncs === 0`
   after settling; seat 3 receives `net.seat.forfeit` and the room does **not** end; the primary seat is unchanged;
   `localResponseMs ≤ 17` on every seat; `remoteUpdateP95Ms ≤ 180` and `eventDelayP95Ms ≤ 230` (the §3.10 bounds with
