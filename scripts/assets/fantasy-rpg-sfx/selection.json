@@ -1,0 +1,357 @@
+{
+  "schema": "ogm.sound-set-selection/1.0",
+  "id": "fantasy-rpg-sfx",
+  "title": "Fantasy RPG sound effects",
+  "description": "Reusable action-RPG cue variations curated from the installed Kenney and Sonniss libraries.",
+  "preview_gap_seconds": 0.35,
+  "categories": [
+    {
+      "id": "footstep-grass",
+      "title": "Footsteps — grass",
+      "intent": "Dry close grass steps for player and humanoid movement.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_grass_000.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_grass_001.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_grass_002.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_grass_003.ogg" }
+      ]
+    },
+    {
+      "id": "footstep-stone",
+      "title": "Footsteps — stone",
+      "intent": "Hard, dry stone paving steps for towns and ruins.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_concrete_000.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_concrete_001.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_concrete_002.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_concrete_003.ogg" }
+      ]
+    },
+    {
+      "id": "footstep-wood",
+      "title": "Footsteps — wood",
+      "intent": "Short wooden floor and bridge steps.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_wood_000.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_wood_001.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_wood_002.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/footstep_wood_003.ogg" }
+      ]
+    },
+    {
+      "id": "footstep-cave",
+      "title": "Footsteps — cave",
+      "intent": "Neutral medieval boot steps intended for cave reverb at runtime.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-rpg-audio", "path": "Audio/footstep00.ogg" },
+        { "pack": "kenney-rpg-audio", "path": "Audio/footstep01.ogg" },
+        { "pack": "kenney-rpg-audio", "path": "Audio/footstep02.ogg" },
+        { "pack": "kenney-rpg-audio", "path": "Audio/footstep03.ogg" }
+      ]
+    },
+    {
+      "id": "attack-sword",
+      "title": "Attack — sword",
+      "intent": "Fast one-handed sword attack variations.",
+      "excerpt_seconds": 3,
+      "sources": [
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/sword1.ogg" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/sword2.ogg" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/sword3.ogg" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/sword4.ogg" }
+      ]
+    },
+    {
+      "id": "attack-heavy-weapon",
+      "title": "Attack — heavy weapon",
+      "intent": "Weighty swings and swing-to-impact cues for axes, mauls and great weapons.",
+      "excerpt_seconds": 3.5,
+      "sources": [
+        { "pack": "sonniss-gdc2023-2of14", "path": "David Dumais Audio - Melee Weapons Sound Effects Pack 1/SWSH_Swing 3 Large 03_DDUMAIS_NONE.wav" },
+        { "pack": "sonniss-gdc2026-part9-2of5", "path": "David Dumais Audio - Melee Weapons Sound Effects Pack 2/SWSH_SWING IMPACTS Quick Heavy Weapon Swing To Thud Impact Var 01_DDUMAIS_MWP2.wav" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Woosh/woosh7.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactSoft_heavy_003.ogg" }
+      ]
+    },
+    {
+      "id": "attack-bow",
+      "title": "Attack — bow",
+      "intent": "Bow and crossbow releases with distinct fantasy flight tails.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2019-2of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 2of8/Eiravaein Works - Nocked/Nocked,archery,firing,loose,Pinakabow,mythic,midflight,wide,hum,sizzle,energy,alt8.wav" },
+        { "pack": "sonniss-gdc2019-2of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 2of8/Eiravaein Works - Nocked/Nocked,archery,firing,loose,Vaeyanbow,midflight,wide,mythic,sleek,swirl,rattle,alt14.wav" },
+        { "pack": "sonniss-gdc2019-2of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 2of8/Eiravaein Works - Nocked/Nocked,archery,firing,loose,crossbow1,carbonbolt,atbow,snap,buzz,airy,bright,alt.wav" },
+        { "pack": "sonniss-gdc2019-7of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 7of8/2496SoundEffects - Super Heroes Sound Design/Hawk's Arrow Flies Bow and Arrow shoot 2.wav" }
+      ]
+    },
+    {
+      "id": "impact-combat",
+      "title": "Impact — combat",
+      "intent": "Compact body and armor-neutral combat impacts.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactPunch_heavy_000.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactPunch_heavy_001.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactPunch_heavy_002.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactPunch_heavy_003.ogg" }
+      ]
+    },
+    {
+      "id": "shield-block",
+      "title": "Shield — block",
+      "intent": "Positive metal shield and parry contacts.",
+      "excerpt_seconds": 3.5,
+      "sources": [
+        { "pack": "sonniss-gdc2024-2of9", "path": "Justsoundeffects - Melee Weapons/WEAPArmr_Metal Shield Block Hits_JSE_MW.wav" },
+        { "pack": "sonniss-gdc2019-7of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 7of8/2496SoundEffects - Super Heroes Sound Design/The Captain's Shield Metal Hit 5.wav" },
+        { "pack": "sonniss-gdc2017-3of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 3of9/Double Trouble Audio - Medieval Armor and Impacts/Weapon_Impact_Parry_01.wav" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/hitHelmet3.ogg" }
+      ]
+    },
+    {
+      "id": "shield-failed-block",
+      "title": "Shield — failed block",
+      "intent": "Glancing scrapes and deflections for a mistimed block.",
+      "excerpt_seconds": 3,
+      "sources": [
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/swordSlide1.ogg" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/swordSlide2.ogg" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Swords/swordSlide3.ogg" },
+        { "pack": "sonniss-gdc2026-part9-2of5", "path": "David Dumais Audio - Melee Weapons Sound Effects Pack 2/METLFric_SWING SCRAPE Swift Melee Weapon Swing With A Long Blade 14_DDUMAIS_MWP2.wav" }
+      ]
+    },
+    {
+      "id": "roll",
+      "title": "Roll",
+      "intent": "Short cloth-and-gear movement for evasive rolls.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-rpg-audio", "path": "Audio/cloth1.ogg" },
+        { "pack": "kenney-rpg-audio", "path": "Audio/cloth2.ogg" },
+        { "pack": "kenney-rpg-audio", "path": "Audio/cloth3.ogg" },
+        { "pack": "kenney-rpg-audio", "path": "Audio/cloth4.ogg" }
+      ]
+    },
+    {
+      "id": "spell-fire",
+      "title": "Spell — fire",
+      "intent": "Ignition, burst, rumble and flame-wind spell variants.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2018-3of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 3of8/Gregor Quendel – Designed Fire/Designed Fire - Impacts - Large, ignition 03.wav" },
+        { "pack": "sonniss-gdc2018-3of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 3of8/Gregor Quendel – Designed Fire/Designed Fire - Swooshes - Burst, evolving 34.wav" },
+        { "pack": "sonniss-gdc2018-3of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 3of8/Gregor Quendel – Designed Fire/Designed Fire - Textures - Rumbling, glitch.wav" },
+        { "pack": "sonniss-gdc2018-3of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 3of8/Gregor Quendel – Designed Fire/Designed Fire - Winds - Binaural, swoosh, waves 02.wav" }
+      ]
+    },
+    {
+      "id": "spell-ice",
+      "title": "Spell — ice",
+      "intent": "Ice ambience, casts and impact for frost magic.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Ice & Frost Magic 1/Magic_Ambience_Ice05.wav" },
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Ice & Frost Magic 1/Magic_Spells_CastLong_Frost03.wav" },
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Ice & Frost Magic 1/Magic_Spells_CastShort_Ice_General24.wav" },
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Ice & Frost Magic 1/Magic_Spells_Impact_Ice13.wav" }
+      ]
+    },
+    {
+      "id": "spell-lightning",
+      "title": "Spell — lightning",
+      "intent": "Electric ambience, short and long casts, and lightning impact.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Electricity Magic 1/Magic_Ambience_Electricity01.wav" },
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Electricity Magic 1/Magic_Spells_CastLong_Electricity11.wav" },
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Electricity Magic 1/Magic_Spells_CastShort_Electricity_General08.wav" },
+        { "pack": "sonniss-gdc2020-3of14", "path": "David Dumais Audio - Electricity Magic 1/Magic_Spells_Impact_Electricity25.wav" }
+      ]
+    },
+    {
+      "id": "creature-goblin",
+      "title": "Creature — goblin",
+      "intent": "Goblin-scale grunts, attacks and shouted orders using orc recordings.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2020-2of14", "path": "Bluezone - Mountain Dweller - Orc Sound Effects/Bluezone_BC0261_mountain_dweller_creature_orc_grunt_003.wav" },
+        { "pack": "sonniss-gdc2026-part9-2of5", "path": "Epic Stock Media - Humanoid Creatures Vol 4 - Monstrous and Undead Creature Vocalization Sound Sets/CREAHmn_Designed Orc Male Attack Long Heavy Hit Charged Up 03_ESM_HC4.wav" },
+        { "pack": "sonniss-gdc2020-5of14", "path": "Olivier Girardot - Monster Sounds & Atmospheres/Orc Speech_Giving Orders 3.wav" },
+        { "pack": "sonniss-gdc2020-5of14", "path": "Phase 4 Libraries - Monster Roars/MR - Orc Attack VO 04.wav" }
+      ]
+    },
+    {
+      "id": "creature-undead",
+      "title": "Creature — undead",
+      "intent": "Distinct zombie and undead creature reactions.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2023-1of14", "path": "344 Audio - Zombie Specimens Vol. 2/CREAHmn_Test Subject 2  12_344 Audio_Zombie Specimens Vol 2.wav" },
+        { "pack": "sonniss-gdc2023-1of14", "path": "344 Audio - Zombie Specimens Vol. 2/CREAHmn_Test Subject 3 10_344 Audio_Zombie Specimens Vol 2.wav" },
+        { "pack": "sonniss-gdc2023-1of14", "path": "344 Audio - Zombie Specimens Vol. 2/CREAHmn_Test Subject 4 05_344 Audio_Zombie Specimens Vol 2.wav" },
+        { "pack": "sonniss-gdc2023-1of14", "path": "344 Audio - Zombie Specimens Vol. 2/CREAHmn_Test Subject 6 09_344 Audio_Zombie Specimens Vol 2.wav" }
+      ]
+    },
+    {
+      "id": "object-push",
+      "title": "Object — push",
+      "intent": "Heavy object pushes and dragging movement across rough surfaces.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "sonniss-gdc2017-8of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 8of9/SoundBits - Drag & Slide/HeavyWood_Sliding_on_ForestFloor_01_04.wav" },
+        { "pack": "sonniss-gdc2017-8of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 8of9/SoundBits - Drag & Slide/Body_Drag_on_FarmLane_02_06.wav" },
+        { "pack": "sonniss-gdc2017-8of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 8of9/SoundBits - Drag & Slide/Heavy_MetalPipe_Scraping_on_Concrete_01_03.wav" },
+        { "pack": "sonniss-gdc2017-8of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 8of9/SoundBits - Drag & Slide/LargeWoodenObject_Sliding_01_04.wav" }
+      ]
+    },
+    {
+      "id": "object-collision",
+      "title": "Object — collision",
+      "intent": "Small-to-medium wood, metal and stone prop collisions.",
+      "excerpt_seconds": 2.5,
+      "sources": [
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactWood_heavy_000.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactMetal_medium_000.ogg" },
+        { "pack": "kenney-impact-sounds", "path": "Audio/impactPlank_medium_000.ogg" },
+        { "pack": "kenney-foley-sounds", "path": "Audio/Rocks/stoneHit3.ogg" }
+      ]
+    },
+    {
+      "id": "loot-pickup",
+      "title": "Loot pickup",
+      "intent": "Physical coin and coin-bag pickups without synthetic UI tones.",
+      "excerpt_seconds": 3.5,
+      "sources": [
+        { "pack": "sonniss-gdc2020-13of14", "path": "The Sound Pack Tree - Money/262703 - Drop Couple of Gold Coins on Coins 03.wav" },
+        { "pack": "sonniss-gdc2020-13of14", "path": "The Sound Pack Tree - Money/263801 - Lift Coin Bag 01.wav" },
+        { "pack": "sonniss-gdc2020-13of14", "path": "The Sound Pack Tree - Money/264604 - Stack Coin Bag 04.wav" },
+        { "pack": "sonniss-gdc2026-part9-2of5", "path": "Cinematic Sound Design - UI Interaction Elements/Ting Coins.wav" }
+      ]
+    },
+    {
+      "id": "ui",
+      "title": "UI",
+      "intent": "Neutral menu selection confirmations.",
+      "excerpt_seconds": 2,
+      "sources": [
+        { "pack": "kenney-interface-sounds", "path": "Audio/select_001.ogg" },
+        { "pack": "kenney-interface-sounds", "path": "Audio/select_002.ogg" },
+        { "pack": "kenney-interface-sounds", "path": "Audio/select_003.ogg" },
+        { "pack": "kenney-interface-sounds", "path": "Audio/select_004.ogg" }
+      ]
+    },
+    {
+      "id": "quest-cue",
+      "title": "Quest cue",
+      "intent": "Short light-fantasy quest update and completion stingers.",
+      "excerpt_seconds": 4,
+      "sources": [
+        { "pack": "kenney-music-jingles", "path": "Audio (Pizzicato)/jingles-pizzicato_00.ogg" },
+        { "pack": "kenney-music-jingles", "path": "Audio (Pizzicato)/jingles-pizzicato_01.ogg" },
+        { "pack": "kenney-music-jingles", "path": "Audio (Pizzicato)/jingles-pizzicato_02.ogg" },
+        { "pack": "kenney-music-jingles", "path": "Audio (Pizzicato)/jingles-pizzicato_03.ogg" }
+      ]
+    },
+    {
+      "id": "ambience-village",
+      "title": "Ambience — village",
+      "intent": "Calm inhabited village beds with birds, distant people, animals and bells.",
+      "excerpt_seconds": 7,
+      "sources": [
+        { "pack": "sonniss-gdc2020-11of14", "path": "Sonic Bat – Ambisonics - Village/SBAv_Village Ambience 003.wav" },
+        { "pack": "sonniss-gdc2020-12of14", "path": "Sonik Sound Library - Spatial Towns/Ambience, Town, North Italy, Birds, Ligth Traffic, Church Bells Calling to Mass-Surround.wav" },
+        { "pack": "sonniss-gdc2020-13of14", "path": "Systematic-Sound - General Ambience Series – Towns & Villages 01/AMB TOWN Vineyard Distant Glockenspiel Walla.wav" },
+        { "pack": "sonniss-gdc2020-13of14", "path": "Systematic-Sound - General Ambience Series – Towns & Villages 01/AMB VILLAGE Meadow Morning Distant Goat Herd.wav" }
+      ]
+    },
+    {
+      "id": "ambience-plains",
+      "title": "Ambience — plains",
+      "intent": "Open meadow and field beds spanning day, evening and night.",
+      "excerpt_seconds": 7,
+      "sources": [
+        { "pack": "sonniss-gdc2018-1of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 1of8/Alexander Kopeikin - Quad ambience of Crimea in summer/20 meadow night ambience, crickets, ortf offset by 3 m, front - ORTF.wav" },
+        { "pack": "sonniss-gdc2020-10of14", "path": "SculpTunes - Summer in the field - Crickets and Cicadas - 5.0/Summer in the Fields - Evening-Night 004- Distant crickets shrill high frequencies - flat night ambience.wav" },
+        { "pack": "sonniss-gdc2024-8of9", "path": "Sonik Sound Library - Spatial Countryside/AMBRurl_Ambience, Countryside, Quite Fields, Slow Cicadas, 3 Close, Fly_KS_Spatial Counstryside-AmbiX_KSL_KS011.wav" },
+        { "pack": "sonniss-gdc2018-6of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 6of8/Soundreorganized - Ambisonic Forest - Spring/Forest_Spring_Evening_CloseToField_OpenArea_LightWind_Birds_Amb_Atmo_FuMa.wav" }
+      ]
+    },
+    {
+      "id": "ambience-forest",
+      "title": "Ambience — forest",
+      "intent": "Natural forest beds with varied wind, birds and insects.",
+      "excerpt_seconds": 7,
+      "sources": [
+        { "pack": "sonniss-gdc2016-2of6", "path": "Mindful Audio - Woodland Atmosphere/MAFX001 dew drops wind birds woodpecker.wav" },
+        { "pack": "sonniss-gdc2016-2of6", "path": "Mindful Audio - Woodland Atmosphere/MAFX001 soft wind chaffinch wren bees.wav" },
+        { "pack": "sonniss-gdc2016-2of6", "path": "Mindful Audio - Woodland Atmosphere/MAFX001 wind robin blackbird 01.wav" },
+        { "pack": "sonniss-gdc2024-2of9", "path": "Justsoundeffects - Forest Ambiences/AMBForst_Spring Noon Deciduous Forest Gentle Wind Leaves Rustling Blackbird Raven in Background_JSE_FA.wav" }
+      ]
+    },
+    {
+      "id": "ambience-cave",
+      "title": "Ambience — cave",
+      "intent": "Natural and designed cave beds with water, air and large-space resonance.",
+      "excerpt_seconds": 7,
+      "sources": [
+        { "pack": "sonniss-gdc2016-5of6", "path": "Shutter Sound - Worldwide Ambience/Malaysia, Exterior, Atmosphere, Cave in Niah, Waterfall, Bats, Swiftlets.wav" },
+        { "pack": "sonniss-gdc2017-7of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 7of9/Robin Barstow - The Zinc Mines/Ambience, Zinc Mine, Running Water Distant Cave Underground.wav" },
+        { "pack": "sonniss-gdc2017-9of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 9of9/West Wolf - WATER/W 04 Water_05_Cave, Ambience, Water Drops, River_T05.wav" },
+        { "pack": "sonniss-gdc2018-4of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 4of8/Olivier Girardot - Underground Atmospheres/Cavern Sound effect_Short - Loop.wav" }
+      ]
+    },
+    {
+      "id": "ambience-graveyard",
+      "title": "Ambience — graveyard",
+      "intent": "Exposed eerie night beds for graveyards and haunted outdoor spaces.",
+      "excerpt_seconds": 7,
+      "sources": [
+        { "pack": "sonniss-gdc2017-9of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 9of9/Zero-G - Dark Skies - Cinematic Ambiences/Cinematic - Macabre Iii.wav" },
+        { "pack": "sonniss-gdc2017-9of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 9of9/Zero-G - Dark Skies - Cinematic Ambiences/Firedrone - Firedrone 3.wav" },
+        { "pack": "sonniss-gdc2017-9of9", "path": "Sonniss.com - GDC 2017 - Game Audio Bundle Part 9of9/Zero-G - Dark Skies - Cinematic Ambiences/Horrific - Horror Moment 4.wav" },
+        { "pack": "sonniss-gdc2026-part9-2of5", "path": "Epic Stock Media - Strange Game Ambient Loops 3/DSGNSynth_Dark Loop Mystic Forest Tonal Steady Synth_ESM_SGA3.wav" }
+      ]
+    },
+    {
+      "id": "ambience-crypt",
+      "title": "Ambience — crypt",
+      "intent": "Cold enclosed room tones and tunnels for crypt interiors.",
+      "excerpt_seconds": 7,
+      "sources": [
+        { "pack": "sonniss-gdc2024-2of9", "path": "Jake Fielding - Chamber of Shadows - Morgue Room Tones/AMBRoom_Morgue Freezer Tone, Interior_JF_Morgue Tones_02.wav" },
+        { "pack": "sonniss-gdc2024-2of9", "path": "Jake Fielding - Chamber of Shadows - Morgue Room Tones/AMBRoom_Morgue Freezer Unit Room Tone_JF_Morgue Tones_03.wav" },
+        { "pack": "sonniss-gdc2024-2of9", "path": "Jake Fielding - Chamber of Shadows - Morgue Room Tones/AMBRoom_Morgue Reception Room Tone, Fan, Movement_JF_Morgue Tones_02.wav" },
+        { "pack": "sonniss-gdc2018-4of8", "path": "Sonniss.com - GDC 2018 - Game Audio Bundle Part 4of8/Olivier Girardot - Underground Atmospheres/Underground atmosphere - Artificial Tunnel 3 - Loop.wav" }
+      ]
+    },
+    {
+      "id": "combat-vocal-low-gritty",
+      "title": "Combat vocal — low/gritty",
+      "intent": "Nonverbal exertion, attack and hurt cues for a lower, rougher voice type.",
+      "excerpt_seconds": 3.5,
+      "sources": [
+        { "pack": "sonniss-gdc2019-1of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 1of8/Articulated Sounds - Fight Vocalizations/EMOTE David, Man, Anger Fight Grunt Special Power 03.wav" },
+        { "pack": "sonniss-gdc2019-1of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 1of8/Articulated Sounds - Fight Vocalizations/EMOTE Joshua, Man, Pain Hurt Grunt Big 03.wav" },
+        { "pack": "sonniss-gdc2026-part9-1of5", "path": "344 Audio - Anime Fight Voices Vol. 1/VOXMale_Male Adventurer, Active Yell 19_344 Audio_Anime Fight Voices.wav" },
+        { "pack": "sonniss-gdc2026-part9-1of5", "path": "344 Audio - Anime Fight Voices Vol. 1/VOXMale_Warrior Opponent Attack, 'Ai yah' 2_344 Audio_Anime Fight Voices.wav" }
+      ]
+    },
+    {
+      "id": "combat-vocal-bright-agile",
+      "title": "Combat vocal — bright/agile",
+      "intent": "Nonverbal breath, exertion and attack cues for a brighter, faster voice type.",
+      "excerpt_seconds": 3.5,
+      "sources": [
+        { "pack": "sonniss-gdc2019-1of8", "path": "Sonniss.com - GDC 2019 - Game Audio Bundle Part 1of8/Articulated Sounds - Fight Vocalizations/EMOTE Ashley, Woman, Anger Fight Grunt Big 02.wav" },
+        { "pack": "sonniss-gdc2026-part9-1of5", "path": "344 Audio - Anime Fight Voices Vol. 2/VOXFem_Anime, Adult Warrior Breaths 40_344 Audio_Anime Fight Voices Vol 2.wav" },
+        { "pack": "sonniss-gdc2026-part9-1of5", "path": "344 Audio - Anime Fight Voices Vol. 2/VOXFem_Anime, Schoolgirl Fight Exhale 15_344 Audio_Anime Fight Voices Vol 2.wav" },
+        { "pack": "sonniss-gdc2026-part9-1of5", "path": "344 Audio - Anime Fight Voices Vol. 2/VOXFem_Anime, Warrior Elf Princess Aggressive Yell_344 Audio_Anime Fight Voices Vol 2_14.wav" }
+      ]
+    }
+  ]
+}
