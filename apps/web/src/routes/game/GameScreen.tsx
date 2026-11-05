@@ -21,7 +21,7 @@ import {
   submitReapply,
   type DesignSnapshot,
 } from '../../features/editor/api';
-import { activeBuildStatus, inspectBuildChange, readyBuildSignal } from '../../features/editor/builds';
+import { inspectBuildChange, readyBuildSignal } from '../../features/editor/builds';
 import { EditorChrome } from '../../features/editor/EditorChrome';
 import { GizmoOverlay } from '../../features/editor/GizmoOverlay';
 import { changeInstanceCount } from '../../features/editor/instanceCount';
@@ -340,7 +340,6 @@ export function GameScreen() {
         mode={mode}
         saved={mode === 'edit' ? savedLabel(editStartup ?? sessionView?.saved) : undefined}
         build={build}
-        buildStatus={activeBuildStatus(jobs.data?.jobs ?? [])}
         playLabel={frameState.manifest?.playLabel}
         onBack={() => void leaveRoom()}
         onMode={requestMode}

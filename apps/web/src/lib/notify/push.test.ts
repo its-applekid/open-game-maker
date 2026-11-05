@@ -141,6 +141,23 @@ describe('useNotificationFeed', () => {
     expect(source.close).toHaveBeenCalledOnce();
   });
 
+  it('keeps a shared listener until its final subscriber unmounts', () => {
+    const listener = vi.fn();
+    const first = notify.subscribeNotification(listener);
+    const second = notify.subscribeNotification(listener);
+    const feed = renderHook(() => notify.useNotificationFeed());
+    const source = FakeEventSource.instances[0]!;
+
+    first();
+    source.dispatchEvent(new MessageEvent('job.started', { data: 'Build started' }));
+    expect(listener).toHaveBeenCalledOnce();
+
+    second();
+    source.dispatchEvent(new MessageEvent('job.started', { data: 'Another build started' }));
+    expect(listener).toHaveBeenCalledOnce();
+    feed.unmount();
+  });
+
   it('stops reopening after five failed open attempts', async () => {
     vi.useFakeTimers();
     const { unmount } = renderHook(() => notify.useNotificationFeed());

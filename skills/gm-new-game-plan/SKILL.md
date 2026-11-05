@@ -16,6 +16,9 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
 
 ## Plan the whole game, prototype first
 
+The general rules for cutting tickets, typing dependencies, waves and the critical path are in the `build-order` skill;
+this section adds what is specific to games.
+
 1. **Architecture.** Lay out the game's skeleton before any ticket: folder layout under `games/<name>/`, the systems
    (input, player, world/map, entities, UI, audio, saves, progression), their interfaces and the seams where tickets
    meet. Prefer existing SDK modules, pack adapters and `packages/` code; note likely shared pieces, but do not promote
@@ -35,6 +38,20 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
    starts now. Content tickets that need a creative choice (music direction, character look) open their own option
    Commands with samples (see the design skill's question protocol).
 
+## Evidence and review states
+
+- **Foundation before replication.** Prove the risky base first (one assembled structure at the right scale, actors,
+  depth and collision, movement and combat transitions, the physical interaction, saves) before tickets that multiply
+  content built on it. A known-broken base is repaired, never copied.
+- Every visual or audio ticket ends with real evidence (screenshots and short captures at phone portrait, phone
+  landscape and desktop; audio previews) that the agent has looked at itself.
+- Review states: generated → agent-reviewed → player review requested → player-approved or provisional default.
+  Silence is never approval; low-confidence work (a new or poorly preprocessed pack) asks for review in small batches.
+- Fairness across aspect ratios is gameplay: test encounter visibility, threat cues, aiming and puzzles on narrow and
+  wide screens, not only menus.
+- Private context (references to other games, the player's words) stays in private storage for authorised agents;
+  public tickets describe behaviour and acceptance only, with no commercial game comparisons.
+
 ## File it in aiur
 
 - Child issues in the instance repo, each linking the parent, with: goal, owned files, interface contract, acceptance
@@ -44,6 +61,19 @@ attachments), the instance repo (`games/`, `packages/`), `gm-core`, the set skil
 - Build Order: the parent issue is its root; confirm with `aiur-main build-orders <root>` that every child appears with
   the right edges, then queue the unblocked children (`aiur-main --todo`).
 - Post the plan summary on the parent: architecture sketch, ticket list by lane, prototype set, open decisions.
+
+## Deep-dive every ticket before implementation (always, unasked)
+
+Once the high-level plan and the proposed Build Order exist, do not dispatch implementation yet. Run the deep dives
+from the general `research-spike` skill (steps 3–5: one research agent per ticket, brainstorm → plan, woven specs,
+tickets rewritten for a weaker implementer). Game specifics on top of it:
+
+- Research tickets carry `kind:research`, the game's feature, epic and `game:<slug>` labels, and block their
+  implementation tickets; library and asset tickets are already research and get no extra spike.
+- Research docs go to `games/<name>/docs/research/<ticket>.md` and woven specs to `games/<name>/docs/spec/<area>.md`;
+  private detail stays in the game's private context and is referenced, never copied.
+- Give each research agent the game skills its lane needs (a biome ticket gets the set and asset skills, a combat ticket
+  gets input and effects skills), and the rest by name only.
 
 ## Keep it moving
 

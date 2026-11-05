@@ -26,13 +26,26 @@ describe('build chat jobs', () => {
       'fetch',
       vi.fn(async (input: RequestInfo | URL) => {
         const url = String(input);
-        if (url === '/api/v1/games') return json({ games: [{ id: 'g_good' }, { id: 'g_bad' }] });
+        if (url === '/api/v1/games') {
+          return json({
+            games: [
+              { id: 'g_good', title: 'Good game' },
+              { id: 'g_bad', title: 'Bad game' },
+            ],
+          });
+        }
         if (url.endsWith('gameId=g_good')) return json({ jobs: [job] });
         return json({ error: 'unavailable' }, 503);
       }),
     );
 
-    await expect(fetchMyJobs(job.creatorId)).resolves.toEqual({ jobs: [job] });
+    await expect(fetchMyJobs(job.creatorId)).resolves.toEqual({
+      games: [
+        { id: 'g_good', title: 'Good game' },
+        { id: 'g_bad', title: 'Bad game' },
+      ],
+      jobs: [job],
+    });
   });
 });
 

@@ -7,7 +7,11 @@ import { SLOT_STATES } from './state.js';
 
 export type JobRow = typeof schema.jobs.$inferSelect;
 
-export function toJob(row: JobRow, projection?: typeof schema.jobProjections.$inferSelect | null): Job {
+export function toJob(
+  row: JobRow,
+  projection?: typeof schema.jobProjections.$inferSelect | null,
+  openRequestCount = 0,
+): Job {
   return {
     id: row.id,
     gameId: row.gameId,
@@ -37,6 +41,7 @@ export function toJob(row: JobRow, projection?: typeof schema.jobProjections.$in
     ...(projection?.progressPercent === null || projection?.progressPercent === undefined
       ? {}
       : { progressPercent: projection.progressPercent }),
+    openRequestCount,
   };
 }
 
@@ -54,20 +59,35 @@ export function findJob(db: Db, id: string): Job {
     .where(eq(schema.jobs.id, id))
     .get();
   if (!found) throw new HttpError(404, 'job_not_found');
-  return toJob(found.job, found.projection);
+  return toJob(found.job, found.projection, openRequestCounts(db, [id]).get(id));
 }
 
 export function listJobs(db: Db, gameIds: string | readonly string[]): Job[] {
   const ids = typeof gameIds === 'string' ? [gameIds] : gameIds;
   if (ids.length === 0) return [];
-  return db
+  const rows = db
     .select({ job: schema.jobs, projection: schema.jobProjections })
     .from(schema.jobs)
     .leftJoin(schema.jobProjections, eq(schema.jobs.id, schema.jobProjections.jobId))
     .where(inArray(schema.jobs.gameId, ids))
     .orderBy(asc(schema.jobs.createdAt))
-    .all()
-    .map(({ job, projection }) => toJob(job, projection));
+    .all();
+  const requests = openRequestCounts(
+    db,
+    rows.map(({ job }) => job.id),
+  );
+  return rows.map(({ job, projection }) => toJob(job, projection, requests.get(job.id)));
+}
+
+function openRequestCounts(db: Db, jobIds: readonly string[]): Map<string, number> {
+  if (jobIds.length === 0) return new Map();
+  const rows = db
+    .select({ jobId: schema.checkpoints.jobId, count: sql<number>`count(*)` })
+    .from(schema.checkpoints)
+    .where(and(inArray(schema.checkpoints.jobId, jobIds), eq(schema.checkpoints.status, 'open')))
+    .groupBy(schema.checkpoints.jobId)
+    .all();
+  return new Map(rows.map(({ jobId, count }) => [jobId, Number(count)]));
 }
 
 export function acceptedFor(db: Db, row: JobRow): CreateJobAccepted {
