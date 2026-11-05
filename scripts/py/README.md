@@ -14,6 +14,18 @@ scripts/py/drive-sync/.venv/bin/python -I scripts/py/drive-sync/drive_sync.py st
 
 The old `scripts/audio`, `scripts/maps`, and `scripts/drive-sync` paths are compatibility symlinks for frozen prototypes and existing skills. New callers use `scripts/py` paths.
 
+## Game-audio preparation (music packs)
+
+`scripts/py/audio/prepare_game_audio.py` turns one owned music pack into game-ready files with only `ffmpeg` and the standard library: a card per track (duration, measured signal, mood and likely-use suggestions, loop suitability and points), an OGG and an MP3 rendition, one 20-second preview per use group (village, travel, forest, cave, dungeon, combat, boss, victory), and a browsable `README.md`.
+
+```sh
+python3 -I scripts/py/audio/prepare_game_audio.py --pack assets-local/packs/<pack>
+python3 -I scripts/py/audio/prepare_game_audio.py --pack assets-local/packs/<pack> --validate-only
+python3 -I scripts/py/audio/prepare_game_audio.py --processed <folder> --validate-only
+```
+
+Output lands in `<pack>/<version>/processed` unless `--output` stages it elsewhere. Mood, likely use, and loop points are suggestions until someone listens: correct them in `processed/curation.json` (set `"auditioned": true` when a track has been heard) and rerun; the run keeps edited values and refreshes everything else. Nothing is uploaded and nothing is spent.
+
 From the repository root:
 
 - `make test` and `make test-py` run the dependency-free drive-sync suite and compile every worker.
