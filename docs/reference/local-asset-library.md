@@ -25,6 +25,7 @@ assets-local/
     hash-manifests/<name>.txt          # "sha256  bytes  path" of every file of a collection, carded or not
     blocklist/redistribution-none.txt  # gm packs blocklist: the commit check's hash feed (OGM_BLOCKLIST_FILE)
   derived/<pack-id>/                   # variants made from a pack's files; inherit its rights
+  derived/kaykit/lineups/              # set-wide thumbnail lineups per category, paginated (preprocess_kaykit.py)
   index/cards.index.json               # gm's card index (gm packs index rebuilds it)
   inbox/                               # Drive watch-folder intake (scripts/drive-sync/)
     queue.jsonl                        # one line per downloaded drop, appended by the listener
@@ -98,7 +99,7 @@ assets-local/
 - `import_synty.py`: moves the listed Synty downloads from `~/Downloads` into `packs/`, then unpacks and writes `pack.json`. Add new rows to `PACKS` for new downloads. Packs already extracted are skipped.
 - `import_kenney_bundle.py`: splits the Kenney All-in-1 zip into one pack per folder, reads each `License.txt`, and installs the launcher under `tools/`. Some archive packs ship as a zip inside the bundle; those were unpacked afterwards, and `pack.json` records them in `inner_archives_unpacked`.
 - `build_catalog.py`: rebuilds `catalog.json`. Run it after any import.
-- `preprocess_kaykit.py`: validates every canonical KayKit glTF or GLB, prefers glTF when both formats exist, and emits model cards plus standalone animation cards with target rigs and searchable clip metadata. It attaches source variants and resources, renders thumbnails and pack lineups, writes a QA report, and rebuilds the catalog and card index. Pass `--root <asset-library>` when the library is not at `assets-local/`; the root must already contain `packs/`.
+- `preprocess_kaykit.py`: validates every canonical KayKit glTF or GLB, prefers glTF when both formats exist, and emits model cards plus standalone animation cards with target rigs and searchable clip metadata. Each card carries the layer-1 tags a name and a measurement can carry (`describe.description`, `objects`, `keywords`) and the measured texture sizes (`geometry.texture_sizes`, `max_texture_px`); a character lists the clips of every clip library that shares its rig, so search and `gm assets info` answer without opening a file. It attaches source variants and resources, renders thumbnails, per-pack lineups and paginated set-wide lineups per category (`derived/kaykit/lineups/`), writes a QA report (load failures, categories, texture budget, characters with no clip library, pivots, scale, missing variants and previews), and rebuilds the catalog and card index. Pass `--root <asset-library>` when the library is not at `assets-local/`; the root must already contain `packs/`.
 - `apps/web/tools/thumbnail-scene.mjs`: fetches local vendor references, builds deterministic card-backed specimen sheets, and renders 2D still/living dioramas. See [Thumbnail scenes](thumbnail-scenes.md) for the private output layout and commands.
 
 ## Drive inbox (`scripts/drive-sync/`)
