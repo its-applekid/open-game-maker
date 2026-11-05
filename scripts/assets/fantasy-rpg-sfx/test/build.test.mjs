@@ -165,6 +165,9 @@ describe("set build", () => {
     expect(manifest.categories).toEqual([
       expect.objectContaining({ id: "test-cue", preview: "previews/test-cue.mp3", variation_count: 3 }),
     ]);
+    expect(card.preview).toEqual(
+      expect.objectContaining({ bytes: 7, duration_seconds: 1.25, path: "previews/test-cue.mp3" }),
+    );
     expect(card.variations).toHaveLength(3);
     expect(card.variations[0]).toEqual(
       expect.objectContaining({
@@ -210,6 +213,46 @@ describe("set build", () => {
       expect(preview.duration_seconds).toBeGreaterThan(0);
     },
   );
+
+  it("refuses to publish an empty or unplayable preview", async () => {
+    const root = await scratch();
+    const assetsRoot = path.join(root, "assets-local");
+    await syntheticAssets(assetsRoot);
+
+    const silent = {
+      channels: 2,
+      codec: "pcm_s16le",
+      duration_seconds: 0,
+      sample_rate: 48_000,
+    };
+    await expect(
+      buildSet({
+        assetsRoot,
+        outputDir: path.join(root, "empty"),
+        selection: minimalSelection(),
+        expectedCategoryIds: ["test-cue"],
+        probeAudio: async (file) =>
+          file.endsWith(".mp3") ? silent : { ...silent, duration_seconds: 1 },
+        encodePreview: async (request) => {
+          await writeFile(request.outputPath, "");
+        },
+      }),
+    ).rejects.toThrow(/preview is empty/);
+
+    await expect(
+      buildSet({
+        assetsRoot,
+        outputDir: path.join(root, "unplayable"),
+        selection: minimalSelection(),
+        expectedCategoryIds: ["test-cue"],
+        probeAudio: async (file) =>
+          file.endsWith(".mp3") ? silent : { ...silent, duration_seconds: 1 },
+        encodePreview: async (request) => {
+          await writeFile(request.outputPath, "not audio");
+        },
+      }),
+    ).rejects.toThrow(/preview has no playable audio/);
+  });
 
   it("preflights every source and preserves an existing output on failure", async () => {
     const root = await scratch();

@@ -257,7 +257,7 @@ async function resolveSources({ assetsRoot, probeAudio, selection }) {
   return resolved;
 }
 
-function categoryCard(selection, category, variations) {
+function categoryCard(selection, category, variations, previewInfo, previewAudio) {
   return {
     schema: "ogm.sound-set-card/1.0",
     id: `${selection.id}/${category.id}`,
@@ -271,6 +271,8 @@ function categoryCard(selection, category, variations) {
       order: variations.map(({ id }) => id),
       excerpt_seconds: category.excerpt_seconds,
       gap_seconds: selection.preview_gap_seconds,
+      bytes: previewInfo.size,
+      duration_seconds: previewAudio.duration_seconds,
       audition: { status: "pending-operator" },
     },
     variations: variations.map(({ absolutePath: _absolutePath, ...variation }) => variation),
@@ -386,7 +388,11 @@ export async function buildSet({
         inputs: variations.map(({ absolutePath }) => absolutePath),
         outputPath: previewPath,
       });
-      const card = categoryCard(selection, category, variations);
+      const previewInfo = await stat(previewPath);
+      invariant(previewInfo.isFile() && previewInfo.size > 0, `${category.id}: preview is empty`);
+      const previewAudio = await probeAudio(previewPath);
+      invariant(previewAudio.duration_seconds > 0, `${category.id}: preview has no playable audio`);
+      const card = categoryCard(selection, category, variations, previewInfo, previewAudio);
       cards.push(card);
       await writeJson(path.join(stagingDir, "cards", `${category.id}.card.json`), card);
     }
