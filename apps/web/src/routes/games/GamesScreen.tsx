@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 
 import { registerTestApi } from '../../app/testHook';
+import { CopyLink } from './CopyLink';
 import { glideTiles, measureTiles, type TileRects } from './flip';
 import { Spotlight } from './Spotlight';
 import { Tile } from './Tile';
@@ -163,6 +164,7 @@ export function GamesScreen() {
                         select(index);
                       }}
                     />
+                    <CopyLink id={game.id} slug={game.slug} title={game.title} />
                   </div>
                 ))}
               </div>

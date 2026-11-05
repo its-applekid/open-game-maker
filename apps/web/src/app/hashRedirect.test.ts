@@ -8,7 +8,7 @@ describe('legacy hash redirects', () => {
   });
 
   it.each([
-    ['#library', '/games'],
+    ['#library', '/all'],
     ['#new', '/new'],
   ])('replaces %s with %s', (hash, path) => {
     window.history.replaceState(null, '', `/${hash}`);
