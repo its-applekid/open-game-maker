@@ -3,7 +3,7 @@
 set -euo pipefail
 
 usage() {
-  printf 'usage: ogm-run <api|rooms|games|commit|voice-host|intake|drive-sync|aiur|backup> [slug]\n' >&2
+  printf 'usage: ogm-run <api|rooms|games|commit|voice-host|intake|drive-sync|aiur|backup|core-bump> [slug]\n' >&2
   exit 64
 }
 
@@ -95,6 +95,13 @@ case "$name" in
     backup=$OGM_REPO/ops/backup/backup.sh
     [[ -x $backup ]] || placeholder_once backup
     exec "$backup"
+    ;;
+  core-bump)
+    dir=$OGM_REPO/services/core-bump
+    [[ -f $dir/package.json ]] || placeholder_once core-bump
+    entrypoint=$("$(dirname -- "${BASH_SOURCE[0]}")/ogm-entry" "$dir") || exit 1
+    [[ -f $entrypoint ]] || placeholder_once core-bump
+    exec node "$entrypoint"
     ;;
   *)
     usage
