@@ -1,7 +1,7 @@
 defmodule OgmVoice.MixProject do
   use Mix.Project
 
-  @aiur_pin "f6ac27eb264e668cf87370763826810694e81c39"
+  @aiur_pin "ae181819deba65dd187191c1e58edba8934891dd"
 
   def project do
     [

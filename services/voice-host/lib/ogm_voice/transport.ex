@@ -37,7 +37,7 @@ defmodule OgmVoice.Transport do
     api = if claims, do: api(opts[:instance], claims), else: %{}
     state = PackageTransport.socket_state(Keyword.put(opts, :api, api), not is_nil(claims))
 
-    WebSockAdapter.upgrade(conn, OgmVoice.Transport.Socket, state,
+    WebSockAdapter.upgrade(conn, PackageTransport.Socket, state,
       max_frame_size: PackageTransport.max_frame_bytes(),
       max_fragmented_message_size: PackageTransport.max_frame_bytes()
     )
@@ -67,7 +67,7 @@ defmodule OgmVoice.Transport do
   defp upgrade_unauthorized(conn, opts) do
     state = PackageTransport.socket_state(opts, false)
 
-    WebSockAdapter.upgrade(conn, OgmVoice.Transport.Socket, state,
+    WebSockAdapter.upgrade(conn, PackageTransport.Socket, state,
       max_frame_size: PackageTransport.max_frame_bytes(),
       max_fragmented_message_size: PackageTransport.max_frame_bytes()
     )
@@ -123,31 +123,5 @@ defmodule OgmVoice.Transport do
       [_ | _] -> nil
       [] -> Plug.Conn.fetch_query_params(conn).query_params["token"]
     end
-  end
-
-  defmodule Socket do
-    @moduledoc """
-    Delegates to the package's socket. At the pin it matches inbound frames as `{payload, :text}`,
-    but WebSock (and every Bandit) delivers `{payload, [opcode: :text]}`, so each client frame
-    would crash the connection. This normalizes the opcode and changes nothing else.
-    """
-    @behaviour WebSock
-
-    alias VoiceConverse.Transport.WebSock.Socket, as: Package
-
-    @impl true
-    def init(state), do: Package.init(state)
-
-    @impl true
-    def handle_in({payload, [opcode: opcode]}, state), do: Package.handle_in({payload, opcode}, state)
-
-    @impl true
-    def handle_info(message, state), do: Package.handle_info(message, state)
-
-    @impl true
-    def handle_control(_frame, state), do: {:ok, state}
-
-    @impl true
-    def terminate(reason, state), do: Package.terminate(reason, state)
   end
 end
