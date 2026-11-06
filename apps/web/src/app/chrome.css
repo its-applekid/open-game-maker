@@ -201,6 +201,12 @@
   color: var(--cream);
   text-decoration: none;
 }
+button.studio-menu-job {
+  width: 100%;
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+}
 
 .studio-menu-job[data-action-needed='true'] {
   background: color-mix(in srgb, var(--orange-b) 28%, var(--night-3));

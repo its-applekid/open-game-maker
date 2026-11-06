@@ -1,9 +1,8 @@
 import { useEffect, useState } from 'react';
 
-import { queryClient } from '../../../app/query';
 import { api } from '../../../lib/api/client';
 import { CheckpointCard, type CheckpointBudget } from '../checkpoint-card';
-import { myJobsQueryKey } from '../jobs';
+import { answerCheckpoint } from '../checkpoints';
 import type { StreamedChatMessage } from '../stream';
 
 export function CheckpointRow({
@@ -34,11 +33,7 @@ export function CheckpointRow({
   const answer = async (optionId: string) => {
     setAnswering(true);
     try {
-      await api(`/jobs/${encodeURIComponent(message.job_id)}/checkpoints/${encodeURIComponent(message.id)}/answer`, {
-        method: 'POST',
-        json: { option_id: optionId },
-      });
-      await queryClient.invalidateQueries({ queryKey: myJobsQueryKey });
+      await answerCheckpoint(message.job_id, message.id, optionId);
     } catch {
       setAnswering(false);
     }

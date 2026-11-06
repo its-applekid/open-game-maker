@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { MemoryRouter, useLocation } from 'react-router';
 
+import { commandFixture } from '../../features/commands-inbox/fixtures';
 import { GamesScreen } from './GamesScreen';
 
 const games = [
@@ -59,6 +60,7 @@ const jobs = [
 ];
 
 let jobsResponse = jobs;
+let commandsResponse: unknown[] = [];
 
 const branches = [
   {
@@ -112,12 +114,14 @@ function setGridColumns(columns: number) {
 beforeEach(() => {
   gamesResponse = games;
   jobsResponse = jobs;
+  commandsResponse = [];
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       if (url.endsWith('/api/v1/games')) return json({ games: gamesResponse });
       if (url.includes('/api/v1/jobs')) return json({ jobs: jobsResponse });
+      if (url.endsWith('/commands')) return json({ commands: commandsResponse });
       if (url.endsWith('/api/v1/games/g_2/branches')) return json({ branches });
       if (url.includes('/branches')) return json({ error: 'not_found' }, 404);
       return json({ error: 'unexpected' }, 500);
@@ -178,6 +182,7 @@ describe('GamesScreen', () => {
       const url = String(input);
       if (url.endsWith('/api/v1/games')) return json({ games });
       if (url.includes('/api/v1/jobs')) return pendingJobs;
+      if (url.endsWith('/commands')) return json({ commands: commandsResponse });
       if (url.endsWith('/api/v1/games/g_2/branches')) return json({ branches });
       if (url.includes('/branches')) return json({ error: 'not_found' }, 404);
       return json({ error: 'unexpected' }, 500);
@@ -302,5 +307,24 @@ describe('GamesScreen', () => {
     await screen.findByRole('button', { name: /Midnight Crumbs/ });
     expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
     expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  // The game-level Commands inbox (M3) sits in the spotlight for the selected game, not on every tile.
+  it('lists the selected game’s open Commands in its spotlight and answers them', async () => {
+    commandsResponse = [commandFixture({ job_id: 'j_1', title: 'Moon gate' })];
+    setGridColumns(3);
+    renderGames('/games?test');
+
+    const option = await screen.findByRole('button', { name: 'Stone arch' }, { timeout: 3000 });
+    expect(screen.getByText('Which gate should the courtyard use?')).toBeVisible();
+    expect(screen.getByRole('region', { name: /Midnight Crumbs spotlight/ })).toContainElement(option);
+
+    fireEvent.click(option);
+
+    await waitFor(() =>
+      expect(vi.mocked(fetch).mock.calls.some(([input]) => String(input).endsWith('/checkpoints/m_3/answer'))).toBe(
+        true,
+      ),
+    );
   });
 });

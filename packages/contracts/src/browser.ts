@@ -22,3 +22,4 @@ export * from './branches.js';
 export * from './releases.js';
 export * from './saves.js';
 export * from './chat.js';
+export * from './commands.js';

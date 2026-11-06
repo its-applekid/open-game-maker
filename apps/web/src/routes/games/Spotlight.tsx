@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { CommandsInbox } from '../../features/commands-inbox/CommandsInbox';
+import { openConversation } from '../../features/build-chat/conversation';
 import type { Branch } from './types';
 import { Cover } from './Cover';
 import { gameTags, type GameSummary, type JobView } from './types';
@@ -47,6 +49,7 @@ export function Spotlight({ game, branches, job, onPlay, onEdit, onClose }: Spot
           </ul>
         )}
         {job && <p className="games-spotlight-job">{jobLabel(job)}</p>}
+        <CommandsInbox gameId={game.id} onOpenJob={openConversation} />
         <div className="games-versions">
           <ul aria-label="Versions">
             {branches.map((branch) => (
