@@ -23,6 +23,7 @@ vi.mock('../../lib/api/client', async () => {
 });
 vi.mock('../../lib/api/session', () => ({ useSession: mocks.session }));
 
+import { AIUR_CONVERSATION_TAG } from '../aiur/embed';
 import { ScopeChat } from './ScopeChat';
 
 const scope: AgreedScope = {
@@ -131,6 +132,31 @@ describe('ScopeChat offers', () => {
     expect(mocks.api).toHaveBeenCalledWith('/budget/status');
     expect(screen.getByRole('button', { name: 'Try again' })).toBeEnabled();
     expect(screen.getByRole('button', { name: 'Finish' })).toBeDisabled();
+  });
+
+  // New Game creation hands its job-backed conversation to aiur's element; the admission controls stay OGM's (#478, A2).
+  it('hands the job-backed scope conversation to aiur’s element when installed', () => {
+    if (!customElements.get(AIUR_CONVERSATION_TAG)) {
+      customElements.define(AIUR_CONVERSATION_TAG, class extends HTMLElement {});
+    }
+    mocks.scopeSession.mockReturnValue({
+      sessionId: 's_1',
+      jobId: 'j_1',
+      scope,
+      turns: [],
+      status: 'agreed',
+      error: '',
+      send: vi.fn(),
+      addMessage: vi.fn(),
+    });
+
+    renderChat();
+
+    const element = document.querySelector(AIUR_CONVERSATION_TAG);
+    expect(element).not.toBeNull();
+    expect(element).toHaveProperty('scope.conversation', '/api/v1/jobs/j_1/chat/messages');
+    expect(element).toHaveProperty('scope.tickets', []);
+    expect(screen.getByRole('button', { name: 'Finish' })).toBeVisible();
   });
 });
 

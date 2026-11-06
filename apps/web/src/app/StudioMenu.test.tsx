@@ -23,6 +23,9 @@ vi.mock('../features/build-chat/jobs', () => ({
   isTerminal: (value: string) => ['done', 'failed', 'cancelled'].includes(value),
   useMyJobs: () => state.jobs,
 }));
+vi.mock('../features/build-chat/Chat', () => ({
+  Chat: ({ jobId }: { jobId?: string }) => <p>conversation {jobId}</p>,
+}));
 vi.mock('../lib/api/session', () => ({ useSession: () => state.session }));
 vi.mock('../lib/api/auth', () => auth);
 vi.mock('../lib/sound', () => sound);
@@ -118,8 +121,7 @@ describe('StudioMenu', () => {
     expect(screen.getByRole('status')).toHaveTextContent('Building Moon Vault');
 
     fireEvent.click(trigger);
-    const build = screen.getByRole('link', { name: /Build the moon gate.*Active.*Building rooms.*42%/ });
-    expect(build).toHaveAttribute('href', '/g/game-1?v=main');
+    expect(screen.getByRole('button', { name: /Build the moon gate.*Active.*Building rooms.*42%/ })).toBeVisible();
 
     view.unmount();
     const remounted = renderMenu('/games');
@@ -157,7 +159,7 @@ describe('StudioMenu', () => {
     state.jobs = { jobs: [finished], active: [], games: [{ id: 'game-1', title: 'Moon Vault' }] };
     renderMenu('/games');
     fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
-    expect(screen.getByRole('link', { name: /Build the moon gate.*Finished.*Ready to try.*100%/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Build the moon gate.*Finished.*Ready to try.*100%/ })).toBeVisible();
 
     act(() => vi.advanceTimersByTime(5 * 60 * 1000 + 1));
 
@@ -213,14 +215,28 @@ describe('StudioMenu', () => {
     expect(moon).toHaveTextContent('Paint the observatoryParked');
     const forest = screen.getByRole('group', { name: 'Forest Run builds' });
     expect(forest).toHaveTextContent('Ready to try');
-    expect(screen.getByRole('link', { name: /Prototype the forest.*Finished.*Ready to try/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /Prototype the forest.*Finished.*Ready to try/ })).toHaveAttribute(
       'data-status',
       'finished',
     );
-    expect(screen.getByRole('link', { name: /Prototype the forest.*Finished.*Ready to try/ })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /Prototype the forest.*Finished.*Ready to try/ })).toHaveAttribute(
       'data-success',
       'true',
     );
+  });
+
+  it('opens the job’s conversation in a modal instead of leaving the screen', () => {
+    const job = runningJob();
+    state.session = { data: { user: { id: 'user-1' } } };
+    state.jobs = { jobs: [job], active: [job], games: [{ id: 'game-1', title: 'Moon Vault' }] };
+    renderMenu('/games');
+    fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+
+    fireEvent.click(screen.getByRole('button', { name: /Build the moon gate/ }));
+
+    expect(screen.getByRole('dialog', { name: 'Build the moon gate' })).toBeVisible();
+    expect(screen.getByText('conversation job-1')).toBeVisible();
+    expect(screen.queryByRole('dialog', { name: 'Menu' })).not.toBeInTheDocument();
   });
 
   it('keeps sign out retryable when the auth request fails', async () => {

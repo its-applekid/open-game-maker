@@ -5,6 +5,8 @@ import { JOB_STAGE_WORDS, type Job } from '@ogm/contracts/browser';
 
 import { Icon } from '../components/Icon';
 import { BugButton } from '../features/bug-report';
+import { JobConversationModal } from '../features/build-chat/JobConversationModal';
+import { openConversation } from '../features/build-chat/conversation';
 import { isTerminal, useMyJobs } from '../features/build-chat/jobs';
 import { signOut } from '../lib/api/auth';
 import { useSession } from '../lib/api/session';
@@ -161,13 +163,16 @@ export function StudioMenu() {
                         const percent = buildPercent(job);
                         return (
                           <li key={job.id}>
-                            <Link
+                            <button
                               className="studio-menu-job"
                               data-status={state}
                               data-success={job.state === 'done'}
                               data-action-needed={(job.openRequestCount ?? 0) > 0}
-                              to={buildPath(job)}
-                              onClick={close}
+                              type="button"
+                              onClick={() => {
+                                close();
+                                openConversation(job.id);
+                              }}
                             >
                               <strong>{job.plan.title}</strong>
                               <span className="studio-menu-job-state">{menuJobStateLabel(state)}</span>
@@ -176,7 +181,7 @@ export function StudioMenu() {
                               <span className="studio-menu-job-progress" aria-hidden="true">
                                 <span style={{ width: `${percent}%` }} />
                               </span>
-                            </Link>
+                            </button>
                           </li>
                         );
                       })}
@@ -214,6 +219,7 @@ export function StudioMenu() {
           ) : null}
         </div>
       ) : null}
+      <JobConversationModal />
     </div>
   );
 }

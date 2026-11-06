@@ -6,7 +6,9 @@ import type { BudgetStatus, ScopeChoices } from '@ogm/contracts';
 
 import { api } from '../../lib/api/client';
 import { useSession } from '../../lib/api/session';
+import { answerCheckpoint } from '../build-chat/checkpoints';
 import { formatUnits } from '../build-chat/units';
+import { AiurConversation, jobScope, type AiurCommandAnswer } from '../aiur/embed';
 import { admitNewGame, type AdmissionResult, type SupportedOffer } from './admit';
 import { Captions } from './Captions';
 import { Composer } from './Composer';
@@ -94,18 +96,35 @@ export function ScopeChat({
     );
   }
 
+  const answer = (detail: AiurCommandAnswer) => {
+    void answerCheckpoint(detail.job_id, detail.checkpoint_id, detail.option_id);
+  };
+  const conversation = (
+    <>
+      <Captions turns={scopeSession.turns} status={scopeSession.status} />
+      {scopeSession.jobId ? (
+        <Composer
+          jobId={scopeSession.jobId}
+          voiceTarget={voiceTarget}
+          postText={(_jobId, text, attachments) => scopeSession.send(text, attachments)}
+          onOptimistic={scopeSession.addMessage}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <div className="talk-host">
       <section className="vs two" aria-label="Scope conversation">
-        <Captions turns={scopeSession.turns} status={scopeSession.status} />
         {scopeSession.jobId ? (
-          <Composer
-            jobId={scopeSession.jobId}
-            voiceTarget={voiceTarget}
-            postText={(_jobId, text, attachments) => scopeSession.send(text, attachments)}
-            onOptimistic={scopeSession.addMessage}
-          />
-        ) : null}
+          // New Game creation uses the same conversation component as the job modal; aiur replaces the captions and
+          // composer once its element is installed, and the admission controls stay Open Game Maker's.
+          <AiurConversation scope={jobScope(gameId, scopeSession.jobId, null)} title="New game" onAnswer={answer}>
+            {conversation}
+          </AiurConversation>
+        ) : (
+          conversation
+        )}
         {refusal && !waitingForAdmin ? (
           <Offers offers={refusal.offers} disabled={submitting} onChoose={(offer) => void choose(offer)} />
         ) : null}
