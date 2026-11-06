@@ -1,18 +1,48 @@
 import { CloseCode, Room, ServerError, type Client } from '@colyseus/core';
 import {
-  ClientMessageSchema,
   JoinOptionsSchema,
   LIMITS,
+  LIMITS_V2,
   PROTOCOL_VERSION,
+  PROTOCOL_VERSION_V1,
   PresenceSchema as ContractPresenceSchema,
-  type ClientMessage,
+  RoomClientMessageSchema,
+  type NetClientMessage,
+  type RoomClientMessage,
   type RoomGrant,
+  type RoomStateV2,
+  type TeamPolicy,
 } from '@ogm/contracts';
 import { RateTable, validateDesignTx, validateInputFrame, verifyGrant, zeroPrivatePresence } from '@ogm/room-protocol';
 
+import { canStart, mintEpoch, pauseAt, privateSeedFor, resumeAt, tickAt } from './epoch.js';
 import { type EndReason, postEnded, roomTimings, type RoomTimings } from './lifecycle.js';
 import { recordDropped } from './metrics.js';
-import { DraftState, GameRoomState, MembershipState, createRoomState, roomStateJson, setPresence } from './state.js';
+import { type DropCode, type SeatRecord, recipientsFor } from './routing.js';
+import {
+  bindUser,
+  electPrimary,
+  forfeit,
+  freeSeat,
+  isFree,
+  lowestFreeSeat,
+  markOffline,
+  markOnline,
+  releaseForfeited,
+  seatOfUser,
+  seatsSnapshot,
+  syncMembersFromSeats,
+  teamOf,
+} from './seats.js';
+import {
+  DraftState,
+  GameRoomState,
+  MembershipState,
+  type SeatState,
+  createRoomState,
+  roomStateJson,
+  setPresence,
+} from './state.js';
 
 const liveRooms = new Map<string, GameRoom>();
 
@@ -31,6 +61,20 @@ export type GameRoomOptions = {
   buildId: string;
   ownerId: string;
   maxPlayers: number;
+  /** `1` = the v1 editor relay; `2` = seats, teams, epochs and routing (#497 §4.2). Default 1. */
+  protocol?: 1 | 2;
+  /** Teams: `'none'` (every seat team 0) or `'alternate'` (seat n → team n % 2). */
+  teams?: TeamPolicy;
+  /** `'on'` admits a join past `maxPlayers` as a spectator with no seat and no authority. */
+  spectators?: 'off' | 'on';
+  /** Pause the epoch for every seat while a seat's rejoin window is open. Default true. */
+  pauseOnDisconnect?: boolean;
+  /** Opaque client-computed ruleset pin; `''` disables the join comparison. */
+  rulesetHash?: string;
+  /** N1's `AuthorityMode`, relayed to clients in `net.start` as an opaque string. Default `'host'`. */
+  mode?: string;
+  /** Test seam for the fixed start lead; clamped to 500..5000 ms. */
+  startLeadMs?: number;
   timings?: Partial<RoomTimings>;
   runtime?: RuntimeOptions;
 };
@@ -49,7 +93,18 @@ const RATE_LIMITS = {
   'draft.ready': 10,
   kick: 10,
   ping: 10,
-} satisfies Record<ClientMessage['t'], number>;
+  'net.inputs': LIMITS_V2.inputsPerSec,
+  'net.state': LIMITS_V2.statePerSec,
+  'net.event': LIMITS.eventPerSec,
+  'net.checksum': LIMITS_V2.checksumPerSec,
+  'net.recovery.request': LIMITS_V2.recoveryPerSec,
+  'net.recovery': LIMITS_V2.recoveryPerSec,
+  'net.ready': LIMITS_V2.readyPerSec,
+  'net.start.request': LIMITS_V2.startRequestPerSec,
+  'net.end.request': LIMITS_V2.endRequestPerSec,
+  'net.signal': LIMITS_V2.signalPerSec,
+  'net.seat.request': LIMITS_V2.seatRequestPerSec,
+} satisfies Record<RoomClientMessage['t'], number>;
 
 function rejection(code: object, status: number): never {
   throw new ServerError(status, JSON.stringify(code));
@@ -74,6 +129,15 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
   private previousPhase: GameRoomState['phase'] = 'editing';
   private idleTimer?: { clear(): void };
   private ending = false;
+  private teamsPolicy: TeamPolicy = 'none';
+  private spectatorsPolicy: 'off' | 'on' = 'off';
+  private pauseOnDisconnect = true;
+  private authorityMode = 'host';
+  private startLeadMs: number = LIMITS_V2.startLeadMs;
+  private readonly rejoinTimers = new Map<number, { clear(): void }>();
+  private tickTimer?: { clear(): void };
+  /** Routing refusals by `DropCode`, beside `droppedCounts` (which counts by message type). */
+  readonly seatDrops: Record<string, number> = Object.create(null) as Record<string, number>;
 
   async onAuth(_client: Client, rawOptions: unknown): Promise<RoomGrant> {
     const options = JoinOptionsSchema.safeParse(rawOptions);
@@ -89,7 +153,7 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     ) {
       rejection({ code: 'GRANT_INVALID' }, 401);
     }
-    if (options.data.protocol !== PROTOCOL_VERSION) rejection({ code: 'PROTOCOL_MISMATCH' }, 409);
+    if (options.data.protocol !== this.state.protocol) rejection({ code: 'PROTOCOL_MISMATCH' }, 409);
     if (this.isRevoked(grant)) rejection({ code: 'GRANT_REVOKED' }, 403);
     if (options.data.buildId !== this.state.pin.buildId && options.data.buildId !== this.state.draft?.buildId) {
       rejection(
@@ -100,10 +164,37 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
         409,
       );
     }
+    if (this.isV2) {
+      this.evaluateV2Join(options.data, grant);
+      return grant;
+    }
     if (!this.state.members.has(grant.sub) && this.state.members.size >= this.state.maxPlayers) {
       rejection({ code: 'ROOM_FULL', max: this.state.maxPlayers }, 429);
     }
     return grant;
+  }
+
+  /**
+   * Only evaluates: a rejected join must not consume a seat, because Colyseus may run `onAuth` for a join
+   * that never completes (#497 §3.2). `onJoin` commits the assignment.
+   */
+  private evaluateV2Join(options: { seat?: number; rulesetHash?: string }, grant: RoomGrant): void {
+    /* Equal, or either side absent, passes; only two different pins are a mismatch (#497 §3.9/S46). */
+    const expected = this.state.rulesetHash;
+    const claimed = options.rulesetHash ?? '';
+    if (expected !== '' && claimed !== '' && claimed !== expected) {
+      rejection({ code: 'RULESET_MISMATCH', expected }, 409);
+    }
+    const held = seatOfUser(this.state, grant.sub);
+    if (held?.forfeited === true) rejection({ code: 'SEAT_TAKEN', seat: held.seat }, 409);
+    if (options.seat !== undefined && held?.seat !== options.seat) {
+      rejection({ code: 'SEAT_TAKEN', seat: options.seat }, 409);
+    }
+    if (held !== undefined) return;
+    if (lowestFreeSeat(this.state) !== undefined) return;
+    if (this.state.spectators.includes(grant.sub)) return;
+    if (this.spectatorsPolicy === 'on') return;
+    rejection({ code: 'ROOM_FULL', max: this.state.maxPlayers }, 429);
   }
 
   onCreate(options: GameRoomOptions): void {
@@ -114,11 +205,20 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     this.autoDispose = false;
     this.maxClients = 128;
     this.patchRate = 20;
+    this.teamsPolicy = options.teams ?? 'none';
+    this.spectatorsPolicy = options.spectators ?? 'off';
+    this.pauseOnDisconnect = options.pauseOnDisconnect ?? true;
+    this.authorityMode = options.mode ?? 'host';
+    const lead = options.startLeadMs;
+    this.startLeadMs = lead === undefined ? LIMITS_V2.startLeadMs : Math.min(Math.max(lead, 500), 5_000);
     this.setState(
       createRoomState({
         pin: { gameId: options.gameId, branchId: options.branchId, buildId: options.buildId },
         ownerId: options.ownerId,
         maxPlayers,
+        protocol: options.protocol ?? PROTOCOL_VERSION_V1,
+        teams: this.teamsPolicy,
+        rulesetHash: options.rulesetHash ?? '',
       }),
     );
     liveRooms.set(this.roomId, this);
@@ -130,6 +230,7 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     const grant = auth ?? clientGrant(client);
     client.auth = grant;
     this.cancelIdleTimer();
+    if (this.isV2) return this.joinSeat(client, grant);
 
     let member = this.state.members.get(grant.sub);
     if (member === undefined) {
@@ -154,6 +255,12 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
   }
 
   onDrop(client: Client): void {
+    /* D-N3-3: a v2 seat is never reserved. Making a drop definitive here is what keeps a rejoin an
+     * ordinary authenticated join, so one seat can never hold two live sessions. */
+    if (this.isV2) {
+      this.handleEditorDeparture(client);
+      return;
+    }
     if (this.forcedLeaves.has(client.sessionId)) return;
     const grant = clientGrant(client);
     const member = this.state.members.get(grant.sub);
@@ -168,6 +275,7 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
   }
 
   onReconnect(client: Client): void {
+    if (this.isV2) return;
     const grant = clientGrant(client);
     if (this.isRevoked(grant)) {
       this.forcedLeaves.set(client.sessionId, 'revoked');
@@ -192,6 +300,7 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     this.violations.delete(client.sessionId);
     this.rates.prune(Date.now() - 60_000);
     this.handleEditorDeparture(client);
+    if (this.isV2) return this.leaveSeat(grant, client, code, forced);
     this.removeSession(grant.sub, client.sessionId);
     if (this.clients.length === 0) this.armIdleTimer();
     if (this.ending) return;
@@ -206,6 +315,9 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
 
   onDispose(): void {
     this.cancelIdleTimer();
+    this.clearTickTimer();
+    for (const timer of this.rejoinTimers.values()) timer.clear();
+    this.rejoinTimers.clear();
     liveRooms.delete(this.roomId);
   }
 
@@ -225,14 +337,15 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
   private registerHandlers(): void {
     this.onMessage('*', (client, type, payload) => {
       if (typeof type !== 'string') return this.drop(client, String(type));
-      const parsed = ClientMessageSchema.safeParse({ t: type, ...normalizePayload(type, payload) });
+      const parsed = RoomClientMessageSchema.safeParse({ t: type, ...normalizePayload(type, payload) });
       if (!parsed.success) return this.drop(client, type);
       if (!this.allowRate(client, parsed.data.t)) return;
       this.handleMessage(client, parsed.data);
     });
   }
 
-  private handleMessage(client: Client, message: ClientMessage): void {
+  private handleMessage(client: Client, message: RoomClientMessage): void {
+    if (message.t.startsWith('net.')) return this.handleNetMessage(client, message as NetClientMessage);
     switch (message.t) {
       case 'input': {
         const result = validateInputFrame(message.f);
@@ -308,20 +421,352 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     }
   }
 
+  /* ---------------------------------------------------------------- protocol 2 */
+
+  private get isV2(): boolean {
+    return this.state.protocol === PROTOCOL_VERSION;
+  }
+
+  private seatFor(client: Client): SeatState | undefined {
+    return seatOfUser(this.state, clientGrant(client).sub);
+  }
+
+  private handleNetMessage(client: Client, message: NetClientMessage): void {
+    switch (message.t) {
+      case 'net.ready': {
+        const seat = this.seatFor(client);
+        if (seat === undefined) return this.drop(client, message.t, 'SPECTATOR_NOT_SEATED');
+        seat.ready = message.ready;
+        this.broadcastSeats();
+        return;
+      }
+      case 'net.start.request':
+        return this.startEpoch(client, message.force === true);
+      case 'net.end.request':
+        return this.finishEpoch(client, message.epoch);
+      case 'net.seat.request':
+        return this.moveSeat(client, message.seat);
+      default:
+        return this.relay(client, message);
+    }
+  }
+
+  /** A v2 join: the room assigns the seat, binds a spectator when the seats are gone, then welcomes. */
+  private joinSeat(client: Client, grant: RoomGrant): void {
+    let seat = seatOfUser(this.state, grant.sub);
+    if (seat === undefined) {
+      const free = lowestFreeSeat(this.state);
+      if (free === undefined) {
+        if (!this.state.spectators.includes(grant.sub)) this.state.spectators.push(grant.sub);
+      } else {
+        bindUser(free, grant.sub, grant.name);
+        seat = free;
+      }
+    } else {
+      markOnline(seat);
+      this.cancelRejoinTimer(seat.seat);
+    }
+
+    if (seat !== undefined) {
+      this.attachSession(grant.sub, client.sessionId);
+      syncMembersFromSeats(this.state);
+      this.lastSeenRev.set(grant.sub, this.lastSeenRev.get(grant.sub) ?? this.state.lastRev);
+    }
+    if (grant.role === 'owner') this.state.editorSessionId = client.sessionId;
+    if (seat !== undefined) this.broadcastSeatEvent('net.seat.online', seat.seat);
+    this.broadcastSeats();
+
+    const you = {
+      userId: grant.sub,
+      seat: seat?.seat ?? null,
+      playerIndex: seat?.seat ?? -1,
+      sessionId: client.sessionId,
+      spectator: seat === undefined,
+      team: seat?.team ?? 0,
+    };
+    this.clock.setTimeout(() => {
+      client.send('welcome', {
+        you,
+        ...(this.state.epoch === '' ? {} : { epoch: this.state.epoch }),
+        state: roomStateJson<RoomStateV2>(this.state),
+      });
+      if (this.state.epoch === '') return;
+      client.send('net.start', this.startPayload(seat?.seat));
+      client.send('net.tick', {
+        epoch: this.state.epoch,
+        serverTime: Date.now(),
+        tick: tickAt(this.state, Date.now()),
+      });
+    }, 0);
+
+    this.resumeIfReady();
+  }
+
+  /** A v2 departure: the seat survives its occupant; only the window or a deliberate exit ends it. */
+  private leaveSeat(grant: RoomGrant, client: Client, code: number | undefined, forced: ForcedLeave | undefined): void {
+    const lastSession = this.removeSession(grant.sub, client.sessionId, true);
+    if (this.clients.length === 0) this.armIdleTimer();
+    const seat = seatOfUser(this.state, grant.sub);
+    if (seat === undefined) {
+      this.dropSpectator(grant.sub);
+      return;
+    }
+    if (!lastSession || this.ending) return;
+    markOffline(seat);
+    syncMembersFromSeats(this.state);
+    /* D-N3-14: a deliberate exit forfeits at once — it never announces an offline window it will not hold. */
+    if (code === CloseCode.CONSENTED || forced !== undefined) this.forfeitSeat(seat);
+    else {
+      this.broadcastSeatEvent('net.seat.offline', seat.seat);
+      this.openRejoinWindow(seat);
+    }
+    this.broadcastSeats();
+    const abandoned =
+      [...this.state.seats].some((row) => row.userId !== '') &&
+      [...this.state.seats].every((row) => row.userId === '' || row.forfeited);
+    if (abandoned) void this.end('abandoned');
+  }
+
+  private dropSpectator(userId: string): void {
+    const index = this.state.spectators.indexOf(userId);
+    if (index < 0 || this.hasConnectedSession(userId)) return;
+    this.state.spectators.splice(index, 1);
+    this.broadcastSeats();
+  }
+
+  /** The 30-second window. Expiring forfeits the seat and, if it was the primary, re-elects one. */
+  private openRejoinWindow(seat: SeatState): void {
+    this.cancelRejoinTimer(seat.seat);
+    const timer = this.clock.setTimeout(() => {
+      this.rejoinTimers.delete(seat.seat);
+      if (!seat.forfeited && !this.hasConnectedSession(seat.userId)) this.forfeitSeat(seat);
+    }, this.timings.seatReconnectSec * 1_000);
+    this.rejoinTimers.set(seat.seat, timer);
+
+    if (this.state.epoch === '') return;
+    if (Date.now() < this.state.startAt) return this.cancelStart('seat-offline');
+    this.pauseForWindow();
+  }
+
+  private pauseForWindow(): void {
+    if (!this.pauseOnDisconnect || this.state.pausedAt !== 0 || this.state.epoch === '') return;
+    const now = Date.now();
+    const clock = pauseAt({ startAt: this.state.startAt, pausedAt: this.state.pausedAt }, now);
+    this.state.pausedAt = clock.pausedAt;
+    this.broadcast('net.pause', { epoch: this.state.epoch, tick: tickAt(clock, now), startAt: this.state.startAt });
+  }
+
+  private resumeIfReady(): void {
+    if (this.state.epoch === '' || this.state.pausedAt === 0) return;
+    if ([...this.state.seats].some((seat) => seat.userId !== '' && !seat.connected && !seat.forfeited)) return;
+    const now = Date.now();
+    const clock = resumeAt({ startAt: this.state.startAt, pausedAt: this.state.pausedAt }, now);
+    this.state.startAt = clock.startAt;
+    this.state.pausedAt = 0;
+    this.broadcast('net.resume', { epoch: this.state.epoch, tick: tickAt(clock, now), startAt: clock.startAt });
+  }
+
+  private forfeitSeat(seat: SeatState): void {
+    this.cancelRejoinTimer(seat.seat);
+    const wasPrimary = seat.seat === this.state.primarySeat;
+    forfeit(seat);
+    this.broadcastSeatEvent('net.seat.forfeit', seat.seat);
+    if (wasPrimary && this.state.epoch !== '') {
+      const next = electPrimary(this.state);
+      if (next !== undefined) {
+        this.state.primarySeat = next;
+        this.broadcast('net.primary', { epoch: this.state.epoch, seat: next });
+      }
+    }
+    this.broadcastSeats();
+    this.resumeIfReady();
+  }
+
+  private startEpoch(client: Client, force: boolean): void {
+    const seat = this.seatFor(client);
+    if (seat === undefined) return this.drop(client, 'net.start.request', 'SPECTATOR_NOT_SEATED');
+    if (seat.seat !== this.state.primarySeat) return this.drop(client, 'net.start.request', 'NOT_PRIMARY');
+    if (this.state.epoch !== '') return this.drop(client, 'net.start.request', 'EPOCH_ACTIVE');
+    if (!force && !canStart(seatsSnapshot(this.state))) return this.drop(client, 'net.start.request', 'NOT_READY');
+
+    const minted = mintEpoch({ now: Date.now(), primarySeat: this.state.primarySeat, leadMs: this.startLeadMs });
+    this.state.epoch = minted.epoch;
+    this.state.startAt = minted.startAt;
+    this.state.pausedAt = 0;
+    this.state.seed = minted.seed;
+    this.state.primarySeat = minted.primarySeat;
+    this.setPhase('playing');
+    this.state.playRev = this.state.lastRev;
+    this.broadcast('net.primary', { epoch: minted.epoch, seat: minted.primarySeat });
+    for (const peer of this.clients) peer.send('net.start', this.startPayload(this.seatFor(peer)?.seat));
+    this.startTickTimer();
+  }
+
+  private startPayload(seat: number | undefined): object {
+    return {
+      t: 'net.start',
+      epoch: this.state.epoch,
+      mode: this.authorityMode,
+      startAt: this.state.startAt,
+      seed: this.state.seed,
+      primarySeat: this.state.primarySeat,
+      seats: seatsSnapshot(this.state),
+      ...(seat === undefined ? {} : { privateSeed: privateSeedFor(this.state.seed, seat) }),
+    };
+  }
+
+  private cancelStart(reason: 'seat-offline' | 'not-ready'): void {
+    if (this.state.epoch === '') return;
+    this.state.epoch = '';
+    this.state.startAt = 0;
+    this.state.pausedAt = 0;
+    this.state.seed = 0;
+    this.clearTickTimer();
+    this.setPhase('editing');
+    this.broadcast('net.start.cancel', { reason });
+  }
+
+  /**
+   * `net.end.request` / `net.epoch.end` (D-N3-11): the smallest way to serve best-of-three. Every seat
+   * number is kept and every forfeited seat is released, so a round that lost a player can still seat four.
+   */
+  private finishEpoch(client: Client, epoch: string): void {
+    const seat = this.seatFor(client);
+    if (seat === undefined) return this.drop(client, 'net.end.request', 'SPECTATOR_NOT_SEATED');
+    if (seat.seat !== this.state.primarySeat) return this.drop(client, 'net.end.request', 'NOT_PRIMARY');
+    if (this.state.epoch === '' || this.state.epoch !== epoch) {
+      return this.drop(client, 'net.end.request', 'NO_EPOCH');
+    }
+    const tick = tickAt(this.state, Date.now());
+    this.broadcast('net.epoch.end', { epoch, tick });
+    this.state.epoch = '';
+    this.state.startAt = 0;
+    this.state.pausedAt = 0;
+    this.state.seed = 0;
+    this.clearTickTimer();
+    for (const timer of this.rejoinTimers.values()) timer.clear();
+    this.rejoinTimers.clear();
+    releaseForfeited(this.state, this.teamsPolicy);
+    syncMembersFromSeats(this.state);
+    this.setPhase('editing');
+    this.broadcastSeats();
+  }
+
+  private moveSeat(client: Client, target: number): void {
+    const seat = this.seatFor(client);
+    if (seat === undefined) return this.drop(client, 'net.seat.request', 'SPECTATOR_NOT_SEATED');
+    if (this.state.epoch !== '') return this.drop(client, 'net.seat.request', 'EPOCH_ACTIVE');
+    const destination = [...this.state.seats].find((row) => row.seat === target);
+    if (destination === undefined || !isFree(destination)) {
+      return this.drop(client, 'net.seat.request', 'INVALID_SEAT_REQUEST');
+    }
+    const userId = seat.userId;
+    const name = seat.name;
+    this.cancelRejoinTimer(seat.seat);
+    freeSeat(seat, teamOf(seat.seat, this.teamsPolicy));
+    bindUser(destination, userId, name);
+    syncMembersFromSeats(this.state);
+    this.broadcastSeats();
+  }
+
+  /** Validates the envelope, re-stamps the sender's seat from the grant and routes. Never parses `data`. */
+  private relay(client: Client, message: NetClientMessage): void {
+    const epoch = 'epoch' in message ? message.epoch : undefined;
+    if (this.state.epoch === '' || epoch !== this.state.epoch) return this.drop(client, message.t, 'NO_EPOCH');
+    const seat = this.seatFor(client);
+    if (seat === undefined) return this.drop(client, message.t, 'SPECTATOR_NOT_SEATED');
+
+    const stamped = restamp(message, seat.seat);
+    const result = recipientsFor({
+      message: stamped,
+      senderSessionId: client.sessionId,
+      senderSeat: seat.seat,
+      seats: this.seatRecords(),
+      spectators: this.spectatorRecords(),
+      primarySeat: this.state.primarySeat,
+    });
+    if (result.drop !== undefined) return this.drop(client, message.t, result.drop);
+    for (const peer of this.clients) {
+      if (result.sessions.includes(peer.sessionId)) peer.send(stamped.t, payloadOf(stamped));
+    }
+  }
+
+  private seatRecords(): SeatRecord[] {
+    return [...this.state.seats].map((seat) => ({
+      seat: seat.seat,
+      userId: seat.userId,
+      team: seat.team,
+      connected: seat.connected,
+      forfeited: seat.forfeited,
+      sessions: seat.userId === '' ? [] : this.sessionsOf(seat.userId),
+    }));
+  }
+
+  private spectatorRecords(): { userId: string; sessions: string[] }[] {
+    return [...this.state.spectators].map((userId) => ({ userId, sessions: this.sessionsOf(userId) }));
+  }
+
+  private sessionsOf(userId: string): string[] {
+    return this.clients.filter((client) => clientGrant(client).sub === userId).map((client) => client.sessionId);
+  }
+
+  private attachSession(userId: string, sessionId: string): void {
+    let member = this.state.members.get(userId);
+    if (member === undefined) {
+      member = new MembershipState();
+      member.userId = userId;
+      this.state.members.set(userId, member);
+    }
+    if (!member.sessions.includes(sessionId)) member.sessions.push(sessionId);
+    member.connected = true;
+  }
+
+  private broadcastSeats(): void {
+    this.broadcast('net.seats', {
+      epoch: this.state.epoch,
+      seats: seatsSnapshot(this.state),
+      spectators: [...this.state.spectators],
+    });
+  }
+
+  private broadcastSeatEvent(event: 'net.seat.online' | 'net.seat.offline' | 'net.seat.forfeit', seat: number): void {
+    this.broadcast('net.seat', { event, epoch: this.state.epoch, seat });
+  }
+
+  private startTickTimer(): void {
+    this.clearTickTimer();
+    this.tickTimer = this.clock.setInterval(() => {
+      if (this.state.epoch === '') return;
+      const serverTime = Date.now();
+      this.broadcast('net.tick', { epoch: this.state.epoch, serverTime, tick: tickAt(this.state, serverTime) });
+    }, 1_000);
+  }
+
+  private clearTickTimer(): void {
+    this.tickTimer?.clear();
+    this.tickTimer = undefined;
+  }
+
+  private cancelRejoinTimer(seat: number): void {
+    this.rejoinTimers.get(seat)?.clear();
+    this.rejoinTimers.delete(seat);
+  }
+
   private requireEditor(client: Client, type: string): boolean {
     if (client.sessionId === this.state.editorSessionId) return true;
     this.drop(client, type);
     return false;
   }
 
-  private allowRate(client: Client, type: ClientMessage['t']): boolean {
+  private allowRate(client: Client, type: RoomClientMessage['t']): boolean {
     const limit = RATE_LIMITS[type];
     if (this.rates.allow(`${client.sessionId}:${type}`, limit)) return true;
     this.drop(client, type);
     return false;
   }
 
-  private drop(client: Client, type: string): void {
+  private drop(client: Client, type: string, code?: DropCode): void {
+    if (code !== undefined) this.seatDrops[code] = (this.seatDrops[code] ?? 0) + 1;
     const metric = Object.hasOwn(RATE_LIMITS, type) ? type : 'invalid';
     this.droppedCounts[metric] = (this.droppedCounts[metric] ?? 0) + 1;
     recordDropped(metric);
@@ -354,6 +799,8 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
 
   private handleEditorDeparture(client: Client): void {
     if (client.sessionId !== this.state.editorSessionId) return;
+    /* D-N3-13: `pausedForHost` stays an editing-phase rule. A v2 match pauses through its own mechanism. */
+    if (this.isV2 && this.state.phase !== 'editing' && this.state.phase !== 'migrating') return;
     const replacement = this.connectedOwnerSessions().at(-1);
     if (replacement) {
       this.state.editorSessionId = replacement.sessionId;
@@ -372,17 +819,18 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     return this.clients.some((client) => clientGrant(client).sub === userId);
   }
 
-  private removeSession(userId: string, sessionId: string): void {
+  private removeSession(userId: string, sessionId: string, keepMember = false): boolean {
     const member = this.state.members.get(userId);
-    if (member === undefined) return;
+    if (member === undefined) return false;
     const index = member.sessions.indexOf(sessionId);
     if (index >= 0) member.sessions.splice(index, 1);
     member.connected = this.hasConnectedSession(userId);
-    if (member.sessions.length === 0) {
+    if (member.sessions.length === 0 && !keepMember) {
       this.state.members.delete(userId);
       this.lastSeenRev.delete(userId);
       this.readyUsers.delete(userId);
     }
+    return member.sessions.length === 0;
   }
 
   private setPhase(phase: GameRoomState['phase']): void {
@@ -432,6 +880,23 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
   }
 }
 
+/** The sender's seat and event source are the room's, never the payload's (#497 §4.4). */
+function restamp(message: NetClientMessage, seat: number): NetClientMessage {
+  switch (message.t) {
+    case 'net.inputs':
+    case 'net.state':
+      return { ...message, seat };
+    case 'net.event':
+      return { ...message, from: seat };
+    default:
+      return message;
+  }
+}
+
+function payloadOf(message: { t: string }): object {
+  return Object.fromEntries(Object.entries(message).filter(([key]) => key !== 't'));
+}
+
 function normalizePayload(type: string, payload: unknown): object {
   if (type !== 'input' || payload === null || typeof payload !== 'object') return payload as object;
   const frame = (payload as { f?: unknown }).f;
@@ -447,7 +912,7 @@ function normalizePayload(type: string, payload: unknown): object {
   };
 }
 
-function withoutType(message: Extract<ClientMessage, { t: 'snapshot' | 'event' }>): object {
+function withoutType(message: Extract<RoomClientMessage, { t: 'snapshot' | 'event' }>): object {
   return message.t === 'snapshot'
     ? { seq: message.seq, tick: message.tick, data: message.data }
     : { seq: message.seq, data: message.data };

@@ -1,6 +1,6 @@
 # `@ogm/rooms`
 
-The rooms service is a relay-only Colyseus process. The owner's browser remains authoritative for simulation and design transactions; the service keeps only membership, the room pin, phase, presence, and `lastRev`.
+The rooms service is a relay-only Colyseus process. A seat's browser remains authoritative for its own simulation; the service keeps membership, the room pin, phase, presence, `lastRev`, and — for a protocol-2 room — the seat table and one epoch.
 
 The OGM-002 systemd unit starts it with:
 
@@ -17,3 +17,85 @@ For local development:
 ```sh
 pnpm --filter @ogm/rooms dev
 ```
+
+## Protocols
+
+One process serves both protocols; each room runs exactly one, stored in `state.protocol` and compared on join.
+
+| | protocol 1 | protocol 2 |
+| --- | --- | --- |
+| Seats | `members[].playerIndex`, owner 0, players 1… | a fixed seat table `seats[0..maxPlayers-1]`; `members` is rebuilt from it |
+| Authority | the owner's browser | each seat's own browser (`net.start.mode`, opaque to the room) |
+| Match state | `phase`, `playRev` | plus `epoch`, `startAt`, `pausedAt`, `seed`, `primarySeat` |
+| Reconnect | `allowReconnection(120 s owner / 60 s player)` | a 30 s per-seat window owned by the room |
+| Creator leaves | the room ends (`host-left`, `owner-closed`) | the seat forfeits like any other |
+| Editing | `design.tx`, `presence`, `draft.*`, `kick`, `phase` | identical, unchanged |
+
+A room's protocol is chosen at create (`POST /internal/rooms`, `POST /api/v1/games/:gameId/rooms`) and never changes. A join whose `protocol` differs is rejected with `PROTOCOL_MISMATCH`; reload to join.
+
+## Seats and teams
+
+- The room assigns seats; a client never does. `grant.seat` is only a claim about the joining user's own seat, and a claim the room does not recognise is `SEAT_TAKEN`.
+- A seat is `{ seat, userId, name, team, connected, ready, forfeited }`. Numbering is stable for the life of the room; the occupant can change.
+- Teams are a property of the seat number: `teams: 'none'` gives every seat team 0, `teams: 'alternate'` gives seat *n* team *n % 2*. `teams: 'custom'` is not implemented and is rejected at create.
+- Spectators are `state.spectators: string[]` — user ids with no seat and no authority. A room admits them only when created with `spectators: 'on'`; otherwise a join past `maxPlayers` is `ROOM_FULL`.
+- `maxPlayers` is clamped to 1…8 (default 4). Every seat row is created with the room, so a full room is visible before anybody joins.
+
+## The epoch: one match, one derived tick
+
+`net.start.request` (primary seat only) mints an epoch when every occupied, connected, non-forfeited seat is ready, or unconditionally with `force: true`. The room then publishes:
+
+```
+tick(now) = floor(((pausedAt || now) - startAt) * 60 / 1000)
+```
+
+in `net.tick` at 1 Hz, and in every `net.start`, `net.pause`, `net.resume`, `net.epoch.end` and late-join `welcome`. `startAt = now + 1000 ms`; the room cannot measure RTT and does not try.
+
+A pause records `pausedAt`; a resume shifts `startAt` by the paused duration. The tick therefore freezes while paused and continues from the same value afterwards — there is no counter to reconcile, and the room never steps a simulation. `net.end.request` (primary only) ends the epoch: every seat number is kept, every forfeited seat is released, every `ready` returns to `false`, and the room goes back to the ready check.
+
+## Event routing
+
+A protocol-2 `net.event` carries `{ epoch, id, seq, from, target, to?, team?, round?, data }`. The room validates the envelope and size caps, re-stamps `from` with the sender's seat, validates `to`/`team`, and routes:
+
+| Message | Recipients |
+| --- | --- |
+| `net.inputs`, `net.state`, `net.checksum`, `net.recovery` | every other seat in the epoch |
+| `net.event` `target: 'all'` | every other seat and every spectator |
+| `net.event` `target: 'seat'` | the sessions of seat `to` |
+| `net.event` `target: 'team'` | the sessions of the seats on team `team` |
+| `net.recovery.request` `scope: 'shared'` | the primary seat |
+| `net.recovery.request` `scope: 'seat' \| 'events'` | the named seat |
+| `net.signal` | the sessions of seat `to` |
+
+Delivery never returns a message to its sender: it has already applied it locally. `data`, `frames`, `snapshot` and `events` are relayed byte-identical and never parsed. Ordering is the transport's per sender; order across senders is not guaranteed, so a game orders by `round` and its own sequence.
+
+A duplicated `net.event` is applied once by the **client**, not the room: `EventInbox` in `packages/contracts/src/net-events.ts` dedupes `(from, id)`, reports a sequence jump as a gap, and answers `missing()` for the recovery request. A relay that deduped would be interpreting.
+
+## Disconnects: pause, rejoin, forfeit
+
+Every seat has a 30 s window, the creator's included.
+
+| Moment | Room |
+| --- | --- |
+| a seat's last session drops | `connected: false`, `net.seat`/`net.seat.offline`, window armed; a running epoch pauses for everyone (`pauseOnDisconnect`, default on) |
+| the drop happens before `startAt` | the start is cancelled: `net.start.cancel { reason: 'seat-offline' }` |
+| the same user joins again inside the window | seat re-bound, a unicast `net.start` + `net.tick`, and the match resumes when no seat is still offline: `net.resume` carries the shifted `startAt` |
+| the window expires | `forfeited: true`, `net.seat`/`net.seat.forfeit`, primary re-elected when it was that seat |
+| a session leaves with `CloseCode.CONSENTED` | forfeit immediately, no window |
+| every seat is forfeited | `ended { reason: 'abandoned' }` |
+
+A seat is offline only when it has no sessions left, so two devices on one seat behave like one. The creator's departure follows exactly the same rule: there is no "host leaves, room ends" in protocol 2. `pausedForHost` stays an editing-phase rule and never fires during a match.
+
+The forfeit *policy* (`continue` / `skip` / `surrender`) is the game's: the room announces who forfeited and when, every client applies the same policy to the same ordered announcement, and a policy that must end the match reaches the room as the primary's `net.end.request`.
+
+## Ruleset pinning
+
+`rulesetHash` is computed **by the client** from the simulation-relevant manifest fields and sent at create and at join. The room compares the two strings and nothing else: equal, or either side absent, passes; two different pins are `RULESET_MISMATCH { expected }`. The room never reads a manifest, so it cannot compute the hash itself.
+
+## What the room never gains
+
+No simulation, no checksum comparison, no arbitration, no snapshot storage, no per-game module loading, no `eval`, and no reading of `data`, `frames`, `snapshot` or `events`. It also never gains matching, room discovery, chat, tournaments, a round engine, or persistence of gameplay state.
+
+## Tests
+
+`pnpm --filter @ogm/rooms test` runs the 775 lines of protocol-1 relay tests unchanged beside the protocol-2 suites. The v1 assertions are the proof that protocol 2 is additive; `services/rooms/test/helpers.ts` speaks whatever protocol the room under test runs.
