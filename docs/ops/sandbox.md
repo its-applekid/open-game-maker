@@ -106,6 +106,7 @@ Agent commands have no network, so builds install only from a pnpm store seeded 
 ```
 bash scripts/sandbox/seed-store.sh                         # every templates/game-*/pnpm-lock.yaml (+ packages/sdk)
 bash scripts/sandbox/seed-store.sh three@0.181.0           # add single packages (exact versions)
+bash scripts/sandbox/seed-store.sh --core <instance-repo>   # the released core packages the instance's games install
 bash scripts/sandbox/seed-store.sh --register <instance-repo>   # before the workspace's first install
 bash scripts/sandbox/seed-store.sh --unregister <instance-repo> # when the instance repository is deleted
 ```
@@ -124,6 +125,10 @@ prefer-offline=true
 
 and the instance setup and build flow run `pnpm install --offline` from the repository root after `gm new` writes a
 game under `games/<game-slug>/`.
+
+An instance repository's games install the published core packages (see
+[core packages](core-packages.md)), so the store needs them too: `--core <instance-repo>` reads that repository's
+`vendor/core-packages.json` and adds each destination name at its exact version. Re-run it after every core release.
 
 `--register` exists because pnpm 10 writes a link to every project it installs into `<store>/projects`, and the
 store is read-only inside the sandbox, so a first install fails with `EROFS`. Whatever creates the instance repository

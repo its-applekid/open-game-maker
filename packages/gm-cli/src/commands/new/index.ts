@@ -18,6 +18,12 @@ import { loadFamilies } from '@ogm/asset-cards';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
 import { resolveContainedPath } from '../../context.js';
+import {
+  CORE_RELEASE_SET_PATH,
+  localCoreDependencies,
+  readCoreReleaseSet,
+  resolveCoreDependencies,
+} from '../../core-release-set.js';
 import { isEmptyDirectory } from '../../filesystem.js';
 import { AGENTS_MD } from '../../skills/agents-md.js';
 import {
@@ -76,13 +82,13 @@ function adapterVersion(cwd: string, set: string): string {
   return packageJson.version;
 }
 
-function pinAdapter(gameDir: string, set: string, version: string): void {
+function pinAdapter(gameDir: string, set: string, specifier: string): void {
   const packagePath = join(gameDir, 'package.json');
   const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as {
     dependencies?: Record<string, string>;
   };
   packageJson.dependencies = Object.fromEntries(
-    Object.entries({ ...(packageJson.dependencies ?? {}), [`@gm/pack-${set}`]: version }).sort(([a], [b]) =>
+    Object.entries({ ...(packageJson.dependencies ?? {}), [`@gm/pack-${set}`]: specifier }).sort(([a], [b]) =>
       a.localeCompare(b),
     ),
   );
@@ -118,6 +124,57 @@ async function findInstanceGames(start: string): Promise<string | null> {
     if (parent === current) return null;
     current = parent;
   }
+}
+
+type CoreScaffold = {
+  /** The release set's core commit, when the instance repository has one. */
+  readonly sha: string | null;
+  readonly registry: string;
+  /** Whether a release set was read: a set without the game's core packages refuses instead of guessing. */
+  readonly hasSet: boolean;
+  readonly note: string | null;
+  /** The release set's specifiers, so a pinned style adapter installs its released version too. */
+  readonly packages: Readonly<Record<string, string>>;
+};
+
+/**
+ * Replaces the staged game's local core dependencies with the released specifiers from the instance
+ * repository's version set. A template with no core dependency needs no set unless a style adapter is
+ * pinned from it; an instance repository with no set yet keeps the template's workspace links and is told
+ * how to get the released ones; a set that does not list a core dependency the template needs refuses
+ * rather than scaffolding a game that cannot install.
+ */
+async function resolveStagedCoreDeps(gameDir: string, instanceRoot: string, needsSet: boolean): Promise<CoreScaffold> {
+  const packagePath = join(gameDir, 'package.json');
+  const text = readFileSync(packagePath, 'utf8');
+  const local = localCoreDependencies(JSON.parse(text) as Record<string, unknown>);
+  if (local.length === 0 && !needsSet) {
+    return { sha: null, registry: '', hasSet: false, note: null, packages: {} };
+  }
+  const set = await readCoreReleaseSet(instanceRoot);
+  if (set === null) {
+    return {
+      sha: null,
+      registry: '',
+      hasSet: false,
+      packages: {},
+      note:
+        local.length === 0
+          ? null
+          : `note: no ${CORE_RELEASE_SET_PATH} in this instance repository, so ${local.join(', ')} keep the ` +
+            "template's workspace link. Run core-release switch --apply from a core checkout to install the " +
+            'published core packages instead',
+    };
+  }
+  const { after, resolution } = resolveCoreDependencies(text, set);
+  if (resolution.missing.length > 0) {
+    throw new UsageError(
+      `the release set in ${CORE_RELEASE_SET_PATH} does not list ${resolution.missing.join(', ')}`,
+      'run core-release switch --apply from the core checkout to record the current core packages',
+    );
+  }
+  if (after !== text) writeFileSync(packagePath, after);
+  return { sha: set.sha, registry: set.registry, hasSet: true, note: null, packages: set.packages };
 }
 
 function nameGamePackage(gameDir: string, slug: string): void {
@@ -180,12 +237,32 @@ export const command: GmCommand = {
     const packDir = locateSkillPack(ctx.cwd, ctx.skillsDir);
 
     mkdirSync(dirname(destination), { recursive: true });
+    let core: CoreScaffold;
     const staging = mkdtempSync(join(dirname(destination), '.gm-new-stage-'));
     try {
       copyContents(source, staging);
       nameGamePackage(staging, requested);
       removeCoreWorkspaceReferences(staging);
-      if (set) pinAdapter(staging, set, adapterVersion(ctx.cwd, set));
+      // The core repository's templates link core sources with workspace:*; an instance repository has
+      // no core checkout to link to, so the released specifiers from its version set replace them.
+      core = await resolveStagedCoreDeps(staging, dirname(gamesRoot), set !== undefined);
+      // A pinned style adapter installs its released version when the set has one; the local manifest
+      // version only applies to a core checkout, where the adapter is a workspace link. A set that lists
+      // the game's other core packages but not the adapter cannot install the game, so refuse instead of
+      // writing a bare local version no registry serves.
+      if (set) {
+        const releasedAdapter = core.packages[`@gm/pack-${set}`];
+        if (releasedAdapter !== undefined) {
+          pinAdapter(staging, set, releasedAdapter);
+        } else if (core.hasSet) {
+          throw new UsageError(
+            `the release set in ${CORE_RELEASE_SET_PATH} does not list @gm/pack-${set}`,
+            'run core-release switch --apply from the core checkout to record the current core packages',
+          );
+        } else {
+          pinAdapter(staging, set, adapterVersion(ctx.cwd, set));
+        }
+      }
       syncSkillPack({ repoDir: staging, packDir, set });
       writeFileSync(join(staging, 'AGENTS.md'), AGENTS_MD);
       writeFileSync(
@@ -197,6 +274,7 @@ export const command: GmCommand = {
             ...(family ? { family } : {}),
             ...(set ? { set } : {}),
             ...(pov ? { pov } : {}),
+            ...(core.sha === null ? {} : { core: { sha: core.sha, registry: core.registry } }),
             createdAt: new Date().toISOString(),
             gmVersion: gmCliVersion(),
           },
@@ -209,6 +287,7 @@ export const command: GmCommand = {
     } finally {
       if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });
     }
+    if (core.note !== null) ctx.out(core.note);
     ctx.out(
       `created ${destination}. Next: cd ${dirname(gamesRoot)} && pnpm install --offline (refreshes pnpm-lock.yaml; commit it)`,
     );

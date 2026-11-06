@@ -7,7 +7,9 @@ This repository holds every game made by one Game Maker instance.
 
 Use `gm new <game-2d|game-3d> <game-slug>` from this directory to add a game. Assets remain in the instance asset library; games commit `assets.lock.json` references instead of binary asset files.
 
-The core packages (`@gm/sdk`, `@ogm/contracts`, `@ogm/iframe-bridge`) are not published to a registry yet. Until they are, keep the release tarballs they ship as under `vendor/`, or copy the packages into `packages/`, and point the games at those local paths.
+The core packages (`@gm/sdk`, `@ogm/contracts`, `@ogm/iframe-bridge`, the `@gm/pack-*` adapters) install from the registry at an exact version per core commit. `vendor/core.json` records the core commit and `vendor/core-packages.json` records the specifier each core package installs at that commit; `gm new` copies those specifiers into a new game's manifest and leaves this instance's own `workspace:*` links alone. Both files are written by `core-release switch --apply` from a core checkout — run it once after the core packages are published, and again whenever `vendor/core.json` moves to a new commit. `core-release diagnose --dir .` reports anything that would stop a game from installing.
+
+Until an instance repository has a release set, `gm new` keeps the template's `workspace:*` core links and says so; keep the core release tarballs under `vendor/` or copy the packages into `packages/` and point the games at those local paths.
 
 After `gm new`, run `pnpm install` here so `pnpm-lock.yaml` picks up the new game, and commit the result: CI installs with `--frozen-lockfile`.
 

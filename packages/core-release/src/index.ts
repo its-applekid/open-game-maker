@@ -35,8 +35,19 @@ export {
   verifyOidc,
 } from './publish.js';
 export type { OidcCheck, PublishOutcome, ReleaseEntry, ReleasePlan } from './publish.js';
-export { applySwitch, planSwitch } from './switch.js';
+export { MANAGED_END, MANAGED_START, applySwitch, manifestPaths, planSwitch } from './switch.js';
 export type { ManifestEdit, SwitchPlan } from './switch.js';
+export { describeDiagnosis, diagnose } from './diagnose.js';
+export type { Destination, DiagnoseInput, Diagnosis, Finding } from './diagnose.js';
+export {
+  CORE_RELEASE_SET_PATH,
+  CORE_RELEASE_SET_VERSION,
+  coreReleaseSetText,
+  isCorePackageName,
+  readCoreReleaseSet,
+  releasedSpecifier,
+} from './release-set.js';
+export type { CoreReleaseSet, ReleaseSetRead } from './release-set.js';
 export { unifiedDiff } from './diff.js';
 export { DEFAULT_ROOTS } from './roots.js';
 export { runCommand } from './run.js';

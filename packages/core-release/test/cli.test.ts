@@ -1,4 +1,4 @@
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, mkdtemp, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,10 +6,18 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { main } from '../src/cli.js';
+import { registryProfile } from '../src/profile.js';
 import type { RunCommand } from '../src/run.js';
+import { applySwitch, planSwitch } from '../src/switch.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const SHA = '3cef9ec65caaf2dfa51649cc8befb9a916c8487b';
+
+const versions = new Map([
+  ['@ogm/contracts', '0.0.0-core.3cef9ec65caa'],
+  ['@gm/sdk', '0.0.0-core.3cef9ec65caa'],
+  ['@gm/pack-kaykit', '0.0.0-core.3cef9ec65caa'],
+]);
 
 const dirs: string[] = [];
 
@@ -104,6 +112,78 @@ describe('core-release switch', () => {
     expect(manifest.dependencies['@gm/sdk']).toBe('file:../../vendor/gm-sdk-3cef9ec65caa.tgz');
   });
 
+  it('records the released version set next to the pin when --apply writes', async () => {
+    const dir = await instanceRepo();
+    const lines: string[] = [];
+    const code = await main(
+      ['switch', '--dir', dir, '--scope', '@its-owner', '--root', dir, '--roots', '@gm/sdk,@ogm/contracts', '--apply'],
+      { run, env: {}, log: (line) => lines.push(line) },
+    );
+
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toContain('vendor/core-packages.json');
+    const set = JSON.parse(await readFile(join(dir, 'vendor', 'core-packages.json'), 'utf8')) as {
+      core: { sha: string; packages: Record<string, string> };
+    };
+    expect(set.core.sha).toBe(SHA);
+    expect(set.core.packages['@gm/sdk']).toBe('npm:@its-owner/sdk@0.0.0-core.3cef9ec65caa');
+    expect(await stat(join(dir, 'vendor/gm-sdk-3cef9ec65caa.tgz')).catch(() => null)).toBeNull();
+  });
+
+  it('migrates a standalone game repository on an explicit --core-sha', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'core-release-cli-standalone-'));
+    dirs.push(dir);
+    await mkdir(join(dir, 'vendor'), { recursive: true });
+    await writeFile(join(dir, 'vendor', 'gm-sdk-3cef9ec65caa.tgz'), 'placeholder\n');
+    await writeFile(
+      join(dir, 'package.json'),
+      `${JSON.stringify(
+        { name: 'standalone-game', dependencies: { '@gm/sdk': 'file:vendor/gm-sdk-3cef9ec65caa.tgz' } },
+        null,
+        2,
+      )}\n`,
+    );
+    const lines: string[] = [];
+    const code = await main(
+      [
+        'switch',
+        '--dir',
+        dir,
+        '--scope',
+        '@its-owner',
+        '--root',
+        dir,
+        '--roots',
+        '@gm/sdk',
+        '--core-sha',
+        SHA,
+        '--apply',
+      ],
+      { run, env: {}, log: (line) => lines.push(line) },
+    );
+
+    expect(code).toBe(0);
+    const manifest = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8')) as {
+      dependencies: Record<string, string>;
+    };
+    expect(manifest.dependencies['@gm/sdk']).toBe('npm:@its-owner/sdk@0.0.0-core.3cef9ec65caa');
+    expect(JSON.parse(await readFile(join(dir, 'vendor', 'core-packages.json'), 'utf8'))).toMatchObject({
+      core: { sha: SHA },
+    });
+  });
+
+  it('refuses a repository with no pin when --core-sha is absent', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'core-release-cli-nopin-'));
+    dirs.push(dir);
+    await expect(
+      main(['switch', '--dir', dir, '--scope', '@its-owner', '--root', dir, '--roots', '@gm/sdk'], {
+        run,
+        env: {},
+        log: () => {},
+      }),
+    ).rejects.toThrow(/has no vendor\/core.json.*pass --core-sha/);
+  });
+
   it('refuses a switch without --dir', async () => {
     const { root } = await coreWorkspace();
     await expect(
@@ -122,6 +202,49 @@ describe('core-release switch', () => {
     const code = await main([], { run, env: {}, log: (line) => lines.push(line) });
     expect(code).toBe(2);
     expect(lines.join('\n')).toContain('core-release — prepare core package publishing');
+  });
+});
+
+describe('core-release diagnose', () => {
+  const noWorkspace: RunCommand = async (file, args) =>
+    Promise.reject(new Error(`diagnose must not read the core workspace (${file} ${args.join(' ')})`));
+
+  it('exits 1 and names each finding before a switch, without loading the core workspace', async () => {
+    const dir = await instanceRepo();
+    const lines: string[] = [];
+    const code = await main(['diagnose', '--dir', dir, '--scope', '@its-owner'], {
+      run: noWorkspace,
+      env: {},
+      log: (line) => lines.push(line),
+    });
+
+    expect(code).toBe(1);
+    const output = lines.join('\n');
+    expect(output).toContain('core packages:');
+    expect(output).toContain('legacy-specifier games/example-2d/package.json');
+    expect(output).toContain('set-missing vendor/core-packages.json');
+    expect(output).toContain('run core-release switch');
+  });
+
+  it('exits 0 on a switched repository', async () => {
+    const dir = await instanceRepo();
+    await applySwitch(
+      await planSwitch({ dir, profile: registryProfile({ scope: '@its-owner' }), versions, coreSha: SHA }),
+    );
+    const lines: string[] = [];
+    const code = await main(['diagnose', '--dir', dir, '--scope', '@its-owner'], {
+      run: noWorkspace,
+      env: {},
+      log: (line) => lines.push(line),
+    });
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toBe(`core packages ok in ${dir}`);
+  });
+
+  it('needs --dir', async () => {
+    await expect(main(['diagnose'], { run: noWorkspace, env: {}, log: () => {} })).rejects.toThrow(
+      /diagnose needs --dir/,
+    );
   });
 });
 
