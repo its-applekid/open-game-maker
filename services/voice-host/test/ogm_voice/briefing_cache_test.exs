@@ -66,10 +66,23 @@ defmodule OgmVoice.BriefingCacheTest do
 
     assert :ok =
              OgmVoice.Cache.put(
-               Map.put(@push, "commands", [%{"id" => "c1", "question" => "Red or blue?", "options" => ["red", "blue"]}])
+               Map.put(@push, "commands", [
+                 %{
+                   "id" => "c1",
+                   "question" => "Red or blue?",
+                   "options" => [%{"id" => "red", "label" => "Red"}, %{"id" => "blue", "label" => "Blue"}]
+                 }
+               ])
              )
 
-    assert {:ok, [%{id: "c1", question: "Red or blue?", options: ["red", "blue"]}]} = CommandSource.open(@target)
+    assert {:ok,
+            [
+              %{
+                id: "c1",
+                question: "Red or blue?",
+                options: [%{"id" => "red", "label" => "Red"}, %{"id" => "blue", "label" => "Blue"}]
+              }
+            ]} = CommandSource.open(@target)
   end
 
   test "malformed commands are rejected without replacing the previous briefing" do

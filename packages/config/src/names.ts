@@ -238,6 +238,24 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'OGM_VOICE_PROVIDER', unit: 'voice-host', kind: 'string', doc: 'fake, elevenlabs_agents or openai_realtime' },
   {
+    name: 'ELEVENLABS_API_KEY',
+    unit: 'voice-host',
+    kind: 'secret',
+    doc: 'ElevenLabs API key for live dictation, conversations and narration',
+  },
+  {
+    name: 'ELEVENLABS_AGENT_ID',
+    unit: 'voice-host',
+    kind: 'string',
+    doc: 'ElevenLabs hosted conversational-agent id',
+  },
+  {
+    name: 'OGM_VOICE_CLEANUP_ROOT',
+    unit: 'voice-host',
+    kind: 'path',
+    doc: 'durable provider-conversation cleanup queue',
+  },
+  {
     name: 'OGM_VOICE_LLM',
     unit: 'voice-host',
     kind: 'string',

@@ -1,12 +1,13 @@
-import type { BriefingPush, JobState, VoiceTarget } from '@ogm/contracts';
+import type { BriefingPush, VoiceTarget } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { and, asc, desc, eq, notInArray } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 import type { AppEvents } from '../app/events.js';
 import { sizeClassRow } from '../budget/estimate.js';
 import { getBudgetSettings, type BudgetDefaults } from '../budget/settings.js';
 import { budgetStatus } from '../budget/status.js';
 import { toUnits } from '../budget/units.js';
+import { parseCommandOptions } from '../checkpoints/options.js';
 
 export type { VoiceTarget } from '@ogm/contracts';
 
@@ -33,7 +34,6 @@ export type PushDeps = BriefingDeps & {
 };
 
 const SIZES = ['small', 'medium', 'large', 'huge'] as const;
-const TERMINAL: JobState[] = ['done', 'failed', 'cancelled'];
 const PAUSED = 'Build paused at its reservation: ask an admin to raise it, or trim';
 
 export const targetKey = (target: VoiceTarget) =>
@@ -92,14 +92,21 @@ function budgetText(
   return { remaining, sizes };
 }
 
-function jobFor(db: Db, target: VoiceTarget) {
+export function jobFor(db: Db, target: VoiceTarget) {
   if (target.kind === 'build') return db.select().from(schema.jobs).where(eq(schema.jobs.id, target.job_id)).get();
-  return db
+
+  const session = db
     .select()
-    .from(schema.jobs)
-    .where(and(eq(schema.jobs.gameId, target.game_id), notInArray(schema.jobs.state, TERMINAL)))
-    .orderBy(desc(schema.jobs.createdAt))
+    .from(schema.scopeSessions)
+    .where(
+      and(
+        eq(schema.scopeSessions.id, target.session_id),
+        eq(schema.scopeSessions.gameId, target.game_id),
+        eq(schema.scopeSessions.creatorId, target.creator_id),
+      ),
+    )
     .get();
+  return session ? db.select().from(schema.jobs).where(eq(schema.jobs.id, session.jobId)).get() : undefined;
 }
 
 export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Promise<Briefing> {
@@ -120,15 +127,24 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
     ? (deps.db.select().from(schema.jobProjections).where(eq(schema.jobProjections.jobId, job.id)).get()?.stageText ??
       job.state)
     : null;
-  const questions = job
+  const commandRows = job
     ? deps.db
-        .select({ question: schema.checkpoints.question })
+        .select({
+          id: schema.checkpoints.decisionId,
+          version: schema.checkpoints.version,
+          question: schema.checkpoints.question,
+          options: schema.checkpoints.options,
+        })
         .from(schema.checkpoints)
         .where(and(eq(schema.checkpoints.jobId, job.id), eq(schema.checkpoints.status, 'open')))
         .orderBy(asc(schema.checkpoints.openedAt))
         .all()
-        .map(({ question }) => question)
     : [];
+  const questions = commandRows.map(({ question }) => question);
+  const commands = commandRows.flatMap(({ id, version, question, options }) => {
+    const parsed = parseCommandOptions(options);
+    return parsed === null ? [] : [{ id, version, question, options: parsed.map(({ id, label }) => ({ id, label })) }];
+  });
   let budget: { remaining: string; sizes: string } | undefined;
   try {
     budget = budgetText(deps, familyId, target.creator_id, now);
@@ -154,6 +170,7 @@ export async function buildBriefing(deps: BriefingDeps, target: VoiceTarget): Pr
     next_steps: target.kind === 'scope' ? ['Confirm the plan', 'Start the build or queue it for the reset'] : [],
     ...(waitingOn ? { waiting_on: waitingOn } : {}),
     questions,
+    commands,
     extra: budgetSummary ? [{ title: 'Budget', text: budgetSummary }] : [],
     sections,
     observed_at: now.toISOString(),

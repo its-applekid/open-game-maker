@@ -24,6 +24,13 @@ defmodule OgmVoice.ConfigTest do
            } = config
 
     assert [
+             transcriber: VoiceTranscribe.Scribe,
+             transcriber_opts: [api_key_fun: api_key_fun]
+           ] = Config.dictation(config)
+
+    assert is_function(api_key_fun, 0)
+
+    assert [
              render_dir: "/tmp/ogm-voice-test-renders",
              provider: VoiceConverse.Testing.FakeProvider,
              provider_id: :fake,
@@ -33,6 +40,25 @@ defmodule OgmVoice.ConfigTest do
                required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
              }
            ] = Config.narration(config)
+  end
+
+  test "defaults dictation to the pinned Aiur Scribe transcriber the dependency provides" do
+    [transcriber: transcriber, transcriber_opts: _opts] = Config.dictation(Config.from_env!(@env))
+
+    assert transcriber == VoiceTranscribe.Scribe
+    assert Code.ensure_loaded?(transcriber)
+    assert function_exported?(transcriber, :start, 1)
+    assert function_exported?(transcriber, :push, 2)
+    assert function_exported?(transcriber, :commit, 1)
+    assert function_exported?(transcriber, :stop, 1)
+  end
+
+  test "the pinned transcriber reports :unconfigured without an ElevenLabs key instead of opening a socket" do
+    [transcriber: transcriber, transcriber_opts: opts] = Config.dictation(Config.from_env!(@env))
+
+    opts = Keyword.merge(opts, owner: self(), api_key_fun: fn -> nil end)
+
+    assert {:error, :unconfigured} = transcriber.start(opts)
   end
 
   test "narration renders stay off until explicitly enabled, so a provider key alone never spends" do
@@ -72,13 +98,36 @@ defmodule OgmVoice.ConfigTest do
   end
 
   test "switches to a live adapter by env, which then needs a model" do
-    env = Map.merge(@env, %{"OGM_VOICE_PROVIDER" => "elevenlabs_agents", "OGM_VOICE_LLM" => "gpt-4o-mini"})
+    env =
+      Map.merge(@env, %{
+        "OGM_VOICE_PROVIDER" => "elevenlabs_agents",
+        "OGM_VOICE_LLM" => "gpt-4o-mini",
+        "OGM_VOICE_CLEANUP_ROOT" => "/var/lib/ogm/voice-cleanup"
+      })
+
     {:ok, vc} = VoiceConverse.Config.new(Config.voice_converse(Config.from_env!(env)))
     assert vc.provider == {VoiceConverse.Providers.ElevenLabsAgents, []}
 
     assert_raise Config.Error, ~r/OGM_VOICE_LLM is missing/, fn ->
       Config.from_env!(Map.put(@env, "OGM_VOICE_PROVIDER", "openai_realtime"))
     end
+  end
+
+  test "queues provider deletion only when a durable cleanup root is configured" do
+    {:ok, fake} = VoiceConverse.Config.new(Config.voice_converse(Config.from_env!(@env)))
+    assert fake.provider_cleanup == false and fake.cleanup_root == nil
+
+    live = Map.merge(@env, %{"OGM_VOICE_PROVIDER" => "elevenlabs_agents", "OGM_VOICE_LLM" => "gpt-4o-mini"})
+
+    assert_raise Config.Error, ~r/OGM_VOICE_CLEANUP_ROOT is missing/, fn -> Config.from_env!(live) end
+
+    assert_raise Config.Error, ~r/OGM_VOICE_CLEANUP_ROOT is not an absolute path/, fn ->
+      Config.from_env!(Map.put(live, "OGM_VOICE_CLEANUP_ROOT", "relative/cleanup"))
+    end
+
+    config = Config.from_env!(Map.put(live, "OGM_VOICE_CLEANUP_ROOT", "/var/lib/ogm/voice-cleanup"))
+    {:ok, vc} = VoiceConverse.Config.new(Config.voice_converse(config))
+    assert vc.provider_cleanup == true and vc.cleanup_root == "/var/lib/ogm/voice-cleanup"
   end
 
   test "refuses to boot without a strong token secret, naming the variable and never the value" do

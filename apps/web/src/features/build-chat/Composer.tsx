@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import {
   captionsReducer,
@@ -6,6 +6,7 @@ import {
   VoiceClient,
   type Captions,
   type DictationError,
+  type DictationConnection,
   type DictationTranscript,
   type VoiceClientOptions,
 } from '@ogm/voice-client';
@@ -24,11 +25,16 @@ import {
   type UploadAttachment,
 } from './attachments';
 import type { StreamedChatMessage } from './stream';
-import { probeVoice as defaultProbeVoice, type VoiceAvailability } from './voice';
+import {
+  connectDictation as defaultConnectDictation,
+  probeVoice as defaultProbeVoice,
+  type VoiceAvailability,
+} from './voice';
 
 export type DictationPort = {
   pressStart(): void;
   pressEnd(): void;
+  cancel?(): void;
   on(event: 'transcript', listener: (value: DictationTranscript) => void): () => void;
   on(event: 'error', listener: (value: DictationError) => void): () => void;
 };
@@ -46,6 +52,7 @@ export function Composer({
   startJob,
   uploadAttachment = uploadChatAttachment,
   probeVoice = defaultProbeVoice,
+  connectDictation = defaultConnectDictation,
   createVoiceClient = (options) => new VoiceClient(options),
   onOptimistic,
   onPosted,
@@ -58,21 +65,31 @@ export function Composer({
   startJob?: StartJob;
   uploadAttachment?: UploadAttachment;
   probeVoice?: (target: VoiceTarget) => Promise<VoiceAvailability>;
+  connectDictation?: (target: VoiceTarget) => Promise<DictationConnection>;
   createVoiceClient?: (options: VoiceClientOptions) => VoiceClient;
   onOptimistic?: (message: StreamedChatMessage) => void;
   onPosted?: (message: StreamedChatMessage) => void;
   onFailed?: (messageId: string) => void;
 }) {
-  const [dictation] = useState<DictationPort | undefined>(
-    () => providedDictation ?? (Dictation.isSupported() ? new Dictation() : undefined),
+  const targetKey = voiceTarget ? voiceTargetKey(voiceTarget) : undefined;
+  const dictation = useMemo<DictationPort | undefined>(
+    () =>
+      providedDictation ??
+      (voiceTarget && Dictation.isSupported()
+        ? new Dictation({ connection: () => connectDictation(voiceTarget) })
+        : undefined),
+    [connectDictation, providedDictation, voiceTarget],
   );
   const [text, setText] = useState('');
   const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
   const fileInput = useRef<HTMLInputElement>(null);
   const [partial, setPartial] = useState('');
   const [notice, setNotice] = useState('');
-  const [voice, setVoice] = useState<VoiceAvailability>({ available: false });
+  const [voiceForTarget, setVoiceForTarget] = useState<{ key: string; value: VoiceAvailability }>();
+  const voice =
+    voiceForTarget && targetKey === voiceForTarget.key ? voiceForTarget.value : { available: false as const };
   const [voiceClient, setVoiceClient] = useState<VoiceClient>();
+  const voiceClientRef = useRef<VoiceClient | undefined>(undefined);
   const [captions, setCaptions] = useState<Captions>({ you: [], builder: [] });
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
@@ -91,28 +108,35 @@ export function Composer({
     });
     const offError = dictation.on('error', (error) => setNotice(error.message));
     return () => {
-      dictation.pressEnd();
+      if (dictation.cancel) dictation.cancel();
+      else dictation.pressEnd();
       offTranscript();
       offError();
     };
   }, [dictation]);
 
   useEffect(() => {
-    if (!voiceTarget) return;
+    if (!voiceTarget || !targetKey) return;
     let current = true;
     void probeVoice(voiceTarget)
       .then((result) => {
-        if (current) setVoice(result);
+        if (current) setVoiceForTarget({ key: targetKey, value: result });
       })
       .catch(() => {
-        if (current) setVoice({ available: false });
+        if (current) setVoiceForTarget({ key: targetKey, value: { available: false } });
       });
     return () => {
       current = false;
     };
-  }, [probeVoice, voiceTarget]);
+  }, [probeVoice, targetKey, voiceTarget]);
 
-  useEffect(() => () => voiceClient?.end(), [voiceClient]);
+  useEffect(
+    () => () => {
+      voiceClientRef.current?.end();
+      voiceClientRef.current = undefined;
+    },
+    [targetKey],
+  );
 
   const submit = async () => {
     const value = text.trim();
@@ -172,16 +196,27 @@ export function Composer({
     if (!voice.available || !voiceTarget || voiceStartingRef.current) return;
     voiceStartingRef.current = true;
     setVoiceStarting(true);
+    setNotice('Voice chat uses ElevenLabs conversational-AI credits.');
+    setCaptions({ you: [], builder: [] });
     const client = createVoiceClient({ url: voice.url, token: voice.token, target: voiceTarget });
+    voiceClientRef.current = client;
+    let ended = false;
     for (const type of ['transcript', 'agent_text', 'interrupted'] as const) {
       client.on(type, (frame) => setCaptions((current) => captionsReducer(current, frame)));
     }
     client.on('error', (frame) => setNotice(frame.message));
+    client.on('ended', () => {
+      ended = true;
+      if (voiceClientRef.current !== client) return;
+      voiceClientRef.current = undefined;
+      setVoiceClient(undefined);
+    });
     try {
       await client.startFromGesture();
-      setVoiceClient(client);
+      if (!ended && voiceClientRef.current === client) setVoiceClient(client);
     } catch {
       client.end();
+      if (voiceClientRef.current === client) voiceClientRef.current = undefined;
     } finally {
       voiceStartingRef.current = false;
       setVoiceStarting(false);
@@ -198,6 +233,7 @@ export function Composer({
           type="button"
           onClick={() => {
             voiceClient.end();
+            if (voiceClientRef.current === voiceClient) voiceClientRef.current = undefined;
             setVoiceClient(undefined);
           }}
         >
@@ -208,10 +244,14 @@ export function Composer({
   }
 
   const startDictation = () => {
-    setNotice('');
+    setNotice('Dictation uses ElevenLabs transcription credits.');
     dictation?.pressStart();
   };
   const endDictation = () => dictation?.pressEnd();
+  const cancelDictation = () => {
+    if (dictation?.cancel) dictation.cancel();
+    else dictation?.pressEnd();
+  };
 
   return (
     <div className="build-chat-composer">
@@ -286,7 +326,7 @@ export function Composer({
               startDictation();
             }}
             onPointerUp={endDictation}
-            onPointerCancel={endDictation}
+            onPointerCancel={cancelDictation}
             onKeyDown={(event) => {
               if (event.code === 'Space' && !event.repeat) startDictation();
             }}
@@ -323,6 +363,12 @@ export function Composer({
       </div>
     </div>
   );
+}
+
+function voiceTargetKey(target: VoiceTarget): string {
+  return target.kind === 'scope'
+    ? `scope:${target.game_id}:${target.session_id}:${target.creator_id}`
+    : `build:${target.game_id}:${target.job_id}:${target.ticket}:${target.creator_id}`;
 }
 
 function PendingAttachmentChip({
