@@ -11,10 +11,16 @@
  * working (D-N6-4).
  */
 
-import type { TransportStats } from '@ogm/contracts';
+import type { TransportStats } from '@ogm/contracts/transport';
 
-export type { ChannelName, Transport, TransportHandlers, TransportKind, TransportStats } from '@ogm/contracts';
-export { ALL_SEATS } from '@ogm/contracts';
+export type {
+  ChannelName,
+  Transport,
+  TransportHandlers,
+  TransportKind,
+  TransportStats,
+} from '@ogm/contracts/transport';
+export { ALL_SEATS } from '@ogm/contracts/transport';
 
 /**
  * The selection policy of §6.5, in the units the measurements behind it use: `probeMs` is ~300 input frames and 100
