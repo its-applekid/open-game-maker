@@ -6,6 +6,8 @@ Steps only the host's owner can do: they need sudo, a browser sign-in or an appr
 Fill the placeholders first: `<user>` is the account that runs OGM, `<tailnet-host>` the machine's Tailscale name,
 `<backup-host>` the machine that keeps backups. Other files a new host edits by hand: [self-host.md](self-host.md).
 
+- [ ] `xdg-open <app-origin>/login` — GATE-INSTANCE-PROOF: on a phone, sign in and run the instance-monorepo proof in [runbook.md](runbook.md) "Prove the instance monorepo flow" (create a game, edit it by chat, play, publish, roll back); save the phone-size recording and the `ops/bin/ogm-proof` record under `~/.local/share/ogm/acceptance/<date>/`, then paste them into the pull request
+  - ctx: docs/ops/hand-steps.md · docs/ops/runbook.md "Prove the instance monorepo flow"
 - [ ] `sudo tailscale set --operator=<user>` — GATE-TS-OPERATOR: lets this account mount the 8443 and 10000 serves with `ops/bin/ogm-ingress.sh` and read `tailscale serve status` without sudo
   - ctx: OGM-008 docs/ops/hand-steps.md · docs/ops/ingress.md
 - [ ] `ops/bin/ogm-ingress.sh` — approve Funnel (public HTTPS on `<tailnet-host>:8443` and `:10000`), or run it with `--tailnet-only` instead
