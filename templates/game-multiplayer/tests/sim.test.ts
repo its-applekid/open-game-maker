@@ -254,6 +254,29 @@ describe('per-seat authority hooks', () => {
     expect(captureShared(state).platforms.length).toBeGreaterThan(0);
   });
 
+  it('withholds the private counter from every recipient but its owner, and never from the digest contract', async () => {
+    const instance = await game.mount({} as HostApi, defaultDesign);
+    const hooks = instance.net as MultiplayerHooksV2;
+    hooks.spawn(1, playerId(1));
+    const state = getGameContext().state;
+    state.players.get(1)!.secret = 7;
+
+    // Seat 1 is this client: its own slice carries the counter, and a payload for seat 0 does not.
+    getGameContext().localPlayerIndex = 1;
+    const own = hooks.view!(1) as { state: { player: { secret: number; p: [number, number] } } };
+    const forOther = hooks.view!(0) as { state: { player: Record<string, unknown> } };
+    expect(own.state.player.secret).toBe(7);
+    expect(forOther.state.player).not.toHaveProperty('secret');
+    expect(forOther.state.player.p).toEqual(own.state.player.p);
+
+    // A private change must not move `digest()`: two seats exchanging sums could otherwise read it as an oracle.
+    const before = hooks.digest!();
+    state.players.get(1)!.secret += 1;
+    expect(hooks.digest!()).toEqual(before);
+    state.players.get(1)!.p[0] += 1 / 256;
+    expect(hooks.digest!()).not.toEqual(before);
+  });
+
   it('restores exactly the slice it is given', () => {
     const state = createSimulation(defaultDesign);
     addPlayer(state, 1, playerId(1));
@@ -262,5 +285,21 @@ describe('per-seat authority hooks', () => {
     restoreOwned(state, owned);
     expect(state.players.get(1)!.p[0]).toBe(owned.player.p[0]);
     expect(state.players.get(0)!.p[0]).not.toBe(owned.player.p[0]);
+  });
+
+  it('merges a redacted slice instead of zeroing what it omits', () => {
+    // A slice produced for another seat has no `secret`; restoring it must keep this client's own value rather than
+    // rebuilding the avatar without it (§3.7).
+    const state = createSimulation(defaultDesign);
+    addPlayer(state, 1, playerId(1));
+    const player = state.players.get(1)!;
+    player.secret = 3;
+    const visible = { ...player };
+    delete (visible as Partial<typeof player>).secret;
+    restoreOwned(state, { seat: 1, player: visible });
+
+    expect(state.players.get(1)!.secret).toBe(3);
+    expect(state.players.get(1)!.p).toEqual(player.p);
+    expect(state.players.get(0)).toBeDefined();
   });
 });

@@ -229,8 +229,17 @@ export interface MultiplayerHooksV2 extends MultiplayerHooks {
   restore?(snapshot: Snapshot): void;
   /** A flat, canonically ordered list of integers: seats ascending, then entity ids sorted by code unit. */
   digest?(): readonly number[];
-  /** Called on the sending side only; the visibility filtering itself is N5's. */
-  view?(seat: number): unknown;
+  /**
+   * What `seat` may receive from this client on this publish (netcode §5.2.1). Called on the sending side only, once
+   * per recipient per publish, and the returned `Snapshot` is encoded as that recipient's `net.state` — so a field
+   * this returns less of is a field that recipient never holds. Absent, the client publishes its own owned slice to
+   * everyone (`capture({ seat: localSeat })`), which is the no-visibility path byte for byte.
+   *
+   * Only a `'per-seat'` manifest may implement it: host authority packs one snapshot for every peer and cannot filter.
+   * A redacted field is absent from the returned state, never `null` or `0`, and `restore` merges the keys it is given
+   * so an absent field keeps the recipient's own reconstruction.
+   */
+  view?(seat: number): Snapshot;
 }
 
 export type Viewport = {

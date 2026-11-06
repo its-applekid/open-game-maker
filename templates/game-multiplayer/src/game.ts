@@ -193,7 +193,21 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
         if (slice.seat !== undefined) restoreOwned(context.state, slice as never);
         else if ('platforms' in slice) restoreShared(context.state, slice as never);
       },
+      /**
+       * What `recipient` may receive from this client on this publish (netcode §5.2.1). This seat's avatar goes out
+       * as it is; every other recipient gets the same avatar without its private counter, which nobody may hold but
+       * the seat that counted it. The SDK calls this once per recipient and encodes exactly what it returns.
+       */
+      view(recipient: number): Snapshot {
+        const slice = captureOwned(context.state, context.localPlayerIndex);
+        if (!slice) return { tick: context.state.tick, state: { seat: context.localPlayerIndex } };
+        if (recipient === context.localPlayerIndex) return { tick: context.state.tick, state: slice };
+        const visible = structuredClone(slice.player) as Partial<typeof slice.player>;
+        delete visible.secret;
+        return { tick: context.state.tick, state: { seat: slice.seat, player: visible } };
+      },
       digest() {
+        // No `secret` word: a private field in a shared sum would be an oracle for exactly that field (§3.6).
         return digestSimulation(context.state, toUnits);
       },
       spawn(playerIndex, playerId) {
