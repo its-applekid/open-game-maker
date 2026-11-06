@@ -1,0 +1,721 @@
+{
+  "schema": "ogm.smallscaleint-ui-needs/1",
+  "set": "smallscaleint",
+  "note": "Inventory, skill, HUD and map elements the first SmallScaleInt game needs, in the asset workflow's priority order: an installed pack first, a variant of an owned asset second.",
+  "groups": [
+    "Equipment",
+    "Consumable",
+    "Skill",
+    "HUD",
+    "Map"
+  ],
+  "variants": {
+    "V-ITEM-CLOSEUP": {
+      "op": "nearest-neighbour upscale to the slot size, then palette snap to the SmallScaleInt fantasy ramp",
+      "result": "readable close-up inventory art from an installed world sprite, geometry unchanged"
+    },
+    "V-SKILL-CROP": {
+      "op": "crop one representative frame of a same-family animation and composite it into the slot frame",
+      "result": "a skill icon drawn from the set's own effects, not from another game's artwork"
+    },
+    "V-HUD-TINT": {
+      "op": "clone the frame and recolour it to the kit's bronze/slate ramp",
+      "result": "one HUD family at a consistent colour without changing geometry"
+    },
+    "V-MAP-PARCHMENT": {
+      "op": "palette-reduce a map asset to four colours and scale it by a whole factor",
+      "result": "a dedicated parchment map that reads as UI, not as the gameplay scene"
+    },
+    "V-MAP-FOG": {
+      "op": "runtime reveal masks drawn over the parchment map",
+      "result": "unknown, hinted and revealed states without baking one session's routes"
+    }
+  },
+  "needs": [
+    {
+      "key": "sword",
+      "group": "Equipment",
+      "element": "one-handed sword",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "sword"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "sword|blade|scimitar"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "heavy-weapon",
+      "group": "Equipment",
+      "element": "two-handed axe or mace",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "axe|mace|hammer"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "axe|mace|hammer"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "shield",
+      "group": "Equipment",
+      "element": "shield",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "shield"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "shield"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "bow",
+      "group": "Equipment",
+      "element": "bow",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "(?:^|[/_-])bow"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "(?:^|[/_-])bow"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "crossbow",
+      "group": "Equipment",
+      "element": "crossbow",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "crossbow|arquebus"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "crossbow"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "staff",
+      "group": "Equipment",
+      "element": "staff or wand",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "staff|(?:^|[/_-])wand"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "staff|(?:^|[/_-])wand|rod"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "helmet",
+      "group": "Equipment",
+      "element": "head armour",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "head[0-9]|helmet|helm"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "helm|helmet"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "chest-armour",
+      "group": "Equipment",
+      "element": "chest armour",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "armou?r|chest[0-9]|plate"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "(?:^|[/_-])armou?r|cuirass|plate"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "leg-armour",
+      "group": "Equipment",
+      "element": "leg armour or boots",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "legs|boot"
+        },
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "boot|greave|legs"
+        },
+        {
+          "pack": "kenney-tiny-dungeon",
+          "pattern": "\\.(png|gif)$",
+          "note": "numbered tiles in this pack; pick the frame by eye in the lineup"
+        }
+      ]
+    },
+    {
+      "key": "offhand-scroll",
+      "group": "Equipment",
+      "element": "off-hand scroll or focus",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "scroll|book|tome"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "scroll|book"
+        },
+        {
+          "pack": "kenney-generic-items",
+          "pattern": "book|scroll|paper"
+        }
+      ]
+    },
+    {
+      "key": "health-potion",
+      "group": "Consumable",
+      "element": "health potion",
+      "variant": "V-ITEM-CLOSEUP",
+      "candidates": [
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "potion|flask|bottle"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "potion|flask"
+        },
+        {
+          "pack": "kenney-generic-items",
+          "pattern": "bottle|potion|flask"
+        }
+      ]
+    },
+    {
+      "key": "resource-potion",
+      "group": "Consumable",
+      "element": "class-resource potion",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "potion|flask|bottle"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "potion|flask"
+        },
+        {
+          "pack": "kenney-generic-items",
+          "pattern": "bottle|potion|flask"
+        }
+      ]
+    },
+    {
+      "key": "thrown-flask",
+      "group": "Consumable",
+      "element": "throwable fire flask",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "kenney-micro-roguelike",
+          "pattern": "bomb|flask|powder"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "bomb|explosion"
+        },
+        {
+          "pack": "kenney-generic-items",
+          "pattern": "bottle|flask"
+        }
+      ]
+    },
+    {
+      "key": "skill-attack",
+      "group": "Skill",
+      "element": "basic and heavy attack",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-1",
+          "pattern": "sword|melee|slash"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "sword|slash|melee"
+        }
+      ]
+    },
+    {
+      "key": "skill-block",
+      "group": "Skill",
+      "element": "block",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-character-pack-1",
+          "pattern": "block"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "shield"
+        }
+      ]
+    },
+    {
+      "key": "skill-evade",
+      "group": "Skill",
+      "element": "evade or roll",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-character-pack-1",
+          "pattern": "(?:^|[/_-])roll|dodge|evade"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "(?:^|[/_-])roll|dodge"
+        }
+      ]
+    },
+    {
+      "key": "skill-charge",
+      "group": "Skill",
+      "element": "charge or dash",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "dash"
+        },
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-1",
+          "pattern": "dash|speed"
+        }
+      ]
+    },
+    {
+      "key": "skill-fire",
+      "group": "Skill",
+      "element": "fire spell",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-1",
+          "pattern": "fire|flame|burn"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "fire|flame"
+        }
+      ]
+    },
+    {
+      "key": "skill-ice",
+      "group": "Skill",
+      "element": "ice spell",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-1",
+          "pattern": "(?:^|[/_-])ice|frost|cold"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "(?:^|[/_-])ice|frost"
+        }
+      ]
+    },
+    {
+      "key": "skill-lightning",
+      "group": "Skill",
+      "element": "lightning spell",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-2",
+          "pattern": "lightning|thunder|storm|electric"
+        },
+        {
+          "pack": "smallscaleint-2d-desert-fantasy-tileset",
+          "pattern": "lightning|storm"
+        }
+      ]
+    },
+    {
+      "key": "skill-shot",
+      "group": "Skill",
+      "element": "ranged shot",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-1",
+          "pattern": "arrow"
+        },
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-2",
+          "pattern": "arrow"
+        }
+      ]
+    },
+    {
+      "key": "skill-volley",
+      "group": "Skill",
+      "element": "rapid or multi shot",
+      "variant": "V-SKILL-CROP",
+      "candidates": [
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-2",
+          "pattern": "arrow|(?:^|[/_-])rain|volley|multi"
+        },
+        {
+          "pack": "smallscaleint-2d-projectiles-character-pack-1",
+          "pattern": "arrow"
+        }
+      ]
+    },
+    {
+      "key": "slot-frame",
+      "group": "HUD",
+      "element": "inventory and ability slot frame",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "slot|square|ring"
+        },
+        {
+          "pack": "kenney-ui-pixel-pack",
+          "pattern": "slot|square"
+        }
+      ]
+    },
+    {
+      "key": "item-grid",
+      "group": "HUD",
+      "element": "inventory grid panel",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "panel|grid|window"
+        },
+        {
+          "pack": "kenney-fantasy-ui-borders",
+          "pattern": "panel|border|window"
+        }
+      ]
+    },
+    {
+      "key": "health-bar",
+      "group": "HUD",
+      "element": "health bar",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-ui-adventure-pack",
+          "pattern": "(?:^|[/_-])bar(?:[._-]|$)|health"
+        },
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "(?:^|[/_-])bar(?:[._-]|$)|fill"
+        }
+      ]
+    },
+    {
+      "key": "resource-bar",
+      "group": "HUD",
+      "element": "class-resource bar",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-ui-adventure-pack",
+          "pattern": "(?:^|[/_-])bar(?:[._-]|$)|blue|green|yellow"
+        },
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "(?:^|[/_-])bar(?:[._-]|$)|fill"
+        }
+      ]
+    },
+    {
+      "key": "experience",
+      "group": "HUD",
+      "element": "experience or level indicator",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "progress|badge|(?:^|[/_-])bar"
+        },
+        {
+          "pack": "kenney-ui-adventure-pack",
+          "pattern": "progress|(?:^|[/_-])bar"
+        }
+      ]
+    },
+    {
+      "key": "cooldown",
+      "group": "HUD",
+      "element": "ability cooldown overlay",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "circle|clock|radial|progress"
+        },
+        {
+          "pack": "kenney-ui-pixel-pack",
+          "pattern": "circle"
+        }
+      ]
+    },
+    {
+      "key": "button",
+      "group": "HUD",
+      "element": "menu and prompt button",
+      "variant": null,
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "button|arrow|prompt"
+        },
+        {
+          "pack": "kenney-ui-pack-adventure",
+          "pattern": "button|arrow"
+        }
+      ]
+    },
+    {
+      "key": "portrait-frame",
+      "group": "HUD",
+      "element": "portrait frame",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-fantasy-ui-borders",
+          "pattern": "portrait|border|ring|panel"
+        },
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "portrait|border|ring|panel"
+        }
+      ]
+    },
+    {
+      "key": "panel-background",
+      "group": "HUD",
+      "element": "dialogue and menu panel background",
+      "variant": "V-HUD-TINT",
+      "candidates": [
+        {
+          "pack": "kenney-fantasy-ui-borders",
+          "pattern": "panel|background|window"
+        },
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "panel|window"
+        }
+      ]
+    },
+    {
+      "key": "quest-marker",
+      "group": "HUD",
+      "element": "quest available and turn-in marker",
+      "variant": null,
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-adventure",
+          "pattern": "exclamation|star|question|jewel"
+        },
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "star|check"
+        }
+      ]
+    },
+    {
+      "key": "map-background",
+      "group": "Map",
+      "element": "parchment map panel",
+      "variant": "V-MAP-PARCHMENT",
+      "candidates": [
+        {
+          "pack": "kenney-cartography-pack",
+          "pattern": "paper|parchment|background|overview"
+        },
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "panel"
+        }
+      ]
+    },
+    {
+      "key": "map-terrain",
+      "group": "Map",
+      "element": "terrain and route tiles",
+      "variant": "V-MAP-PARCHMENT",
+      "candidates": [
+        {
+          "pack": "kenney-map-pack",
+          "pattern": "route|road|terrain|ground"
+        },
+        {
+          "pack": "kenney-cartography-pack",
+          "pattern": "route|path|region"
+        }
+      ]
+    },
+    {
+      "key": "map-landmarks",
+      "group": "Map",
+      "element": "town, cave, forest, graveyard and crypt glyphs",
+      "variant": "V-MAP-PARCHMENT",
+      "candidates": [
+        {
+          "pack": "kenney-cartography-pack",
+          "pattern": "village|town|church|cave|tree|grave|forest"
+        },
+        {
+          "pack": "kenney-map-pack",
+          "pattern": "town|cave|tree|grave"
+        }
+      ]
+    },
+    {
+      "key": "map-player",
+      "group": "Map",
+      "element": "player position and compass",
+      "variant": null,
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-adventure",
+          "pattern": "compass|arrow|player"
+        },
+        {
+          "pack": "kenney-minimap-pack",
+          "pattern": "arrow|player|compass"
+        }
+      ]
+    },
+    {
+      "key": "map-destination",
+      "group": "Map",
+      "element": "approximate destination marker",
+      "variant": null,
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-adventure",
+          "pattern": "exclamation|star|flag"
+        },
+        {
+          "pack": "kenney-minimap-pack",
+          "pattern": "marker|flag|star"
+        }
+      ]
+    },
+    {
+      "key": "map-fog",
+      "group": "Map",
+      "element": "unknown, hinted and revealed fog states",
+      "variant": "V-MAP-FOG",
+      "candidates": [
+        {
+          "pack": "kenney-minimap-pack",
+          "pattern": "fog|cloud|mask"
+        },
+        {
+          "pack": "kenney-map-pack",
+          "pattern": "fog|cloud"
+        }
+      ]
+    },
+    {
+      "key": "map-locked",
+      "group": "Map",
+      "element": "map locked and unlocked menu state",
+      "variant": null,
+      "candidates": [
+        {
+          "pack": "kenney-ui-pack-pixel-adventure",
+          "pattern": "lock|(?:^|[/_-])key|padlock"
+        },
+        {
+          "pack": "kenney-ui-pack-adventure",
+          "pattern": "lock|(?:^|[/_-])key"
+        }
+      ]
+    }
+  ]
+}

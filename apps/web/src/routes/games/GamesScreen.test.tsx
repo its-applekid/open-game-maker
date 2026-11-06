@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, type InitialEntry } from 'react-router';
 
 import { GamesScreen } from './GamesScreen';
 
@@ -85,10 +85,18 @@ function json(body: unknown, status = 200) {
 
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+  return (
+    <>
+      <output data-testid="location">{`${location.pathname}${location.search}`}</output>
+      <output data-testid="location-state">{JSON.stringify(location.state ?? null)}</output>
+    </>
+  );
 }
 
-function renderGames(entry = '/all', client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+function renderGames(
+  entry: InitialEntry = '/all',
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[entry]}>
@@ -156,6 +164,8 @@ describe('GamesScreen', () => {
     setGridColumns(3);
     const { container } = renderGames('/all?test');
 
+    // The selection and the spotlight mount either side of a paint; allow for a
+    // slow first render under the fully parallel suite.
     expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' }, AUTO_SELECT)).toBeVisible();
     expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_1');
     expect(container.querySelectorAll('.game-tile')).toHaveLength(count);
@@ -171,6 +181,18 @@ describe('GamesScreen', () => {
     expect(screen.queryByRole('region', { name: /spotlight/ })).toBeNull();
     expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight');
     expect(container.querySelectorAll('.game-tile')).toHaveLength(4);
+  });
+
+  it('keeps the grid dismissed after the closing navigation lands', async () => {
+    renderGames('/games?test');
+    fireEvent.click(await screen.findByRole('button', { name: /Goblin Cellar/ }));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Close game' }), { key: 'Escape' });
+
+    await waitFor(() => expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight'));
+    expect(screen.getByTestId('location-state')).toHaveTextContent('{"spotlightDismissed":true}');
+    expect(screen.queryByRole('region', { name: /spotlight/ })).toBeNull();
   });
 
   it('waits for active jobs before selecting the first sorted game', async () => {

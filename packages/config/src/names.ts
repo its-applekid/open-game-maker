@@ -13,6 +13,7 @@ export const OGM_ENV_UNITS = [
   'backup',
   'gm',
   'web',
+  'core-bump',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -277,5 +278,29 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     unit: 'commit',
     kind: 'secret',
     doc: 'optional HMAC secret for GitHub pull-request webhooks',
+  },
+  {
+    name: 'OGM_CORE_BUMP_REPOS',
+    unit: 'core-bump',
+    kind: 'string',
+    doc: 'comma-separated owner/repository of every instance repository kept on the core',
+  },
+  {
+    name: 'OGM_CORE_BUMP_CORE_REPO',
+    unit: 'core-bump',
+    kind: 'string',
+    doc: 'owner/repository of the core an instance repository pins',
+  },
+  {
+    name: 'OGM_CORE_BUMP_CORE_BRANCH',
+    unit: 'core-bump',
+    kind: 'string',
+    doc: 'core branch instances follow (default main)',
+  },
+  {
+    name: 'OGM_CORE_BUMP_WORK_DIR',
+    unit: 'core-bump',
+    kind: 'path',
+    doc: '~/.local/state/ogm/core-bump (scratch clones)',
   },
 ];

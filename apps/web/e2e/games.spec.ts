@@ -77,6 +77,12 @@ test('browses three real game tiles with the keyboard', async ({ page }) => {
 
   await page.keyboard.press('Escape');
   await expect.poll(() => page.url()).not.toContain('spotlight');
+  // Closing the select view remounts the screen; the library used to re-select
+  // the first game once that navigation landed, so assert the dismissed grid.
+  await page.waitForTimeout(200);
+  expect(page.url()).not.toContain('spotlight');
+  await expect(page.locator('.games-spotlight')).toHaveCount(0);
+  await expect(tiles).toHaveCount(3);
 });
 
 test('keeps spotlight actions and the fixed New game control touch sized on a phone', async ({ page }, testInfo) => {

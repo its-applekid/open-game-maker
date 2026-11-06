@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
 import { registerTestApi } from '../../app/testHook';
 import { CopyLink } from './CopyLink';
@@ -20,7 +20,10 @@ const gamesTestSnapshot: { selected: string | null; tiles: string[] } = { select
 
 export function GamesScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const spotlightDismissed = isSpotlightDismissed(location.state);
+
   const gamesQuery = useGames();
   const jobsQuery = useActiveJobs();
   const games = gamesQuery.data ?? [];
@@ -44,7 +47,7 @@ export function GamesScreen() {
     initialViewChosen.current = true;
     const next = new URLSearchParams(searchParams);
     next.set('spotlight', game.id);
-    setSearchParams(next);
+    setSearchParams(next, { state: null });
   };
 
   const close = () => {
@@ -52,7 +55,7 @@ export function GamesScreen() {
     const returningTo = selected?.id;
     const next = new URLSearchParams(searchParams);
     next.delete('spotlight');
-    setSearchParams(next);
+    setSearchParams(next, { state: { spotlightDismissed: true } });
     queueMicrotask(() => {
       if (!returningTo) return;
       const cell = [...(gridRef.current?.querySelectorAll<HTMLElement>('[data-game-id]') ?? [])].find(
@@ -86,7 +89,7 @@ export function GamesScreen() {
     if (gridCapacity === null) return;
 
     initialViewChosen.current = true;
-    if (selectedId || !fitsThumbnailRow) return;
+    if (selectedId || spotlightDismissed || !fitsThumbnailRow) return;
     const next = new URLSearchParams(searchParams);
     next.set('spotlight', sortedGames[0]!.id);
     setSearchParams(next, { replace: true });
@@ -99,6 +102,7 @@ export function GamesScreen() {
     selectedId,
     setSearchParams,
     sortedGames,
+    spotlightDismissed,
   ]);
 
   useLayoutEffect(() => {
@@ -182,6 +186,17 @@ export function GamesScreen() {
         <span>New game</span>
       </button>
     </div>
+  );
+}
+
+// Changing the spotlight changes the screen error boundary's key, so the route
+// remounts this screen while the closing navigation lands. The dismissal rides
+// along on the history entry so the few-games select view stays dismissed.
+function isSpotlightDismissed(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    (state as { spotlightDismissed?: unknown }).spotlightDismissed === true
   );
 }
 

@@ -1,0 +1,19 @@
+# OGM instance core bump. Installed by ops/bin/ogm-host-setup.sh (replaces @REPO@). Logs: journalctl --user -u ogm-core-bump
+# The GitHub App credentials come from the commit unit's file so one installation covers the instance repositories.
+[Unit]
+Description=OGM instance core bump
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Slice=ogm.slice
+Environment=OGM_REPO=@REPO@
+EnvironmentFile=-%h/.config/ogm/env/core-bump.env
+EnvironmentFile=-%h/.config/ogm/env/ogm-commit.env
+ExecStart=@REPO@/ops/bin/ogm-run core-bump
+UMask=0077
+NoNewPrivileges=yes
+TimeoutStartSec=30min
+LogRateLimitIntervalSec=30
+LogRateLimitBurst=1000

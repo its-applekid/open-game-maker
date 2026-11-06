@@ -26,6 +26,7 @@ describe('OGM_ENV_NAMES', () => {
       'backup',
       'gm',
       'web',
+      'core-bump',
     ]);
   });
 });

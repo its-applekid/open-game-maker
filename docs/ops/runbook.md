@@ -88,6 +88,7 @@ fallback when it is blank.
 | `backup.env` | `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_BACKUP_TARGET` | |
 | `ogm-commit.env` | `OGM_COMMIT_PORT`, `OGM_DATA_DIR`, `OGM_API_INTERNAL_URL`, `OGM_PLATFORM_ISSUE_REPO`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `OGM_BUILDER_BOT_LOGIN` | `OGM_BLOCKLIST_FILE`, `OGM_GITHUB_WEBHOOK_SECRET` |
 | `repair.env` | `OGM_API_INTERNAL_URL`, `OGM_GAMES_ROOT`; no unit runs `services/repair` yet | |
+| `core-bump.env` | `OGM_CORE_BUMP_REPOS`, `OGM_CORE_BUMP_CORE_REPO`; the App credentials come from `ogm-commit.env` | `OGM_CORE_BUMP_CORE_BRANCH`, `OGM_CORE_BUMP_WORK_DIR` |
 
 Names read by more than one unit must hold the same value in each file:
 
@@ -105,12 +106,13 @@ Names read by more than one unit must hold the same value in each file:
 | `OGM_VOICE_TOKEN_SECRET`, `OGM_VOICE_INTERNAL_SECRET` | `api`, `voice-host` |
 | `OGM_COMMIT_SERVICE_TOKEN` | `api`, `ogm-commit` |
 | `OGM_INTERNAL_TOKEN` | `api`, `ogm-commit`, `repair` |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY_PATH` | `ogm-commit`, `core-bump` (the core-bump unit loads `ogm-commit.env`) |
 
 The API's internal URLs carry the other units' ports: `OGM_ROOMS_INTERNAL_URL` uses `OGM_ROOMS_PORT`,
 `OGM_VOICE_HOST_INTERNAL_URL` uses `OGM_VOICE_INTERNAL_PORT`, `OGM_COMMIT_INTERNAL_URL` uses `OGM_COMMIT_PORT`.
 `ogm-env-init` writes every `[shared]` name into every file; a unit ignores the ones it does not read.
 `AIUR_ERLANG_COOKIE` and `GITHUB_TOKEN` (`[aiur]`) go in `~/.aiur/.env`; the fleet writes them into each
-`ogm-aiur@<slug>.env`. `AIUR_API_URL`, `AIUR_API_TOKEN` and `GITHUB_APP_INSTALLATION_ID` are read by no unit today, and
+`ogm-aiur@<slug>.env`. `AIUR_API_URL` and `AIUR_API_TOKEN` are read by no unit today, and
 the `[gm]` names belong to the `gm` CLI, not a unit.
 
 ### Rotation
@@ -180,6 +182,27 @@ the restored `data` and `blobs` to the paths in the env files, start the units. 
 recreate the ones the manifest lists with `ogm-env-init`.
 
 `bash ops/test/backup-restore.sh` runs the same drill against a `local:` target in temp directories (CI runs it).
+
+## Core bump
+
+`ogm-core-bump.timer` runs `services/core-bump` every 15 minutes (`OnBootSec=5min`, then every 15 minutes after that).
+Each tick reads
+the core repository's branch head and compares it with the commit an instance repository pins in its `vendor/core.json`;
+when they differ it runs that repository's `scripts/bump-core.sh` in a scratch clone and opens a `core-bump/<sha>` pull
+request. It never merges: the instance repository's own checks gate the merge. A repository without `vendor/core.json`,
+and one that already has a core bump pull request open, are left alone.
+
+```
+systemctl --user list-timers ogm-core-bump.timer
+journalctl --user -u ogm-core-bump -f
+systemctl --user start ogm-core-bump        # one tick now
+```
+
+`core-bump.env` names the instance repositories (`OGM_CORE_BUMP_REPOS`, comma-separated owner/repository) and the core
+(`OGM_CORE_BUMP_CORE_REPO`). The unit also reads `ogm-commit.env`, so the GitHub App installed on the instance
+repositories is the same one the commit service uses. The core repository must be public: its head commit is read
+without a token. Scratch clones live in `OGM_CORE_BUMP_WORK_DIR` (`~/.local/state/ogm/core-bump`). Details:
+[services/core-bump/README.md](../../services/core-bump/README.md).
 
 ## Disk and journal
 

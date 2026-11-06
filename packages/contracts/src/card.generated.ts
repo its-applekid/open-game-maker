@@ -116,6 +116,37 @@ export const assetCardMetaDefs: Record<string, object> = {
         },
         "description": "Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards."
       },
+      "texture_sizes": {
+        "type": "array",
+        "description": "Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB.",
+        "items": {
+          "type": "object",
+          "required": [
+            "key",
+            "width_px",
+            "height_px"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "width_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height_px": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "max_texture_px": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Largest texture dimension on this model: the number a device-tier texture cap is compared against."
+      },
       "has_collision_mesh": {
         "type": "boolean"
       },
@@ -3335,6 +3366,18 @@ export interface Geometry {
    * Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards.
    */
   texture_keys?: string[];
+  /**
+   * Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB.
+   */
+  texture_sizes?: {
+    key: string;
+    width_px: number;
+    height_px: number;
+  }[];
+  /**
+   * Largest texture dimension on this model: the number a device-tier texture cap is compared against.
+   */
+  max_texture_px?: number;
   has_collision_mesh?: boolean;
   lod_count?: number;
   /**
@@ -3648,9 +3691,13 @@ export interface Audio {
     tempo_bpm?: number;
   };
   /**
-   * Optional Universal Category System CatID (e.g. DOORWood), model-proposed, for SFX.
+   * Optional Universal Category System CatID (e.g. DOORWood), read from a UCS filename and otherwise model-proposed, for SFX.
    */
   ucs_cat_id?: string;
+  /**
+   * The set a sound effect belongs to: its folder and name with the trailing variation number removed (weapons/sword-slice for Sword_Slice_01 and _02). Shared by every file of the set, so 'give me four sword impacts' is one group query. A file with no sibling carries no group.
+   */
+  variation_group?: string;
 }
 export interface Font {
   family: string;
