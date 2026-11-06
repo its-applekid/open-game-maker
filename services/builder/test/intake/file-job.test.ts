@@ -269,6 +269,8 @@ describe('fileJob', () => {
       'nudge:1',
     ]);
     expect(input.db.select().from(schema.scopeSessions).get()?.ticket).toBe('1');
+    // The daemon is keyed by the game's slug, not its repository: two games in one instance repo get their own daemon.
+    expect(input.fleet.ensureDaemon).toHaveBeenCalledWith({ slug: 'castle-run', repo: 'owner/game' }, 'feature');
     close(input);
   });
 
