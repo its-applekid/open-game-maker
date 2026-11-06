@@ -1,8 +1,8 @@
 import type { JoinOptions } from '@ogm/contracts';
 import type { RoomState, ServerMessage } from '@ogm/contracts';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createRoomConnection, TRANSPORT_PROTOCOL } from './index';
+import { createRoomConnection, envIceUrls, TRANSPORT_PROTOCOL } from './index';
 import type { ClientTransport, RoomTransport } from './room-client';
 
 /**
@@ -117,6 +117,21 @@ async function connect(protocol: number, options: { signal?: boolean } = {}) {
   });
   return { connection, room, signalled };
 }
+
+describe('envIceUrls', () => {
+  afterEach(() => vi.unstubAllEnvs());
+
+  it('keeps public resolvers and refuses a URL that embeds credentials', () => {
+    vi.stubEnv('VITE_ICE_URLS', 'stun:stun.example , turn:user:pass@turn.example, http://elsewhere.example');
+    // A credential in a URL would ship in the bundle; only credential-free STUN/TURN URLs survive.
+    expect(envIceUrls()).toEqual(['stun:stun.example']);
+  });
+
+  it('is empty when the operator set nothing, which leaves host candidates only', () => {
+    vi.stubEnv('VITE_ICE_URLS', '');
+    expect(envIceUrls()).toEqual([]);
+  });
+});
 
 describe('createRoomConnection transport wiring', () => {
   it('never builds a switchboard for a v1 room, so the message flow is unchanged', async () => {

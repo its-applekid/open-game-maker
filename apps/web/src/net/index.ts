@@ -126,10 +126,14 @@ export function createRoomConnection(options: CreateRoomConnectionOptions): Room
 export function envIceUrls(): readonly string[] {
   const raw = import.meta.env.VITE_ICE_URLS;
   if (typeof raw !== 'string') return [];
-  return raw
-    .split(',')
-    .map((url) => url.trim())
-    .filter((url) => url.startsWith('stun:') || url.startsWith('turn:') || url.startsWith('turns:'));
+  return (
+    raw
+      .split(',')
+      .map((url) => url.trim())
+      .filter((url) => url.startsWith('stun:') || url.startsWith('turn:') || url.startsWith('turns:'))
+      // A credential embedded in a URL would ship in the bundle; TURN credentials are minted by the API at join instead.
+      .filter((url) => !url.includes('@'))
+  );
 }
 
 async function fetchDesignSnapshot(pin: Parameters<SnapshotFetcher>[0], rev: number): Promise<DesignSnapshot> {

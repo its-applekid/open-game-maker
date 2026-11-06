@@ -77,7 +77,9 @@ export function createSwitchboard(options: SwitchboardOptions): TransportSwitchb
 
   relay
     .open({
-      message: (channel, seat, bytes) => options.onMessage?.(channel, seat, bytes),
+      // The relay's inbound already reaches the app through the `RoomClient` subscription the bridge owns; forwarding it
+      // here as well would hand every message to `onMessage` twice. `onMessage` carries pair traffic only.
+      message: () => {},
       stats: () => {},
       closed: () => {},
     })

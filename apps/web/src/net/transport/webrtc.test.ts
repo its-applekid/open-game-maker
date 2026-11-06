@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { encodeInputFrame, encodeStateFrame } from './frames';
+import { encodeEventFrame, encodeInputFrame, encodeStateFrame } from './frames';
 import { FakePeerConnection, FakeSignalBus } from './test-support';
 import type { TransportHandlers } from './types';
 import { PEER_CHANNEL, WebRtcTransport, webRtcAvailable } from './webrtc';
@@ -58,6 +58,7 @@ function linkedPeers(): [FakePeerConnection, FakePeerConnection] {
 }
 
 afterEach(() => {
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -152,7 +153,6 @@ describe('WebRtcTransport', () => {
     opened.catch(() => {});
     await vi.advanceTimersByTimeAsync(100);
     await expect(opened).rejects.toThrow('timed out');
-    vi.useRealTimers();
   });
 
   it('reads the round trip from the nominated candidate pair', async () => {
@@ -164,6 +164,35 @@ describe('WebRtcTransport', () => {
     ];
     await offerer.pollStats();
     expect(offerer.stats().rttMs).toBeCloseTo(30, 5);
+  });
+
+  it('drops an event frame a peer puts on the pair instead of giving it a second authority', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const bus = new FakeSignalBus();
+    const [a, b] = linkedPeers();
+    const own = new WebRtcTransport({
+      seat: 1,
+      role: 'offerer',
+      signal: bus.endpoint(0),
+      peerConnectionFactory: () => a,
+      pollEveryMs: 0,
+    });
+    const remote = new WebRtcTransport({
+      seat: 0,
+      role: 'answerer',
+      signal: bus.endpoint(1),
+      peerConnectionFactory: () => b,
+      pollEveryMs: 0,
+    });
+    const ownHandlers = handlers();
+    const remoteOpen = remote.open(handlers().transportHandlers);
+    await own.open(ownHandlers.transportHandlers);
+    await remoteOpen;
+    // The pair's own channel receives the frame, so the transport that owns it is the one that must refuse it.
+    a.channels[0]!.deliver(encodeEventFrame(1, new Uint8Array([9])));
+    expect(ownHandlers.messages).toEqual([]);
+    expect(own.stats().drops).toBe(1);
+    expect(warn).toHaveBeenCalledTimes(1);
   });
 
   it('tells its handlers when the data channel closes under a live pair', async () => {

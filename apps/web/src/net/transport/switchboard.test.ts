@@ -14,6 +14,7 @@ function harness(options: { rttMs?: number; candidateRttMs?: (seat: number) => n
   const relay = new FakeTransport({ kind: 'ws-relay', seat: -1, stats: { rttMs: options.rttMs ?? 95, lossPct: 0 } });
   const candidates = new Map<number, FakeTransport>();
   const notices: TransportNotice[] = [];
+  const inbound: Array<{ channel: string; seat: number; bytes: Uint8Array }> = [];
   const bus = new FakeSignalBus();
   const board = createSwitchboard({
     relay,
@@ -36,9 +37,10 @@ function harness(options: { rttMs?: number; candidateRttMs?: (seat: number) => n
           },
         }),
     announce: (notice) => notices.push(notice),
+    onMessage: (channel, seat, bytes) => inbound.push({ channel, seat, bytes }),
   });
   const flush = () => Promise.resolve();
-  return { board, relay, candidates, notices, clock, flush };
+  return { board, relay, candidates, notices, clock, flush, inbound };
 }
 
 const input = encodeInputFrame({ seq: 1, tick: 1, axes: [1], buttons: 0 });
@@ -179,6 +181,20 @@ describe('createSwitchboard', () => {
     board.evaluate();
     await Promise.resolve();
     expect(created).toBe(2);
+  });
+
+  it('hands pair traffic to onMessage and leaves relay traffic to the room subscription', async () => {
+    const { board, relay, candidates, clock, flush, inbound } = harness();
+    board.evaluate();
+    clock.now = 5_000;
+    board.evaluate();
+    await flush();
+    clock.now = 6_000;
+    board.evaluate();
+    relay.deliver('input', 1, input);
+    expect(inbound).toEqual([]);
+    candidates.get(1)!.deliver('input', 1, input);
+    expect(inbound).toEqual([{ channel: 'input', seat: 1, bytes: input }]);
   });
 
   it('reports one entry per remote seat', () => {

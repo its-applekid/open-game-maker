@@ -18,6 +18,9 @@ import {
 
 export const PEER_CHANNEL = 'ogm-input';
 
+/** A hard ceiling on an inbound signalling payload; N3's own `net.signal` cap is 4 KiB. */
+export const MAX_SIGNAL_CHARS = 16_384;
+
 export type SignalSink = {
   /** Send one opaque signalling payload to `to` (N3's `net.signal { epoch, to, data }`). */
   send(to: number, data: string): void;
@@ -289,7 +292,14 @@ export class WebRtcTransport implements Transport {
       this.handlers?.message('input', this.seat, bytes);
       return;
     }
-    if (tag === FRAME_EVENT) this.handlers?.message('event', this.seat, bytes);
+    if (tag === FRAME_EVENT) {
+      // A peer that puts an event on the pair would give the same event two authorities; the relay keeps that channel.
+      this.drops += 1;
+      if (!this.warnedEvent) {
+        this.warnedEvent = true;
+        console.warn('Dropped an event frame received on a WebRTC pair; events stay on the relay');
+      }
+    }
   }
 
   private async offer(peer: PeerConnectionLike): Promise<void> {
@@ -301,6 +311,9 @@ export class WebRtcTransport implements Transport {
   private async acceptSignal(data: string): Promise<void> {
     const peer = this.peer;
     if (peer === undefined || this.closed) return;
+    // N3 caps `net.signal` at 4 KiB; refuse anything wildly past it before parsing, so a hostile peer cannot make this
+    // client allocate an SDP it never intended to accept.
+    if (data.length > MAX_SIGNAL_CHARS) return;
     const payload = parseSignal(data);
     if (payload === undefined) return;
     if (payload.candidate !== undefined) {
