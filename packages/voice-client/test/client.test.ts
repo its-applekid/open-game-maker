@@ -35,6 +35,10 @@ class FakeWebSocket {
   readyState = FakeWebSocket.CONNECTING;
   sent: string[] = [];
   listeners = new Map<string, Set<Listener>>();
+  close = vi.fn(() => {
+    this.readyState = 3;
+    this.emit('close', { code: 1000 });
+  });
 
   constructor(readonly url: string) {
     FakeWebSocket.instances.push(this);
@@ -88,6 +92,8 @@ async function startedClient() {
 }
 
 describe('VoiceClient', () => {
+  let visibility: EventTarget & { visibilityState: string };
+
   beforeEach(() => {
     FakeWebSocket.instances = [];
     audio.players.length = 0;
@@ -99,6 +105,9 @@ describe('VoiceClient', () => {
       return { stop: audio.captureStop, context: {} };
     });
     vi.stubGlobal('WebSocket', FakeWebSocket);
+    visibility = new EventTarget() as EventTarget & { visibilityState: string };
+    visibility.visibilityState = 'visible';
+    vi.stubGlobal('document', visibility);
   });
 
   afterEach(() => {
@@ -131,6 +140,32 @@ describe('VoiceClient', () => {
     expect(FakeWebSocket.instances).toHaveLength(1);
     FakeWebSocket.instances[0]!.open();
     await Promise.all([first, second]);
+  });
+
+  it('cancels a pending start without reopening the session', async () => {
+    const client = new VoiceClient({
+      url: 'ws://127.0.0.1:4567/voice',
+      token: 'token',
+      target: { id: 'ticket-42' },
+    });
+    const ended: string[] = [];
+    const errors: string[] = [];
+    client.on('ended', (frame) => ended.push(frame.reason));
+    client.on('error', (frame) => errors.push(frame.code));
+
+    const started = client.startFromGesture();
+    await vi.waitFor(() => expect(FakeWebSocket.instances).toHaveLength(1));
+    const socket = FakeWebSocket.instances[0]!;
+    client.end();
+
+    await expect(started).resolves.toBeUndefined();
+    socket.open();
+
+    expect(socket.sent).toEqual([]);
+    expect(socket.close).toHaveBeenCalledOnce();
+    expect(audio.captureStop).toHaveBeenCalledOnce();
+    expect(ended).toEqual(['user_end']);
+    expect(errors).toEqual([]);
   });
 
   it('ignores a failed socket closing after a retry connects', async () => {
@@ -218,11 +253,26 @@ describe('VoiceClient', () => {
 
   it('ends the wire session and releases browser audio resources', async () => {
     const { client, socket } = await startedClient();
+    const ended: string[] = [];
+    client.on('ended', (frame) => ended.push(frame.reason));
 
     client.end();
 
     expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ type: 'end' });
     expect(audio.captureStop).toHaveBeenCalledOnce();
     expect(audio.players[0]?.close).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
+    expect(ended).toEqual(['user_end']);
+  });
+
+  it('ends and closes the session when the page is hidden', async () => {
+    const { socket } = await startedClient();
+
+    visibility.visibilityState = 'hidden';
+    visibility.dispatchEvent(new Event('visibilitychange'));
+
+    expect(JSON.parse(socket.sent.at(-1)!)).toMatchObject({ type: 'end' });
+    expect(audio.captureStop).toHaveBeenCalledOnce();
+    expect(socket.close).toHaveBeenCalledOnce();
   });
 });

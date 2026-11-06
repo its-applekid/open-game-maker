@@ -29,4 +29,29 @@ describe('OGM_ENV_NAMES', () => {
       'core-bump',
     ]);
   });
+
+  it('keeps live ElevenLabs credentials and cleanup state in the voice-host unit', () => {
+    expect(
+      OGM_ENV_NAMES.filter(({ name }) => name.startsWith('ELEVENLABS_') || name === 'OGM_VOICE_CLEANUP_ROOT'),
+    ).toEqual([
+      {
+        name: 'ELEVENLABS_API_KEY',
+        unit: 'voice-host',
+        kind: 'secret',
+        doc: 'ElevenLabs API key for live dictation, conversations and narration',
+      },
+      {
+        name: 'ELEVENLABS_AGENT_ID',
+        unit: 'voice-host',
+        kind: 'string',
+        doc: 'ElevenLabs hosted conversational-agent id',
+      },
+      {
+        name: 'OGM_VOICE_CLEANUP_ROOT',
+        unit: 'voice-host',
+        kind: 'path',
+        doc: 'durable provider-conversation cleanup queue',
+      },
+    ]);
+  });
 });

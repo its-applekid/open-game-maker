@@ -22,9 +22,10 @@ defmodule OgmVoice.TokenTest do
 
       case expected do
         "ok" ->
-          assert {:ok, %{scope: "converse", subject: sub, expires_at: exp, target: target}} = result
+          assert {:ok, %{scope: "converse", subject: sub, expires_at: exp, target: target, nonce: nonce}} = result
           assert sub == vector["sub"]
           assert target == vector["target"]
+          assert is_binary(nonce) and nonce != ""
           assert DateTime.to_unix(exp) == vector["exp"]
 
         reason ->

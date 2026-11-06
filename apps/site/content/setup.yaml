@@ -389,11 +389,15 @@ steps:
         writes: [~/.config/ogm/env/api.env]
         check: complete the iPhone check in docs/ops/netlify-proxy.md, including Start → email → magic link with no birth-date step
         cites: [docs/ops/netlify-proxy.md, .env.example]
-      - kind: optional
-        text: Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending.
-        command: '# Keep OGM_VOICE_PROVIDER=fake in voice-host.env for the no-spend setup.'
-        writes: [~/.config/ogm/env/voice-host.env]
-        check: grep '^OGM_VOICE_PROVIDER=fake$' ~/.config/ogm/env/voice-host.env
+      - kind: hand
+        text: Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values.
+        command: |-
+          # No-spend default: keep OGM_VOICE_PROVIDER=fake in voice-host.env.
+          # Live only after accepting provider charges: set OGM_VOICE_PROVIDER=elevenlabs_agents,
+          # ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, OGM_VOICE_LLM, and an absolute
+          # durable OGM_VOICE_CLEANUP_ROOT in voice-host.env, then restart ogm-voice-host.
+        writes: [~/.config/ogm/env/voice-host.env, <voice-cleanup-root>]
+        check: curl --fail --silent http://127.0.0.1:40401/healthz
         cites: [services/voice-host/README.md, .env.example]
       - kind: run
         text: Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
