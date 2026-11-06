@@ -260,6 +260,27 @@ class Pipeline(unittest.TestCase):
         card = json.loads(output.read_text())
         self.assertEqual(card["describe"]["description"], "Kevin's barrel")
 
+    def test_a_rerun_keeps_facts_this_pipeline_does_not_measure_while_bytes_are_unchanged(self):
+        old = {"source": {"content_hash": "sha256:same"},
+               "geometry": {"triangles": 1, "texture_sizes": [256]},
+               "describe": {"description": "Kevin's barrel", "keywords": ["barrel"]},
+               "rig": {"rig_id": "rig:old"}, "flags": ["needs-review", "oversized-for-mobile"],
+               "keywords": ["curated"]}
+        new = {"source": {"content_hash": "sha256:same"}, "geometry": {"triangles": 2},
+               "describe": {"style_family": "chunky-low-poly"}, "provenance": {"*": {"tool": pipe.TOOL}}}
+        merged = pipe.carry_forward(old, new)
+        self.assertEqual(merged["geometry"], {"triangles": 2, "texture_sizes": [256]})
+        self.assertEqual(merged["describe"], {"style_family": "chunky-low-poly",
+                                              "description": "Kevin's barrel", "keywords": ["barrel"]})
+        self.assertEqual(merged["flags"], ["needs-review"])
+        self.assertEqual(merged["keywords"], ["curated"])
+        self.assertNotIn("rig", merged)
+
+    def test_a_changed_source_carries_nothing_forward(self):
+        old = {"source": {"content_hash": "sha256:one"}, "geometry": {"texture_sizes": [256]}}
+        new = {"source": {"content_hash": "sha256:two"}, "geometry": {"triangles": 2}}
+        self.assertEqual(pipe.carry_forward(old, new), new)
+
     def test_qa_report_names_conversion_failures_and_models_over_the_mobile_budget(self):
         model = self.models()["kenney-a"]
         results = {model.uid: {"ok": True, "output": "packs/kenney-a/thumbnails/x.png",

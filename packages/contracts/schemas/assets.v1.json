@@ -770,6 +770,40 @@
                     },
                     "description": "Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards."
                   },
+                  "texture_sizes": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "width_px": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        },
+                        "height_px": {
+                          "type": "integer",
+                          "minimum": 1,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "required": [
+                        "key",
+                        "width_px",
+                        "height_px"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "description": "Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB."
+                  },
+                  "max_texture_px": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 9007199254740991,
+                    "description": "Largest texture dimension on this model: the number a device-tier texture cap is compared against."
+                  },
                   "has_collision_mesh": {
                     "type": "boolean"
                   },

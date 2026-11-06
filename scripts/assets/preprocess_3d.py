@@ -170,6 +170,34 @@ def build_card(model: kaykit.Model, style: three_d.StyleEntry, analysis: dict, g
     return card
 
 
+# Top-level keys this pipeline measures and therefore owns on every run.
+OWNED = ("schema", "vocab", "id", "card_type", "status", "title", "collection", "source", "previews",
+         "kind", "subkind", "rig", "geometry", "describe", "provenance")
+TIER_FLAG = "oversized-for-mobile"
+
+
+def carry_forward(old: dict, new: dict) -> dict:
+    """Keep facts this pipeline does not measure while a card's source bytes are unchanged.
+
+    `preprocess_kaykit.py` cards KayKit models with extra measured fields (texture sizes, layer-1
+    name tags) that a 3D run over the same pack must not throw away. The source `content_hash` is
+    the cache key the schema already defines for exactly this, so nothing is carried when the bytes
+    moved. Fields this pipeline measures always win, and curation flags survive except the tier flag
+    it decides.
+    """
+    if old.get("source", {}).get("content_hash") != new.get("source", {}).get("content_hash"):
+        return new
+    merged = {key: value for key, value in json.loads(json.dumps(old)).items() if key not in OWNED}
+    merged.update(json.loads(json.dumps(new)))
+    for section in ("describe", "geometry", "provenance"):
+        merged[section] = {**old.get(section, {}), **new.get(section, {})}
+    flags = [flag for flag in old.get("flags", []) if flag != TIER_FLAG] + list(new.get("flags", []))
+    merged.pop("flags", None)
+    if flags:
+        merged["flags"] = flags
+    return merged
+
+
 def write_cards(root: Path, models: list[kaykit.Model], results: dict, styles: dict, generated: str,
                 cell_m: float) -> int:
     source_cache: dict = {}
@@ -181,7 +209,8 @@ def write_cards(root: Path, models: list[kaykit.Model], results: dict, styles: d
         card = build_card(model, styles[model.pack_id], result["analysis"], generated, cell_m, source_cache)
         output = root / "packs" / model.pack_id / "cards" / f"{model.key}.card.json"
         if output.exists():
-            card = kaykit.preserve_unchanged(json.loads(output.read_text()), card)
+            old = json.loads(output.read_text())
+            card = kaykit.preserve_unchanged(old, carry_forward(old, card))
         pairs.append((output, card))
     kaykit.validate([card for _, card in pairs])
     for output, card in pairs:
