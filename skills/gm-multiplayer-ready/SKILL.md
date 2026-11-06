@@ -128,23 +128,23 @@ missing or empty in the `net` hooks (6), and a HUD that never reads `players.get
 usage error or no `gm.manifest.json`. Ambiguous shapes print as notes; read them. Rules 5 and 8 need two running
 clients. It needs `typescript` installed in the game (the template has it).
 
-## Two-client verify
+## Multi-client verify
 
-Run it after a conversion, after changing snapshots or input, and before calling a multiplayer feature done. It runs
-on the platform host against a local rooms service, never the public hostname, from the platform repository; from a
-game directory, ask the platform to run it:
+Run it after a conversion, after changing snapshots or input, and before calling a multiplayer feature done, from the platform repository against a local rooms service (never the public hostname):
 
 ```sh
-pnpm --filter @ogm/gm-verify scenario two-client --game <gameDir> --out shots/mp
+pnpm --filter @ogm/gm-verify scenario multi-client --game <gameDir> --link bad --out shots/mp
 ```
 
-Two browsers join one room and it asserts: welcome within 2 s, the watcher's design equals the host's at each rev,
-a private canary never reaches the watcher, the peer is playing within 500 ms of Play, peer input moves the peer's
-avatar in the host's snapshot, host loss pauses then ends the room, and a draft load reaches both clients. Its
-report says `clients: 2` and lists what it could not check (WAN latency, iPhone Safari). It prints `report <path>`
-and exits 0 on pass, 1 on a failure and 2 on a usage error.
+Four browsers take four seats in one protocol-2 room and it asserts: every seat welcomed within 2 s and seated 0–3, a
+private canary never reaches a watcher, the watchers' design equals the primary's at each rev, all four playing in
+500 ms of the start, each peer's input moving its own avatar while the primary's does not, a 3 s drop rejoining its seat
+and a longer one forfeiting it without ending the room, and a draft load reaching all four. The report carries
+`clients: 4` and one `seats[]` entry per seat (ticks, RTT, delay p95s, desyncs, recoveries). `--link clean` is the same
+steps unimpaired; `--link @<report.json>` replays from its seed. A v1 room uses `scenario two-client` instead.
 
 ## Done
 
 Done means `gm check`, `gm test` and the checker are green, `gm run` shows two avatars when two seats are spawned,
-and the two-client verify passed for any change to networking. After `gm run`, post a still with `gm chat post`.
+and the matching verify passed for any networking change (`multi-client` for a v2 game, `two-client` for a v1 one).
+After `gm run`, post a still with `gm chat post`.

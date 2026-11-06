@@ -130,7 +130,7 @@ function localPlayer(playerIndex: number): NetPlayer {
   return { playerIndex, name: `Player ${playerIndex + 1}`, connected: true };
 }
 
-function playerId(playerIndex: number): string {
+export function playerId(playerIndex: number): string {
   return `p${playerIndex}`;
 }
 

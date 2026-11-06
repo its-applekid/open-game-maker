@@ -1,0 +1,21 @@
+/*
+ * The diagnostics overlay (design §8.2): a debug surface over the game frame, not product chrome. It uses the shared
+ * tokens like every other surface — colours live in tokens.css only — and paints nothing but the four lines.
+ */
+.diagnostics-overlay {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  pointer-events: none;
+  padding: 4px 6px;
+  font:
+    12px ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  line-height: 16px;
+  white-space: pre;
+  color: var(--gruvbox-fg);
+  background: color-mix(in srgb, var(--gruvbox-bg0-h) 78%, transparent);
+}

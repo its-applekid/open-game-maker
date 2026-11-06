@@ -20,7 +20,8 @@ import {
 } from './codec.js';
 import { HostChannel } from './host.js';
 import { PeerChannel, type WireSnapshot } from './peer.js';
-import { NET_STATE_CHANGES, RoleStore, type NetPlayer, type NetRole, type NetStateChanges } from './roles.js';
+import { NET_STATE_CHANGES, playerId, RoleStore, type NetPlayer, type NetRole, type NetStateChanges } from './roles.js';
+import { EventDelayRing } from './diagnostics.js';
 import { ModeMismatchError, resolveAuthorityMode } from './mode.js';
 import { PerSeatMode, type PerSeatDiagnostics } from './modes/per-seat.js';
 
@@ -68,6 +69,12 @@ export interface NetDiagnostics extends PerSeatDiagnostics {
   outOfOrderSnapshots: number;
   stalls: number;
   oversized: number;
+  /** How long the last event that arrived from the room waited before the game was handed it. 0 before the first. */
+  eventDelayMs: number;
+  /** Nearest-rank p95 of the last {@link EVENT_DELAY_SAMPLES} deliveries; 0 while the ring is empty. */
+  eventDelayP95Ms: number;
+  /** Bytes the codec refused, as well as the `oversized` count of refusals. */
+  droppedBytes: number;
 }
 
 export interface NetControllerOptions {
@@ -148,7 +155,15 @@ export function createNetController(options: NetControllerOptions): NetControlle
     outOfOrderSnapshots: 0,
     stalls: 0,
     oversized: 0,
+    eventDelayMs: 0,
+    eventDelayP95Ms: 0,
+    droppedBytes: 0,
   };
+  /* When each buffered event arrived from the room, so the delivery delay is measured in the event channel itself. */
+  const eventArrivedAt = new Map<number, number>();
+  const eventDelays = new EventDelayRing();
+  /* Seats have already been spawned through the v1 hook, so a `net.seats` repeat does not spawn one twice. */
+  const spawnedSeats = new Set<number>();
   let expectedEventSequence = 1;
   let outgoingEventSequence = 0;
   let eventGapStartedAt: number | undefined;
@@ -159,6 +174,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
   const oversized = (kind: 'input' | 'snapshot' | 'event', error: unknown) => {
     diagnostics.dropped += 1;
     diagnostics.oversized += 1;
+    if (error instanceof NetPayloadTooLargeError) diagnostics.droppedBytes += error.byteLength;
     if (warned.has(kind)) return;
     warned.add(kind);
     (options.warn ?? console.warn)(`gm.net refused oversized ${kind} payload: ${String(error)}`);
@@ -342,8 +358,35 @@ export function createNetController(options: NetControllerOptions): NetControlle
       seatListeners.clear();
       startListeners.clear();
       eventBuffer.clear();
+      eventArrivedAt.clear();
     },
   };
+
+  /**
+   * A seat is a player. The v1 hooks (`spawn`/`despawn`) stay the one way a game learns that somebody joined — the design
+   * keeps them for every existing template — so a per-seat match fires them from the seat table, exactly as the v1 path
+   * fires them from `net.players`. Two things are deliberately not spawned:
+   *
+   * - this client's own seat, which the game created when it built its world (`createSimulation`) and whose `spawn`
+   *   would put its avatar back at its start point mid-match, at a moment that differs per client and desyncs the room;
+   * - a seat already spawned from an earlier table, so a repeated broadcast is not a second spawn.
+   */
+  function syncSeatedPlayers(seats: readonly NetSeat[]): void {
+    const seated = new Set(
+      seats.filter((seat) => seat.userId !== '' && !seat.forfeited && !seat.spectator).map((seat) => seat.seat),
+    );
+    for (const seat of seated) {
+      if (seat === roles.localPlayerIndex) continue;
+      if (spawnedSeats.has(seat)) continue;
+      options.hooks.spawn(seat, playerId(seat));
+      spawnedSeats.add(seat);
+    }
+    for (const seat of [...spawnedSeats]) {
+      if (seated.has(seat)) continue;
+      options.hooks.despawn(playerId(seat));
+      spawnedSeats.delete(seat);
+    }
+  }
 
   function createPerSeatMode(): PerSeatMode {
     const hooks = options.hooks as MultiplayerHooksV2;
@@ -362,6 +405,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
       resetClock: (tick) => options.resetClock?.(tick),
       recordEvent: options.recordEvent,
       emitSeats: (seats) => {
+        syncSeatedPlayers(seats);
         for (const listener of seatListeners) listener(seats);
       },
       emitStart: (start) => {
@@ -377,6 +421,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
       const bytes = decodeBase64(message.data);
       assertByteLength(bytes, NET_LIMITS.eventBytes, 'event');
       eventBuffer.set(message.seq, unpackJson(bytes));
+      eventArrivedAt.set(message.seq, options.now());
     } catch (error) {
       if (error instanceof NetPayloadTooLargeError) oversized('event', error);
       else diagnostics.dropped += 1;
@@ -390,6 +435,11 @@ export function createNetController(options: NetControllerOptions): NetControlle
     while (eventBuffer.has(expectedEventSequence)) {
       const event = eventBuffer.get(expectedEventSequence);
       eventBuffer.delete(expectedEventSequence);
+      const arrivedAt = eventArrivedAt.get(expectedEventSequence);
+      eventArrivedAt.delete(expectedEventSequence);
+      if (arrivedAt !== undefined) eventDelays.add(options.now() - arrivedAt);
+      diagnostics.eventDelayMs = eventDelays.latest;
+      diagnostics.eventDelayP95Ms = eventDelays.p95;
       emitEvent(event);
       options.recordEvent('net.event', event);
       expectedEventSequence += 1;
@@ -408,7 +458,9 @@ export function createNetController(options: NetControllerOptions): NetControlle
   }
 }
 
-function zeroDiagnostics(mode: AuthorityMode): Omit<NetDiagnostics, 'dropped' | 'eventGaps' | 'oversized'> {
+function zeroDiagnostics(
+  mode: AuthorityMode,
+): Omit<NetDiagnostics, 'dropped' | 'eventGaps' | 'oversized' | 'eventDelayMs' | 'eventDelayP95Ms' | 'droppedBytes'> {
   return {
     mode,
     epoch: '',

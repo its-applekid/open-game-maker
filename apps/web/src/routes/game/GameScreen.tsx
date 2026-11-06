@@ -43,6 +43,7 @@ import {
   deleteEntityIntent,
 } from '../../features/editor/transactions';
 import { pushToast } from '../../lib/notify/slice';
+import { DiagnosticsOverlay } from '../../net/diagnostics/DiagnosticsOverlay';
 import { RoomLayer } from '../../features/room/RoomLayer';
 import { useRoomRuntime } from '../../features/room/useRoomRuntime';
 import { useBranches } from '../games/useBranches';
@@ -51,6 +52,7 @@ import { PlayEditBar } from './PlayEditBar';
 import { LoadingLayer } from './LoadingLayer';
 import { gameLoadActivity } from './load-analytics';
 import { PlatformHud } from './PlatformHud';
+import { roomFacts } from './room-facts';
 import { UpdateIndicator } from './UpdateIndicator';
 import { gameExtras, type GameExtraProps } from './extras';
 import './game.css';
@@ -353,6 +355,15 @@ export function GameScreen() {
       </PlayEditBar>
       <div className="game-stage">
         <div className="game-frame" ref={containerRef} />
+        {mode === 'play' && frameController !== undefined ? (
+          <DiagnosticsOverlay
+            enabled={searchParams.get('net') === '1'}
+            build={build}
+            read={() => frameController.netInfo()}
+            room={() => roomFacts(room.snapshot)}
+            transport={() => ({ rttMs: room.snapshot?.rttMs })}
+          />
+        ) : null}
         {game.data !== undefined && activeSnapshot !== undefined && frameState.bridgeState !== 'error' ? (
           <LoadingLayer key={`${activeSnapshot.buildId}-${frameAttempt}`} game={game.data} load={frameState.load} />
         ) : null}

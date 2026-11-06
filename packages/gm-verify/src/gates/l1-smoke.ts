@@ -325,6 +325,7 @@ export async function runL1(root: string, options: RunL1Options = {}): Promise<G
         budgets: unknownBudgets(),
         probes,
         clients: 1,
+        seats: [],
         unchecked: [...ALWAYS_UNCHECKED, 'text contrast'],
         verdict: hardError ? 'error' : ok ? 'pass' : 'fail',
         ...(hardError ? { error: hardError } : {}),

@@ -190,7 +190,12 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
         /* Apply exactly the slice given: one seat's avatar, or the platform list. */
         const slice = snapshot.state as { seat?: number; player?: unknown } | undefined;
         if (!slice) return;
-        if (slice.seat !== undefined) restoreOwned(context.state, slice as never);
+        /*
+         * A seat word with no avatar means that seat is gone: its owner left or forfeited, and the seat table's
+         * `despawn` already removed it here. The publish still arrives from the seat's own client, whose copy of the
+         * avatar outlives the seat, so it is ignored rather than rebuilt into a ghost.
+         */
+        if (slice.seat !== undefined && slice.player !== undefined) restoreOwned(context.state, slice as never);
         else if ('platforms' in slice) restoreShared(context.state, slice as never);
       },
       /**

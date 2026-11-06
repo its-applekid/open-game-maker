@@ -200,6 +200,9 @@ describe('runtime hooks', () => {
         outOfOrderSnapshots: 0,
         stalls: 0,
         oversized: 0,
+        eventDelayMs: 0,
+        eventDelayP95Ms: 0,
+        droppedBytes: 0,
       },
     });
     runtime.setRenderInfoProvider(() => ({ calls: 1, triangles: 2, frameMs: 3, textureBytes: 4, backend: 'test' }));

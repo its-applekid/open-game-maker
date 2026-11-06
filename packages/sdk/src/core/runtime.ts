@@ -286,5 +286,8 @@ function zeroNetDiagnostics(): NetDiagnostics {
     outOfOrderSnapshots: 0,
     stalls: 0,
     oversized: 0,
+    eventDelayMs: 0,
+    eventDelayP95Ms: 0,
+    droppedBytes: 0,
   };
 }
