@@ -118,10 +118,36 @@ describe('planSwitch', () => {
     );
   });
 
-  it('refuses a repository without vendor/core.json', async () => {
-    const dir = await mkdtemp(join(tmpdir(), 'core-release-switch-empty-'));
+  it('migrates a standalone game repository that has no vendor/core.json on an explicit core sha', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'core-release-switch-standalone-'));
     dirs.push(dir);
-    await expect(planSwitch({ dir, profile: npmjs, versions, coreSha: SHA })).rejects.toThrow(/no vendor\/core.json/);
+    await mkdir(join(dir, 'vendor'), { recursive: true });
+    await writeFile(join(dir, 'vendor', 'gm-sdk-3cef9ec65caa.tgz'), 'vendored tarball placeholder\n');
+    await writeFile(
+      join(dir, 'package.json'),
+      `${JSON.stringify(
+        { name: 'standalone-game', private: true, dependencies: { '@gm/sdk': 'file:vendor/gm-sdk-3cef9ec65caa.tgz' } },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
+    expect(plan.pin).toBe(SHA);
+    expect(plan.dependencies).toEqual([
+      {
+        manifest: 'package.json',
+        dependency: '@gm/sdk',
+        from: 'file:vendor/gm-sdk-3cef9ec65caa.tgz',
+        to: 'npm:@its-owner/sdk@0.0.0-core.3cef9ec65caa',
+      },
+    ]);
+    expect(plan.deletions).toEqual(['vendor/gm-sdk-3cef9ec65caa.tgz']);
+    expect(plan.notes).toContain(
+      'no vendor/core.json: vendor/core-packages.json records the core commit 3cef9ec65caa instead',
+    );
+    expect(plan.releaseSet.created).toBe(true);
+    expect(JSON.parse(plan.releaseSet.after)).toMatchObject({ v: 1, core: { sha: SHA } });
   });
 
   it('creates .npmrc when the instance repository has none', async () => {

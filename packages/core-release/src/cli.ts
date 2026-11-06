@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
+import { describeDiagnosis, diagnose, missingPinMessage } from './diagnose.js';
 import { ReleaseError, loadWorkspace, releaseOrder } from './graph.js';
 import { describePlan, planRelease, publishPlan, verifyOidc } from './publish.js';
 import {
@@ -26,12 +27,18 @@ const HELP = `core-release — prepare core package publishing (dry run by defau
                        [--verify-oidc] [--apply]
   core-release switch  --dir <instance-repo> [--root <dir>] [--registry <url>] [--scope <@owner>]
                        [--access public|restricted] [--tag <dist-tag>] [--core-sha <40-hex>] [--roots <a,b>] [--apply]
+  core-release diagnose --dir <instance-repo|standalone-game> [--registry <url>] [--scope <@owner>] [--online]
 
 publish  stages and packs the core dependency closure, leaves first. Without --apply it publishes nothing.
          --verify-oidc additionally proves the npm trusted publisher with a per-package
          \`npm publish --dry-run\` and still publishes nothing.
-switch   plans the move of an instance repository from vendored core tarballs to registry versions.
-         Without --apply it writes nothing and prints the diff.
+switch   plans the move of an instance repository from vendored core tarballs to registry versions and
+         records the released version set in vendor/core-packages.json. Without --apply it writes nothing
+         and prints the diff. A standalone game repository with no vendor/core.json needs --core-sha.
+diagnose reads an instance or standalone game repository and reports what would stop an install: legacy
+         local core specifiers, a missing/malformed/stale version set, version drift, an .npmrc without the
+         registry block, orphaned tarballs and lockfile entries without integrity. Read-only; exits 1 when
+         it reports an error. --online also asks the registry whether each version is published.
 
 Both commands are dry runs unless --apply is passed. Defaults: registry ${DEFAULT_REGISTRY}, scope
 ${DEFAULT_SCOPE}, access ${DEFAULT_ACCESS}. A publish run authenticates with npm OIDC trusted publishing and
@@ -85,6 +92,7 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
       'token-variable': { type: 'string' },
       'auth-file': { type: 'string' },
       'verify-oidc': { type: 'boolean' },
+      online: { type: 'boolean' },
       apply: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
       help: { type: 'boolean' },
@@ -116,11 +124,16 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
           .filter(Boolean);
 
   const root = parsed.values.root ?? cwd;
-  const workspace = await loadWorkspace(root, run);
-  const order = releaseOrder(workspace, roots).map((pkg) => pkg.name);
   const explicitSha = parsed.values['core-sha'];
+  // Loading the core workspace is only needed by the commands that read its package graph; diagnose
+  // reads an instance repository and must work without a core checkout.
+  const core = async (): Promise<{ workspace: Awaited<ReturnType<typeof loadWorkspace>>; order: string[] }> => {
+    const workspace = await loadWorkspace(root, run);
+    return { workspace, order: releaseOrder(workspace, roots).map((pkg) => pkg.name) };
+  };
 
   if (command === 'publish') {
+    const { workspace, order } = await core();
     const coreSha = explicitSha ?? (await gitHead(root, run));
     const stagingRoot = await mkdtemp(join(tmpdir(), 'core-release-stage-'));
     const outDir = await mkdtemp(join(tmpdir(), 'core-release-pack-'));
@@ -170,8 +183,15 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
   if (command === 'switch') {
     const dir = parsed.values.dir;
     if (dir === undefined) throw new ReleaseError('switch needs --dir <instance-repo>');
-    // The default pin is the instance repository's own: the same commit its tarballs came from.
+    // The default pin is the instance repository's own: the same commit its tarballs came from. A
+    // standalone game repository that has no pin must name the commit instead of inheriting the head.
+    const hasPin = await readFile(join(dir, 'vendor', 'core.json'), 'utf8').then(
+      () => true,
+      () => false,
+    );
+    if (!hasPin && explicitSha === undefined) throw new ReleaseError(missingPinMessage(dir));
     const coreSha = explicitSha ?? (await pinnedCommit(dir, root, run));
+    const { workspace, order } = await core();
     const versions = versionsFrom(workspace, order, coreSha);
     const plan = await planSwitch({ dir, profile, versions, coreSha });
     log(
@@ -187,8 +207,24 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
       return 0;
     }
     await applySwitch(plan);
-    log(`wrote ${plan.edits.length} manifests, .npmrc, removed ${plan.deletions.length} tarballs`);
+    log(
+      `wrote ${plan.edits.length} manifests, .npmrc, ${plan.releaseSet.path}, removed ${plan.deletions.length} tarballs`,
+    );
     return 0;
+  }
+
+  if (command === 'diagnose') {
+    const dir = parsed.values.dir;
+    if (dir === undefined) throw new ReleaseError('diagnose needs --dir <instance-repo|standalone-game>');
+    const diagnosis = await diagnose({
+      dir,
+      destination: { registry: profile.registry, scope: profile.scope },
+      online: parsed.values.online === true,
+      ...(fetchImpl === undefined ? {} : { fetchImpl }),
+    });
+    for (const line of describeDiagnosis(diagnosis)) log(line);
+    const errors = diagnosis.findings.filter((finding) => finding.severity === 'error').length;
+    return errors === 0 ? 0 : 1;
   }
 
   throw new ReleaseError(`unknown command ${command}; run core-release --help`);
