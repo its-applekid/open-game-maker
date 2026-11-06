@@ -1,0 +1,26 @@
+{
+  "name": "@ogm/core-release",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Dry-run-first core package publishing and instance-repository switching (CP-01 preparation).",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "core-release": "./dist/bin.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "lint": "eslint src test"
+  },
+  "devDependencies": {
+    "vitest": "5.0.5"
+  }
+}

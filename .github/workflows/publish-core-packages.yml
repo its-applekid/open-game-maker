@@ -1,0 +1,89 @@
+name: publish core packages
+
+# Preparation for CP-01 (#490): the workflow exists, the destination stays Kevin's decision.
+# Nothing here publishes unless someone dispatches it with dry_run turned off and the publisher
+# secret in place. See docs/ops/core-packages.md.
+on:
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: npm-compatible registry base URL
+        required: false
+        default: https://npm.pkg.github.com
+      scope:
+        description: Scope the registry accepts (@owner for GitHub Packages); empty uses the repository owner
+        required: false
+        default: ''
+      access:
+        description: Package visibility the registry should give the release
+        type: choice
+        options:
+          - restricted
+          - public
+        default: restricted
+      core_sha:
+        description: Core commit the versions come from; empty uses the dispatched ref's commit
+        required: false
+        default: ''
+      dry_run:
+        description: Stage and pack only, publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-core-packages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: core packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.core_sha != '' && inputs.core_sha || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Enable pnpm
+        run: corepack enable || npm i -g pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --if-present run build
+
+      # A dry run needs no credential: it stages and packs the closure and prints what would go where.
+      - name: Stage and pack the core dependency closure
+        if: inputs.dry_run
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          SCOPE: ${{ inputs.scope }}
+          ACCESS: ${{ inputs.access }}
+          CORE_SHA: ${{ inputs.core_sha }}
+        run: |
+          args=(publish --root . --registry "$REGISTRY" --access "$ACCESS" --dry-run)
+          if [[ -n "$SCOPE" ]]; then args+=(--scope "$SCOPE"); fi
+          if [[ -n "$CORE_SHA" ]]; then args+=(--core-sha "$CORE_SHA"); fi
+          node packages/core-release/dist/bin.js "${args[@]}"
+
+      # The publish path reads one secret, named in docs/ops/core-packages.md. It never logs it and
+      # never writes it to a file in the workspace.
+      - name: Publish the core dependency closure
+        if: ${{ !inputs.dry_run }}
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          SCOPE: ${{ inputs.scope }}
+          ACCESS: ${{ inputs.access }}
+          CORE_SHA: ${{ inputs.core_sha }}
+          CORE_PACKAGES_PUBLISH_TOKEN: ${{ secrets.CORE_PACKAGES_PUBLISH_TOKEN }}
+        run: |
+          if [[ -z "$CORE_PACKAGES_PUBLISH_TOKEN" ]]; then
+            echo "CORE_PACKAGES_PUBLISH_TOKEN is not set; see docs/ops/core-packages.md" >&2
+            exit 1
+          fi
+          args=(publish --root . --registry "$REGISTRY" --access "$ACCESS" --apply)
+          if [[ -n "$SCOPE" ]]; then args+=(--scope "$SCOPE"); fi
+          if [[ -n "$CORE_SHA" ]]; then args+=(--core-sha "$CORE_SHA"); fi
+          node packages/core-release/dist/bin.js "${args[@]}"
