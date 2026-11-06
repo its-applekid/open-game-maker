@@ -10,7 +10,7 @@ type Method = 'magic-link' | 'passkey' | 'google';
 export function SignInScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = safeNext(params.get('next'), '/games');
+  const next = safeNext(params.get('next'), '/all');
   const magicCompleted = params.get('magic') === '1';
   const { data: session, isPending: sessionPending } = useSession();
   const [email, setEmail] = useState('');

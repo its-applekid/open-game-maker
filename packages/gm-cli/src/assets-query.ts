@@ -29,6 +29,7 @@ export const FILTER_FLAGS: FlagSpec = {
   'same-rig-as': { type: 'string', help: 'only cards sharing or retargeting to the rig of this card id' },
   'include-draft': { type: 'boolean', default: false, help: 'also match draft cards of every kind' },
   tier: { type: 'number', help: 'library tier 1, 2 or 3' },
+  directions: { type: 'number', help: 'exact facing count of a directional sprite (8)' },
   collection: { type: 'string', help: 'only this collection id' },
 };
 
@@ -65,6 +66,11 @@ export function toQuery(name: string, words: string[], flags: Record<string, unk
   if (moods.length > 0) q.moods = moods;
   const genres: Genre[] = vocabulary('genre', flags.genre, GENRES, name);
   if (genres.length > 0) q.genres = genres;
+  if (flags.directions !== undefined) {
+    if (!Number.isInteger(flags.directions) || (flags.directions as number) < 1)
+      throw new UsageError('--directions must be a positive whole number', `gm ${name} --directions 8`);
+    q.directions = flags.directions as number;
+  }
   if (typeof flags.family === 'string') q.family = flags.family;
   if (typeof flags.set === 'string') q.set = flags.set;
   if (typeof flags.pov === 'string') q.pov = flags.pov;

@@ -276,6 +276,15 @@ export const assetCardMetaDefs: Record<string, object> = {
         "type": "integer",
         "minimum": 1
       },
+      "directions": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.",
+        "items": {
+          "$ref": "#/$defs/vocab.direction"
+        }
+      },
       "sheet": {
         "type": "object",
         "required": [
@@ -3518,6 +3527,15 @@ export interface Image {
 export interface Sprite {
   drawn_view: "topdown" | "side" | "iso" | "front" | "three-quarter" | "none";
   tile_px?: number;
+  /**
+   * Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.
+   *
+   * @minItems 1
+   */
+  directions?: [
+    "E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W",
+    ...("E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W")[]
+  ];
   sheet?: {
     frame_w: number;
     frame_h: number;

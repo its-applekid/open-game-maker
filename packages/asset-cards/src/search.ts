@@ -149,6 +149,7 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
     if ((!set || !q.gameSets.includes(set)) && (!pack || !q.gamePacks?.includes(pack))) return false;
   }
   if (q.pov && !(card.resolved.pov_fit ?? []).includes(q.pov)) return false;
+  if (q.directions !== undefined && (card.sprite?.directions?.length ?? 0) !== q.directions) return false;
   if (q.tier !== undefined && tierOf(card.id) !== q.tier) return false;
   if (q.collection && card.id !== q.collection && card.collection !== q.collection) return false;
   if (q.rigId && !rigIdsOf(card).includes(q.rigId)) return false;

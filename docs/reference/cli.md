@@ -160,10 +160,14 @@ library. Contact sheets stay a human tool: `gm assets sheet`.
 
 ```text
 gm assets search <words...> [--family <id>] [--set <id>] [--kind <kind/subkind>] [--pov <id>] [--use <use>]
+                 [--directions <count>]
 ```
 
 `--set` restricts results to one exact curated compatibility set, such as `smallscaleint`. Inside a game repository,
 the lockfile's family and compatible sets still apply unless the existing `--any-family --reason` escape is used.
+`--directions <count>` keeps only directional sprites whose card records exactly that many facings, so "orc that can
+attack in 8 directions" is `gm assets search orc attack --directions 8`. A sprite card carries the count as the length
+of its `sprite.directions` list, in the order its sheet rows or per-direction files are read.
 
 ## Reference and vendor game assets
 

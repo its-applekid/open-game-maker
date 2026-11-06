@@ -15,7 +15,7 @@ test('switches from the selected game to the grid only when the thumbnail row ov
   page,
 }, testInfo) => {
   const visit = async (count: number) => {
-    await page.goto(`/games?test&games=${count}`);
+    await page.goto(`/all?test&games=${count}`);
     await expect(page.getByRole('button', { name: 'New game' })).toBeVisible();
   };
 
@@ -55,7 +55,7 @@ test('switches from the selected game to the grid only when the thumbnail row ov
 });
 
 test('browses three real game tiles with the keyboard', async ({ page }) => {
-  await page.goto('/games?test');
+  await page.goto('/all?test');
 
   const tiles = page.locator('.game-tile');
   await expect(tiles).toHaveCount(3);
@@ -87,7 +87,7 @@ test('browses three real game tiles with the keyboard', async ({ page }) => {
 
 test('keeps spotlight actions and the fixed New game control touch sized on a phone', async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== 'phone', 'phone layout assertion');
-  await page.goto('/games?test&spotlight=g_2');
+  await page.goto('/all?test&spotlight=g_2');
 
   const play = page.getByRole('button', { name: 'Play Goblin Cellar' });
   const edit = page.getByRole('button', { name: 'Edit Goblin Cellar' });

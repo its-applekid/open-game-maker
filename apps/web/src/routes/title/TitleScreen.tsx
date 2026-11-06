@@ -25,7 +25,7 @@ export function TitleScreen({ townSrc }: { townSrc?: string }) {
       <FocusZone id="title-menu" className="title-menu">
         <MenuButton
           className="title-start"
-          onClick={() => navigate(session ? '/games' : `/signin?next=${encodeURIComponent('/connect/github')}`)}
+          onClick={() => navigate(session ? '/all' : `/signin?next=${encodeURIComponent('/connect/github')}`)}
         >
           Start
         </MenuButton>
