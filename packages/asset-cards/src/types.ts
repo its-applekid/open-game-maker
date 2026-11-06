@@ -45,6 +45,8 @@ export type SearchQuery = {
   sameRigAs?: string;
   includeDraft?: boolean;
   tier?: number;
+  /** Exact facing count a directional sprite must carry (`sprite.directions` length). */
+  directions?: number;
   collection?: string;
   limit?: number;
 };

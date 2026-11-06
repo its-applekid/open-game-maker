@@ -157,6 +157,25 @@
                     "minimum": 1,
                     "maximum": 9007199254740991
                   },
+                  "directions": {
+                    "uniqueItems": true,
+                    "description": "Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.",
+                    "minItems": 1,
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "E",
+                        "N",
+                        "NE",
+                        "NW",
+                        "S",
+                        "SE",
+                        "SW",
+                        "W"
+                      ]
+                    }
+                  },
                   "sheet": {
                     "type": "object",
                     "properties": {
