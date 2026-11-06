@@ -18,6 +18,14 @@ describe('facets', () => {
     expect(counts.status).toEqual({ reviewed: 1, tagged: 2, draft: 2 });
   });
 
+  it('counts the audio direction axes a style picker draws its tiles from', () => {
+    const counts = facets(index, { kind: 'audio', includeDraft: true });
+    expect(counts.moods).toEqual({ mysterious: 2, tense: 2 });
+    expect(counts.genre).toEqual({ ambient: 1, chiptune: 1 });
+    expect(counts.instruments).toEqual({ drums: 2, 'synth-lead': 2 });
+    expect(counts.game_fit).toEqual({ dungeon: 1, menu: 1 });
+  });
+
   it('counts proposed tags only with --proposed', () => {
     const torch = index.cards.find((card) => card.id.includes('torch'));
     if (!torch) throw new Error('fixture torch missing');

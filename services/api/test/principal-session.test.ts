@@ -24,16 +24,17 @@ const whoami = async (app: Awaited<ReturnType<typeof setup>>['app'], headers: Re
   (await app.request('/api/v1/zz-test/whoami', { headers })).json();
 
 describe('session principal resolver', () => {
-  it('resolves the session cookie and the bearer session token to the same familyless player', async () => {
+  it('resolves the session cookie and the bearer session token to the same familyless maker', async () => {
     const { app, outbox, userId } = await setup();
     const { session, token } = await signIn(app, outbox, 'kim@example.com');
+    // Seeded from `OGM_ALLOWED_EMAILS`, so this address is a maker with no family yet.
     const expected = {
       kind: 'user',
       userId: userId('kim@example.com'),
       displayName: 'Player',
       familyId: '',
       platformRole: 'none',
-      capability: 'player',
+      capability: 'creator',
     };
     expect(expected.userId).toMatch(/^u_[0-9a-f-]{36}$/);
     expect(await whoami(app, { cookie: session })).toEqual(expected);
@@ -56,7 +57,7 @@ describe('session principal resolver', () => {
         }),
       },
     };
-    deps.registry.principalResolvers.push(sessionResolver(auth, deps.sqlite, new Set(), new Set()));
+    deps.registry.principalResolvers.push(sessionResolver(auth, deps.sqlite, () => null));
 
     expect(await whoami(app, { 'x-removed-session': '1' })).toEqual({ kind: 'anonymous' });
   });
@@ -80,7 +81,7 @@ describe('session principal resolver', () => {
     expect(await whoami(app, { cookie: session })).toMatchObject({ displayName: 'Player' });
   });
 
-  it("reads the family, role and capability from OGM-012's family_members when that table exists", async () => {
+  it("reads the family from OGM-012's family_members and the role from the allow list", async () => {
     const { app, deps, outbox, userId } = await setup();
     const { session } = await signIn(app, outbox, 'sam@example.com');
     deps.sqlite
@@ -93,9 +94,10 @@ describe('session principal resolver', () => {
         "INSERT INTO family_members (family_id, user_id, role, capability, joined_at) VALUES ('f_1', ?, 'admin', 'creator', '2026-11-01')",
       )
       .run(userId('sam@example.com'));
+    // The family row supplies the games this session can see; the allow-list role decides what it may do.
     expect(await whoami(app, { cookie: session })).toMatchObject({
       familyId: 'f_1',
-      platformRole: 'admin',
+      platformRole: 'none',
       capability: 'creator',
     });
   });

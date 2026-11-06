@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { probeVoice, type BuildVoiceTarget } from './voice';
+import { connectDictation, probeVoice, type BuildVoiceTarget } from './voice';
 
 const target: BuildVoiceTarget = {
   kind: 'build',
@@ -39,5 +39,30 @@ describe('probeVoice', () => {
   it('treats a 503 token probe as unavailable', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 503 })));
     await expect(probeVoice(target)).resolves.toEqual({ available: false });
+  });
+});
+
+describe('connectDictation', () => {
+  it('requests a fresh dictate-scoped connection for the target', async () => {
+    const fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          token: 'dictate-token',
+          url: 'wss://voice.example.test?mode=dictate',
+          expires_at: '2026-11-01T10:00:00Z',
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+    vi.stubGlobal('fetch', fetch);
+
+    await expect(connectDictation(target)).resolves.toMatchObject({
+      token: 'dictate-token',
+      url: 'wss://voice.example.test?mode=dictate',
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/v1/voice/dictation-token',
+      expect.objectContaining({ method: 'POST', body: JSON.stringify({ target }) }),
+    );
   });
 });

@@ -64,7 +64,7 @@ test('shows the active build ring and contextual build in the games menu', async
   await installAuthRoutes(page, { signedIn: true });
   await stubBrandArt(page);
   await installGamesMenuApi(page);
-  await page.goto('/games');
+  await page.goto('/all');
 
   const trigger = page.getByRole('button', { name: 'Menu' });
   await expect(trigger).toHaveAttribute('data-building', 'true');

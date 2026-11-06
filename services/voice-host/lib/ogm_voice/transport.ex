@@ -12,7 +12,7 @@ defmodule OgmVoice.Transport do
   """
   @behaviour Plug
 
-  alias OgmVoice.{Delivery, Target}
+  alias OgmVoice.{Delivery, Target, TranscriptDelivery}
   alias VoiceConverse.Ports
   alias VoiceConverse.Transport.WebSock, as: PackageTransport
 
@@ -21,24 +21,79 @@ defmodule OgmVoice.Transport do
 
   @impl true
   def call(%{method: "GET"} = conn, opts) do
-    claims = claims(conn, opts)
+    conn = Plug.Conn.fetch_query_params(conn)
+
+    if conn.query_params["mode"] == "dictate" do
+      upgrade_dictation(conn, opts)
+    else
+      upgrade_conversation(conn, opts)
+    end
+  end
+
+  def call(conn, _opts), do: Plug.Conn.send_resp(conn, 404, "not found")
+
+  defp upgrade_conversation(conn, opts) do
+    claims = claims(conn, opts, "converse")
     api = if claims, do: api(opts[:instance], claims), else: %{}
     state = PackageTransport.socket_state(Keyword.put(opts, :api, api), not is_nil(claims))
 
-    WebSockAdapter.upgrade(conn, OgmVoice.Transport.Socket, state,
+    WebSockAdapter.upgrade(conn, PackageTransport.Socket, state,
       max_frame_size: PackageTransport.max_frame_bytes(),
       max_fragmented_message_size: PackageTransport.max_frame_bytes()
     )
   end
 
-  def call(conn, _opts), do: Plug.Conn.send_resp(conn, 404, "not found")
+  defp upgrade_dictation(conn, opts) do
+    with %{nonce: nonce, subject: subject, target: target} <- claims(conn, opts, "dictate"),
+         ^subject <- Target.creator(target),
+         dictation when is_list(dictation) <- Keyword.get(opts, :dictation),
+         transcriber when is_atom(transcriber) <- Keyword.get(dictation, :transcriber) do
+      state = %{
+        nonce: nonce,
+        leases: Keyword.get(dictation, :leases, OgmVoice.DictationLeases),
+        transcriber: transcriber,
+        transcriber_opts: Keyword.get(dictation, :transcriber_opts, [])
+      }
+
+      WebSockAdapter.upgrade(conn, OgmVoice.DictationSocket, state,
+        max_frame_size: PackageTransport.max_frame_bytes(),
+        max_fragmented_message_size: PackageTransport.max_frame_bytes()
+      )
+    else
+      _unauthorized -> upgrade_unauthorized(conn, opts)
+    end
+  end
+
+  defp upgrade_unauthorized(conn, opts) do
+    state = PackageTransport.socket_state(opts, false)
+
+    WebSockAdapter.upgrade(conn, PackageTransport.Socket, state,
+      max_frame_size: PackageTransport.max_frame_bytes(),
+      max_fragmented_message_size: PackageTransport.max_frame_bytes()
+    )
+  end
 
   defp api(instance, %{subject: subject, target: authorized_target}) do
     %{
       start_session: fn instance, target ->
-        if target == authorized_target and Target.creator(target) == subject,
-          do: VoiceConverse.start_session(instance, target),
-          else: {:error, :forbidden}
+        if target == authorized_target and Target.creator(target) == subject do
+          case VoiceConverse.start_session(instance, target) do
+            {:ok, conversation_id} = started ->
+              case TranscriptDelivery.watch(instance, conversation_id, target) do
+                :ok ->
+                  started
+
+                {:error, reason} ->
+                  _ = VoiceConverse.end_session(instance, conversation_id, :transcript_delivery_unavailable)
+                  {:error, reason}
+              end
+
+            {:error, _reason} = error ->
+              error
+          end
+        else
+          {:error, :forbidden}
+        end
       end,
       confirm_draft: fn conversation_id, draft_id, edited_text ->
         :ok = Delivery.watch(draft_id, conversation_id, self())
@@ -52,10 +107,10 @@ defmodule OgmVoice.Transport do
     }
   end
 
-  defp claims(conn, opts) do
+  defp claims(conn, opts, scope) do
     with token when is_binary(token) <- token(conn),
          {:ok, %{subject: subject, target: target} = claims} when is_binary(subject) and is_map(target) <-
-           Ports.call_port(opts[:token_issuer], :verify, [token, "converse", []], :token) do
+           Ports.call_port(opts[:token_issuer], :verify, [token, scope, []], :token) do
       claims
     else
       _ -> nil
@@ -68,31 +123,5 @@ defmodule OgmVoice.Transport do
       [_ | _] -> nil
       [] -> Plug.Conn.fetch_query_params(conn).query_params["token"]
     end
-  end
-
-  defmodule Socket do
-    @moduledoc """
-    Delegates to the package's socket. At the pin it matches inbound frames as `{payload, :text}`,
-    but WebSock (and every Bandit) delivers `{payload, [opcode: :text]}`, so each client frame
-    would crash the connection. This normalizes the opcode and changes nothing else.
-    """
-    @behaviour WebSock
-
-    alias VoiceConverse.Transport.WebSock.Socket, as: Package
-
-    @impl true
-    def init(state), do: Package.init(state)
-
-    @impl true
-    def handle_in({payload, [opcode: opcode]}, state), do: Package.handle_in({payload, opcode}, state)
-
-    @impl true
-    def handle_info(message, state), do: Package.handle_info(message, state)
-
-    @impl true
-    def handle_control(_frame, state), do: {:ok, state}
-
-    @impl true
-    def terminate(reason, state), do: Package.terminate(reason, state)
   end
 end

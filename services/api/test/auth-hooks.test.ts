@@ -34,7 +34,7 @@ function mutableAllowListAuth() {
   const auth = createAuth({
     db: deps.db,
     env,
-    allowedEmails,
+    isAllowed: (email) => allowedEmails.has(email),
     log: deps.log,
     mail: {
       send: async ({ text }) => {
@@ -186,7 +186,7 @@ describe('allow-list enforcement on Better Auth', () => {
 });
 
 describe('sign-in methods', () => {
-  it('allows maintainers when the explicit allow-list is empty and logs one fail-closed warning', async () => {
+  it('seeds maintainers as admins when the explicit allow-list is empty', async () => {
     vi.stubEnv('OGM_ALLOWED_EMAILS', ' , ');
     vi.stubEnv('OGM_MAINTAINER_EMAILS', ' Other@example.com, KIM@example.com ');
     const { app, deps } = await makeApp();
@@ -199,9 +199,11 @@ describe('sign-in methods', () => {
       message: 'If this address can sign in, a link is on its way',
     });
     expect(outbox(deps)()).toHaveLength(1);
-    expect(deps.lines.filter(({ event }) => event === 'auth-allowed-emails-empty')).toEqual([
-      { event: 'auth-allowed-emails-empty', level: 'warn' },
+    expect(deps.sqlite.prepare('SELECT email, role FROM allowed_users ORDER BY email').all()).toEqual([
+      { email: 'kim@example.com', role: 'admin' },
+      { email: 'other@example.com', role: 'admin' },
     ]);
+    expect(deps.lines.filter(({ event }) => event === 'auth-allow-list-empty')).toEqual([]);
   });
 
   it('lists only the social providers configured at boot', async () => {
@@ -246,7 +248,9 @@ describe('sign-in methods', () => {
     vi.stubEnv('GOOGLE_CLIENT_ID', '');
     vi.stubEnv('SMTP_URL', '');
     const { deps } = await makeApp();
-    expect(deps.lines).toContainEqual({ event: 'auth-ready', mailSender: 'admin-inbox', google: false });
+    expect(deps.lines).toContainEqual(
+      expect.objectContaining({ event: 'auth-ready', mailSender: 'admin-inbox', google: false }),
+    );
   });
 
   it('ignores the retired age-cookie secret in old env files', () => {

@@ -1,0 +1,43 @@
+[
+  {
+    "t": "net.inputs",
+    "epoch": "epoch-7",
+    "seat": 0,
+    "firstTick": 118,
+    "frames": [
+      { "seq": 118, "tick": 118, "axes": [1, -0.5], "buttons": 1 },
+      { "seq": 119, "tick": 119, "axes": [1, -0.5], "buttons": 0 },
+      { "seq": 120, "tick": 120, "axes": [0.25, 0], "buttons": 0 }
+    ]
+  },
+  {
+    "t": "net.state",
+    "epoch": "epoch-7",
+    "seat": 1,
+    "seq": 20,
+    "tick": 120,
+    "to": 0,
+    "data": "eyJ0aWNrIjoxMjAsInN0YXRlIjp7InAiOls2NDAsNDAwXX19"
+  },
+  {
+    "t": "net.checksum",
+    "epoch": "epoch-7",
+    "scope": "shared",
+    "tick": 120,
+    "sum": 2166136261
+  },
+  {
+    "t": "net.recovery.request",
+    "epoch": "epoch-7",
+    "scope": "shared",
+    "tick": 120
+  },
+  {
+    "t": "net.recovery",
+    "epoch": "epoch-7",
+    "scope": "seat",
+    "tick": 120,
+    "seat": 1,
+    "snapshot": "eyJ0aWNrIjoxMjAsInN0YXRlIjp7InAiOls2NDAsNDAwXX19"
+  }
+]

@@ -104,7 +104,9 @@ describe('ogm-env-init', () => {
     const contents = readFileSync(join(home, '.config', 'ogm', 'env', 'web.env'), 'utf8');
 
     expect(result.status, result.stderr).toBe(0);
-    expect(contents).toBe('OGM_PUBLIC_APP_ORIGIN=\nOGM_INSTANCE_ALL_ASSETS=1\nVITE_GAMES_ORIGIN=\nVITE_API_ORIGIN=\n');
+    expect(contents).toBe(
+      'OGM_PUBLIC_APP_ORIGIN=\nOGM_INSTANCE_ALL_ASSETS=1\nVITE_GAMES_ORIGIN=\nVITE_API_ORIGIN=\nVITE_ICE_URLS=\n',
+    );
   });
 
   it('creates a repair file with its existing shared API and games settings', () => {

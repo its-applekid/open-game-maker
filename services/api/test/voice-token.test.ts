@@ -72,14 +72,35 @@ async function setup(
   });
   insertJob(deps, 'j-1', game.id);
   insertJob(deps, 'j-other', other.id);
+  const scopeSessionId = 's_22000000-0000-4000-8000-000000000001';
+  deps.db
+    .insert(schema.scopeSessions)
+    .values({
+      id: scopeSessionId,
+      gameId: game.id,
+      creatorId: creator.userId,
+      jobId: 'j-1',
+      status: 'open',
+      choices: JSON.stringify({
+        genre: 'platformer',
+        vibe: 'cozy',
+        family: 'chunky-low-poly',
+        world: 'cavern',
+        players: 'single',
+        pov: 'side-on',
+      }),
+      createdAt: now,
+      updatedAt: now,
+    })
+    .run();
   const { app } = await makeApp(deps);
-  const request = (user: TestUser, target: Record<string, string>) =>
-    app.request('/api/v1/voice/token', {
+  const request = (user: TestUser, target: Record<string, string>, path = '/api/v1/voice/token') =>
+    app.request(path, {
       method: 'POST',
       headers: { ...asUser(user.userId), 'content-type': 'application/json' },
       body: JSON.stringify({ target }),
     });
-  return { request, gameId: game.id };
+  return { request, gameId: game.id, scopeSessionId };
 }
 
 function insertJob(deps: ReturnType<typeof makeDeps>, id: string, gameId: string) {
@@ -99,6 +120,8 @@ function insertJob(deps: ReturnType<typeof makeDeps>, id: string, gameId: string
       plan: '{}',
       reservation: '{}',
       hardCapMicroUsd: 500_000,
+      aiurRepo: 'owner/game',
+      aiurIssueNumber: id === 'j-1' ? 142 : 143,
       createdAt: now,
       updatedAt: now,
     })
@@ -170,6 +193,50 @@ describe('POST /api/v1/voice/token', () => {
     const { request, gameId } = await setup();
     const response = await request(creator, { kind: 'scope', game_id: gameId, creator_id: creator.userId });
     expect(response.status).toBe(400);
+  });
+
+  it('refuses stale scope sessions and build targets with a forged ticket', async () => {
+    const { request, gameId } = await setup();
+    const stale = await request(creator, {
+      kind: 'scope',
+      game_id: gameId,
+      session_id: 's-missing',
+      creator_id: creator.userId,
+    });
+    const forged = await request(creator, { ...buildTarget(gameId), ticket: '999' });
+
+    expect(stale.status).toBe(403);
+    expect(forged.status).toBe(403);
+  });
+});
+
+describe('POST /api/v1/voice/dictation-token', () => {
+  it('mints a target-bound dictate token and selects dictation on the existing voice URL', async () => {
+    const { request, gameId, scopeSessionId } = await setup();
+    const target = {
+      kind: 'scope',
+      game_id: gameId,
+      session_id: scopeSessionId,
+      creator_id: creator.userId,
+    };
+    const response = await request(creator, target, '/api/v1/voice/dictation-token');
+
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { token: string; url: string };
+    expect(decode(body.token).claims).toMatchObject({ scope: 'dictate', sub: creator.userId, target });
+    expect(new URL(body.url).searchParams.get('mode')).toBe('dictate');
+  });
+
+  it('throttles creator token acquisition before paid dictation can start', async () => {
+    const { request, gameId } = await setup();
+
+    for (let count = 0; count < 10; count += 1) {
+      expect((await request(creator, buildTarget(gameId), '/api/v1/voice/dictation-token')).status).toBe(200);
+    }
+    const refused = await request(creator, buildTarget(gameId), '/api/v1/voice/dictation-token');
+
+    expect(refused.status).toBe(429);
+    expect(await refused.json()).toMatchObject({ error: 'rate_limited' });
   });
 });
 

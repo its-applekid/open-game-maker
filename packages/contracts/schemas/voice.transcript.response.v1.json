@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "message_id": {
+      "type": "string",
+      "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+    },
+    "inserted": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "message_id",
+    "inserted"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/voice.transcript.response.v1.json"
+}

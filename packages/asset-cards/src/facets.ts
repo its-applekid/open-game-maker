@@ -23,6 +23,9 @@ function count(counts: Counts, card: ResolvedCard, proposed: boolean): void {
   add(counts, 'settings', card.resolved.settings ?? []);
   add(counts, 'roles', describe.roles ?? []);
   add(counts, 'moods', describe.moods ?? []);
+  add(counts, 'genre', describe.genre ?? []);
+  add(counts, 'instruments', describe.instruments ?? []);
+  add(counts, 'game_fit', Object.keys(describe.game_fit ?? {}));
   add(counts, 'materials', describe.materials ?? []);
   add(counts, 'condition', [describe.condition]);
   add(counts, 'style_family', [card.resolved.style_family]);

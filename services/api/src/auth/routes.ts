@@ -3,7 +3,8 @@ import type { Context } from 'hono';
 
 import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
-import { mergeAllowedEmails, parseEmailList } from './access.js';
+import { parseEmailList } from './access.js';
+import { countAllowedUsers, isAllowedEmail, roleForEmail, seedAllowList } from './allow-list.js';
 import { createAuth, type Auth } from './auth.js';
 import { loadAuthEnv, type AuthEnv } from './env.js';
 import { selectMailSender } from './mail.js';
@@ -19,11 +20,21 @@ const contexts = new WeakMap<AppDeps, AuthContext>();
 export function setup(deps: AppDeps): void {
   const env = loadAuthEnv();
   const mail = selectMailSender(env, deps.sqlite);
-  const configuredAllowedEmails = parseEmailList(env.OGM_ALLOWED_EMAILS);
+  // The sign-in allow list lives in `allowed_users`. The env lists are the one-time seed of that
+  // table; after it, only the admin screen changes who may sign in. Maintainers stay an operator
+  // break-glass set read from the environment on every boot.
+  const seeded = seedAllowList(deps.db, {
+    allowed: parseEmailList(env.OGM_ALLOWED_EMAILS),
+    maintainers: parseEmailList(env.OGM_MAINTAINER_EMAILS),
+  });
   const maintainers = parseEmailList(env.OGM_MAINTAINER_EMAILS);
-  const allowedEmails = mergeAllowedEmails(configuredAllowedEmails, maintainers);
-  if (configuredAllowedEmails.size === 0) deps.log({ event: 'auth-allowed-emails-empty', level: 'warn' });
-  const auth = createAuth({ db: deps.db, env, mail: mail.sender, allowedEmails, log: deps.log });
+  const auth = createAuth({
+    db: deps.db,
+    env,
+    mail: mail.sender,
+    isAllowed: (email) => isAllowedEmail(deps.db, email),
+    log: deps.log,
+  });
   contexts.set(deps, { auth, env });
   deps.registry.mailSender ??= {
     send: async (message) => {
@@ -31,12 +42,23 @@ export function setup(deps: AppDeps): void {
     },
   };
   deps.registry.userDirectory ??= createUserDirectory(deps.sqlite);
-  deps.registry.principalResolvers.push(sessionResolver(auth, deps.sqlite, allowedEmails, maintainers));
+  deps.registry.principalResolvers.push(
+    sessionResolver(auth, deps.sqlite, (email) => roleForEmail(deps.db, email), maintainers),
+  );
   deps.log({
     event: 'auth-ready',
     mailSender: mail.kind,
     google: Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+    seededAllowedUsers: seeded,
   });
+  // No rows and no env seed admits nobody: say so once, loudly, at boot.
+  if (countAllowedUsers(deps.db) === 0) deps.log({ event: 'auth-allow-list-empty', level: 'warn' });
+}
+
+// The users context sends an invited address its sign-in link through the same Better Auth handler
+// the browser posts to, so it gets the same rate limit and mail path.
+export function authContextFor(deps: AppDeps): { auth: Auth; env: AuthEnv } | undefined {
+  return contexts.get(deps);
 }
 
 function context(c: Context<ApiBindings>): AuthContext {

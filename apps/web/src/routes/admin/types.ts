@@ -33,6 +33,17 @@ export type AdminMember = {
   remainingMicroUsd: number;
 };
 
+export type AllowListRole = 'player' | 'maker' | 'admin';
+
+// One row of `GET /admin/users`: the instance sign-in allow list, not the family roster.
+export type AdminAllowedUser = {
+  email: string;
+  role: AllowListRole;
+  addedBy: string;
+  addedAt: string;
+  lastSignInAt: string | null;
+};
+
 export type AdminInvitation = {
   id: string;
   kind: 'member' | 'play' | 'room';

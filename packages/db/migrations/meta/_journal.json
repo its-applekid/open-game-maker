@@ -190,6 +190,20 @@
       "when": 1793673359061,
       "tag": "20261103023559_games_forked_from",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "6",
+      "when": 1793916369423,
+      "tag": "20261105220609_game_slugs",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1793927427094,
+      "tag": "20261106011027_allow_list",
+      "breakpoints": true
     }
   ]
 }

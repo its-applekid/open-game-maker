@@ -1,6 +1,6 @@
 import type { Room as ClientRoom } from '@colyseus/sdk';
 import { boot, type ColyseusTestServer } from '@colyseus/testing';
-import { LIMITS, PROTOCOL_VERSION, type Role } from '@ogm/contracts';
+import { LIMITS, type Role } from '@ogm/contracts';
 import { signGrant } from '@ogm/room-protocol';
 
 import { createRoomsServer, type RoomsServerBundle, type RoomsServiceConfig } from '../src/server.js';
@@ -14,6 +14,7 @@ export const GAMES_ORIGIN = 'https://games.example.test';
 export const defaultTimings: RoomTimings = {
   ownerReconnectSec: 0.2,
   playerReconnectSec: 0.2,
+  seatReconnectSec: 0.2,
   idleDisposeSec: 1,
   callbackTimeoutMs: 100,
   callbackRetryMs: [5, 10, 20],
@@ -72,7 +73,8 @@ export async function joinOptions(
       nowMs,
     ),
     buildId: overrides.buildId ?? room.state.pin.buildId,
-    protocol: overrides.protocol ?? PROTOCOL_VERSION,
+    /* The helper speaks the protocol of the room it is given, so every v1 test keeps asserting v1. */
+    protocol: overrides.protocol ?? room.state.protocol,
   };
 }
 

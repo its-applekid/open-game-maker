@@ -5,7 +5,7 @@
  */
 import { Client, type Room } from '@colyseus/sdk';
 import { createGameFrame, type GameFrame } from '@gm/host';
-import { PROTOCOL_VERSION, type ActionFrame, type DesignDoc, type Patch } from '@ogm/contracts/browser';
+import { PROTOCOL_VERSION_V1, type ActionFrame, type DesignDoc, type Patch } from '@ogm/contracts/browser';
 import { apply } from '@ogm/design-log/browser';
 
 type Phase = 'editing' | 'migrating' | 'playing' | 'pausedForHost' | 'ended';
@@ -27,6 +27,8 @@ export type JoinInput = {
   grant: string;
   buildId: string;
   gamesOrigin: string;
+  /** Omitted = v1, the protocol this scenario's seven assertions were written for. */
+  protocol?: number;
 };
 
 const EMPTY_DOC: DesignDoc = { schemaVersion: 1, globals: {}, entities: {} };
@@ -57,7 +59,8 @@ class Harness {
     const room = await client.joinById(input.roomId, {
       grant: input.grant,
       buildId: input.buildId,
-      protocol: PROTOCOL_VERSION,
+      /* Pinned to v1: this scenario asserts the v1 relay and its `host-left` ending until N6 replaces it. */
+      protocol: input.protocol ?? PROTOCOL_VERSION_V1,
     });
     this.room = room;
     room.onMessage('*', (type, payload) => this.receive(String(type), payload as Record<string, unknown>, startedAt));
