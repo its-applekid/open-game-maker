@@ -15,26 +15,45 @@ private text; the room enforces that, and the two-client verify proves it.
 2. All per-player state lives in `players: Map<playerIndex, PlayerState>`; no singleton `player`.
 3. Entity ids are host-minted, globally unique strings; never array positions or per-session counters.
 4. Spawn points are design data (`design/spawns.json`), at least `maxPlayers` of them.
-5. The host is authoritative; peers render snapshots and send inputs only; game logic never assumes a server.
+5. Authority is declared, not assumed: a game sets `net.authority` in its manifest (`'per-seat'` or `'host'`) and
+   keeps its simulation deterministic; game logic never assumes a server.
 6. `serializeSnapshot()/applySnapshot()` cover everything visible; transient effects are derived, not synced.
 7. HUD reads `players.get(localPlayerIndex)`; camera rig follows the local avatar.
-8. `tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`.
+8. `tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`; under per-seat authority every seat
+   runs the step itself, so the same frames must always produce the same state.
 
-## The host is authoritative
+## Authority modes
 
-The room relays; it never simulates. The owner's browser runs the only simulation and is the host. Peers send input
-frames and draw the host's snapshots. Never describe the room or any service as the authority, and never put game
-rules in a service: if the host leaves, the room pauses for it and then ends.
+The room relays; it never simulates. Which client simulates is the manifest's choice:
+
+- `net: { authority: 'host', maxSeats: 4 }` — the owner's browser runs the only simulation. Peers send input frames
+  and draw the host's snapshots. This is what every game written before the field existed does, and it stays
+  byte-for-byte the old path.
+- `net: { authority: 'per-seat', maxSeats: 4 }` — every seat simulates the whole game at the fixed 1/60 s step. A
+  seat applies its own input in the tick it is sampled (no round trip), reconstructs the other seats from
+  tick-stamped redundant inputs, publishes its owned state, and proves agreement with a shared checksum. A
+  disagreement resolves through a recovery snapshot from the primary seat.
+
+A per-seat manifest must implement three more hooks (`capture`, `restore`, `digest`); declaring the mode without them
+refuses to boot with a mode-mismatch error rather than silently dropping back to host authority. Never describe the
+room or any service as the authority, and never put game rules in a service: if the primary seat leaves, the room
+pauses for it and then ends.
 
 ## What the SDK gives you
 
 The runtime's `gm.net` (`runtime.net` after `boot`) is the whole network surface:
 
-- `role` is `host` or `peer`; `localPlayerIndex` is this client's seat; `players` lists the seats in the room.
+- `mode` is `'per-seat'` or `'host'` — gate new behaviour on it, never on `role`. `role` keeps its v1 meaning
+  (`host` for the primary seat, `peer` for any other), and `localSeat` is this client's seat.
 - Remote input arrives in the fixed step as ordinary frames whose `playerIndex` is the sender's seat, so the same
   `applyInput` handles every player. `onInput` only observes it.
-- `onPlayerJoined`/`onPlayerLeft` announce seats; `sendEvent`/`onEvent` carry rare one-off events, not state.
-- The host sends a snapshot every third step (20 Hz); peers draw 100 ms behind and interpolate.
+- `onPlayerJoined`/`onPlayerLeft` announce seats; `onSeats`/`onStart` announce a per-seat match; `sendEvent`/`onEvent`
+  carry rare one-off events, not state.
+- Host mode sends a snapshot every third step (20 Hz) and peers draw 100 ms behind. Per-seat mode publishes
+  `capture({ seat })` at `net.seatStateHz` (10 Hz by default) and checksums the whole state twice a second.
+- `now()` gives the server-time mapping; `epoch`/`tick`/`started` describe the match; `frameFor(seat, tick)` returns
+  the frame this client holds; `rng('shared')`/`rng(seat)` return seeded streams so two seats draw the same numbers.
+- Per-seat diagnostics ride in `renderInfo().net`: `inputGaps`, `lateInputs`, `clockResyncs`, `recoveries`, `desynced`.
 
 The game supplies `MultiplayerHooks` on its instance as `net`:
 
@@ -43,6 +62,10 @@ The game supplies `MultiplayerHooks` on its instance as `net`:
 - `MultiplayerHooks.snapshot` returns `{ tick, state }`; `MultiplayerHooks.applySnapshot` replaces the visible state
   on a peer.
 - `MultiplayerHooks.hud` takes a seat and returns that seat's `HudModel`, never another player's private field.
+- Per-seat authority adds `capture({ seat })` for a seat's owned slice and `capture({})` for the shared slice,
+  `restore(snapshot)` which must apply exactly the slice it is given (never the whole state), and `digest()` which
+  returns integers in canonical order — seats ascending, entity ids sorted by code unit, positions quantised with
+  `toUnits` (1/256 of a unit). A `capture({})` slice must be independent of any seat's position.
 
 Interpolation convention: put each visible thing under `state.entities[id]` with its position in `p` (number or number
 array) and rotation in `r` (yaw number or `[x, y, z, w]` quaternion). The SDK lerps `p` and slerps `r` between two
