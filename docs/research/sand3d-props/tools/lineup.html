@@ -1,0 +1,218 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>lineup</title>
+<style>
+  html, body { margin: 0; background: #eef1f4; font: 12px/1.35 system-ui, sans-serif; }
+  #stage { position: relative; width: 1440px; height: 900px; }
+  canvas { display: block; }
+  .label { position: absolute; transform: translate(-50%, 0); background: #ffffffdd; padding: 2px 5px;
+           border-radius: 3px; color: #223; white-space: nowrap; }
+  .label.kaykit { color: #1c5f2e; }
+  .label.ours { color: #7a2c00; font-weight: 600; }
+  #bar { position: absolute; left: 0; bottom: 12px; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "./build/three.module.js",
+  "three/addons/": "./examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<script>
+  window.addEventListener('error', (e) => {
+    document.title = 'ERR ' + (e.message || e.error);
+    document.body.insertAdjacentHTML('beforeend', '<pre id="err">' + (e.error && e.error.stack || e.message) + '</pre>');
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    document.title = 'REJ ' + e.reason;
+    document.body.insertAdjacentHTML('beforeend', '<pre id="err">' + (e.reason && e.reason.stack || e.reason) + '</pre>');
+  });
+</script>
+<div id="stage"><canvas id="c" width="1440" height="900"></canvas><div id="labels"></div></div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+const params = new URLSearchParams(location.search);
+const setKey = params.get('set') || 'well';
+const view = params.get('view') || 'threequarter';
+const poseValue = params.has('pose') ? Number(params.get('pose')) : null;
+const mode = params.get('mode') || 'post';
+
+const SETS = await (await fetch('./sets.json')).json();
+const set = SETS[setKey];
+if (!set) throw new Error('no set ' + setKey);
+
+const W = 1440, H = 900;
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(W, H, false);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0xeef1f4);
+
+const hemi = new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.1);
+scene.add(hemi);
+const key = new THREE.DirectionalLight(0xfff6e8, 2.2);
+key.position.set(4, 9, 6);
+key.castShadow = true;
+key.shadow.mapSize.set(2048, 2048);
+key.shadow.camera.left = -8; key.shadow.camera.right = 8;
+key.shadow.camera.top = 8; key.shadow.camera.bottom = -8;
+key.shadow.bias = -0.0007;
+scene.add(key);
+const fill = new THREE.DirectionalLight(0xdfe8ff, 0.7);
+fill.position.set(-6, 4, 3);
+scene.add(fill);
+
+const loader = new GLTFLoader();
+const load = (path) => new Promise((res, rej) => loader.load(path, res, undefined, rej));
+
+const loaded = [];
+for (const item of set.items) {
+  const gltf = await load(item.path);
+  const root = gltf.scene;
+  // joints from the exporter's extras: drive the node the extras name
+  root.traverse((o) => {
+    const j = o.userData?.s3d_joint;
+    if (!j) return;
+    o.userData.joint = j;
+    o.userData.restQuat = o.quaternion.clone();
+    o.userData.restPos = o.position.clone();
+    if (poseValue !== null) {
+      // the extras carry the axis and the value in radians; the node already holds the rest pose,
+      // so an animation is a rotation composed on top of it. mode picks where it goes.
+      const axis = new THREE.Vector3(...j.axis).normalize();
+      const q = new THREE.Quaternion().setFromAxisAngle(axis, THREE.MathUtils.degToRad(poseValue));
+      if (mode === 'pre') o.quaternion.copy(q).multiply(o.userData.restQuat);
+      else if (mode === 'negpost') o.quaternion.copy(o.userData.restQuat).multiply(
+        new THREE.Quaternion().setFromAxisAngle(axis, -THREE.MathUtils.degToRad(poseValue)));
+      else o.quaternion.copy(o.userData.restQuat).multiply(q);
+      if (j.type === 'prismatic') o.position.copy(o.userData.restPos).addScaledVector(axis, poseValue);
+    }
+  });
+  const box = new THREE.Box3().setFromObject(root);
+  const size = box.getSize(new THREE.Vector3());
+  loaded.push({ ...item, root, box, size });
+}
+
+// to-scale row, left to right, each standing on y = 0, 0.30 m gaps
+const GAP = 0.3;
+let cursor = 0;
+for (const it of loaded) {
+  const cx = it.box.getCenter(new THREE.Vector3());
+  const minY = it.box.min.y;
+  it.root.position.set(-cx.x, -minY, -cx.z);
+  const width = it.size.x;
+  it.xCentre = cursor + width / 2;
+  const holder = new THREE.Group();
+  holder.add(it.root);
+  holder.position.x = it.xCentre;
+  holder.rotation.y = set.yaw ?? 0;
+  scene.add(holder);
+  it.holder = holder;
+  cursor += width + GAP;
+}
+const totalWidth = cursor - GAP;
+
+// ground: one big plane plus a 1 m grid drawn as lines
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(totalWidth + 4, 12),
+  new THREE.MeshStandardMaterial({ color: 0xdfe3e6, roughness: 1 })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.x = totalWidth / 2;
+ground.receiveShadow = true;
+scene.add(ground);
+const grid = new THREE.GridHelper(Math.ceil(totalWidth) + 4, Math.ceil(totalWidth) + 4, 0xb8bfc6, 0xcdd3d8);
+grid.position.x = totalWidth / 2;
+grid.position.y = 0.002;
+scene.add(grid);
+
+// scale bar: 1 m in 10 cm steps, at the front of the row
+const bar = new THREE.Group();
+for (let i = 0; i < 10; i++) {
+  const seg = new THREE.Mesh(
+    new THREE.BoxGeometry(0.1, 0.02, 0.06),
+    new THREE.MeshStandardMaterial({ color: i % 2 ? 0x1f2933 : 0xf4f6f8, roughness: 0.9 })
+  );
+  seg.position.set(i * 0.1 + 0.05, 0.02, 0);
+  bar.add(seg);
+}
+bar.position.set(0.2, 0, 1.2);
+scene.add(bar);
+
+// camera: orthographic, so the row reads at true scale
+const aspect = W / H;
+const rowBox = new THREE.Box3();
+for (const it of loaded) rowBox.union(it.holder ? new THREE.Box3().setFromObject(it.holder) : it.box);
+const rowSize = rowBox.getSize(new THREE.Vector3());
+const rowCentre = rowBox.getCenter(new THREE.Vector3());
+const fitW = Math.max(rowSize.x, rowSize.y * aspect) * 1.06;
+const cam = new THREE.OrthographicCamera(-fitW / 2, fitW / 2, fitW / 2 / aspect, -fitW / 2 / aspect, 0.1, 400);
+const cx = rowCentre.x;
+if (view === 'front') {
+  cam.position.set(cx, rowCentre.y, 20);
+  cam.lookAt(cx, rowCentre.y, 0);
+} else {
+  cam.position.set(cx - rowSize.x * 0.22, rowCentre.y + rowSize.x * 0.30, 20);
+  cam.lookAt(cx, rowCentre.y * 0.9, 0);
+}
+cam.updateProjectionMatrix();
+renderer.render(scene, cam);
+
+// labels, projected from each item's position
+const labels = document.getElementById('labels');
+for (const it of loaded) {
+  const p = new THREE.Vector3(it.xCentre, rowBox.min.y - rowSize.y * 0.02, it.size.z / 2 + 0.1).project(cam);
+  const d = document.createElement('div');
+  d.className = 'label ' + (it.kind || 'kaykit');
+  d.textContent = it.label;
+  d.style.left = `${((p.x + 1) / 2) * W}px`;
+  d.style.top = `${((1 - p.y) / 2) * H + 6}px`;
+  labels.appendChild(d);
+}
+const barPoint = new THREE.Vector3(0.2, rowBox.min.y - rowSize.y * 0.02, 1.2).project(cam);
+const barDiv = document.createElement('div');
+barDiv.className = 'label';
+barDiv.textContent = 'scale bar 1 m (10 cm)';
+barDiv.style.left = `${((barPoint.x + 1) / 2) * W}px`;
+barDiv.style.top = `${((1 - barPoint.y) / 2) * H + 6}px`;
+labels.appendChild(barDiv);
+
+const joints = [];
+scene.traverse((o) => { if (o.userData?.joint) joints.push({ name: o.name, ...o.userData.joint, node: o }); });
+scene.updateMatrixWorld(true);
+const jointReport = joints.map((j) => {
+  const pivot = j.node.getWorldPosition(new THREE.Vector3());
+  const box = new THREE.Box3().setFromObject(j.node);
+  const dist = box.containsPoint(pivot) ? 0 : pivot.distanceTo(box.clampPoint(pivot, new THREE.Vector3()));
+  return { name: j.name, type: j.type, axis: j.axis, pivot: pivot.toArray().map((v) => +v.toFixed(3)),
+           childBox: { min: box.min.toArray().map((v) => +v.toFixed(3)), max: box.max.toArray().map((v) => +v.toFixed(3)) },
+           pivot_to_child_m: +dist.toFixed(3) };
+});
+const report = JSON.stringify({
+  set: setKey, view, totalWidth, cam: { l: cam.left, r: cam.right, t: cam.top, b: cam.bottom, pos: cam.position.toArray() },
+  items: loaded.map((i) => ({ label: i.label, x: +i.xCentre.toFixed(3), size: i.size.toArray().map((v) => +v.toFixed(3)) })),
+  joints: jointReport,
+  pose: { value: poseValue, mode, boxes: loaded.map((i) => ({ label: i.label, h: +new THREE.Box3().setFromObject(i.holder).getSize(new THREE.Vector3()).y.toFixed(3) })) }
+});
+const logEl = document.createElement('pre');
+logEl.id = 'log';
+logEl.style.display = 'none';
+logEl.textContent = report;
+document.body.appendChild(logEl);
+
+document.title = `READY ${setKey} ${view} width=${totalWidth.toFixed(2)}m joints=${joints.length} ` +
+  joints.map((j) => `${j.name}:${j.type}:${(j.value * 180 / Math.PI).toFixed(0)}deg`).join(',');
+window.__scene = { scene, cam, joints, totalWidth, loaded };
+</script>
+</body>
+</html>
