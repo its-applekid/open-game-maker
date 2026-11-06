@@ -19,8 +19,9 @@ import {
   LIVE_STATUSES,
   MAX_LIVE_DAEMONS,
   assertTransition,
-  slugFor,
+  daemonSlugFor,
   type ActiveJobs,
+  type DaemonKey,
   type DaemonRow,
   type DaemonStatus,
   type DaemonStore,
@@ -107,11 +108,15 @@ export function createFleet(deps: FleetDeps) {
     throw new Error(`no free daemon port in ${FIRST_PORT}-${LAST_PORT}`);
   }
 
-  async function rowFor(repo: string): Promise<DaemonRow> {
-    const existing = await store.byRepo(repo);
-    if (existing) return existing;
+  // One row per game: the slug is the game's slug and `repo` is the instance repository it lives in.
+  async function rowFor(key: DaemonKey): Promise<DaemonRow> {
+    const slug = daemonSlugFor(key.slug);
+    const repo = key.repo.toLowerCase();
+    // A game's daemon row follows its game's repository: when the game moves into the instance repo the row follows
+    // it. A daemon that is already live picks the new repo up when it next starts (its config is rendered then).
+    const existing = await store.bySlug(slug);
+    if (existing) return existing.repo === repo ? existing : store.update(slug, { repo });
     const rows = await store.list();
-    const slug = rows.some((row) => row.slug === slugFor(repo)) ? slugFor(repo, true) : slugFor(repo);
     const paths = daemonPaths(env.home, slug);
     const row: DaemonRow = {
       slug,
@@ -173,6 +178,7 @@ export function createFleet(deps: FleetDeps) {
   async function toDaemon(row: DaemonRow): Promise<GameDaemon> {
     const clientToken = (await readIfPresent(daemonPaths(env.home, row.slug).clientToken))?.trim() ?? '';
     return {
+      slug: row.slug,
       repo: row.repo,
       checkoutPath: row.checkoutPath,
       unit: row.unit,
@@ -224,10 +230,10 @@ export function createFleet(deps: FleetDeps) {
 
   type Claim = { done: EnsureResult } | { row: DaemonRow; kind: JobKind };
 
-  async function claim(repo: string, kind: JobKind): Promise<Claim> {
-    let row = await rowFor(repo);
+  async function claim(key: DaemonKey, kind: JobKind): Promise<Claim> {
+    let row = await rowFor(key);
     if (isStale(row)) row = await setStatus(row, 'stopped');
-    const shape = jobShape(kind, await activeJobs(repo));
+    const shape = jobShape(kind, await activeJobs(row.slug));
 
     if (shape.max !== row.maxConcurrentAgents) {
       row = await store.update(row.slug, { maxConcurrentAgents: shape.max });
@@ -246,10 +252,10 @@ export function createFleet(deps: FleetDeps) {
     return { row, kind: shape.kind };
   }
 
-  async function ensure(repo: string, kind: JobKind): Promise<EnsureResult> {
+  async function ensure(key: DaemonKey, kind: JobKind): Promise<EnsureResult> {
     let claimed: Claim;
     try {
-      claimed = await locked(() => claim(repo, kind));
+      claimed = await locked(() => claim(key, kind));
     } catch (error) {
       return { status: 'stopped', reasons: [(error as Error).message] };
     }
@@ -262,28 +268,28 @@ export function createFleet(deps: FleetDeps) {
   }
 
   return {
-    // Concurrent calls for one repo share a single start.
-    ensureDaemon(rawRepo: string, kind: JobKind): Promise<EnsureResult> {
-      const repo = rawRepo.toLowerCase();
-      const pending = inFlight.get(repo);
+    // Concurrent calls for one game share a single start.
+    ensureDaemon(key: DaemonKey, kind: JobKind): Promise<EnsureResult> {
+      const slug = key.slug.trim().toLowerCase();
+      const pending = inFlight.get(slug);
       if (pending) return pending;
-      const promise = ensure(repo, kind).finally(() => inFlight.delete(repo));
-      inFlight.set(repo, promise);
+      const promise = ensure({ ...key, slug }, kind).finally(() => inFlight.delete(slug));
+      inFlight.set(slug, promise);
       return promise;
     },
 
-    // Provisioning (OGM-036): renders a new repo's daemon directory and secrets without starting it, so the
-    // first `ensureDaemon` only has to start the unit.
-    prepareDaemonDir(rawRepo: string, kind: JobKind): Promise<void> {
+    // Provisioning (OGM-036): renders a game's daemon directory and secrets without starting it, so the first
+    // `ensureDaemon` only has to start the unit.
+    prepareDaemonDir(key: DaemonKey, kind: JobKind): Promise<void> {
       return locked(async () => {
-        const row = await rowFor(rawRepo.toLowerCase());
+        const row = await rowFor(key);
         const rendered = await render(row, kind, await store.list());
         await writeDaemonSecrets(rendered.paths, env, rendered.input.codexHome as string);
       });
     },
 
-    async daemonFor(repo: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null> {
-      const row = await store.byRepo(repo.toLowerCase());
+    async daemonFor(gameSlug: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null> {
+      const row = await store.bySlug(gameSlug.trim().toLowerCase());
       if (!row || row.status === 'stopped') return null;
       const daemon = await toDaemon(row);
       if (!daemon.clientToken) return null;
@@ -299,9 +305,9 @@ export function createFleet(deps: FleetDeps) {
     // A `starting` row no start in this process owns (the API restarted mid-start) is stopped and freed.
     async stopIdleDaemons(at: Date = now()): Promise<string[]> {
       const stopped: string[] = [];
-      for (const { repo } of await store.list()) {
+      for (const { slug } of await store.list()) {
         await locked(async () => {
-          const row = await store.byRepo(repo);
+          const row = await store.bySlug(slug);
           if (!row) return;
           if (isStale(row)) {
             await systemctl.stop(row.slug).catch(() => undefined);
@@ -312,7 +318,7 @@ export function createFleet(deps: FleetDeps) {
           }
           if (row.status !== 'running' && row.status !== 'idle') return;
 
-          if ((await activeJobs(row.repo)).length > 0) {
+          if ((await activeJobs(row.slug)).length > 0) {
             if (row.status === 'idle') await setStatus(row, 'running', { idleSince: null });
           } else if (row.status === 'running') {
             await setStatus(row, 'idle', { idleSince: at.toISOString() });
@@ -341,7 +347,7 @@ export function createFleet(deps: FleetDeps) {
         const verdict = misses.record(row.slug, healthy);
         if (verdict === 'stop') {
           await locked(async () => {
-            const current = await store.byRepo(row.repo);
+            const current = await store.bySlug(row.slug);
             if (current?.status !== 'running' && current?.status !== 'idle') return;
             await systemctl.stop(row.slug).catch(() => undefined);
             await setStatus(current, 'stopped', { lastError: 'healthz missed six times', idleSince: null });

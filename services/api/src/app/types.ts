@@ -49,7 +49,8 @@ export interface AppDeps {
   blobStore: BlobStore;
   events: AppEvents;
   registry: Registry;
-  aiurClientForRepo: (repo: string) => Promise<AiurClient>;
+  // A daemon is keyed by the game it builds, so routes reach it through the game id on the job they hold.
+  aiurClientForGame: (gameId: string) => Promise<AiurClient>;
   version: string;
   startedAtMs: number;
   log: (line: LogLine) => void;

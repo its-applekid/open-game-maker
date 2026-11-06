@@ -35,6 +35,13 @@ export function findGame(db: Db, id: string): GameRow {
   return game;
 }
 
+// A build daemon is keyed by the game's slug, so routes that hold a job's game id resolve the daemon through this.
+// Null means the game predates slugs or was never given one; its daemon cannot exist either.
+export function gameSlugFor(db: Db, gameId: string): string | null {
+  const row = db.select({ slug: schema.games.slug }).from(schema.games).where(eq(schema.games.id, gameId)).get();
+  return row?.slug ?? null;
+}
+
 export function findGameForFamily(db: Db, id: string, familyId: string): GameRow {
   const game = db
     .select()

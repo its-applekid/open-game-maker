@@ -3,6 +3,8 @@ import { CompleteTriage, JobPlan, Reservation, type TriageResult } from '@ogm/co
 import { schema } from '@ogm/db';
 import { and, eq, lte } from 'drizzle-orm';
 
+import { isDaemonLabel } from '@ogm/game-repo-template';
+
 import { OutcomeUnknownError } from '../github/issues.js';
 import { scopeTicketForJob } from '../scope/file.js';
 import { renderIssue, renderRepairIssue, usdFromMicro } from './render.js';
@@ -48,8 +50,12 @@ export function createIntake(deps: IntakeDeps) {
         ? `${found.game.githubOwner}/${found.game.githubRepo}`.toLowerCase()
         : null;
     if (!repo) return failPreflight(found.job, ['game repository is not provisioned']);
+    // The daemon is keyed by the game's slug and its label prefix, so two games in one instance repo never share a
+    // daemon or each other's labels.
+    const gameSlug = found.game.slug;
+    if (!gameSlug) return failPreflight(found.job, ['game slug is missing']);
 
-    const fleetResult = await deps.fleet.ensureDaemon(repo, fleetKind(found.job.kind));
+    const fleetResult = await deps.fleet.ensureDaemon({ slug: gameSlug, repo }, fleetKind(found.job.kind));
     if (fleetResult.status === 'waiting_capacity') return { deferred: 'capacity' };
     if (fleetResult.status === 'stopped') return failPreflight(found.job, fleetResult.reasons);
 
@@ -60,13 +66,14 @@ export function createIntake(deps: IntakeDeps) {
     } catch (error) {
       return failPreflight(found.job, [message(error)]);
     }
-    const scopeTicket = found.job.kind === 'scope' ? scopeTicketForJob(deps.db, jobId) : null;
+    const scopeTicket = found.job.kind === 'scope' ? scopeTicketForJob(deps.db, jobId, gameSlug) : null;
     if (found.job.kind === 'scope' && (scopeTicket === null || tickets.length !== 1 || tickets[0]?.key !== 'scope')) {
       return failPreflight(found.job, ['scope job is missing its session or scope ticket']);
     }
 
     try {
       await deps.issues.ensureLabel(repo, `feature:gm-${jobId}`, '0e8a16', 'OGM job');
+      await deps.issues.ensureLabel(repo, `${gameSlug}:todo`, '6f42c1', 'ready to be worked');
     } catch (error) {
       await notify({ code: 'github_failed', jobId, reasons: [message(error)] });
       return { deferred: 'github' };
@@ -74,9 +81,9 @@ export function createIntake(deps: IntakeDeps) {
 
     const reservation = Reservation.parse(JSON.parse(found.job.reservation));
     const spendCap = usdFromMicro(reservation.amountMicroUsd);
-    let aiur: Awaited<ReturnType<IntakeDeps['aiurForRepo']>>;
+    let aiur: Awaited<ReturnType<IntakeDeps['aiurForGame']>>;
     try {
-      aiur = await deps.aiurForRepo(repo);
+      aiur = await deps.aiurForGame(gameSlug);
     } catch (error) {
       await notify({ code: 'spend_cap_failed', jobId, reasons: [message(error)] });
       return { deferred: 'aiur' };
@@ -118,7 +125,7 @@ export function createIntake(deps: IntakeDeps) {
                 ...rendered,
                 labels:
                   found.job.kind === 'scope'
-                    ? rendered.labels.filter((label) => label !== 'agent:todo')
+                    ? rendered.labels.filter((label) => !isDaemonLabel(label))
                     : rendered.labels,
               });
             } catch (error) {
@@ -183,8 +190,9 @@ export function createIntake(deps: IntakeDeps) {
 
       if (row.todoAt === null) {
         try {
+          const todo = `${gameSlug}:todo`;
           const labels = await deps.issues.labels(repo, row.issueNumber);
-          if (!labels.includes('agent:todo')) await deps.issues.addLabel(repo, row.issueNumber, 'agent:todo');
+          if (!labels.includes(todo)) await deps.issues.addLabel(repo, row.issueNumber, todo);
         } catch (error) {
           await notify({ code: 'github_failed', jobId, reasons: [message(error)] });
           return { deferred: 'github' };
@@ -294,7 +302,7 @@ function triageForRepair(db: IntakeDeps['db'], jobId: string): TriageResult | un
 }
 
 async function setSpendCap(
-  aiur: Awaited<ReturnType<IntakeDeps['aiurForRepo']>>,
+  aiur: Awaited<ReturnType<IntakeDeps['aiurForGame']>>,
   issueNumber: number,
   amount: string,
   sleep: (ms: number) => Promise<void>,

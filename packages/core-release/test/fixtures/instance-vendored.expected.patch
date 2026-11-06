@@ -25,7 +25,7 @@
  }
 --- a/.npmrc
 +++ b/.npmrc
-@@ -1,3 +1,8 @@
+@@ -1,3 +1,7 @@
  store-dir=${HOME}/.local/share/ogm/pnpm-store
 -offline=true
 +# offline=true disabled: core packages install from the registry
@@ -33,5 +33,20 @@
 +
 +# >>> core packages registry — managed by core-release switch
 +@its-owner:registry=https://registry.npmjs.org
-+//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
 +# <<< core packages registry
+--- a/vendor/core-packages.json
++++ b/vendor/core-packages.json
+@@ -0,0 +1,13 @@
++{
++  "v": 1,
++  "core": {
++    "sha": "3cef9ec65caaf2dfa51649cc8befb9a916c8487b",
++    "registry": "https://registry.npmjs.org",
++    "scope": "@its-owner",
++    "packages": {
++      "@gm/pack-kaykit": "npm:@its-owner/pack-kaykit@0.0.0-core.3cef9ec65caa",
++      "@gm/sdk": "npm:@its-owner/sdk@0.0.0-core.3cef9ec65caa",
++      "@ogm/contracts": "npm:@its-owner/contracts@0.0.0-core.3cef9ec65caa"
++    }
++  }
++}

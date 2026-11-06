@@ -29,6 +29,19 @@ const REASONS: [string, string][] = [
 
 const AGENT = '6f42c1';
 
+// Lifecycle states aiur's `StatePolicy` recognises, as bare suffixes (no prefix).
+export const STATE_SUFFIXES: readonly string[] = STATES.map(([state]) => state);
+
+// Every label aiur itself applies under a daemon prefix: the lifecycle states above plus the reason labels and the
+// watch/pause switches. A prefix-blind check must not assume `agent:` — a game daemon's prefix is its game slug.
+export const DAEMON_LABEL_SUFFIXES: readonly string[] = [
+  ...STATE_SUFFIXES,
+  ...REASONS.map(([reason]) => reason),
+  'watch',
+  'paused',
+];
+
+// The whole-repo label set: a daemon whose label prefix is the default `agent`.
 export const LABELS: readonly TemplateLabel[] = [
   ...STATES.map(([state, description]) => ({ name: `agent:${state}`, color: AGENT, description })),
   ...REASONS.map(([reason, description]) => ({ name: `agent:${reason}`, color: AGENT, description })),
@@ -41,3 +54,19 @@ export const LABELS: readonly TemplateLabel[] = [
   })),
   { name: 'flake', color: 'fbca04', description: 'known intermittent test failure' },
 ];
+
+/**
+ * Whether a label aiur itself applies is written under any daemon prefix, e.g. `agent:todo`, `castle-run:ci-wait` or
+ * `castle-run:blocked`. A game daemon's labels carry its game slug, so prefix-blind checks must not assume `agent:`.
+ */
+export function isDaemonLabel(label: string): boolean {
+  const separator = label.indexOf(':');
+  if (separator <= 0) return false;
+  // The suffix normalises the way projections read a label (`Agent: Human Review` reads `human-review`).
+  const suffix = label
+    .slice(separator + 1)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '-');
+  return DAEMON_LABEL_SUFFIXES.includes(suffix);
+}

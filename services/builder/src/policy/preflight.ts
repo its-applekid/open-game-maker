@@ -16,6 +16,7 @@ const GUARDED_PATHS = [
   'instance',
   'workspace.root',
   'tracker.github.repo',
+  'tracker.github.label_prefix',
   'tracker.github.allowed_users',
   'hooks_file',
   'prompt_file',

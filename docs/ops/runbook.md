@@ -24,8 +24,9 @@ journalctl --user -u ogm-api -f             # follow one unit
 journalctl --user -u 'ogm-*' --since -1h    # everything recent
 ```
 
-Builder daemons run as `ogm-aiur@<slug>`, one per active game repo, at most four live. The API's fleet manager
-(`@ogm/builder`) renders `~/.local/share/ogm/daemons/<slug>/` and `~/.config/ogm/env/ogm-aiur@<slug>.env`, starts the
+Builder daemons run as `ogm-aiur@<slug>`, one per active game, at most four live; several daemons can share one instance
+repository and each checks only its own `games/<slug>/` out of it. The API's fleet manager (`@ogm/builder`) renders
+`~/.local/share/ogm/daemons/<slug>/` and `~/.config/ogm/env/ogm-aiur@<slug>.env`, starts the
 unit on the first admitted job and stops it after 30 min with no active job; stopping keeps `workspaces/`. Each daemon
 is registered in `~/.aiur/remote-instances.yaml` with a read token, so
 `~/github/aiur/scripts/aiurdev --instance <slug> status` works without the cookie.

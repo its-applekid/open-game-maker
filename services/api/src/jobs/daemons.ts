@@ -4,6 +4,15 @@ import { schema, type Db } from '@ogm/db';
 import { eq } from 'drizzle-orm';
 
 import { HttpError } from '../app/errors.js';
+import { gameSlugFor } from '../games/games.js';
+
+// A daemon is keyed by the game's slug, so a game id resolves to its row through the game's own slug. Two games in
+// one instance repository therefore reach their own daemon and never each other's.
+export function daemonRowForGame(db: Db, gameId: string): typeof schema.gameDaemons.$inferSelect | undefined {
+  const slug = gameSlugFor(db, gameId);
+  if (slug === null) return undefined;
+  return db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.slug, slug)).get();
+}
 
 export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fetch = globalThis.fetch) {
   async function clientFor(row: typeof schema.gameDaemons.$inferSelect): Promise<AiurClient> {
@@ -23,6 +32,7 @@ export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fe
 
   function toDaemon(row: typeof schema.gameDaemons.$inferSelect, clientToken: string): GameDaemon {
     return {
+      slug: row.slug,
       repo: row.repo,
       checkoutPath: row.checkoutPath,
       unit: row.unit,
@@ -40,8 +50,8 @@ export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fe
         : db.select().from(schema.gameDaemons).all();
       return rows.map((row) => toDaemon(row, ''));
     },
-    async daemonFor(repo) {
-      const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.repo, repo)).get();
+    async daemonFor(gameSlug) {
+      const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.slug, gameSlug)).get();
       if (!row) return null;
       const client = await clientFor(row);
       return { daemon: toDaemon(row, ''), client };
@@ -54,8 +64,9 @@ export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fe
       const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.slug, slug)).get();
       return row ? clientFor(row) : null;
     },
-    async clientForRepo(repo: string): Promise<AiurClient> {
-      const row = db.select().from(schema.gameDaemons).where(eq(schema.gameDaemons.repo, repo)).get();
+    // A game's daemon, reached from the game id every job and route carries. Throws when the game has none.
+    async clientForGame(gameId: string): Promise<AiurClient> {
+      const row = daemonRowForGame(db, gameId);
       if (!row) throw new HttpError(409, 'daemon_not_found');
       return clientFor(row);
     },

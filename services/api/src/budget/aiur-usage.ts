@@ -23,7 +23,8 @@ export type UsageReconcilerDeps = {
   sqlite: Sqlite;
   events: AppEvents;
   defaults: BudgetDefaults;
-  daemonFor: (repo: string) => Promise<Pick<AiurClient, 'usage'> | null>;
+  // The game's daemon: usage is read from the daemon that runs the game's builds.
+  daemonFor: (gameId: string) => Promise<Pick<AiurClient, 'usage'> | null>;
   applyUsage: ApplyUsage;
   now?: () => Date;
   log?: (line: LogLine) => void;
@@ -61,7 +62,7 @@ export async function reconcileJob(
   const job = deps.db.select().from(schema.jobs).where(eq(schema.jobs.id, jobId)).get();
   if (!job) return { skipped: 'job_not_found' };
   if (job.aiurRepo === null || job.aiurIssueNumber === null) return { skipped: 'job_not_filed' };
-  const client = await deps.daemonFor(job.aiurRepo);
+  const client = await deps.daemonFor(job.gameId);
   if (client === null) return { skipped: 'daemon_unavailable' };
 
   let usage: Awaited<ReturnType<AiurClient['usage']>>;

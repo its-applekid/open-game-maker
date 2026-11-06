@@ -2,11 +2,12 @@ import { sql } from 'drizzle-orm';
 import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 // OGM-034's GameDaemon record minus the client token, which stays in its 0600 file.
+// `slug` is the game's slug: one daemon per game, several daemons per instance repository, so `repo` is not unique.
 export const gameDaemons = sqliteTable(
   'game_daemons',
   {
     slug: text('slug').primaryKey(),
-    repo: text('repo').notNull().unique(),
+    repo: text('repo').notNull(),
     checkoutPath: text('checkout_path').notNull(),
     unit: text('unit').notNull(),
     envFile: text('env_file').notNull(),

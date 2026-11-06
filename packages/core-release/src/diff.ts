@@ -79,11 +79,14 @@ export function unifiedDiff(before: string, after: string, options: DiffOptions)
   const out: string[] = [`--- a/${options.path}`, `+++ b/${options.path}`];
   for (const [start, end] of ranges) {
     const slice = ops.slice(start, end + 1);
-    const beforeStart = ops.slice(0, start).filter((op) => op.kind !== 'add').length + 1;
-    const afterStart = ops.slice(0, start).filter((op) => op.kind !== 'remove').length + 1;
     const beforeCount = slice.filter((op) => op.kind !== 'add').length;
     const afterCount = slice.filter((op) => op.kind !== 'remove').length;
-    out.push(`@@ -${beforeStart},${beforeCount} +${afterStart},${afterCount} @@`);
+    const beforeStart = ops.slice(0, start).filter((op) => op.kind !== 'add').length + 1;
+    const afterStart = ops.slice(0, start).filter((op) => op.kind !== 'remove').length + 1;
+    // A new file has no lines to start from: git writes `-0,0`, not `-1,0`.
+    const beforeFrom = beforeCount === 0 ? beforeStart - 1 : beforeStart;
+    const afterFrom = afterCount === 0 ? afterStart - 1 : afterStart;
+    out.push(`@@ -${beforeFrom},${beforeCount} +${afterFrom},${afterCount} @@`);
     for (const op of slice) {
       const marker = op.kind === 'add' ? '+' : op.kind === 'remove' ? '-' : ' ';
       out.push(`${marker}${op.line}`);

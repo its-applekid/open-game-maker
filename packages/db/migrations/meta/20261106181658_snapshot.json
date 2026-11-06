@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "17ba3390-e56a-4873-8171-68968c130087",
+  "id": "a08250ef-9b3c-44b4-b19a-f45e06adb0bb",
   "prevId": "fd3a1e9a-4c85-42e4-b460-f92e16935031",
   "tables": {
     "app_meta": {
@@ -322,13 +322,6 @@
         },
         "github_repo": {
           "name": "github_repo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "github_path": {
-          "name": "github_path",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -732,11 +725,6 @@
         }
       },
       "indexes": {
-        "game_daemons_repo_unique": {
-          "name": "game_daemons_repo_unique",
-          "columns": ["repo"],
-          "isUnique": true
-        },
         "game_daemons_port_unique": {
           "name": "game_daemons_port_unique",
           "columns": ["port"],

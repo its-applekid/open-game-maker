@@ -36,6 +36,12 @@ export const RenderInputSchema = z
       .string()
       .regex(/^[A-Za-z0-9._-]+$/)
       .optional(),
+    // The daemon's lifecycle-label prefix. A game daemon uses its game slug, so aiur only dispatches issues whose
+    // state labels carry that game's prefix (aiur `tracker.github.label_prefix`).
+    labelPrefix: z
+      .string()
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'must be a lower-case label prefix')
+      .default('agent'),
     codexHome: absolutePath.optional(),
     overrides: z
       .object({

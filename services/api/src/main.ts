@@ -21,8 +21,9 @@ import { startEstimateRefinement } from './budget/estimate.js';
 import { createApplyUsage, startUsageReconciler } from './budget/aiur-usage.js';
 import { createChatJobDirectory } from './build-chat/job-directory.js';
 import { finishRun, startBuildSweep } from './builds/publish.js';
+import { gameSlugFor } from './games/games.js';
 import { createDaemonDirectory } from './jobs/daemons.js';
-import { activeJobs, activeJobsForRepo, byTicket } from './jobs/repo.js';
+import { activeJobs, activeJobsForSlug, byTicket } from './jobs/repo.js';
 import { applyAiurEvent, applyIssueSnapshot, applyProgress } from './jobs/projection.js';
 import { startScheduler } from './jobs/scheduler.js';
 import { markPaused, markRunning, markTerminal } from './jobs/spend-cap.js';
@@ -37,7 +38,7 @@ const home = homedir();
 const daemonDirectory = createDaemonDirectory(db, home);
 const fleet = createFleet({
   store: createDbDaemonStore(db),
-  activeJobs: async (repo) => activeJobsForRepo(db, repo),
+  activeJobs: async (gameSlug) => activeJobsForSlug(db, gameSlug),
   env: {
     home,
     builderBotToken: env.OGM_BUILDER_BOT_TOKEN,
@@ -92,7 +93,7 @@ const deps: AppDeps = {
   }),
   events: createAppEvents(log),
   registry: createRegistry(),
-  aiurClientForRepo: daemonDirectory.clientForRepo,
+  aiurClientForGame: daemonDirectory.clientForGame,
   version: readGitVersion(),
   startedAtMs: Date.now(),
   log,
@@ -122,9 +123,9 @@ const intake = createIntake({
   db,
   fleet,
   issues,
-  async aiurForRepo(repo) {
-    const running = await fleet.daemonFor(repo);
-    if (!running) throw new Error(`Aiur daemon is unavailable for ${repo}`);
+  async aiurForGame(gameSlug) {
+    const running = await fleet.daemonFor(gameSlug);
+    if (!running) throw new Error(`Aiur daemon is unavailable for ${gameSlug}`);
     return running.client;
   },
   shippedSkills: skillPack().discovery.map(({ name }) => name),
@@ -161,7 +162,10 @@ const stopBriefingPush =
     : () => {};
 const usageReconciler = startUsageReconciler({
   ...lifecycleDeps,
-  daemonFor: async (repo) => (await daemonDirectory.fleet.daemonFor(repo))?.client ?? null,
+  daemonFor: async (gameId) => {
+    const slug = gameSlugFor(db, gameId);
+    return slug === null ? null : ((await daemonDirectory.fleet.daemonFor(slug))?.client ?? null);
+  },
   applyUsage: createApplyUsage(lifecycleDeps),
   log,
 });

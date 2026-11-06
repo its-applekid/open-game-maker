@@ -17,7 +17,9 @@ all. The releases are public packages under one npm org scope.
 | --- | --- | --- |
 | Release workflow | `.github/workflows/publish-core-packages.yml` | `workflow_dispatch` only. Takes the registry URL and scope as inputs and **defaults to a dry run**. |
 | Release tool | `packages/core-release` | Stages and packs the core dependency closure, leaves first, and publishes it. `--dry-run` unless `--apply`. |
-| Switch tool | `packages/core-release` (`core-release switch`) | Plans the move of an instance repository from vendored tarballs to registry versions, dry run by default. |
+| Switch tool | `packages/core-release` (`core-release switch`) | Plans the move of an instance repository from vendored tarballs to registry versions and records the released version set. Dry run by default. |
+| Diagnosis tool | `packages/core-release` (`core-release diagnose`) | Read-only report of what would stop a game install in an instance or standalone game repository; exits 1 on an error. |
+| Scaffolding | `packages/gm-cli` (`gm new`) | Replaces a template's local core dependencies with the release set's specifiers when the game lands in an instance repository. |
 | CI dry run | `.github/workflows/ci.yml`, "Core package publish dry run" | Runs the same dry run after every workspace build, so the release stays packable. |
 
 The closure comes from the workspace graph, not a hand-written list: the roots in `packages/core-release/src/roots.ts`
@@ -127,9 +129,9 @@ then believes auth is already configured, skips the exchange and fails with a mi
 ## Switching an instance repository (Open-Games)
 
 `core-release switch` reads the instance repository's pin, rewrites every `file:` or `workspace:` reference to a core
-package into the published version, writes a managed registry block into `.npmrc`, and removes the tarballs nothing
-points at any more. It keeps `vendor/core.json` (the pin `services/core-bump` maintains) and changes no import in any
-source file.
+package into the published version, writes a managed registry block into `.npmrc`, records the released version set in
+`vendor/core-packages.json`, and removes the tarballs nothing points at any more. It keeps `vendor/core.json` (the pin
+`services/core-bump` maintains) and changes no import in any source file.
 
 ```
 node packages/core-release/dist/bin.js switch --dir <instance-repo> --root .          # dry run: prints the diff
@@ -141,16 +143,89 @@ credential:
 
 ```
 @open-game-maker:registry=https://registry.npmjs.org
-//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
-The token line is only consulted when something installs a private package; with only public packages present the
-install succeeds without `NODE_AUTH_TOKEN` set. If the repository's `.npmrc` says `offline=true`, the switch comments
-that line out and says so in the plan: a registry install cannot be offline.
+A `--access restricted` switch adds the registry's `_authToken` line, read from `${NODE_AUTH_TOKEN}`, for a private destination.
+The token line stays out of a public switch on purpose: pnpm cannot substitute an unset variable, and when it cannot it
+skips the rest of the file — including the scoped registry line — so the install silently falls back to the default
+registry. If the repository's `.npmrc` says `offline=true`, the switch comments that line out and says so in the plan: a
+registry install cannot be offline.
 
 Review the diff the dry run prints, commit it as the one switch pull request, and let the instance repository's own
 checks gate the merge. The game's dependencies then install from the registry with lockfile integrity, and no tarball is
 carried in git.
+
+### The released version set
+
+`vendor/core-packages.json` records, per core package, the exact specifier a game installs at that pin:
+
+```json
+{
+  "v": 1,
+  "core": {
+    "sha": "<40-character core commit id>",
+    "registry": "https://registry.npmjs.org",
+    "scope": "@open-game-maker",
+    "packages": {
+      "@gm/sdk": "npm:@open-game-maker/sdk@0.0.0-core.3cef9ec65caa",
+      "@ogm/contracts": "npm:@open-game-maker/contracts@0.0.0-core.3cef9ec65caa"
+    }
+  }
+}
+```
+
+Its `core.sha` must equal the pin in `vendor/core.json`; a set from another commit is stale. The values are what a
+game's manifest installs, so `gm new` needs no destination scope of its own. When the pin moves — `services/core-bump`
+updates `vendor/core.json` — re-run the switch so the set follows the pin; `core-release diagnose` reports the stale
+pair until you do.
+
+### Scaffolding a game
+
+`gm new <template> <slug>` in an instance repository replaces a template's local core dependencies with the set's
+specifiers and leaves instance-owned `workspace:*` links (`@game/*`, `packages/*`) untouched. It also records the core
+commit and registry in the game's `gm.lock.json`. An instance repository that has no set yet keeps the template's
+`workspace:*` core links and `gm new` prints how to get the released ones; a set that does not list a core dependency
+the template needs refuses rather than scaffolding a game that cannot install.
+
+The core repository's own templates keep `workspace:*`: its tests and browser runs link the core sources, and the
+substitution happens when a game lands in an instance repository.
+
+### Diagnosing a repository
+
+```
+node packages/core-release/dist/bin.js diagnose --dir <instance-repo>            # read-only, exits 1 on an error
+node packages/core-release/dist/bin.js diagnose --dir <instance-repo> --online   # also asks the registry
+```
+
+It reports a core dependency still using `file:`/`workspace:`, a missing, malformed or stale version set, a specifier
+that drifted from the set, a core package the set does not list, an `.npmrc` without the registry block or with
+`offline=true`, tarballs nothing references, and lockfile entries without the destination name or its integrity. Run it
+in the instance repository's CI so a game that cannot install fails there instead of at a builder's first install.
+
+### Migrating a legacy standalone game
+
+A game repository that keeps its game at the root and has no `vendor/core.json` switches once on an explicit commit:
+
+```
+node packages/core-release/dist/bin.js switch --dir <standalone-game> --core-sha <40-hex>          # prints the diff
+node packages/core-release/dist/bin.js switch --dir <standalone-game> --core-sha <40-hex> --apply  # writes it
+```
+
+The switch reads the root `package.json` as well as one level under `games/` and `packages/`, so the same command
+migrates both layouts. The standalone repository gets the same `vendor/core-packages.json`, which is then its only
+record of the core commit.
+
+### Seeding the builder's offline store
+
+Sandboxed game commands have no network, so a game's install comes from the seeded pnpm store. After a release, add the
+published core packages to it once on the host:
+
+```
+bash scripts/sandbox/seed-store.sh --core <instance-repo>
+```
+
+It reads that repository's release set and adds each destination name at its exact version, so a sandboxed
+`pnpm install --offline` resolves the game's core dependencies without network. Re-run it after every core release.
 
 ## What stays off until the trusted publishers exist
 
@@ -158,5 +233,6 @@ carried in git.
   preparation).
 - No npm token, GitHub secret or credential is created or committed here. The only credential in play is the OIDC token
   GitHub Actions issues for the workflow run itself.
-- The `gm new` scaffolding and the instance template keep their `workspace:*` dependencies until the org and its trusted
-  publishers exist; #444 owns that scaffolding change.
+- The core repository's own templates keep their `workspace:*` dependencies, because its tests and browser runs link the
+  core sources. An instance repository's games get the released specifiers from `vendor/core-packages.json` as soon as
+  the switch runs there.

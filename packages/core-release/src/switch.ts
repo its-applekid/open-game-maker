@@ -1,15 +1,16 @@
-import { readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
-import { join, relative, resolve, sep } from 'node:path';
+import { mkdir, readFile, readdir, rm, stat, writeFile } from 'node:fs/promises';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 
 import { unifiedDiff } from './diff.js';
 import { ReleaseError } from './graph.js';
 import type { RegistryProfile } from './profile.js';
-import { destinationName, npmrcLines } from './profile.js';
+import { npmrcLines } from './profile.js';
+import { CORE_RELEASE_SET_PATH, coreReleaseSetText, releasedSpecifier } from './release-set.js';
 import { readCorePin } from './version.js';
 
 const DEPENDENCY_SECTIONS = ['dependencies', 'devDependencies', 'peerDependencies'] as const;
-const MANAGED_START = '# >>> core packages registry — managed by core-release switch';
-const MANAGED_END = '# <<< core packages registry';
+export const MANAGED_START = '# >>> core packages registry — managed by core-release switch';
+export const MANAGED_END = '# <<< core packages registry';
 const LOCAL_PROTOCOLS = ['file:', 'workspace:'];
 
 export type SwitchPlanInput = {
@@ -36,6 +37,13 @@ export type SwitchPlan = {
   readonly dependencies: readonly ManifestEdit[];
   readonly deletions: readonly string[];
   readonly npmrc: { readonly path: string; readonly before: string; readonly after: string; readonly created: boolean };
+  /** `vendor/core-packages.json`: the released version set `gm new` resolves from. */
+  readonly releaseSet: {
+    readonly path: string;
+    readonly before: string;
+    readonly after: string;
+    readonly created: boolean;
+  };
   readonly notes: readonly string[];
   readonly diff: string;
 };
@@ -48,8 +56,14 @@ async function readText(path: string): Promise<string | null> {
   }
 }
 
-async function manifestPaths(dir: string): Promise<string[]> {
+/**
+ * Every manifest a switch may rewrite: the repository's own `package.json` (a standalone game
+ * repository keeps its game there) plus one level under `games/` and `packages/`.
+ */
+export async function manifestPaths(dir: string): Promise<string[]> {
   const found: string[] = [];
+  const root = join(dir, 'package.json');
+  if ((await stat(root).catch(() => null)) !== null) found.push(root);
   for (const group of ['games', 'packages']) {
     const groupDir = join(dir, group);
     let entries: string[];
@@ -98,8 +112,7 @@ function rewrittenManifest(
         continue;
       }
       if (localTarball) tarballs.push(file);
-      const destination = destinationName(dependency, args.profile);
-      const next = destination === dependency ? version : `npm:${destination}@${version}`;
+      const next = releasedSpecifier(dependency, version, args.profile);
       dependencies[dependency] = next;
       edits.push({ manifest: relative(args.dir, path), dependency, from: spec, to: next });
     }
@@ -114,7 +127,12 @@ function mergedNpmrc(
   profile: RegistryProfile,
 ): { after: string; created: boolean; notes: string[] } {
   const notes: string[] = [];
-  const block = [MANAGED_START, ...npmrcLines(profile), MANAGED_END];
+  // A public release needs no credential, so its block is only the scoped registry. A restricted
+  // destination gets the token variable reference too; pnpm refuses to substitute an unset variable and
+  // then skips the rest of the file, including the scoped registry line.
+  const lines =
+    profile.access === 'restricted' ? npmrcLines(profile) : [`${profile.scope}:registry=${profile.registry}`];
+  const block = [MANAGED_START, ...lines, MANAGED_END];
   const original = before ?? '';
   const kept: string[] = [];
   let insideManaged = false;
@@ -145,25 +163,33 @@ function mergedNpmrc(
 /**
  * Plans the one-pull-request switch of an instance repository from vendored core tarballs to registry
  * versions. Reads only; `applySwitch` writes. Every core dependency declared with `file:` or
- * `workspace:` becomes the published version, keyed by its source name so imports do not change.
+ * `workspace:` becomes the published version, keyed by its source name so imports do not change, and
+ * `vendor/core-packages.json` records the version set so `gm new` can resolve it without the core
+ * checkout. A standalone game repository with no `vendor/core.json` may switch on an explicit
+ * `--core-sha`.
  */
 export async function planSwitch(input: SwitchPlanInput): Promise<SwitchPlan> {
   const { dir, profile, versions, coreSha } = input;
+  const notes: string[] = [];
   const pinText = await readText(join(dir, 'vendor', 'core.json'));
-  if (pinText === null) throw new ReleaseError(`${dir} has no vendor/core.json; nothing to switch`);
-  const read = readCorePin(pinText);
-  if (!read.ok) throw new ReleaseError(read.reason);
-  if (read.pin.sha !== coreSha.toLowerCase()) {
-    throw new ReleaseError(
-      `the instance repository pins ${read.pin.sha.slice(0, 12)} but the release versions come from ${coreSha.slice(0, 12)}`,
-    );
+  let pin = coreSha.toLowerCase();
+  if (pinText === null) {
+    notes.push(`no vendor/core.json: ${CORE_RELEASE_SET_PATH} records the core commit ${pin.slice(0, 12)} instead`);
+  } else {
+    const read = readCorePin(pinText);
+    if (!read.ok) throw new ReleaseError(read.reason);
+    if (read.pin.sha !== pin) {
+      throw new ReleaseError(
+        `the repository pins ${read.pin.sha.slice(0, 12)} but the release versions come from ${coreSha.slice(0, 12)}`,
+      );
+    }
+    pin = read.pin.sha;
   }
 
   const edits: { path: string; before: string; after: string }[] = [];
   const dependencies: ManifestEdit[] = [];
   const tarballPaths = new Set<string>();
   const stillReferenced = new Set<string>();
-  const notes: string[] = [];
 
   for (const path of await manifestPaths(dir)) {
     const before = await readText(path);
@@ -181,6 +207,10 @@ export async function planSwitch(input: SwitchPlanInput): Promise<SwitchPlan> {
   const npmrc = mergedNpmrc(npmrcBefore, profile);
   notes.push(...npmrc.notes);
 
+  const releaseSetPath = join(dir, CORE_RELEASE_SET_PATH);
+  const releaseSetBefore = await readText(releaseSetPath);
+  const releaseSetAfter = coreReleaseSetText({ sha: pin, profile, versions });
+
   const deletions: string[] = [];
   for (const tarball of [...tarballPaths].sort()) {
     if (stillReferenced.has(tarball)) {
@@ -191,29 +221,39 @@ export async function planSwitch(input: SwitchPlanInput): Promise<SwitchPlan> {
     deletions.push(relative(dir, tarball));
     if (!exists) notes.push(`${relative(dir, tarball)} was already absent`);
   }
-  if (dependencies.length === 0 && npmrc.after === (npmrcBefore ?? '')) {
+  if (dependencies.length === 0 && npmrc.after === (npmrcBefore ?? '') && releaseSetBefore === releaseSetAfter) {
     notes.push('nothing to switch: no core dependency uses a local protocol and .npmrc already names the registry');
   }
 
   const diffs = edits.map((edit) => unifiedDiff(edit.before, edit.after, { path: edit.path }));
   diffs.push(unifiedDiff(npmrcBefore ?? '', npmrc.after, { path: '.npmrc' }));
+  diffs.push(unifiedDiff(releaseSetBefore ?? '', releaseSetAfter, { path: CORE_RELEASE_SET_PATH }));
 
   return {
     dir,
-    pin: read.pin.sha,
+    pin,
     edits,
     dependencies,
     deletions,
     npmrc: { path: '.npmrc', before: npmrcBefore ?? '', after: npmrc.after, created: npmrc.created },
+    releaseSet: {
+      path: CORE_RELEASE_SET_PATH,
+      before: releaseSetBefore ?? '',
+      after: releaseSetAfter,
+      created: releaseSetBefore === null,
+    },
     notes,
     diff: diffs.filter((entry) => entry !== '').join(''),
   };
 }
 
-/** Writes the plan: rewritten manifests, the managed `.npmrc` block, and the now-unreferenced tarballs removed. */
+/** Writes the plan: rewritten manifests, the managed `.npmrc` block, the version set, and the now-unreferenced tarballs removed. */
 export async function applySwitch(plan: SwitchPlan): Promise<void> {
   for (const edit of plan.edits) await writeFile(join(plan.dir, edit.path), edit.after, 'utf8');
   await writeFile(join(plan.dir, plan.npmrc.path), plan.npmrc.after, 'utf8');
+  const setPath = join(plan.dir, plan.releaseSet.path);
+  await mkdir(dirname(setPath), { recursive: true });
+  await writeFile(setPath, plan.releaseSet.after, 'utf8');
   for (const deletion of plan.deletions) {
     const target = join(plan.dir, deletion);
     if (!target.startsWith(`${plan.dir}${sep}`))

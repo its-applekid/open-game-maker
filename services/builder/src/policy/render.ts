@@ -25,6 +25,7 @@ export function renderAiurConfig(rawInput: RenderInput): string {
         repo: input.repo,
         bot_account: input.botAccount,
         identity_mode: 'separate_account',
+        label_prefix: input.labelPrefix,
         allowed_users: [input.intakeLogin],
         trusted_accounts: [input.intakeLogin],
         human_mergers: [],

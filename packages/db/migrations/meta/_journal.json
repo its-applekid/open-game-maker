@@ -208,8 +208,15 @@
     {
       "idx": 29,
       "version": "6",
-      "when": 1793982630778,
-      "tag": "20261106163030_game_github_path",
+      "when": 1793989018027,
+      "tag": "20261106181658_daemons_by_game_slug",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1794001047317,
+      "tag": "20261106213727_game_github_path",
       "breakpoints": true
     }
   ]

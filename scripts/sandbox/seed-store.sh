@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # Fills the offline pnpm store that sandboxed game builds install from (`pnpm install --offline`).
 #   bash scripts/sandbox/seed-store.sh [<pkg>@<exact-version> ...]
+#   bash scripts/sandbox/seed-store.sh --core <instance-repo>
 #   bash scripts/sandbox/seed-store.sh --register|--unregister <game-dir>
 # Fetches every templates/game-*/pnpm-lock.yaml (and the workspace lockfile when packages/sdk exists) into
 # OGM_PNPM_STORE (default ~/.local/share/ogm/pnpm-store), adds any named packages, and prints the store's size
 # and package count. Idempotent. Needs the registry, so it refuses to run without network.
+# --core: reads <instance-repo>/vendor/core-packages.json (written by `core-release switch --apply`) and adds the
+# published core packages at the exact versions a game installs, so a sandboxed `pnpm install --offline` finds
+# them without network. Run it once after each core release; the instance repository's games then install offline.
 # --register: pnpm 10 links every project it installs into <store>/projects, which a sandboxed install cannot
 # write (the store is read-only there). The host registers a game directory once, before the first sandboxed
 # `pnpm install --offline`, and pnpm then finds the link already in place; --unregister removes the link.
@@ -40,6 +44,43 @@ if [[ "${1:-}" == "--register" || "${1:-}" == "--unregister" ]]; then
   ln -sfnr -- "$game" "$link"
   echo "registered $game"
   exit 0
+fi
+
+# --core turns the instance repository's release set into `<destination>@<exact-version>` specs. The set holds
+# the specifier each game installs (`0.0.0-core.<sha12>` or an `npm:<scope>/<name>@<version>` alias); the store
+# is keyed by the destination name and version, so an alias resolves to the same bytes.
+core_specs=()
+core_repo=""
+if [[ "${1:-}" == "--core" ]]; then
+  if [[ $# -ne 2 || ! -d "$2" ]]; then
+    echo "usage: $0 --core <instance-repo>" >&2
+    exit 2
+  fi
+  core_repo="$(realpath "$2")"
+  set_file="$2/vendor/core-packages.json"
+  if [[ ! -f "$set_file" ]]; then
+    echo "no $set_file in $2: run core-release switch --apply there first" >&2
+    exit 2
+  fi
+  command -v node >/dev/null 2>&1 || {
+    echo "node not on PATH" >&2
+    exit 2
+  }
+  while IFS= read -r spec; do
+    [[ -n "$spec" ]] && core_specs+=("$spec")
+  done < <(node -e '
+    const set = require(process.argv[1]);
+    for (const [source, specifier] of Object.entries(set.core.packages)) {
+      const alias = specifier.startsWith("npm:") ? specifier.slice(4) : `${source}@${specifier}`;
+      const at = alias.lastIndexOf("@");
+      console.log(`${alias.slice(0, at)}@${alias.slice(at + 1)}`);
+    }
+  ' "$(realpath "$set_file")")
+  if ((${#core_specs[@]} == 0)); then
+    echo "$set_file lists no core packages" >&2
+    exit 2
+  fi
+  set -- "${core_specs[@]}"
 fi
 
 for spec in "$@"; do
@@ -102,6 +143,12 @@ if [[ -d "$repo_root/packages/sdk" ]]; then
 fi
 if ((seeded == 0)); then
   echo "no template lockfiles and no packages/sdk yet: nothing to seed from lockfiles"
+fi
+
+if [[ -n "$core_repo" && -f "$core_repo/pnpm-lock.yaml" ]]; then
+  # The instance repository's own lockfile carries its games' third-party dependencies (vite, vitest, phaser).
+  fetch_lockfile "instance repository ($(basename "$core_repo"))" "$core_repo"
+  seeded=$((seeded + 1))
 fi
 
 if (($# > 0)); then

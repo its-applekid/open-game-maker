@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { renderIssue, usdFromMicro } from '../../src/intake/render.js';
+import { renderIssue, renderRepairIssue, usdFromMicro } from '../../src/intake/render.js';
 
 const fixture = readFileSync(fileURLToPath(new URL('../fixtures/issue-body.md', import.meta.url)), 'utf8').trimEnd();
 
@@ -66,5 +66,21 @@ describe('renderIssue', () => {
     expect(usdFromMicro(1)).toBe('0.000001');
     expect(usdFromMicro(1_250_000)).toBe('1.25');
     expect(usdFromMicro(9_000_001)).toBe('9.000001');
+  });
+});
+
+describe('renderRepairIssue', () => {
+  it('drops the failing daemon’s own labels, including a game-prefixed state, and keeps the reporter’s', () => {
+    const rendered = renderRepairIssue({
+      jobId: 'j_2',
+      complexity: 2,
+      ticket: {
+        title: 'Platform TypeError',
+        body: 'Signature x',
+        labels: ['castle-run:todo', 'agent:ci-wait', 'complexity:3', 'feature:gm-j_1', 'bug', 'source:report'],
+      },
+    });
+
+    expect(rendered.labels).toEqual(['complexity:2', 'feature:gm-j_2', 'bug', 'source:report']);
   });
 });

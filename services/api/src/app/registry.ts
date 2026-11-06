@@ -61,7 +61,7 @@ export type UserDirectory = {
   userIdForEmail(email: string): Promise<string | null>;
 };
 export interface IssueStateWriter {
-  setStateLabel(repo: string, issue: number, state: 'cancelled'): Promise<void>;
+  setStateLabel(repo: string, issue: number, state: 'cancelled', prefix?: string): Promise<void>;
 }
 
 // Seams filled by contexts from `setup(deps)`: auth adds session, user-directory and mail

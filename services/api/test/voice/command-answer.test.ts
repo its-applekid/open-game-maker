@@ -65,7 +65,7 @@ describe('answerVoiceCommand', () => {
   it('routes a spoken option through the Aiur Decision API and closes the local Command', async () => {
     const deps = fixture();
     const decide = vi.fn().mockResolvedValue({ decision_id: 'decision-1' });
-    deps.aiurClientForRepo = async () => ({ decide }) as never;
+    deps.aiurClientForGame = async () => ({ decide }) as never;
 
     await expect(
       answerVoiceCommand(deps, {
@@ -90,7 +90,7 @@ describe('answerVoiceCommand', () => {
     const deps = fixture();
     deps.config.voiceInternalSecret = 'voice-internal-secret-for-tests';
     const decide = vi.fn().mockResolvedValue({ decision_id: 'decision-1' });
-    deps.aiurClientForRepo = async () => ({ decide }) as unknown as AiurClient;
+    deps.aiurClientForGame = async () => ({ decide }) as unknown as AiurClient;
     const { app } = await makeApp(deps);
     const body = JSON.stringify({
       target,
@@ -128,7 +128,7 @@ describe('answerVoiceCommand', () => {
       updatedAt: '2026-10-31T20:01:00.000Z',
     });
     const decide = vi.fn().mockResolvedValue({ decision_id: 'decision-1' });
-    deps.aiurClientForRepo = async () => ({ decide }) as never;
+    deps.aiurClientForGame = async () => ({ decide }) as never;
 
     await expect(
       answerVoiceCommand(deps, {
@@ -145,7 +145,7 @@ describe('answerVoiceCommand', () => {
     const deps = fixture();
     deps.db.update(schema.checkpoints).set({ status: 'answered' }).run();
     const decide = vi.fn();
-    deps.aiurClientForRepo = async () => ({ decide }) as never;
+    deps.aiurClientForGame = async () => ({ decide }) as never;
 
     await expect(
       answerVoiceCommand(deps, {
@@ -161,7 +161,7 @@ describe('answerVoiceCommand', () => {
   it('rejects a forged target and an unknown option before contacting Aiur', async () => {
     const deps = fixture();
     const decide = vi.fn();
-    deps.aiurClientForRepo = async () => ({ decide }) as never;
+    deps.aiurClientForGame = async () => ({ decide }) as never;
 
     await expect(
       answerVoiceCommand(deps, {

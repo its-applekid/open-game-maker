@@ -101,24 +101,33 @@ describe('GitHub issues writer', () => {
     expect(failure.message).toContain('[REDACTED]');
   });
 
-  it('removes competing agent state labels before applying the requested state', async () => {
+  it('removes competing state labels under the daemon prefix only', async () => {
     const request = vi
       .fn<GitHubRequest>()
-      .mockResolvedValueOnce(response(200, { labels: [{ name: 'agent:todo' }, { name: 'agent:paused' }] }))
+      .mockResolvedValueOnce(response(200, {}))
+      .mockResolvedValueOnce(
+        response(200, { labels: [{ name: 'castle-run:todo' }, { name: 'castle-run:paused' }, { name: 'agent:todo' }] }),
+      )
       .mockResolvedValue(response(200, {}));
     const client = createIssuesClient({ token: 'secret-token-value', request });
 
-    await client.setStateLabel('owner/game', 7, 'cancelled');
+    await client.setStateLabel('owner/game', 7, 'cancelled', 'castle-run');
 
     expect(request.mock.calls.map(([route]) => route)).toEqual([
+      'POST /repos/{owner}/{repo}/labels',
       'GET /repos/{owner}/{repo}/issues/{issue_number}',
       'DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{name}',
       'DELETE /repos/{owner}/{repo}/issues/{issue_number}/labels/{name}',
       'POST /repos/{owner}/{repo}/issues/{issue_number}/labels',
     ]);
+    // Only this game's labels are cleared: another daemon's `agent:*` label on the shared repo stays put.
+    expect(request.mock.calls.slice(2, 4).map(([, params]) => (params as { name: string }).name)).toEqual([
+      'castle-run:todo',
+      'castle-run:paused',
+    ]);
     expect(request).toHaveBeenLastCalledWith(
       'POST /repos/{owner}/{repo}/issues/{issue_number}/labels',
-      expect.objectContaining({ labels: ['agent:cancelled'] }),
+      expect.objectContaining({ labels: ['castle-run:cancelled'] }),
     );
   });
 });

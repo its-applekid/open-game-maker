@@ -33,6 +33,8 @@ function toChatJob(row: ChatJobRow): ChatJob {
 }
 
 export function createChatJobDirectory(db: Db): ChatJobDirectory {
+  // The daemon a job talks to is its game's daemon: `game_daemons.slug` is the game's slug, so the join goes through
+  // the game rather than through the repository two games can share.
   const selection = {
     jobId: schema.jobs.id,
     gameId: schema.jobs.gameId,
@@ -49,7 +51,8 @@ export function createChatJobDirectory(db: Db): ChatJobDirectory {
       const row = db
         .select(selection)
         .from(schema.jobs)
-        .leftJoin(schema.gameDaemons, eq(schema.jobs.aiurRepo, schema.gameDaemons.repo))
+        .leftJoin(schema.games, eq(schema.games.id, schema.jobs.gameId))
+        .leftJoin(schema.gameDaemons, eq(schema.gameDaemons.slug, schema.games.slug))
         .where(eq(schema.jobs.id, jobId))
         .get();
       return row ? toChatJob(row) : null;
@@ -58,7 +61,8 @@ export function createChatJobDirectory(db: Db): ChatJobDirectory {
       return db
         .select(selection)
         .from(schema.jobs)
-        .innerJoin(schema.gameDaemons, eq(schema.jobs.aiurRepo, schema.gameDaemons.repo))
+        .innerJoin(schema.games, eq(schema.games.id, schema.jobs.gameId))
+        .innerJoin(schema.gameDaemons, eq(schema.gameDaemons.slug, schema.games.slug))
         .where(and(inArray(schema.jobs.state, ACTIVE_CHAT_STATES), isNotNull(schema.jobs.aiurIssueNumber)))
         .orderBy(asc(schema.jobs.createdAt), asc(schema.jobs.id))
         .all()

@@ -269,12 +269,13 @@ export function issuePatch(issue: IssueSnapshot): Partial<Inputs> {
   return patch;
 }
 
-// `agent:ci-wait`, `Agent: CI Wait` and `ci-wait` all read `ci-wait`.
+// `agent:ci-wait`, `castle-run:ci-wait`, `Agent: CI Wait` and `ci-wait` all read `ci-wait`: the daemon's own label
+// prefix (its game slug for a game daemon) is dropped, so projections never depend on which prefix aiur used.
 function normalizeLabel(label: string): string {
   return label
     .trim()
     .toLowerCase()
-    .replace(/^agent:\s*/, '')
+    .replace(/^[^:\s]+:\s*/, '')
     .replace(/\s+/g, '-');
 }
 

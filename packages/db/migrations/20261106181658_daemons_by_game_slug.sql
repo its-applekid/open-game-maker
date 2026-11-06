@@ -1,0 +1,1 @@
+DROP INDEX `game_daemons_repo_unique`;

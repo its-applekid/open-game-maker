@@ -102,17 +102,22 @@ describe('issue writers', () => {
     expect(row).toMatchObject({ status: 'pending', title: issue.title });
   });
 
-  it('never files an issue carrying an agent label', async () => {
+  it('never files an issue carrying a daemon label under any prefix', async () => {
     const deps = makeDeps();
-    await expect(new StoredIssueWriter(deps.db).file({ ...issue, labels: ['agent:todo'] })).rejects.toThrow();
+    for (const label of ['agent:todo', 'castle-run:todo', 'castle-run:blocked']) {
+      await expect(new StoredIssueWriter(deps.db).file({ ...issue, labels: [label] })).rejects.toThrow();
+    }
     const fetch = vi.fn();
     await expect(
       new CommitServiceIssueWriter({ baseUrl: 'http://127.0.0.1:1', token: 't', fetch }).file({
         ...issue,
-        labels: ['agent:todo'],
+        labels: ['agent:todo', 'castle-run:todo'],
       }),
     ).rejects.toThrow();
     expect(fetch).not.toHaveBeenCalled();
+    // A game repo's own labels are not daemon labels: the platform queue still files them.
+    const { ref } = await new StoredIssueWriter(deps.db).file({ ...issue, labels: ['complexity:2', 'source:report'] });
+    expect(ref).toMatch(/^queue:/);
   });
 
   it('files through the commit service file_issue op', async () => {

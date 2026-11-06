@@ -21,13 +21,17 @@ function write(root: string, path: string, body: string): void {
   writeFileSync(file, body);
 }
 
-function makeSource(): { cwd: string; pack: string } {
+function makeSource(dependencies: Record<string, string> = {}): { cwd: string; pack: string } {
   const cwd = tempDir('gm-new-source-');
   write(cwd, 'package.json', '{"private":true,"gameMaker":{"instance":true}}\n');
   write(cwd, 'pnpm-workspace.yaml', "packages:\n  - 'games/*'\n  - 'packages/*'\n");
   write(cwd, 'games/README.md', '# Games\n');
   write(cwd, 'packages/README.md', '# Packages\n');
-  write(cwd, 'templates/game-2d/package.json', '{"name":"fixture-game","private":true}\n');
+  write(
+    cwd,
+    'templates/game-2d/package.json',
+    `${JSON.stringify({ name: 'fixture-game', private: true, dependencies }, null, 2)}\n`,
+  );
   write(cwd, 'templates/game-2d/index.html', '<canvas></canvas>\n');
   write(cwd, 'templates/game-2d/src/main.ts', 'export const booted = true;\n');
   write(
@@ -115,6 +119,157 @@ describe('gm new', () => {
     });
     expect(statSync(join(game, '.claude/skills/gm-set-smallscaleint/SKILL.md')).isFile()).toBe(true);
     expect(existsSync(join(game, '.claude/skills/gm-set-kaykit'))).toBe(false);
+  });
+
+  it('resolves core dependencies from the instance release set and keeps instance links', async () => {
+    const { cwd, pack } = makeSource({
+      '@gm/sdk': 'workspace:*',
+      '@ogm/contracts': 'workspace:*',
+      '@game/shared': 'workspace:*',
+      phaser: '4.2.1',
+    });
+    const core = '3cef9ec65caaf2dfa51649cc8befb9a916c8487b';
+    write(
+      cwd,
+      'vendor/core-packages.json',
+      `${JSON.stringify(
+        {
+          v: 1,
+          core: {
+            sha: core,
+            registry: 'https://registry.npmjs.org',
+            scope: '@open-game-maker',
+            packages: {
+              '@gm/sdk': 'npm:@open-game-maker/sdk@0.0.0-core.3cef9ec65caa',
+              '@ogm/contracts': 'npm:@open-game-maker/contracts@0.0.0-core.3cef9ec65caa',
+              '@gm/pack-smallscaleint': 'npm:@open-game-maker/pack-smallscaleint@0.0.0-core.3cef9ec65caa',
+            },
+          },
+        },
+        null,
+        2,
+      )}\n`,
+    );
+
+    const result = await gm(['new', 'game-2d', 'core-game', '--family', 'isometric-2d', '--set', 'smallscaleint'], {
+      cwd,
+      env: { GM_SKILLS_DIR: pack },
+    });
+    expect(result).toMatchObject({ code: 0, err: [] });
+
+    const game = join(cwd, 'games/core-game');
+    expect(JSON.parse(readFileSync(join(game, 'package.json'), 'utf8')).dependencies).toEqual({
+      '@game/shared': 'workspace:*',
+      '@gm/pack-smallscaleint': 'npm:@open-game-maker/pack-smallscaleint@0.0.0-core.3cef9ec65caa',
+      '@gm/sdk': 'npm:@open-game-maker/sdk@0.0.0-core.3cef9ec65caa',
+      '@ogm/contracts': 'npm:@open-game-maker/contracts@0.0.0-core.3cef9ec65caa',
+      phaser: '4.2.1',
+    });
+    expect(JSON.parse(readFileSync(join(game, 'gm.lock.json'), 'utf8'))).toMatchObject({
+      core: { sha: core, registry: 'https://registry.npmjs.org' },
+    });
+  });
+
+  it('keeps the workspace links and warns when the instance repository has no release set', async () => {
+    const { cwd, pack } = makeSource({ '@gm/sdk': 'workspace:*' });
+    const game = join(cwd, 'games/no-set');
+    const result = await gm(['new', 'game-2d', 'no-set'], { cwd, env: { GM_SKILLS_DIR: pack } });
+
+    expect(result.code).toBe(0);
+    expect(result.err).toEqual([]);
+    expect(result.out[0]).toContain('no vendor/core-packages.json in this instance repository');
+    expect(result.out.at(-1)).toContain(`created ${game}`);
+    expect(JSON.parse(readFileSync(join(game, 'package.json'), 'utf8')).dependencies).toEqual({
+      '@gm/sdk': 'workspace:*',
+    });
+    expect(JSON.parse(readFileSync(join(game, 'gm.lock.json'), 'utf8'))).not.toHaveProperty('core');
+  });
+
+  it('refuses when the release set does not list a core dependency the template needs', async () => {
+    const { cwd, pack } = makeSource({ '@gm/sdk': 'workspace:*', '@ogm/iframe-bridge': 'workspace:*' });
+    write(
+      cwd,
+      'vendor/core-packages.json',
+      `${JSON.stringify({
+        v: 1,
+        core: {
+          sha: '3cef9ec65caaf2dfa51649cc8befb9a916c8487b',
+          registry: 'https://registry.npmjs.org',
+          scope: '@open-game-maker',
+          packages: { '@gm/sdk': 'npm:@open-game-maker/sdk@0.0.0-core.3cef9ec65caa' },
+        },
+      })}\n`,
+    );
+
+    const result = await gm(['new', 'game-2d', 'partial'], { cwd, env: { GM_SKILLS_DIR: pack } });
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toBe(
+      'the release set in vendor/core-packages.json does not list @ogm/iframe-bridge. Try: run core-release switch --apply from the core checkout to record the current core packages',
+    );
+    expect(existsSync(join(cwd, 'games/partial'))).toBe(false);
+  });
+
+  it('scaffolds a template with no core dependency without a release set', async () => {
+    const { cwd, pack } = makeSource({ phaser: '4.2.1' });
+    const result = await gm(['new', 'game-2d', 'plain'], { cwd, env: { GM_SKILLS_DIR: pack } });
+    expect(result).toMatchObject({ code: 0, err: [] });
+    expect(JSON.parse(readFileSync(join(cwd, 'games/plain/gm.lock.json'), 'utf8'))).not.toHaveProperty('core');
+  });
+
+  it('refuses a release set whose specifier is not an exact version or an npm: alias', async () => {
+    const { cwd, pack } = makeSource({ '@gm/sdk': 'workspace:*' });
+    write(
+      cwd,
+      'vendor/core-packages.json',
+      `${JSON.stringify({
+        v: 1,
+        core: {
+          sha: '3cef9ec65caaf2dfa51649cc8befb9a916c8487b',
+          registry: 'https://registry.npmjs.org',
+          scope: '@open-game-maker',
+          packages: { '@gm/sdk': '^0.0.0-core.3cef9ec65caa' },
+        },
+      })}\n`,
+    );
+
+    const result = await gm(['new', 'game-2d', 'bogus-set'], { cwd, env: { GM_SKILLS_DIR: pack } });
+    expect(result.code).toBe(2);
+    expect(result.err[0]).toBe(
+      'vendor/core-packages.json has no exact version or npm: alias for @gm/sdk. Try: regenerate it with core-release switch --apply from the core checkout',
+    );
+    expect(existsSync(join(cwd, 'games/bogus-set'))).toBe(false);
+  });
+
+  it('pins a style adapter from the release set when the template declares no core dependency', async () => {
+    const { cwd, pack } = makeSource({ phaser: '4.2.1' });
+    const core = '3cef9ec65caaf2dfa51649cc8befb9a916c8487b';
+    write(
+      cwd,
+      'vendor/core-packages.json',
+      `${JSON.stringify({
+        v: 1,
+        core: {
+          sha: core,
+          registry: 'https://registry.npmjs.org',
+          scope: '@open-game-maker',
+          packages: { '@gm/pack-smallscaleint': 'npm:@open-game-maker/pack-smallscaleint@0.0.0-core.3cef9ec65caa' },
+        },
+      })}\n`,
+    );
+
+    const result = await gm(['new', 'game-2d', 'adapter-only', '--set', 'smallscaleint'], {
+      cwd,
+      env: { GM_SKILLS_DIR: pack },
+    });
+    expect(result).toMatchObject({ code: 0, err: [] });
+    const game = join(cwd, 'games/adapter-only');
+    expect(JSON.parse(readFileSync(join(game, 'package.json'), 'utf8')).dependencies).toEqual({
+      '@gm/pack-smallscaleint': 'npm:@open-game-maker/pack-smallscaleint@0.0.0-core.3cef9ec65caa',
+      phaser: '4.2.1',
+    });
+    expect(JSON.parse(readFileSync(join(game, 'gm.lock.json'), 'utf8'))).toMatchObject({
+      core: { sha: core, registry: 'https://registry.npmjs.org' },
+    });
   });
 
   it('refuses a non-empty destination without changing its contents', async () => {

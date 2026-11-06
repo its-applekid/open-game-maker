@@ -5,7 +5,7 @@ import type { JobKind } from './fleet/types.js';
 
 export type ProvisionInput = {
   gameId: string;
-  // The game's folder name under `games/` in the instance repository.
+  // The game's folder name under `games/` in the instance repository, and the key of the daemon that builds it.
   slug: string;
   visibility: 'public' | 'private';
   kind: JobKind;
@@ -44,9 +44,10 @@ export async function provisionGameRepo(input: ProvisionInput, deps: ProvisionDe
   const result = CommitResult.parse(await response.json());
   if (!result.ok) return result;
 
-  // One workspace per instance repository: every game's daemon works inside its own `games/<slug>/` folder of it.
+  // One workspace per instance repository: the daemon is keyed by the game's slug and works inside its own
+  // `games/<slug>/` folder of that shared checkout.
   const repo = `${deps.instanceRepo.owner}/${deps.instanceRepo.name}`;
-  await deps.fleet.prepareDaemonDir(repo, input.kind);
+  await deps.fleet.prepareDaemonDir({ slug: input.slug, repo }, input.kind);
   await deps.setGameRepo(input.gameId, repo);
   return { ok: true, repo, sha: result.sha };
 }
