@@ -1,7 +1,8 @@
 # Convert a single-player game to multiplayer
 
 An edit job: the game already plays alone; after these steps any number of seats up to `maxPlayers` play it in one
-room. Do the steps in order and keep `gm test` green after each one. Acceptance is the two-client verify.
+room. Do the steps in order and keep `gm test` green after each one. Acceptance is the verify that matches your
+room: `multi-client` for a protocol-2 room, `two-client` for a v1 one.
 
 ## Before
 
@@ -63,5 +64,6 @@ const model = hud(state.players, localPlayerIndex);
 
 Run `gm test`, `gm check`, then the checker
 (`node .claude/skills/gm-multiplayer-ready/scripts/check.ts .`) and fix every finding. Then ask the platform for the
-two-client verify (`pnpm --filter @ogm/gm-verify scenario two-client --game <gameDir>`); the job is done when its
-report says `verdict: pass` with `clients: 2`.
+multi-client verify (`pnpm --filter @ogm/gm-verify scenario multi-client --game <gameDir> --link bad`), or the
+two-client one on a v1 room (`pnpm --filter @ogm/gm-verify scenario two-client --game <gameDir>`); the job is done when its
+report says `verdict: pass` with `clients: 4` (`2` on the v1 room).
