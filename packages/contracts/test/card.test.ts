@@ -33,6 +33,19 @@ describe('card schemas', () => {
     expect(validateCard(card)).toMatchObject({ ok: true });
   });
 
+  it('accepts a sprite facing set and rejects an unknown facing', () => {
+    const card = structuredClone(
+      cardFixtureDocs().find(({ file }) => file === 'sprite-kenney-tiny-dungeon-knight.json')?.doc,
+    ) as { sprite: Sprite };
+    card.sprite.directions = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'];
+    expect(validateCard(card)).toMatchObject({ ok: true });
+
+    card.sprite.directions = ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE', 'U'] as unknown as Sprite['directions'];
+    const result = validateCard(card);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.errors.join('\n')).toContain('directions');
+  });
+
   it('accepts local specimen, diorama, loop, and vendor-store preview keys', () => {
     const card = structuredClone(
       cardFixtureDocs().find(({ file }) => file === 'collection-kenney-mini-dungeon.json')?.doc,

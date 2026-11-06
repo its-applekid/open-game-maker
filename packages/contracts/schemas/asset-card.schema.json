@@ -488,6 +488,11 @@
       "properties": {
         "drawn_view": { "$ref": "#/$defs/vocab/drawnView" },
         "tile_px": { "type": "integer", "minimum": 1 },
+        "directions": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "description": "Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.",
+          "items": { "$ref": "#/$defs/vocab/direction" }
+        },
         "sheet": {
           "type": "object",
           "required": ["frame_w", "frame_h", "cols", "rows"],

@@ -71,6 +71,12 @@ describe('gm assets search', () => {
     const result = await gm(['assets', 'search', 'orc', '--use', 'anything'], { env: { OGM_ASSETS_ROOT: library() } });
     expect(result.code).toBe(2);
   });
+
+  it('refuses a --directions count that is not a positive whole number', async () => {
+    const env = { OGM_ASSETS_ROOT: library() };
+    expect((await gm(['assets', 'search', 'orc', '--directions', '0'], { env })).code).toBe(2);
+    expect((await gm(['assets', 'search', 'orc', '--directions', '1.5'], { env })).code).toBe(2);
+  });
 });
 
 describe('gm assets facets, info, sheet, list', () => {
