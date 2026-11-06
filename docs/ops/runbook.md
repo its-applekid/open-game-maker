@@ -220,6 +220,10 @@ repositories is the same one the commit service uses. The core repository must b
 without a token. Scratch clones live in `OGM_CORE_BUMP_WORK_DIR` (`~/.local/state/ogm/core-bump`). Details:
 [services/core-bump/README.md](../../services/core-bump/README.md).
 
+The same `vendor/core.json` pin supplies the version of each core package when an instance repository installs them from
+a registry instead of vendoring tarballs. Publishing is prepared but switched off: see
+[core-packages.md](core-packages.md).
+
 ## Disk and journal
 
 `ogm-status` shows the sizes of `~/.local/share/ogm`, `~/.local/state/ogm`, `~/.aiur`, `~/.local/share/aiur` and the

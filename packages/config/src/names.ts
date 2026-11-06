@@ -109,6 +109,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'string',
     doc: 'public STUN/TURN URLs for the optional peer-to-peer transport (comma separated, no credentials)',
   },
+  {
+    name: 'VITE_INSTANCE_LOGO_URL',
+    unit: 'web',
+    kind: 'string',
+    doc: 'optional root-relative path or HTTPS URL for the instance logo (PNG, WebP, or SVG)',
+  },
   { name: 'OGM_DATA_DIR', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/data (SQLite, state)' },
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
   { name: 'OGM_GAMES_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },

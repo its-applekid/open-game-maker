@@ -581,7 +581,23 @@ Check: <app-origin> plays Underground on the title and Camelot on Games/New Game
 
 Hand back to the human: Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, include the host library assets its screens use, build the town, and approve the manual deployment.
 
-### 7.4 Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
+### 7.4 Choose instance branding for the logo shown on the title, sign-in, and games screens without changing the app icons. (OPTIONAL)
+
+Command:
+
+```sh
+# In web.env, leave VITE_INSTANCE_LOGO_URL blank for the Open Game Maker 2000 logo.
+# Or set it to a root-relative path or HTTPS URL ending in .png, .webp, or .svg.
+# The configured image is fitted into the existing logo boxes; favicon and app icons stay separate.
+apps/web/tools/deploy.sh --dry-run
+# After checking the preview on a phone, run apps/web/tools/deploy.sh to publish it.
+```
+
+Writes: `~/.config/ogm/env/web.env`
+
+Check: the title and app screens use the selected logo without stretching, while the favicon and app icons are unchanged
+
+### 7.5 Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
 
 Command:
 
@@ -599,7 +615,7 @@ Check: complete the iPhone check in docs/ops/netlify-proxy.md, including Start â
 
 Hand back to the human: Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console.
 
-### 7.5 Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values. (HAND)
+### 7.6 Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values. (HAND)
 
 Command:
 
@@ -616,7 +632,7 @@ Check: curl --fail --silent http://127.0.0.1:40401/healthz
 
 Hand back to the human: Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values.
 
-### 7.6 Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
+### 7.7 Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
 
 Command:
 
@@ -629,7 +645,7 @@ Writes: `~/.config/ogm/env/api.env`
 
 Check: /admin/budgets shows the configured defaults after sign-in
 
-### 7.7 Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof. (HAND)
+### 7.8 Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof. (HAND)
 
 Command:
 
@@ -645,7 +661,7 @@ Check: bash ops/test/backup-restore.sh && ops/bin/ogm-status --check
 
 Hand back to the human: Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof.
 
-### 7.8 Configure a VAPID key file and subject when web push is wanted. (OPTIONAL)
+### 7.9 Configure a VAPID key file and subject when web push is wanted. (OPTIONAL)
 
 Command:
 

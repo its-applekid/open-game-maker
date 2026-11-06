@@ -1,0 +1,10 @@
+{
+  "name": "@example/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "dependencies": {
+    "@gm/pack-kaykit": "file:../../vendor/gm-pack-kaykit-3cef9ec65caa.tgz",
+    "@gm/sdk": "workspace:*"
+  }
+}

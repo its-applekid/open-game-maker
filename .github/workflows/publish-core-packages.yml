@@ -1,0 +1,130 @@
+name: publish core packages
+
+# Preparation for CP-01 (#490). The destination is decided: the public npm registry (Kevin, 2026-11-06:
+# "we use npm.js for all aiur packages, use that"). Nothing here publishes unless someone dispatches it
+# with dry_run turned off and a trusted publisher configured on npmjs.com. See docs/ops/core-packages.md.
+#
+# Authentication is npm OIDC trusted publishing, not a token: this workflow's own OIDC identity is
+# exchanged for a short-lived credential. npm matches the trusted publisher on THIS FILE'S NAME, so every
+# channel — dry run, the proof, the publish — stays in this one file (npm/documentation#1755).
+on:
+  workflow_dispatch:
+    inputs:
+      registry:
+        description: npm-compatible registry base URL
+        required: false
+        default: https://registry.npmjs.org
+      scope:
+        description: npm scope the destination owns; empty uses the default scope in packages/core-release
+        required: false
+        default: ''
+      access:
+        description: Package visibility the registry should give the release
+        type: choice
+        options:
+          - public
+          - restricted
+        default: public
+      core_sha:
+        description: Core commit the versions come from; empty uses the dispatched ref's commit
+        required: false
+        default: ''
+      verify_oidc:
+        description: Prove the trusted publisher with a per-package npm publish --dry-run (publishes nothing)
+        type: boolean
+        default: false
+      dry_run:
+        description: Stage and pack only, publish nothing
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-core-packages
+  cancel-in-progress: false
+
+jobs:
+  dry-run:
+    name: core packages (dry run)
+    if: inputs.dry_run
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Only the optional --verify-oidc proof exchanges a token; a plain dry run needs no credential.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.core_sha != '' && inputs.core_sha || github.ref }}
+      # No registry-url here: setup-node's registry-url writes `_authToken=${NODE_AUTH_TOKEN}` into .npmrc
+      # unconditionally, npm then believes auth is already configured, skips the OIDC exchange and fails
+      # with a misleading ENEEDAUTH (actions/setup-node#1551).
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # npm 11.5.1 is the first release with trusted publishing; an older npm skips the exchange silently.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number);if(a<11||(a===11&&(b<5||(b===5&&c<1)))){console.error(`npm ${process.argv[1]} is older than 11.5.1; OIDC trusted publishing is unsupported`);process.exit(1)}' "$(npm --version)"
+      - name: Enable pnpm
+        run: corepack enable || npm i -g pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --if-present run build
+
+      # A dry run needs no credential: it stages and packs the closure and prints what would go where.
+      - name: Stage and pack the core dependency closure
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          SCOPE: ${{ inputs.scope }}
+          ACCESS: ${{ inputs.access }}
+          CORE_SHA: ${{ inputs.core_sha }}
+          VERIFY_OIDC: ${{ inputs.verify_oidc }}
+        run: |
+          args=(publish --root . --registry "$REGISTRY" --access "$ACCESS" --dry-run)
+          if [[ -n "$SCOPE" ]]; then args+=(--scope "$SCOPE"); fi
+          if [[ -n "$CORE_SHA" ]]; then args+=(--core-sha "$CORE_SHA"); fi
+          if [[ "$VERIFY_OIDC" == "true" ]]; then args+=(--verify-oidc); fi
+          node packages/core-release/dist/bin.js "${args[@]}"
+
+  publish:
+    name: core packages (publish)
+    if: ${{ !inputs.dry_run }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      # Required: npm exchanges this workflow's OIDC token for a short-lived publish credential. No
+      # NPM_TOKEN, secret or .npmrc credential exists in this job.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.core_sha != '' && inputs.core_sha || github.ref }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # npm 11.5.1 is the first release with trusted publishing; an older npm skips the exchange silently.
+      - name: Ensure npm supports trusted publishing
+        run: |
+          node -e 'const [a,b,c]=process.argv[1].split(".").map(Number);if(a<11||(a===11&&(b<5||(b===5&&c<1)))){console.error(`npm ${process.argv[1]} is older than 11.5.1; OIDC trusted publishing is unsupported`);process.exit(1)}' "$(npm --version)"
+      - name: Enable pnpm
+        run: corepack enable || npm i -g pnpm@10.33.0
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm -r --if-present run build
+
+      # --verify-oidc first proves the trusted publisher for every package; a failure stops the run before
+      # anything is published. Then --apply publishes in order. No secret is read anywhere in this job.
+      - name: Publish the core dependency closure
+        env:
+          REGISTRY: ${{ inputs.registry }}
+          SCOPE: ${{ inputs.scope }}
+          ACCESS: ${{ inputs.access }}
+          CORE_SHA: ${{ inputs.core_sha }}
+        run: |
+          args=(publish --root . --registry "$REGISTRY" --access "$ACCESS" --verify-oidc --apply)
+          if [[ -n "$SCOPE" ]]; then args+=(--scope "$SCOPE"); fi
+          if [[ -n "$CORE_SHA" ]]; then args+=(--core-sha "$CORE_SHA"); fi
+          node packages/core-release/dist/bin.js "${args[@]}"
