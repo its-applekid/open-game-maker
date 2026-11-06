@@ -6,13 +6,19 @@
       "properties": {
         "kind": {
           "type": "string",
-          "const": "create_repo"
+          "const": "create_game"
         },
         "gameId": {
           "type": "string",
           "minLength": 1
         },
-        "owner": {
+        "slug": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 48,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "templateRef": {
           "type": "string",
           "minLength": 1
         },
@@ -23,17 +29,31 @@
             "private"
           ]
         },
-        "templateRef": {
-          "type": "string",
-          "minLength": 1
+        "from": {
+          "type": "object",
+          "properties": {
+            "gameId": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sha": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "gameId",
+            "sha"
+          ],
+          "additionalProperties": false
         }
       },
       "required": [
         "kind",
         "gameId",
-        "owner",
-        "visibility",
-        "templateRef"
+        "slug",
+        "templateRef",
+        "visibility"
       ],
       "additionalProperties": false
     },
@@ -71,6 +91,9 @@
             ],
             "additionalProperties": false
           }
+        },
+        "promotion": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -78,47 +101,6 @@
         "gameId",
         "base",
         "files"
-      ],
-      "additionalProperties": false
-    },
-    {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "const": "fork"
-        },
-        "sourceGameId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "sourceSha": {
-          "type": "string",
-          "minLength": 1
-        },
-        "newGameId": {
-          "type": "string",
-          "minLength": 1
-        },
-        "owner": {
-          "type": "string",
-          "minLength": 1
-        },
-        "visibility": {
-          "type": "string",
-          "enum": [
-            "public",
-            "private"
-          ]
-        }
-      },
-      "required": [
-        "kind",
-        "sourceGameId",
-        "sourceSha",
-        "newGameId",
-        "owner",
-        "visibility"
       ],
       "additionalProperties": false
     },
@@ -151,6 +133,29 @@
         "sha",
         "semver",
         "changelog"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "restore_game"
+        },
+        "gameId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "kind",
+        "gameId",
+        "sha"
       ],
       "additionalProperties": false
     },
@@ -224,6 +229,10 @@
             "type": "string",
             "minLength": 1
           }
+        },
+        "gameId": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "required": [

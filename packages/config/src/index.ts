@@ -93,6 +93,15 @@ export function loadEnv<S extends EnvSpec>(
   return Object.freeze(values) as EnvValues<S>;
 }
 
+// An `owner/repository` environment value: the instance repository, or a repository that receives platform issues.
+export function parseRepositoryName(value: string): { owner: string; name: string } {
+  const match = /^([A-Za-z0-9](?:[A-Za-z0-9-]{0,38}))\/([A-Za-z0-9._-]+)$/u.exec(value);
+  if (match?.[1] === undefined || match[2] === undefined || match[2] === '.' || match[2] === '..') {
+    throw new Error('expected owner/repository');
+  }
+  return { owner: match[1], name: match[2] };
+}
+
 export function redact(name: string, source: Record<string, string | undefined> = process.env): '<set>' | '<unset>' {
   return source[name] === undefined ? '<unset>' : '<set>';
 }

@@ -18,7 +18,6 @@ import {
   hasGameGrant,
   listGames,
   provisionGame,
-  requireGithubConnection,
 } from './games.js';
 import { assignSlug, findGameBySlugOrId } from './slug.js';
 import { CommitServiceRepoProvisioner } from './repo-provisioner.js';
@@ -29,6 +28,7 @@ export function setup(deps: AppDeps): void {
   deps.registry.repoProvisioner ??= new CommitServiceRepoProvisioner({
     baseUrl: deps.config.commitInternalUrl,
     token: deps.config.commitServiceToken,
+    instanceRepo: deps.config.instanceRepo,
     templateRef: deps.config.gameTemplateRef,
   });
   deps.registry.gameResolver = async (id) => {
@@ -54,7 +54,7 @@ const routes = new Hono<ApiBindings>()
     const principal = requirePrincipal(c, ['user']);
     requireAuthorization(authorize(actorFromPrincipal(principal), 'game.create', { familyId: principal.familyId }));
     const body = await parseBody(c, createBody);
-    requireGithubConnection(c.get('deps').db, principal.userId);
+    // Creators never connect GitHub: the operator installed the App on the instance repository once.
     const game = createGameRow(c.get('deps').db, {
       familyId: principal.familyId,
       ownerId: principal.userId,

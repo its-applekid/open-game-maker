@@ -1,6 +1,7 @@
 import type { BoundaryVerdict } from '@ogm/contracts';
 
 import { denylistRule } from './rules/denylist.js';
+import { gameFolderRule } from './rules/game-folder.js';
 import { pathRule } from './rules/path.js';
 import { piiRule } from './rules/pii.js';
 import { rightsRule } from './rules/rights.js';
@@ -11,6 +12,7 @@ import type { BoundaryInput, BoundaryRule } from './types.js';
 
 export const boundaryRules: readonly BoundaryRule[] = [
   pathRule,
+  gameFolderRule,
   sizeRule,
   denylistRule,
   secretRule,

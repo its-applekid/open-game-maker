@@ -12,13 +12,13 @@ afterEach(cleanupHomes);
 
 const input: ProvisionInput = {
   gameId: 'g_01J',
-  gameSlug: 'castle-run',
-  owner: 'everdred-games',
+  slug: 'castle-game',
   visibility: 'private',
   kind: 'new_game',
   templateRef: 'game-3d@1',
 };
 const commit = { url: 'http://127.0.0.1:4030', token: 'commit-service-token-0123456789abcdef' };
+const instanceRepo = { owner: 'everdred-games', name: 'instance' };
 
 function commitAnswering(body: unknown, status = 200) {
   const requests: { url: string; init: RequestInit }[] = [];
@@ -30,43 +30,44 @@ function commitAnswering(body: unknown, status = 200) {
 }
 
 describe('provisionGameRepo', () => {
-  it('posts one create_repo, renders the stopped daemon directory and records the repo', async () => {
+  it('posts one create_game, renders the stopped daemon directory and records the repo', async () => {
     const home = await tempHome();
     const { fleet, store, runner } = buildFleet(home);
     const service = commitAnswering({ ok: true, sha: 'abc123' });
     const setGameRepo = vi.fn(async () => undefined);
 
-    const result = await provisionGameRepo(input, { commit, fleet, setGameRepo, fetch: service.fetch });
+    const result = await provisionGameRepo(input, { commit, fleet, instanceRepo, setGameRepo, fetch: service.fetch });
 
-    expect(result).toEqual({ ok: true, repo: 'everdred-games/gm-g_01J', sha: 'abc123' });
+    expect(result).toEqual({ ok: true, repo: 'everdred-games/instance', sha: 'abc123' });
     expect(service.requests).toHaveLength(1);
     expect(service.requests[0]!.url).toBe('http://127.0.0.1:4030/internal/commit');
     expect(service.requests[0]!.init.headers).toMatchObject({ authorization: `Bearer ${commit.token}` });
     expect(JSON.parse(service.requests[0]!.init.body as string)).toEqual({
-      kind: 'create_repo',
+      kind: 'create_game',
       gameId: 'g_01J',
-      owner: 'everdred-games',
+      slug: 'castle-game',
       visibility: 'private',
       templateRef: 'game-3d@1',
     });
-    expect(setGameRepo).toHaveBeenCalledWith('g_01J', 'everdred-games/gm-g_01J');
+    expect(setGameRepo).toHaveBeenCalledWith('g_01J', 'everdred-games/instance');
 
-    // The daemon is keyed by the game's slug, and its rendered hook and prompt carry the game's sparse checkout.
-    const row = await store.bySlug('castle-run');
-    expect(row).toMatchObject({ repo: 'everdred-games/gm-g_01j', status: 'stopped' });
-    const dir = join(home, '.local/share/ogm/daemons', 'castle-run');
-    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles({ gameSlug: 'castle-run' }).hooks);
+    // The daemon is keyed by the game's slug and shares the instance repository; its hook and prompt carry the
+    // game's sparse checkout so it only ever sees `games/castle-game/`.
+    const row = await store.bySlug('castle-game');
+    expect(row).toMatchObject({ repo: 'everdred-games/instance', status: 'stopped' });
+    const dir = join(home, '.local/share/ogm/daemons', 'castle-game');
+    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles({ gameSlug: 'castle-game' }).hooks);
     expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe(
-      renderDaemonFiles({ gameSlug: 'castle-run' }).prompt,
+      renderDaemonFiles({ gameSlug: 'castle-game' }).prompt,
     );
     expect(parse(await readFile(join(dir, '.aiur/config'), 'utf8')).tracker.github.repo).toBe(
-      'everdred-games/gm-g_01j',
+      'everdred-games/instance',
     );
-    expect((await stat(join(home, '.config/ogm/daemons', 'castle-run', 'hook-secret'))).mode & 0o777).toBe(0o600);
+    expect((await stat(join(home, '.config/ogm/daemons', 'castle-game', 'hook-secret'))).mode & 0o777).toBe(0o600);
     expect(systemctlCalls(runner)).toEqual([]);
   });
 
-  it('returns a refused create_repo verdict unchanged and touches nothing else', async () => {
+  it('returns a refused create_game verdict unchanged and touches nothing else', async () => {
     const verdict = { allowed: false, reasons: [{ code: 'rights' as const, detail: 'paid pack in a public repo' }] };
     const service = commitAnswering({ ok: false, verdict });
     const fleet = { prepareDaemonDir: vi.fn(async () => undefined) };
@@ -74,7 +75,7 @@ describe('provisionGameRepo', () => {
 
     const result = await provisionGameRepo(
       { ...input, visibility: 'public' },
-      { commit, fleet, setGameRepo, fetch: service.fetch },
+      { commit, fleet, instanceRepo, setGameRepo, fetch: service.fetch },
     );
 
     expect(result).toEqual({ ok: false, verdict });
@@ -86,7 +87,9 @@ describe('provisionGameRepo', () => {
     const service = commitAnswering({ error: 'commit operation failed' }, 502);
     const fleet = { prepareDaemonDir: vi.fn(async () => undefined) };
     const setGameRepo = vi.fn(async () => undefined);
-    await expect(provisionGameRepo(input, { commit, fleet, setGameRepo, fetch: service.fetch })).rejects.toThrow(/502/);
+    await expect(
+      provisionGameRepo(input, { commit, fleet, instanceRepo, setGameRepo, fetch: service.fetch }),
+    ).rejects.toThrow(/502/);
     expect(setGameRepo).not.toHaveBeenCalled();
   });
 });

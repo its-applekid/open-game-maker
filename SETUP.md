@@ -699,19 +699,19 @@ Writes: None.
 
 Check: ops/bin/ogm-status --check exits 0
 
-### 8.2 On a phone, sign in at <app-origin>, connect GitHub, agree a game scope, and confirm the private repo, aiur unit, build chat, and game appear. (HAND)
+### 8.2 On a phone, sign in at <app-origin>, agree a game scope, and confirm the aiur unit, build chat, and game appear. (HAND)
 
 Command:
 
 ```sh
-# Open <app-origin>/new on a phone and create a game under <github-owner>.
+# Open <app-origin>/new on a phone and create a game in the instance repository.
 ```
 
-Writes: `<github-owner>/gm-<gameId>`, `~/.config/ogm/env/ogm-aiur@<slug>.env`
+Writes: `<github-owner>/<instance-repo>/games/<gameId>`, `~/.config/ogm/env/ogm-aiur@<slug>.env`
 
-Check: /admin/builds, the private repo, systemctl --user status ogm-aiur@<slug>, and /g/<gameId> all show the build
+Check: /admin/builds, the game's folder in the instance repository, systemctl --user status ogm-aiur@<slug>, and /g/<gameId> all show the build
 
-Hand back to the human: On a phone, sign in at <app-origin>, connect GitHub, agree a game scope, and confirm the private repo, aiur unit, build chat, and game appear.
+Hand back to the human: On a phone, sign in at <app-origin>, agree a game scope, and confirm the aiur unit, build chat, and game appear.
 
 ### 8.3 Edit the game while playing, publish a release, open its games-host URL, and invite a friend. (HAND)
 
@@ -721,7 +721,7 @@ Command:
 # Complete one design transaction, publish from /g/<gameId>/releases, then open /join/<token>.
 ```
 
-Writes: `<github-owner>/gm-<gameId>`
+Writes: `<github-owner>/<instance-repo>/games/<gameId>`
 
 Check: /g/<gameId>/versions shows the edit and https://<tailnet-host>:10000 serves the release
 
@@ -744,4 +744,4 @@ Check: the journal has no errors and bash scripts/sandbox/proof/run.sh is green
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 8, Verify**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `On a phone, sign in at <app-origin>, connect GitHub, agree a game scope, and confirm the private repo, aiur unit, build chat, and game appear`; `Edit the game while playing, publish a release, open its games-host URL, and invite a friend`.
+> Hand steps in this step: `On a phone, sign in at <app-origin>, agree a game scope, and confirm the aiur unit, build chat, and game appear`; `Edit the game while playing, publish a release, open its games-host URL, and invite a friend`.

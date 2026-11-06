@@ -8,6 +8,10 @@ export type GateInput = {
   files?: { path: string; content: string; mode?: string }[];
   prNumber?: number;
   sha?: string;
+  // The game's folder in the instance repository; set for every change inside it.
+  gamePath?: string;
+  // Set only for a change the executor approved as a promotion into `packages/`.
+  promotion?: boolean;
 };
 
 export interface BoundaryGate {

@@ -10,6 +10,12 @@ export type Repository = {
   visibility: Visibility;
 };
 
+/*
+ * One game's home inside the instance repository. `path` is the game's folder (`games/<slug>/`) and stays fixed for the
+ * life of the game, so renaming a game never moves its history; `slug` is the current URL slug used in release tags.
+ */
+export type GameRepository = Repository & { path: string; slug: string };
+
 export type GitHubResponse<T = unknown> = {
   data: T;
   headers?: Record<string, string | undefined>;

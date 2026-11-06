@@ -1,7 +1,7 @@
 import type { BoundaryGate } from '../src/gate.js';
 import { allowed } from '../src/result.js';
 import type { TemplateSource } from '../src/template-source.js';
-import type { AuthenticatedGitHub, GitHubApp, GitHubIdentity, GitHubRequest, Repository } from '../src/types.js';
+import type { AuthenticatedGitHub, GameRepository, GitHubApp, GitHubIdentity, GitHubRequest } from '../src/types.js';
 import type { OperationContext } from '../src/ops/context.js';
 
 export type Call = { route: string; parameters: Record<string, unknown> };
@@ -23,7 +23,13 @@ export function fakeRequest(
 export function contextWith(
   request: GitHubRequest,
   overrides: Partial<OperationContext> = {},
-  repository: Repository = { owner: 'alice', name: 'gm-game-1', visibility: 'private' },
+  repository: GameRepository = {
+    owner: 'alice',
+    name: 'instance',
+    visibility: 'private',
+    path: 'games/castle-game',
+    slug: 'castle-game',
+  },
 ): OperationContext {
   const github: AuthenticatedGitHub = { accountType: 'User', request };
   const app: GitHubApp = {

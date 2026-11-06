@@ -43,13 +43,16 @@ function validSignature(body: Uint8Array, secret: string, signature: string | un
   return expected.length === received.length && timingSafeEqual(expected, received);
 }
 
-function requestOf(payload: Payload, active: ActiveRepository): BoundaryCheckRequest | undefined {
+function requestOf(payload: Payload, games: ActiveRepository[]): BoundaryCheckRequest | undefined {
   const pull = payload.pull_request;
-  if (pull?.number === undefined || pull.draft === undefined || pull.head?.sha === undefined) return undefined;
+  const first = games[0];
+  if (pull?.number === undefined || pull.draft === undefined || pull.head?.sha === undefined || first === undefined) {
+    return undefined;
+  }
   return {
-    gameId: active.gameId,
-    repository: { owner: active.owner, name: active.name, visibility: active.visibility },
+    repository: { owner: first.owner, name: first.name, visibility: first.visibility },
     pull: { number: pull.number, draft: pull.draft, headSha: pull.head.sha },
+    games: games.map((game) => ({ gameId: game.gameId, path: game.path })),
   };
 }
 
@@ -57,7 +60,7 @@ export function registerBoundaryWebhook(
   app: Hono,
   options: {
     secret: string | undefined;
-    resolveRepository(owner: string, name: string): Promise<ActiveRepository | undefined>;
+    resolveRepository(owner: string, name: string): Promise<ActiveRepository[]>;
     run: BoundaryCheck;
     onError?(error: unknown): void;
   },
@@ -85,9 +88,9 @@ export function registerBoundaryWebhook(
     const owner = payload.repository?.owner?.login;
     const name = payload.repository?.name;
     if (owner === undefined || name === undefined) return c.json({ error: 'invalid payload' }, 422);
-    const active = await options.resolveRepository(owner, name);
-    if (active === undefined) return c.body(null, 202);
-    const request = requestOf(payload, active);
+    const games = await options.resolveRepository(owner, name);
+    if (games.length === 0) return c.body(null, 202);
+    const request = requestOf(payload, games);
     if (request === undefined) return c.json({ error: 'invalid payload' }, 422);
     void options.run(request).catch((error: unknown) => options.onError?.(error));
     return c.body(null, 202);

@@ -51,6 +51,9 @@ export const games = sqliteTable(
     visibility: text('visibility', { enum: ['listed', 'private'] }).notNull(),
     githubOwner: text('github_owner'),
     githubRepo: text('github_repo'),
+    // The game's folder inside the instance repository (`games/<slug>`), fixed for the life of the game so renaming
+    // the game never moves its history.
+    githubPath: text('github_path'),
     repoVisibility: text('repo_visibility', { enum: ['public', 'private'] }).notNull(),
     repoUrl: text('repo_url'),
     publishedReleaseId: text('published_release_id'),

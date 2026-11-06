@@ -6,9 +6,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { asUser, installUsers, makeApp, makeDeps, type TestUser } from './helpers.js';
 
-// The creation flow refuses 409 `github_not_connected` until a creator has a github_connections row.
-// The connect screen only knows the installation id GitHub hands back, so the API must resolve the login
-// itself (through the commit service, the only holder of App credentials) and never trust a browser login.
+// Creators never connect GitHub: the instance operator installed the App on the instance repository once, so a
+// game is created without a github_connections row. The connect routes stay for the maintainer GitHub panel, and
+// the connect screen only knows the installation id GitHub hands back, so the API resolves the login itself
+// (through the commit service, the only holder of App credentials) and never trusts a browser login.
 
 const now = '2026-11-02T00:00:00.000Z';
 const familyId = 'f-family';
@@ -139,14 +140,14 @@ describe('GitHub connect routes', () => {
 
 // The ticket's acceptance run: a real loopback HTTP fake of the commit service behind the production
 // lookup and provisioner clients (#280 "Tested head cites a run against the fake commit server").
-describe('connect then create against the fake commit server', () => {
+describe('create against the fake commit server', () => {
   let server: Server | undefined;
   afterEach(() => {
     server?.close();
     server = undefined;
   });
 
-  it('connects from an installation id and then creates a game (201)', async () => {
+  it('creates a game without a GitHub connection (201)', async () => {
     const seen: { method: string; url: string; authorization?: string; body?: unknown }[] = [];
     server = createServer((request, response) => {
       let raw = '';
@@ -177,19 +178,21 @@ describe('connect then create against the fake commit server', () => {
     seed(deps);
     const { app } = await makeApp(deps);
 
-    expect((await connect(app, '4242')).status).toBe(200);
+    expect(deps.db.select().from(schema.githubConnections).all()).toEqual([]);
     const created = await app.request(
       '/api/v1/games',
       json(creator, { title: 'Castle Game', repoVisibility: 'private' }),
     );
     expect(created.status).toBe(201);
-    expect(((await created.json()) as { repo: { owner: string } }).repo.owner).toBe('octocat');
+    const body = (await created.json()) as { slug: string; repo: { owner: string; name: string; url: string } };
+    expect(body.repo).toEqual({
+      owner: 'instance',
+      name: 'games',
+      url: 'https://github.com/instance/games',
+    });
 
-    expect(seen.map(({ method, url }) => `${method} ${url}`)).toEqual([
-      'GET /internal/installations/4242',
-      'POST /internal/commit',
-    ]);
+    expect(seen.map(({ method, url }) => `${method} ${url}`)).toEqual(['POST /internal/commit']);
     expect(seen.every(({ authorization }) => authorization === `Bearer ${deps.config.commitServiceToken}`)).toBe(true);
-    expect(seen[1]?.body).toMatchObject({ kind: 'create_repo', owner: 'octocat', visibility: 'private' });
+    expect(seen[0]?.body).toMatchObject({ kind: 'create_game', slug: body.slug, visibility: 'private' });
   });
 });

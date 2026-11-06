@@ -24,6 +24,8 @@ export interface AppDeps {
     commitInternalUrl: string;
     commitServiceToken: string;
     gameTemplateRef: string;
+    // The instance repository every game lives in, parsed from OGM_INSTANCE_REPO.
+    instanceRepo: { owner: string; name: string };
     gamesRoot: string;
     vapidKeyFile: string;
     vapidSubject: string;

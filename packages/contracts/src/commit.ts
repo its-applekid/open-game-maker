@@ -3,6 +3,21 @@ import { z } from 'zod';
 const Visibility = z.enum(['public', 'private']);
 const Identifier = z.string().min(1);
 const Sha = z.string().min(1);
+// A game's folder name under `games/`: the shareable URL slug, so it stays a plain path segment (#513).
+const Slug = z
+  .string()
+  .min(1)
+  .max(48)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u, 'slug is lowercase words joined by single hyphens');
+
+// One instance keeps every game in one implementation repository: `games/<slug>/` per game, `packages/<name>/` for
+// components that instance's games share.
+export const GAMES_ROOT = 'games';
+export const PACKAGES_ROOT = 'packages';
+
+export function gameFolder(slug: string): string {
+  return `${GAMES_ROOT}/${slug}`;
+}
 
 const BoundaryReason = z
   .object({
@@ -21,14 +36,22 @@ export const BoundaryVerdict = z
 
 export type BoundaryVerdict = z.infer<typeof BoundaryVerdict>;
 
+/*
+ * One instance keeps every game in one implementation repository: `games/<slug>/` per game, `packages/<name>/` for
+ * components that instance's games share. So there is no repository to create per game — `create_game` writes the
+ * folder on a branch, opens a pull request and merges it as the bot. Every other operation addresses a game by its
+ * registry id and the commit service resolves its folder from the API.
+ */
 export const CommitOp = z.discriminatedUnion('kind', [
   z
     .object({
-      kind: z.literal('create_repo'),
+      kind: z.literal('create_game'),
       gameId: Identifier,
-      owner: Identifier,
-      visibility: Visibility,
+      slug: Slug,
       templateRef: Identifier,
+      visibility: Visibility,
+      // A fork copies another game's folder instead of rendering the template.
+      from: z.object({ gameId: Identifier, sha: Sha }).strict().optional(),
     })
     .strict(),
   z
@@ -44,16 +67,8 @@ export const CommitOp = z.discriminatedUnion('kind', [
           })
           .strict(),
       ),
-    })
-    .strict(),
-  z
-    .object({
-      kind: z.literal('fork'),
-      sourceGameId: Identifier,
-      sourceSha: Sha,
-      newGameId: Identifier,
-      owner: Identifier,
-      visibility: Visibility,
+      // The executor-approved promotion path: only a promotion may also write `packages/`.
+      promotion: z.boolean().optional(),
     })
     .strict(),
   z
@@ -63,6 +78,14 @@ export const CommitOp = z.discriminatedUnion('kind', [
       sha: Sha,
       semver: Identifier,
       changelog: z.string(),
+    })
+    .strict(),
+  // Restores one game's folder from an earlier commit and leaves every other folder untouched.
+  z
+    .object({
+      kind: z.literal('restore_game'),
+      gameId: Identifier,
+      sha: Sha,
     })
     .strict(),
   z
@@ -85,6 +108,8 @@ export const CommitOp = z.discriminatedUnion('kind', [
       title: z.string().min(1),
       body: z.string(),
       labels: z.array(z.string().min(1)),
+      // Present when the report is about one game: the issue lands in the instance repo with a `game:<slug>` label.
+      gameId: Identifier.optional(),
     })
     .strict(),
   z

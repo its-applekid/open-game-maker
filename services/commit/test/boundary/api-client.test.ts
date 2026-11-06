@@ -5,12 +5,16 @@ import { BoundaryApiClient, BoundaryApiError } from '../../src/boundary/api-clie
 describe('BoundaryApiClient', () => {
   it('authenticates requests and validates active repository elements', async () => {
     const fetchImpl = vi.fn<typeof fetch>(async () =>
-      Response.json({ repositories: [{ gameId: 'g1', owner: 'alice', name: 'gm-g1', visibility: 'private' }] }),
+      Response.json({
+        repositories: [
+          { gameId: 'g1', owner: 'alice', name: 'instance', visibility: 'private', path: 'games/g1', slug: 'g1' },
+        ],
+      }),
     );
     const api = new BoundaryApiClient({ baseUrl: 'http://127.0.0.1:3000/', token: 'secret', fetch: fetchImpl });
 
     await expect(api.activeRepositories()).resolves.toEqual([
-      { gameId: 'g1', owner: 'alice', name: 'gm-g1', visibility: 'private' },
+      { gameId: 'g1', owner: 'alice', name: 'instance', visibility: 'private', path: 'games/g1', slug: 'g1' },
     ]);
     expect(fetchImpl).toHaveBeenCalledWith(
       'http://127.0.0.1:3000/internal/games/active-repos',

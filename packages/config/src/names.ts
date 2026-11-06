@@ -157,6 +157,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'OGM_GAME_TEMPLATE_REF', unit: 'api', kind: 'string', doc: 'game repository template ref' },
   {
+    name: 'OGM_INSTANCE_REPO',
+    unit: 'shared',
+    kind: 'string',
+    doc: 'owner/repository of the instance repository that holds every game under games/<slug>',
+  },
+  {
     name: 'OGM_BUILDER_BOT_TOKEN',
     unit: 'api',
     kind: 'secret',

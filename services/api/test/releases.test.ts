@@ -92,7 +92,7 @@ describe('release routes', () => {
     expect(release).toMatchObject({ gameId: ids.game, seq: 1, version: '1.0.0', kind: 'publish' });
     expect(operations.map((op) => op.kind)).toEqual(['fold_design', 'release']);
     expect(operations[1]).toMatchObject({ kind: 'release', semver: '1.0.0' });
-    expect(release).toMatchObject({ gitTag: `gm/${ids.game}/v1.0.0` });
+    expect(release).toMatchObject({ gitTag: 'castle-game/v1.0.0' });
     expect(deps.db.select().from(schema.games).get()?.publishedReleaseId).toBe((release as { id: string }).id);
     expect(deps.db.select().from(schema.releases).all()).toHaveLength(1);
     const snapshot = deps.db.select().from(schema.overrideSnapshots).get()!;

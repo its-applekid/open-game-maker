@@ -43,8 +43,9 @@ async function main(): Promise<void> {
     boundaryWebhook: {
       secret: config.githubWebhookSecret,
       async resolveRepository(owner, name) {
+        // Every game shares the instance repository, so one repository name resolves to all of its games.
         const repositories = await api.activeRepositories();
-        return repositories.find(
+        return repositories.filter(
           (repository) =>
             repository.owner.toLocaleLowerCase() === owner.toLocaleLowerCase() &&
             repository.name.toLocaleLowerCase() === name.toLocaleLowerCase(),

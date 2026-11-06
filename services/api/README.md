@@ -19,7 +19,8 @@ nothing and an empty table admits nobody (one `auth-allow-list-empty` warning at
 Roles reach the API as `capability` (a `player` cannot create or edit) and `platformRole` (`admin` manages users),
 never as hidden buttons.
 The API also reads `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_GAME_TEMPLATE_REF` (defaults to
-`game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
+`game-2d@1`), `OGM_INSTANCE_REPO` (`owner/repository` of the one repository every game's folder lives in),
+`OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
 `OGM_CHAT_POLL_MS` (default `10000`), and `OGM_CHECKPOINT_POLL_MS` (default `5000`).
 Optional `OGM_ASSETS_ROOT` (the `assets-local/` library) gives `GET /api/catalog/style-families` its pack titles and
 thumbnails; without it packs are named by id. Each style set includes `requiresPrivateRepository`: creation must force

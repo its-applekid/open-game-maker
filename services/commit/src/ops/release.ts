@@ -1,22 +1,33 @@
-import type { AuthenticatedGitHub, CommitResult, Repository } from '../types.js';
+import type { AuthenticatedGitHub, CommitResult, GameRepository } from '../types.js';
 import { GitHubRequestError } from '../github-request.js';
 import { refused } from '../result.js';
 import type { OperationContext } from './context.js';
+import { gameFolderExists } from './game-folder.js';
 import type { ExtractCommitOp } from './operation-types.js';
+
+// Tags are namespaced by the game's folder so two games in one repository can each have v1.0.0.
+export function releaseTag(slug: string, semver: string): string {
+  return `${slug}/v${semver}`;
+}
 
 export async function release(op: ExtractCommitOp<'release'>, context: OperationContext): Promise<CommitResult> {
   const repository = await context.repos.resolve(op.gameId);
+  const github = await context.app.forOwner(repository.owner);
+  const folder = repository.path;
+  if (!(await gameFolderExists({ request: github.request, repository, sha: op.sha, gamePath: folder }))) {
+    return refused('path', 'release commit does not contain the game folder', folder);
+  }
   const verdict = await context.gate.evaluate({
     kind: op.kind,
     gameId: op.gameId,
     repository,
     sha: op.sha,
+    gamePath: folder,
   });
   if (!verdict.allowed) return { ok: false, verdict };
 
-  const github = await context.app.forOwner(repository.owner);
   const identity = await context.app.identity();
-  const tag = `gm/${op.gameId}/v${op.semver}`;
+  const tag = releaseTag(repository.slug, op.semver);
   const created = await github.request<{ sha: string }>('POST /repos/{owner}/{repo}/git/tags', {
     ...repository,
     tag,
@@ -44,7 +55,7 @@ export async function release(op: ExtractCommitOp<'release'>, context: Operation
 /* A retried release whose earlier response was lost finds its own tag: same name, same commit. */
 async function existingTagSha(
   request: AuthenticatedGitHub['request'],
-  repository: Repository,
+  repository: GameRepository,
   tag: string,
   commitSha: string,
 ): Promise<string | null> {

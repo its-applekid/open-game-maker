@@ -9,7 +9,7 @@ test('Start goes straight to the magic-link sent state', async ({ page }) => {
   await page.goto('/');
 
   await page.getByRole('button', { name: 'Start', exact: true }).click();
-  await expect(page).toHaveURL(/\/signin\?next=%2Fconnect%2Fgithub$/);
+  await expect(page).toHaveURL(/\/signin\?next=%2Fall$/);
   const sendButton = page.getByRole('button', { name: 'Send sign-in link' });
   expect((await sendButton.boundingBox())!.height).toBeGreaterThanOrEqual(64);
   await page.getByLabel('Email').fill('kim@example.com');
@@ -25,7 +25,17 @@ test('a protected route sends a signed-out visitor to sign in and preserves next
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 });
 
-test('a signed-in creator sees the connected GitHub account', async ({ page }) => {
+test('a signed-in creator lands on the games screen without a GitHub step', async ({ page }) => {
+  await installAuthRoutes(page, { signedIn: true, github: 'octocat' });
+  await page.goto('/');
+
+  await page.getByRole('button', { name: 'Start', exact: true }).click();
+  // Creators never connect GitHub: the instance operator installed the App on the instance repository once.
+  await expect(page).toHaveURL(/\/all$/);
+  await expect(page).not.toHaveURL(/\/connect\/github/);
+});
+
+test('the GitHub App setup callback still shows the installation to the operator', async ({ page }) => {
   await installAuthRoutes(page, { signedIn: true, github: 'octocat' });
   await page.goto('/connect/github');
 

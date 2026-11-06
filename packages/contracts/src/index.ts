@@ -12,7 +12,7 @@ export * from './notifications.js';
 export * from './room.js';
 export * from './net.js';
 export * from './net-events.js';
-export { BoundaryVerdict, CommitOp, CommitResult } from './commit.js';
+export { BoundaryVerdict, CommitOp, CommitResult, GAMES_ROOT, PACKAGES_ROOT, gameFolder } from './commit.js';
 export * from './bridge.js';
 export * from './game.js';
 export * from './input.js';

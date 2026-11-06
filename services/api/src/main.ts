@@ -5,6 +5,7 @@ import { serve } from '@hono/node-server';
 
 import { FsBlobStore } from '@ogm/blob-store';
 import { createDbDaemonStore, createFleet, createIntake, createIssuesClient, startFeedConsumers } from '@ogm/builder';
+import { parseRepositoryName } from '@ogm/config';
 import { migrate, openDb } from '@ogm/db';
 import { skillPack } from '@ogm/game-repo-template';
 
@@ -66,6 +67,7 @@ const deps: AppDeps = {
     commitInternalUrl: env.OGM_COMMIT_INTERNAL_URL,
     commitServiceToken: env.OGM_COMMIT_SERVICE_TOKEN,
     gameTemplateRef: env.OGM_GAME_TEMPLATE_REF,
+    instanceRepo: parseRepositoryName(env.OGM_INSTANCE_REPO),
     gamesRoot: env.OGM_GAMES_ROOT ?? join(env.OGM_DATA_DIR, '..', 'games'),
     vapidKeyFile: env.OGM_VAPID_KEY_FILE,
     vapidSubject: `mailto:${env.OGM_VAPID_SUBJECT}`,

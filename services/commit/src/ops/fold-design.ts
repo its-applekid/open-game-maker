@@ -17,16 +17,27 @@ function isNonFastForward(error: unknown): boolean {
   );
 }
 
+/*
+ * Folds a game's design files into the instance repository. A game's paths are relative to its own folder, so this is
+ * where they get the `games/<slug>/` prefix; the path guard then refuses anything that lands outside that folder. A
+ * promotion is the exception: its paths are repository-relative and must sit under `packages/`.
+ */
 export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: OperationContext): Promise<CommitResult> {
+  const repository = await context.repos.resolve(op.gameId);
+  const folder = repository.path;
+  const files = [];
   for (const file of op.files) {
+    let path: string;
     try {
-      normalizeCommitPath(file.path);
+      const relative = normalizeCommitPath(file.path);
+      const alreadyPrefixed = relative === folder || relative.startsWith(`${folder}/`);
+      path = op.promotion === true || alreadyPrefixed ? relative : `${folder}/${relative}`;
     } catch {
       return refused('path', 'unsafe repository path', file.path);
     }
+    files.push({ path, content: file.content });
   }
 
-  const repository = await context.repos.resolve(op.gameId);
   const github = await context.app.forOwner(repository.owner);
   const identity = await context.app.identity();
   let base = op.base;
@@ -35,8 +46,10 @@ export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: Op
       kind: op.kind,
       gameId: op.gameId,
       repository,
-      files: op.files.map((file) => ({ path: file.path, content: file.content })),
+      files,
       sha: base,
+      gamePath: folder,
+      ...(op.promotion === true ? { promotion: true } : {}),
     });
     if (!verdict.allowed) return { ok: false, verdict };
 
@@ -45,7 +58,7 @@ export async function foldDesign(op: ExtractCommitOp<'fold_design'>, context: Op
         ...repository,
         commit_sha: base,
       });
-      const tree = await createTreeFromFiles(github.request, repository, op.files, parent.data.tree.sha);
+      const tree = await createTreeFromFiles(github.request, repository, files, parent.data.tree.sha);
       const sha = await createCommit(github.request, repository, `design: fold ${op.gameId}`, tree, identity, [base]);
       await github.request('PATCH /repos/{owner}/{repo}/git/refs/{ref}', {
         ...repository,
