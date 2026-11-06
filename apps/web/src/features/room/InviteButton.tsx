@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { PROTOCOL_VERSION, type RoomPin } from '@ogm/contracts';
+import { PROTOCOL_VERSION, type RoomPin } from '@ogm/contracts/browser';
 
 import { api } from '../../lib/api/client';
 import { pushToast } from '../../lib/notify/slice';
