@@ -1,4 +1,3 @@
-import { NET_LIMITS } from '@ogm/contracts';
 import type {
   ActionFrame,
   GameManifest,
@@ -33,9 +32,12 @@ import {
  * seeded streams, because `src/test/no-random.test.ts` scans this directory.
  */
 
-export const SEAT_STATE_BUDGET = NET_LIMITS.seatStateBytes;
-export const RECOVERY_BUDGET = NET_LIMITS.recoveryBytes;
-export const DEFAULT_SEAT_STATE_HZ = NET_LIMITS.seatStatePerSec;
+/* Literals rather than a value import from `@ogm/contracts`: the package root re-exports every contract family, so
+ * importing one number from it pulls the whole index — including modules that read `node:fs` — into a template's
+ * browser bundle and breaks its production build. `codec.test.ts` asserts these stay equal to the contract's. */
+export const SEAT_STATE_BUDGET = 8_192;
+export const RECOVERY_BUDGET = 65_536;
+export const DEFAULT_SEAT_STATE_HZ = 10;
 export const CHECKSUM_EVERY_TICKS = 30;
 export const CORRECTION_MS = 120;
 export const RESYNC_AFTER_GAP_TICKS = 30;
