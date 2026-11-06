@@ -68,7 +68,10 @@ The API file must set `OGM_APP_ORIGIN`, `OGM_COMMIT_INTERNAL_URL`, and `OGM_COMM
 `OGM_RESET_ZONE_DEFAULT` (the host's IANA time zone when blank). Family budget settings override both defaults.
 
 The commit file must also set the shared `OGM_INTERNAL_TOKEN` so boundary checks can read active repositories and
-creator PII terms. `OGM_BLOCKLIST_FILE` defaults to `$OGM_DATA_DIR/blocklist.txt`. Set
+creator PII terms. The Aiur Executor's unit needs the same `OGM_INTERNAL_TOKEN`: it reads a New Game request's private
+context through the API's `/internal/new-game` routes, can mint a scoped one-hour token for the worker it starts, and
+puts neither credential in the parent issue ([New Game request parent issue](../reference/new-game-request.md)).
+`OGM_BLOCKLIST_FILE` defaults to `$OGM_DATA_DIR/blocklist.txt`. Set
 `OGM_GITHUB_WEBHOOK_SECRET` when GitHub pull-request webhooks are exposed; the 60-second poller remains active as the
 fallback when it is blank.
 

@@ -49,3 +49,7 @@ aiur executor-subscribe 'ticket.<ticket-id>.#'
 ```
 
 `aiur take` assigns the ticket to the Executor and keeps it out of fleet dispatch without consuming an agent slot. `aiur executor-subscribe` persists the ticket-specific event subscription. When the exception ends, `aiur release <ticket-id>` returns the ticket to normal dispatch ownership; the subscription can be removed separately if it is no longer useful.
+
+The New Game parent issue is filed this way: `request:new-game` with no dispatch label, read by the Executor through its
+executor subscription. The parent's contract — labels, privacy-safe summary, the scoped-token internal API and the two
+invariants that keep a worker off it — is in [the New Game request parent issue](../reference/new-game-request.md).
