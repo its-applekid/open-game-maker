@@ -10,7 +10,7 @@ lift is high. game_fit keeps at most two situations, each needing high lift AND 
 key (fits); a track may suit none. Music settings are not tagged: CLAP cannot hear steampunk or pirate (it spread all 11
 evenly over the library). Genre comes from the pack name when the vendor named one (Orchestral Music 02)."""
 import argparse, json, re, subprocess, sys
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
 
@@ -29,6 +29,8 @@ VOCAB = "2026-10-27"
 TOOL = "build_audio_cards@0.1"
 CLAP_ID = "laion/clap-htsat-unfused"
 NOW = datetime.now().astimezone().isoformat(timespec="seconds")
+NOTE_MAX = 120  # C3 caps audio.search_notes at 120 characters: one searchable line, not a paragraph
+SUMMARY_MAX = 200  # and collection_info.search_summary at 200: one line per library
 VOICE_PACKS = ("kenney-voiceover-pack", "kenney-voiceover-pack-fighter", "kenney-synth-voice-1", "kenney-synth-voice-2")
 UI_PACKS = ("kenney-interface-sounds", "kenney-ui-audio", "kenney-ui-pack")
 OPPOSED = {frozenset(x) for x in [("calm", "energetic"), ("calm", "tense"), ("calm", "epic"), ("calm", "triumphant"), ("cozy", "dark"),
@@ -180,6 +182,55 @@ def pack_genre(pid):
     return next((g for w, g in PACK_GENRES.items() if w in words), None)
 
 
+def duration_text(dur):
+    """The shortest honest length: `1:32` for minutes, `12 s`, `0.42 s` for a short effect."""
+    if dur >= 60:
+        return f"{int(dur // 60)}:{int(dur % 60):02d}"
+    return f"{dur:.0f} s" if dur >= 10 else f"{dur:.2f} s"
+
+
+def search_note(describe, audio, subkind):
+    """One line per file: what an agent searches for, in the words the card already carries.
+
+    The searchability plan (§5) asks for a line of notes per file so a result row can be judged without opening the
+    file: the kind of sound, what it is made of or sounds like, and the facts that narrow a query (mood, genre, tempo
+    or length). Built from the same fields the card validates, so it can never say something the card does not.
+    """
+    dur = duration_text(audio.get("duration_s") or 0.0)
+    if subkind.startswith("music/"):
+        moods = describe.get("moods") or []
+        genre = describe.get("genre") or []
+        word = {"music/loop": "loop", "music/stinger": "stinger"}.get(subkind, "track")
+        head = " ".join([*(moods[:2]), *(genre[:1]), word])
+        facts = [f"{audio['tempo_bpm']:.0f} BPM"] if audio.get("tempo_bpm") else []
+        if audio.get("loopable"):
+            facts.append("seamless")
+        return " · ".join([head.strip(), *facts, dur])[:NOTE_MAX].strip(" ·")
+    kind = subkind.split("/")[-1]
+    objects = (describe.get("objects") or [])[:2]
+    materials = (describe.get("materials") or [])[:1]
+    words = [*materials, *([] if kind in objects else [kind]), *objects]
+    return " · ".join([" ".join(words), dur])[:NOTE_MAX].strip(" ·")
+
+
+def library_summary(entries, limit=SUMMARY_MAX):
+    """The per-library line: what this pack holds and which moods and genres it covers most.
+
+    Answers "which pack has feet on gravel" before any file is opened (#364 §6): counts by kind, then the three
+    moods, two genres and two materials that recur most, so a pack whose cards say nothing reads as empty rather
+    than interesting.
+    """
+    kinds = defaultdict(int)
+    for subkind, _ in entries:
+        kinds[subkind.split("/")[-1]] += 1
+    top = lambda field, k: [name for name, _ in Counter(x for _, d in entries for x in (d.get(field) or [])[:3]).most_common(k)]
+    parts = [f"{n} {kind}" for kind, n in sorted(kinds.items(), key=lambda kv: (-kv[1], kv[0]))[:3]]
+    for label, values in (("moods", top("moods", 3)), ("genres", top("genre", 2)), ("materials", top("materials", 2))):
+        if values:
+            parts.append(f"{label} " + ", ".join(values))
+    return "; ".join(parts)[:limit].strip(" ;")
+
+
 def keywords_of(d, exclude=()):
     """Search words the name layer already knows (`describe.keywords`), minus whatever another field says.
 
@@ -317,6 +368,7 @@ def build(rows, sets, means, packs: Path):
         if d["_pack"].startswith("sidetrax-"):
             same_name[stem_key(Path(d["file"]).stem)].append(d)
     written, flags_count, counts = 0, defaultdict(int), defaultdict(lambda: defaultdict(int))
+    described = defaultdict(list)  # pid -> (subkind, describe) of every card written, for the per-library summary
     group_sizes = defaultdict(int)  # a variation group of one is not a set: only names with siblings get the field
     for d in rows:
         group = (d.get("names") or {}).get("group")
@@ -382,6 +434,9 @@ def build(rows, sets, means, packs: Path):
             if matched is not None:
                 prov["audio.tempo_bpm"] = {"by": "vendor-metadata", "tool": TOOL, "at": NOW,
                                            "input": f"composer tempo {a['tempo_bpm']} matched measured candidate {matched}"}
+            a["search_notes"] = search_note(describe, a, subkind)
+            prov["audio.search_notes"] = {"by": "code", "tool": TOOL, "at": NOW,
+                                           "input": "template from the card's own kind, moods, genre, materials and duration"}
             files = [{"path": x["file"], "sha256": "sha256:" + x["sha256"], "bytes": x["bytes"], "format": Path(x["file"]).suffix.lstrip(".").lower(),
                       "role": "primary" if x is d else "companion"} for x in g]
             card = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}/{path_id}@{ver}", "card_type": "asset", "status": "tagged",
@@ -407,9 +462,12 @@ def build(rows, sets, means, packs: Path):
             out.write_text(json.dumps(card, indent=1) + "\n")
             counts[pid]["audio/" + subkind] += 1
             counts[pid]["audio"] += 1
+            described[pid].append((subkind, describe))
             written += 1
         info = cc.setdefault("collection_info", {})
         info["counts"] = {**{k: v for k, v in info.get("counts", {}).items() if not k.startswith("audio")}, **dict(sorted(counts[pid].items()))}
+        if described[pid]:
+            info["search_summary"] = library_summary(described[pid])
         (packs / pid / "collection.card.json").write_text(json.dumps(cc, indent=1 if pid.startswith(("kenney-", "synty-")) else 2) + "\n")
     return written, dict(flags_count)
 

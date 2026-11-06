@@ -52,14 +52,20 @@ function tokens(text: string | undefined): string[] {
     .map(normalize);
 }
 
-/** Weighted fields: title 3, objects 2, everything else 1. */
+/**
+ * Weighted fields: title 3, objects 2, moods 2, everything else 1.
+ *
+ * Moods are their own field rather than one more line of prose: a card tagged `epic` outranks a card whose description
+ * only happens to contain the word, which is what "rank by mood" has to mean for the audio direction query.
+ */
 function fieldsOf(card: ResolvedCard): [number, string[]][] {
   const describe = card.describe ?? {};
   const rest = [
     describe.description,
     ...(describe.keywords ?? []),
     ...(describe.roles ?? []),
-    ...(describe.moods ?? []),
+    ...(describe.genre ?? []),
+    ...(describe.instruments ?? []),
     describe.world,
     ...(card.resolved.environments ?? []),
     ...(card.resolved.settings ?? []),
@@ -74,6 +80,7 @@ function fieldsOf(card: ResolvedCard): [number, string[]][] {
   return [
     [3, tokens(card.title)],
     [2, (describe.objects ?? []).flatMap(tokens)],
+    [2, (describe.moods ?? []).flatMap(tokens)],
     [1, rest.flatMap((value) => tokens(value))],
   ];
 }
@@ -122,6 +129,15 @@ export function passes(index: CardIndex, card: ResolvedCard, q: SearchQuery): bo
   if (q.subkind && card.card_type === 'asset' && card.subkind !== q.subkind) return false;
 
   if (q.family && card.resolved.style_family !== q.family) return false;
+  if (q.moods?.length) {
+    // The generated card type gives these fields as fixed-length tuple unions, so compare as plain string lists.
+    const moods: readonly string[] = card.describe?.moods ?? [];
+    if (!q.moods.every((mood) => moods.includes(mood))) return false;
+  }
+  if (q.genres?.length) {
+    const genres: readonly string[] = card.describe?.genre ?? [];
+    if (!q.genres.some((genre) => genres.includes(genre))) return false;
+  }
   const needsSet = q.set !== undefined || Boolean(q.gameSets?.length);
   const pack = needsSet ? packOf(card.id) : undefined;
   const set = pack ? setFor(pack)?.id : undefined;

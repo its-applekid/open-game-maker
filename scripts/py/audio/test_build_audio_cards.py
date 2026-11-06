@@ -112,3 +112,31 @@ def test_voice_lines_have_no_material():
     """'We need wood' is a spoken line, not a wooden sound."""
     desc, *_ = _sfx("we_need_wood", "kenney-synth-voice-2")
     assert "materials" not in desc
+
+
+def test_search_note_says_what_the_file_is_within_the_cap():
+    """The row an agent searches must name the track and the facts that narrow it, and never exceed C3's 120 chars."""
+    describe = {"moods": ["calm", "cozy"], "genre": ["orchestral"]}
+    note = b.search_note(describe, {"duration_s": 92.4, "tempo_bpm": 90.0, "loopable": True}, "music/loop")
+    assert note == "calm cozy orchestral loop · 90 BPM · seamless · 1:32"
+    assert b.search_note(describe, {"duration_s": 92.4}, "music/track") == "calm cozy orchestral track · 1:32"
+    long = b.search_note({"moods": ["calm"] * 3, "genre": ["experimental"]}, {"duration_s": 4000.0}, "music/track")
+    assert len(long) <= b.NOTE_MAX
+
+
+def test_sound_effect_search_note_names_the_kind_and_its_material():
+    """A footstep row reads 'stone footstep', not the CLAP sentence: it is the words an agent queries with."""
+    note = b.search_note({"objects": ["footstep", "gravel"], "materials": ["stone"]}, {"duration_s": 0.42}, "sfx/footstep")
+    assert note == "stone footstep gravel · 0.42 s"
+    voice = b.search_note({"objects": ["voice"]}, {"duration_s": 1.2}, "voice")
+    assert voice == "voice · 1.20 s"
+
+
+def test_library_summary_is_one_line_within_the_cap():
+    """One line per library: what it holds, then the moods and genres it covers most, inside C3's 200 chars."""
+    entries = [("sfx/footstep", {"materials": ["stone"], "moods": []})] * 3
+    entries += [("music/loop", {"moods": ["tense"], "genre": ["chiptune"]})] * 2
+    summary = b.library_summary(entries)
+    assert summary == "3 footstep; 2 loop; moods tense; genres chiptune; materials stone"
+    assert b.library_summary([("music/track", {})]) == "1 track"
+    assert len(b.library_summary([("sfx/other", {"moods": [f"m{i}" for i in range(3)] * 2})] * 40)) <= b.SUMMARY_MAX

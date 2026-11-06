@@ -30,3 +30,4 @@ export * from './scope.js';
 export * from './repair.js';
 export * from './thumbnail-scene.js';
 export * from './style-showcase.js';
+export * from './vocabulary.js';

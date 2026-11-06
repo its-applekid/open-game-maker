@@ -87,6 +87,33 @@ describe('gm assets facets, info, sheet, list', () => {
     expect(result.out).toContain('collection  +1 more values  (--limit 2)');
   });
 
+  it('finds audio by mood and genre for the style picker', async () => {
+    const env = { OGM_ASSETS_ROOT: library() };
+    const byMood = await gm(['assets', 'search', '--kind', 'audio', '--mood', 'tense'], { env });
+    expect(byMood.code).toBe(0);
+    expect(byMood.out).toEqual([
+      't1:kenney-music-loops/loops/infinite-descent@1.1  audio/music/loop  tagged  any  Infinite Descent',
+    ]);
+    const both = await gm(['assets', 'search', '--kind', 'audio', '--mood', 'tense', '--mood', 'cheerful'], { env });
+    expect(both.out).toEqual([]);
+    const byGenre = await gm(['assets', 'search', '--genre', 'chiptune'], { env });
+    expect(byGenre.out).toHaveLength(1);
+    const counts = await gm(['assets', 'facets', '--kind', 'audio', '--include-draft'], { env });
+    expect(counts.out).toContain('genre  chiptune  1');
+    expect(counts.out).toContain('game_fit  menu  1');
+  });
+
+  it('refuses a mood or genre the card schema cannot hold', async () => {
+    const env = { OGM_ASSETS_ROOT: library() };
+    const mood = await gm(['assets', 'search', '--mood', 'happy'], { env });
+    expect(mood.code).toBe(2);
+    expect(mood.err[0]).toContain('unknown mood "happy"');
+    expect(mood.err[0]).toContain('gm assets facets lists what the cards carry');
+    const genre = await gm(['assets', 'search', '--genre', 'polka'], { env });
+    expect(genre.code).toBe(2);
+    expect(genre.err[0]).toContain('unknown genre "polka"');
+  });
+
   it('prints one info row per id and exits 2 on an unknown id', async () => {
     const env = { OGM_ASSETS_ROOT: library() };
     const ok = await gm(['assets', 'info', ORC], { env });

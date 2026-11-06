@@ -30,6 +30,9 @@
     "environments": ["dungeon", "cave"],
     "roles": ["music-bed"],
     "moods": ["tense", "mysterious"],
+    "genre": ["ambient"],
+    "instruments": ["synth-lead", "drums"],
+    "game_fit": { "dungeon": 0.61 },
     "style_family": "any"
   },
   "audio": {

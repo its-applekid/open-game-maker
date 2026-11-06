@@ -598,6 +598,7 @@
             "additionalProperties": false
           }
         },
+        "search_notes": { "type": "string", "minLength": 3, "maxLength": 120, "description": "One line of what an agent would search for: the track or sound in words, its kind, and the facts that narrow it (mood, genre, duration, material). Written by code from the same fields the card validates, so the search result row can be judged without opening the file." },
         "analysis": { "type": "string", "description": "Path of the analysis sidecar (beats, downbeats, loudness and energy curves, sections, raw model output), relative to the collection folder." },
         "vendor": {
           "type": "object",
@@ -731,6 +732,7 @@
         "creation_choice": { "type": "boolean", "description": "True only when curation approved it as part of a style family offered at creation." },
         "pack_manifest": { "type": "string", "description": "Path to the existing pack.json this card was built from." },
         "hash_manifest": { "$ref": "#/$defs/bucketKey", "description": "Bucket key of a list of sha256 hashes for every file in the collection, carded or not (e.g. symbol bitmaps that are never tagged). The repo commit check blocks all of them when the collection's redistribution is none." },
+        "search_summary": { "type": "string", "minLength": 3, "maxLength": 200, "description": "One line describing what this library is good for, built by code from its cards (what it holds, and the moods and genres it covers most). The answer to 'which pack has feet on gravel' before any file is opened." },
         "files_total": { "type": "integer", "minimum": 0, "description": "All files in the collection, including those without cards." }
       },
       "additionalProperties": false
