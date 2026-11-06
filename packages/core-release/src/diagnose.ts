@@ -332,7 +332,11 @@ async function publishedVersion(args: {
   const fetchImpl = args.fetchImpl ?? fetch;
   const url = `${args.registry}/${args.name.replace('/', '%2f')}`;
   try {
-    const response = await fetchImpl(url, { headers: { accept: 'application/json' } });
+    // A registry that never answers must not hang an operator's diagnostic; the proof is opt-in and bounded.
+    const response = await fetchImpl(url, {
+      headers: { accept: 'application/json' },
+      signal: AbortSignal.timeout(30_000),
+    });
     if (response.status === 404) return 'the registry has no such package';
     if (!response.ok) return `the registry answered ${response.status}`;
     const body = (await response.json()) as { versions?: Record<string, unknown> };

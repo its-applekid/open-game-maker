@@ -145,7 +145,7 @@ credential:
 @open-game-maker:registry=https://registry.npmjs.org
 ```
 
-A `--access restricted` switch adds `//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}` for a private destination.
+A `--access restricted` switch adds the registry's `_authToken` line, read from `${NODE_AUTH_TOKEN}`, for a private destination.
 The token line stays out of a public switch on purpose: pnpm cannot substitute an unset variable, and when it cannot it
 skips the rest of the file — including the scoped registry line — so the install silently falls back to the default
 registry. If the repository's `.npmrc` says `offline=true`, the switch comments that line out and says so in the plan: a
