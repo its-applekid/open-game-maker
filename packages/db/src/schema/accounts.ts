@@ -46,6 +46,8 @@ export const games = sqliteTable(
       .references(() => families.id, { onDelete: 'cascade' }),
     ownerId: text('owner_id').notNull(),
     title: text('title').notNull(),
+    // The shareable URL segment. Unique per instance, nullable only for rows written before slugs existed.
+    slug: text('slug'),
     visibility: text('visibility', { enum: ['listed', 'private'] }).notNull(),
     githubOwner: text('github_owner'),
     githubRepo: text('github_repo'),
@@ -61,6 +63,7 @@ export const games = sqliteTable(
   (table) => [
     index('games_family_id_index').on(table.familyId),
     index('games_owner_id_index').on(table.ownerId),
+    uniqueIndex('games_slug_unique').on(table.slug),
     check('games_visibility_check', sql`${table.visibility} IN ('listed', 'private')`),
     check('games_repo_visibility_check', sql`${table.repoVisibility} IN ('public', 'private')`),
     check(
@@ -69,6 +72,20 @@ export const games = sqliteTable(
     ),
     check('games_forkable_check', sql`${table.forkable} IN (0, 1)`),
   ],
+);
+
+// Every slug a game has ever had, so a renamed game still opens from the link someone already shared. `slug` is the
+// primary key because a slug belongs to exactly one game for the life of the instance (#513).
+export const gameSlugs = sqliteTable(
+  'game_slugs',
+  {
+    slug: text('slug').primaryKey(),
+    gameId: text('game_id')
+      .notNull()
+      .references(() => games.id, { onDelete: 'cascade' }),
+    createdAt: createdAt(),
+  },
+  (table) => [index('game_slugs_game_id_index').on(table.gameId)],
 );
 
 export const githubConnections = sqliteTable('github_connections', {

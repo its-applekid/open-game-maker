@@ -26,6 +26,7 @@ const rows: [string, ProjectionInput, string, string][] = [
   ],
   ['tracker rework', { ...running, trackerState: 'rework', lifecycle: 'running' }, 'fixing', 'Fixing a problem'],
   ['tracker human-review', { ...running, trackerState: 'human-review' }, 'ready', 'Ready to try'],
+  ['tracker parked', { ...running, trackerState: 'parked' }, 'parked', 'Parked'],
   ['tracker budget-exhausted', { ...running, trackerState: 'budget-exhausted' }, 'out_of_budget', 'Out of budget'],
   ['tracker error', { ...running, trackerState: 'error' }, 'failed', 'Something went wrong'],
   ['tracker cancelled', { ...running, trackerState: 'cancelled' }, 'cancelled', 'Stopped'],

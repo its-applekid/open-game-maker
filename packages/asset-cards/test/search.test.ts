@@ -8,6 +8,7 @@ const TORCH = 't1:synty-polygon-goblin-war-camp/buildings/sm-bld-prop-torch-01@v
 const LOOP = 't1:kenney-music-loops/loops/infinite-descent@1.1';
 const DRAFT_LOOP = 't1:kenney-music-loops/loops/night-patrol@1.1';
 const MAP = 't1:profantasy-cartographers-annual/example-dungeon-01@illustrative';
+const TILE = 't1:kenney-tiny-dungeon/tiles/tile-0097@1.0';
 const MUSIC = 't1:kenney-music-loops@1.1';
 const QUARANTINED = 't1:drive-2026-10-26-dungeon-sfx/door-creak@1';
 
@@ -284,9 +285,54 @@ describe('search', () => {
     expect(rigIds({ words: [], rigId: 'rig:a83c5e75e523' })).toEqual([mannequin.id]);
   });
 
+  it('filters directional sprites by the facing count their card records', () => {
+    const tile = index.cards.find((card) => card.id === TILE);
+    if (!tile?.sprite) throw new Error('fixture sprite missing');
+    const directional = {
+      ...tile,
+      sprite: { ...tile.sprite, directions: ['E', 'SE', 'S', 'SW', 'W', 'NW', 'N', 'NE'] },
+    };
+    const facing8 = { ...index, cards: [directional as typeof tile] };
+    expect(search(facing8, { words: [], directions: 8 }).map((card) => card.id)).toEqual([TILE]);
+    expect(search(facing8, { words: [], directions: 4 })).toEqual([]);
+    // A card that records no facing set is not directional, so the filter drops it.
+    expect(search(index, { words: [], directions: 8 })).toEqual([]);
+  });
+
   it('applies --limit after ranking', () => {
     expect(search(index, { words: [], limit: 2 })).toHaveLength(2);
     expect(search(index, { words: [] }).length).toBeGreaterThan(2);
+  });
+});
+
+describe('audio direction', () => {
+  it('finds music by mood and by kind without any search words', () => {
+    expect(ids({ words: [], kind: 'audio', moods: ['tense'] })).toEqual([LOOP]);
+    expect(ids({ words: [], kind: 'audio', moods: ['tense', 'mysterious'] })).toEqual([LOOP]);
+    expect(ids({ words: [], kind: 'audio', moods: ['tense', 'cheerful'] })).toEqual([]);
+    expect(ids({ words: [], kind: 'audio', moods: ['tense'], includeDraft: true })).toEqual([LOOP, DRAFT_LOOP]);
+  });
+
+  it('matches any of the given genres, and only cards that carry one', () => {
+    expect(ids({ words: [], genres: ['chiptune'] })).toEqual([LOOP]);
+    expect(ids({ words: [], genres: ['chiptune', 'ambient'], includeDraft: true })).toEqual([LOOP, DRAFT_LOOP]);
+    expect(ids({ words: [], genres: ['orchestral'] })).toEqual([]);
+  });
+
+  it('ranks a card tagged with the mood above one that only says the word in its description', () => {
+    const tagged = index.cards.find((card) => card.id === LOOP);
+    const sleezy = index.cards.find((card) => card.id === ORC);
+    if (!tagged || !sleezy) throw new Error('fixture cards missing');
+    const taggedCopy = { ...tagged, describe: { ...tagged.describe, moods: ['calm'] } };
+    const proseCopy = {
+      ...sleezy,
+      describe: { ...sleezy.describe, description: 'A calm, quiet prop for a still room.' },
+    };
+    const library = { ...index, cards: [proseCopy, taggedCopy] };
+    expect(search(library, { words: ['calm'], includeDraft: true }).map((card) => card.id)).toEqual([
+      taggedCopy.id,
+      proseCopy.id,
+    ]);
   });
 });
 

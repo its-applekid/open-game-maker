@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { Patch } from './bridge.js';
 import type { ActionFrame, ActionValue, Insets } from './input.js';
 import { vec3Schema, viewIdSchema } from './input.js';
+import { netManifestSchema } from './net.js';
 
 /* Manifest strings are rendered as text by consumers (A4 §4 rule 3); caps keep them bounded. */
 const title = z.string().min(1).max(80);
@@ -135,6 +136,8 @@ export const gameManifestSchema = z.looseObject({
   grid: z.looseObject({ size: z.number().positive(), units: z.string().max(16) }).optional(),
   playLabel: z.string().min(1).max(80).optional(),
   saves: z.boolean(),
+  /** Netcode v2 (`net.ts`). Absent means host authority, which is every build written before v2. */
+  net: netManifestSchema.optional(),
   overrides: z.looseObject({
     aliases: z.record(z.string(), z.string()),
     retired: z.array(z.string()),
@@ -208,6 +211,35 @@ export interface MultiplayerHooks {
   applySnapshot(s: { tick: number; state: unknown }): void;
   /** Per-player HUD; private fields never included. */
   hud(playerIndex: number): HudModel;
+}
+
+/** A state slice with the tick it was captured at. */
+export type Snapshot = { tick: number; state: unknown };
+
+/**
+ * The per-seat authority hooks (netcode v2). Optional on `GameInstance.net` so every game written against
+ * `MultiplayerHooks` still compiles; presence is what a `'per-seat'` manifest is checked against at `boot`.
+ *
+ * `restore` must apply exactly the slice it is given: the SDK restores three remote seats and the local one
+ * independently, so a merge that replaced the whole state would overwrite the local seat.
+ */
+export interface MultiplayerHooksV2 extends MultiplayerHooks {
+  /** `{ seat }` captures that seat's owned state; `{}` captures the shared state. */
+  capture?(scope: { seat?: number }): Snapshot;
+  restore?(snapshot: Snapshot): void;
+  /** A flat, canonically ordered list of integers: seats ascending, then entity ids sorted by code unit. */
+  digest?(): readonly number[];
+  /**
+   * What `seat` may receive from this client on this publish (netcode §5.2.1). Called on the sending side only, once
+   * per recipient per publish, and the returned `Snapshot` is encoded as that recipient's `net.state` — so a field
+   * this returns less of is a field that recipient never holds. Absent, the client publishes its own owned slice to
+   * everyone (`capture({ seat: localSeat })`), which is the no-visibility path byte for byte.
+   *
+   * Only a `'per-seat'` manifest may implement it: host authority packs one snapshot for every peer and cannot filter.
+   * A redacted field is absent from the returned state, never `null` or `0`, and `restore` merges the keys it is given
+   * so an absent field keeps the recipient's own reconstruction.
+   */
+  view?(seat: number): Snapshot;
 }
 
 export type Viewport = {

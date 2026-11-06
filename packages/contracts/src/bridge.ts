@@ -3,6 +3,16 @@ import { z } from 'zod';
 import { loadPhaseSchema, tierSchema } from './assets.js';
 import { gameManifestSchema, poseSchema, targetRefSchema } from './game.js';
 import { actionFrameSchema, insetsSchema, MAX_PLAYERS } from './input.js';
+import {
+  authorityModeSchema,
+  netChecksumPayloadSchema,
+  netInputsPayloadSchema,
+  netRecoveryPayloadSchema,
+  netRecoveryRequestPayloadSchema,
+  netSeatSchema,
+  netStartSchema,
+  netStatePayloadSchema,
+} from './net.js';
 
 /** Wire-protocol major; separate from the npm version. */
 export const SDK_PROTOCOL = 1;
@@ -161,6 +171,33 @@ export const hostToGameSchema = z
     /** Peers only. */
     envelope('net.snapshot', netSnapshot),
     envelope('net.event', netEvent),
+    /*
+     * Netcode v2 (N2 adds the names so both sides type-check; `bridge-forwarding.ts` keeps its v1 cases and drops
+     * these until N3 wires room routing).
+     */
+    envelope('net.mode', z.looseObject({ mode: authorityModeSchema })),
+    envelope('net.seats', z.looseObject({ seats: z.array(netSeatSchema).max(MAX_PLAYERS) })),
+    envelope(
+      'net.primary',
+      z.looseObject({
+        seat: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_PLAYERS - 1),
+      }),
+    ),
+    envelope('net.start', netStartSchema),
+    envelope('net.start.cancel', z.looseObject({ epoch: z.string().min(1).max(64) })),
+    envelope('net.tick', z.looseObject({ tick: z.number().int().min(0), serverMs: z.number() })),
+    envelope('net.pause', empty),
+    envelope('net.resume', empty),
+    envelope('net.state', netStatePayloadSchema),
+    envelope('net.inputs', netInputsPayloadSchema),
+    envelope('net.checksum', netChecksumPayloadSchema),
+    envelope('net.recovery', netRecoveryPayloadSchema),
+    envelope('net.seat', netSeatSchema),
+    envelope('net.transport', z.looseObject({ transport: z.enum(['ws-relay', 'webrtc-mesh', 'webrtc-star']) })),
     envelope('phase', z.looseObject({ phase: phaseSchema })),
     /** `test.*` requests carry an `id` that the matching `test.result` names in `replyTo`. */
     envelope('test.advanceTime', testMs),
@@ -243,6 +280,14 @@ export const gameToHostSchema = z
     /** Host: the authoritative snapshot. */
     envelope('net.snapshot', netSnapshot),
     envelope('net.event', netEvent),
+    /* Netcode v2 (see above). */
+    envelope('net.inputs', netInputsPayloadSchema),
+    envelope('net.state', netStatePayloadSchema),
+    envelope('net.checksum', netChecksumPayloadSchema),
+    envelope('net.recovery.request', netRecoveryRequestPayloadSchema),
+    envelope('net.ready', z.looseObject({ ready: z.boolean(), seat: z.number().int().min(0).optional() })),
+    envelope('net.start.request', empty),
+    envelope('net.signal', z.looseObject({ data: z.string().max(Math.ceil(4096 / 3) * 4) })),
     envelope(
       'test.result',
       z.looseObject({ ok: z.boolean(), value: z.unknown().optional(), error: z.string().optional() }),

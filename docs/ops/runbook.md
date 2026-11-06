@@ -79,15 +79,16 @@ fallback when it is blank.
 
 | Unit file | Fill | Optional |
 | --- | --- | --- |
-| `api.env` | `OGM_API_PORT`, `OGM_PUBLIC_ORIGIN`, `OGM_APP_ORIGIN`, `OGM_GAMES_ORIGIN`, `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_ROOMS_INTERNAL_URL`, `OGM_COMMIT_INTERNAL_URL`, `OGM_BUILDER_BOT_LOGIN`, `OGM_INTAKE_BOT_LOGIN`, `OGM_VAPID_SUBJECT`; tokens you obtain: `OGM_BUILDER_BOT_TOKEN`, `OGM_INTAKE_GITHUB_TOKEN` | `OGM_GAMES_ROOT`, `OGM_ASSETS_ROOT`, `OGM_INTAKE_DIR`, `OGM_VOICE_HOST_INTERNAL_URL`, `OGM_VOICE_WS_URL`, `OGM_BUILDER_WORKSPACES_ROOT`, `OGM_VAPID_KEY_FILE`, `OGM_GAME_TEMPLATE_REF`, `OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD`, `OGM_RESET_ZONE_DEFAULT`, `OGM_ANALYTICS_RETENTION_DAYS`, `OGM_REPORT_BUNDLE_MAX_BYTES`, `OGM_NARRATION_CONCURRENCY`, `OGM_INTAKE_SWEEP_SECONDS`, `OGM_CHAT_POLL_MS`, `OGM_CHECKPOINT_POLL_MS`, `OGM_MAINTAINER_EMAILS`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, `SMTP_URL`/`SMTP_FROM` |
+| `api.env` | `OGM_API_PORT`, `OGM_PUBLIC_ORIGIN`, `OGM_APP_ORIGIN`, `OGM_GAMES_ORIGIN`, `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_ROOMS_INTERNAL_URL`, `OGM_COMMIT_INTERNAL_URL`, `OGM_BUILDER_BOT_LOGIN`, `OGM_INTAKE_BOT_LOGIN`, `OGM_VAPID_SUBJECT`; tokens you obtain: `OGM_BUILDER_BOT_TOKEN`, `OGM_INTAKE_GITHUB_TOKEN` | `OGM_GAMES_ROOT`, `OGM_ASSETS_ROOT`, `OGM_INTAKE_DIR`, `OGM_VOICE_HOST_INTERNAL_URL`, `OGM_VOICE_WS_URL`, `OGM_BUILDER_WORKSPACES_ROOT`, `OGM_VAPID_KEY_FILE`, `OGM_GAME_TEMPLATE_REF`, `OGM_DEFAULT_DAILY_ALLOWANCE_MICROUSD`, `OGM_RESET_ZONE_DEFAULT`, `OGM_ANALYTICS_RETENTION_DAYS`, `OGM_REPORT_BUNDLE_MAX_BYTES`, `OGM_NARRATION_CONCURRENCY`, `OGM_INTAKE_SWEEP_SECONDS`, `OGM_CHAT_POLL_MS`, `OGM_CHECKPOINT_POLL_MS`, `OGM_ALLOWED_EMAILS`, `OGM_MAINTAINER_EMAILS`, `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`, `SMTP_URL`/`SMTP_FROM` |
 | `rooms.env` | `OGM_ROOMS_PORT`, `OGM_GAMES_ORIGIN`, `OGM_API_INTERNAL_URL` | |
 | `games.env` | `OGM_GAMES_PORT`, `OGM_GAMES_ROOT`, `OGM_APP_ORIGIN` | `OGM_GAMES_SW` (defaults to the workspace's built `packages/host/dist/game-cache.js`) |
-| `voice-host.env` | `OGM_VOICE_PORT`, `OGM_VOICE_INTERNAL_PORT`, `OGM_API_INTERNAL_URL`, `OGM_VOICE_PROVIDER` (`fake`) | `OGM_VOICE_LLM`, `OGM_VOICE_MAX_SESSIONS`, `OGM_VOICE_RENDER_DIR`, `OGM_VOICE_NARRATION_ENABLED` |
+| `voice-host.env` | `OGM_VOICE_PORT`, `OGM_VOICE_INTERNAL_PORT`, `OGM_API_INTERNAL_URL`, `OGM_VOICE_PROVIDER` (`fake`) | Live ElevenLabs only: `ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`, `OGM_VOICE_LLM`, `OGM_VOICE_CLEANUP_ROOT`; tuning: `OGM_VOICE_MAX_SESSIONS`, `OGM_VOICE_RENDER_DIR`, `OGM_VOICE_NARRATION_ENABLED` |
 | `intake.env` | `OGM_ASSETS_ROOT`, `OGM_STATE_DIR` | |
 | `drive-sync.env` | none; the worker reads `~/.config/ogm/drive-sync.toml` and `drive-sa.json` (`scripts/py/drive-sync/README.md`) | |
 | `backup.env` | `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_BACKUP_TARGET` | |
 | `ogm-commit.env` | `OGM_COMMIT_PORT`, `OGM_DATA_DIR`, `OGM_API_INTERNAL_URL`, `OGM_PLATFORM_ISSUE_REPO`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `OGM_BUILDER_BOT_LOGIN` | `OGM_BLOCKLIST_FILE`, `OGM_GITHUB_WEBHOOK_SECRET` |
 | `repair.env` | `OGM_API_INTERNAL_URL`, `OGM_GAMES_ROOT`; no unit runs `services/repair` yet | |
+| `core-bump.env` | `OGM_CORE_BUMP_REPOS`, `OGM_CORE_BUMP_CORE_REPO`; the App credentials come from `ogm-commit.env` | `OGM_CORE_BUMP_CORE_BRANCH`, `OGM_CORE_BUMP_WORK_DIR` |
 
 Names read by more than one unit must hold the same value in each file:
 
@@ -105,13 +106,16 @@ Names read by more than one unit must hold the same value in each file:
 | `OGM_VOICE_TOKEN_SECRET`, `OGM_VOICE_INTERNAL_SECRET` | `api`, `voice-host` |
 | `OGM_COMMIT_SERVICE_TOKEN` | `api`, `ogm-commit` |
 | `OGM_INTERNAL_TOKEN` | `api`, `ogm-commit`, `repair` |
+| `GITHUB_APP_ID`, `GITHUB_APP_INSTALLATION_ID`, `GITHUB_APP_PRIVATE_KEY_PATH` | `ogm-commit`, `core-bump` (the core-bump unit loads `ogm-commit.env`) |
 
 The API's internal URLs carry the other units' ports: `OGM_ROOMS_INTERNAL_URL` uses `OGM_ROOMS_PORT`,
 `OGM_VOICE_HOST_INTERNAL_URL` uses `OGM_VOICE_INTERNAL_PORT`, `OGM_COMMIT_INTERNAL_URL` uses `OGM_COMMIT_PORT`.
 `ogm-env-init` writes every `[shared]` name into every file; a unit ignores the ones it does not read.
 `AIUR_ERLANG_COOKIE` and `GITHUB_TOKEN` (`[aiur]`) go in `~/.aiur/.env`; the fleet writes them into each
-`ogm-aiur@<slug>.env`. `AIUR_API_URL`, `AIUR_API_TOKEN` and `GITHUB_APP_INSTALLATION_ID` are read by no unit today, and
+`ogm-aiur@<slug>.env`. `AIUR_API_URL` and `AIUR_API_TOKEN` are read by no unit today, and
 the `[gm]` names belong to the `gm` CLI, not a unit.
+
+The fake voice provider is the no-spend default. Enabling ElevenLabs is an operator spending decision: dictation uses transcription credits, two-way voice uses conversational-AI credits, and separately enabled narration uses text-to-speech credits. The host sets provider audio recording off and keeps no local audio or transcript; only final text enters normal chat retention. Keep `OGM_VOICE_CLEANUP_ROOT` on durable storage so provider cleanup survives a service restart.
 
 ### Rotation
 
@@ -123,6 +127,20 @@ grep -l '^OGM_SESSION_SECRET=' ~/.config/ogm/env/*.env   # which files
 openssl rand -hex 32                                    # new value; paste it into each file
 systemctl --user restart ogm-api
 ```
+
+## Sign-in and users
+
+The sign-in allow list is data, not config: table `allowed_users` holds a lowercase email, its role (`player`,
+`maker`, `admin`), who added it and when. Manage it in the admin area at `<app-origin>/admin/users` — add an
+address with a role, change a role, remove an address (which ends its sessions) or resend the invite mail. Each
+addition mails a sign-in link through the instance's mail sender, and the one URL to share with testers is
+`<app-origin>/login`.
+
+`OGM_ALLOWED_EMAILS` and `OGM_MAINTAINER_EMAILS` seed that table on the first start only: the allowed addresses
+become makers and the maintainers become admins. Editing either list afterwards changes nothing.
+`OGM_MAINTAINER_EMAILS` also keeps its own break-glass platform role, so a lost admin login is repaired by listing
+the address there and restarting the API. An address that is not on the list gets the same neutral answer as one
+that is, and no mail is sent to it.
 
 ## Ingress
 
@@ -180,6 +198,27 @@ the restored `data` and `blobs` to the paths in the env files, start the units. 
 recreate the ones the manifest lists with `ogm-env-init`.
 
 `bash ops/test/backup-restore.sh` runs the same drill against a `local:` target in temp directories (CI runs it).
+
+## Core bump
+
+`ogm-core-bump.timer` runs `services/core-bump` every 15 minutes (`OnBootSec=5min`, then every 15 minutes after that).
+Each tick reads
+the core repository's branch head and compares it with the commit an instance repository pins in its `vendor/core.json`;
+when they differ it runs that repository's `scripts/bump-core.sh` in a scratch clone and opens a `core-bump/<sha>` pull
+request. It never merges: the instance repository's own checks gate the merge. A repository without `vendor/core.json`,
+and one that already has a core bump pull request open, are left alone.
+
+```
+systemctl --user list-timers ogm-core-bump.timer
+journalctl --user -u ogm-core-bump -f
+systemctl --user start ogm-core-bump        # one tick now
+```
+
+`core-bump.env` names the instance repositories (`OGM_CORE_BUMP_REPOS`, comma-separated owner/repository) and the core
+(`OGM_CORE_BUMP_CORE_REPO`). The unit also reads `ogm-commit.env`, so the GitHub App installed on the instance
+repositories is the same one the commit service uses. The core repository must be public: its head commit is read
+without a token. Scratch clones live in `OGM_CORE_BUMP_WORK_DIR` (`~/.local/state/ogm/core-bump`). Details:
+[services/core-bump/README.md](../../services/core-bump/README.md).
 
 ## Disk and journal
 

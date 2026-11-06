@@ -1,15 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router';
+import { useNavigate, useSearchParams } from 'react-router';
 
-import {
-  authClient,
-  authErrorMessage,
-  getAuthCapabilities,
-  isAgeRequiredError,
-  requireAge,
-  safeNext,
-  useSession,
-} from '../../lib/api/auth';
+import { authClient, authErrorMessage, getAuthCapabilities, safeNext, useSession } from '../../lib/api/auth';
 import { PasskeyOffer } from './PasskeyOffer';
 import './signin.css';
 
@@ -17,10 +9,8 @@ type Method = 'magic-link' | 'passkey' | 'google';
 
 export function SignInScreen() {
   const navigate = useNavigate();
-  const location = useLocation();
   const [params] = useSearchParams();
-  const next = safeNext(params.get('next'), '/games');
-  const returnPath = `${location.pathname}${location.search}`;
+  const next = safeNext(params.get('next'), '/all');
   const magicCompleted = params.get('magic') === '1';
   const { data: session, isPending: sessionPending } = useSession();
   const [email, setEmail] = useState('');
@@ -66,13 +56,12 @@ export function SignInScreen() {
     if (!conditional) return () => undefined;
     void conditional.call(PublicKeyCredential).then(async (available) => {
       if (!current || !available) return;
-      const result = await authClient.signIn.passkey({ autoFill: true });
-      if (current && result.error && isAgeRequiredError(result.error)) await requireAge(returnPath);
+      await authClient.signIn.passkey({ autoFill: true });
     });
     return () => {
       current = false;
     };
-  }, [returnPath, session, sessionPending]);
+  }, [session, sessionPending]);
 
   useEffect(() => {
     if (!sessionPending && session && !magicCompleted) finish();
@@ -91,17 +80,10 @@ export function SignInScreen() {
     setError('');
     try {
       const result = await action();
-      if (result.error) {
-        if (isAgeRequiredError(result.error)) {
-          if (mounted.current) await requireAge(returnPath);
-          return;
-        }
-        throw result.error;
-      }
+      if (result.error) throw result.error;
     } catch (caught) {
       if (!mounted.current) return;
-      if (isAgeRequiredError(caught)) await requireAge(returnPath);
-      else setError(authErrorMessage(caught, `Could not start ${methodLabel(method)} sign-in.`));
+      setError(authErrorMessage(caught, `Could not start ${methodLabel(method)} sign-in.`));
     } finally {
       if (mounted.current) setPending(null);
     }

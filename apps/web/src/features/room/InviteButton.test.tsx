@@ -74,7 +74,7 @@ it('creates one room, requests a fresh link per press, and confirms copied links
 
   expect(mockedApi).toHaveBeenCalledWith('/games/game/rooms', {
     method: 'POST',
-    json: { branchId: 'main', buildId: 'build', maxPlayers: 4 },
+    json: { branchId: 'main', buildId: 'build', maxPlayers: 4, protocol: 2 },
   });
   expect(mockedApi).toHaveBeenCalledWith('/rooms/room-1/invites', { method: 'POST', json: {} });
   expect(mockedApi.mock.calls.filter(([path]) => path === '/games/game/rooms')).toHaveLength(1);

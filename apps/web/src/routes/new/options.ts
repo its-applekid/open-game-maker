@@ -8,7 +8,7 @@ export type StepDefinition = {
   key: ChoiceKey;
   title: string;
   ask: string;
-  hint: string;
+  hint?: string;
   max: number;
   options: Option[];
 };
@@ -22,7 +22,6 @@ export const STATIC_STEPS = {
     key: 'genre',
     title: 'Genre',
     ask: 'What kind of game is it?',
-    hint: 'Pick up to 3',
     max: 3,
     options: [
       option('shooter', 'Shooter'),
@@ -45,7 +44,6 @@ export const STATIC_STEPS = {
     key: 'vibe',
     title: 'Vibe',
     ask: 'How should it feel?',
-    hint: 'Pick up to 3',
     max: 3,
     options: [
       option('retro', 'Retro'),
@@ -65,7 +63,6 @@ export const STATIC_STEPS = {
     key: 'world',
     title: 'World',
     ask: 'Where does it take place?',
-    hint: 'Pick up to 3',
     max: 3,
     options: [
       option('dungeon', 'Dungeon'),

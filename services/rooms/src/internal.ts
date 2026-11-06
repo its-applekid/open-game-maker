@@ -1,7 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 
 import { matchMaker } from '@colyseus/core';
-import { LIMITS } from '@ogm/contracts';
+import { LIMITS, TeamPolicySchema } from '@ogm/contracts';
 import { healthResponse } from '@ogm/health';
 import { Hono } from 'hono';
 import { z } from 'zod';
@@ -16,6 +16,13 @@ const createRoomBody = z
     buildId: z.string().min(1),
     ownerId: z.string().min(1),
     maxPlayers: z.number().int().optional(),
+    /* Protocol 2 room options (#497 §4.7). All optional: a v1 create is byte-identical to today's. */
+    protocol: z.union([z.literal(1), z.literal(2)]).optional(),
+    teams: TeamPolicySchema.optional(),
+    spectators: z.enum(['off', 'on']).optional(),
+    pauseOnDisconnect: z.boolean().optional(),
+    rulesetHash: z.string().max(64).optional(),
+    mode: z.string().min(1).max(32).optional(),
   })
   .strict();
 

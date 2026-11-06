@@ -47,3 +47,11 @@ duration, H.264 profile compatibility, `yuv420p`, `moov` before `mdat`, infinite
 
 Load `gm-verify` and inspect start, contact, reaction, seam, and end stills at desktop and phone sizes. Record a
 physical iPhone Safari playback check as post-deploy when the issue workspace cannot perform it; never claim it ran.
+
+Judge the set once per round, not file by file: score cohesion, reference fidelity, brief, mesh quality, texture
+quality, assembly, scale, and labels, and pass only with no category below 6 and an average of 7 or more. Write the
+round as JSON and run `python3 -I scripts/assets/set_critic.py round.json`; it holds the bar, caps the fixes at five
+and stops after eight rounds. With `--work <output-dir>` it also refuses a pass while the manifest, the lineup still or
+the thumbs are missing. Check proportion against a scale bar (`python3 -I scripts/assets/check_glb.py --lineup` gives
+the positions and the bar), because a merged diorama hides scale. Detail:
+`docs/research/anykit-lessons-2026-11.md`.

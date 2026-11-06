@@ -38,7 +38,7 @@ function renderJoin() {
     <MemoryRouter initialEntries={['/join/invite-token']}>
       <Routes>
         <Route path="/join/:inviteToken" element={<JoinScreen />} />
-        <Route path="/age" element={<Location />} />
+        <Route path="/signin" element={<Location />} />
         <Route path="/g/:gameId" element={<Location />} />
       </Routes>
     </MemoryRouter>,
@@ -79,11 +79,11 @@ describe('JoinScreen', () => {
     });
   });
 
-  it('sends an unauthenticated visitor through the age gate with the join path preserved', async () => {
+  it('sends an unauthenticated visitor to sign in with the join path preserved', async () => {
     session.current = { data: null, isPending: false };
     renderJoin();
 
-    await screen.findByText('/age?next=%2Fsignin%3Fnext%3D%252Fjoin%252Finvite-token');
+    await screen.findByText('/signin?next=%2Fjoin%2Finvite-token');
     expect(mockedApi).not.toHaveBeenCalled();
   });
 
@@ -93,13 +93,6 @@ describe('JoinScreen', () => {
 
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
     expect(mockedApi).not.toHaveBeenCalled();
-  });
-
-  it('sends a rejected age attestation back through the age gate', async () => {
-    mockedApi.mockRejectedValue(new ApiError(403, { error: 'age_required' }));
-    renderJoin();
-
-    await screen.findByText('/age?next=%2Fjoin%2Finvite-token&attest=1');
   });
 
   it.each([

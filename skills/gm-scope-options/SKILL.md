@@ -31,7 +31,7 @@ Use one non-blocking checkpoint:
 
 `gm checkpoint open --question "Which game loop should I build?" --option "a=Gather and craft" --option "b=Race and deliver" --option "c=Defend and repair" --recommend a`
 
-Open at most three checkpoints during a creation build. Do not add `--blocking` unless the next dependent step truly
+Open at most three checkpoints during an edit or a single-ticket build. A new game from the New Game flow follows `gm-new-game-design` instead (no cap). Do not add `--blocking` unless the next dependent step truly
 cannot be built before the creator chooses; continue independent work either way.
 
 ## Lock the agreed scope

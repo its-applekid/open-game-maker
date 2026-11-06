@@ -3,13 +3,11 @@ import { fileURLToPath } from 'node:url';
 import { JSDOM } from 'jsdom';
 import { describe, expect, it } from 'vitest';
 import { loadSetupContent } from '../src/schema.js';
-import { loadSplashContent } from '../src/splash.js';
 
 /* dist/ is written by tools/build.mts in the pretest step */
 const distDir = fileURLToPath(new URL('../dist', import.meta.url));
 const repositoryRoot = fileURLToPath(new URL('../../..', import.meta.url));
 const setup = loadSetupContent(fileURLToPath(new URL('../content/setup.yaml', import.meta.url)), repositoryRoot);
-const splash = loadSplashContent(fileURLToPath(new URL('../content/splash.yaml', import.meta.url)));
 
 function page(path: string): Document {
   return new JSDOM(readFileSync(`${distDir}/${path}`, 'utf8')).window.document;
@@ -23,9 +21,9 @@ describe('built routes', () => {
     expect(doc.title.trim()).not.toBe('');
   });
 
-  it('points the splash CTAs at /setup and the app origin from splash.yaml', () => {
+  it('keeps both splash CTAs on marketing routes so deploy redirects own the instance origin', () => {
     const ctas = [...page('index.html').querySelectorAll('a.s-cta')].map((a) => a.getAttribute('href'));
-    expect(ctas).toEqual(['/setup', splash.app_origin]);
+    expect(ctas).toEqual(['/setup', '/signin']);
   });
 
   it('renders the eight setup headers in order', () => {

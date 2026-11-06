@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test';
+import { expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 
 import { installAuthRoutes } from './fixtures/auth-routes';
 import { installNewRoutes } from './fixtures/new-routes';
@@ -10,6 +10,49 @@ type NewGameTestApi = {
 };
 
 test.use({ serviceWorkers: 'block', reducedMotion: 'reduce' });
+
+test('phone multi-pick capacity shows 0, 2, and 3 picks', async ({ page, isMobile }, testInfo) => {
+  test.skip(!isMobile, 'phone screenshot acceptance path');
+  await installAuthRoutes(page, { signedIn: true, github: 'kim' });
+  await installNewRoutes(page);
+  const adventure = await openReadyNewGame(page);
+  const capacity = page.locator('.new-pick-capacity');
+
+  await expect(capacity).toBeVisible();
+  await expect(capacity).toHaveAccessibleName('0 of 3 picked');
+  await expect(page.getByText('Pick up to 3')).toHaveCount(0);
+  await attachScreenshot(page, testInfo, 'pick-capacity-0');
+
+  await selectOption(page, adventure, 'genre', 'adventure');
+  await selectOption(page, page.getByRole('button', { name: 'RPG' }), 'genre', 'rpg');
+  await expect(capacity).toHaveAccessibleName('2 of 3 picked');
+  await attachScreenshot(page, testInfo, 'pick-capacity-2');
+
+  await selectOption(page, page.getByRole('button', { name: 'Puzzle' }), 'genre', 'puzzle');
+  await expect(capacity).toHaveAccessibleName('3 of 3 picked');
+  await attachScreenshot(page, testInfo, 'pick-capacity-3');
+
+  const sports = page.getByRole('button', { name: 'Sports' });
+  const overflowFeedback = await sports.evaluate(async (button) => {
+    button.click();
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+    const selected = Array.from(document.querySelectorAll<HTMLButtonElement>('.new-option[aria-pressed="true"]'));
+
+    return {
+      rejectedPressed: button.getAttribute('aria-pressed'),
+      selectedCount: selected.length,
+      selectedShakeCount: selected.filter((tile) => tile.classList.contains('new-limit-shake')).length,
+      animationName: selected[0] ? getComputedStyle(selected[0]).animationName : '',
+    };
+  });
+
+  expect(overflowFeedback).toEqual({
+    rejectedPressed: 'false',
+    selectedCount: 3,
+    selectedShakeCount: 3,
+    animationName: 'new-limit-pulse-a',
+  });
+});
 
 test('phone creation flow reaches scope admission and queues at reset', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone acceptance path');
@@ -54,12 +97,13 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
     .toBe(true);
   await expect
     .poll(() =>
-      page.locator('.new-style-track').evaluateAll((tracks) =>
-        tracks.every((track) => {
+      page.locator('.new-style-track').evaluateAll((tracks) => {
+        const viewportWidth = document.documentElement.clientWidth;
+        return tracks.every((track) => {
           const box = track.getBoundingClientRect();
-          return Math.abs(box.width - box.height) <= 1;
-        }),
-      ),
+          return Math.abs(box.width - viewportWidth) <= 1;
+        });
+      }),
     )
     .toBe(true);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(
@@ -92,7 +136,7 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
 
   await activate(page, 'Finish');
   await activate(page, 'Queue for the reset');
-  await expect(page).toHaveURL(/\/games\?spotlight=g_/, { timeout: 5_000 });
+  await expect(page).toHaveURL(/\/all\?spotlight=g_/, { timeout: 5_000 });
   expect(routes.scopeMessages).toEqual(['Keep the first version small.']);
   expect(routes.admissions).toHaveLength(2);
   expect(routes.admissions[0]).toMatchObject({ start: 'now', idempotencyKey: expect.stringMatching(/:1$/) });
@@ -125,14 +169,28 @@ test('style detail fits its media and navigation into phone and desktop viewport
       }
       await page.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
       await page.locator('.new-style-detail').waitFor({ state: 'attached' });
+      if (viewport.width <= 600)
+        await expect
+          .poll(() =>
+            page.locator('.new-game-screen').evaluate((element) => {
+              const box = element.getBoundingClientRect();
+              const style = getComputedStyle(element);
+              return {
+                width: Math.round(box.width),
+                paddingTop: style.paddingTop,
+                paddingBottom: style.paddingBottom,
+              };
+            }),
+          )
+          .toEqual({ width: viewport.width, paddingTop: '0px', paddingBottom: '0px' });
 
       const controls = page.locator(
-        'button[aria-label="Previous scene"], button[aria-label="Next scene"], button[aria-label="Previous style"], button[aria-label="Next style"]',
+        'button[aria-label="Previous scene"], button[aria-label="Next scene"], button[aria-label="Previous style"], button[aria-label="Next style"], button.new-style-select',
       );
       const tracks = page.locator('.new-style-track');
       const stopRow = page.locator('.new-style-stops');
 
-      await expect(controls).toHaveCount(4);
+      await expect(controls).toHaveCount(5);
       await expect(tracks).toHaveCount(2);
       await expect(stopRow).toHaveCount(1);
       await expect
@@ -173,9 +231,18 @@ test('style detail fits its media and navigation into phone and desktop viewport
           .locator('.new-game-screen, .new-game-body, .new-style-step, .new-style-detail, .new-style-showcase-detail')
           .evaluateAll(boxesFor),
       ]);
+      const screenStyle = await page.locator('.new-game-screen').evaluate((element) => {
+        const style = getComputedStyle(element);
+        return {
+          paddingTop: style.paddingTop,
+          paddingBottom: style.paddingBottom,
+          gridTemplateRows: style.gridTemplateRows,
+          matchesDetail: element.matches(':has(.new-style-detail)'),
+        };
+      });
       const [diorama, sheet] = trackBoxes;
 
-      expect(controlBoxes).toHaveLength(4);
+      expect(controlBoxes).toHaveLength(5);
       expect(trackBoxes).toHaveLength(2);
       expect(stopRowBoxes).toHaveLength(1);
       const measuredBoxes = [...controlBoxes, ...trackBoxes, ...stopRowBoxes];
@@ -183,18 +250,28 @@ test('style detail fits its media and navigation into phone and desktop viewport
         measuredBoxes.every(({ inViewport }) => inViewport),
         `viewport ${viewport.width}x${viewport.height}: ${JSON.stringify(measuredBoxes)} layout=${JSON.stringify(layoutBoxes)}`,
       ).toBe(true);
-      expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
-      expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
       expect(Math.abs(diorama!.width - sheet!.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(diorama!.height - sheet!.height)).toBeLessThanOrEqual(1);
       const styleArrowBoxes = controlBoxes.filter(({ name }) => name === 'Previous style' || name === 'Next style');
       if (viewport.width <= 600) {
-        expect(diorama!.bottom).toBeLessThanOrEqual(sheet!.top);
+        expect(
+          diorama!.bottom,
+          `viewport ${viewport.width}x${viewport.height}: tracks=${JSON.stringify(trackBoxes)} layout=${JSON.stringify(layoutBoxes)} screen=${JSON.stringify(screenStyle)}`,
+        ).toBeLessThanOrEqual(sheet!.top);
         expect(
           styleArrowBoxes.every((box) => Math.abs(box.top + box.height / 2 - (diorama.top + diorama.height / 2)) <= 1),
         ).toBe(true);
-        expect(styleArrowBoxes[0]!.right).toBeLessThanOrEqual(diorama!.left);
-        expect(styleArrowBoxes[1]!.left).toBeGreaterThanOrEqual(diorama!.right);
+        expect(styleArrowBoxes.every((box) => box.left >= diorama!.left && box.right <= diorama!.right)).toBe(true);
+        expect(styleArrowBoxes[0]!.left).toBeLessThan(diorama!.left + diorama!.width / 4);
+        expect(styleArrowBoxes[1]!.right).toBeGreaterThan(diorama!.right - diorama!.width / 4);
+        expect(styleArrowBoxes.every((box) => box.width >= 44 && box.height >= 44)).toBe(true);
+        expect(
+          diorama!.width,
+          `viewport ${viewport.width}x${viewport.height}: tracks=${JSON.stringify(trackBoxes)} layout=${JSON.stringify(layoutBoxes)} screen=${JSON.stringify(screenStyle)}`,
+        ).toBeGreaterThanOrEqual(viewport.width - 1);
       } else {
+        expect(Math.abs(diorama!.width - diorama!.height)).toBeLessThanOrEqual(1);
+        expect(Math.abs(sheet!.width - sheet!.height)).toBeLessThanOrEqual(1);
         expect(Math.abs(diorama!.top - sheet!.top)).toBeLessThanOrEqual(1);
       }
       expect(
@@ -204,6 +281,7 @@ test('style detail fits its media and navigation into phone and desktop viewport
     });
   }
 
+  await expect(page.getByRole('button', { name: /^Back to / })).toHaveCount(0);
   await expect(page.locator('.new-style-detail h2, .new-style-stop span, .new-style-set span')).toHaveCount(0);
 
   const [sceneArrowBackground, styleArrowBackground] = await Promise.all([
@@ -224,10 +302,13 @@ test('style detail fits its media and navigation into phone and desktop viewport
     const arrows = embedded.locator('button[aria-label="Previous style"], button[aria-label="Next style"]');
     await expect(tracks).toHaveCount(2);
 
-    const [trackBoxes, stopBox, arrowBoxes, detailBox] = await Promise.all([
+    const [trackBoxes, stopBox, arrowBoxes, selectBox, detailBox] = await Promise.all([
       tracks.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON())),
       stops.evaluate((element) => element.getBoundingClientRect().toJSON()),
       arrows.evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().toJSON())),
+      embedded
+        .getByRole('button', { name: 'Select SmallScaleInt' })
+        .evaluate((element) => element.getBoundingClientRect().toJSON()),
       embedded.locator('.new-style-detail').evaluate((element) => element.getBoundingClientRect().toJSON()),
     ]);
     const [diorama, sheet] = trackBoxes;
@@ -236,8 +317,8 @@ test('style detail fits its media and navigation into phone and desktop viewport
     expect(diorama!.bottom).toBeLessThanOrEqual(sheet!.top);
     expect(sheet!.bottom).toBeLessThanOrEqual(stopBox.top);
     expect(stopBox.bottom).toBeLessThanOrEqual(detailBox.bottom);
-    expect(arrowBoxes[0]!.right).toBeLessThanOrEqual(diorama!.left);
-    expect(arrowBoxes[1]!.left).toBeGreaterThanOrEqual(diorama!.right);
+    expect(selectBox.bottom).toBeLessThanOrEqual(detailBox.bottom);
+    expect(arrowBoxes.every((box) => box.left >= diorama!.left && box.right <= diorama!.right)).toBe(true);
     expect(
       arrowBoxes.every((box) => Math.abs(box.top + box.height / 2 - (diorama!.top + diorama!.height / 2)) <= 1),
     ).toBe(true);
@@ -256,6 +337,13 @@ async function selectOption(page: Page, button: Locator, key: string, id: string
   await button.evaluate((element: HTMLButtonElement) => element.click());
   await expect(button).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(() => newGameState(page).then((state) => state?.picks[key]?.picks)).toContain(id);
+}
+
+async function attachScreenshot(page: Page, testInfo: TestInfo, name: string): Promise<void> {
+  await testInfo.attach(name, {
+    body: await page.screenshot({ animations: 'disabled', fullPage: true }),
+    contentType: 'image/png',
+  });
 }
 
 function newGameState(page: Page): Promise<NewGameTestApi | undefined> {

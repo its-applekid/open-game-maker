@@ -3,10 +3,17 @@
   .game-tile:focus-visible {
     z-index: 5;
     outline: none;
-    box-shadow:
-      0 0 0 2px var(--yellow-b),
-      0 24px 64px -8px rgba(250, 189, 47, 0.7);
     transform: scale(1.035);
+  }
+
+  .game-tile:hover {
+    box-shadow: 0 24px 64px -8px var(--shadow-color);
+  }
+
+  .game-tile:focus-visible {
+    box-shadow:
+      0 0 0 2px var(--focus-ring),
+      0 24px 64px -8px var(--shadow-color);
   }
 
   .game-tile:hover .game-cover-image,
@@ -14,12 +21,6 @@
   .game-tile:focus-visible .game-cover-image,
   .game-tile:focus-visible .game-cover-placeholder {
     transform: scale(1.08);
-  }
-
-  .game-tile:hover .game-tile-shine,
-  .game-tile:focus-visible .game-tile-shine {
-    transform: translateX(130%);
-    transition: transform 0.9s var(--games-ease);
   }
 
   .game-tile:hover .game-tile-meta,

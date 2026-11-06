@@ -129,6 +129,7 @@ class Reader(unittest.TestCase):
         self.assertEqual([(card["subkind"], card["title"]) for card in cards], [("character", "Knight")])
         actions = {action["name"]: action for action in cards[0]["sprite"]["animations"]}
         self.assertEqual(actions["attack"]["directions"], ["E", "SE", "S", "SW", "W", "NW", "N", "NE"])
+        self.assertEqual(cards[0]["sprite"]["directions"], ["E", "SE", "S", "SW", "W", "NW", "N", "NE"])
         self.assertEqual((actions["attack"]["frames"], actions["attack"]["fps"]), ([0, 1], 12))
         self.assertEqual(actions["idle"]["fps"], 12)
         self.assertEqual(
@@ -174,6 +175,10 @@ class Reader(unittest.TestCase):
                 self.assertEqual(animation["fps"], 12)
                 is_topdown = "topdown" in pid or "top-down" in pid
                 self.assertEqual(animation["sheets"][0]["rows"], 1 if is_topdown else 8)
+                if is_topdown:
+                    self.assertNotIn("directions", characters[0]["sprite"])
+                else:
+                    self.assertEqual(characters[0]["sprite"]["directions"], list(ssi.SHEET_DIRECTIONS))
 
     def test_root_action_archer_is_a_character_but_projectile_packs_are_not(self):
         archer = self.root / "packs" / "smallscaleint-2d-topdown-archer-character"
@@ -213,6 +218,7 @@ class Reader(unittest.TestCase):
         self.assertEqual(by_title["Desert Chest"]["sprite"]["facings"], {
             direction: f"Environment/Sprites/Desert Chest_{direction}.png" for direction in ("E", "N", "S", "W")
         })
+        self.assertEqual(by_title["Desert Chest"]["sprite"]["directions"], ["E", "N", "S", "W"])
         self.assertEqual(by_title["Dust"]["sprite"]["animations"][0]["fps"], 8)
         self.assertEqual(len(by_title["Arrow"]["sprite"]["animations"][0]["files"]), 3)
         self.assertEqual(len(cards), 3)

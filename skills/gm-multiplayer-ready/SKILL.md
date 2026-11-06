@@ -15,26 +15,77 @@ private text; the room enforces that, and the two-client verify proves it.
 2. All per-player state lives in `players: Map<playerIndex, PlayerState>`; no singleton `player`.
 3. Entity ids are host-minted, globally unique strings; never array positions or per-session counters.
 4. Spawn points are design data (`design/spawns.json`), at least `maxPlayers` of them.
-5. The host is authoritative; peers render snapshots and send inputs only; game logic never assumes a server.
+5. Authority is declared, not assumed: a game sets `net.authority` in its manifest (`'per-seat'` or `'host'`) and
+   keeps its simulation deterministic; game logic never assumes a server.
 6. `serializeSnapshot()/applySnapshot()` cover everything visible; transient effects are derived, not synced.
 7. HUD reads `players.get(localPlayerIndex)`; camera rig follows the local avatar.
-8. `tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`.
+8. `tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`; under per-seat authority every seat
+   runs the step itself, so the same frames must always produce the same state.
 
-## The host is authoritative
+## Authority modes
 
-The room relays; it never simulates. The owner's browser runs the only simulation and is the host. Peers send input
-frames and draw the host's snapshots. Never describe the room or any service as the authority, and never put game
-rules in a service: if the host leaves, the room pauses for it and then ends.
+The room relays; it never simulates. Which client simulates is the manifest's choice:
+
+- `net: { authority: 'host', maxSeats: 4 }` — the owner's browser runs the only simulation. Peers send input frames
+  and draw the host's snapshots. This is what every game written before the field existed does, and it stays
+  byte-for-byte the old path.
+- `net: { authority: 'per-seat', maxSeats: 4 }` — every seat simulates the whole game at the fixed 1/60 s step. A
+  seat applies its own input in the tick it is sampled (no round trip), reconstructs the other seats from
+  tick-stamped redundant inputs, publishes its owned state, and proves agreement with a shared checksum. A
+  disagreement resolves through a recovery snapshot from the primary seat.
+
+A per-seat manifest must implement three more hooks (`capture`, `restore`, `digest`); declaring the mode without them
+refuses to boot with a mode-mismatch error rather than silently dropping back to host authority. Never describe the
+room or any service as the authority, and never put game rules in a service: if the primary seat leaves, the room
+pauses for it and then ends.
+
+## What a seat may receive
+
+Hidden data is never sent. A per-seat game implements `view(recipient)`: the SDK calls it once per recipient on the
+sending client and encodes exactly what it returns, addressed to that recipient — an omitted field is a field that seat
+never held. Without `view` the mode broadcasts `capture({ seat: localSeat })` exactly as before. `view` needs
+`authority: 'per-seat'`: host authority packs one snapshot for every peer and cannot filter it, so a host-mode game
+that declares `view` refuses to boot instead of promising privacy it cannot deliver. `net.event` is the only reveal
+and the SDK never redacts it. A redacted field is *absent*, never `null` or zeroed, and `restore` merges the keys it
+is given.
+
+```ts
+view(recipient: number): Snapshot {
+  const slice = captureOwned(state, localSeat);
+  if (recipient === localSeat) return { tick, state: slice };
+  const { secret, ...visible } = slice.player;       // every other recipient gets no `secret` key at all
+  return { tick, state: { seat: localSeat, player: visible } };
+}
+```
+
+The seven limits a design must respect:
+
+1. A shared seed reveals the future; a hidden draw uses `rng('private')`.
+2. `rng('private')` is one stream per seat, not a vault: reveal the value you drew, not a generator you keep drawing.
+3. Determinism leaks through timing; keep genuinely secret information out of the simulation.
+4. A private field that feeds a public value is public, and surfaces as a desync loop rather than a leak.
+5. Recovery cannot repair a redacted field; if the redacted part matters to the recipient, it was never private.
+6. Payload size is not a channel, but the number and timing of reveals still are.
+7. The room is not a trust boundary for content: hide what a seat may not have, do not police peers.
+`digest()` excludes every private field: such a word would be an oracle for it and can only surface as a desync.
 
 ## What the SDK gives you
 
 The runtime's `gm.net` (`runtime.net` after `boot`) is the whole network surface:
 
-- `role` is `host` or `peer`; `localPlayerIndex` is this client's seat; `players` lists the seats in the room.
+- `mode` is `'per-seat'` or `'host'` — gate new behaviour on it, never on `role`. `role` keeps its v1 meaning
+  (`host` for the primary seat, `peer` for any other), and `localSeat` is this client's seat.
 - Remote input arrives in the fixed step as ordinary frames whose `playerIndex` is the sender's seat, so the same
   `applyInput` handles every player. `onInput` only observes it.
-- `onPlayerJoined`/`onPlayerLeft` announce seats; `sendEvent`/`onEvent` carry rare one-off events, not state.
-- The host sends a snapshot every third step (20 Hz); peers draw 100 ms behind and interpolate.
+- `onPlayerJoined`/`onPlayerLeft` announce seats; `onSeats`/`onStart` announce a per-seat match; `sendEvent`/`onEvent`
+  carry rare one-off events, not state.
+- Host mode sends a snapshot every third step (20 Hz) and peers draw 100 ms behind. Per-seat mode publishes
+  `capture({ seat })` at `net.seatStateHz` (10 Hz by default) and checksums the whole state twice a second.
+- `now()` gives the server-time mapping; `epoch`/`tick`/`started` describe the match; `frameFor(seat, tick)` returns
+  the frame this client holds; `rng('shared')`/`rng(seat)`/`rng('private')` return seeded streams so two seats draw
+  the same shared numbers and never each other's private ones. `localSeat` is `null` for a spectator, which attaches
+  no camera and asks for no HUD.
+- Per-seat diagnostics ride in `renderInfo().net`: `inputGaps`, `lateInputs`, `clockResyncs`, `recoveries`, `desynced`.
 
 The game supplies `MultiplayerHooks` on its instance as `net`:
 
@@ -43,6 +94,10 @@ The game supplies `MultiplayerHooks` on its instance as `net`:
 - `MultiplayerHooks.snapshot` returns `{ tick, state }`; `MultiplayerHooks.applySnapshot` replaces the visible state
   on a peer.
 - `MultiplayerHooks.hud` takes a seat and returns that seat's `HudModel`, never another player's private field.
+- Per-seat authority adds `capture({ seat })` for a seat's owned slice and `capture({})` for the shared slice,
+  `restore(snapshot)` which must apply exactly the slice it is given (never the whole state), and `digest()` which
+  returns integers in canonical order — seats ascending, entity ids sorted by code unit, positions quantised with
+  `toUnits` (1/256 of a unit). A `capture({})` slice must be independent of any seat's position.
 
 Interpolation convention: put each visible thing under `state.entities[id]` with its position in `p` (number or number
 array) and rotation in `r` (yaw number or `[x, y, z, w]` quaternion). The SDK lerps `p` and slerps `r` between two
@@ -74,23 +129,23 @@ missing or empty in the `net` hooks (6), and a HUD that never reads `players.get
 usage error or no `gm.manifest.json`. Ambiguous shapes print as notes; read them. Rules 5 and 8 need two running
 clients. It needs `typescript` installed in the game (the template has it).
 
-## Two-client verify
+## Multi-client verify
 
-Run it after a conversion, after changing snapshots or input, and before calling a multiplayer feature done. It runs
-on the platform host against a local rooms service, never the public hostname, from the platform repository; from a
-game directory, ask the platform to run it:
+Run it after a conversion, after changing snapshots or input, and before calling a multiplayer feature done, from the platform repository against a local rooms service (never the public hostname):
 
 ```sh
-pnpm --filter @ogm/gm-verify scenario two-client --game <gameDir> --out shots/mp
+pnpm --filter @ogm/gm-verify scenario multi-client --game <gameDir> --link bad --out shots/mp
 ```
 
-Two browsers join one room and it asserts: welcome within 2 s, the watcher's design equals the host's at each rev,
-a private canary never reaches the watcher, the peer is playing within 500 ms of Play, peer input moves the peer's
-avatar in the host's snapshot, host loss pauses then ends the room, and a draft load reaches both clients. Its
-report says `clients: 2` and lists what it could not check (WAN latency, iPhone Safari). It prints `report <path>`
-and exits 0 on pass, 1 on a failure and 2 on a usage error.
+Four browsers take four seats in one protocol-2 room and it asserts: every seat welcomed within 2 s and seated 0–3, a
+private canary never reaches a watcher, the watchers' design equals the primary's at each rev, all four playing in
+500 ms of the start, each peer's input moving its own avatar while the primary's does not, a 3 s drop rejoining its seat
+and a longer one forfeiting it without ending the room, and a draft load reaching all four. The report carries
+`clients: 4` and one `seats[]` entry per seat (ticks, RTT, delay p95s, desyncs, recoveries). `--link clean` is the same
+steps unimpaired; `--link @<report.json>` replays from its seed. A v1 room uses `scenario two-client` instead.
 
 ## Done
 
 Done means `gm check`, `gm test` and the checker are green, `gm run` shows two avatars when two seats are spawned,
-and the two-client verify passed for any change to networking. After `gm run`, post a still with `gm chat post`.
+and the matching verify passed for any networking change (`multi-client` for a v2 game, `two-client` for a v1 one).
+After `gm run`, post a still with `gm chat post`.

@@ -92,7 +92,8 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
       } else if (!this.replayingInput) {
         frames.push(...this.pendingHostFrames.splice(0));
       }
-      if (this.netController?.role === 'peer') {
+      this.netController?.beforeStep(this.clock.tick, frames);
+      if (this.netController && !this.netController.stepLocally) {
         this.netController.handleLocalFrames(frames);
         return;
       }
@@ -187,12 +188,15 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
   }
 
   advance(ms: number, render = true): number {
+    // A paused clock produces no steps and therefore no render, so the start gate is evaluated before it moves.
+    this.netController?.gate();
     const steps = this.clock.advance(ms);
     if (render && steps > 0) this.render();
     return steps;
   }
 
   render(): void {
+    this.netController?.gate();
     this.netController?.render();
     for (const listener of this.frameListeners) listener(this.clock.dt);
   }
@@ -261,5 +265,29 @@ export class RuntimeImpl<D, S> implements Runtime<D, S> {
 }
 
 function zeroNetDiagnostics(): NetDiagnostics {
-  return { dropped: 0, eventGaps: 0, outOfOrderSnapshots: 0, stalls: 0, oversized: 0 };
+  return {
+    mode: 'host',
+    epoch: '',
+    tick: 0,
+    lateStartTicks: 0,
+    inputDelayTicks: 0,
+    inputGaps: 0,
+    lateInputs: 0,
+    localResponseMs: 0,
+    remoteUpdateMs: 0,
+    clockOffsetMs: 0,
+    clockResyncs: 0,
+    desyncs: 0,
+    recoveries: 0,
+    hardResyncs: 0,
+    desynced: false,
+    dropped: 0,
+    eventGaps: 0,
+    outOfOrderSnapshots: 0,
+    stalls: 0,
+    oversized: 0,
+    eventDelayMs: 0,
+    eventDelayP95Ms: 0,
+    droppedBytes: 0,
+  };
 }

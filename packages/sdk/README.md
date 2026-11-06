@@ -45,3 +45,31 @@ and answers `error { code: 'unsupported' }` when the game has none; throw for an
   middle/right-button or touch drag to pan.
 
 Obey it only in edit mode; play mode keeps the manifest rig. `templates/game-2d` and `templates/game-3d` show both.
+
+## Authority modes
+
+A game declares who simulates in its manifest:
+
+```json
+{ "net": { "authority": "per-seat", "maxSeats": 4 } }
+```
+
+- `'host'` (default, and what a manifest without `net` means) keeps the v1 path: the primary seat's browser runs the
+  only simulation, sends a snapshot every third step (20 Hz), and peers draw 100 ms behind and interpolate.
+- `'per-seat'` makes every seat simulate the whole game at the fixed 1/60 s step. A seat applies its own input in the
+  tick it is sampled (no round trip), reconstructs the others from tick-stamped redundant inputs (a three-tick window
+  at 30 Hz), publishes `capture({ seat })` at `net.seatStateHz` (10 Hz), and folds `digest()` into a shared checksum
+  at 2 Hz. A disagreement is settled by a recovery snapshot from the primary seat; four hard resyncs inside a minute
+  trip a breaker and report the seat `desynced` instead of looping.
+- `'rollback'` is reserved: a manifest that declares it refuses to boot until its engine lands.
+
+`gm.net.mode` is the gate for anything mode-specific; `gm.net.role` keeps its v1 meaning (`host` for the primary
+seat, `peer` for any other) and is not an authority signal. The per-seat surface is `localSeat`, `epoch`, `tick`,
+`started`, `onSeats`, `onStart`, `now()`, `frameFor(seat, tick)`, `rng('shared' | seat)` and `digest()`, plus the
+`net.*` counters in `renderInfo().net`.
+
+A per-seat manifest must implement `MultiplayerHooksV2`: `capture({ seat })` returns that seat's owned slice and
+`capture({})` the shared one, `restore(snapshot)` applies exactly the slice it is given, and `digest()` returns
+integers in canonical order — seats ascending, entity ids sorted by code unit, positions quantised with `toUnits`
+(1/256 of a unit). Declaring the mode without those three hooks throws `ModeMismatchError` (`MODE_MISMATCH`) from
+`boot` instead of silently running host authority.

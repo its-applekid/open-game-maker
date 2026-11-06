@@ -25,13 +25,6 @@ function joinError(error: unknown): string {
   return 'Could not join right now';
 }
 
-function ageGatePath(next: string, signedIn: boolean): string {
-  const destination = signedIn ? next : `/signin?next=${encodeURIComponent(next)}`;
-  const query = new URLSearchParams({ next: destination });
-  if (signedIn) query.set('attest', '1');
-  return `/age?${query.toString()}`;
-}
-
 export function JoinScreen() {
   const { data: session, isPending: sessionPending } = useSession();
   const { inviteToken } = useParams();
@@ -43,7 +36,7 @@ export function JoinScreen() {
     const next = `${location.pathname}${location.search}`;
     if (sessionPending) return;
     if (session === null) {
-      navigate(ageGatePath(next, false), { replace: true });
+      navigate(`/signin?next=${encodeURIComponent(next)}`, { replace: true });
       return;
     }
     if (!inviteToken) {
@@ -61,10 +54,6 @@ export function JoinScreen() {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        if (error instanceof ApiError && error.status === 403 && errorCode(error) === 'age_required') {
-          navigate(ageGatePath(next, true), { replace: true });
-          return;
-        }
         setFailure(joinError(error));
       });
     return () => {

@@ -72,6 +72,7 @@
     "counts": {
       "audio/music/track": 10
     },
+    "search_summary": "10 track; moods tense, epic; genres orchestral",
     "creation_choice": false,
     "pack_manifest": "assets-local/packs/sidetrax-pack-60-battle/pack.json"
   },

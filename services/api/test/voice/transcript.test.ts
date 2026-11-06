@@ -1,0 +1,151 @@
+import { schema } from '@ogm/db';
+import { eq } from 'drizzle-orm';
+import { describe, expect, it } from 'vitest';
+
+import { listSince } from '../../src/build-chat/store.js';
+import { scopeSessions } from '../../src/scope/store.js';
+import type { VoiceTarget } from '../../src/voice/briefing-push.js';
+import { ids, worked } from '../budget/fixture.js';
+import { makeApp } from '../helpers.js';
+
+const SECRET = 'voice-internal-secret-for-tests';
+const build: VoiceTarget = {
+  kind: 'build',
+  game_id: ids.game,
+  job_id: ids.running,
+  ticket: '7',
+  creator_id: ids.creator,
+};
+const scope: VoiceTarget = {
+  kind: 'scope',
+  game_id: ids.game,
+  session_id: 's_28000000-0000-4000-8000-000000000001',
+  creator_id: ids.creator,
+};
+
+async function setup() {
+  const deps = worked();
+  deps.config.voiceInternalSecret = SECRET;
+  deps.db
+    .update(schema.jobs)
+    .set({ aiurRepo: 'owner/game', aiurIssueNumber: 7 })
+    .where(eq(schema.jobs.id, ids.running))
+    .run();
+  scopeSessions.create(deps.db, {
+    id: scope.session_id,
+    gameId: ids.game,
+    creatorId: ids.creator,
+    jobId: ids.running,
+    choices: {
+      genre: 'platformer',
+      vibe: 'cozy',
+      family: 'chunky-low-poly',
+      world: 'cavern',
+      players: 'single',
+      pov: 'side-on',
+    },
+    at: new Date().toISOString(),
+  });
+  const { app } = await makeApp(deps);
+  const request = (
+    target: VoiceTarget,
+    actor: 'creator' | 'agent',
+    text: string,
+    turnId = 'turn-one',
+    secret = SECRET,
+    conversationId = 'conversation-one',
+  ) =>
+    app.request('/internal/voice/transcript', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-ogm-internal': secret },
+      body: JSON.stringify({
+        target,
+        conversation_id: conversationId,
+        turn_id: turnId,
+        actor,
+        text,
+      }),
+    });
+  return { deps, request };
+}
+
+describe('POST /internal/voice/transcript', () => {
+  it('appends final creator and agent build turns exactly once without Aiur mirroring', async () => {
+    const { deps, request } = await setup();
+
+    const creator = await request(build, 'creator', 'Make the bridge wider', 'user-1');
+    const replay = await request(build, 'creator', 'Make the bridge wider', 'user-1');
+    const agent = await request(build, 'agent', 'I can widen the bridge.', 'agent-1');
+
+    expect(creator.status).toBe(200);
+    expect(await creator.json()).toMatchObject({ message_id: expect.stringMatching(/^m_/), inserted: true });
+    expect(await replay.json()).toMatchObject({ message_id: expect.stringMatching(/^m_/), inserted: false });
+    expect(await agent.json()).toMatchObject({ message_id: expect.stringMatching(/^m_/), inserted: true });
+    expect(listSince(deps.sqlite, ids.running, 0)).toEqual([
+      expect.objectContaining({
+        actor: 'creator',
+        kind: 'text',
+        text: 'Make the bridge wider',
+        aiurTicket: null,
+        mirrorState: null,
+      }),
+      expect.objectContaining({
+        actor: 'agent',
+        kind: 'text',
+        text: 'I can widen the bridge.',
+        aiurTicket: null,
+        mirrorState: null,
+      }),
+    ]);
+  });
+
+  it('routes a scope turn to the scope session chat job', async () => {
+    const { deps, request } = await setup();
+
+    const response = await request(scope, 'agent', 'A cozy cavern platformer sounds good.');
+
+    expect(response.status).toBe(200);
+    expect(listSince(deps.sqlite, ids.running, 0)).toEqual([
+      expect.objectContaining({ actor: 'agent', text: 'A cozy cavern platformer sounds good.' }),
+    ]);
+  });
+
+  it('keeps structured idempotency fields distinct when identifiers contain separators', async () => {
+    const { deps, request } = await setup();
+
+    const first = await request(build, 'creator', 'First', 'y:agent:z', SECRET, 'x');
+    const second = await request(build, 'agent', 'Second', 'z', SECRET, 'x:creator:y');
+
+    expect(await first.json()).toMatchObject({ inserted: true });
+    expect(await second.json()).toMatchObject({ inserted: true });
+    expect(listSince(deps.sqlite, ids.running, 0).map(({ text }) => text)).toEqual(['First', 'Second']);
+  });
+
+  it('rejects a wrong internal secret before writing chat', async () => {
+    const { deps, request } = await setup();
+
+    const response = await request(build, 'creator', 'secret', 'user-2', 'wrong');
+
+    expect(response.status).toBe(401);
+    expect(listSince(deps.sqlite, ids.running, 0)).toEqual([]);
+  });
+
+  it('rejects stale or forged build and scope targets', async () => {
+    const { deps, request } = await setup();
+    const forgedBuild = { ...build, creator_id: ids.other };
+    const forgedScope = { ...scope, session_id: 'missing' };
+
+    expect((await request(forgedBuild, 'creator', 'no', 'user-3')).status).toBe(404);
+    expect((await request(forgedScope, 'agent', 'no', 'agent-3')).status).toBe(404);
+    expect(listSince(deps.sqlite, ids.running, 0)).toEqual([]);
+  });
+
+  it('rejects empty or oversized transcript fields', async () => {
+    const { deps, request } = await setup();
+
+    expect((await request(build, 'creator', ' ')).status).toBe(400);
+    expect((await request(build, 'creator', 'x'.repeat(8_001))).status).toBe(400);
+    expect((await request(build, 'creator', 'ok', 'x'.repeat(129))).status).toBe(400);
+    expect(listSince(deps.sqlite, ids.running, 0)).toEqual([]);
+  });
+});

@@ -8,19 +8,19 @@ export function render(trigger: NotificationTrigger, context: { gameTitle?: stri
       return {
         title: trigger.ok ? 'Your build is ready' : 'A build needs you',
         body: context.gameTitle ?? trigger.gameId,
-        url: `/games/${trigger.gameId}`,
+        url: `/play/${trigger.gameId}`,
       };
     case 'job.started':
       return {
         title: 'Your queued change started',
         body: context.gameTitle ?? trigger.gameId,
-        url: `/games/${trigger.gameId}?chat=${trigger.jobId}`,
+        url: `/play/${trigger.gameId}?chat=${trigger.jobId}`,
       };
     case 'scope.agreed':
       return {
         title: 'Your game plan is ready',
         body: context.gameTitle ?? trigger.gameId,
-        url: `/games/${trigger.gameId}?chat=${trigger.jobId}`,
+        url: `/play/${trigger.gameId}?chat=${trigger.jobId}`,
       };
     case 'intake.report':
       return {

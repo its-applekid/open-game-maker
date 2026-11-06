@@ -1,0 +1,1131 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "array",
+  "items": {
+    "oneOf": [
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "welcome"
+          },
+          "you": {
+            "type": "object",
+            "properties": {
+              "userId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "seat": {
+                "anyOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 7
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "playerIndex": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "sessionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "spectator": {
+                "type": "boolean"
+              },
+              "team": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              }
+            },
+            "required": [
+              "userId",
+              "seat",
+              "playerIndex",
+              "sessionId",
+              "spectator",
+              "team"
+            ],
+            "additionalProperties": false
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "state": {
+            "type": "object",
+            "properties": {
+              "protocol": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "pin": {
+                "type": "object",
+                "properties": {
+                  "gameId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "branchId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "buildId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "gameId",
+                  "branchId",
+                  "buildId"
+                ],
+                "additionalProperties": false
+              },
+              "ownerId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "editorSessionId": {
+                "type": "string",
+                "minLength": 1
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "editing",
+                  "migrating",
+                  "playing",
+                  "pausedForHost",
+                  "ended"
+                ]
+              },
+              "phaseAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "playRev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "lastRev": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "maxPlayers": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 8
+              },
+              "members": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "userId": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 40
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "player"
+                      ]
+                    },
+                    "playerIndex": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 7
+                    },
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    }
+                  },
+                  "required": [
+                    "userId",
+                    "name",
+                    "role",
+                    "playerIndex",
+                    "connected",
+                    "sessions"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "presence": {
+                "type": "object",
+                "properties": {
+                  "cursor": {
+                    "type": "object",
+                    "properties": {
+                      "x": {
+                        "type": "number"
+                      },
+                      "y": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "x",
+                      "y"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "selection": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  },
+                  "focusControlId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "camera": {
+                    "type": "object",
+                    "properties": {
+                      "pos": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 3,
+                        "maxItems": 3
+                      },
+                      "target": {
+                        "type": "array",
+                        "prefixItems": [
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          },
+                          {
+                            "type": "number"
+                          }
+                        ],
+                        "items": false,
+                        "minItems": 3,
+                        "maxItems": 3
+                      },
+                      "zoom": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [
+                      "pos",
+                      "target",
+                      "zoom"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "privateMode": {
+                    "type": "boolean"
+                  },
+                  "building": {
+                    "type": "object",
+                    "properties": {
+                      "jobId": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "pct": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 100
+                      }
+                    },
+                    "required": [
+                      "jobId",
+                      "label",
+                      "pct"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "selection",
+                  "privateMode"
+                ],
+                "additionalProperties": false
+              },
+              "draft": {
+                "type": "object",
+                "properties": {
+                  "buildId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "url": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "expiresAt": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 9007199254740991
+                  }
+                },
+                "required": [
+                  "buildId",
+                  "url",
+                  "expiresAt"
+                ],
+                "additionalProperties": false
+              },
+              "seats": {
+                "maxItems": 8,
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "seat": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 7
+                    },
+                    "userId": {
+                      "type": "string",
+                      "maxLength": 64
+                    },
+                    "name": {
+                      "type": "string",
+                      "maxLength": 40
+                    },
+                    "team": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 7
+                    },
+                    "connected": {
+                      "type": "boolean"
+                    },
+                    "ready": {
+                      "type": "boolean"
+                    },
+                    "forfeited": {
+                      "type": "boolean"
+                    },
+                    "spectator": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "seat",
+                    "userId",
+                    "name",
+                    "team",
+                    "connected",
+                    "ready",
+                    "forfeited",
+                    "spectator"
+                  ],
+                  "additionalProperties": false
+                }
+              },
+              "spectators": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "epoch": {
+                "type": "string"
+              },
+              "startAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "pausedAt": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
+              "primarySeat": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 7
+              },
+              "seed": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 4294967295
+              },
+              "rulesetHash": {
+                "type": "string",
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "protocol",
+              "pin",
+              "ownerId",
+              "phase",
+              "phaseAt",
+              "playRev",
+              "lastRev",
+              "maxPlayers",
+              "members",
+              "presence",
+              "seats",
+              "spectators",
+              "epoch",
+              "startAt",
+              "pausedAt",
+              "primarySeat",
+              "seed",
+              "rulesetHash"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "required": [
+          "t",
+          "you",
+          "state"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "per-seat",
+              "host",
+              "rollback"
+            ]
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "seed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "primarySeat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "seats": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seat": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "userId": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "team": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "connected": {
+                  "type": "boolean"
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "forfeited": {
+                  "type": "boolean"
+                },
+                "spectator": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "seat",
+                "userId",
+                "name",
+                "team",
+                "connected",
+                "ready",
+                "forfeited",
+                "spectator"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "privateSeed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "t": {
+            "type": "string",
+            "const": "net.start"
+          }
+        },
+        "required": [
+          "epoch",
+          "mode",
+          "startAt",
+          "seed",
+          "primarySeat",
+          "seats",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.start.cancel"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "seat-offline",
+              "not-ready"
+            ]
+          }
+        },
+        "required": [
+          "t",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.tick"
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "serverTime": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "t",
+          "epoch",
+          "serverTime",
+          "tick"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.primary"
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "seat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "t",
+          "epoch",
+          "seat"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.seats"
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "seats": {
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seat": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "userId": {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                "name": {
+                  "type": "string",
+                  "maxLength": 40
+                },
+                "team": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "connected": {
+                  "type": "boolean"
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "forfeited": {
+                  "type": "boolean"
+                },
+                "spectator": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "seat",
+                "userId",
+                "name",
+                "team",
+                "connected",
+                "ready",
+                "forfeited",
+                "spectator"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "spectators": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "required": [
+          "t",
+          "epoch",
+          "seats",
+          "spectators"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.seat"
+          },
+          "event": {
+            "type": "string",
+            "enum": [
+              "net.seat.online",
+              "net.seat.offline",
+              "net.seat.forfeit"
+            ]
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "seat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          }
+        },
+        "required": [
+          "t",
+          "event",
+          "epoch",
+          "seat"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.pause"
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "t",
+          "epoch",
+          "tick",
+          "startAt"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.resume"
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "startAt": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "t",
+          "epoch",
+          "tick",
+          "startAt"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "net.epoch.end"
+          },
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "t",
+          "epoch",
+          "tick"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "seat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "firstTick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "frames": {
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "seq": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "tick": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                },
+                "axes": {
+                  "maxItems": 8,
+                  "type": "array",
+                  "items": {
+                    "type": "number"
+                  }
+                },
+                "buttons": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991
+                }
+              },
+              "required": [
+                "seq",
+                "tick",
+                "axes",
+                "buttons"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "t": {
+            "type": "string",
+            "const": "net.inputs"
+          }
+        },
+        "required": [
+          "epoch",
+          "seat",
+          "firstTick",
+          "frames",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "seat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "data": {
+            "type": "string",
+            "maxLength": 10924
+          },
+          "t": {
+            "type": "string",
+            "const": "net.state"
+          }
+        },
+        "required": [
+          "epoch",
+          "seat",
+          "seq",
+          "tick",
+          "data",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "seq": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "from": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "target": {
+            "type": "string",
+            "enum": [
+              "all",
+              "seat",
+              "team"
+            ]
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "team": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "round": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "data": {
+            "type": "string",
+            "maxLength": 21848
+          },
+          "t": {
+            "type": "string",
+            "const": "net.event"
+          }
+        },
+        "required": [
+          "epoch",
+          "id",
+          "seq",
+          "from",
+          "target",
+          "data",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "seat"
+            ]
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "sum": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "t": {
+            "type": "string",
+            "const": "net.checksum"
+          }
+        },
+        "required": [
+          "epoch",
+          "scope",
+          "tick",
+          "sum",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "data": {
+            "type": "string",
+            "maxLength": 5464
+          },
+          "t": {
+            "type": "string",
+            "const": "net.signal"
+          }
+        },
+        "required": [
+          "epoch",
+          "to",
+          "data",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "epoch": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "shared",
+              "seat",
+              "events"
+            ]
+          },
+          "tick": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "seat": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "to": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
+          "snapshot": {
+            "type": "string",
+            "maxLength": 87384
+          },
+          "events": {
+            "type": "string",
+            "maxLength": 87384
+          },
+          "t": {
+            "type": "string",
+            "const": "net.recovery"
+          }
+        },
+        "required": [
+          "epoch",
+          "scope",
+          "tick",
+          "t"
+        ],
+        "additionalProperties": false
+      },
+      {
+        "type": "object",
+        "properties": {
+          "t": {
+            "type": "string",
+            "const": "ended"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "host-left",
+              "owner-closed",
+              "idle",
+              "revoked",
+              "abandoned"
+            ]
+          }
+        },
+        "required": [
+          "t",
+          "reason"
+        ],
+        "additionalProperties": false
+      }
+    ]
+  },
+  "$id": "https://open-game-maker-2000.local/schemas/net.server-messages.v2.json"
+}

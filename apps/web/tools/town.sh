@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build the title's castle town and music into public/ (both gitignored). Operator-run: needs assets-local/ and a built
 # apps/web/title-town. Ports prototypes/studio-v0/tools/build.sh lines 30–38 (music) and 85–103 (town copy and bundle).
-# --public leaves out the Sidetrax tracks (Kevin's personal licence): the public deploy plays MUSIC.title.fallback.
+# --public leaves out the Sidetrax tracks (Kevin's personal licence): a public-only build plays MUSIC.title.fallback.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"; WEB="$ROOT/apps/web"; K="${K:-$ROOT/assets-local/packs}"
 PY="${PY:-$ROOT/scripts/audio/.venv/bin/python}"
@@ -22,8 +22,15 @@ for f in "$K/kenney-music-loops/1.1/extracted/"{Loops,Retro}/*.ogg; do
   n="$(basename "$f" .ogg | tr 'A-Z ' 'a-z-')"; ffmpeg -loglevel error -y -i "$f" -codec:a libmp3lame -q:a 5 "$A/music/$n.mp3"; done
 if [[ "$PUBLIC" == 0 ]]; then
   # Sidetrax title and menu tracks, cut just past their loop ends so the loop points stay sample-accurate
-  ffmpeg -loglevel error -y -i "$K/sidetrax-loop-pack-15/v1/extracted/Camelot.wav" -t 119.9 -codec:a libmp3lame -q:a 4 "$A/music/camelot.mp3"
-  ffmpeg -loglevel error -y -i "$K/sidetrax-84-retro-music/v1/extracted/Underground.wav" -t 134.5 -codec:a libmp3lame -q:a 4 "$A/music/underground.mp3"
+  CAMELOT="$K/sidetrax-loop-pack-15/v1/extracted/Camelot.wav"
+  UNDERGROUND="$K/sidetrax-84-retro-music/v1/extracted/Underground.wav"
+  if [[ -f "$CAMELOT" && -f "$UNDERGROUND" ]]; then
+    ffmpeg -loglevel error -y -i "$CAMELOT" -t 119.9 -codec:a libmp3lame -q:a 4 "$A/music/camelot.mp3"
+    ffmpeg -loglevel error -y -i "$UNDERGROUND" -t 134.5 -codec:a libmp3lame -q:a 4 "$A/music/underground.mp3"
+  else
+    rm -f "$A/music/camelot.mp3" "$A/music/underground.mp3"
+    printf '%s\n' 'town: licensed music unavailable; using built-in fallbacks' >&2
+  fi
 else
   rm -f "$A/music/camelot.mp3" "$A/music/underground.mp3"
 fi

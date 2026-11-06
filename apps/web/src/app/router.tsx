@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react';
 import { createBrowserRouter, Navigate, useLocation, type RouteObject } from 'react-router';
 
-import { BugButton } from '../features/bug-report';
 import { BuildChatDock } from '../features/build-chat/BuildChatDock';
 import { useSession } from '../lib/api/session';
 import { Toasts, useNotificationFeed } from '../lib/notify';
 import { ScreenErrorBoundary } from './ScreenErrorBoundary';
 import type { ScreenRoute } from './screen';
-import { SoundControl, StudioBackdrop, StudioLogo } from './StudioChrome';
+import { StudioBackdrop, StudioLogo } from './StudioChrome';
+import { StudioMenu } from './StudioMenu';
 
 type ScreenModule = { route?: ScreenRoute };
 
@@ -83,12 +83,9 @@ function AppChrome({ children }: { children: ReactNode }) {
     <div className="app-chrome">
       <StudioBackdrop />
       <StudioLogo />
-      <SoundControl />
+      <StudioMenu />
       <main>{children}</main>
       <Toasts />
-      <div id="bug-fab-slot">
-        <BugButton />
-      </div>
       <div id="chat-dock-slot">
         <BuildChatDock />
       </div>

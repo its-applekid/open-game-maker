@@ -7,9 +7,7 @@ import {
   getGitHubStatus,
   gitHubInstallUrl,
   getRepoVisibilityDefault,
-  isAgeRequiredError,
   readGitHubInstallState,
-  requireAge,
   safeNext,
   setRepoVisibilityDefault,
 } from './auth';
@@ -118,14 +116,5 @@ describe('auth client helpers', () => {
     expect(safeNext('/games?sort=recent', '/signin')).toBe('/games?sort=recent');
     expect(safeNext('//example.com', '/signin')).toBe('/signin');
     expect(safeNext('/\\example.com', '/signin')).toBe('/signin');
-  });
-
-  it('recognizes the backend age-required response and routes back through the gate', async () => {
-    expect(isAgeRequiredError({ status: 403, code: 'AGE_REQUIRED' })).toBe(true);
-    expect(isAgeRequiredError({ status: 403, body: { code: 'age_required' } })).toBe(true);
-
-    await requireAge('/signin?next=%2Fgames');
-
-    expect(`${location.pathname}${location.search}`).toBe('/age?next=%2Fsignin%3Fnext%3D%252Fgames');
   });
 });

@@ -140,7 +140,7 @@ export function renderSplashHtml(content: SplashContent, asset: (path: string) =
         <div class="s-menu">
           <p class="s-line">${e(content.line)}</p>
           <a class="s-cta" href="/setup">${e(content.cta.setup)}</a>
-          <a class="s-cta" href="${e(content.app_origin)}">${e(content.cta.sign_in)}</a>
+          <a class="s-cta" href="/signin">${e(content.cta.sign_in)}</a>
         </div>
       </section>
 ${features}

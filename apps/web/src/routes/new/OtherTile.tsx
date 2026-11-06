@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { Dictation, type DictationTranscript } from '@ogm/voice-client';
+import { BrowserDictation, type DictationTranscript } from '@ogm/voice-client';
 
 import { Icon } from '../../components/Icon';
 
@@ -15,6 +15,7 @@ export function OtherTile({
   title,
   value,
   full,
+  limitFeedback = 0,
   onChange,
   onFull,
   dictation: providedDictation,
@@ -22,6 +23,7 @@ export function OtherTile({
   title: string;
   value?: string;
   full: boolean;
+  limitFeedback?: number;
   onChange(value?: string): void;
   onFull(): void;
   dictation?: OtherDictation;
@@ -29,7 +31,7 @@ export function OtherTile({
   const [mode, setMode] = useState<Mode>('face');
   const [draft, setDraft] = useState(value ?? '');
   const [dictation] = useState<OtherDictation | undefined>(
-    () => providedDictation ?? (Dictation.isSupported() ? new Dictation() : undefined),
+    () => providedDictation ?? (BrowserDictation.isSupported() ? new BrowserDictation() : undefined),
   );
 
   useEffect(() => {
@@ -47,7 +49,11 @@ export function OtherTile({
 
   if (value) {
     return (
-      <div className="new-option new-other filled" aria-pressed="true">
+      <div
+        className={`new-option new-other filled${limitFeedback ? ' new-limit-shake' : ''}`}
+        aria-pressed="true"
+        data-limit-feedback={limitFeedback ? limitFeedback % 2 : undefined}
+      >
         <span className="new-other-text">“{value}”</span>
         <span className="new-other-actions">
           <button

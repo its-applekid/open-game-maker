@@ -17,6 +17,10 @@
     "./bridge": "./dist/bridge.js",
     "./game": "./dist/game.js",
     "./input": "./dist/input.js",
+    "./transport": {
+      "types": "./dist/transport.d.ts",
+      "default": "./dist/transport.js"
+    },
     "./schemas/*": "./schemas/*",
     "./fixtures/*": "./fixtures/*"
   },

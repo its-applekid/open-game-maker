@@ -7,6 +7,12 @@ type CreateRelayRoom = {
   buildId: string;
   ownerId: string;
   maxPlayers: number;
+  protocol?: 1 | 2;
+  teams?: 'none' | 'alternate';
+  spectators?: 'off' | 'on';
+  pauseOnDisconnect?: boolean;
+  rulesetHash?: string;
+  mode?: string;
 };
 
 type RevokeRelayRoom = { jti?: string; userId?: string };

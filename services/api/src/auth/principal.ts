@@ -16,32 +16,34 @@ function membership(sqlite: Sqlite, userId: string): Membership | undefined {
     .get(userId);
 }
 
-export function parseMaintainers(list: string | undefined): Set<string> {
-  return new Set(
-    (list ?? '')
-      .split(',')
-      .map((email) => email.trim().toLowerCase())
-      .filter(Boolean),
-  );
-}
-
 export function sessionDisplayName(name: string, email: string): string {
   const trimmed = name.trim().slice(0, 40);
   return trimmed && trimmed.toLowerCase() !== email.trim().toLowerCase() ? trimmed : FALLBACK_DISPLAY_NAME;
 }
 
-// A session cookie or `Authorization: Bearer <session token>` (bearer plugin) becomes a `user`.
-export function sessionResolver(auth: Auth, sqlite: Sqlite, maintainers: Set<string>): Resolver {
+export type RoleLookup = (email: string) => 'player' | 'maker' | 'admin' | null;
+
+// A session cookie or `Authorization: Bearer <session token>` (bearer plugin) becomes a `user`. The
+// allow list decides whether the address may sign in at all and which role it holds; the family
+// still supplies the games it can see. `maintainers` is the operator's break-glass set from
+// `OGM_MAINTAINER_EMAILS`, kept as its own audited platform role.
+export function sessionResolver(
+  auth: Auth,
+  sqlite: Sqlite,
+  roleFor: RoleLookup,
+  maintainers: ReadonlySet<string> = new Set(),
+): Resolver {
   return async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return null;
+    const email = session.user.email.trim().toLowerCase();
+    const role = roleFor(email);
+    if (role === null) return null;
 
     const member = membership(sqlite, session.user.id);
-    const platformRole: Extract<Principal, { kind: 'user' }>['platformRole'] = maintainers.has(
-      session.user.email.toLowerCase(),
-    )
+    const platformRole: Extract<Principal, { kind: 'user' }>['platformRole'] = maintainers.has(email)
       ? 'maintainer'
-      : member?.role === 'owner' || member?.role === 'admin'
+      : role === 'admin'
         ? 'admin'
         : 'none';
     return {
@@ -50,7 +52,7 @@ export function sessionResolver(auth: Auth, sqlite: Sqlite, maintainers: Set<str
       displayName: sessionDisplayName(session.user.name, session.user.email),
       familyId: member?.family_id ?? '',
       platformRole,
-      capability: member?.capability === 'creator' ? 'creator' : 'player',
+      capability: role === 'player' ? 'player' : 'creator',
     };
   };
 }

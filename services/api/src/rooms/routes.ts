@@ -9,7 +9,6 @@ import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings } from '../app/types.js';
 import { parseBody } from '../app/validate.js';
 import type { AppDeps } from '../app/types.js';
-import { hasAdultAgeAttestation } from '../auth/routes.js';
 import { clientIp, createRateLimiter } from '../auth/rate-limit.js';
 import {
   createRoom,
@@ -40,6 +39,13 @@ const createRoomBody = z
     branchId: z.string().min(1),
     buildId: z.string().min(1),
     maxPlayers: z.number().int().optional(),
+    /* Protocol 2 room options (#497 §4.7); a body without them still creates a v1 room. */
+    protocol: z.union([z.literal(1), z.literal(2)]).optional(),
+    teams: z.enum(['none', 'alternate']).optional(),
+    spectators: z.enum(['off', 'on']).optional(),
+    pauseOnDisconnect: z.boolean().optional(),
+    rulesetHash: z.string().max(64).optional(),
+    mode: z.string().min(1).max(32).optional(),
   })
   .strict();
 const revokeBody = z
@@ -48,7 +54,7 @@ const revokeBody = z
   .refine((body) => body.jti !== undefined || body.userId !== undefined);
 const endedBody = z
   .object({
-    reason: z.enum(['host-left', 'owner-closed', 'idle', 'revoked']),
+    reason: z.enum(['host-left', 'owner-closed', 'idle', 'revoked', 'abandoned']),
     endedAt: z.iso.datetime(),
   })
   .strict();
@@ -76,7 +82,6 @@ const routes = new Hono<ApiBindings>()
   })
   .get('/api/v1/join/:inviteToken', async (c) => {
     const principal = requirePrincipal(c, ['user']);
-    if (!hasAdultAgeAttestation(c)) throw new HttpError(403, 'age_required');
     if (!joinLimiter(c)(clientIp(c.req.raw.headers))) throw new HttpError(429, 'rate_limited');
     c.header('cache-control', 'no-store');
     return c.json(await joinRoom(c.get('deps'), principal, c.req.param('inviteToken')));

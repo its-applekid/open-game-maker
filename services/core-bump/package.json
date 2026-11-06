@@ -1,0 +1,19 @@
+{
+  "name": "@ogm/core-bump",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node dist/main.js",
+    "pretypecheck": "pnpm --filter @ogm/config build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "pretest": "pnpm --filter @ogm/config build",
+    "test": "vitest run",
+    "lint": "eslint src"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "8.3.1",
+    "@ogm/config": "workspace:*"
+  }
+}

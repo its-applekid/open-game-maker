@@ -30,6 +30,11 @@ export interface PlayerState {
   p: [number, number];
   v: [number, number];
   onGround: boolean;
+  /**
+   * How many jumps this seat decided to take. Nobody may receive it (netcode §5.1): `view` withholds it from every
+   * recipient but its owner, and `digest` leaves it out so a hidden value can never move a shared checksum.
+   */
+  secret: number;
 }
 
 interface PlayerInput {
@@ -77,6 +82,7 @@ export function addPlayer(state: SimulationState, playerIndex: number, id: strin
     p: [spawn.x, spawn.y],
     v: [0, 0],
     onGround: spawn.y + PLAYER_HEIGHT === GROUND_Y,
+    secret: 0,
   });
   state.inputs.set(playerIndex, { move: 0, jumpQueued: false });
 }
@@ -140,6 +146,7 @@ export function stepSimulation(state: SimulationState, design: PlatformDesign, d
     if (input.jumpQueued && player.onGround) {
       player.v[1] = -JUMP_SPEED;
       player.onGround = false;
+      player.secret += 1;
     }
     input.jumpQueued = false;
     player.v[1] += GRAVITY * dt;
@@ -173,7 +180,7 @@ export function restoreSimulation(design: PlatformDesign, saved: SerializedSimul
     inputs: new Map(),
   };
   for (const player of Object.values(saved.entities)) {
-    state.players.set(player.playerIndex, structuredClone(player));
+    state.players.set(player.playerIndex, { ...structuredClone(player), secret: player.secret ?? 0 });
     state.inputs.set(player.playerIndex, { move: 0, jumpQueued: false });
   }
   return state;
@@ -191,4 +198,79 @@ export function applySnapshotState(state: SimulationState, saved: SerializedSimu
   for (const playerIndex of [...state.players.keys()]) {
     if (!seen.has(playerIndex)) state.players.delete(playerIndex);
   }
+}
+
+/* ----------------------------------------------------------------------------------------------------------------
+ * Per-seat authority (netcode v2).
+ *
+ * `capture({ seat })` returns that seat's owned slice, `capture({})` the shared slice, and `restore` applies exactly
+ * the slice it is handed — one seat's avatar, or the platform list — so the SDK can reconcile three remote seats
+ * without overwriting the local one. `digest` folds the whole visible state in canonical order: entities sorted by
+ * id, positions and velocities in 1/256 units, `onGround` as 0/1.
+ * -------------------------------------------------------------------------------------------------------------- */
+
+export interface OwnedSlice {
+  seat: number;
+  player: PlayerState;
+}
+
+export interface SharedSlice {
+  platforms: Platform[];
+}
+
+export function captureOwned(state: SimulationState, seat: number): OwnedSlice | undefined {
+  const player = state.players.get(seat);
+  return player ? { seat, player: structuredClone(player) } : undefined;
+}
+
+export function captureShared(state: SimulationState): SharedSlice {
+  return { platforms: structuredClone(state.platforms) };
+}
+
+/**
+ * Merge the keys the slice carries and leave every absent key at this client's own value (§3.7, D-N5-9).
+ *
+ * `view` withholds the private counter, so the slice a peer restores for another seat has no `secret`; rebuilding the
+ * avatar from the payload would zero a field the recipient may not see and, worse, delete it from its own copy.
+ */
+export function restoreOwned(state: SimulationState, slice: OwnedSlice): void {
+  const existing = state.players.get(slice.seat);
+  const wire = slice.player as Partial<PlayerState> & Pick<PlayerState, 'p'>;
+  const merged: PlayerState = {
+    id: wire.id ?? existing?.id ?? playerId(slice.seat),
+    playerIndex: wire.playerIndex ?? existing?.playerIndex ?? slice.seat,
+    p: wire.p,
+    v: wire.v ?? existing?.v ?? [0, 0],
+    onGround: wire.onGround ?? existing?.onGround ?? false,
+    secret: wire.secret ?? existing?.secret ?? 0,
+  };
+  state.players.set(slice.seat, merged);
+  if (!state.inputs.has(slice.seat)) state.inputs.set(slice.seat, { move: 0, jumpQueued: false });
+}
+
+export function restoreShared(state: SimulationState, slice: SharedSlice): void {
+  state.platforms = structuredClone(slice.platforms);
+}
+
+/** Seat words first (sorted by id), then the shared platform words, so two clients fold the same order. */
+export function digestSimulation(state: SimulationState, toUnits: (value: number) => number): number[] {
+  const words = [toUnits(state.tick)];
+  const players = [...state.players.values()].sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
+  for (const player of players) {
+    words.push(
+      toUnits(player.p[0]),
+      toUnits(player.p[1]),
+      toUnits(player.v[0]),
+      toUnits(player.v[1]),
+      player.onGround ? 1 : 0,
+    );
+  }
+  for (const platform of [...state.platforms].sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  )) {
+    words.push(toUnits(platform.x), toUnits(platform.y), toUnits(platform.width), toUnits(platform.height));
+  }
+  return words;
 }

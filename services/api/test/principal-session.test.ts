@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { verifyWsToken } from '../src/app/app.js';
+import type { Auth } from '../src/auth/auth.js';
+import { sessionResolver } from '../src/auth/principal.js';
 import { signIn, WS_SECRET } from './auth-helpers.js';
 import { makeApp } from './helpers.js';
 
@@ -22,16 +24,17 @@ const whoami = async (app: Awaited<ReturnType<typeof setup>>['app'], headers: Re
   (await app.request('/api/v1/zz-test/whoami', { headers })).json();
 
 describe('session principal resolver', () => {
-  it('resolves the session cookie and the bearer session token to the same familyless player', async () => {
+  it('resolves the session cookie and the bearer session token to the same familyless maker', async () => {
     const { app, outbox, userId } = await setup();
     const { session, token } = await signIn(app, outbox, 'kim@example.com');
+    // Seeded from `OGM_ALLOWED_EMAILS`, so this address is a maker with no family yet.
     const expected = {
       kind: 'user',
       userId: userId('kim@example.com'),
       displayName: 'Player',
       familyId: '',
       platformRole: 'none',
-      capability: 'player',
+      capability: 'creator',
     };
     expect(expected.userId).toMatch(/^u_[0-9a-f-]{36}$/);
     expect(await whoami(app, { cookie: session })).toEqual(expected);
@@ -41,6 +44,22 @@ describe('session principal resolver', () => {
   it('stays anonymous for a forged session token', async () => {
     const { app } = await setup();
     expect(await whoami(app, { authorization: 'Bearer not-a-session-token' })).toEqual({ kind: 'anonymous' });
+  });
+
+  it('treats an existing session as anonymous after its email is removed from the allow-list', async () => {
+    const { app, deps } = await setup();
+    const auth: Auth = {
+      handler: async () => new Response(null, { status: 404 }),
+      api: {
+        getSession: async () => ({
+          user: { id: 'u_removed', name: 'Removed', email: 'removed@example.com' },
+          session: { id: 's_removed' },
+        }),
+      },
+    };
+    deps.registry.principalResolvers.push(sessionResolver(auth, deps.sqlite, () => null));
+
+    expect(await whoami(app, { 'x-removed-session': '1' })).toEqual({ kind: 'anonymous' });
   });
 
   it('names maintainers from OGM_MAINTAINER_EMAILS, case-insensitively', async () => {
@@ -62,7 +81,7 @@ describe('session principal resolver', () => {
     expect(await whoami(app, { cookie: session })).toMatchObject({ displayName: 'Player' });
   });
 
-  it("reads the family, role and capability from OGM-012's family_members when that table exists", async () => {
+  it("reads the family from OGM-012's family_members and the role from the allow list", async () => {
     const { app, deps, outbox, userId } = await setup();
     const { session } = await signIn(app, outbox, 'sam@example.com');
     deps.sqlite
@@ -75,9 +94,10 @@ describe('session principal resolver', () => {
         "INSERT INTO family_members (family_id, user_id, role, capability, joined_at) VALUES ('f_1', ?, 'admin', 'creator', '2026-11-01')",
       )
       .run(userId('sam@example.com'));
+    // The family row supplies the games this session can see; the allow-list role decides what it may do.
     expect(await whoami(app, { cookie: session })).toMatchObject({
       familyId: 'f_1',
-      platformRole: 'admin',
+      platformRole: 'none',
       capability: 'creator',
     });
   });

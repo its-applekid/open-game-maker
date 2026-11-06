@@ -5,6 +5,7 @@ import type { BuildTimeline, Rollup } from '@ogm/contracts';
 import { queryClient } from '../../app/query';
 import { api, ApiError } from '../../lib/api/client';
 import type {
+  AdminAllowedUser,
   AdminBudget,
   AdminBuild,
   AdminBuildData,
@@ -21,6 +22,7 @@ export const adminKeys = {
   me: () => ['admin', 'me'] as const,
   members: () => ['admin', 'members'] as const,
   invites: () => ['admin', 'invites'] as const,
+  users: () => ['admin', 'users'] as const,
   settings: () => ['admin', 'settings'] as const,
   budget: () => ['admin', 'budget'] as const,
   games: () => ['admin', 'games'] as const,
@@ -45,14 +47,22 @@ export async function invalidateAdmin(...keys: readonly (readonly unknown[])[]):
   await Promise.all(keys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
 }
 
-export function useAdminMe() {
-  return useQuery({ queryKey: adminKeys.me(), queryFn: () => adminRequest<AdminMe>('/me'), retry: false });
+export function useAdminMe(enabled = true) {
+  return useQuery({ queryKey: adminKeys.me(), queryFn: () => adminRequest<AdminMe>('/me'), retry: false, enabled });
 }
 
 export function useMembers() {
   return useQuery({
     queryKey: adminKeys.members(),
     queryFn: () => adminRequest<{ members: AdminMember[] }>('/admin/members'),
+    retry: false,
+  });
+}
+
+export function useAllowedUsers() {
+  return useQuery({
+    queryKey: adminKeys.users(),
+    queryFn: () => adminRequest<{ users: AdminAllowedUser[] }>('/admin/users'),
     retry: false,
   });
 }

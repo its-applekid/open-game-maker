@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { ColyseusTestServer } from '@colyseus/testing';
 import type { DesignDoc, Patch } from '@ogm/design-log';
 import { apply } from '@ogm/design-log';
-import type { DesignTx, RoomPin } from '@ogm/contracts';
+import { PROTOCOL_VERSION, type DesignTx, type RoomPin } from '@ogm/contracts';
 import { signGrant } from '@ogm/room-protocol';
 import { createRoomsServer } from '@ogm/rooms';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -37,6 +37,7 @@ describe('RoomClient with GameRoom', () => {
       timings: {
         ownerReconnectSec: 0.2,
         playerReconnectSec: 0.2,
+        seatReconnectSec: 0.2,
         idleDisposeSec: 1,
         callbackTimeoutMs: 50,
         callbackRetryMs: [1, 2, 3],
@@ -49,6 +50,8 @@ describe('RoomClient with GameRoom', () => {
       ...pin,
       ownerId: 'owner-1',
       maxPlayers: 4,
+      /* The web client joins with the newest protocol, so the room it edits must speak it too. */
+      protocol: PROTOCOL_VERSION,
     });
     const ownerGrant = await grant(room.roomId, 'owner-1', 'owner');
     const watcherGrant = await grant(room.roomId, 'watcher-1', 'player');
@@ -80,8 +83,13 @@ describe('RoomClient with GameRoom', () => {
       owner.join({ roomId: room.roomId, grant: ownerGrant, pin, expiresAt: Date.now() + 600_000 }),
       watcher.join({ roomId: room.roomId, grant: watcherGrant, pin, expiresAt: Date.now() + 600_000 }),
     ]);
-    await waitFor(() => ownerStore.getState().status === 'connected' && watcherStore.getState().status === 'connected');
-    await waitFor(() => sync.appliedRev === 0);
+    /* A protocol-2 join sends the seat table beside the welcome, and this file boots a real room beside
+     * eighteen jsdom files; the default 8 s wait is too tight for both under load. */
+    await waitFor(
+      () => ownerStore.getState().status === 'connected' && watcherStore.getState().status === 'connected',
+      15_000,
+    );
+    await waitFor(() => sync.appliedRev === 0, 15_000);
 
     let hostDoc = initialDoc;
     for (let rev = 1; rev <= 3; rev += 1) {

@@ -161,6 +161,10 @@
       "environment": {
         "enum": ["dungeon", "crypt", "cave", "mine", "sewer", "castle", "temple", "ruins", "graveyard", "camp", "town", "village", "city", "interior", "tavern", "shop", "house", "farm", "forest", "jungle", "grassland", "mountain", "snow", "desert", "swamp", "beach", "ocean", "underwater", "sky", "space", "space-station", "industrial", "road", "arena", "neutral"]
       },
+      "mapFeature": {
+        "enum": ["pillar", "water", "pit", "chasm", "lava", "altar", "statue", "throne", "tomb", "sarcophagus", "trap", "treasure", "chest", "fireplace", "well", "fountain", "bed", "table", "bookshelf", "barrel", "crate", "rubble", "stalagmite", "cage", "portal", "lever", "light-source", "road", "bridge", "stairs", "door", "spawn-hint", "exit-hint"],
+        "description": "The map-layout-spec feature types plus the drawn structures a builder asks for by name (road, bridge, stairs, door)."
+      },
       "setting": {
         "enum": ["fantasy", "medieval", "sci-fi", "modern", "post-apocalyptic", "prehistoric", "western", "pirate", "horror", "steampunk", "toy", "holiday", "sports", "abstract", "none"]
       },
@@ -386,6 +390,21 @@
         "vertices": { "type": "integer", "minimum": 0 },
         "materials": { "type": "array", "items": { "type": "string" } },
         "texture_keys": { "type": "array", "items": { "type": "string" }, "description": "Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards." },
+        "texture_sizes": {
+          "type": "array",
+          "description": "Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB.",
+          "items": {
+            "type": "object",
+            "required": ["key", "width_px", "height_px"],
+            "properties": {
+              "key": { "type": "string" },
+              "width_px": { "type": "integer", "minimum": 1 },
+              "height_px": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "max_texture_px": { "type": "integer", "minimum": 1, "description": "Largest texture dimension on this model: the number a device-tier texture cap is compared against." },
         "has_collision_mesh": { "type": "boolean" },
         "lod_count": { "type": "integer", "minimum": 0 },
         "normalized": { "type": "boolean", "description": "False until B11 normalization ran; bounds are then in source units." }
@@ -469,6 +488,11 @@
       "properties": {
         "drawn_view": { "$ref": "#/$defs/vocab/drawnView" },
         "tile_px": { "type": "integer", "minimum": 1 },
+        "directions": {
+          "type": "array", "minItems": 1, "uniqueItems": true,
+          "description": "Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.",
+          "items": { "$ref": "#/$defs/vocab/direction" }
+        },
         "sheet": {
           "type": "object",
           "required": ["frame_w", "frame_h", "cols", "rows"],
@@ -574,6 +598,7 @@
             "additionalProperties": false
           }
         },
+        "search_notes": { "type": "string", "minLength": 3, "maxLength": 120, "description": "One line of what an agent would search for: the track or sound in words, its kind, and the facts that narrow it (mood, genre, duration, material). Written by code from the same fields the card validates, so the search result row can be judged without opening the file." },
         "analysis": { "type": "string", "description": "Path of the analysis sidecar (beats, downbeats, loudness and energy curves, sections, raw model output), relative to the collection folder." },
         "vendor": {
           "type": "object",
@@ -588,7 +613,8 @@
           },
           "additionalProperties": false
         },
-        "ucs_cat_id": { "type": "string", "pattern": "^[A-Z]{3,5}[A-Z][a-z]+$", "description": "Optional Universal Category System CatID (e.g. DOORWood), model-proposed, for SFX." }
+        "ucs_cat_id": { "type": "string", "pattern": "^[A-Z]{3,5}[A-Z][a-z]+$", "description": "Optional Universal Category System CatID (e.g. DOORWood), read from a UCS filename and otherwise model-proposed, for SFX." },
+        "variation_group": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/-]*$", "maxLength": 120, "description": "The set a sound effect belongs to: its folder and name with the trailing variation number removed (weapons/sword-slice for Sword_Slice_01 and _02). Shared by every file of the set, so 'give me four sword impacts' is one group query. A file with no sibling carries no group." }
       },
       "additionalProperties": false
     },
@@ -653,6 +679,33 @@
             "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
           },
           "additionalProperties": false
+        },
+        "layout": {
+          "type": "object",
+          "description": "C3 §12 layout facts, so a map is chosen by structure and not by text: the graph counts come from a validated layout spec (code recomputes them) and grid, biome, features and levels from code measurements on the export. An absent field is unknown, never zero.",
+          "properties": {
+            "rooms": { "type": "integer", "minimum": 0, "description": "Rooms in the layout spec; code counts them from the graph." },
+            "connections": { "type": "integer", "minimum": 0 },
+            "entrances": { "type": "integer", "minimum": 0 },
+            "dead_ends": { "type": "integer", "minimum": 0 },
+            "loops": { "type": "integer", "minimum": 0, "description": "Independent cycles: connections - rooms + components, with outside counted as a node." },
+            "secrets": { "type": "integer", "minimum": 0 },
+            "levels": { "type": "integer", "minimum": 1, "description": "Floors of this place the image shows, from the export title and its level links." },
+            "longest_path_rooms": { "type": "integer", "minimum": 0 },
+            "size_class": { "enum": ["tiny", "small", "medium", "large", "huge"], "description": "Specs by room count: small <= 5, medium 6-15, large 16-40, huge > 40." },
+            "flow": { "enum": ["linear", "branching", "hub-and-spoke", "loop", "maze", "open"] },
+            "biome": { "$ref": "#/$defs/vocab/environment", "description": "The one place the map shows, from the map type and the judged environments." },
+            "features": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/vocab/mapFeature" }, "description": "What is drawn that a builder asks for by name: water, roads, stairs, blocking props." },
+            "grid": {
+              "type": "object",
+              "properties": {
+                "type": { "enum": ["square", "hex", "none"] }, "cols": { "type": "integer", "minimum": 1 },
+                "rows": { "type": "integer", "minimum": 1 }, "cell_px": { "type": "number", "exclusiveMinimum": 0 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         }
       },
       "additionalProperties": false
@@ -679,6 +732,7 @@
         "creation_choice": { "type": "boolean", "description": "True only when curation approved it as part of a style family offered at creation." },
         "pack_manifest": { "type": "string", "description": "Path to the existing pack.json this card was built from." },
         "hash_manifest": { "$ref": "#/$defs/bucketKey", "description": "Bucket key of a list of sha256 hashes for every file in the collection, carded or not (e.g. symbol bitmaps that are never tagged). The repo commit check blocks all of them when the collection's redistribution is none." },
+        "search_summary": { "type": "string", "minLength": 3, "maxLength": 200, "description": "One line describing what this library is good for, built by code from its cards (what it holds, and the moods and genres it covers most). The answer to 'which pack has feet on gravel' before any file is opened." },
         "files_total": { "type": "integer", "minimum": 0, "description": "All files in the collection, including those without cards." }
       },
       "additionalProperties": false

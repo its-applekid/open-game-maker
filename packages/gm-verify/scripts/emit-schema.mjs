@@ -10,6 +10,8 @@ for (const [stem, schema] of Object.entries(schemas)) {
   const jsonSchema = toJSONSchema(schema, { target: 'draft-2020-12' });
   if (stem === 'verify-report.v1') {
     jsonSchema.properties.unchecked.allOf = ALWAYS_UNCHECKED.map((item) => ({ contains: { const: item } }));
+    /* `seats` defaults to an empty list in the schema itself, so a report written before N6 must stay valid here too. */
+    jsonSchema.required = jsonSchema.required.filter((key) => key !== 'seats');
   }
   const output = `${JSON.stringify(
     { ...jsonSchema, $id: `https://open-game-maker-2000.local/schemas/${stem}.json` },

@@ -3,8 +3,8 @@
   "short_name": "Game Maker",
   "start_url": "./",
   "display": "standalone",
-  "background_color": "#a69b8d",
-  "theme_color": "#a69b8d",
+  "background_color": "#282828",
+  "theme_color": "#282828",
   "icons": [
     {
       "src": "icons/icon-192.png",
