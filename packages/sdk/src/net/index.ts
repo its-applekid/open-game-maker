@@ -37,8 +37,10 @@ export interface GmNet {
   readonly interpolationDelayMs: 100;
   /** The authority mode this instance runs (`'host'` when the manifest declares none). */
   readonly mode: AuthorityMode;
-  /** This client's seat; equal to `localPlayerIndex` in v1. */
-  readonly localSeat: number;
+  /** This client's seat, or `null` for a spectator — the one honest value that cannot be confused with seat 0. */
+  readonly localSeat: number | null;
+  /** The seat table: who is seated, on which team, connected, ready, forfeited or spectating. */
+  readonly seats: readonly NetSeat[];
   /** `''` outside a per-seat match. */
   readonly epoch: string;
   readonly tick: number;
@@ -48,8 +50,12 @@ export interface GmNet {
   now(): NetTime;
   /** The tick-stamped frame this client holds for `seat`, if any. */
   frameFor(seat: number, tick: number): ActionFrame | undefined;
-  /** Per-seat authority only: a seeded stream, `'shared'` or a seat index. */
-  rng(stream: 'shared' | number): Rng;
+  /**
+   * Per-seat authority only: a seeded stream. `'shared'` is the sequence every seat draws, a seat index is that
+   * seat's public stream, and `'private'` is this seat's own — seeded from the room's per-seat `privateSeed`, never
+   * derivable from the shared seed, and a `RangeError` when the room sent none.
+   */
+  rng(stream: 'shared' | 'private' | number): Rng;
   digest(): readonly number[];
 }
 
@@ -88,7 +94,8 @@ export interface NetController {
   /** `false` only for a host-mode peer: the one boolean that separates "renders" from "also simulates". */
   readonly stepLocally: boolean;
   readonly diagnostics: Readonly<NetDiagnostics>;
-  handleMessage(type: string, payload: unknown): void;
+  /** `from` is the sending seat when the transport knows it; a `seat`-scope recovery answer is filtered for it. */
+  handleMessage(type: string, payload: unknown, from?: number): void;
   handleLocalFrames(frames: ActionFrame[]): void;
   /** Per-seat authority: the local seat's sampled input, sent as it is sampled. */
   sampleLocal(frame: ActionFrame): void;
@@ -117,6 +124,14 @@ export function createNetController(options: NetControllerOptions): NetControlle
   const mode = resolveAuthorityMode(options.manifest);
   if (mode === 'rollback') {
     throw new ModeMismatchError("authority mode 'rollback' is not implemented yet");
+  }
+  // A game that declares `view` is promised per-recipient payloads, and host authority packs one snapshot for every
+  // peer (D-N5-3). Refusing here is the only honest answer: a silent downgrade would ship a game that believes it has
+  // privacy it does not have.
+  if (mode !== 'per-seat' && typeof (options.hooks as MultiplayerHooksV2).view === 'function') {
+    throw new ModeMismatchError(
+      `VISIBILITY_REQUIRES_PER_SEAT: net.view needs per-seat authority, this manifest declares '${mode}'`,
+    );
   }
 
   const roles = new RoleStore(options.localPlayerIndex, options.hooks);
@@ -211,7 +226,11 @@ export function createNetController(options: NetControllerOptions): NetControlle
       return mode;
     },
     get localSeat() {
-      return perSeat?.localSeat ?? roles.localPlayerIndex;
+      if (!perSeat) return roles.localPlayerIndex;
+      return perSeat.spectator ? null : perSeat.localSeat;
+    },
+    get seats() {
+      return perSeat?.seatList ?? [];
     },
     get epoch() {
       return perSeat?.currentEpoch ?? '';
@@ -246,7 +265,10 @@ export function createNetController(options: NetControllerOptions): NetControlle
       try {
         const bytes = packJson(event, NET_LIMITS.eventBytes, 'event');
         const data = encodeBase64(bytes);
-        if (roles.players.length === 1) {
+        // Alone in the match there is nobody to send to; in per-seat authority the seat table, not the v1 roster,
+        // says who is here.
+        const playerCount = perSeat ? perSeat.seatList.filter((seat) => !seat.spectator).length : roles.players.length;
+        if (playerCount === 1) {
           const decoded = unpackJson(bytes);
           emitEvent(decoded);
           options.recordEvent('net.event', decoded);
@@ -271,10 +293,10 @@ export function createNetController(options: NetControllerOptions): NetControlle
       return perSeat !== undefined || roles.role !== 'peer';
     },
     diagnostics,
-    handleMessage(type, payload) {
+    handleMessage(type, payload, from) {
       if (disposed) return;
       if (perSeat && V2_INBOUND.has(type)) {
-        perSeat.handleMessage(type, payload);
+        perSeat.handleMessage(type, payload, from);
         return;
       }
       if (type === 'net.players') {

@@ -16,6 +16,7 @@ import { ClockSync, StartGate, type ClockSample } from '../foundations/clock-syn
 import { fold } from '../foundations/checksum.js';
 import { RecoveryBook, type RecoveryScope } from '../foundations/recovery.js';
 import { createStreams, type Streams } from '../foundations/streams.js';
+import { encodeSeatState, payloadFor, SEAT_STATE_BUDGET, type VisibilityOptions } from '../visibility.js';
 import {
   DEFAULT_INPUT_DELAY_TICKS,
   InputRings,
@@ -35,14 +36,12 @@ import {
 /* Literals rather than a value import from `@ogm/contracts`: the package root re-exports every contract family, so
  * importing one number from it pulls the whole index — including modules that read `node:fs` — into a template's
  * browser bundle and breaks its production build. `codec.test.ts` asserts these stay equal to the contract's. */
-export const SEAT_STATE_BUDGET = 8_192;
+export { SEAT_STATE_BUDGET };
 export const RECOVERY_BUDGET = 65_536;
 export const DEFAULT_SEAT_STATE_HZ = 10;
 export const CHECKSUM_EVERY_TICKS = 30;
 export const CORRECTION_MS = 120;
 export const RESYNC_AFTER_GAP_TICKS = 30;
-
-const dataChars = (bytes: number) => Math.ceil(bytes / 3) * 4;
 
 export interface PerSeatDiagnostics {
   epoch: string;
@@ -61,6 +60,7 @@ export interface PerSeatDiagnostics {
   desynced: boolean;
   outOfOrderSnapshots: number;
   dropped: number;
+  oversized: number;
 }
 
 export interface PerSeatModeOptions {
@@ -109,6 +109,7 @@ export class PerSeatMode {
   private inputDelayTicks: number;
   private started = false;
   private warnings = 0;
+  private readonly warned = new Set<string>();
   private disposed = false;
 
   constructor(private readonly options: PerSeatModeOptions) {
@@ -142,13 +143,20 @@ export class PerSeatMode {
     return this.started;
   }
 
-  get seatList(): readonly NetSeat[] {
-    return this.seats;
+  rng(stream: 'shared' | 'private' | number): Rng {
+    if (!this.streams) throw new Error('gm.net streams are unavailable before net.start');
+    if (stream === 'shared') return this.streams.shared();
+    if (stream === 'private') return this.streams.private();
+    return this.streams.seat(stream);
   }
 
-  rng(stream: 'shared' | number): Rng {
-    if (!this.streams) throw new Error('gm.net streams are unavailable before net.start');
-    return stream === 'shared' ? this.streams.shared() : this.streams.seat(stream);
+  /** True when this client holds no seat: it receives state but never publishes or answers a recovery. */
+  get spectator(): boolean {
+    return this.seats.find((seat) => seat.seat === this.localSeat)?.spectator === true;
+  }
+
+  get seatList(): readonly NetSeat[] {
+    return this.seats;
   }
 
   digest(): readonly number[] {
@@ -251,7 +259,7 @@ export class PerSeatMode {
     return { previous, next, startedAtMs: this.options.now() };
   }
 
-  handleMessage(type: string, payload: unknown): void {
+  handleMessage(type: string, payload: unknown, from?: number): void {
     if (this.disposed) return;
     if (type === 'net.start') {
       this.start(payload as NetStart);
@@ -282,11 +290,11 @@ export class PerSeatMode {
       return;
     }
     if (type === 'net.recovery.request') {
-      this.answerRecovery(payload as { scope: RecoveryScope; tick: number; seat?: number });
+      this.answerRecovery(payload as { scope: RecoveryScope; tick: number; seat?: number }, from);
       return;
     }
     if (type === 'net.recovery') {
-      this.applyRecovery(payload as { scope: RecoveryScope; tick: number; snapshot?: string });
+      this.applyRecovery(payload as { scope: RecoveryScope; tick: number; to?: number; snapshot?: string });
       return;
     }
     if (type === 'net.tick') {
@@ -303,6 +311,7 @@ export class PerSeatMode {
     this.corrections.clear();
     this.sums.clear();
     this.remoteSums.clear();
+    this.warned.clear();
   }
 
   private start(start: NetStart): void {
@@ -356,22 +365,46 @@ export class PerSeatMode {
     }
   }
 
+  /**
+   * Publish this seat's owned state. With `view` implemented this is one encode per recipient, each addressed with
+   * `to` so the room unicasts it; without `view` it stays the single broadcast N2 shipped.
+   */
   private publishState(tick: number): void {
-    const snapshot = this.options.hooks.capture?.({ seat: this.localSeat });
-    if (!snapshot) return;
+    if (this.spectator) return;
+    let batch;
     try {
-      const data = encodeBase64(packJson(snapshot, SEAT_STATE_BUDGET, 'seat state'));
-      if (data.length > dataChars(SEAT_STATE_BUDGET)) throw new RangeError('seat state exceeds its wire budget');
-      this.options.send('net.state', {
-        epoch: this.epoch,
-        seat: this.localSeat,
-        seq: ++this.stateSequence,
-        tick,
-        data,
-      });
+      batch = encodeSeatState(this.visibility(), { epoch: this.epoch, tick, seq: ++this.stateSequence });
     } catch (error) {
       this.drop('state', error);
+      return;
     }
+    this.options.diagnostics.dropped += batch.failures;
+    this.options.diagnostics.oversized += batch.oversized;
+    for (const message of batch.messages) {
+      try {
+        this.options.send('net.state', message);
+      } catch (error) {
+        this.drop('state', error);
+        return;
+      }
+    }
+  }
+
+  /** The visibility contract, with warn-once per kind for the whole match (a per-frame warning is a log flood). */
+  private visibility(): VisibilityOptions {
+    return {
+      hooks: this.options.hooks,
+      localSeat: this.localSeat,
+      recipients: () =>
+        this.seats.filter((seat) => seat.seat !== this.localSeat && !seat.spectator).map((seat) => seat.seat),
+      warn: (kind, message) => this.warnOnce(kind, message),
+    };
+  }
+
+  private warnOnce(kind: string, message: string): void {
+    if (this.warned.has(kind)) return;
+    this.warned.add(kind);
+    (this.options.warn ?? console.warn)(message);
   }
 
   private publishChecksum(tick: number): void {
@@ -391,8 +424,18 @@ export class PerSeatMode {
     for (const frame of message.frames) this.rings.record({ ...frame, seat: message.seat });
   }
 
-  private receiveState(message: { epoch: string; seat: number; seq: number; tick: number; data: string }): void {
+  private receiveState(message: {
+    epoch: string;
+    seat: number;
+    seq: number;
+    tick: number;
+    to?: number;
+    data: string;
+  }): void {
     if (message.epoch !== this.epoch || message.seat === this.localSeat) return;
+    // An addressed publish is one recipient's filtered copy. A room that broadcast it anyway must not hand seat A
+    // the slice that was narrowed for seat B — that is the exact data `view` removed.
+    if (message.to !== undefined && message.to !== this.localSeat) return;
     const last = this.lastAccepted.get(message.seat);
     if (last !== undefined && message.tick < last) {
       this.options.diagnostics.outOfOrderSnapshots += 1;
@@ -465,21 +508,28 @@ export class PerSeatMode {
    * shared sum folds every seat's words — so a shared answer is one slice per scope: the shared state and each seat's
    * owned state, each applied by `restore` exactly as given (D-N2-6).
    */
-  private answerRecovery(message: { scope: RecoveryScope; tick: number; seat?: number }): void {
+  private answerRecovery(message: { scope: RecoveryScope; tick: number; seat?: number }, from?: number): void {
+    if (this.spectator) return;
     if (message.scope !== 'shared' && this.primarySeat() !== this.localSeat && message.seat !== this.localSeat) return;
     if (message.scope === 'shared' && this.primarySeat() !== this.localSeat) return;
 
-    const slices: { scope: RecoveryScope; seat?: number; snapshot: Snapshot }[] = [];
+    const slices: { scope: RecoveryScope; seat?: number; snapshot: Snapshot; to?: number }[] = [];
     if (message.scope === 'seat') {
       const seat = message.seat ?? this.localSeat;
-      const snapshot = this.options.hooks.capture?.({ seat });
-      if (snapshot) slices.push({ scope: 'seat', seat, snapshot });
+      const snapshot = this.recoverySlice(seat, from);
+      if (snapshot) slices.push({ scope: 'seat', seat, snapshot, ...(from === undefined ? {} : { to: from }) });
     } else if (message.scope === 'shared') {
       const shared = this.options.hooks.capture?.({});
       if (shared) slices.push({ scope: 'shared', snapshot: shared });
-      for (const seat of this.seats) {
-        const snapshot = this.options.hooks.capture?.({ seat: seat.seat });
-        if (snapshot) slices.push({ scope: 'seat', seat: seat.seat, snapshot });
+      // A shared answer is the one state payload that is deliberately not filtered (D-N5-4): a filtered shared truth
+      // would give two recipients two different worlds while the checksum still compared them. The per-seat slices it
+      // bundles are another matter — they are other seats' owned state, so a game with `view` does not ship them and
+      // the requester keeps its own reconstruction instead (§3.9 limit 5).
+      if (typeof this.options.hooks.view !== 'function') {
+        for (const seat of this.seats) {
+          const snapshot = this.options.hooks.capture?.({ seat: seat.seat });
+          if (snapshot) slices.push({ scope: 'seat', seat: seat.seat, snapshot });
+        }
       }
     }
     if (slices.length === 0) return;
@@ -491,6 +541,7 @@ export class PerSeatMode {
           scope: slice.scope,
           tick: message.tick,
           ...(slice.seat === undefined ? {} : { seat: slice.seat }),
+          ...(slice.to === undefined ? {} : { to: slice.to }),
           snapshot: encodeBase64(packJson(slice.snapshot, RECOVERY_BUDGET, 'recovery')),
         });
       }
@@ -499,7 +550,31 @@ export class PerSeatMode {
     }
   }
 
-  private applyRecovery(message: { scope: RecoveryScope; tick: number; snapshot?: string }): void {
+  /**
+   * A `seat`-scope snapshot as the requester may receive it (D-N5-4). A game without `view` gets the raw slice it
+   * always got; with `view`, only the slice's owner can say what a recipient may have, and it says it through
+   * `view(requester)` — an answer computed any other way would be exactly the copy `view` removed.
+   */
+  private recoverySlice(subject: number, requester: number | undefined): Snapshot | undefined {
+    if (typeof this.options.hooks.view !== 'function') return this.options.hooks.capture?.({ seat: subject });
+    if (subject !== this.localSeat) {
+      this.options.diagnostics.dropped += 1;
+      this.warnOnce('view', `gm.net refused a seat ${subject} recovery answer: only its owner can filter it`);
+      return undefined;
+    }
+    if (requester === undefined) {
+      this.options.diagnostics.dropped += 1;
+      this.warnOnce(
+        'view',
+        'gm.net refused a seat recovery answer: the requesting seat is unknown, so it cannot be filtered',
+      );
+      return undefined;
+    }
+    return payloadFor(this.visibility(), requester);
+  }
+
+  private applyRecovery(message: { scope: RecoveryScope; tick: number; to?: number; snapshot?: string }): void {
+    if (message.to !== undefined && message.to !== this.localSeat) return;
     if (message.scope === 'shared' && this.primarySeat() === this.localSeat) return;
     this.recovery.settle(message.scope);
     const plan = this.recovery.plan(message.tick, this.currentTick);

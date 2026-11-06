@@ -34,11 +34,13 @@ const RULES = [
 ];
 
 describe('gm-multiplayer-ready skill', () => {
-  it('stays within 120 lines and carries the eight rules verbatim', () => {
+  it('stays within 150 lines and carries the eight rules verbatim', () => {
     const text = readFileSync(SKILL, 'utf8');
     const flat = text.replace(/\n {3}/g, ' ');
 
-    expect(text.trimEnd().split('\n').length).toBeLessThanOrEqual(120);
+    // 120 → 150 with netcode N5: "What a seat may receive" has to name the seven limits a game design must respect,
+    // and a pointer to another file is not where an agent building a hidden draw will read them.
+    expect(text.trimEnd().split('\n').length).toBeLessThanOrEqual(150);
     RULES.forEach((rule, index) => expect(flat).toContain(`${index + 1}. ${rule}`));
     expect(text).not.toMatch(/server is authoritative/i);
   });

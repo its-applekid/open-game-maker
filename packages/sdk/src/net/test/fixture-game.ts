@@ -12,6 +12,20 @@ import { toUnits } from '../foundations/checksum.js';
 export interface FixtureSeatState {
   p: number;
   score: number;
+  /** Present only on a fixture built with a `secret`: the private field `view` is expected to withhold. */
+  secret?: string;
+}
+
+export interface FixtureOptions {
+  /** This instance's own seat, so `view(recipient)` can tell its own slice from everyone else's. */
+  localSeat?: number;
+  /** A private owned field, redacted from every recipient but its owner. Supplying it is what declares `view`. */
+  secret?: string;
+  /**
+   * Set `false` to hold the private field *without* declaring `view` — the canary's negative control (T1b): the same
+   * fixture, the same secret, and the leak a game gets by forgetting the hook.
+   */
+  redact?: boolean;
 }
 
 export interface FixtureSnapshot {
@@ -19,6 +33,7 @@ export interface FixtureSnapshot {
   seat?: number;
   p?: number;
   score?: number;
+  secret?: string;
   round?: number;
   boardSum?: number;
 }
@@ -38,7 +53,7 @@ export interface FixtureGame extends MultiplayerHooks, MultiplayerHooksV2 {
   restores(): number;
 }
 
-export function createFixtureGame(seats: readonly number[]): FixtureGame {
+export function createFixtureGame(seats: readonly number[], options: FixtureOptions = {}): FixtureGame {
   const owned = new Map<number, FixtureSeatState>();
   const spawned = new Set<number>();
   let round = 0;
@@ -48,7 +63,7 @@ export function createFixtureGame(seats: readonly number[]): FixtureGame {
   const steps: { tick: number; frames: ActionFrame[] }[] = [];
 
   for (const seat of seats) {
-    owned.set(seat, { p: 0, score: 0 });
+    owned.set(seat, options.secret === undefined ? { p: 0, score: 0 } : { p: 0, score: 0, secret: options.secret });
     spawned.add(seat);
   }
 
@@ -90,13 +105,22 @@ export function createFixtureGame(seats: readonly number[]): FixtureGame {
     capture(scope): Snapshot {
       if (scope.seat === undefined) return { tick, state: { round, boardSum } };
       const state = owned.get(scope.seat) ?? { p: 0, score: 0 };
-      return { tick, state: { seat: scope.seat, p: state.p, score: state.score } };
+      return { tick, state: { seat: scope.seat, p: state.p, score: state.score, ...carry(state) } };
     },
     restore(snapshot: Snapshot): void {
       restoreCount += 1;
       const state = snapshot.state as FixtureSnapshot;
       if (state.seat !== undefined) {
-        owned.set(state.seat, { p: state.p ?? 0, score: state.score ?? 0 });
+        // Merge the keys the slice carries; a redacted field is *absent*, and a rebuild would zero it on the
+        // recipient that may not see it (§3.7, T6).
+        const existing = owned.get(state.seat);
+        const merged: FixtureSeatState = {
+          p: state.p === undefined ? (existing?.p ?? 0) : state.p,
+          score: state.score === undefined ? (existing?.score ?? 0) : state.score,
+        };
+        const secret = state.secret === undefined ? existing?.secret : state.secret;
+        if (secret !== undefined) merged.secret = secret;
+        owned.set(state.seat, merged);
         return;
       }
       round = state.round ?? round;
@@ -127,6 +151,22 @@ export function createFixtureGame(seats: readonly number[]): FixtureGame {
       return restoreCount;
     },
   };
+
+  if (options.secret !== undefined && options.redact !== false) {
+    // The canary contract (§3.1): what `recipient` may receive from this client. The owner keeps its own secret —
+    // privacy costs the seat that holds the value nothing — and every other recipient gets a slice without the key.
+    game.view = (recipient: number): Snapshot => {
+      const snapshot = game.capture?.({ seat: options.localSeat }) ?? { tick, state: {} };
+      if (recipient === options.localSeat) return snapshot;
+      const visible: FixtureSnapshot = { ...(snapshot.state as FixtureSnapshot) };
+      delete visible.secret;
+      return { tick: snapshot.tick, state: visible };
+    };
+  }
+
+  function carry(state: FixtureSeatState): { secret?: string } {
+    return state.secret === undefined ? {} : { secret: state.secret };
+  }
 
   return game;
 }

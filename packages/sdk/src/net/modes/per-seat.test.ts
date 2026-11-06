@@ -1,5 +1,5 @@
 import type { ActionFrame, GameManifest, MultiplayerHooksV2 } from '@ogm/contracts';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { createNetController } from '../index.js';
 import { ModeMismatchError, resolveAuthorityMode } from '../mode.js';
@@ -176,6 +176,115 @@ describe('authority mode selection', () => {
     expect(host.net.started).toBe(false);
     expect(host.net.digest()).toEqual([]);
     expect(() => host.net.rng('shared')).toThrow('per-seat');
+  });
+});
+
+describe('per-seat visibility', () => {
+  function started(hooks: MultiplayerHooksV2, localPlayerIndex: number, send = vi.fn()) {
+    // The room mints one private seed per seat; two seats never share one.
+    const sent: { type: string; payload: unknown }[] = [];
+    const controller = createNetController({
+      manifest: perSeatManifest,
+      hooks,
+      localPlayerIndex,
+      send: (type, payload) => {
+        sent.push({ type, payload });
+        send(type, payload);
+      },
+      acceptInput: () => undefined,
+      syncPlayers: () => undefined,
+      setLocalPlayerIndex: () => undefined,
+      recordEvent: () => undefined,
+      now: () => 1_000,
+    });
+    const seats = [
+      { seat: 0, userId: 'a', name: 'A', team: 0, connected: true, ready: true, forfeited: false, spectator: false },
+      { seat: 1, userId: 'b', name: 'B', team: 0, connected: true, ready: true, forfeited: false, spectator: false },
+    ];
+    controller.handleMessage('net.start', {
+      epoch: 'epoch-1',
+      seed: 12_345,
+      startAt: 0,
+      tick: 0,
+      primary: 0,
+      seats,
+      privateSeed: 0x0f0f_0f0f + localPlayerIndex * 7_919,
+    });
+    return { controller, sent };
+  }
+
+  it('refuses a host-authoritative manifest that declares view', () => {
+    const game = createFixtureGame([0, 1]);
+    expect(() =>
+      createNetController({
+        manifest: hostManifest,
+        hooks: { ...game, view: () => ({ tick: 0, state: {} }) } as MultiplayerHooksV2,
+        localPlayerIndex: 0,
+        send: () => undefined,
+        acceptInput: () => undefined,
+        syncPlayers: () => undefined,
+        setLocalPlayerIndex: () => undefined,
+        recordEvent: () => undefined,
+        now: () => 0,
+      }),
+    ).toThrow(/VISIBILITY_REQUIRES_PER_SEAT/u);
+  });
+
+  it('ignores an addressed publish that was narrowed for another seat', () => {
+    const game = createFixtureGame([0, 1], { localSeat: 0, secret: 'canary-7f3a' });
+    const { controller } = started(game, 0);
+    const state = btoa(JSON.stringify({ tick: 1, state: { seat: 1, p: 9 } }));
+
+    // Addressed to seat 1: seat 0 must not apply a copy that was narrowed for someone else.
+    controller.handleMessage('net.state', { epoch: 'epoch-1', seat: 1, seq: 1, tick: 1, to: 1, data: state }, 1);
+    controller.beforeStep(1, []);
+    controller.afterStep(1);
+    controller.render();
+    expect(game.owned(1).p).toBe(0);
+
+    // Addressed to seat 0: this one is ours.
+    controller.handleMessage('net.state', { epoch: 'epoch-1', seat: 1, seq: 2, tick: 1, to: 0, data: state }, 1);
+    controller.beforeStep(1, []);
+    controller.afterStep(1);
+    controller.render();
+    expect(game.owned(1).p).toBe(9);
+  });
+
+  it('answers a seat-scope recovery with what the requester may receive, addressed to it', () => {
+    const game = createFixtureGame([0, 1], { localSeat: 1, secret: 'canary-7f3a' });
+    const { controller, sent } = started(game, 1);
+
+    controller.handleMessage('net.recovery.request', { epoch: 'epoch-1', scope: 'seat', tick: 10, seat: 1 }, 0);
+
+    const answer = sent.find((message) => message.type === 'net.recovery');
+    expect(answer).toBeDefined();
+    const payload = answer!.payload as { to?: number; seat?: number; snapshot: string };
+    expect(payload.to).toBe(0);
+    expect(payload.seat).toBe(1);
+    expect(atob(payload.snapshot)).not.toContain('canary-7f3a');
+  });
+
+  it('sends the shared slice alone, unfiltered, when view is in play', () => {
+    const game = createFixtureGame([0, 1], { localSeat: 0, secret: 'canary-7f3a' });
+    const { controller, sent } = started(game, 0);
+
+    controller.handleMessage('net.recovery.request', { epoch: 'epoch-1', scope: 'shared', tick: 10 }, 1);
+
+    const answers = sent.filter((message) => message.type === 'net.recovery');
+    expect(answers.map((message) => (message.payload as { scope: string }).scope)).toEqual(['shared']);
+  });
+
+  it('seeds the private stream from this seat’s own private seed, not the shared one', () => {
+    const left = createFixtureGame([0, 1]);
+    const right = createFixtureGame([0, 1]);
+    const seat0 = started(left, 0).controller;
+    const seat1 = started(right, 1).controller;
+
+    expect(seat0.net.rng('shared').next()).toBe(seat1.net.rng('shared').next());
+    const seat0Private = [seat0.net.rng('private').next(), seat0.net.rng('private').next()];
+    const seat1Private = [seat1.net.rng('private').next(), seat1.net.rng('private').next()];
+    expect(seat0Private).not.toEqual(seat1Private);
+    expect(() => seat0.net.rng('private')).not.toThrow();
   });
 });
 

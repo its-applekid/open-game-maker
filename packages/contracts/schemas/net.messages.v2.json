@@ -226,6 +226,11 @@
             "minimum": 0,
             "maximum": 7
           },
+          "to": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 7
+          },
           "snapshot": {
             "type": "string",
             "maxLength": 87384

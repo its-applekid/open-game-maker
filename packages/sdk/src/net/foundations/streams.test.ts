@@ -23,10 +23,31 @@ describe('seeded streams', () => {
     expect(createStreams(7).shared().next()).toBe(first);
   });
 
-  it('stores a private per-seat seed without wiring it', () => {
+  it('seeds the private stream from the seat’s own private seed and never derives it', () => {
+    // Two seats in one match: same shared seed, different private seeds. A derived private seed would make these
+    // equal, which is the leak D-N5-6 exists to prevent.
+    const seat0 = createStreams(12_345, 0x1234_abcd);
+    const seat1 = createStreams(12_345, 0x0f0f_0f0f);
+
+    const own = [seat0.private().next(), seat0.private().next(), seat0.private().next()];
+    expect(own).not.toEqual([seat1.private().next(), seat1.private().next(), seat1.private().next()]);
+    expect(own).not.toEqual([createStreams(12_345, 0x1234_abcd).shared().next()]);
+
+    // Idempotent per epoch: asking twice without drawing is the same stream, and the same seed replays the same run.
+    const again = createStreams(12_345, 0x1234_abcd);
+    expect(again.private()).toBe(again.private());
+    expect([again.private().next(), again.private().next(), again.private().next()]).toEqual(own);
+  });
+
+  it('refuses a private stream when the epoch carries no private seed', () => {
+    const streams = createStreams(1);
+    expect(streams.hasPrivate()).toBe(false);
+    expect(() => streams.private()).toThrow('no private seed for this epoch');
+    expect(createStreams(1, 99).hasPrivate()).toBe(true);
+  });
+
+  it('rejects a seat that is not a non-negative integer', () => {
     const streams = createStreams(1, 99);
-    expect(streams.privateSeed(0)).toBe(hash32(99, 0));
-    expect(streams.privateSeed(1)).not.toBe(streams.privateSeed(0));
     expect(() => streams.seat(-1)).toThrow(RangeError);
     expect(() => streams.seat(1.5)).toThrow(RangeError);
     expect(hash32(3, 0)).toBeGreaterThan(0);

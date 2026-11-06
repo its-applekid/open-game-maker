@@ -39,6 +39,36 @@ refuses to boot with a mode-mismatch error rather than silently dropping back to
 room or any service as the authority, and never put game rules in a service: if the primary seat leaves, the room
 pauses for it and then ends.
 
+## What a seat may receive
+
+Hidden data is never sent. A per-seat game implements `view(recipient)`: the SDK calls it once per recipient on the
+sending client and encodes exactly what it returns, addressed to that recipient — an omitted field is a field that seat
+never held. Without `view` the mode broadcasts `capture({ seat: localSeat })` exactly as before. `view` needs
+`authority: 'per-seat'`: host authority packs one snapshot for every peer and cannot filter it, so a host-mode game
+that declares `view` refuses to boot instead of promising privacy it cannot deliver. `net.event` is the only reveal
+and the SDK never redacts it. A redacted field is *absent*, never `null` or zeroed, and `restore` merges the keys it
+is given.
+
+```ts
+view(recipient: number): Snapshot {
+  const slice = captureOwned(state, localSeat);
+  if (recipient === localSeat) return { tick, state: slice };
+  const { secret, ...visible } = slice.player;       // every other recipient gets no `secret` key at all
+  return { tick, state: { seat: localSeat, player: visible } };
+}
+```
+
+The seven limits a design must respect:
+
+1. A shared seed reveals the future; a hidden draw uses `rng('private')`.
+2. `rng('private')` is one stream per seat, not a vault: reveal the value you drew, not a generator you keep drawing.
+3. Determinism leaks through timing; keep genuinely secret information out of the simulation.
+4. A private field that feeds a public value is public, and surfaces as a desync loop rather than a leak.
+5. Recovery cannot repair a redacted field; if the redacted part matters to the recipient, it was never private.
+6. Payload size is not a channel, but the number and timing of reveals still are.
+7. The room is not a trust boundary for content: hide what a seat may not have, do not police peers.
+`digest()` excludes every private field: such a word would be an oracle for it and can only surface as a desync.
+
 ## What the SDK gives you
 
 The runtime's `gm.net` (`runtime.net` after `boot`) is the whole network surface:
@@ -52,7 +82,9 @@ The runtime's `gm.net` (`runtime.net` after `boot`) is the whole network surface
 - Host mode sends a snapshot every third step (20 Hz) and peers draw 100 ms behind. Per-seat mode publishes
   `capture({ seat })` at `net.seatStateHz` (10 Hz by default) and checksums the whole state twice a second.
 - `now()` gives the server-time mapping; `epoch`/`tick`/`started` describe the match; `frameFor(seat, tick)` returns
-  the frame this client holds; `rng('shared')`/`rng(seat)` return seeded streams so two seats draw the same numbers.
+  the frame this client holds; `rng('shared')`/`rng(seat)`/`rng('private')` return seeded streams so two seats draw
+  the same shared numbers and never each other's private ones. `localSeat` is `null` for a spectator, which attaches
+  no camera and asks for no HUD.
 - Per-seat diagnostics ride in `renderInfo().net`: `inputGaps`, `lateInputs`, `clockResyncs`, `recoveries`, `desynced`.
 
 The game supplies `MultiplayerHooks` on its instance as `net`:

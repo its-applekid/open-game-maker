@@ -30,6 +30,11 @@ export interface PlayerState {
   p: [number, number];
   v: [number, number];
   onGround: boolean;
+  /**
+   * How many jumps this seat decided to take. Nobody may receive it (netcode §5.1): `view` withholds it from every
+   * recipient but its owner, and `digest` leaves it out so a hidden value can never move a shared checksum.
+   */
+  secret: number;
 }
 
 interface PlayerInput {
@@ -77,6 +82,7 @@ export function addPlayer(state: SimulationState, playerIndex: number, id: strin
     p: [spawn.x, spawn.y],
     v: [0, 0],
     onGround: spawn.y + PLAYER_HEIGHT === GROUND_Y,
+    secret: 0,
   });
   state.inputs.set(playerIndex, { move: 0, jumpQueued: false });
 }
@@ -140,6 +146,7 @@ export function stepSimulation(state: SimulationState, design: PlatformDesign, d
     if (input.jumpQueued && player.onGround) {
       player.v[1] = -JUMP_SPEED;
       player.onGround = false;
+      player.secret += 1;
     }
     input.jumpQueued = false;
     player.v[1] += GRAVITY * dt;
@@ -173,7 +180,7 @@ export function restoreSimulation(design: PlatformDesign, saved: SerializedSimul
     inputs: new Map(),
   };
   for (const player of Object.values(saved.entities)) {
-    state.players.set(player.playerIndex, structuredClone(player));
+    state.players.set(player.playerIndex, { ...structuredClone(player), secret: player.secret ?? 0 });
     state.inputs.set(player.playerIndex, { move: 0, jumpQueued: false });
   }
   return state;
@@ -220,8 +227,24 @@ export function captureShared(state: SimulationState): SharedSlice {
   return { platforms: structuredClone(state.platforms) };
 }
 
+/**
+ * Merge the keys the slice carries and leave every absent key at this client's own value (§3.7, D-N5-9).
+ *
+ * `view` withholds the private counter, so the slice a peer restores for another seat has no `secret`; rebuilding the
+ * avatar from the payload would zero a field the recipient may not see and, worse, delete it from its own copy.
+ */
 export function restoreOwned(state: SimulationState, slice: OwnedSlice): void {
-  state.players.set(slice.seat, structuredClone(slice.player));
+  const existing = state.players.get(slice.seat);
+  const wire = slice.player as Partial<PlayerState> & Pick<PlayerState, 'p'>;
+  const merged: PlayerState = {
+    id: wire.id ?? existing?.id ?? playerId(slice.seat),
+    playerIndex: wire.playerIndex ?? existing?.playerIndex ?? slice.seat,
+    p: wire.p,
+    v: wire.v ?? existing?.v ?? [0, 0],
+    onGround: wire.onGround ?? existing?.onGround ?? false,
+    secret: wire.secret ?? existing?.secret ?? 0,
+  };
+  state.players.set(slice.seat, merged);
   if (!state.inputs.has(slice.seat)) state.inputs.set(slice.seat, { move: 0, jumpQueued: false });
 }
 

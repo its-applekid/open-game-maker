@@ -110,11 +110,13 @@ export const netRecoveryRequestPayloadSchema = z.strictObject({
 });
 export type NetRecoveryRequestPayload = z.infer<typeof netRecoveryRequestPayloadSchema>;
 
+/** An answer from the arbiter. `to` addresses a filtered `seat`-scope answer to the seat that asked. */
 export const netRecoveryPayloadSchema = z.strictObject({
   epoch,
   scope: z.enum(['shared', 'seat', 'events']),
   tick,
   seat: seatIndex.optional(),
+  to: seatIndex.optional(),
   snapshot: netData(NET_LIMITS.recoveryBytes).optional(),
   events: z.array(z.string()).max(NET_LIMITS.maxBatchMessages).optional(),
 });
