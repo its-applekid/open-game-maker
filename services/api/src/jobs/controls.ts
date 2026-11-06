@@ -13,6 +13,7 @@ import { requirePrincipal } from '../app/principal.js';
 import type { ApiBindings, AppDeps } from '../app/types.js';
 import type { IssueStateWriter } from '../app/registry.js';
 import { parseBody } from '../app/validate.js';
+import { daemonRowForGame } from './daemons.js';
 import { findJob, findJobRow, type JobRow } from './repo.js';
 import { markTerminal } from './spend-cap.js';
 
@@ -34,19 +35,16 @@ const decideBody = z
   });
 
 export type ControlsServices = {
-  daemonFor: (deps: AppDeps, repo: string) => Promise<AiurClient | null>;
+  daemonFor: (deps: AppDeps, gameId: string) => Promise<AiurClient | null>;
   issues: (deps: AppDeps) => IssueStateWriter | null;
   sleep?: (ms: number) => Promise<void>;
   now?: () => Date;
 };
 
-export async function storedDaemonFor(deps: AppDeps, repo: string): Promise<AiurClient | null> {
-  const daemon = deps.db
-    .select({ repo: schema.gameDaemons.repo })
-    .from(schema.gameDaemons)
-    .where(eq(schema.gameDaemons.repo, repo))
-    .get();
-  return daemon ? deps.aiurClientForRepo(repo) : null;
+// A job's daemon is its game's daemon, so the game id on the job row is the lookup key.
+export async function storedDaemonFor(deps: AppDeps, gameId: string): Promise<AiurClient | null> {
+  const daemon = daemonRowForGame(deps.db, gameId);
+  return daemon ? deps.aiurClientForGame(gameId) : null;
 }
 
 function defaults(deps: AppDeps) {
@@ -56,7 +54,8 @@ function defaults(deps: AppDeps) {
   };
 }
 
-function loadAuthorized(c: Context<ApiBindings>, action: Action): JobRow {
+// The job's row and its game's row: the game carries the daemon's key (its slug) and the label prefix controls use.
+function loadAuthorized(c: Context<ApiBindings>, action: Action): { row: JobRow; game: typeof schema.games.$inferSelect } {
   const principal = requirePrincipal(c, ['user']);
   const deps = c.get('deps');
   const id = c.req.param('id');
@@ -71,7 +70,7 @@ function loadAuthorized(c: Context<ApiBindings>, action: Action): JobRow {
       ownerId: game.ownerId,
     }),
   );
-  return row;
+  return { row, game };
 }
 
 function ticket(row: JobRow): { repo: string; issue: number } {
@@ -106,8 +105,8 @@ function controlError(error: unknown): never {
   throw error;
 }
 
-async function requireDaemon(services: ControlsServices, deps: AppDeps, repo: string): Promise<AiurClient> {
-  const client = await services.daemonFor(deps, repo);
+async function requireDaemon(services: ControlsServices, deps: AppDeps, gameId: string): Promise<AiurClient> {
+  const client = await services.daemonFor(deps, gameId);
   if (client === null) throw new HttpError(503, 'daemon_unavailable');
   return client;
 }
@@ -118,7 +117,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
 
   return new Hono<ApiBindings>()
     .post('/:id/cancel', async (c) => {
-      const row = loadAuthorized(c, 'job.cancel');
+      const { row, game } = loadAuthorized(c, 'job.cancel');
       const deps = c.get('deps');
       if (row.state === 'cancelled') return c.json(cancelled(deps, row, now));
       if (row.state === 'done' || row.state === 'failed') throw new HttpError(409, 'job_not_active');
@@ -128,12 +127,12 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       }
 
       const filed = ticket(row);
-      const client = await services.daemonFor(deps, filed.repo);
+      const client = await services.daemonFor(deps, row.gameId);
       const labelFallback = async () => {
         try {
           const issues = services.issues(deps);
           if (issues === null) throw new Error('issue state writer unavailable');
-          await issues.setStateLabel(filed.repo, filed.issue, 'cancelled');
+          await issues.setStateLabel(filed.repo, filed.issue, 'cancelled', game.slug ?? 'agent');
         } catch (error) {
           deps.log({
             event: 'admin-alert',
@@ -172,12 +171,12 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       throw new HttpError(503, 'cancel_unconfirmed', undefined, { status });
     })
     .post('/:id/pause', async (c) => {
-      const row = loadAuthorized(c, 'job.edit');
+      const { row } = loadAuthorized(c, 'job.edit');
       active(row);
       if (row.state === 'paused_budget') throw new HttpError(409, 'job_budget_paused');
       const deps = c.get('deps');
       const filed = ticket(row);
-      const client = await requireDaemon(services, deps, filed.repo);
+      const client = await requireDaemon(services, deps, row.gameId);
       try {
         await client.pause(String(filed.issue));
       } catch (error) {
@@ -191,12 +190,12 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       return c.json({ ...findJob(deps.db, row.id), stage: 'paused' as const, stageText: JOB_STAGE_WORDS.paused });
     })
     .post('/:id/resume', async (c) => {
-      const row = loadAuthorized(c, 'job.edit');
+      const { row } = loadAuthorized(c, 'job.edit');
       active(row);
       if (row.state === 'paused_budget') throw new HttpError(409, 'job_budget_paused');
       const deps = c.get('deps');
       const filed = ticket(row);
-      const client = await requireDaemon(services, deps, filed.repo);
+      const client = await requireDaemon(services, deps, row.gameId);
       try {
         await client.resume(String(filed.issue));
       } catch (error) {
@@ -210,12 +209,12 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       return c.json(findJob(deps.db, row.id));
     })
     .post('/:id/message', async (c) => {
-      const row = loadAuthorized(c, 'job.edit');
+      const { row } = loadAuthorized(c, 'job.edit');
       active(row);
       const body = await parseBody(c, messageBody);
       const deps = c.get('deps');
       const filed = ticket(row);
-      const client = await requireDaemon(services, deps, filed.repo);
+      const client = await requireDaemon(services, deps, row.gameId);
       try {
         return c.json(await client.message(String(filed.issue), body.text, body.messageId), 202);
       } catch (error) {
@@ -223,7 +222,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       }
     })
     .post('/:id/decide', async (c) => {
-      const row = loadAuthorized(c, 'job.edit');
+      const { row } = loadAuthorized(c, 'job.edit');
       active(row);
       const body = await parseBody(c, decideBody);
       const deps = c.get('deps');
@@ -235,7 +234,7 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
       if (!checkpoint) throw new HttpError(404, 'checkpoint_not_found');
       if (checkpoint.status !== 'open') throw new HttpError(409, 'checkpoint_not_open');
       const filed = ticket(row);
-      const client = await requireDaemon(services, deps, filed.repo);
+      const client = await requireDaemon(services, deps, row.gameId);
 
       try {
         await client.decide(checkpoint.decisionId, {

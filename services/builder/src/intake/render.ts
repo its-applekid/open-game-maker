@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { JobPlan, RepairTicket } from '@ogm/contracts';
+import { isStateLabel } from '@ogm/game-repo-template';
 
 type PlanTicket = JobPlan['tickets'][number];
 
@@ -42,7 +43,8 @@ export function renderRepairIssue(input: { jobId: string; complexity: number; ti
   const unsigned = input.ticket.body.replace(/\n?<!-- gm-job:[^\n]* -->/g, '').trim();
   const sig = createHash('sha256').update(unsigned).digest('hex');
   const extra = input.ticket.labels.filter(
-    (label) => !label.startsWith('agent:') && !label.startsWith('complexity:') && !label.startsWith('feature:gm-'),
+    (label) =>
+      !isStateLabel(label) && !label.startsWith('complexity:') && !label.startsWith('feature:gm-'),
   );
   return {
     title: input.ticket.title.trim().slice(0, 120),

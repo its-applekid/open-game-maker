@@ -11,8 +11,9 @@ function toRow(record: typeof gameDaemons.$inferSelect): DaemonRow {
 
 export function createDbDaemonStore(db: Db): DaemonStore {
   return {
-    async byRepo(repo) {
-      const record = db.select().from(gameDaemons).where(eq(gameDaemons.repo, repo)).get();
+    // The key is the game slug, so several daemons may share one instance repository.
+    async bySlug(slug) {
+      const record = db.select().from(gameDaemons).where(eq(gameDaemons.slug, slug)).get();
       return record ? toRow(record) : undefined;
     },
     async list() {

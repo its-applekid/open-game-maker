@@ -3,6 +3,7 @@ import type { Db } from '@ogm/db';
 
 import type { IssuesClient } from '../github/issues.js';
 import type { EnsureResult, Fleet } from '../fleet/fleet.js';
+import type { DaemonKey } from '../fleet/types.js';
 
 export type FileResult =
   | { filed: true; issues: number[] }
@@ -18,11 +19,17 @@ export type IntakeAlert = {
 
 export type IntakeDeps = {
   db: Db;
+  // A daemon is keyed by the game it builds: the key carries the game's slug and the instance repo it lives in.
   fleet:
     | Pick<Fleet, 'ensureDaemon'>
-    | { ensureDaemon(repo: string, kind: 'new_game' | 'feature' | 'repair'): Promise<EnsureResult> };
+    | {
+        ensureDaemon(
+          key: DaemonKey,
+          kind: 'new_game' | 'feature' | 'repair',
+        ): Promise<EnsureResult>;
+      };
   issues: IssuesClient;
-  aiurForRepo: (repo: string) => Promise<Pick<AiurClient, 'setSpendCap' | 'nudgeTodo'>>;
+  aiurForGame: (gameSlug: string) => Promise<Pick<AiurClient, 'setSpendCap' | 'nudgeTodo'>>;
   shippedSkills: readonly string[];
   failJob: (jobId: string) => void;
   subscribeAdmitted?: (listener: (jobId: string) => void) => () => void;

@@ -57,7 +57,7 @@ async function deliverBuild(deps: AppDeps, request: InstructRequest): Promise<'d
   const chatId = `m_${stableUuid(`${targetKey(target)}:${request.idempotency_key}`)}`;
   if (getChatRow(deps.sqlite, chatId)) return 'delivered';
 
-  const aiur = await deps.aiurClientForRepo(row.aiurRepo);
+  const aiur = await deps.aiurClientForGame(row.gameId);
   await aiur.message(target.ticket, request.text, request.idempotency_key);
   const { inserted } = insertChatRow(deps.sqlite, {
     id: chatId,

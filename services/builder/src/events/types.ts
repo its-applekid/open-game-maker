@@ -27,7 +27,7 @@ export const INTERVALS = {
 // The slice of OGM-034's fleet the feed needs.
 export type FeedFleet = {
   listDaemons(status?: DaemonStatus): Promise<GameDaemon[]>;
-  daemonFor(repo: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null>;
+  daemonFor(gameSlug: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null>;
 };
 
 // A job filed on a daemon and not yet terminal. OGM-013 owns the jobs table and implements this.

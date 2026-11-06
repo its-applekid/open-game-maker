@@ -58,7 +58,7 @@ export async function answerVoiceCommand(
   if (available.length > 0 && option === null) return { status: 'failed' };
 
   try {
-    const client = await deps.aiurClientForRepo(job.aiurRepo);
+    const client = await deps.aiurClientForGame(job.gameId);
     await client.decide(command.decisionId, {
       ...(option === null ? { response: request.choice } : { option: option.id }),
       expected_version: command.version,

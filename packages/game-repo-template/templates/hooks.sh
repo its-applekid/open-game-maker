@@ -1,6 +1,6 @@
 after_create: |
   set -eu
-  git clone "$THIS_REPOSITORY_URL" .
+  %%CLONE%%
   ticket="${AIUR_HOOK_TICKET_IDENTIFIER:?}"
   git checkout -b "${AIUR_TICKET_BRANCH:-aiur/${ticket}}" "origin/$THIS_BASE_BRANCH"
   mkdir -p .gm/context
