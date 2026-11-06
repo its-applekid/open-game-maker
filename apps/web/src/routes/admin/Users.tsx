@@ -94,6 +94,7 @@ export function Users() {
         busy={changeRole.isPending || remove.isPending || invite.isPending}
         currentEmail={me.data.user.email.toLowerCase()}
         inviteFailed={invite.isError}
+        roleFailed={changeRole.isError}
         users={users.data.users}
         onChangeRole={(user, nextRole) => changeRole.mutate({ user, nextRole })}
         onInvite={(user) => invite.mutate(user)}
@@ -121,6 +122,7 @@ export function UsersTable({
   busy = false,
   currentEmail,
   inviteFailed = false,
+  roleFailed = false,
   users,
   onChangeRole,
   onInvite,
@@ -129,6 +131,7 @@ export function UsersTable({
   busy?: boolean;
   currentEmail: string;
   inviteFailed?: boolean;
+  roleFailed?: boolean;
   users: AdminAllowedUser[];
   onChangeRole(user: AdminAllowedUser, role: AllowListRole): void;
   onInvite(user: AdminAllowedUser): void;
@@ -196,6 +199,11 @@ export function UsersTable({
           </tbody>
         </table>
       </div>
+      {roleFailed ? (
+        <p className="admin-dialog-error" role="alert">
+          Role could not be changed. Try again.
+        </p>
+      ) : null}
       {inviteFailed ? (
         <p className="admin-dialog-error" role="alert">
           Invite could not be sent. Try again.

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { UsersTable } from './Users';
 
@@ -22,6 +22,10 @@ const users = [
 
 // The first render in a jsdom file carries the environment's cold-start cost (about 6 s on a slow host).
 const FIRST_RENDER_MS = 20_000;
+
+afterEach(() => {
+  cleanup();
+});
 
 describe('allow-list user management', () => {
   it(
@@ -67,5 +71,20 @@ describe('allow-list user management', () => {
     );
 
     expect(screen.getByRole('alert')).toHaveTextContent('Invite could not be sent.');
+  });
+
+  it('reports a failed role change', () => {
+    render(
+      <UsersTable
+        currentEmail="kevin@example.com"
+        roleFailed
+        users={users}
+        onChangeRole={vi.fn()}
+        onInvite={vi.fn()}
+        onRemove={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Role could not be changed.');
   });
 });
