@@ -136,6 +136,22 @@ describe('2D game module', () => {
     expect(hud(state.players, 3)).toEqual({ player: 4, onGround: false });
   });
 
+  it('ignores a seat slice whose avatar is gone instead of rebuilding a ghost', async () => {
+    const instance = await game.mount(host, defaultDesign);
+    instance.net.spawn(1, playerId(1));
+    const state = getGameContext().state;
+    const before = state.players.get(1)!.p;
+
+    /* A seat that forfeited still publishes its own seat word, with no avatar in it. */
+    expect(() => instance.net.restore({ tick: 1, state: { seat: 1 } })).not.toThrow();
+    expect(state.players.get(1)!.p).toEqual(before);
+    expect([...state.players.keys()]).toEqual([0, 1]);
+
+    instance.net.despawn(playerId(1));
+    expect(() => instance.net.restore({ tick: 2, state: { seat: 1 } })).not.toThrow();
+    expect(state.players.has(1)).toBe(false);
+  });
+
   it('releases the mounted template context when disposed', async () => {
     const instance = await game.mount(host, defaultDesign);
 
