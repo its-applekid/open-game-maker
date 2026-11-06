@@ -91,6 +91,32 @@ assets-local/
 | Synty **Unreal** zip, Sidekick Character Tool (UE) | No. Only `.uasset` files, which need the Unreal Editor (B12). |
 | Kenney All-in-1 | Yes. CC0; each pack already ships GLB/OBJ/FBX/PNG/OGG. |
 
+## 3D packs
+
+A 3D pack is carded by `preprocess_3d.py`, which is vendor-agnostic: Kenney, KayKit, Quaternius and the
+Synty POLYGON packs all go through it. Synty (`synty-personal`) and any other paid pack stay private —
+the pipeline writes only to the local library, never to a published preview, and no file leaves the host.
+
+```
+assets-local/packs/<pack-id>/
+  <version>/extracted/            # vendor source tree; hashed, never edited in place
+  <version>/extracted/glb/<key>.glb   # written by the Blender conversion step
+  cards/<key>.card.json           # measured card, one per canonical model
+  thumbnails/<key>.png            # renderer output
+  lineup.png / lineup.html        # pack lineup
+```
+
+- The **canonical file** for a model is its glTF when the pack ships one, else its GLB, else the GLB the
+  conversion writes under `extracted/glb/`. Every other format stays attached to the card as a companion.
+- **Conversion** runs headless Blender per source and embeds materials, textures and animations in the
+  GLB. Source units vary by vendor, so `--scale` is explicit; the QA report flags a pack whose models
+  disagree with their neighbours so a wrong scale is visible rather than silent.
+- Cards carry numbers, not prose: triangles, bounds, footprint in cells, material slots, rig id and
+  clips. `oversized-for-mobile` marks a model over the mobile triangle budget. Device-tier *files* are
+  not made here — `gm build assets` (OGM-063) produces them from the polycount the card records.
+- Output is deterministic apart from `provenance.*.at`; re-running with unchanged sources rewrites no
+  card. Locked human fields (`provenance` entries with `"locked": true`) survive a re-run.
+
 ## Scripts (`scripts/assets/`)
 
 - `audit_license_metadata.py`: lists every installed pack whose `pack.json` lacks licence, licence source, explicit
@@ -99,13 +125,15 @@ assets-local/
 - `import_kenney_bundle.py`: splits the Kenney All-in-1 zip into one pack per folder, reads each `License.txt`, and installs the launcher under `tools/`. Some archive packs ship as a zip inside the bundle; those were unpacked afterwards, and `pack.json` records them in `inner_archives_unpacked`.
 - `build_catalog.py`: rebuilds `catalog.json`. Run it after any import.
 - `preprocess_kaykit.py`: validates every canonical KayKit glTF or GLB, prefers glTF when both formats exist, and emits model cards plus standalone animation cards with target rigs and searchable clip metadata. It attaches source variants and resources, renders thumbnails and pack lineups, writes a QA report, and rebuilds the catalog and card index. Pass `--root <asset-library>` when the library is not at `assets-local/`; the root must already contain `packs/`.
+- `preprocess_3d.py`: the vendor-agnostic 3D pipeline. It reads `packages/asset-cards/data/style-families.json` for each pack's `style_family`, `set` and creation-choice order, converts any model that ships only as FBX/OBJ/DAE/BLEND to a self-contained GLB with headless Blender, then cards every canonical glTF/GLB with the measured 3D facts (triangles, bounds, footprint in cells, materials, rig id and clips), its thumbnail and its pack lineup, and rebuilds the catalog and card index. Run it with `--dry-run` first to print the conversion plan, and pass `--only <pack-id-glob>` or `--pack <id>` to work one family at a time; `--skip-convert` cards the glTFs that already exist, `--scale` sets the source unit scale, and `--no-normalize` leaves a converted model where the vendor put it instead of standing it on Y = 0.
+- `blender_fbx_to_glb.py`: the Blender side of that conversion, run as `blender -b --factory-startup --python-exit-code 1 --python scripts/assets/blender_fbx_to_glb.py -- --input <file> --output <model.glb> [--scale 1.0] [--normalize] [--report <facts.json>]`. Blender runs on the operator's host: it is not a CI dependency, and nothing leaves the machine.
 - `apps/web/tools/thumbnail-scene.mjs`: fetches local vendor references, builds deterministic card-backed specimen sheets, and renders 2D still/living dioramas. See [Thumbnail scenes](thumbnail-scenes.md) for the private output layout and commands.
 
 ## Drive inbox (`scripts/drive-sync/`)
 
 `drive_sync.py` watches one shared Google Drive folder with a read-only service account. It waits until each drop (a top-level file or subfolder) has settled, downloads it into a fresh `inbox/quarantine/` folder, verifies MD5s, and tests archives for zip-slip, links, corruption and size limits without unpacking them. Then it writes `manifest.json` with strict default rights (`vision-input` only, private, no redistribution) and queues the drop. Setup and details are in `scripts/py/drive-sync/README.md`.
 
-Every archive is checked for absolute and `..` paths before it is extracted. KayKit glTF/GLB cards and previews can be generated with `preprocess_kaykit.py`; the general importer below handles other supported library formats.
+Every archive is checked for absolute and `..` paths before it is extracted. KayKit glTF/GLB cards and previews can be generated with `preprocess_kaykit.py`, and every 3D pack (including FBX-only Synty packs) is carded by `preprocess_3d.py`; the general importer below handles other supported library formats.
 
 `@ogm/intake` polls the queue every 30 seconds. It records failed integrity checks as `blocked`, skips duplicate drop-id/MD5 sets, and runs the safe importer for valid drops. A Kenney drop is auto-confirmed only when its normalized `License.txt` exactly matches the SHA-256 whitelist in the licence table; vendor or CC0 keywords do not grant rights. Unknown licences remain `awaiting-license` and invisible to game search until a named human confirms them. The service status is `~/.local/state/ogm/intake/status.json`; it never moves or deletes quarantine or Drive files.
 
