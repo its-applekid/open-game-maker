@@ -185,7 +185,7 @@ describe('GamesScreen', () => {
 
   it('keeps the grid dismissed after the closing navigation lands', async () => {
     renderGames('/games?test');
-    fireEvent.click(await screen.findByRole('button', { name: /Goblin Cellar/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Goblin Cellar' }));
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
 
     fireEvent.keyDown(await screen.findByRole('button', { name: 'Close game' }), { key: 'Escape' });
