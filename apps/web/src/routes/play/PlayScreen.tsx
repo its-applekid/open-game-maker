@@ -25,8 +25,7 @@ function PlayLinkMessage({ denial }: { denial: PlayLinkDenial }) {
   return (
     <div className="games-screen">
       <p className="games-status" role="status">
-        {COPY[denial]}{' '}
-        <Link to="/all">Your games</Link>
+        {COPY[denial]} <Link to="/all">Your games</Link>
       </p>
     </div>
   );

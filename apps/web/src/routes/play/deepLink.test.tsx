@@ -36,9 +36,7 @@ describe('signed-out deep link', () => {
 
     render(<RouterProvider router={router('/play/castle-game?chat=job-1')} />);
 
-    await waitFor(() =>
-      expect(screen.getByText('/signin?next=%2Fplay%2Fcastle-game%3Fchat%3Djob-1')).toBeVisible(),
-    );
+    await waitFor(() => expect(screen.getByText('/signin?next=%2Fplay%2Fcastle-game%3Fchat%3Djob-1')).toBeVisible());
   });
 
   it('opens the shared game for a signed-in visitor', async () => {

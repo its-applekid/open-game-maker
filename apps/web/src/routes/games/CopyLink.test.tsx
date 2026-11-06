@@ -34,6 +34,14 @@ describe('CopyLink', () => {
     expect(screen.getByRole('button', { name: 'Copy link to Castle Game' })).toHaveAttribute('data-copied', 'true');
   });
 
+  it('stays a harmless no-op where the clipboard API is unavailable', () => {
+    vi.stubGlobal('navigator', { ...navigator, clipboard: undefined });
+    render(<CopyLink id="g_1" slug="castle-game" title="Castle Game" />);
+
+    expect(() => fireEvent.click(screen.getByRole('button', { name: 'Copy link to Castle Game' }))).not.toThrow();
+    expect(screen.getByRole('button', { name: 'Copy link to Castle Game' })).not.toHaveAttribute('data-copied');
+  });
+
   it('falls back to the id form for a game without a slug', async () => {
     render(<CopyLink id="g_1" title="Castle Game" />);
 

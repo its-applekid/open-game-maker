@@ -30,6 +30,7 @@ export function CopyLink({ id, slug, title }: CopyLinkProps) {
       onClick={(event) => {
         event.stopPropagation();
         const url = `${window.location.origin}${playPath({ id, slug })}`;
+        // Browsers without the async clipboard API (an insecure context, an older webview) leave the control a no-op.
         void navigator.clipboard?.writeText(url).then(
           () => setCopied(true),
           () => setCopied(false),
