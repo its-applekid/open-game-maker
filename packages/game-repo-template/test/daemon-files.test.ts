@@ -28,6 +28,28 @@ describe('renderDaemonFiles', () => {
     expect(Object.keys(parse(hooks))).toEqual(['after_create', 'before_remove']);
   });
 
+  it('renders a game daemon’s sparse checkout and game-scope prompt', () => {
+    const { hooks, prompt } = renderDaemonFiles({ gameSlug: 'castle-run' });
+    const script = parse(hooks).after_create as string;
+
+    expect(script).toContain('git clone --sparse --filter=blob:none "$THIS_REPOSITORY_URL" .');
+    expect(script).toContain('git sparse-checkout set games/castle-run packages');
+    expect(script).toContain('git checkout -b "${AIUR_TICKET_BRANCH:-aiur/${ticket}}" "origin/$THIS_BASE_BRANCH"');
+    expect(prompt).toContain('Write only inside `games/castle-run/`');
+    expect(prompt).toContain('open a separate');
+    for (const text of [hooks, prompt]) expect(text).not.toContain('%%');
+  });
+
+  it('renders the whole-repo hook and prompt when the daemon has no game slug', () => {
+    const { hooks, prompt } = renderDaemonFiles();
+    const script = parse(hooks).after_create as string;
+
+    expect(script).toContain('git clone "$THIS_REPOSITORY_URL" .');
+    expect(script).not.toContain('sparse-checkout');
+    expect(prompt).not.toContain('## Game scope');
+    for (const text of [hooks, prompt]) expect(text).not.toContain('%%');
+  });
+
   it('renders the prompt through Liquid with a sample issue', async () => {
     const engine = new Liquid();
     const issue = {

@@ -89,7 +89,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
     }),
     events: createAppEvents(log),
     registry: createRegistry(),
-    aiurClientForRepo: async () => {
+    aiurClientForGame: async () => {
       throw new Error('test aiur client not configured');
     },
     version: 'test-version',

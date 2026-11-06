@@ -204,6 +204,13 @@
       "when": 1793927427094,
       "tag": "20261106011027_allow_list",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "6",
+      "when": 1793989018027,
+      "tag": "20261106181658_daemons_by_game_slug",
+      "breakpoints": true
     }
   ]
 }

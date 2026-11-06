@@ -36,6 +36,8 @@ function setup(state: 'queued' | 'filed' | 'running' | 'paused_budget' = 'runnin
       familyId: ids.family,
       ownerId: ids.owner,
       title: 'Game',
+      // The game's slug keys its daemon and prefixes its lifecycle labels.
+      slug: 'castle-run',
       visibility: 'private',
       repoVisibility: 'private',
       createdAt: NOW.toISOString(),
@@ -205,7 +207,7 @@ describe('job controls', () => {
     const response = await post(app, 'cancel');
 
     expect(response.status).toBe(200);
-    expect(setStateLabel).toHaveBeenCalledWith('owner/game', 142, 'cancelled');
+    expect(setStateLabel).toHaveBeenCalledWith('owner/game', 142, 'cancelled', 'castle-run');
     expect(deps.db.select().from(schema.jobs).get()?.state).toBe('cancelled');
   });
 
@@ -215,7 +217,17 @@ describe('job controls', () => {
     const { app } = appWith(deps, { client: null, issues: { setStateLabel } });
 
     expect((await post(app, 'cancel')).status).toBe(200);
-    expect(setStateLabel).toHaveBeenCalledWith('owner/game', 142, 'cancelled');
+    expect(setStateLabel).toHaveBeenCalledWith('owner/game', 142, 'cancelled', 'castle-run');
+  });
+
+  it('falls back to the agent prefix for a game saved before slugs existed', async () => {
+    const deps = setup('filed');
+    deps.db.update(schema.games).set({ slug: null }).where(eq(schema.games.id, ids.game)).run();
+    const setStateLabel = vi.fn().mockResolvedValue(undefined);
+    const { app } = appWith(deps, { client: null, issues: { setStateLabel } });
+
+    expect((await post(app, 'cancel')).status).toBe(200);
+    expect(setStateLabel).toHaveBeenCalledWith('owner/game', 142, 'cancelled', 'agent');
   });
 
   it('alerts and leaves the job active when the label fallback fails', async () => {

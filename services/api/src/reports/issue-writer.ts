@@ -2,14 +2,14 @@ import { randomUUID } from 'node:crypto';
 
 import type { IssueWriter } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
-import { isStateLabel } from '@ogm/game-repo-template';
+import { isDaemonLabel } from '@ogm/game-repo-template';
 
 type IssueInput = Parameters<IssueWriter['file']>[0];
 
-// Platform issues never carry a dispatch label: user text must not drive a daemon with platform write access. A game
-// daemon's states are prefixed with its game slug (`castle-run:todo`), so the check reads the state suffix, not `agent:`.
+// Platform issues never carry a label aiur acts on: user text must not drive a daemon with platform write access. A
+// game daemon's labels are prefixed with its game slug (`castle-run:todo`), so the check reads the suffix, not `agent:`.
 function assertNoDispatchLabel(input: IssueInput): void {
-  if (input.labels.some(isStateLabel)) throw new Error('platform issues never carry agent labels');
+  if (input.labels.some(isDaemonLabel)) throw new Error('platform issues never carry agent labels');
 }
 
 // V1 default: the operator reads the queue (GET /api/v1/reports/platform-queue).

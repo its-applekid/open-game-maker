@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { JobPlan, RepairTicket } from '@ogm/contracts';
-import { isStateLabel } from '@ogm/game-repo-template';
+import { isDaemonLabel } from '@ogm/game-repo-template';
 
 type PlanTicket = JobPlan['tickets'][number];
 
@@ -42,9 +42,9 @@ export function renderRepairIssue(input: { jobId: string; complexity: number; ti
 } {
   const unsigned = input.ticket.body.replace(/\n?<!-- gm-job:[^\n]* -->/g, '').trim();
   const sig = createHash('sha256').update(unsigned).digest('hex');
+  // A daemon's own labels never ride along to a repair ticket: they are the failing job's, not the new one's.
   const extra = input.ticket.labels.filter(
-    (label) =>
-      !isStateLabel(label) && !label.startsWith('complexity:') && !label.startsWith('feature:gm-'),
+    (label) => !isDaemonLabel(label) && !label.startsWith('complexity:') && !label.startsWith('feature:gm-'),
   );
   return {
     title: input.ticket.title.trim().slice(0, 120),

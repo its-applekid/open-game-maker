@@ -70,9 +70,5 @@ export function createDaemonDirectory(db: Db, home: string, fetchImpl: typeof fe
       if (!row) throw new HttpError(409, 'daemon_not_found');
       return clientFor(row);
     },
-    async daemonClientForGame(gameId: string): Promise<AiurClient | null> {
-      const row = daemonRowForGame(db, gameId);
-      return row ? clientFor(row) : null;
-    },
   };
 }

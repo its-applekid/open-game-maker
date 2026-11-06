@@ -257,7 +257,7 @@ describe('jobs routes', () => {
       .values({ familyId: ids.family, userId: ids.user, dailyMicroUsd: 20_000_000 })
       .run();
     const setSpendCap = vi.fn().mockResolvedValue({ amount: '2.000000', currency: 'USD' });
-    deps.aiurClientForRepo = async () => ({ setSpendCap }) as unknown as AiurClient;
+    deps.aiurClientForGame = async () => ({ setSpendCap }) as unknown as AiurClient;
     const { app } = await makeApp(deps);
     const created = await createJob(app);
     const { jobId } = (await created.json()) as { jobId: string };

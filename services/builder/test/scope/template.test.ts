@@ -15,6 +15,7 @@ describe('scope ticket template', () => {
       jobId: 'j_88000000-0000-4000-8000-000000000001',
       sessionId: 's_88000000-0000-4000-8000-000000000001',
       choices,
+      labelPrefix: 'castle-run',
     });
 
     expect(issue.title).toBe('Scope: platformer cozy game');
@@ -28,6 +29,10 @@ describe('scope ticket template', () => {
     expect(issue.body).toContain(
       '`.gm/scope/s_88000000-0000-4000-8000-000000000001.json` written with `gm scope done`',
     );
-    expect(issue.labels).toEqual(['complexity:1', 'feature:gm-j_88000000-0000-4000-8000-000000000001', 'agent:todo']);
+    expect(issue.labels).toEqual([
+      'complexity:1',
+      'feature:gm-j_88000000-0000-4000-8000-000000000001',
+      'castle-run:todo',
+    ]);
   });
 });

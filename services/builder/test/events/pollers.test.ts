@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { startFeedConsumers } from '../../src/events/index.js';
-import { daemon, harness, REPO, SLUG } from './helpers.js';
+import { daemon, harness, SLUG } from './helpers.js';
 
 const running: { stop(): Promise<void> }[] = [];
 afterEach(async () => {
@@ -19,7 +19,7 @@ describe('pollers', () => {
     running.push(feed);
     await feed.tick();
 
-    const client = h.clientFor(REPO);
+    const client = h.clientFor(SLUG);
     expect(client.progress).toHaveBeenCalledWith('142');
     expect(client.issue).toHaveBeenCalledWith('142');
     expect(h.apply.progress).toHaveBeenCalledWith(SLUG, '142', expect.objectContaining({ issue_identifier: '142' }));
@@ -31,10 +31,10 @@ describe('pollers', () => {
     const feed = startFeedConsumers(h.deps);
     running.push(feed);
     await feed.tick();
-    expect(h.clientFor(REPO).progress).not.toHaveBeenCalled();
+    expect(h.clientFor(SLUG).progress).not.toHaveBeenCalled();
 
     h.listed.daemons = [daemon()];
-    h.clientFor(REPO).progress.mockRejectedValueOnce(new Error('aiur down'));
+    h.clientFor(SLUG).progress.mockRejectedValueOnce(new Error('aiur down'));
     await expect(feed.tick()).resolves.toBeUndefined();
     expect(h.apply.issue).toHaveBeenCalledTimes(1);
   });
@@ -48,7 +48,7 @@ describe('pollers', () => {
     });
     running.push(feed);
     await vi.advanceTimersByTimeAsync(40);
-    expect(h.clientFor(REPO).progress).toHaveBeenCalledTimes(2);
-    expect(h.clientFor(REPO).issue).not.toHaveBeenCalled();
+    expect(h.clientFor(SLUG).progress).toHaveBeenCalledTimes(2);
+    expect(h.clientFor(SLUG).issue).not.toHaveBeenCalled();
   });
 });

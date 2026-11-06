@@ -3,7 +3,7 @@ import { CompleteTriage, JobPlan, Reservation, type TriageResult } from '@ogm/co
 import { schema } from '@ogm/db';
 import { and, eq, lte } from 'drizzle-orm';
 
-import { isStateLabel } from '@ogm/game-repo-template';
+import { isDaemonLabel } from '@ogm/game-repo-template';
 
 import { OutcomeUnknownError } from '../github/issues.js';
 import { scopeTicketForJob } from '../scope/file.js';
@@ -66,7 +66,7 @@ export function createIntake(deps: IntakeDeps) {
     } catch (error) {
       return failPreflight(found.job, [message(error)]);
     }
-    const scopeTicket = found.job.kind === 'scope' ? scopeTicketForJob(deps.db, jobId) : null;
+    const scopeTicket = found.job.kind === 'scope' ? scopeTicketForJob(deps.db, jobId, gameSlug) : null;
     if (found.job.kind === 'scope' && (scopeTicket === null || tickets.length !== 1 || tickets[0]?.key !== 'scope')) {
       return failPreflight(found.job, ['scope job is missing its session or scope ticket']);
     }
@@ -125,7 +125,7 @@ export function createIntake(deps: IntakeDeps) {
                 ...rendered,
                 labels:
                   found.job.kind === 'scope'
-                    ? rendered.labels.filter((label) => !isStateLabel(label))
+                    ? rendered.labels.filter((label) => !isDaemonLabel(label))
                     : rendered.labels,
               });
             } catch (error) {

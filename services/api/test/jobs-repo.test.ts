@@ -1,7 +1,7 @@
 import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
-import { activeJobs, activeJobsForRepo, byTicket } from '../src/jobs/repo.js';
+import { activeJobs, activeJobsForSlug, byTicket } from '../src/jobs/repo.js';
 import { makeDeps } from './helpers.js';
 
 function setup() {
@@ -17,6 +17,8 @@ function setup() {
       familyId: 'f_1',
       ownerId: 'u_1',
       title: 'Game',
+      // The game's slug keys its daemon.
+      slug: 'owner-game',
       visibility: 'private',
       githubOwner: 'Owner',
       githubRepo: 'Game',
@@ -95,6 +97,6 @@ describe('job projection directory', () => {
       { jobId: 'j_queued', ticket: '141' },
       { jobId: 'j_running', ticket: '142' },
     ]);
-    expect(activeJobsForRepo(deps.db, 'OWNER/GAME')).toEqual([{ kind: 'feature' }, { kind: 'feature' }]);
+    expect(activeJobsForSlug(deps.db, 'OWNER-GAME')).toEqual([{ kind: 'feature' }, { kind: 'feature' }]);
   });
 });

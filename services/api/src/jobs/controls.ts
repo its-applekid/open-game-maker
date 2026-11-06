@@ -55,7 +55,10 @@ function defaults(deps: AppDeps) {
 }
 
 // The job's row and its game's row: the game carries the daemon's key (its slug) and the label prefix controls use.
-function loadAuthorized(c: Context<ApiBindings>, action: Action): { row: JobRow; game: typeof schema.games.$inferSelect } {
+function loadAuthorized(
+  c: Context<ApiBindings>,
+  action: Action,
+): { row: JobRow; game: typeof schema.games.$inferSelect } {
   const principal = requirePrincipal(c, ['user']);
   const deps = c.get('deps');
   const id = c.req.param('id');
@@ -233,7 +236,8 @@ export function createControlsRoutes(services: ControlsServices): Hono<ApiBindin
         .get();
       if (!checkpoint) throw new HttpError(404, 'checkpoint_not_found');
       if (checkpoint.status !== 'open') throw new HttpError(409, 'checkpoint_not_open');
-      const filed = ticket(row);
+      // A job that was never filed has no daemon ticket to decide on; `ticket` throws 409 as on the other routes.
+      ticket(row);
       const client = await requireDaemon(services, deps, row.gameId);
 
       try {

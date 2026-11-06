@@ -2,7 +2,7 @@ import { renderRepoTemplate, type RepoTemplate, type TemplateCtx } from './repo.
 
 export { renderDaemonFiles, sparsePaths, type DaemonFiles, type DaemonFilesContext } from './daemon-files.js';
 export { renderInstanceTemplate, type InstanceTemplate } from './instance.js';
-export { LABELS, isStateLabel, STATE_SUFFIXES, type TemplateLabel } from './labels.js';
+export { DAEMON_LABEL_SUFFIXES, LABELS, isDaemonLabel, STATE_SUFFIXES, type TemplateLabel } from './labels.js';
 export {
   parseTemplateRef,
   renderRepoTemplate,

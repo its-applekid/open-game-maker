@@ -2,7 +2,7 @@ import { AiurEventFeedError } from '@ogm/aiur-client';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { readCursor, startFeedConsumers, writeCursor, FEED_PATTERNS } from '../../src/events/index.js';
-import { daemon, harness, REPO, SLUG } from './helpers.js';
+import { daemon, harness, SLUG } from './helpers.js';
 
 const running: { stop(): Promise<void> }[] = [];
 afterEach(async () => {
@@ -53,7 +53,7 @@ describe('feed consumers', () => {
     writeCursor(h.db, SLUG, 10, null, new Date());
     const feed = start(h);
     await feed.tick();
-    const client = h.clientFor(REPO);
+    const client = h.clientFor(SLUG);
     client.issue.mockClear();
     h.apply.issue.mockClear();
 

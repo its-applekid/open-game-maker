@@ -112,7 +112,8 @@ export function createFleet(deps: FleetDeps) {
   async function rowFor(key: DaemonKey): Promise<DaemonRow> {
     const slug = daemonSlugFor(key.slug);
     const repo = key.repo.toLowerCase();
-    // A game's daemon follows its game's repository: when the game moves into the instance repo the row follows it.
+    // A game's daemon row follows its game's repository: when the game moves into the instance repo the row follows
+    // it. A daemon that is already live picks the new repo up when it next starts (its config is rendered then).
     const existing = await store.bySlug(slug);
     if (existing) return existing.repo === repo ? existing : store.update(slug, { repo });
     const rows = await store.list();
