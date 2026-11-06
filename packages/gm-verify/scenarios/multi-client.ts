@@ -105,12 +105,10 @@ export function profileFor(link: LinkProfileName | LinkConfig | undefined): Link
  */
 export function bandsFor(link: LinkConfig, game = { inputDelayTicks: 3, snapshotHz: 20 }) {
   /*
-   * Four browser contexts render on one host, and CI (or a laptop) may run them on SwiftShader: a step can wait a whole
-   * frame for the machine, and every frame that passes adds a sample interval to what a seat reports. The budget above is
-   * the network's; this share is the machine's, named rather than hidden in a bigger constant (research §9, which
-   * budgets a third of the run for exactly this).
+   * Four browser contexts render on one host, and CI (or a laptop) may run them on SwiftShader. The budget above is the
+   * network's; this share is the machine's, named rather than hidden in a bigger constant (research §9).
    */
-  const HOST_SHARE = 2;
+  const HOST_SHARE = 1.25;
   const slack = link.latencyMs + 2 * link.jitterMs;
   const interval = Math.round(1_000 / game.snapshotHz);
   const simulation = Math.round(game.inputDelayTicks * (1_000 / 60)) + interval;
@@ -133,11 +131,7 @@ export function bandsFor(link: LinkConfig, game = { inputDelayTicks: 3, snapshot
  * and a remote update waits whole frames, so its p95 measures the host. The run still records and reports those numbers,
  * and names them in `unchecked` instead of pretending they were met.
  */
-export function judgeSeat(
-  seat: SeatMetrics,
-  bands = bandsFor(BAD_LINK),
-  options = { latency: true },
-): string[] {
+export function judgeSeat(seat: SeatMetrics, bands = bandsFor(BAD_LINK), options = { latency: true }): string[] {
   const failures: string[] = [];
   const over = (label: string, value: number, limit: number) => {
     if (value > limit) failures.push(`seat ${seat.seat} ${label} ${value} > ${limit}`);
@@ -770,7 +764,15 @@ export async function runMultiClient(options: MultiClientOptions): Promise<Multi
     clients: SEATS.length,
     seats,
     link,
-    unchecked: [...ALWAYS_UNCHECKED, ...MULTI_UNCHECKED],
+    /*
+     * A software renderer cannot measure the network's latency: four contexts share one CPU and a step waits whole
+     * frames. The numbers are still recorded and reported; the band they would be judged against is named here.
+     */
+    unchecked: [
+      ...ALWAYS_UNCHECKED,
+      ...MULTI_UNCHECKED,
+      ...(isSoftware(renderer) ? ['latency bands on a software renderer'] : []),
+    ],
     verdict: error ? 'fail' : verdictFor({ budgets, console: consoleList }),
     ...(error ? { error } : {}),
     startedAt,

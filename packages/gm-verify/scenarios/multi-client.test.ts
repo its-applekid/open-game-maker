@@ -60,15 +60,15 @@ describe('the multi-client bands and verdict', () => {
     /* 3 input-delay ticks at 60 Hz (50 ms) plus one 20 Hz snapshot interval (50 ms) of simulation on top of the path. */
     expect(bandsFor(CLEAN_LINK)).toMatchObject({
       localResponseMs: 17,
-      remoteUpdateP95Ms: 400,
-      eventDelayP95Ms: 300,
+      remoteUpdateP95Ms: 250,
+      eventDelayP95Ms: 188,
       inputGaps: 1,
       needsRecovery: false,
     });
     /* latencyMs 40 + 2 × jitter 20 = 80 ms of headroom, and this profile schedules a disconnect. */
     expect(bandsFor(BAD_LINK)).toMatchObject({
-      remoteUpdateP95Ms: 660,
-      eventDelayP95Ms: 460,
+      remoteUpdateP95Ms: 413,
+      eventDelayP95Ms: 288,
       inputGaps: 2,
       needsRecovery: true,
     });
@@ -92,7 +92,7 @@ describe('the multi-client bands and verdict', () => {
 
     expect(judgeSeat(failing, bands)).toEqual([
       'seat 2 localResponseMs 40 > 17',
-      'seat 2 eventDelayP95Ms 500 > 460',
+      'seat 2 eventDelayP95Ms 500 > 288',
       'seat 2 inputGaps 5 > 2',
       'seat 2 desyncs 1 > 0',
       'seat 2 hardResyncs 2 > 0',
@@ -103,6 +103,19 @@ describe('the multi-client bands and verdict', () => {
 
   it('passes a seat inside its band', () => {
     expect(judgeSeat(toSeatMetrics(0, [sample()]), bandsFor(BAD_LINK))).toEqual([]);
+  });
+
+  it('leaves the latency bands to a hardware renderer and still judges the rest of the seat', () => {
+    const seat = toSeatMetrics(2, [
+      sample({ seat: 2, remoteUpdateMs: 900, eventDelayMs: 900, inputGaps: 5, recoveries: 2 }),
+    ]);
+
+    expect(judgeSeat(seat, bandsFor(BAD_LINK))).toEqual([
+      'seat 2 remoteUpdateP95Ms 900 > 413',
+      'seat 2 eventDelayP95Ms 900 > 288',
+      'seat 2 inputGaps 5 > 2',
+    ]);
+    expect(judgeSeat(seat, bandsFor(BAD_LINK), { latency: false })).toEqual(['seat 2 inputGaps 5 > 2']);
   });
 });
 
@@ -168,7 +181,7 @@ describe.skipIf(!enabled)('multi-client scenario (OGM_SCENARIOS=1)', () => {
       expect(Number(report.probes.playSwitchMs)).toBeLessThanOrEqual(LIMITS.playSwitchMs);
       expect(report.probes.draftPin).toBe('b2');
       expect(report.probes.linkSeed).toBe(BAD_LINK.seed);
-      expect(judgeSeat(seats[2]!, bandsFor(BAD_LINK))).toEqual([]);
+      expect(judgeSeat(seats[2]!, bandsFor(BAD_LINK), { latency: !softwareGl })).toEqual([]);
       expect(seats[2]!.recoveries).toBeGreaterThanOrEqual(1);
       expect(report.probes.forfeitedSeat).toBe(3);
       if (softwareGl) expect(report.unchecked).toContain('latency bands on a software renderer');
@@ -184,7 +197,8 @@ describe.skipIf(!enabled)('multi-client scenario (OGM_SCENARIOS=1)', () => {
 
       expect(report.error).toBeUndefined();
       expect(report.verdict).toBe('pass');
-      for (const seat of seats) {
+      /* Seat 3 forfeited mid-run: its row stays in the report as evidence, but only the seats that stayed up are judged. */
+      for (const seat of seats.filter((entry) => entry.seat !== Number(report.probes.forfeitedSeat))) {
         expect(seat.desyncs).toBe(0);
         expect(seat.droppedBytes).toBe(0);
         expect(seat.oversized).toBe(0);

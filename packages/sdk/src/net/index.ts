@@ -365,14 +365,18 @@ export function createNetController(options: NetControllerOptions): NetControlle
   /**
    * A seat is a player. The v1 hooks (`spawn`/`despawn`) stay the one way a game learns that somebody joined — the design
    * keeps them for every existing template — so a per-seat match fires them from the seat table, exactly as the v1 path
-   * fires them from `net.players`. A game that also listens to `net.seats` is unaffected: its own spawn is idempotent
-   * per player index, which is the contract the v1 path already assumed.
+   * fires them from `net.players`. Two things are deliberately not spawned:
+   *
+   * - this client's own seat, which the game created when it built its world (`createSimulation`) and whose `spawn`
+   *   would put its avatar back at its start point mid-match, at a moment that differs per client and desyncs the room;
+   * - a seat already spawned from an earlier table, so a repeated broadcast is not a second spawn.
    */
   function syncSeatedPlayers(seats: readonly NetSeat[]): void {
     const seated = new Set(
       seats.filter((seat) => seat.userId !== '' && !seat.forfeited && !seat.spectator).map((seat) => seat.seat),
     );
     for (const seat of seated) {
+      if (seat === roles.localPlayerIndex) continue;
       if (spawnedSeats.has(seat)) continue;
       options.hooks.spawn(seat, playerId(seat));
       spawnedSeats.add(seat);

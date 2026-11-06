@@ -35,11 +35,11 @@ function perSeatHooks() {
 
 const manifest = { inputs: { actions: {} }, net: { authority: 'per-seat', maxSeats: 4 } } as unknown as GameManifest;
 
-function controller(hooks: MultiplayerHooksV2) {
+function controller(hooks: MultiplayerHooksV2, localPlayerIndex = 0) {
   return createNetController({
     manifest,
     hooks,
-    localPlayerIndex: 0,
+    localPlayerIndex,
     send: vi.fn(),
     acceptInput: vi.fn(),
     syncPlayers: vi.fn(),
@@ -50,16 +50,14 @@ function controller(hooks: MultiplayerHooksV2) {
 }
 
 describe('seats are players in a per-seat match', () => {
-  it('fires the v1 spawn hook for every seat that joins, so a template that only implements spawn gets the avatars', () => {
+  it('fires the v1 spawn hook for every remote seat, so a template that only implements spawn gets the avatars', () => {
     const { hooks, spawn } = perSeatHooks();
     const net = controller(hooks);
 
     net.handleMessage('net.seats', { seats: [seat(0), seat(1)] });
 
-    expect(spawn.mock.calls).toEqual([
-      [0, 'p0'],
-      [1, 'p1'],
-    ]);
+    /* Seat 0 is this client: the game built its avatar when it built the world, and spawning it again would reset it. */
+    expect(spawn.mock.calls).toEqual([[1, 'p1']]);
   });
 
   it('does not spawn a seat twice, and despawns a seat that forfeits', () => {
@@ -70,7 +68,10 @@ describe('seats are players in a per-seat match', () => {
     net.handleMessage('net.seats', { seats: [seat(0), seat(1), seat(2, { forfeited: true })] });
     net.handleMessage('net.seats', { seats: [seat(0), seat(1)] });
 
-    expect(spawn.mock.calls.map(([index]) => index)).toEqual([0, 1, 2]);
+    expect(spawn.mock.calls).toEqual([
+      [1, 'p1'],
+      [2, 'p2'],
+    ]);
     expect(despawn.mock.calls).toEqual([['p2']]);
   });
 
@@ -79,9 +80,9 @@ describe('seats are players in a per-seat match', () => {
     const net = controller(hooks);
 
     net.handleMessage('net.seats', {
-      seats: [seat(0), seat(1, { userId: '' }), seat(2, { spectator: true })],
+      seats: [seat(0), seat(1, { userId: '' }), seat(2, { spectator: true }), seat(3)],
     });
 
-    expect(spawn.mock.calls).toEqual([[0, 'p0']]);
+    expect(spawn.mock.calls).toEqual([[3, 'p3']]);
   });
 });
