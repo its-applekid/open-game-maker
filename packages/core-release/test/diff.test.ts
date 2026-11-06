@@ -29,7 +29,7 @@ describe('unifiedDiff', () => {
   });
 
   it('reports a file whose lines were only added', () => {
-    const diff = unifiedDiff('', '@owner:registry=https://npm.pkg.github.com\n', { path: '.npmrc' });
-    expect(diff).toContain('+@owner:registry=https://npm.pkg.github.com');
+    const diff = unifiedDiff('', '@owner:registry=https://registry.npmjs.org\n', { path: '.npmrc' });
+    expect(diff).toContain('+@owner:registry=https://registry.npmjs.org');
   });
 });

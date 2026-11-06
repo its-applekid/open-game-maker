@@ -106,7 +106,7 @@ jobs:
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run test
       - run: pnpm --filter '!ogm' --filter '!@ogm/voice-host' -r --if-present run build
       - name: Core package publish dry run
-        run: node packages/core-release/dist/bin.js publish --root . --scope "@${GITHUB_REPOSITORY_OWNER}" --dry-run
+        run: node packages/core-release/dist/bin.js publish --root . --dry-run
       - name: Browser tests (packages that declare test:browser)
         env:
           BROWSER_CHANGED: ${{ needs.changes.outputs.browser }}

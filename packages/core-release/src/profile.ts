@@ -2,9 +2,9 @@ import { ReleaseError } from './graph.js';
 
 /** Where releases go. Every field is an operator input; nothing here names a real host or owner. */
 export type RegistryProfile = {
-  /** npm-compatible registry base URL, e.g. `https://npm.pkg.github.com`. */
+  /** npm-compatible registry base URL, e.g. `https://registry.npmjs.org`. */
   readonly registry: string;
-  /** Scope the destination registry accepts, e.g. `@<owner>` for GitHub Packages. */
+  /** Scope the destination registry accepts, e.g. an npm org the owner created. */
   readonly scope: string;
   readonly access: 'restricted' | 'public';
   /** dist-tag new versions are published under. Consumers pin exact versions, so this is a fallback. */
@@ -19,13 +19,23 @@ export type RegistryProfileInput = {
 };
 
 /**
- * GitHub Packages' npm registry, #490's recommended destination (option a). Options b and c only
- * change these inputs: the public npm registry takes a URL and an owned scope, an instance-local
- * feed takes its own URL and can keep the original `@gm` / `@ogm` scopes.
+ * The public npm registry, the destination Kevin chose on #490 (2026-11-06: "we use npm.js for all
+ * aiur packages, use that"). The scope is an npm org the owner creates; a different destination only
+ * changes these inputs.
  */
-export const DEFAULT_REGISTRY = 'https://npm.pkg.github.com';
-export const DEFAULT_ACCESS = 'restricted';
+export const DEFAULT_REGISTRY = 'https://registry.npmjs.org';
+export const DEFAULT_ACCESS = 'public';
 export const DEFAULT_TAG = 'core';
+/**
+ * The only registry host that authenticates a publish with OIDC trusted publishing. A publish run to
+ * another registry needs a token in the environment.
+ */
+export const TRUSTED_PUBLISHING_HOST = 'registry.npmjs.org';
+/**
+ * The npm org scope the releases publish under. `@gm` and `@ogm` are already owned by other accounts
+ * on npm, so the releases take a scope the owner creates; see docs/ops/core-packages.md.
+ */
+export const DEFAULT_SCOPE = '@open-game-maker';
 
 const SCOPE = /^@[a-z0-9][a-z0-9._-]{0,213}$/;
 const TAG = /^[a-z][a-z0-9._-]{0,63}$/;
@@ -70,9 +80,9 @@ export function sourceBasename(name: string): string {
 }
 
 /**
- * The name the destination registry will accept. GitHub Packages refuses a package whose scope is
- * not the repository owner, so a destination scope that differs from the source scope republishes
- * `@gm/sdk` as `<scope>/sdk`; consumers keep importing `@gm/sdk` through an `npm:` alias.
+ * The name the destination registry will accept. A registry that only accepts its own scope (GitHub
+ * Packages, or an npm org that does not own `@gm` / `@ogm`) republishes `@gm/sdk` as `<scope>/sdk`;
+ * consumers keep importing `@gm/sdk` through an `npm:` alias.
  */
 export function destinationName(source: string, profile: RegistryProfile): string {
   if (!source.startsWith('@')) throw new ReleaseError(`package name ${source} is not scoped`);
@@ -97,7 +107,7 @@ export function destinationNames(sources: readonly string[], profile: RegistryPr
   return names;
 }
 
-/** Host npm resolves the registry's auth token under, e.g. `npm.pkg.github.com`. */
+/** Host npm resolves the registry's auth token under, e.g. `registry.npmjs.org`. */
 export function registryHost(profile: RegistryProfile): string {
   return new URL(profile.registry).host;
 }

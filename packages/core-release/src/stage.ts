@@ -60,15 +60,17 @@ export function internalSpecifier(
 /**
  * The manifest that goes into the tarball: destination name, immutable version, internal dependencies
  * rewritten to published specifiers, `private` and `scripts` dropped so an install never runs this
- * repository's build steps.
+ * repository's build steps. `repository` is set from the core repository because npm matches it
+ * against the GitHub repository a trusted publisher names.
  */
 export function publishedManifest(args: {
   pkg: WorkspacePackage;
   profile: RegistryProfile;
   names: ReadonlyMap<string, string>;
   versions: ReadonlyMap<string, string>;
+  repository?: string;
 }): PublishedManifest {
-  const { pkg, profile, names, versions } = args;
+  const { pkg, profile, names, versions, repository } = args;
   const name = names.get(pkg.name);
   const version = versions.get(pkg.name);
   if (name === undefined || version === undefined) {
@@ -78,6 +80,9 @@ export function publishedManifest(args: {
   const manifest: Record<string, unknown> = { ...pkg.manifest, name, version };
   delete manifest.private;
   delete manifest.scripts;
+  if (repository !== undefined && repository !== '') {
+    manifest.repository = { type: 'git', url: `git+${repository.replace(/\.git$/, '')}.git` };
+  }
   manifest.publishConfig = {
     registry: profile.registry,
     access: profile.access,
@@ -143,9 +148,10 @@ export async function stagePackage(args: {
   names: ReadonlyMap<string, string>;
   versions: ReadonlyMap<string, string>;
   stagingRoot: string;
+  repository?: string;
 }): Promise<StagedPackage> {
-  const { pkg, profile, names, versions, stagingRoot } = args;
-  const { manifest, files } = publishedManifest({ pkg, profile, names, versions });
+  const { pkg, profile, names, versions, stagingRoot, repository } = args;
+  const { manifest, files } = publishedManifest({ pkg, profile, names, versions, repository });
   const dir = join(stagingRoot, pkg.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase());
   await mkdir(dir, { recursive: true });
 

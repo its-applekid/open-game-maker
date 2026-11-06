@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { main } from '../src/cli.js';
 import type { RunCommand } from '../src/run.js';
@@ -142,37 +142,125 @@ describe('core-release publish', () => {
     expect(lines.join('\n')).toContain('2 packages would be published from 3cef9ec65caa');
   });
 
-  it('refuses to publish without the token in the environment', async () => {
-    const { root } = await coreWorkspace();
-    await expect(
-      main(['publish', '--root', root, '--scope', '@its-owner', '--apply', '--roots', '@gm/sdk,@ogm/contracts'], {
-        run,
-        env: {},
-        log: () => {},
-      }),
-    ).rejects.toThrow(/needs CORE_PACKAGES_PUBLISH_TOKEN/);
-  });
-
-  it('takes the scope from GITHUB_REPOSITORY_OWNER when none is passed', async () => {
+  it('defaults to the npmjs registry, the default scope and public access', async () => {
     const { root } = await coreWorkspace();
     const lines: string[] = [];
     const code = await main(['publish', '--root', root, '--dry-run', '--roots', '@gm/sdk,@ogm/contracts'], {
       run,
-      env: { GITHUB_REPOSITORY_OWNER: 'its-owner' },
+      env: {},
       log: (line) => lines.push(line),
     });
     expect(code).toBe(0);
-    expect(lines.join('\n')).toContain('scope @its-owner');
+    expect(lines.join('\n')).toContain('registry https://registry.npmjs.org');
+    expect(lines.join('\n')).toContain('scope @open-game-maker');
+    expect(lines.join('\n')).toContain('access public');
+    expect(lines.join('\n')).toContain('@open-game-maker/contracts@0.0.0-core.3cef9ec65caa');
   });
 
-  it('refuses a run with no scope and no owner in the environment', async () => {
+  it('points the tarball at GITHUB_REPOSITORY so npm can match the trusted publisher', async () => {
+    const { root } = await coreWorkspace();
+    const lines: string[] = [];
+    const code = await main(
+      ['publish', '--root', root, '--dry-run', '--scope', '@its-owner', '--roots', '@gm/sdk,@ogm/contracts'],
+      {
+        run,
+        env: { GITHUB_REPOSITORY: 'its-owner/open-game-maker' },
+        log: (line) => lines.push(line),
+      },
+    );
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toContain('repository https://github.com/its-owner/open-game-maker');
+  });
+
+  it('publishes with no token when the registry is npmjs', async () => {
+    const { root } = await coreWorkspace();
+    const calls: { args: readonly string[]; env: Readonly<Record<string, string>> }[] = [];
+    const publishRun: RunCommand = async (file, args, options) => {
+      if (file === 'npm') {
+        calls.push({ args, env: options.env });
+        return { code: 0, stdout: 'ok', stderr: '' };
+      }
+      return run(file, args, options);
+    };
+    const fetchImpl = vi.fn<typeof fetch>(async () => new Response('not found', { status: 404 }));
+    const lines: string[] = [];
+    const code = await main(
+      ['publish', '--root', root, '--scope', '@its-owner', '--apply', '--roots', '@gm/sdk,@ogm/contracts'],
+      { run: publishRun, env: {}, log: (line) => lines.push(line), fetchImpl },
+    );
+    expect(code).toBe(0);
+    expect(lines.join('\n')).toContain('publishing with npm OIDC trusted publishing');
+    expect(calls.map((call) => call.args[0])).toEqual(['publish', 'publish']);
+    expect(calls[0]?.args).toContain('https://registry.npmjs.org');
+    expect(calls[0]?.env).toEqual({});
+  });
+
+  it('proves the trusted publisher with --verify-oidc and publishes nothing on a dry run', async () => {
+    const { root } = await coreWorkspace();
+    const calls: string[][] = [];
+    const verifyRun: RunCommand = async (file, args, options) => {
+      if (file === 'npm') {
+        calls.push([...args]);
+        return { code: 0, stdout: 'npm verb oidc Successfully retrieved and set token', stderr: '' };
+      }
+      return run(file, args, options);
+    };
+    const lines: string[] = [];
+    const code = await main(
+      [
+        'publish',
+        '--root',
+        root,
+        '--scope',
+        '@its-owner',
+        '--dry-run',
+        '--verify-oidc',
+        '--roots',
+        '@gm/sdk,@ogm/contracts',
+      ],
+      { run: verifyRun, env: {}, log: (line) => lines.push(line) },
+    );
+    expect(code).toBe(0);
+    expect(calls).toHaveLength(2);
+    expect(calls.every((args) => args.includes('--dry-run'))).toBe(true);
+    expect(lines.join('\n')).toContain('the trusted publisher answered; nothing was published');
+  });
+
+  it('fails --verify-oidc when the trusted publisher refuses the exchange', async () => {
+    const { root } = await coreWorkspace();
+    const verifyRun: RunCommand = async (file, args, options) => {
+      if (file === 'npm') {
+        return { code: 0, stdout: 'npm verb oidc Failed token exchange request with body message: no', stderr: '' };
+      }
+      return run(file, args, options);
+    };
+    const lines: string[] = [];
+    const code = await main(
+      ['publish', '--root', root, '--scope', '@its-owner', '--dry-run', '--verify-oidc', '--roots', '@gm/sdk'],
+      { run: verifyRun, env: {}, log: (line) => lines.push(line) },
+    );
+    expect(code).toBe(1);
+    expect(lines.join('\n')).toContain('trusted publisher FAILED');
+  });
+
+  it('refuses a tokenless publish to a registry without trusted publishing', async () => {
     const { root } = await coreWorkspace();
     await expect(
-      main(['publish', '--root', root, '--dry-run', '--roots', '@gm/sdk,@ogm/contracts'], {
-        run,
-        env: {},
-        log: () => {},
-      }),
-    ).rejects.toThrow(/no scope: pass --scope/);
+      main(
+        [
+          'publish',
+          '--root',
+          root,
+          '--registry',
+          'http://127.0.0.1:4873',
+          '--scope',
+          '@its-owner',
+          '--apply',
+          '--roots',
+          '@gm/sdk,@ogm/contracts',
+        ],
+        { run, env: {}, log: () => {} },
+      ),
+    ).rejects.toThrow(/only registry.npmjs.org authenticates with OIDC/);
   });
 });

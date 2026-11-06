@@ -4,8 +4,16 @@ import { join } from 'node:path';
 import { parseArgs } from 'node:util';
 
 import { ReleaseError, loadWorkspace, releaseOrder } from './graph.js';
-import { describePlan, planRelease, publishPlan } from './publish.js';
-import { registryProfile, type RegistryProfile } from './profile.js';
+import { describePlan, planRelease, publishPlan, verifyOidc } from './publish.js';
+import {
+  DEFAULT_ACCESS,
+  DEFAULT_REGISTRY,
+  DEFAULT_SCOPE,
+  TRUSTED_PUBLISHING_HOST,
+  registryHost,
+  registryProfile,
+  type RegistryProfile,
+} from './profile.js';
 import { DEFAULT_ROOTS } from './roots.js';
 import { runCommand, type RunCommand } from './run.js';
 import { applySwitch, planSwitch } from './switch.js';
@@ -13,31 +21,37 @@ import { coreVersion, readCorePin } from './version.js';
 
 const HELP = `core-release — prepare core package publishing (dry run by default)
 
-  core-release publish [--root <dir>] [--registry <url>] [--scope <@owner>] [--access restricted|public]
-                       [--tag <dist-tag>] [--core-sha <40-hex>] [--roots <a,b>] [--apply]
+  core-release publish [--root <dir>] [--registry <url>] [--scope <@owner>] [--access public|restricted]
+                       [--tag <dist-tag>] [--core-sha <40-hex>] [--repository <url>] [--roots <a,b>]
+                       [--verify-oidc] [--apply]
   core-release switch  --dir <instance-repo> [--root <dir>] [--registry <url>] [--scope <@owner>]
-                       [--access restricted|public] [--tag <dist-tag>] [--core-sha <40-hex>] [--roots <a,b>] [--apply]
+                       [--access public|restricted] [--tag <dist-tag>] [--core-sha <40-hex>] [--roots <a,b>] [--apply]
 
 publish  stages and packs the core dependency closure, leaves first. Without --apply it publishes nothing.
+         --verify-oidc additionally proves the npm trusted publisher with a per-package
+         \`npm publish --dry-run\` and still publishes nothing.
 switch   plans the move of an instance repository from vendored core tarballs to registry versions.
          Without --apply it writes nothing and prints the diff.
 
-Both commands are dry runs unless --apply is passed. A publish run reads its token from the environment
-(default CORE_PACKAGES_PUBLISH_TOKEN); no token is created, logged or committed.`;
+Both commands are dry runs unless --apply is passed. Defaults: registry ${DEFAULT_REGISTRY}, scope
+${DEFAULT_SCOPE}, access ${DEFAULT_ACCESS}. A publish run authenticates with npm OIDC trusted publishing and
+needs no token; a token is only read from the environment (default CORE_PACKAGES_PUBLISH_TOKEN) when one is
+present, for a registry that has no trusted publisher.`;
 
 export type CliOptions = {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly run?: RunCommand;
   readonly log?: (line: string) => void;
   readonly cwd?: string;
+  /** Replaces the registry client in tests; production uses the global `fetch`. */
+  readonly fetchImpl?: typeof fetch;
 };
 
-function defaultScope(env: Readonly<Record<string, string | undefined>>): string {
-  const owner = env.GITHUB_REPOSITORY_OWNER;
-  if (owner === undefined || owner === '') {
-    throw new ReleaseError('no scope: pass --scope @owner (GITHUB_REPOSITORY_OWNER is not set)');
-  }
-  return `@${owner}`;
+/** The core repository the tarballs point at; npm matches it against the trusted publisher's repo. */
+function defaultRepository(env: Readonly<Record<string, string | undefined>>): string | undefined {
+  const slug = env.GITHUB_REPOSITORY;
+  if (slug === undefined || slug === '') return undefined;
+  return `https://github.com/${slug}`;
 }
 
 async function gitHead(root: string, run: RunCommand): Promise<string> {
@@ -52,6 +66,7 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
   const run = options.run ?? runCommand;
   const env = options.env ?? {};
   const cwd = options.cwd ?? process.cwd();
+  const fetchImpl = options.fetchImpl;
 
   const parsed = parseArgs({
     args: [...argv],
@@ -65,9 +80,11 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
       access: { type: 'string' },
       tag: { type: 'string' },
       'core-sha': { type: 'string' },
+      repository: { type: 'string' },
       roots: { type: 'string' },
       'token-variable': { type: 'string' },
       'auth-file': { type: 'string' },
+      'verify-oidc': { type: 'boolean' },
       apply: { type: 'boolean' },
       'dry-run': { type: 'boolean' },
       help: { type: 'boolean' },
@@ -86,7 +103,7 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
 
   const profile: RegistryProfile = registryProfile({
     registry: parsed.values.registry,
-    scope: parsed.values.scope ?? defaultScope(env),
+    scope: parsed.values.scope ?? DEFAULT_SCOPE,
     access: parsed.values.access,
     tag: parsed.values.tag,
   });
@@ -107,8 +124,21 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
     const coreSha = explicitSha ?? (await gitHead(root, run));
     const stagingRoot = await mkdtemp(join(tmpdir(), 'core-release-stage-'));
     const outDir = await mkdtemp(join(tmpdir(), 'core-release-pack-'));
-    const plan = await planRelease({ workspace, order, profile, coreSha, stagingRoot, outDir, run });
+    const repository = parsed.values.repository ?? defaultRepository(env);
+    const plan = await planRelease({ workspace, order, profile, coreSha, stagingRoot, outDir, run, repository });
     for (const line of describePlan(plan)) log(line);
+
+    if (parsed.values['verify-oidc'] === true) {
+      const checks = await verifyOidc({ plan, run, log });
+      for (const check of checks) {
+        log(`trusted publisher ${check.ok ? 'ok' : 'FAILED'} ${check.name}@${check.version}: ${check.detail}`);
+      }
+      if (checks.some((check) => !check.ok)) return 1;
+      if (dryRun) {
+        log(`dry run: the trusted publisher answered; nothing was published (${checks.length} packages)`);
+        return 0;
+      }
+    }
 
     if (dryRun) {
       log(`dry run: ${order.length} packages would be published from ${coreSha} to ${profile.registry}`);
@@ -117,11 +147,21 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
 
     const tokenVariable = parsed.values['token-variable'] ?? 'CORE_PACKAGES_PUBLISH_TOKEN';
     const token = env[tokenVariable] ?? '';
-    if (token === '') {
-      throw new ReleaseError(`a publish run needs ${tokenVariable} in the environment (dry runs do not)`);
+    if (token === '' && registryHost(profile) !== TRUSTED_PUBLISHING_HOST) {
+      throw new ReleaseError(
+        `a publish run to ${registryHost(profile)} needs ${tokenVariable} in the environment; ` +
+          'only registry.npmjs.org authenticates with OIDC',
+      );
     }
     const authFile = parsed.values['auth-file'] ?? join(stagingRoot, 'npmrc');
-    const outcomes = await publishPlan({ plan, token, run, authFile, log });
+    const outcomes = await publishPlan({
+      plan,
+      run,
+      token: token === '' ? undefined : token,
+      authFile: token === '' ? undefined : authFile,
+      fetchImpl,
+      log,
+    });
     for (const outcome of outcomes) log(`${outcome.action} ${outcome.name}@${outcome.version}: ${outcome.detail}`);
     const failed = outcomes.filter((outcome) => outcome.action === 'failed' || outcome.action === 'blocked');
     return failed.length === 0 ? 0 : 1;

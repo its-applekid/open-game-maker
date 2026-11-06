@@ -32,6 +32,6 @@
  prefer-offline=true
 +
 +# >>> core packages registry — managed by core-release switch
-+@its-owner:registry=https://npm.pkg.github.com
-+//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
++@its-owner:registry=https://registry.npmjs.org
++//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
 +# <<< core packages registry

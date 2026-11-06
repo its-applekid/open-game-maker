@@ -11,7 +11,7 @@ import { applySwitch, planSwitch } from '../src/switch.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const fixture = join(here, 'fixtures', 'instance-vendored');
 const SHA = '3cef9ec65caaf2dfa51649cc8befb9a916c8487b';
-const github = registryProfile({ scope: '@its-owner' });
+const npmjs = registryProfile({ scope: '@its-owner' });
 
 const versions = new Map([
   ['@ogm/contracts', '0.0.0-core.3cef9ec65caa'],
@@ -44,7 +44,7 @@ async function instanceRepo(): Promise<string> {
 describe('planSwitch', () => {
   it('plans registry specifiers for every core dependency and the tarballs it leaves behind', async () => {
     const dir = await instanceRepo();
-    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
 
     expect(plan.pin).toBe(SHA);
     expect(plan.dependencies).toEqual([
@@ -98,7 +98,7 @@ describe('planSwitch', () => {
 
   it('matches the expected diff for a copy of the instance layout', async () => {
     const dir = await instanceRepo();
-    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     const expected = await readFile(join(here, 'fixtures', 'instance-vendored.expected.patch'), 'utf8');
     expect(plan.diff).toBe(expected);
   });
@@ -106,14 +106,14 @@ describe('planSwitch', () => {
   it('writes nothing while planning', async () => {
     const dir = await instanceRepo();
     const before = await readFile(join(dir, 'games/example-2d/package.json'), 'utf8');
-    await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     expect(await readFile(join(dir, 'games/example-2d/package.json'), 'utf8')).toBe(before);
     expect((await stat(join(dir, 'vendor/gm-sdk-3cef9ec65caa.tgz'))).isFile()).toBe(true);
   });
 
   it('refuses to switch when the release versions come from another commit than the pin', async () => {
     const dir = await instanceRepo();
-    await expect(planSwitch({ dir, profile: github, versions, coreSha: 'a'.repeat(40) })).rejects.toThrow(
+    await expect(planSwitch({ dir, profile: npmjs, versions, coreSha: 'a'.repeat(40) })).rejects.toThrow(
       /pins 3cef9ec65caa but the release versions come from aaaaaaaaaaaa/,
     );
   });
@@ -121,15 +121,15 @@ describe('planSwitch', () => {
   it('refuses a repository without vendor/core.json', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'core-release-switch-empty-'));
     dirs.push(dir);
-    await expect(planSwitch({ dir, profile: github, versions, coreSha: SHA })).rejects.toThrow(/no vendor\/core.json/);
+    await expect(planSwitch({ dir, profile: npmjs, versions, coreSha: SHA })).rejects.toThrow(/no vendor\/core.json/);
   });
 
   it('creates .npmrc when the instance repository has none', async () => {
     const dir = await instanceRepo();
     await rm(join(dir, '.npmrc'));
-    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     expect(plan.npmrc.created).toBe(true);
-    expect(plan.npmrc.after).toContain('@its-owner:registry=https://npm.pkg.github.com');
+    expect(plan.npmrc.after).toContain('@its-owner:registry=https://registry.npmjs.org');
   });
 
   it('keeps a tarball another dependency still points at', async () => {
@@ -139,15 +139,15 @@ describe('planSwitch', () => {
     manifest.dependencies['@ogm/vendored-thing'] = 'file:../../vendor/gm-sdk-3cef9ec65caa.tgz';
     await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
 
-    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     expect(plan.deletions).not.toContain('vendor/gm-sdk-3cef9ec65caa.tgz');
     expect(plan.notes).toContain('vendor/gm-sdk-3cef9ec65caa.tgz is still referenced by another dependency; kept');
   });
 
   it('reports when there is nothing to switch', async () => {
     const dir = await instanceRepo();
-    await applySwitch(await planSwitch({ dir, profile: github, versions, coreSha: SHA }));
-    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    await applySwitch(await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA }));
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     expect(plan.dependencies).toEqual([]);
   });
 });
@@ -155,7 +155,7 @@ describe('planSwitch', () => {
 describe('applySwitch', () => {
   it('writes the manifests and removes the tarballs the plan lists', async () => {
     const dir = await instanceRepo();
-    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    const plan = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     await applySwitch(plan);
 
     const manifest = JSON.parse(await readFile(join(dir, 'games/example-2d/package.json'), 'utf8')) as {
@@ -172,8 +172,8 @@ describe('applySwitch', () => {
 
   it('is idempotent: a second switch plans nothing', async () => {
     const dir = await instanceRepo();
-    await applySwitch(await planSwitch({ dir, profile: github, versions, coreSha: SHA }));
-    const second = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    await applySwitch(await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA }));
+    const second = await planSwitch({ dir, profile: npmjs, versions, coreSha: SHA });
     expect(second.dependencies).toEqual([]);
     expect(second.notes).toContain(
       'nothing to switch: no core dependency uses a local protocol and .npmrc already names the registry',

@@ -27,6 +27,8 @@ export type ReleasePlan = {
   readonly names: ReadonlyMap<string, string>;
   readonly versions: ReadonlyMap<string, string>;
   readonly entries: readonly ReleaseEntry[];
+  /** The core repository the tarballs point at, when one was known. */
+  readonly repository?: string;
 };
 
 export type PlanInput = {
@@ -37,6 +39,8 @@ export type PlanInput = {
   readonly stagingRoot: string;
   readonly outDir: string;
   readonly run: RunCommand;
+  /** `https://github.com/<owner>/<repo>`; the tarball's `repository.url` is derived from it. */
+  readonly repository?: string;
 };
 
 /** `sha512-<base64>`, the integrity form a registry reports in `dist.integrity`. */
@@ -53,7 +57,7 @@ export function packumentUrl(profile: RegistryProfile, name: string): string {
  * what a dry run prints and what a real run then publishes in the same order.
  */
 export async function planRelease(input: PlanInput): Promise<ReleasePlan> {
-  const { workspace, order, profile, coreSha, stagingRoot, outDir, run } = input;
+  const { workspace, order, profile, coreSha, stagingRoot, outDir, run, repository } = input;
   shortCoreSha(coreSha);
 
   const names = destinationNames(order, profile);
@@ -75,7 +79,7 @@ export async function planRelease(input: PlanInput): Promise<ReleasePlan> {
   for (const source of order) {
     const pkg = workspace.packages.get(source);
     if (pkg === undefined) throw new ReleaseError(`${source} is not a workspace package`);
-    const staged = await stagePackage({ pkg, profile, names, versions, stagingRoot });
+    const staged = await stagePackage({ pkg, profile, names, versions, stagingRoot, repository });
     const tarball = await packTarball({ dir: staged.dir, outDir, run });
     const bytes = await readFile(tarball);
     entries.push({
@@ -90,7 +94,7 @@ export async function planRelease(input: PlanInput): Promise<ReleasePlan> {
     });
   }
 
-  return { coreSha: coreSha.toLowerCase(), profile, names, versions, entries };
+  return { coreSha: coreSha.toLowerCase(), profile, names, versions, entries, repository };
 }
 
 export type PublishOutcome = {
@@ -107,12 +111,15 @@ type Packument = { readonly versions?: Readonly<Record<string, PackumentVersion>
 export async function readPublished(args: {
   profile: RegistryProfile;
   name: string;
-  token: string;
+  /** Omitted for a public package: the registry answers an anonymous read. */
+  token?: string;
   fetchImpl?: typeof fetch;
   timeoutMs?: number;
 }): Promise<Readonly<Record<string, PackumentVersion>>> {
+  const headers: Record<string, string> = { accept: 'application/json' };
+  if (args.token !== undefined && args.token !== '') headers.authorization = `Bearer ${args.token}`;
   const response = await (args.fetchImpl ?? fetch)(packumentUrl(args.profile, args.name), {
-    headers: { authorization: `Bearer ${args.token}`, accept: 'application/json' },
+    headers,
     signal: AbortSignal.timeout(args.timeoutMs ?? 30_000),
   });
   if (response.status === 404) return {};
@@ -128,20 +135,34 @@ export async function readPublished(args: {
  * re-run after a partial failure resumes; a version that exists with different bytes fails closed
  * rather than overwriting an immutable release. The first failure stops the run: a consumer is never
  * published when a package it imports failed.
+ *
+ * With no `token` the run publishes through npm OIDC trusted publishing: the npm CLI exchanges the
+ * CI provider's OIDC token for a short-lived credential itself, so no secret is written, passed or
+ * logged. A `token` (a host-local feed, or a first publish before a trusted publisher exists) is
+ * written to `authFile` and reaches npm through the environment, never through argv.
  */
 export async function publishPlan(args: {
   plan: ReleasePlan;
-  token: string;
   run: RunCommand;
-  authFile: string;
+  token?: string;
+  authFile?: string;
   fetchImpl?: typeof fetch;
   log?: (line: string) => void;
 }): Promise<PublishOutcome[]> {
-  const { plan, token, run, authFile, fetchImpl } = args;
+  const { plan, run, fetchImpl } = args;
   const log = args.log ?? (() => {});
-  if (token === '') throw new ReleaseError('a publish run needs a publisher token');
+  const token = args.token ?? '';
+  const authFile = args.authFile;
 
-  await writeFile(authFile, `${npmrcLines(plan.profile).join('\n')}\n`, { encoding: 'utf8', mode: 0o600 });
+  const env: Record<string, string> = {};
+  if (token !== '') {
+    if (authFile === undefined) throw new ReleaseError('a token publish needs an auth file');
+    await writeFile(authFile, `${npmrcLines(plan.profile).join('\n')}\n`, { encoding: 'utf8', mode: 0o600 });
+    env.NODE_AUTH_TOKEN = token;
+    env.NPM_CONFIG_USERCONFIG = authFile;
+  } else {
+    log('publishing with npm OIDC trusted publishing: no token');
+  }
 
   const outcomes: PublishOutcome[] = [];
   let blocked = false;
@@ -199,7 +220,7 @@ export async function publishPlan(args: {
         '--access',
         plan.profile.access,
       ],
-      { cwd: dirname(entry.tarball), env: { NODE_AUTH_TOKEN: token, NPM_CONFIG_USERCONFIG: authFile } },
+      { cwd: dirname(entry.tarball), env },
     );
     if (result.code !== 0) {
       outcomes.push({
@@ -216,11 +237,73 @@ export async function publishPlan(args: {
   return outcomes;
 }
 
+export type OidcCheck = {
+  readonly name: string;
+  readonly version: string;
+  readonly ok: boolean;
+  readonly detail: string;
+};
+
+/**
+ * Proves the trusted publisher before a real publish, without publishing anything.
+ *
+ * `npm publish --dry-run` still attempts the OIDC exchange but swallows a failure and exits 0
+ * (npm/cli#8525), so the exchange is asserted from the verbose log: a failure line fails the check,
+ * and so does the absence of any evidence that an exchange was attempted — otherwise a run that
+ * never reached authentication would certify a configuration it never exercised.
+ */
+export async function verifyOidc(args: {
+  plan: ReleasePlan;
+  run: RunCommand;
+  log?: (line: string) => void;
+}): Promise<OidcCheck[]> {
+  const { plan, run } = args;
+  const log = args.log ?? (() => {});
+  const checks: OidcCheck[] = [];
+  for (const entry of plan.entries) {
+    log(`verifying the trusted publisher for ${entry.name}@${entry.version}`);
+    const result = await run(
+      'npm',
+      [
+        'publish',
+        entry.tarball,
+        '--dry-run',
+        '--registry',
+        plan.profile.registry,
+        '--tag',
+        plan.profile.tag,
+        '--access',
+        plan.profile.access,
+        '--loglevel',
+        'verbose',
+      ],
+      { cwd: dirname(entry.tarball), env: {} },
+    );
+    const output = `${result.stdout}\n${result.stderr}`;
+    if (/Failed token exchange request/i.test(output)) {
+      checks.push({ name: entry.name, version: entry.version, ok: false, detail: 'the OIDC token exchange failed' });
+      continue;
+    }
+    if (!/oidc|trusted publish/i.test(output)) {
+      checks.push({
+        name: entry.name,
+        version: entry.version,
+        ok: false,
+        detail: 'no OIDC exchange was attempted, so this proved nothing',
+      });
+      continue;
+    }
+    checks.push({ name: entry.name, version: entry.version, ok: true, detail: 'the OIDC exchange succeeded' });
+  }
+  return checks;
+}
+
 /** The dry-run report: what would be published, in order, with no registry call. */
 export function describePlan(plan: ReleasePlan): string[] {
   const lines = [
     `core commit ${plan.coreSha}`,
     `registry ${plan.profile.registry} (scope ${plan.profile.scope}, access ${plan.profile.access}, tag ${plan.profile.tag})`,
+    ...(plan.repository === undefined ? [] : [`repository ${plan.repository} (tarball repository.url)`]),
     `${plan.entries.length} packages, leaves first:`,
   ];
   plan.entries.forEach((entry, index) => {

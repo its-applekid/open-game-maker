@@ -59,7 +59,7 @@ const versions = new Map([
   ['@ogm/iframe-bridge', '0.0.0-core.3cef9ec65caa'],
   ['@gm/sdk', '0.0.0-core.3cef9ec65caa'],
 ]);
-const github = registryProfile({ scope: '@its-owner' });
+const npmjs = registryProfile({ scope: '@its-owner' });
 
 function workspacePackage(dir: string, manifest: Manifest) {
   const built = buildWorkspace('/workspace', [{ dir, manifest }]);
@@ -93,15 +93,15 @@ describe('internalSpecifier', () => {
 describe('publishedManifest', () => {
   it('renames, versions and drops the fields an install must not run', () => {
     const pkg = workspacePackage('/workspace/packages/contracts', contracts);
-    const { manifest, files } = publishedManifest({ pkg, profile: github, names, versions });
+    const { manifest, files } = publishedManifest({ pkg, profile: npmjs, names, versions });
 
     expect(manifest.name).toBe('@its-owner/contracts');
     expect(manifest.version).toBe('0.0.0-core.3cef9ec65caa');
     expect(manifest.private).toBeUndefined();
     expect(manifest.scripts).toBeUndefined();
     expect(manifest.publishConfig).toEqual({
-      registry: 'https://npm.pkg.github.com',
-      access: 'restricted',
+      registry: 'https://registry.npmjs.org',
+      access: 'public',
       tag: 'core',
     });
     expect(manifest.files).toEqual(['bin', 'dist', 'fixtures', 'schemas']);
@@ -110,7 +110,7 @@ describe('publishedManifest', () => {
 
   it('rewrites workspace dependencies and peer dependencies to published specifiers', () => {
     const pkg = workspacePackage('/workspace/packages/sdk', sdk);
-    const { manifest } = publishedManifest({ pkg, profile: github, names, versions });
+    const { manifest } = publishedManifest({ pkg, profile: npmjs, names, versions });
 
     expect(manifest.dependencies).toEqual({
       '@ogm/contracts': 'npm:@its-owner/contracts@0.0.0-core.3cef9ec65caa',
@@ -125,8 +125,25 @@ describe('publishedManifest', () => {
 
   it('drops workspace devDependencies and keeps external ones', () => {
     const pkg = workspacePackage('/workspace/packages/contracts', contracts);
-    const { manifest } = publishedManifest({ pkg, profile: github, names, versions });
+    const { manifest } = publishedManifest({ pkg, profile: npmjs, names, versions });
     expect(manifest.devDependencies).toEqual({ 'json-schema-to-typescript': '16.0.0' });
+  });
+
+  it('writes repository.url only when the core repository is known', () => {
+    const pkg = workspacePackage('/workspace/packages/contracts', contracts);
+    const withRepository = publishedManifest({
+      pkg,
+      profile: npmjs,
+      names,
+      versions,
+      repository: 'https://github.com/its-owner/open-game-maker.git',
+    });
+    expect(withRepository.manifest.repository).toEqual({
+      type: 'git',
+      url: 'git+https://github.com/its-owner/open-game-maker.git',
+    });
+    const without = publishedManifest({ pkg, profile: npmjs, names, versions });
+    expect(without.manifest.repository).toBeUndefined();
   });
 
   it('refuses a package whose manifest exposes no dist directory', () => {
@@ -138,7 +155,7 @@ describe('publishedManifest', () => {
     expect(() =>
       publishedManifest({
         pkg,
-        profile: github,
+        profile: npmjs,
         names: new Map([['@gm/plain', '@its-owner/plain']]),
         versions: new Map([['@gm/plain', '1.0.0']]),
       }),
@@ -161,7 +178,7 @@ describe('stagePackage', () => {
 
     const staged = await stagePackage({
       pkg: workspacePackage(pkgDir, contracts),
-      profile: github,
+      profile: npmjs,
       names,
       versions,
       stagingRoot: join(dir, 'stage'),
@@ -181,7 +198,7 @@ describe('stagePackage', () => {
     await expect(
       stagePackage({
         pkg: workspacePackage(pkgDir, sdk),
-        profile: github,
+        profile: npmjs,
         names,
         versions,
         stagingRoot: join(dir, 'stage'),

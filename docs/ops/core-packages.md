@@ -7,6 +7,10 @@ The first instance game (the `open-games` repository, ticket #2 there) vendors r
 today. This page is how that stops being necessary: one decision, one workflow run, one pull request in the instance
 repository.
 
+The destination is decided (Kevin, 2026-11-06, on #545: "we use npm.js for all aiur packages, use that"): the **public
+npm registry**, `https://registry.npmjs.org`, publishing with **npm OIDC trusted publishing** so no npm token exists at
+all. The releases are public packages under one npm org scope.
+
 ## What already exists
 
 | Piece | Where | What it does |
@@ -31,58 +35,94 @@ Each release version is `<the package's manifest version>-core.<first 12 charact
 new versions, and an old version stays installable. A version that already exists is never overwritten: a re-run skips a
 package whose published bytes match and stops on one whose bytes differ.
 
-## The decision (#490)
+## The destination and the scope
 
-Pick one destination and record it on #490. The workflow only needs inputs, so all three are the same command with
-different flags.
+| Field | Value | Why |
+| --- | --- | --- |
+| Registry | `https://registry.npmjs.org` | Kevin's decision on #545/#490. |
+| Access | `public` | The packages are already in this public repository; a game installed from an instance repo needs no npm credential. |
+| dist-tag | `core` | Consumers pin exact versions; the tag only matters for people installing by name. |
+| Scope | `@open-game-maker` | See the scope check below. |
 
-| Option | Registry | Scope | Who can install |
-| --- | --- | --- | --- |
-| **(a) GitHub Packages**, recommended | `https://npm.pkg.github.com` | `@<repository owner>` | Repositories with a read token; private or public per package visibility |
-| (b) Public npm | `https://registry.npmjs.org` | an npm scope the owner controls (`@gm`, `@ogm`, or one owned scope) | Everyone |
-| (c) A registry on the host | e.g. `http://<tailnet-host>:<port>` | `@gm` | Only machines that can reach the host — instance CI cannot today |
+### Which scope is free (checked 2026-11-06)
 
-GitHub Packages refuses a package whose scope is not the repository owner. With option (a) the releases therefore
-publish as `@<owner>/sdk`, `@<owner>/contracts`, and so on, and games keep importing `@gm/sdk` because the switch writes
-an `npm:` alias in the game's manifest (`"@gm/sdk": "npm:@<owner>/sdk@0.0.0-core.<sha12>"`). With options (b) and (c)
-the original names can stay when the registry accepts them, and the alias disappears.
+npm scopes are owned by an account or an org and are never released. `npm view` only proves that a *package name* is
+unpublished, not that its scope is unowned, so each candidate was checked against the registry's org lookup
+(`https://registry.npmjs.org/-/org/<scope>/user`, which answers `{"error":"Scope not found"}` for a name nobody owns):
+
+| Scope | Registry answer | Usable |
+| --- | --- | --- |
+| `@gm` | owned by another account | no |
+| `@ogm` | owned by another account | no |
+| `@aiur` | an existing org with no visible members or packages | risky |
+| `@open-game-maker` | `Scope not found` | **yes — recommended** |
+| `@open-game-maker-2000` | `Scope not found` | yes, fallback |
+
+`@gm` and `@ogm` are taken, so the releases cannot keep their source names. They publish under the destination scope
+with the basename kept — `@gm/sdk` → `@open-game-maker/sdk`, `@ogm/contracts` → `@open-game-maker/contracts` — and games
+keep importing `@gm/sdk` because the switch writes an `npm:` alias in the game's manifest
+(`"@gm/sdk": "npm:@open-game-maker/sdk@0.0.0-core.<sha12>"`). A different scope only changes the input.
 
 ## Steps to unblock
 
-Only Kevin does these. No agent creates the token, the secret, or the registry, and none of this is committed.
+Only Kevin does these. No agent creates the org, the trusted publisher or a token, and none of this is committed.
 
-1. **Choose the destination** on #490. Note the registry URL and scope it implies.
-2. **Create the publisher token** in the destination's own console and name it clearly, e.g.
-   `open-game-maker core release`:
-   - GitHub Packages: a fine-grained personal access token on the owning account with `read:packages` and
-     `write:packages` (no repository content permissions).
-   - Public npm: an automation token for the scope's owner.
-   - Host feed: whatever the feed's configuration requires; if it is unauthenticated, skip steps 2 and 3.
-3. **Store it as the repository secret `CORE_PACKAGES_PUBLISH_TOKEN`** on this repository (Settings → Secrets and
-   variables → Actions). Never paste it into an issue, a file, or a pull request.
-4. **Create the read-only token** for the instance repository's CI: a separate token with `read:packages` only, stored in
-   the instance repository as `CORE_PACKAGES_READ_TOKEN`. The read and publish credentials stay distinct so a game
-   build can never publish.
-5. **Run the workflow once as a dry run** (Actions → "publish core packages" → Run workflow, `dry_run` checked) and read
-   the printed plan. It names every package, its published name, version, files, size, and integrity, in publish order.
-6. **Publish**: run the same workflow with `dry_run` unchecked and `core_sha` set to the commit Open-Games pins in its
+1. **Create the npm org** on [npmjs.com](https://www.npmjs.com) → your avatar → Organizations → Create organization,
+   named `open-game-maker` (the scope becomes `@open-game-maker`). You must be an owner of it. This is the only account
+   action the release needs; there is no npm token to create, store or rotate.
+2. **Create each package's trusted publisher.** On npmjs.com → Packages → the package → Settings → Trusted Publisher →
+   Add trusted publisher → GitHub Actions, with:
+   - Organization or user: `<owner>` (the GitHub account that owns this repository)
+   - Repository: `open-game-maker`
+   - Workflow filename: `publish-core-packages.yml` (the filename only, no path; case-sensitive, `.yml` included)
+   - Environment name: leave empty unless you add a GitHub environment to the workflow
+   - Allowed actions: `npm publish`
+
+   The package page only exists once the name does. For the first release of a name that has never been published,
+   either publish that first version once from your own machine with a granular access token (delete the token right
+   afterwards) or use npm's trusted-publisher form for an unpublished package if your org's page offers it. Every
+   later version comes from the workflow with no token.
+
+   npm does **not** validate the configuration when you save it; a wrong repository or filename only shows up at publish
+   time. Each package needs its own entry, so this is six entries today: `sdk`, `contracts`, `iframe-bridge`,
+   `pack-kaykit`, `pack-limezu-modern`, `pack-smallscaleint`.
+
+   A new trusted publisher must complete its first successful publish within **2 days** or it expires and cannot be
+   edited — delete it and create a new one.
+3. **Run the workflow as a dry run** (Actions → "publish core packages" → Run workflow, `dry_run` checked, and
+   `verify_oidc` checked once step 2 is done). It prints the plan — every package, its published name, version, files,
+   size and integrity, in publish order — and with `verify_oidc` it also runs `npm publish --dry-run` per package and
+   reports whether the trusted publisher answered. Nothing is published either way.
+4. **Publish**: run the same workflow with `dry_run` unchecked and `core_sha` set to the commit Open-Games pins in its
    `vendor/core.json`. Leave `core_sha` empty only when the dispatched branch head *is* the pin.
-7. **Switch Open-Games in one pull request** (see below).
+5. **Tighten afterwards** (recommended, optional): on each package's Settings → Publishing access choose "Require
+   two-factor authentication and disallow tokens". Trusted publishers keep working; only long-lived tokens stop.
+6. **Switch Open-Games in one pull request** (see below).
 
 The equivalent commands, from a checkout of this repository after `pnpm install --frozen-lockfile && pnpm -r build`:
 
 ```
-# dry run: stages and packs everything, publishes nothing, needs no token
-node packages/core-release/dist/bin.js publish --root . --registry https://npm.pkg.github.com \
-  --scope "@<owner>" --core-sha <pin> --dry-run
+# dry run: stages and packs everything, publishes nothing, needs no credential
+node packages/core-release/dist/bin.js publish --root . --dry-run
 
-# publish: same command with --apply and CORE_PACKAGES_PUBLISH_TOKEN in the environment
-CORE_PACKAGES_PUBLISH_TOKEN=... node packages/core-release/dist/bin.js publish --root . \
-  --registry https://npm.pkg.github.com --scope "@<owner>" --core-sha <pin> --apply
+# prove the trusted publisher for every package; still publishes nothing
+node packages/core-release/dist/bin.js publish --root . --verify-oidc --dry-run
+
+# publish: same command with --apply. Run it in the workflow, not on a laptop: OIDC only works from CI.
+node packages/core-release/dist/bin.js publish --root . --core-sha <pin> --apply
 ```
 
-`--access restricted|public` (default `restricted`) sets package visibility. The dist-tag defaults to `core`; games pin
-exact versions, so the tag only matters for people installing by name.
+Registry, scope and access default to `https://registry.npmjs.org`, `@open-game-maker` and `public`; `--registry`,
+`--scope` and `--access public|restricted` override them. A publish run reads no token when the registry is npmjs.org:
+the npm CLI exchanges this workflow's OIDC token for a short-lived credential, which is why the publish job carries
+`id-token: write` and no secret. A token in `CORE_PACKAGES_PUBLISH_TOKEN` is only used for a registry without a trusted
+publisher. The tarballs set `repository.url` from `GITHUB_REPOSITORY`, because npm compares it with the repository the
+trusted publisher names.
+
+Two npm details the workflow already handles: npm must be 11.5.1 or newer for trusted publishing (the workflow asserts
+it), and `actions/setup-node` must not be given `registry-url` — that writes an empty `_authToken` into `.npmrc`, npm
+then believes auth is already configured, skips the exchange and fails with a misleading `ENEEDAUTH`
+(actions/setup-node#1551).
 
 ## Switching an instance repository (Open-Games)
 
@@ -92,31 +132,31 @@ points at any more. It keeps `vendor/core.json` (the pin `services/core-bump` ma
 source file.
 
 ```
-node packages/core-release/dist/bin.js switch --dir <instance-repo> --root . \
-  --registry https://npm.pkg.github.com --scope "@<owner>"        # dry run: prints the diff
-node packages/core-release/dist/bin.js switch --dir <instance-repo> --root . \
-  --registry https://npm.pkg.github.com --scope "@<owner>" --apply # writes it
+node packages/core-release/dist/bin.js switch --dir <instance-repo> --root .          # dry run: prints the diff
+node packages/core-release/dist/bin.js switch --dir <instance-repo> --root . --apply # writes it
 ```
 
-The `.npmrc` block the switch writes holds no secret:
+The `.npmrc` block the switch writes holds no secret — the release packages are public, so an install needs no
+credential:
 
 ```
-@<owner>:registry=https://npm.pkg.github.com
-//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}
+@open-game-maker:registry=https://registry.npmjs.org
+//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
-The instance repository's CI supplies `NODE_AUTH_TOKEN` from its own secret (`CORE_PACKAGES_READ_TOKEN`). If the
-repository's `.npmrc` says `offline=true`, the switch comments that line out and says so in the plan: a registry install
-cannot be offline.
+The token line is only consulted when something installs a private package; with only public packages present the
+install succeeds without `NODE_AUTH_TOKEN` set. If the repository's `.npmrc` says `offline=true`, the switch comments
+that line out and says so in the plan: a registry install cannot be offline.
 
 Review the diff the dry run prints, commit it as the one switch pull request, and let the instance repository's own
 checks gate the merge. The game's dependencies then install from the registry with lockfile integrity, and no tarball is
 carried in git.
 
-## What stays off until the decision
+## What stays off until the trusted publishers exist
 
 - No package is published, and no release is curated into the catalog (that is CP-01's own acceptance, after this
   preparation).
-- No token, secret, or credential is created or committed here.
-- The `gm new` scaffolding and the instance template keep their `workspace:*` dependencies until the destination is
-  chosen; #444 owns that scaffolding change.
+- No npm token, GitHub secret or credential is created or committed here. The only credential in play is the OIDC token
+  GitHub Actions issues for the workflow run itself.
+- The `gm new` scaffolding and the instance template keep their `workspace:*` dependencies until the org and its trusted
+  publishers exist; #444 owns that scaffolding change.
