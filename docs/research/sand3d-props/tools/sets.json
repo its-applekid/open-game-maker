@@ -1,0 +1,132 @@
+{
+  "well": {
+    "items": [
+      {
+        "path": "./assets/kaykit_barrel_large.glb",
+        "label": "KayKit barrel_large"
+      },
+      {
+        "path": "./assets/kaykit_column.glb",
+        "label": "KayKit column"
+      },
+      {
+        "path": "./assets/sand3d_well.glb",
+        "label": "sand3d well",
+        "kind": "ours"
+      },
+      {
+        "path": "./assets/kaykit_chest.glb",
+        "label": "KayKit chest"
+      }
+    ]
+  },
+  "hatch": {
+    "items": [
+      {
+        "path": "./assets/kaykit_floor_tile_small.glb",
+        "label": "KayKit floor_tile_small"
+      },
+      {
+        "path": "./assets/kaykit_box_small.glb",
+        "label": "KayKit box_small"
+      },
+      {
+        "path": "./assets/sand3d_hatch.glb",
+        "label": "sand3d cellar hatch",
+        "kind": "ours"
+      }
+    ]
+  },
+  "stall": {
+    "items": [
+      {
+        "path": "./assets/kaykit_table_long.glb",
+        "label": "KayKit table_long"
+      },
+      {
+        "path": "./assets/kaykit_banner_brown.glb",
+        "label": "KayKit banner_brown"
+      },
+      {
+        "path": "./assets/sand3d_stall.glb",
+        "label": "sand3d market stall",
+        "kind": "ours"
+      }
+    ]
+  },
+  "wellonly": {
+    "items": [
+      {
+        "path": "./assets/sand3d_well.glb",
+        "label": "sand3d well",
+        "kind": "ours"
+      }
+    ]
+  },
+  "kaykitonly": {
+    "items": [
+      {
+        "path": "./assets/kaykit_barrel_large.glb",
+        "label": "KayKit barrel_large"
+      }
+    ]
+  },
+  "set": {
+    "items": [
+      {
+        "path": "./assets/kaykit_barrel_large.glb",
+        "label": "KayKit barrel_large"
+      },
+      {
+        "path": "./assets/kaykit_chest.glb",
+        "label": "KayKit chest"
+      },
+      {
+        "path": "./assets/sand3d_well.glb",
+        "label": "sand3d well",
+        "kind": "ours"
+      },
+      {
+        "path": "./assets/sand3d_hatch.glb",
+        "label": "sand3d cellar hatch",
+        "kind": "ours"
+      },
+      {
+        "path": "./assets/kaykit_table_long.glb",
+        "label": "KayKit table_long"
+      },
+      {
+        "path": "./assets/sand3d_stall.glb",
+        "label": "sand3d market stall",
+        "kind": "ours"
+      },
+      {
+        "path": "./assets/kaykit_floor_tile_small.glb",
+        "label": "KayKit floor_tile_small"
+      },
+      {
+        "path": "./assets/kaykit_box_small.glb",
+        "label": "KayKit box_small"
+      }
+    ]
+  },
+  "props": {
+    "items": [
+      {
+        "path": "./assets/sand3d_well.glb",
+        "label": "sand3d well",
+        "kind": "ours"
+      },
+      {
+        "path": "./assets/sand3d_hatch.glb",
+        "label": "sand3d cellar hatch",
+        "kind": "ours"
+      },
+      {
+        "path": "./assets/sand3d_stall.glb",
+        "label": "sand3d market stall",
+        "kind": "ours"
+      }
+    ]
+  }
+}
