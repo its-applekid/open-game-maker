@@ -58,7 +58,7 @@ export type FeedDeps = {
 
 export type RunningDaemon = { slug: string; client: AiurClient };
 
-// `unit` is `ogm-aiur@<slug>.service` (fleet/systemctl.ts).
+// `unit` is `ogm-aiur@<slug>.service` (fleet/systemctl.ts); the row's own slug is the fallback, never the repository.
 export function daemonSlug(daemon: GameDaemon): string {
-  return /^ogm-aiur@(.+)\.service$/.exec(daemon.unit)?.[1] ?? daemon.repo;
+  return /^ogm-aiur@(.+)\.service$/.exec(daemon.unit)?.[1] ?? daemon.slug;
 }
