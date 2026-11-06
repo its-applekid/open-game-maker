@@ -7,7 +7,8 @@ export type JobEvent = 'admit' | 'file' | 'run' | 'pause' | 'resume' | 'finish' 
 const TRANSITIONS: Record<JobState, Partial<Record<JobEvent, JobState>>> = {
   queued: { admit: 'admitted', cancel: 'cancelled' },
   admitted: { file: 'filed', fail: 'failed', cancel: 'cancelled' },
-  filed: { run: 'running', fail: 'failed', cancel: 'cancelled' },
+  // A New Game request's obligation ends at its parent issue: nothing in this system runs it, so filing finishes it.
+  filed: { run: 'running', finish: 'done', fail: 'failed', cancel: 'cancelled' },
   running: { pause: 'paused_budget', finish: 'done', fail: 'failed', cancel: 'cancelled' },
   paused_budget: { resume: 'running', fail: 'failed', cancel: 'cancelled' },
   done: {},

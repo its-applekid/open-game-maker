@@ -7,6 +7,7 @@ import { isDaemonLabel } from '@ogm/game-repo-template';
 
 import { OutcomeUnknownError } from '../github/issues.js';
 import { scopeTicketForJob } from '../scope/file.js';
+import { PARENT_LABEL, PARENT_TICKET_KEY, parentIssueFor, type ParentIssue } from './parent.js';
 import { renderIssue, renderRepairIssue, usdFromMicro } from './render.js';
 import type { FileResult, IntakeAlert, IntakeDeps } from './types.js';
 
@@ -58,6 +59,12 @@ export function createIntake(deps: IntakeDeps) {
     const fleetResult = await deps.fleet.ensureDaemon({ slug: gameSlug, repo }, fleetKind(found.job.kind));
     if (fleetResult.status === 'waiting_capacity') return { deferred: 'capacity' };
     if (fleetResult.status === 'stopped') return failPreflight(found.job, fleetResult.reasons);
+
+    if (found.job.kind === 'new_game') {
+      const parent = parentIssueFor(deps.db, found.job, found.game);
+      if (parent === null) return failPreflight(found.job, ['new game request is missing its title']);
+      return fileParent(repo, found.job, parent);
+    }
 
     const plan = JobPlan.parse(JSON.parse(found.job.plan));
     let tickets: JobPlan['tickets'];
@@ -241,6 +248,76 @@ export function createIntake(deps: IntakeDeps) {
       state: 'filed',
     });
     return { filed: true, issues: issueNumbers };
+  }
+
+  // A New Game request files one parent issue and hands it to the Executor. The parent carries no dispatch label and
+  // gets no spend cap and no aiur nudge, so no worker claims it; the Executor reads it and creates the Build Order
+  // children with gm-new-game-plan. The request's own obligation ends at filing, so the job completes and releases
+  // its slot instead of holding the new_game slot for a build nobody in this system owns.
+  async function fileParent(
+    repo: string,
+    job: typeof schema.jobs.$inferSelect,
+    parent: ParentIssue,
+  ): Promise<FileResult> {
+    try {
+      await deps.issues.ensureLabel(repo, PARENT_LABEL, '0e8a16', 'new game request for the Executor');
+      await deps.issues.ensureLabel(repo, `feature:gm-${job.id}`, '0e8a16', 'OGM job');
+    } catch (error) {
+      await notify({ code: 'github_failed', jobId: job.id, reasons: [message(error)] });
+      return { deferred: 'github' };
+    }
+
+    let row = deps.db
+      .select()
+      .from(schema.jobTickets)
+      .where(and(eq(schema.jobTickets.jobId, job.id), eq(schema.jobTickets.key, PARENT_TICKET_KEY)))
+      .get();
+    if (!row) {
+      let issue: { number: number } | null;
+      try {
+        issue = await deps.issues.findByMarkers(repo, job.id, PARENT_TICKET_KEY);
+        if (!issue) {
+          try {
+            issue = await deps.issues.create(repo, { title: parent.title, body: parent.body, labels: parent.labels });
+          } catch (error) {
+            if (!(error instanceof OutcomeUnknownError)) throw error;
+            issue = await deps.issues.findByMarkers(repo, job.id, PARENT_TICKET_KEY);
+            if (!issue) {
+              await notify({ code: 'github_failed', jobId: job.id, reasons: [error.message] });
+              return { deferred: 'github' };
+            }
+          }
+        }
+      } catch (error) {
+        await notify({ code: 'github_failed', jobId: job.id, reasons: [message(error)] });
+        return { deferred: 'github' };
+      }
+      if (!issue) return { deferred: 'github' };
+      deps.db
+        .insert(schema.jobTickets)
+        .values({ jobId: job.id, key: PARENT_TICKET_KEY, issueNumber: issue.number, repo, sig: parent.sig })
+        .run();
+      row = deps.db
+        .select()
+        .from(schema.jobTickets)
+        .where(and(eq(schema.jobTickets.jobId, job.id), eq(schema.jobTickets.key, PARENT_TICKET_KEY)))
+        .get()!;
+    }
+
+    const updatedAt = now().toISOString();
+    deps.db
+      .update(schema.jobs)
+      .set({ state: 'filed', aiurRepo: repo, aiurIssueNumber: row.issueNumber, updatedAt })
+      .where(eq(schema.jobs.id, job.id))
+      .run();
+    deps.onJobChanged?.({
+      jobId: job.id,
+      gameId: job.gameId,
+      familyId: job.familyId,
+      state: 'filed',
+    });
+    deps.completeJob?.(job.id);
+    return { filed: true, issues: [row.issueNumber] };
   }
 
   async function failPreflight(
