@@ -161,6 +161,10 @@
       "environment": {
         "enum": ["dungeon", "crypt", "cave", "mine", "sewer", "castle", "temple", "ruins", "graveyard", "camp", "town", "village", "city", "interior", "tavern", "shop", "house", "farm", "forest", "jungle", "grassland", "mountain", "snow", "desert", "swamp", "beach", "ocean", "underwater", "sky", "space", "space-station", "industrial", "road", "arena", "neutral"]
       },
+      "mapFeature": {
+        "enum": ["pillar", "water", "pit", "chasm", "lava", "altar", "statue", "throne", "tomb", "sarcophagus", "trap", "treasure", "chest", "fireplace", "well", "fountain", "bed", "table", "bookshelf", "barrel", "crate", "rubble", "stalagmite", "cage", "portal", "lever", "light-source", "road", "bridge", "stairs", "door", "spawn-hint", "exit-hint"],
+        "description": "The map-layout-spec feature types plus the drawn structures a builder asks for by name (road, bridge, stairs, door)."
+      },
       "setting": {
         "enum": ["fantasy", "medieval", "sci-fi", "modern", "post-apocalyptic", "prehistoric", "western", "pirate", "horror", "steampunk", "toy", "holiday", "sports", "abstract", "none"]
       },
@@ -651,6 +655,33 @@
             "id": { "$ref": "#/$defs/layoutSpecId" },
             "status": { "enum": ["pending", "extracted", "low-confidence", "image-only"] },
             "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+          },
+          "additionalProperties": false
+        },
+        "layout": {
+          "type": "object",
+          "description": "C3 §12 layout facts, so a map is chosen by structure and not by text: the graph counts come from a validated layout spec (code recomputes them) and grid, biome, features and levels from code measurements on the export. An absent field is unknown, never zero.",
+          "properties": {
+            "rooms": { "type": "integer", "minimum": 0, "description": "Rooms in the layout spec; code counts them from the graph." },
+            "connections": { "type": "integer", "minimum": 0 },
+            "entrances": { "type": "integer", "minimum": 0 },
+            "dead_ends": { "type": "integer", "minimum": 0 },
+            "loops": { "type": "integer", "minimum": 0, "description": "Independent cycles: connections - rooms + components, with outside counted as a node." },
+            "secrets": { "type": "integer", "minimum": 0 },
+            "levels": { "type": "integer", "minimum": 1, "description": "Floors of this place the image shows, from the export title and its level links." },
+            "longest_path_rooms": { "type": "integer", "minimum": 0 },
+            "size_class": { "enum": ["tiny", "small", "medium", "large", "huge"], "description": "Specs by room count: small <= 5, medium 6-15, large 16-40, huge > 40." },
+            "flow": { "enum": ["linear", "branching", "hub-and-spoke", "loop", "maze", "open"] },
+            "biome": { "$ref": "#/$defs/vocab/environment", "description": "The one place the map shows, from the map type and the judged environments." },
+            "features": { "type": "array", "uniqueItems": true, "items": { "$ref": "#/$defs/vocab/mapFeature" }, "description": "What is drawn that a builder asks for by name: water, roads, stairs, blocking props." },
+            "grid": {
+              "type": "object",
+              "properties": {
+                "type": { "enum": ["square", "hex", "none"] }, "cols": { "type": "integer", "minimum": 1 },
+                "rows": { "type": "integer", "minimum": 1 }, "cell_px": { "type": "number", "exclusiveMinimum": 0 }
+              },
+              "additionalProperties": false
+            }
           },
           "additionalProperties": false
         }

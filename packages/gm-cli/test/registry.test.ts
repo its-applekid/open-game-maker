@@ -56,6 +56,7 @@ describe('command registry', () => {
       'checkpoint open',
       'checkpoint wait',
       'docs pattern',
+      'maps index',
       'maps search',
       'new',
       'packs blocklist',
