@@ -225,6 +225,34 @@ The same `vendor/core.json` pin supplies the version of each core package when a
 a registry instead of vendoring tarballs. Publishing is prepared but switched off: see
 [core-packages.md](core-packages.md).
 
+## Prove the instance monorepo flow
+
+Every game in an instance lives in the one repository named by `OGM_INSTANCE_REPO`: `games/<slug>/` per game and
+`packages/` for components the instance's games share. No repository is created per game. This run proves that flow on
+the deployed app from a phone, so it happens after a deploy and needs the operator's sign-in. It covers acceptance
+checks 3, 4, 8, 12 and 18 in [acceptance.md](../plans/ogm-v1-build/acceptance.md); record the results in the pull
+request, since the planning pack is frozen.
+
+1. Sign in at `<app-origin>/login`: the age screen, then passkey or magic link, then the games picker.
+2. New game: complete "Talk it through" until the job is admitted. Note the game's slug.
+3. In a clone of the instance repository, confirm `games/<slug>/` is on `main`, and that creating the game added no
+   repository to the account.
+4. Open the game and ask build chat for a change. When the build is tested, confirm the edit landed as commits under
+   `games/<slug>/` and that nothing outside that folder changed.
+5. Play the draft on the phone and tap once so sound starts.
+6. Publish from Releases; confirm the `<slug>/v<version>` tag and the pointer move.
+7. Roll back to the previous version; confirm a second release and its own `<slug>/v<version>` tag.
+
+Save the phone screen recording under `~/.local/share/ogm/acceptance/<date>/` with a `SHA256SUMS`, as
+[acceptance.md](../plans/ogm-v1-build/acceptance.md) describes. The helper reads the folder, the commits and the release
+tags a run left in that clone and prints one record to paste into the pull request; it needs no token and writes nothing
+to the repository. Its exit code names the step that did not land: 2 no `games/<slug>/`, 3 no commits under the folder,
+4 no `<slug>/v*` release tag, and 5 fewer than two releases with `--expect-rollback`.
+
+```
+ops/bin/ogm-proof --repo <clone> --slug <slug> --expect-rollback [--out <dir>]
+```
+
 ## Disk and journal
 
 `ogm-status` shows the sizes of `~/.local/share/ogm`, `~/.local/state/ogm`, `~/.aiur`, `~/.local/share/aiur` and the

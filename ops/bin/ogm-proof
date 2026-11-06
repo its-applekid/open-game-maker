@@ -1,0 +1,130 @@
+#!/usr/bin/env bash
+# OGM instance-monorepo proof evidence: read one game's folder, its commits and its release tags out of a clone of the
+# instance repository, so a proof run's evidence is one command and one record. Read-only: no network, no tokens, no
+# git writes. usage: ogm-proof --repo <clone> --slug <game-slug> [--ref <ref>] [--expect-rollback] [--out <dir>]
+# exit 0 when the folder, its commits and its releases are all present; 2 no games/<slug>/ on the ref;
+# 3 no commits under the folder; 4 no <slug>/v* release tag; 5 --expect-rollback and fewer than two releases;
+# 64 bad usage. The record names the repository's folder, commits and tags only, never the clone path, an owner
+# name or a host name, so it can be pasted into a pull request as is.
+
+set -uo pipefail
+
+usage() {
+  printf 'usage: ogm-proof --repo <clone> --slug <game-slug> [--ref <ref>] [--expect-rollback] [--out <dir>]\n' >&2
+  exit 64
+}
+
+repo=
+slug=
+ref=
+rollback=0
+out=
+while (($#)); do
+  case $1 in
+    --repo)
+      repo=${2:-}
+      shift 2 || usage
+      ;;
+    --slug)
+      slug=${2:-}
+      shift 2 || usage
+      ;;
+    --ref)
+      ref=${2:-}
+      shift 2 || usage
+      ;;
+    --expect-rollback)
+      rollback=1
+      shift
+      ;;
+    --out)
+      out=${2:-}
+      shift 2 || usage
+      ;;
+    *) usage ;;
+  esac
+done
+[[ -n $repo && -n $slug ]] || usage
+# A game's folder name is its slug, so it may not carry a slash or any pathspec magic.
+[[ $slug =~ ^[a-z0-9][a-z0-9-]*$ ]] || {
+  printf 'ogm-proof: --slug must be a lowercase folder name: %s\n' "$slug" >&2
+  exit 64
+}
+git -C "$repo" rev-parse --git-dir > /dev/null 2>&1 || {
+  printf 'ogm-proof: --repo is not a git clone\n' >&2
+  exit 64
+}
+if [[ -z $ref ]]; then
+  for candidate in origin/main main HEAD; do
+    if git -C "$repo" rev-parse --verify --quiet "$candidate^{commit}" > /dev/null; then
+      ref=$candidate
+      break
+    fi
+  done
+  [[ -n $ref ]] || {
+    printf 'ogm-proof: the clone has no origin/main, main or HEAD commit\n' >&2
+    exit 64
+  }
+fi
+git -C "$repo" rev-parse --verify --quiet "$ref^{commit}" > /dev/null || {
+  printf 'ogm-proof: unknown ref: %s\n' "$ref" >&2
+  exit 64
+}
+head_sha=$(git -C "$repo" rev-parse "$ref^{commit}")
+folder="games/$slug"
+
+files=$(git -C "$repo" ls-tree -r --name-only "$head_sha" -- "$folder")
+[[ $? -eq 0 ]] || {
+  printf 'ogm-proof: git could not read %s in the clone\n' "$head_sha" >&2
+  exit 64
+}
+files=$(printf '%s\n' "$files" | sort)
+if [[ -z $files ]]; then
+  printf 'ogm-proof: %s is not on %s (%s)\n' "$folder" "$ref" "${head_sha:0:12}" >&2
+  exit 2
+fi
+commits=$(git -C "$repo" log --format='%H%x09%aI%x09%s' "$head_sha" -- "$folder")
+if [[ -z $commits ]]; then
+  printf 'ogm-proof: no commits touch %s\n' "$folder" >&2
+  exit 3
+fi
+releases=
+while read -r tag; do
+  [[ -n $tag ]] || continue
+  sha=$(git -C "$repo" rev-parse --verify --quiet "$tag^{commit}") || continue
+  releases+="$tag	$sha	$(git -C "$repo" log -1 --format='%s' "$sha")"$'\n'
+done < <(git -C "$repo" tag --list "$slug/v*" --sort=creatordate)
+releases=${releases%$'\n'}
+if [[ -z $releases ]]; then
+  printf 'ogm-proof: no %s/v* release tag yet\n' "$slug" >&2
+  exit 4
+fi
+release_count=$(printf '%s\n' "$releases" | grep -c .)
+if ((rollback)) && ((release_count < 2)); then
+  printf 'ogm-proof: --expect-rollback needs a publish and a rollback release; found %s\n' "$release_count" >&2
+  exit 5
+fi
+
+record=$(mktemp)
+trap 'rm -f -- "$record"' EXIT
+{
+  printf '# Proof evidence: %s\n\n' "$slug"
+  printf 'Repository: the instance repository named by `OGM_INSTANCE_REPO`. '
+  printf 'Ref: `%s` at `%s`.\n\n' "$ref" "$head_sha"
+  printf '## games/%s/ on the ref\n\n```text\n%s\n```\n\n' "$slug" "$files"
+  printf '## Commits that touched games/%s/\n\n' "$slug"
+  while IFS=$'\t' read -r sha date subject; do
+    printf -- '- `%s` %s %s\n' "${sha:0:12}" "$date" "$subject"
+  done <<< "$commits"
+  printf '\n## Release tags\n\n'
+  while IFS=$'\t' read -r tag sha subject; do
+    printf -- '- `%s` at `%s` %s\n' "$tag" "${sha:0:12}" "$subject"
+  done <<< "$releases"
+  printf '\nReleases: %s. Commits: %s.\n' "$release_count" "$(printf '%s\n' "$commits" | grep -c .)"
+} > "$record"
+cat -- "$record"
+if [[ -n $out ]]; then
+  mkdir -p "$out"
+  cp -- "$record" "$out/proof-$slug.md"
+  printf 'wrote %s/proof-%s.md\n' "$out" "$slug"
+fi
