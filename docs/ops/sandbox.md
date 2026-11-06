@@ -106,8 +106,8 @@ Agent commands have no network, so builds install only from a pnpm store seeded 
 ```
 bash scripts/sandbox/seed-store.sh                         # every templates/game-*/pnpm-lock.yaml (+ packages/sdk)
 bash scripts/sandbox/seed-store.sh three@0.181.0           # add single packages (exact versions)
-bash scripts/sandbox/seed-store.sh --register <game-dir>   # once per game directory, before its first install
-bash scripts/sandbox/seed-store.sh --unregister <game-dir> # when the game directory is deleted
+bash scripts/sandbox/seed-store.sh --register <instance-repo>   # before the workspace's first install
+bash scripts/sandbox/seed-store.sh --unregister <instance-repo> # when the instance repository is deleted
 ```
 
 The store is `~/.local/share/ogm/pnpm-store` (`OGM_PNPM_STORE` overrides it). It is readable inside the sandbox and
@@ -122,12 +122,12 @@ offline=true
 prefer-offline=true
 ```
 
-and `gm new` and the build skill run `pnpm install --offline` in the game directory.
+and the instance setup and build flow run `pnpm install --offline` from the repository root after `gm new` writes a
+game under `games/<game-slug>/`.
 
 `--register` exists because pnpm 10 writes a link to every project it installs into `<store>/projects`, and the
-store is read-only inside the sandbox, so a first install fails with `EROFS`. Whatever creates a game directory on
-the host (the daemon's workspace hook or `gm new`'s host side) registers it first; pnpm then finds the link and
-leaves the store untouched.
+store is read-only inside the sandbox, so a first install fails with `EROFS`. Whatever creates the instance repository
+on the host registers the workspace root first; pnpm then finds the link and leaves the store untouched.
 
 ## New dependency request
 

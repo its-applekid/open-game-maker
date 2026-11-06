@@ -3,15 +3,26 @@
 `gm` is the offline-safe command line used inside Game Maker repositories. Run `gm help` for the installed command
 list and `gm help <command>` for flags.
 
-## Create a game repository
+## Initialize an instance repository
 
 ```text
-gm new <game-2d|game-3d|game-multiplayer> <dir> [--family <id>] [--set <id>] [--pov <id>]
+gm instance init <dir>
 ```
 
-The destination must be empty. The command copies the scaffold-only engine template, records the creation choices in
+The destination must be empty. The command creates one pnpm workspace with `games/*` and `packages/*`, root scripts,
+asset-reference-only ignore rules, and CI that typechecks, tests, and builds the packages changed by a pull request.
+
+## Add a game
+
+```text
+gm new <game-2d|game-3d|game-multiplayer> <slug> [--family <id>] [--set <id>] [--pov <id>]
+```
+
+Run the command inside an initialized instance repository. It creates `games/<slug>/`, gives the game a unique
+`@game/<slug>` workspace package name, copies the scaffold-only engine template, records the creation choices in
 `gm.lock.json`, writes `AGENTS.md`, and installs the committed skill layout and `skills.lock`. It does not install
-packages or add game entities. Install afterward with `pnpm install --offline --frozen-lockfile`.
+packages or add game entities. Install afterward from the instance repository with `pnpm install --offline`; that
+refreshes the instance `pnpm-lock.yaml`, so commit the result because CI installs with `--frozen-lockfile`.
 
 `--family` must name a family id from `packages/asset-cards/data/style-families.json`, the registry `gm assets search`
 reads. A set id (for example `limezu-modern`) is refused with its family named; sets stay nested under their family.

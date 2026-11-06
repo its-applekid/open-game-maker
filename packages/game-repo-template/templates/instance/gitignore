@@ -1,0 +1,21 @@
+node_modules/
+.pnpm-store/
+.gm/
+dist/
+
+# D-ASSETS-REFERENCE: asset bytes stay in the instance asset library.
+*.aac
+*.flac
+*.gif
+*.glb
+*.gltf
+*.jpeg
+*.jpg
+*.mp3
+*.mp4
+*.ogg
+*.png
+*.wav
+*.webm
+*.webp
+!**/assets.lock.json

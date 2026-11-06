@@ -1,0 +1,49 @@
+name: ci
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  required:
+    name: required
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: corepack enable
+      - run: pnpm install --frozen-lockfile
+      - name: Typecheck changed packages
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            pnpm --filter "...[$base]" --if-present run typecheck
+          else
+            pnpm -r --if-present run typecheck
+          fi
+      - name: Test changed packages
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            pnpm --filter "...[$base]" --if-present run test
+          else
+            pnpm -r --if-present run test
+          fi
+      - name: Build changed packages
+        run: |
+          base="${{ github.event.pull_request.base.sha }}"
+          if [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            pnpm --filter "...[$base]" --if-present run build
+          else
+            pnpm -r --if-present run build
+          fi
