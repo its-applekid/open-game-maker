@@ -73,7 +73,7 @@ function rewrittenManifest(
   text: string,
   path: string,
   args: { profile: RegistryProfile; versions: ReadonlyMap<string, string>; dir: string },
-): { after: string; edits: ManifestEdit[]; tarballs: string[] } {
+): { after: string; edits: ManifestEdit[]; tarballs: string[]; local: string[] } {
   const parsed: unknown = JSON.parse(text);
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new ReleaseError(`${relative(args.dir, path)} is not a JSON object`);
@@ -81,6 +81,7 @@ function rewrittenManifest(
   const manifest = parsed as Record<string, unknown>;
   const edits: ManifestEdit[] = [];
   const tarballs: string[] = [];
+  const local: string[] = [];
 
   for (const section of DEPENDENCY_SECTIONS) {
     const block = manifest[section];
@@ -88,13 +89,15 @@ function rewrittenManifest(
     const dependencies = block as Record<string, string>;
     for (const [dependency, spec] of Object.entries(dependencies)) {
       const version = args.versions.get(dependency);
-      if (version === undefined || typeof spec !== 'string') continue;
-      if (!LOCAL_PROTOCOLS.some((protocol) => spec.startsWith(protocol))) continue;
-
-      if (spec.startsWith('file:')) {
-        const file = resolve(path, '..', spec.slice('file:'.length));
-        if (file.endsWith('.tgz') && file.startsWith(`${args.dir}${sep}`)) tarballs.push(file);
+      if (typeof spec !== 'string') continue;
+      const file = spec.startsWith('file:') ? resolve(path, '..', spec.slice('file:'.length)) : null;
+      const localTarball = file !== null && file.endsWith('.tgz') && file.startsWith(`${args.dir}${sep}`);
+      if (version === undefined || !LOCAL_PROTOCOLS.some((protocol) => spec.startsWith(protocol))) {
+        // A tarball another dependency still points at stays on disk.
+        if (localTarball) local.push(file);
+        continue;
       }
+      if (localTarball) tarballs.push(file);
       const destination = destinationName(dependency, args.profile);
       const next = destination === dependency ? version : `npm:${destination}@${version}`;
       dependencies[dependency] = next;
@@ -102,8 +105,8 @@ function rewrittenManifest(
     }
   }
 
-  if (edits.length === 0) return { after: text, edits, tarballs };
-  return { after: `${JSON.stringify(manifest, null, 2)}\n`, edits, tarballs };
+  if (edits.length === 0) return { after: text, edits, tarballs, local };
+  return { after: `${JSON.stringify(manifest, null, 2)}\n`, edits, tarballs, local };
 }
 
 function mergedNpmrc(
@@ -159,12 +162,14 @@ export async function planSwitch(input: SwitchPlanInput): Promise<SwitchPlan> {
   const edits: { path: string; before: string; after: string }[] = [];
   const dependencies: ManifestEdit[] = [];
   const tarballPaths = new Set<string>();
+  const stillReferenced = new Set<string>();
   const notes: string[] = [];
 
   for (const path of await manifestPaths(dir)) {
     const before = await readText(path);
     if (before === null) continue;
     const rewritten = rewrittenManifest(before, path, { profile, versions, dir });
+    for (const tarball of rewritten.local) stillReferenced.add(tarball);
     if (rewritten.after === before) continue;
     edits.push({ path: relative(dir, path), before, after: rewritten.after });
     dependencies.push(...rewritten.edits);
@@ -178,6 +183,10 @@ export async function planSwitch(input: SwitchPlanInput): Promise<SwitchPlan> {
 
   const deletions: string[] = [];
   for (const tarball of [...tarballPaths].sort()) {
+    if (stillReferenced.has(tarball)) {
+      notes.push(`${relative(dir, tarball)} is still referenced by another dependency; kept`);
+      continue;
+    }
     const exists = (await stat(tarball).catch(() => null)) !== null;
     deletions.push(relative(dir, tarball));
     if (!exists) notes.push(`${relative(dir, tarball)} was already absent`);

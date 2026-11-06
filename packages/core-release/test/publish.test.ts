@@ -126,7 +126,7 @@ describe('planRelease', () => {
       ],
     });
     expect(lines.join('\n')).toContain('@its-owner/sdk@0.0.0-core.3cef9ec65caa (from @gm/sdk)');
-    expect(lines.join('\n')).toContain('dry run: nothing was published');
+    expect(lines.join('\n')).toContain('1 packages, leaves first');
   });
 });
 

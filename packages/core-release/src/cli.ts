@@ -1,4 +1,4 @@
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, readFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { parseArgs } from 'node:util';
@@ -9,7 +9,7 @@ import { registryProfile, type RegistryProfile } from './profile.js';
 import { DEFAULT_ROOTS } from './roots.js';
 import { runCommand, type RunCommand } from './run.js';
 import { applySwitch, planSwitch } from './switch.js';
-import { coreVersion } from './version.js';
+import { coreVersion, readCorePin } from './version.js';
 
 const HELP = `core-release — prepare core package publishing (dry run by default)
 
@@ -101,9 +101,10 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
   const root = parsed.values.root ?? cwd;
   const workspace = await loadWorkspace(root, run);
   const order = releaseOrder(workspace, roots).map((pkg) => pkg.name);
-  const coreSha = parsed.values['core-sha'] ?? (await gitHead(root, run));
+  const explicitSha = parsed.values['core-sha'];
 
   if (command === 'publish') {
+    const coreSha = explicitSha ?? (await gitHead(root, run));
     const stagingRoot = await mkdtemp(join(tmpdir(), 'core-release-stage-'));
     const outDir = await mkdtemp(join(tmpdir(), 'core-release-pack-'));
     const plan = await planRelease({ workspace, order, profile, coreSha, stagingRoot, outDir, run });
@@ -129,6 +130,8 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
   if (command === 'switch') {
     const dir = parsed.values.dir;
     if (dir === undefined) throw new ReleaseError('switch needs --dir <instance-repo>');
+    // The default pin is the instance repository's own: the same commit its tarballs came from.
+    const coreSha = explicitSha ?? (await pinnedCommit(dir, root, run));
     const versions = versionsFrom(workspace, order, coreSha);
     const plan = await planSwitch({ dir, profile, versions, coreSha });
     log(
@@ -149,6 +152,16 @@ export async function main(argv: readonly string[], options: CliOptions = {}): P
   }
 
   throw new ReleaseError(`unknown command ${command}; run core-release --help`);
+}
+
+/** The instance repository's `vendor/core.json` pin, or the core checkout's head when it has none. */
+async function pinnedCommit(dir: string, root: string, run: RunCommand): Promise<string> {
+  const text = await readFile(join(dir, 'vendor', 'core.json'), 'utf8').catch(() => null);
+  if (text !== null) {
+    const read = readCorePin(text);
+    if (read.ok) return read.pin.sha;
+  }
+  return gitHead(root, run);
 }
 
 function versionsFrom(

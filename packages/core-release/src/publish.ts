@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readFile, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname } from 'node:path';
 
 import type { Workspace } from './graph.js';
 import { ReleaseError } from './graph.js';
@@ -109,9 +109,11 @@ export async function readPublished(args: {
   name: string;
   token: string;
   fetchImpl?: typeof fetch;
+  timeoutMs?: number;
 }): Promise<Readonly<Record<string, PackumentVersion>>> {
   const response = await (args.fetchImpl ?? fetch)(packumentUrl(args.profile, args.name), {
     headers: { authorization: `Bearer ${args.token}`, accept: 'application/json' },
+    signal: AbortSignal.timeout(args.timeoutMs ?? 30_000),
   });
   if (response.status === 404) return {};
   if (!response.ok) {
@@ -197,7 +199,7 @@ export async function publishPlan(args: {
         '--access',
         plan.profile.access,
       ],
-      { cwd: join(entry.tarball, '..'), env: { NODE_AUTH_TOKEN: token, NPM_CONFIG_USERCONFIG: authFile } },
+      { cwd: dirname(entry.tarball), env: { NODE_AUTH_TOKEN: token, NPM_CONFIG_USERCONFIG: authFile } },
     );
     if (result.code !== 0) {
       outcomes.push({
@@ -232,7 +234,6 @@ export function describePlan(plan: ReleasePlan): string[] {
       lines.push(`      dependencies: ${dependencies.map(([name, spec]) => `${name}@${spec}`).join(', ')}`);
     }
   });
-  lines.push('dry run: nothing was published');
   return lines;
 }
 

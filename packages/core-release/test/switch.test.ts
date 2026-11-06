@@ -132,6 +132,18 @@ describe('planSwitch', () => {
     expect(plan.npmrc.after).toContain('@its-owner:registry=https://npm.pkg.github.com');
   });
 
+  it('keeps a tarball another dependency still points at', async () => {
+    const dir = await instanceRepo();
+    const manifestPath = join(dir, 'games/example-2d/package.json');
+    const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as { dependencies: Record<string, string> };
+    manifest.dependencies['@ogm/vendored-thing'] = 'file:../../vendor/gm-sdk-3cef9ec65caa.tgz';
+    await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+
+    const plan = await planSwitch({ dir, profile: github, versions, coreSha: SHA });
+    expect(plan.deletions).not.toContain('vendor/gm-sdk-3cef9ec65caa.tgz');
+    expect(plan.notes).toContain('vendor/gm-sdk-3cef9ec65caa.tgz is still referenced by another dependency; kept');
+  });
+
   it('reports when there is nothing to switch', async () => {
     const dir = await instanceRepo();
     await applySwitch(await planSwitch({ dir, profile: github, versions, coreSha: SHA }));
