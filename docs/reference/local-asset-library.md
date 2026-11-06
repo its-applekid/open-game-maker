@@ -138,6 +138,39 @@ assets-local/packs/<pack-id>/
 - `blender_fbx_to_glb.py`: the Blender side of that conversion, run as `blender -b --factory-startup --python-exit-code 1 --python scripts/assets/blender_fbx_to_glb.py -- --input <file> --output <model.glb> [--scale 1.0] [--normalize] [--report <facts.json>]`. Blender runs on the operator's host: it is not a CI dependency, and nothing leaves the machine.
 - `apps/web/tools/thumbnail-scene.mjs`: fetches local vendor references, builds deterministic card-backed specimen sheets, and renders 2D still/living dioramas. See [Thumbnail scenes](thumbnail-scenes.md) for the private output layout and commands.
 
+## Audio: carding every library and finding it by mood
+
+Every music track and sound effect gets a C3 audio card, so a game build never has to listen to a file to choose it.
+One pass runs over the whole library, in this order:
+
+```sh
+.venv/bin/python -I scripts/py/audio/analyze.py --packs assets-local/packs       # measures + CLAP embeddings, one sidecar per file
+.venv/bin/python -I scripts/py/audio/build_audio_cards.py --packs assets-local/packs   # the cards, validated by the contracts validator
+gm packs index                                                                   # rebuilds index/cards.index.json
+```
+
+`analyze.py` writes a sidecar next to nothing that ships (beats, sections, loudness curve, loop points, embeddings) and
+`build_audio_cards.py` turns it into the card. Music cards carry `describe.moods`, `describe.genre`,
+`describe.instruments` and `describe.game_fit`; sound-effect cards carry `describe.objects` and `describe.materials`
+instead, never a genre. Both carry `audio.search_notes`, one line saying what the file is, and each collection card
+carries `collection_info.search_summary`, one line saying what the library holds and which moods it covers — the
+answer to "which pack has feet on gravel" before opening anything. Mood, genre, instrument and `game_fit` values are
+the enums in `packages/contracts/schemas/asset-card.schema.json`; `scripts/py/audio/test_labels.py` fails if the card
+step's label table and that schema drift apart.
+
+Search by the direction, not the pack:
+
+```sh
+gm assets search --kind audio --mood tense            # every tense track and effect, any pack
+gm assets search --kind audio --mood calm --genre orchestral
+gm assets facets --kind audio                          # moods, genres, instruments, game_fit counts
+gm assets info <id> --json                             # the whole card, including audio.search_notes
+```
+
+`--mood` is all-of (a card must carry every mood given) and `--genre` is any-of, and an unknown value is refused with
+the list of moods the cards use. Packs are purchased assets: analysis is local only, no model is trained on them, and
+Sonniss and Synty audio never leaves the host.
+
 ## Drive inbox (`scripts/drive-sync/`)
 
 `drive_sync.py` watches one shared Google Drive folder with a read-only service account. It waits until each drop (a top-level file or subfolder) has settled, downloads it into a fresh `inbox/quarantine/` folder, verifies MD5s, and tests archives for zip-slip, links, corruption and size limits without unpacking them. Then it writes `manifest.json` with strict default rights (`vision-input` only, private, no redistribution) and queues the drop. Setup and details are in `scripts/py/drive-sync/README.md`.

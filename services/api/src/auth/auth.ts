@@ -9,7 +9,7 @@ import { eq } from 'drizzle-orm';
 
 import { schema, type Db } from '@ogm/db';
 
-import { emailIsAllowed, normalizeEmail } from './access.js';
+import { normalizeEmail } from './access.js';
 import type { AuthEnv } from './env.js';
 import type { MailSender } from './mail.js';
 import { clientIp, createRateLimiter } from './rate-limit.js';
@@ -47,10 +47,11 @@ export function createAuth(deps: {
   db: Db;
   env: AuthEnv;
   mail: MailSender;
-  allowedEmails: ReadonlySet<string>;
+  // Read at call time: an address added or removed in the app changes the next request, not the next boot.
+  isAllowed: (email: string) => boolean;
   log: (line: Record<string, unknown>) => void;
 }): Auth {
-  const { db, env, mail, allowedEmails, log } = deps;
+  const { db, env, mail, isAllowed, log } = deps;
   const appOrigin = new URL(env.OGM_APP_ORIGIN).origin;
   const magicLinkPerIp = createRateLimiter(10);
   const magicLinkPerEmail = createRateLimiter(10);
@@ -107,11 +108,11 @@ export function createAuth(deps: {
           if (!magicLinkPerIp(clientIp(ctx.headers ?? new Headers())) || !magicLinkPerEmail(email)) {
             throw new APIError('TOO_MANY_REQUESTS', { message: 'too many sign-in links', code: 'RATE_LIMITED' });
           }
-          if (!emailIsAllowed(email, allowedEmails)) return ctx.json(MAGIC_LINK_RESPONSE);
+          if (!isAllowed(email)) return ctx.json(MAGIC_LINK_RESPONSE);
         }
         if (ctx.path.startsWith('/passkey/')) {
           const session = await getSessionFromCtx(ctx, { disableCookieCache: true, disableRefresh: true });
-          if (!session || !emailIsAllowed(session.user.email, allowedEmails)) throw signInNotAllowed();
+          if (!session || !isAllowed(session.user.email)) throw signInNotAllowed();
         }
       }),
       after: createAuthMiddleware(async (ctx) => {
@@ -124,7 +125,7 @@ export function createAuth(deps: {
       user: {
         create: {
           before: async (user) => {
-            if (!emailIsAllowed(user.email, allowedEmails)) throw signInNotAllowed();
+            if (!isAllowed(user.email)) throw signInNotAllowed();
             return { data: user };
           },
         },
@@ -137,7 +138,7 @@ export function createAuth(deps: {
               .from(schema.user)
               .where(eq(schema.user.id, session.userId))
               .get();
-            if (!user || !emailIsAllowed(user.email, allowedEmails)) throw signInNotAllowed();
+            if (!user || !isAllowed(user.email)) throw signInNotAllowed();
           },
         },
       },

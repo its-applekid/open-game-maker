@@ -1,4 +1,14 @@
-import type { ActionFrame, GameInstance, GameModule, Patch, SaveData } from '@ogm/contracts';
+import type {
+  ActionFrame,
+  GameInstance,
+  GameManifest,
+  GameModule,
+  MultiplayerHooksV2,
+  Patch,
+  SaveData,
+  Snapshot,
+} from '@ogm/contracts';
+import { toUnits } from '@gm/sdk/net';
 import { z } from 'zod';
 
 import gmManifest from '../gm.manifest.json' with { type: 'json' };
@@ -7,10 +17,15 @@ import {
   addPlayer,
   applyInput,
   applySnapshotState,
+  captureOwned,
+  captureShared,
   createSimulation,
+  digestSimulation,
   GROUND_Y,
   platformsFromDesign,
   removePlayer,
+  restoreOwned,
+  restoreShared,
   restoreSimulation,
   serializeSimulation,
   stepSimulation,
@@ -118,6 +133,7 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
     dimension: '2d',
     capabilities: gmManifest.capabilities,
     maxPlayers: gmManifest.maxPlayers,
+    net: gmManifest.net as GameManifest['net'],
     palette: {
       categories: [{ id: 'level', label: 'Level', kind: 'items' }],
       items: [{ prefab: 'platform', label: 'Platform', category: 'level' }],
@@ -161,6 +177,55 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
       },
     };
     activeContext = context;
+
+    const netHooks: MultiplayerHooksV2 = {
+      capture(scope: { seat?: number }): Snapshot {
+        if (scope.seat === undefined) {
+          return { tick: context.state.tick, state: captureShared(context.state) };
+        }
+        const owned = captureOwned(context.state, scope.seat);
+        return { tick: context.state.tick, state: owned };
+      },
+      restore(snapshot: Snapshot) {
+        /* Apply exactly the slice given: one seat's avatar, or the platform list. */
+        const slice = snapshot.state as { seat?: number; player?: unknown } | undefined;
+        if (!slice) return;
+        if (slice.seat !== undefined) restoreOwned(context.state, slice as never);
+        else if ('platforms' in slice) restoreShared(context.state, slice as never);
+      },
+      /**
+       * What `recipient` may receive from this client on this publish (netcode §5.2.1). This seat's avatar goes out
+       * as it is; every other recipient gets the same avatar without its private counter, which nobody may hold but
+       * the seat that counted it. The SDK calls this once per recipient and encodes exactly what it returns.
+       */
+      view(recipient: number): Snapshot {
+        const slice = captureOwned(context.state, context.localPlayerIndex);
+        if (!slice) return { tick: context.state.tick, state: { seat: context.localPlayerIndex } };
+        if (recipient === context.localPlayerIndex) return { tick: context.state.tick, state: slice };
+        const visible = structuredClone(slice.player) as Partial<typeof slice.player>;
+        delete visible.secret;
+        return { tick: context.state.tick, state: { seat: slice.seat, player: visible } };
+      },
+      digest() {
+        // No `secret` word: a private field in a shared sum would be an oracle for exactly that field (§3.6).
+        return digestSimulation(context.state, toUnits);
+      },
+      spawn(playerIndex, playerId) {
+        addPlayer(context.state, playerIndex, playerId);
+      },
+      despawn(playerId) {
+        removePlayer(context.state, playerId);
+      },
+      snapshot() {
+        return { tick: context.state.tick, state: serializeSimulation(context.state) };
+      },
+      applySnapshot(snapshot) {
+        applySnapshotState(context.state, snapshot.state as SerializedSimulation);
+      },
+      hud(playerIndex) {
+        return hud(context.state.players, playerIndex);
+      },
+    };
 
     return {
       pause() {
@@ -245,23 +310,7 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
         }
         return { ok: true };
       },
-      net: {
-        spawn(playerIndex, playerId) {
-          addPlayer(context.state, playerIndex, playerId);
-        },
-        despawn(playerId) {
-          removePlayer(context.state, playerId);
-        },
-        snapshot() {
-          return { tick: context.state.tick, state: serializeSimulation(context.state) };
-        },
-        applySnapshot(snapshot) {
-          applySnapshotState(context.state, snapshot.state as SerializedSimulation);
-        },
-        hud(playerIndex) {
-          return hud(context.state.players, playerIndex);
-        },
-      },
+      net: netHooks,
     };
   },
 };

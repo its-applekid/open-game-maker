@@ -249,6 +249,53 @@
     "saves": {
       "type": "boolean"
     },
+    "net": {
+      "type": "object",
+      "properties": {
+        "authority": {
+          "type": "string",
+          "enum": [
+            "per-seat",
+            "host",
+            "rollback"
+          ]
+        },
+        "maxSeats": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 8
+        },
+        "inputDelayTicks": {
+          "type": "integer",
+          "minimum": 2,
+          "maximum": 8
+        },
+        "seatStateHz": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "spectators": {
+          "type": "string",
+          "enum": [
+            "off",
+            "on"
+          ]
+        },
+        "forfeit": {
+          "type": "string",
+          "enum": [
+            "continue",
+            "skip",
+            "surrender"
+          ]
+        }
+      },
+      "required": [
+        "maxSeats"
+      ],
+      "additionalProperties": false
+    },
     "overrides": {
       "type": "object",
       "properties": {

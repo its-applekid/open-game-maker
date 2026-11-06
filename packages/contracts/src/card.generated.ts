@@ -276,6 +276,15 @@ export const assetCardMetaDefs: Record<string, object> = {
         "type": "integer",
         "minimum": 1
       },
+      "directions": {
+        "type": "array",
+        "minItems": 1,
+        "uniqueItems": true,
+        "description": "Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.",
+        "items": {
+          "$ref": "#/$defs/vocab.direction"
+        }
+      },
       "sheet": {
         "type": "object",
         "required": [
@@ -3518,6 +3527,15 @@ export interface Image {
 export interface Sprite {
   drawn_view: "topdown" | "side" | "iso" | "front" | "three-quarter" | "none";
   tile_px?: number;
+  /**
+   * Facing set of a directional sprite in sheet-row or per-direction-file order; its length is the facing count.
+   *
+   * @minItems 1
+   */
+  directions?: [
+    "E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W",
+    ...("E" | "N" | "NE" | "NW" | "S" | "SE" | "SW" | "W")[]
+  ];
   sheet?: {
     frame_w: number;
     frame_h: number;
@@ -3675,6 +3693,10 @@ export interface Audio {
      */
     offset_s?: number | null;
   }[];
+  /**
+   * One line of what an agent would search for: the track or sound in words, its kind, and the facts that narrow it (mood, genre, duration, material). Written by code from the same fields the card validates, so the search result row can be judged without opening the file.
+   */
+  search_notes?: string;
   /**
    * Path of the analysis sidecar (beats, downbeats, loudness and energy curves, sections, raw model output), relative to the collection folder.
    */
@@ -3940,6 +3962,10 @@ export interface CollectionInfo {
    * Relative key in the private asset library or instance bucket. Traversal segments, absolute paths, and URLs with credentials are forbidden.
    */
   hash_manifest?: string;
+  /**
+   * One line describing what this library is good for, built by code from its cards (what it holds, and the moods and genres it covers most). The answer to 'which pack has feet on gravel' before any file is opened.
+   */
+  search_summary?: string;
   /**
    * All files in the collection, including those without cards.
    */

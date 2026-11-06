@@ -1,7 +1,8 @@
-import { LIMITS } from '@ogm/contracts';
+import { LIMITS, LIMITS_V2 } from '@ogm/contracts';
 import { describe, expect, it } from 'vitest';
 
 import { assertByteLength, decodeBase64, encodeBase64, NET_LIMITS, packJson, unpackJson } from './codec.js';
+import { DEFAULT_SEAT_STATE_HZ, RECOVERY_BUDGET, SEAT_STATE_BUDGET } from './modes/per-seat.js';
 
 describe('net JSON codec', () => {
   it('stays aligned with the room protocol byte limits', () => {
@@ -10,6 +11,14 @@ describe('net JSON codec', () => {
       snapshotBytes: LIMITS.snapshotBytes,
       eventBytes: LIMITS.eventBytes,
     });
+  });
+
+  it('keeps the v2 wire budget equal to the contract family it shares', () => {
+    /* the mode packs against these locally so a browser bundle never pulls room code; a drift is a wire rejection */
+    expect(SEAT_STATE_BUDGET).toBe(LIMITS_V2.stateBytes);
+    expect(RECOVERY_BUDGET).toBe(LIMITS_V2.recoveryBytes);
+    expect(DEFAULT_SEAT_STATE_HZ).toBe(LIMITS_V2.statePerSec);
+    expect(LIMITS_V2.inputsBytes).toBeGreaterThan(NET_LIMITS.inputBytes);
   });
 
   it('round-trips Unicode through bytes and bridge base64', () => {

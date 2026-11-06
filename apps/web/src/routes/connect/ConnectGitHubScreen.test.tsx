@@ -36,7 +36,7 @@ function renderConnect(entry = '/connect/github') {
             </>
           }
         />
-        <Route path="/games" element={<h1>Games destination</h1>} />
+        <Route path="/all" element={<h1>Games destination</h1>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -48,7 +48,7 @@ beforeEach(() => {
     (next: string) => `https://github.com/apps/ogm/installations/new?state=${encodeURIComponent(next)}`,
   );
   auth.connectGitHubInstallation.mockResolvedValue({ connected: true, login: 'octocat' });
-  auth.readGitHubInstallState.mockReturnValue('/games');
+  auth.readGitHubInstallState.mockReturnValue('/all');
   auth.getGitHubStatus.mockResolvedValue({ connected: false });
   auth.getRepoVisibilityDefault.mockReturnValue('private');
 });
@@ -61,23 +61,23 @@ afterEach(() => {
 
 describe('ConnectGitHubScreen', () => {
   it('sends the creator to the GitHub App installation, carrying next', async () => {
-    renderConnect('/connect/github?next=%2Fgames');
+    renderConnect('/connect/github?next=%2Fall');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Connect GitHub' }));
 
-    expect(auth.gitHubInstallUrl).toHaveBeenCalledWith('/games');
-    expect(assign).toHaveBeenCalledWith('https://github.com/apps/ogm/installations/new?state=%2Fgames');
+    expect(auth.gitHubInstallUrl).toHaveBeenCalledWith('/all');
+    expect(assign).toHaveBeenCalledWith('https://github.com/apps/ogm/installations/new?state=%2Fall');
   });
 
   it('connects the installation GitHub returns with and shows the login', async () => {
-    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=nonce%3A%2Fgames');
+    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=nonce%3A%2Fall');
 
     expect(await screen.findByText('@octocat')).toBeVisible();
-    expect(auth.readGitHubInstallState).toHaveBeenCalledWith('nonce:/games');
+    expect(auth.readGitHubInstallState).toHaveBeenCalledWith('nonce:/all');
     expect(auth.connectGitHubInstallation).toHaveBeenCalledTimes(1);
     expect(auth.connectGitHubInstallation).toHaveBeenCalledWith('4242');
     expect(auth.getGitHubStatus).not.toHaveBeenCalled();
-    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fgames');
+    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fall');
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Games destination' })).toBeVisible());
@@ -85,12 +85,12 @@ describe('ConnectGitHubScreen', () => {
 
   it('ignores a callback link this tab did not start', async () => {
     auth.readGitHubInstallState.mockReturnValue(null);
-    renderConnect('/connect/github?installation_id=666&state=forged%3A%2Fgames');
+    renderConnect('/connect/github?installation_id=666&state=forged%3A%2Fall');
 
     expect(await screen.findByRole('button', { name: 'Connect GitHub' })).toBeVisible();
     expect(auth.connectGitHubInstallation).not.toHaveBeenCalled();
     expect(auth.getGitHubStatus).toHaveBeenCalledTimes(1);
-    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fgames');
+    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fall');
   });
 
   it('keeps next when an org install comes back awaiting approval', async () => {
@@ -104,7 +104,7 @@ describe('ConnectGitHubScreen', () => {
 
   it('shows a refused installation and lets the creator start again', async () => {
     auth.connectGitHubInstallation.mockRejectedValueOnce(new Error('api 409'));
-    renderConnect('/connect/github?installation_id=4242&state=nonce%3A%2Fgames');
+    renderConnect('/connect/github?installation_id=4242&state=nonce%3A%2Fall');
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not connect GitHub.');
     fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
@@ -146,7 +146,7 @@ describe('ConnectGitHubScreen', () => {
 
   it('continues to next after GitHub is connected', async () => {
     auth.getGitHubStatus.mockResolvedValue({ connected: true, login: 'octocat' });
-    renderConnect('/connect/github?next=%2Fgames');
+    renderConnect('/connect/github?next=%2Fall');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Continue' }));
 

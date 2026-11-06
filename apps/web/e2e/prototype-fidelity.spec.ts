@@ -226,7 +226,7 @@ async function prepareGames(app: Page, reference: Page): Promise<Masks> {
   await app.route('**/api/v1/jobs?gameId=*', (route) => route.fulfill({ json: { jobs: [] } }));
   await app.route('**/api/v1/budget/status', (route) => route.fulfill({ json: { unitLabel: 'coins' } }));
   await Promise.all([
-    app.goto('/games?test&spotlight=goblin-cellar', { waitUntil: 'domcontentloaded' }),
+    app.goto('/all?test&spotlight=goblin-cellar', { waitUntil: 'domcontentloaded' }),
     reference.goto(`${referenceOrigin}/studio/index.html#library`, { waitUntil: 'domcontentloaded' }),
   ]);
   const prototypeGame = reference.locator('#lib-grid .tile', { hasText: 'Goblin Cellar' });

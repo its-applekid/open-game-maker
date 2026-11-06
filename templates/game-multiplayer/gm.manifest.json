@@ -1,5 +1,6 @@
 {
   "id": "game-multiplayer",
   "capabilities": ["multiplayer"],
-  "maxPlayers": 4
+  "maxPlayers": 4,
+  "net": { "authority": "per-seat", "maxSeats": 4 }
 }

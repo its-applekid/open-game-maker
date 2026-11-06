@@ -19,9 +19,9 @@ test('Start goes straight to the magic-link sent state', async ({ page }) => {
 
 test('a protected route sends a signed-out visitor to sign in and preserves next', async ({ page }) => {
   await installAuthRoutes(page);
-  await page.goto('/games?test');
+  await page.goto('/all?test');
 
-  await expect(page).toHaveURL(/\/signin\?next=%2Fgames$/);
+  await expect(page).toHaveURL(/\/signin\?next=%2Fall$/);
   await expect(page.getByRole('heading', { name: 'Sign in' })).toBeVisible();
 });
 
@@ -39,7 +39,7 @@ test('passkey registration makes one options and verify request per click', asyn
   await installAuthRoutes(page, { signedIn: true, passkeyRegistration: registration });
   await installVirtualAuthenticator(page);
 
-  const signInUrl = new URL('/signin?next=%2Fgames&magic=1', baseURL);
+  const signInUrl = new URL('/signin?next=%2Fall&magic=1', baseURL);
   signInUrl.hostname = 'localhost';
   await page.goto(signInUrl.href);
   await expect(page.getByRole('button', { name: 'Add a passkey' })).toBeVisible();
@@ -49,7 +49,7 @@ test('passkey registration makes one options and verify request per click', asyn
   expect(registration).toMatchObject({ options: 1, verify: 1 });
 
   await page.getByRole('button', { name: 'Add a passkey' }).click({ force: true });
-  await expect(page).toHaveURL(/\/games$/);
+  await expect(page).toHaveURL(/\/all$/);
   expect(registration).toMatchObject({ options: 2, verify: 2 });
 });
 
@@ -61,7 +61,7 @@ test('leaving passkey enrollment aborts an in-flight verification request', asyn
   await installAuthRoutes(page, { signedIn: true, passkeyRegistration: registration });
   await installVirtualAuthenticator(page);
 
-  const signInUrl = new URL('/signin?next=%2Fgames&magic=1', baseURL);
+  const signInUrl = new URL('/signin?next=%2Fall&magic=1', baseURL);
   signInUrl.hostname = 'localhost';
   await page.goto(signInUrl.href);
   const failedVerification = page.waitForEvent('requestfailed', {
@@ -80,7 +80,7 @@ test('leaving passkey enrollment aborts an in-flight verification request', asyn
   expect(request.failure()?.errorText).toContain('ERR_ABORTED');
   await expect(page).toHaveURL(/\/$/);
   releaseVerification();
-  await expect(page).not.toHaveURL(/\/games$/);
+  await expect(page).not.toHaveURL(/\/all$/);
 });
 
 async function installVirtualAuthenticator(page: Page) {

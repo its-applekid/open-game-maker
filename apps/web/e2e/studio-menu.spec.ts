@@ -64,7 +64,7 @@ test('shows the active build ring and contextual build in the games menu', async
   await installAuthRoutes(page, { signedIn: true });
   await stubBrandArt(page);
   await installGamesMenuApi(page);
-  await page.goto('/games');
+  await page.goto('/all');
 
   const trigger = page.getByRole('button', { name: 'Menu' });
   await expect(trigger).toHaveAttribute('data-building', 'true');
@@ -81,7 +81,7 @@ test('shows the active build ring and contextual build in the games menu', async
 
   // A job bar opens that ticket's conversation over the screen instead of leaving it (#478).
   await jobBar.click();
-  await expect(page).toHaveURL(/\/games/);
+  await expect(page).toHaveURL(/\/all/);
   await expect(page.getByRole('dialog', { name: 'Add the moon gate' })).toBeVisible();
   await capturePhone(page, testInfo, 'games-menu-conversation');
 });

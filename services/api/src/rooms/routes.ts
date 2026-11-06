@@ -39,6 +39,13 @@ const createRoomBody = z
     branchId: z.string().min(1),
     buildId: z.string().min(1),
     maxPlayers: z.number().int().optional(),
+    /* Protocol 2 room options (#497 §4.7); a body without them still creates a v1 room. */
+    protocol: z.union([z.literal(1), z.literal(2)]).optional(),
+    teams: z.enum(['none', 'alternate']).optional(),
+    spectators: z.enum(['off', 'on']).optional(),
+    pauseOnDisconnect: z.boolean().optional(),
+    rulesetHash: z.string().max(64).optional(),
+    mode: z.string().min(1).max(32).optional(),
   })
   .strict();
 const revokeBody = z
@@ -47,7 +54,7 @@ const revokeBody = z
   .refine((body) => body.jti !== undefined || body.userId !== undefined);
 const endedBody = z
   .object({
-    reason: z.enum(['host-left', 'owner-closed', 'idle', 'revoked']),
+    reason: z.enum(['host-left', 'owner-closed', 'idle', 'revoked', 'abandoned']),
     endedAt: z.iso.datetime(),
   })
   .strict();

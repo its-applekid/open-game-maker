@@ -19,7 +19,10 @@ async function main(): Promise<void> {
   runtime.hooks.ready = false;
   runtime.onStep((dt, frames) => getGameContext().advance(dt, frames));
   const followNet = () => {
-    getGameContext().localPlayerIndex = runtime.net.localPlayerIndex;
+    // `localSeat` is this client's seat and `null` for a spectator; a v1 host-mode client has no seat table and
+    // keeps `localPlayerIndex`, which is the same number there.
+    const seat = runtime.net.localSeat ?? runtime.net.localPlayerIndex;
+    getGameContext().localPlayerIndex = seat;
   };
   followNet();
   runtime.onFrame(followNet);

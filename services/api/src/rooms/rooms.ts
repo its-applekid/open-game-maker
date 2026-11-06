@@ -71,7 +71,18 @@ async function grantResponse(
 export async function createRoom(
   deps: AppDeps,
   principal: UserPrincipal,
-  input: { gameId: string; branchId: string; buildId: string; maxPlayers?: number },
+  input: {
+    gameId: string;
+    branchId: string;
+    buildId: string;
+    maxPlayers?: number;
+    protocol?: 1 | 2;
+    teams?: 'none' | 'alternate';
+    spectators?: 'off' | 'on';
+    pauseOnDisconnect?: boolean;
+    rulesetHash?: string;
+    mode?: string;
+  },
   nowMs = Date.now(),
   fetchImpl: typeof fetch = fetch,
 ): Promise<RoomGrantResponse> {
@@ -116,6 +127,12 @@ export async function createRoom(
           buildId: input.buildId,
           ownerId: game.ownerId,
           maxPlayers,
+          ...(input.protocol === undefined ? {} : { protocol: input.protocol }),
+          ...(input.teams === undefined ? {} : { teams: input.teams }),
+          ...(input.spectators === undefined ? {} : { spectators: input.spectators }),
+          ...(input.pauseOnDisconnect === undefined ? {} : { pauseOnDisconnect: input.pauseOnDisconnect }),
+          ...(input.rulesetHash === undefined ? {} : { rulesetHash: input.rulesetHash }),
+          ...(input.mode === undefined ? {} : { mode: input.mode }),
         },
         fetchImpl,
       );

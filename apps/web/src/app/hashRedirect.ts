@@ -1,5 +1,5 @@
 const legacyHashes = new Map([
-  ['#library', '/games'],
+  ['#library', '/all'],
   ['#new', '/new'],
 ]);
 

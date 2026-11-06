@@ -22,3 +22,4 @@ export * from './merges.js';
 export * from './scope.js';
 export * from './game-abuse-flags.js';
 export * from './releases.js';
+export * from './allow-list.js';

@@ -232,8 +232,12 @@ def character_cards(collection: dict, ext: Path, rates: dict[str, float]) -> tup
             animations.append(animation)
         if animations:
             title = character_names[character]
+            facing_sets = {tuple(animation.get("directions", [])) for animation in animations}
+            # One facing order for the whole sprite: report it only when every directional action agrees, so the
+            # card's count never overstates an action that ships fewer directions.
+            facing = list(next(iter(facing_sets))) if len(facing_sets) == 1 else []
             cards.append(measured_card(collection, ext, f"characters/{slug(title)}", title, "character", paths,
-                                       {"animations": animations}))
+                                       {"animations": animations, **({"directions": facing} if facing else {})}))
     return cards, consumed
 
 
@@ -254,6 +258,7 @@ def facing_cards(collection: dict, ext: Path, consumed: set[Path]) -> tuple[list
         rel_parent = slug(parent.relative_to(ext).as_posix())
         cards.append(measured_card(collection, ext, f"tiles/{rel_parent}/{slug(stem)}", stem, "tile", paths,
                                    {"facings": {d: facings[d].relative_to(ext).as_posix() for d in DIRECTIONS if d in facings},
+                                    "directions": [d for d in DIRECTIONS if d in facings],
                                     "tile": {"layer": "decor", "autotile": "none"}}))
     return cards, used
 
