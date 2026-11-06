@@ -27,6 +27,7 @@ assets-local/
   derived/<pack-id>/                   # variants made from a pack's files; inherit its rights
   derived/kaykit/lineups/              # set-wide thumbnail lineups per category, paginated (preprocess_kaykit.py)
   index/cards.index.json               # gm's card index (gm packs index rebuilds it)
+  index/maps.index.json                # gm maps index: layout columns for maps and tilesets, no paths
   inbox/                               # Drive watch-folder intake (scripts/drive-sync/)
     queue.jsonl                        # one line per downloaded drop, appended by the listener
     quarantine/<time>-<slug>-<id8>/
@@ -39,8 +40,15 @@ assets-local/
 - **Versions** come from the vendor: the archive name for Synty (`v3`, `1.0.4`), and the pack's `License.txt` for Kenney (`2.0`), falling back to the bundle version. A new version goes in a new folder next to the old one, and `current` in `pack.json` moves to it.
 - **Packs from a bundle** keep no originals of their own. `pack.json` points at the bundle and the path inside it.
 
-## Hash blocklist and preview blobs
+## Map-inspiration index
 
+`gm maps index` writes `index/maps.index.json`: one row per inspiration map and one per tileset, holding only columns — no file path, no preview key, no description. A map row carries its C3 §12 layout (`rooms`, `connections`, `entrances`, `dead_ends`, `loops`, `secrets`, `levels`, `size_class`, `flow`) joined from a validated layout spec under `inspiration/<id>/layouts/`, plus the card's own `map.layout` block: `biome`, `features`, `grid` and any counts a producer recorded. A tileset row carries its set, biome, drawn features and grid from `sprite.tile_px`/`sprite.sheet`.
+
+Rows are gated on rights at build time: a map needs `derive-layout` in its resolved uses and a tileset needs `in-game`; everything else is counted in a `hidden` line and kept out of the file. A card with no layout spec and no `map.layout` block still gets a row (biome from its judged environments, grid from `map.grid_detected`), so a resource is findable before it is specced, and `gm maps search` shows `-` where a count is unknown. Specs whose `tags.computed` disagree with their graph are reported and left out, exactly as the search did before.
+
+The file is derived data: delete it and `gm maps index` rebuilds it from the cards. `gm packs index` refreshes it too. **Rights are checked when the index is built**, so re-run one of those commands after confirming a licence or changing a card's rights; until then the old rows stay served.
+
+## Hash blocklist and preview blobs
 `gm packs blocklist` hashes every file of each collection whose resolved `redistribution` is `none`: `packs/<id>/<version>/{originals,extracted}` (or all of `inspiration/<id>/`), every preview its cards reference, `derived/<id>/`, and the lines of its `collection_info.hash_manifest` (re-prefixed `manifest/<id>/`). It writes one sorted `sha256  bytes  path` line per file to `$OGM_BLOCKLIST_FILE`, else `private/blocklist/redistribution-none.txt`, with paths relative to `assets-local/`. The commit service refuses any file whose sha256 is listed. Re-runs only hash files whose size or mtime changed (`private/blocklist/cache.json`); `--no-cache` rehashes everything. Rights come from a fresh read of the cards, and an unreadable collection card makes the command exit 1.
 
 `gm packs index --import-previews` copies `previews/`, `private/previews/` and `private/hash-manifests/` into the blob store at `$OGM_BLOB_ROOT` (content-addressed, idempotent) and records `previews.blob` and `visibility` (`private` for `private/` keys) on the index entries. Card files and originals are never written or moved.
