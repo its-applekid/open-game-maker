@@ -1,0 +1,37 @@
+--- a/games/example-2d/package.json
++++ b/games/example-2d/package.json
+@@ -7,8 +7,8 @@
+     "build": "tsc -b && vite build"
+   },
+   "dependencies": {
+-    "@gm/sdk": "file:../../vendor/gm-sdk-3cef9ec65caa.tgz",
+-    "@ogm/contracts": "file:../../vendor/ogm-contracts-3cef9ec65caa.tgz",
++    "@gm/sdk": "npm:@its-owner/sdk@0.0.0-core.3cef9ec65caa",
++    "@ogm/contracts": "npm:@its-owner/contracts@0.0.0-core.3cef9ec65caa",
+     "phaser": "4.2.1",
+     "zod": "4.6.7"
+   },
+--- a/packages/shared/package.json
++++ b/packages/shared/package.json
+@@ -4,7 +4,7 @@
+   "version": "0.0.0",
+   "type": "module",
+   "dependencies": {
+-    "@gm/pack-kaykit": "file:../../vendor/gm-pack-kaykit-3cef9ec65caa.tgz",
+-    "@gm/sdk": "workspace:*"
++    "@gm/pack-kaykit": "npm:@its-owner/pack-kaykit@0.0.0-core.3cef9ec65caa",
++    "@gm/sdk": "npm:@its-owner/sdk@0.0.0-core.3cef9ec65caa"
+   }
+ }
+--- a/.npmrc
++++ b/.npmrc
+@@ -1,3 +1,8 @@
+ store-dir=${HOME}/.local/share/ogm/pnpm-store
+-offline=true
++# offline=true disabled: core packages install from the registry
+ prefer-offline=true
++
++# >>> core packages registry — managed by core-release switch
++@its-owner:registry=https://registry.npmjs.org
++//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
++# <<< core packages registry
