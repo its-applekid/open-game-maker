@@ -4,8 +4,6 @@ import {
   JoinRejectionSchema,
   LIMITS,
   PROTOCOL_VERSION,
-  RoomStateSchema,
-  ServerMessageSchema,
   type ClientMessage,
   type JoinOptions,
   type RoomPin,
@@ -14,6 +12,7 @@ import {
 
 import { api } from '../lib/api/client';
 import { useRoom, type RoomStoreApi } from './room-store';
+import { roomStateV1From, serverMessageV1 } from './room-state-v1';
 
 type Signal<Listener extends (...args: never[]) => unknown> = {
   (listener: Listener): unknown;
@@ -179,23 +178,23 @@ export class RoomClient {
 
     const onState = (raw: unknown) => {
       if (!this.isAttached(room, operationId)) return;
-      const state = RoomStateSchema.safeParse(toJson(raw));
-      if (!state.success) return;
+      const state = roomStateV1From(toJson(raw));
+      if (state === undefined) return;
       if (!this.welcomed) {
-        const member = Object.values(state.data.members).find(({ sessions }) => sessions.includes(room.sessionId));
+        const member = Object.values(state.members).find(({ sessions }) => sessions.includes(room.sessionId));
         if (member !== undefined) {
           this.acceptMessage(
             {
               t: 'welcome',
               you: { userId: member.userId, playerIndex: member.playerIndex, sessionId: room.sessionId },
-              state: state.data,
+              state,
             },
             false,
           );
           return;
         }
       }
-      this.store.getState().sync(state.data);
+      this.store.getState().sync(state);
     };
     const onLeave = () => {
       if (!this.isAttached(room, operationId) || this.consentedLeave || this.store.getState().status === 'ended')
@@ -221,9 +220,10 @@ export class RoomClient {
       payload !== null && typeof payload === 'object'
         ? { t: type, ...(payload as Record<string, unknown>) }
         : { t: type };
-    const parsed = ServerMessageSchema.safeParse(candidate);
-    if (!parsed.success) return;
-    this.acceptMessage(parsed.data, true);
+    /* Accepts a protocol-1 or protocol-2 frame and hands the editor the v1 view of it. */
+    const message = serverMessageV1(candidate);
+    if (message === undefined) return;
+    this.acceptMessage(message, true);
   }
 
   private acceptMessage(message: ServerMessage, record: boolean): void {

@@ -5,7 +5,7 @@ import { createServer } from 'node:net';
 import { ColyseusTestServer } from '@colyseus/testing';
 import type { DesignDoc, Patch } from '@ogm/design-log';
 import { apply } from '@ogm/design-log';
-import type { DesignTx, RoomPin } from '@ogm/contracts';
+import { PROTOCOL_VERSION, type DesignTx, type RoomPin } from '@ogm/contracts';
 import { signGrant } from '@ogm/room-protocol';
 import { createRoomsServer } from '@ogm/rooms';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -37,6 +37,7 @@ describe('RoomClient with GameRoom', () => {
       timings: {
         ownerReconnectSec: 0.2,
         playerReconnectSec: 0.2,
+        seatReconnectSec: 0.2,
         idleDisposeSec: 1,
         callbackTimeoutMs: 50,
         callbackRetryMs: [1, 2, 3],
@@ -49,6 +50,8 @@ describe('RoomClient with GameRoom', () => {
       ...pin,
       ownerId: 'owner-1',
       maxPlayers: 4,
+      /* The web client joins with the newest protocol, so the room it edits must speak it too. */
+      protocol: PROTOCOL_VERSION,
     });
     const ownerGrant = await grant(room.roomId, 'owner-1', 'owner');
     const watcherGrant = await grant(room.roomId, 'watcher-1', 'player');

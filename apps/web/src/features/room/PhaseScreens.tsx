@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 
 import type { Phase, ServerMessage } from '@ogm/contracts';
 
-export type EndedReason = Extract<ServerMessage, { t: 'ended' }>['reason'];
+/** Protocol 2 adds `abandoned`: every seat forfeited, so the room ended with nobody left in it. */
+export type EndedReason = Extract<ServerMessage, { t: 'ended' }>['reason'] | 'abandoned';
 
 type ScreenInput = {
   phase: Phase;
