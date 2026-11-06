@@ -35,7 +35,7 @@ describe('net contract', () => {
   });
 
   it('caps seats at the emitted limit in Zod and in the emitted schema', () => {
-    const start = loadJson('fixtures/net/start.json');
+    const start = loadJson<{ seats: unknown[] } & Record<string, unknown>>('fixtures/net/start.json');
     expect(netStartSchema.safeParse(start).success).toBe(true);
     expect(startJson(start)).toBe(true);
     expect(seatJson(loadJson('fixtures/net/seat.json'))).toBe(true);
@@ -68,6 +68,7 @@ describe('net contract', () => {
     expect(gameManifestSchema.safeParse({ ...manifest, net: { authority: 'per-seat', maxSeats: 9 } }).success).toBe(
       false,
     );
-    expect(netSeatSchema.safeParse({ ...loadJson('fixtures/net/seat.json'), seat: 8 }).success).toBe(false);
+    const seat = loadJson<Record<string, unknown>>('fixtures/net/seat.json');
+    expect(netSeatSchema.safeParse({ ...seat, seat: 8 }).success).toBe(false);
   });
 });
