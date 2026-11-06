@@ -74,11 +74,16 @@ test('shows the active build ring and contextual build in the games menu', async
 
   await trigger.click();
   await expect(page.getByRole('group', { name: 'Moon Vault builds' })).toBeVisible();
-  await expect(
-    page.getByRole('link', { name: /Add the moon gate.*Active.*Building the moon gate.*42%/ }),
-  ).toBeVisible();
+  const jobBar = page.getByRole('button', { name: /Add the moon gate.*Active.*Building the moon gate.*42%/ });
+  await expect(jobBar).toBeVisible();
   await expect(page.locator('.bug-fab')).toHaveCount(0);
   await capturePhone(page, testInfo, 'games-menu-open');
+
+  // A job bar opens that ticket's conversation over the screen instead of leaving it (#478).
+  await jobBar.click();
+  await expect(page).toHaveURL(/\/all/);
+  await expect(page.getByRole('dialog', { name: 'Add the moon gate' })).toBeVisible();
+  await capturePhone(page, testInfo, 'games-menu-conversation');
 });
 
 for (const mode of ['play', 'edit'] as const) {
@@ -142,6 +147,10 @@ async function installGamesMenuApi(page: Page) {
     if (url.pathname.endsWith('/branches')) {
       return json(route, { branches: [{ id: 'main', name: 'main', latestBuildId: 'build-1' }] });
     }
+    if (url.pathname === `/api/v1/games/${gameId}/commands`) return json(route, { commands: [] });
+    if (url.pathname.endsWith('/chat/messages')) return json(route, { messages: [], last_seq: 0 });
+    if (url.pathname.endsWith('/chat')) return route.fulfill({ contentType: 'text/event-stream', body: ': open\n\n' });
+    if (url.pathname.endsWith('/checkpoints/budget')) return json(route, { used: 0, max: 3 });
     if (url.pathname === '/api/v1/me') return json(route, { platformRole: 'none' });
     return json(route, { error: 'not_mocked', path: url.pathname }, 404);
   });

@@ -18,6 +18,25 @@ Open Game Maker owns the mapping from a game to its Aiur ticket identifiers. It 
 
 Aiur owns Command persistence, revisions, recommendations, answer validation, conversation history, live updates, media authorization, and voice transports. Its dashboard and Open Game Maker must consume the same extracted components so their states and accessibility behavior do not drift. Open Game Maker must never receive or expose Aiur supervisor credentials.
 
+## Embed contract Open Game Maker codes against
+
+`apps/web/src/features/aiur/embed.tsx` is the only place that knows the components. It mounts `<aiur-commands>` for a
+game's Commands inbox and `<aiur-conversation>` for a job's conversation — the per-job modal, the editor's feature
+scoping dock and New Game creation (whose scope session is job-backed) — and falls back to Open Game Maker's own
+markup while the tags are unregistered, so those surfaces work before #7487 and #7488 land.
+
+Each element receives, as element properties:
+
+- `scope` — the game, the game's Aiur ticket identifiers, and Open Game Maker's proxy URLs: `commands` (the game's
+  open Commands, see [game Command inbox](../reference/game-commands.md)), `conversation` (one job's messages) and
+  `stream` (that job's live rows). Every URL is an Open Game Maker route; the browser never calls Aiur.
+- `features` — whether the surface offers voice, dictation and attachments.
+- `commands` — for `<aiur-commands>` only, the list already fetched from that proxy.
+
+An answer comes back as an `aiur-answer` event with `{ job_id, checkpoint_id, option_id }`; Open Game Maker forwards it
+to the job's checkpoint route, which calls Aiur's canonical answer path with the Command's version.
+
+
 The conversation component should reuse Aiur's existing conversation API and `voice_converse` work, including [#4104](https://github.com/aiur-team/aiur/issues/4104), [#4143](https://github.com/aiur-team/aiur/issues/4143), and [#7485](https://github.com/aiur-team/aiur/issues/7485). It consumes the embeddable Commands boundary for inline pending Commands and the rich-media contract when media is present.
 
 ## New-game dispatch exception

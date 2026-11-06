@@ -3,8 +3,10 @@ import { useCallback, useEffect } from 'react';
 import type { Job } from '@ogm/contracts';
 
 import { registerTestApi } from '../../app/testHook';
+import { AiurConversation, jobScope } from '../aiur/embed';
 import { Bar } from './Bar';
 import { Chat } from './Chat';
+import { answerCheckpoint } from './checkpoints';
 import { useDock } from './dock';
 import { JobList } from './JobList';
 import { isTerminal, useBudgetUnitLabel, useMyJobs } from './jobs';
@@ -58,6 +60,18 @@ export function BuildChatDock() {
   if (dock.view === 'collapsed') return null;
 
   const openJob = (job: Job) => dock.openChat(job.id, jobs);
+  const chatJobId = dock.openJobId ?? selected?.id;
+  const chat = (
+    <Chat
+      key={dock.chatKey}
+      jobId={chatJobId}
+      job={selected}
+      draft={draft}
+      onBack={() => dock.back(jobs)}
+      onAdmitted={dock.admitted}
+      onMessages={recordMessages}
+    />
+  );
   return (
     <aside className="build-chat-dock" data-state={dock.view}>
       <div className="build-chat-panel">
@@ -66,15 +80,23 @@ export function BuildChatDock() {
             <div className="build-chat-landscape-list">
               <JobList jobs={jobs} unitLabel={unitLabel} onOpen={openJob} />
             </div>
-            <Chat
-              key={dock.chatKey}
-              jobId={dock.openJobId ?? selected?.id}
-              job={selected}
-              draft={draft}
-              onBack={() => dock.back(jobs)}
-              onAdmitted={dock.admitted}
-              onMessages={recordMessages}
-            />
+            {selected && chatJobId ? (
+              // Editor feature scoping shares the job conversation component; aiur replaces the build chat once its
+              // element is installed, while the job list beside it stays Open Game Maker's.
+              <AiurConversation
+                scope={jobScope(
+                  selected.gameId,
+                  chatJobId,
+                  selected.aiurIssueNumber === null ? null : String(selected.aiurIssueNumber),
+                )}
+                title={selected.plan.title}
+                onAnswer={(detail) => void answerCheckpoint(detail.job_id, detail.checkpoint_id, detail.option_id)}
+              >
+                {chat}
+              </AiurConversation>
+            ) : (
+              chat
+            )}
           </div>
         ) : (
           <>

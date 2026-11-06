@@ -4,6 +4,7 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { queryClient } from '../../app/query';
+import { AIUR_CONVERSATION_TAG } from '../aiur/embed';
 import { BuildChatDock } from './BuildChatDock';
 import { useDock } from './dock';
 import { buildChatJob } from './test-fixtures';
@@ -259,6 +260,24 @@ describe('BuildChatDock', () => {
     await act(async () => resolve({ jobId: 'j_late', state: 'admitted' }));
 
     expect(useDock.getState()).toMatchObject({ view: 'collapsed', openJobId: undefined });
+  });
+
+  // Editor feature scoping keeps its job list but hands the conversation to aiur's element once installed (#478, A2).
+  it('hands the scoped job conversation to aiur’s element when installed', () => {
+    if (!customElements.get(AIUR_CONVERSATION_TAG)) {
+      customElements.define(AIUR_CONVERSATION_TAG, class extends HTMLElement {});
+    }
+    const job = buildChatJob();
+    jobState.jobs = [job];
+    renderDock();
+
+    act(() => useDock.getState().openChat(job.id, [job]));
+
+    const element = document.querySelector(AIUR_CONVERSATION_TAG);
+    expect(element).not.toBeNull();
+    expect(element).toHaveProperty('scope.conversation', `/api/v1/jobs/${job.id}/chat/messages`);
+    expect(element).toHaveProperty('scope.tickets', ['57']);
+    expect(document.querySelector('.build-chat-landscape-list')).not.toBeNull();
   });
 });
 
