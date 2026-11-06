@@ -249,10 +249,10 @@ export function createLoopbackMatch(options: LoopbackOptions): LoopbackMatch {
       for (const entry of entries) {
         entry.controller.handleMessage('net.start', {
           epoch: 'epoch-1',
+          mode: 'per-seat',
           seed: 12_345,
           startAt: startAtMs,
-          tick: 0,
-          primary: options.primary ?? 0,
+          primarySeat: options.primary ?? 0,
           seats: seatsMessage,
           privateSeed: seedFor(entry.seat),
         });

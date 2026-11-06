@@ -1,10 +1,12 @@
-import { LIMITS } from '@ogm/contracts';
+import { LIMITS, LIMITS_V2 } from '@ogm/contracts';
 
-export type EndReason = 'host-left' | 'owner-closed' | 'idle' | 'revoked';
+export type EndReason = 'host-left' | 'owner-closed' | 'idle' | 'revoked' | 'abandoned';
 
 export type RoomTimings = {
   ownerReconnectSec: number;
   playerReconnectSec: number;
+  /** A v2 seat's rejoin window, for every seat including the creator's (#497 §3.6). */
+  seatReconnectSec: number;
   idleDisposeSec: number;
   callbackTimeoutMs: number;
   callbackRetryMs: readonly number[];
@@ -13,6 +15,7 @@ export type RoomTimings = {
 export const DEFAULT_ROOM_TIMINGS: RoomTimings = {
   ownerReconnectSec: LIMITS.ownerReconnectSec,
   playerReconnectSec: LIMITS.playerReconnectSec,
+  seatReconnectSec: LIMITS_V2.seatReconnectSec,
   idleDisposeSec: LIMITS.idleDisposeSec,
   callbackTimeoutMs: 5_000,
   callbackRetryMs: [250, 1_000, 4_000],

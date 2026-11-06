@@ -9,8 +9,7 @@
         "properties": {
           "epoch": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 1
           },
           "seat": {
             "type": "integer",
@@ -24,7 +23,7 @@
           },
           "frames": {
             "minItems": 1,
-            "maxItems": 3,
+            "maxItems": 8,
             "type": "array",
             "items": {
               "type": "object",
@@ -80,8 +79,7 @@
         "properties": {
           "epoch": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 1
           },
           "seat": {
             "type": "integer",
@@ -127,8 +125,7 @@
         "properties": {
           "epoch": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 1
           },
           "scope": {
             "type": "string",
@@ -145,7 +142,7 @@
           "sum": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 4294967295
           },
           "t": {
             "type": "string",
@@ -166,8 +163,7 @@
         "properties": {
           "epoch": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 1
           },
           "scope": {
             "type": "string",
@@ -205,8 +201,7 @@
         "properties": {
           "epoch": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 64
+            "minLength": 1
           },
           "scope": {
             "type": "string",
@@ -236,11 +231,8 @@
             "maxLength": 87384
           },
           "events": {
-            "maxItems": 32,
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "type": "string",
+            "maxLength": 87384
           },
           "t": {
             "type": "string",

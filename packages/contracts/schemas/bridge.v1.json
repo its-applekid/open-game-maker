@@ -1211,12 +1211,10 @@
                       },
                       "userId": {
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 64
                       },
                       "name": {
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 40
                       },
                       "team": {
@@ -1335,25 +1333,27 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
-                "seed": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "per-seat",
+                    "host",
+                    "rollback"
+                  ]
                 },
                 "startAt": {
-                  "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
-                },
-                "tick": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 9007199254740991
                 },
-                "primary": {
+                "seed": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 4294967295
+                },
+                "primarySeat": {
                   "type": "integer",
                   "minimum": 0,
                   "maximum": 7
@@ -1372,12 +1372,10 @@
                       },
                       "userId": {
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 64
                       },
                       "name": {
                         "type": "string",
-                        "minLength": 1,
                         "maxLength": 40
                       },
                       "team": {
@@ -1413,16 +1411,16 @@
                 },
                 "privateSeed": {
                   "type": "integer",
-                  "minimum": -9007199254740991,
-                  "maximum": 9007199254740991
+                  "minimum": 0,
+                  "maximum": 4294967295
                 }
               },
               "required": [
                 "epoch",
-                "seed",
+                "mode",
                 "startAt",
-                "tick",
-                "primary",
+                "seed",
+                "primarySeat",
                 "seats"
               ],
               "additionalProperties": false
@@ -1624,8 +1622,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "seat": {
                   "type": "integer",
@@ -1696,8 +1693,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "seat": {
                   "type": "integer",
@@ -1711,7 +1707,7 @@
                 },
                 "frames": {
                   "minItems": 1,
-                  "maxItems": 3,
+                  "maxItems": 8,
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -1792,8 +1788,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "scope": {
                   "type": "string",
@@ -1810,7 +1805,7 @@
                 "sum": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 4294967295
                 }
               },
               "required": [
@@ -1856,8 +1851,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "scope": {
                   "type": "string",
@@ -1887,11 +1881,8 @@
                   "maxLength": 87384
                 },
                 "events": {
-                  "maxItems": 32,
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
+                  "type": "string",
+                  "maxLength": 87384
                 }
               },
               "required": [
@@ -1941,12 +1932,10 @@
                 },
                 "userId": {
                   "type": "string",
-                  "minLength": 1,
                   "maxLength": 64
                 },
                 "name": {
                   "type": "string",
-                  "minLength": 1,
                   "maxLength": 40
                 },
                 "team": {
@@ -3788,8 +3777,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "seat": {
                   "type": "integer",
@@ -3803,7 +3791,7 @@
                 },
                 "frames": {
                   "minItems": 1,
-                  "maxItems": 3,
+                  "maxItems": 8,
                   "type": "array",
                   "items": {
                     "type": "object",
@@ -3884,8 +3872,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "seat": {
                   "type": "integer",
@@ -3956,8 +3943,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "scope": {
                   "type": "string",
@@ -3974,7 +3960,7 @@
                 "sum": {
                   "type": "integer",
                   "minimum": 0,
-                  "maximum": 9007199254740991
+                  "maximum": 4294967295
                 }
               },
               "required": [
@@ -4020,8 +4006,7 @@
               "properties": {
                 "epoch": {
                   "type": "string",
-                  "minLength": 1,
-                  "maxLength": 64
+                  "minLength": 1
                 },
                 "scope": {
                   "type": "string",

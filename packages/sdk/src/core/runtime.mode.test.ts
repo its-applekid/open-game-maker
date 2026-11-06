@@ -60,10 +60,10 @@ function harness(manifest: GameManifest) {
 
 const start = () => ({
   epoch: 'epoch-1',
+  mode: 'per-seat' as const,
   seed: 1,
   startAt: 0,
-  tick: 0,
-  primary: 0,
+  primarySeat: 0,
   seats: [0, 1].map((seat) => ({
     seat,
     userId: `u${seat}`,

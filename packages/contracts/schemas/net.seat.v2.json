@@ -9,12 +9,10 @@
     },
     "userId": {
       "type": "string",
-      "minLength": 1,
       "maxLength": 64
     },
     "name": {
       "type": "string",
-      "minLength": 1,
       "maxLength": 40
     },
     "team": {

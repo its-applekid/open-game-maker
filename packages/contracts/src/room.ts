@@ -1,13 +1,19 @@
 import { z } from 'zod';
 
+import { base64Schema, bytesSchema, type Binary } from './binary.js';
+
 /*
- * Room protocol v1 (T07 §4.1). The room relays; the owner's browser simulates.
- * Binary fields are `Uint8Array` at runtime (an `ArrayBuffer` is accepted and copied into one).
- * JSON fixtures and the emitted schemas carry them as base64 strings (`*JsonSchema`).
- * A protocol bump adds room.*.v2 files beside these; v1 never changes in place.
+ * Room protocol v1 (T07 §4.1) and the protocol-2 additions of #497 (N1 §7). The room relays; a seat's
+ * browser simulates. Binary fields are `Uint8Array` at runtime (an `ArrayBuffer` is accepted and copied
+ * into one); JSON fixtures and the emitted schemas carry them as base64 strings (`*JsonSchema`).
+ * A protocol family lives beside v1 rather than inside it: see `net.ts` for every protocol-2 message.
+ * v1 is `PROTOCOL_VERSION_V1` and its schemas never change in place.
  */
 
-export const PROTOCOL_VERSION = 1;
+/** The newest protocol this package speaks. A room stores its own copy (per-room protocol, #497 D-N3-17). */
+export const PROTOCOL_VERSION = 2;
+/** Protocol 1, kept exported so a v1 room, a v1 test helper and the v1 verify scenario stay expressible. */
+export const PROTOCOL_VERSION_V1 = 1;
 
 export const LIMITS = {
   inputBytes: 256,
@@ -25,6 +31,39 @@ export const LIMITS = {
   maxPlayersDefault: 4,
   maxPlayersCeiling: 8,
 } as const;
+
+/** Protocol-2 caps (#497 §4.4/§4.5). `eventBytes` and the rate caps are v1's; the rest bound new messages. */
+export const LIMITS_V2 = {
+  ...LIMITS,
+  inputsBytes: 512,
+  inputsPerSec: 45,
+  inputFramesPerMessage: 8,
+  stateBytes: 8_192,
+  statePerSec: 10,
+  checksumBytes: 128,
+  checksumPerSec: 4,
+  recoveryRequestBytes: 128,
+  recoveryPerSec: 4,
+  recoveryBytes: 65_536,
+  controlBytes: 32,
+  readyPerSec: 5,
+  startRequestPerSec: 2,
+  endRequestPerSec: 1,
+  seatRequestPerSec: 2,
+  signalBytes: 4_096,
+  signalPerSec: 20,
+  /** A forfeited seat's rejoin window, for every seat including the creator's. */
+  seatReconnectSec: 30,
+  /** Fixed lead between `net.start` and tick 0; the room cannot measure RTT (D-N3-5). */
+  startLeadMs: 1_000,
+  /** Per-sender sequence window the client-side inbox keeps for gap detection. */
+  eventHistory: 256,
+  /** Most net messages one relayed batch may carry. */
+  maxBatchMessages: 32,
+} as const;
+
+/** Simulation rate the epoch mapping converts milliseconds into ticks with (a constant, never a loop). */
+export const SIM_TICK_HZ = 60;
 
 /** First segment of every design patch path (T08 `DesignDoc` roots). */
 export const DESIGN_ROOTS = ['globals', 'entities'] as const;
@@ -60,13 +99,25 @@ export const RoomGrantSchema = z
   });
 export type RoomGrant = z.infer<typeof RoomGrantSchema>;
 
-export const JoinOptionsSchema = z.object({ grant: z.string().min(1), buildId: id, protocol: int }).strict();
+export const JoinOptionsSchema = z
+  .object({
+    grant: z.string().min(1),
+    buildId: id,
+    protocol: int,
+    /** A claim about the joining user's own seat, never an allocation (#497 D-N3-2). Optional. */
+    seat: nonNegativeInt.max(LIMITS.maxPlayersCeiling - 1).optional(),
+    /** Client-computed ruleset pin; compared opaquely, `''`/absent disables the comparison. */
+    rulesetHash: z.string().max(64).optional(),
+  })
+  .strict();
 export type JoinOptions = z.infer<typeof JoinOptionsSchema>;
 
 export const JoinRejectionSchema = z.discriminatedUnion('code', [
   z.object({ code: z.literal('BUILD_MISMATCH'), expected: RoomPinSchema }).strict(),
   z.object({ code: z.literal('ROOM_FULL'), max: int.min(1) }).strict(),
   z.object({ code: z.enum(['GRANT_INVALID', 'GRANT_EXPIRED', 'GRANT_REVOKED', 'PROTOCOL_MISMATCH']) }).strict(),
+  z.object({ code: z.literal('SEAT_TAKEN'), seat: nonNegativeInt }).strict(),
+  z.object({ code: z.literal('RULESET_MISMATCH'), expected: z.string().min(1).max(64) }).strict(),
 ]);
 export type JoinRejection = z.infer<typeof JoinRejectionSchema>;
 
@@ -162,22 +213,6 @@ export const DesignTxSchema = z
   })
   .passthrough();
 export type DesignTx = z.infer<typeof DesignTxSchema>;
-
-function bytesSchema(maxBytes: number) {
-  return z
-    .union([z.instanceof(Uint8Array), z.instanceof(ArrayBuffer)])
-    .transform((data) => (data instanceof Uint8Array ? data : new Uint8Array(data)))
-    .refine((data) => data.byteLength <= maxBytes, { message: `at most ${maxBytes} bytes` });
-}
-
-function base64Schema(maxBytes: number) {
-  return z
-    .string()
-    .max(Math.ceil(maxBytes / 3) * 4)
-    .regex(/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/);
-}
-
-type Binary = (maxBytes: number) => z.ZodType<unknown>;
 
 function messageSchemas<B extends Binary>(binary: B) {
   const snapshot = { seq: nonNegativeInt, tick: nonNegativeInt, data: binary(LIMITS.snapshotBytes) as ReturnType<B> };
