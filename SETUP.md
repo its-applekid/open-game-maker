@@ -586,8 +586,9 @@ Hand back to the human: Create the free Netlify app site for this instance on it
 Command:
 
 ```sh
-# Set OGM_ALLOWED_EMAILS=<email>,<email> in api.env.
-# OGM_MAINTAINER_EMAILS is always admitted; an empty OGM_ALLOWED_EMAILS admits maintainers only.
+# Set OGM_ALLOWED_EMAILS=<email>,<email> in api.env before the first start: those become maker rows.
+# OGM_MAINTAINER_EMAILS seeds admin rows and stays a break-glass role. After the first start,
+# add, re-role and remove users at <app-origin>/admin/users; the env lists no longer decide.
 # Optional Google redirect: <app-origin>/auth/callback/google
 # Set SMTP_URL, SMTP_FROM, GOOGLE_CLIENT_ID, and GOOGLE_CLIENT_SECRET only for the options you enable.
 ```

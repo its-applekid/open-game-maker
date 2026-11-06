@@ -11,6 +11,7 @@ const links = [
   ['.', 'Oversight'],
   ['members', 'Members'],
   ['invites', 'Invites'],
+  ['users', 'Users'],
   ['budgets', 'Budgets'],
   ['builds', 'Builds'],
   ['intake', 'Intake'],

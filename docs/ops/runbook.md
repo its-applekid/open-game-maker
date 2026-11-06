@@ -124,6 +124,20 @@ openssl rand -hex 32                                    # new value; paste it in
 systemctl --user restart ogm-api
 ```
 
+## Sign-in and users
+
+The sign-in allow list is data, not config: table `allowed_users` holds a lowercase email, its role (`player`,
+`maker`, `admin`), who added it and when. Manage it in the admin area at `<app-origin>/admin/users` — add an
+address with a role, change a role, remove an address (which ends its sessions) or resend the invite mail. Each
+addition mails a sign-in link through the instance's mail sender, and the one URL to share with testers is
+`<app-origin>/login`.
+
+`OGM_ALLOWED_EMAILS` and `OGM_MAINTAINER_EMAILS` seed that table on the first start only: the allowed addresses
+become makers and the maintainers become admins. Editing either list afterwards changes nothing.
+`OGM_MAINTAINER_EMAILS` also keeps its own break-glass platform role, so a lost admin login is repaired by listing
+the address there and restarting the API. An address that is not on the list gets the same neutral answer as one
+that is, and no mail is sent to it.
+
 ## Ingress
 
 See [ingress.md](ingress.md): `ops/bin/ogm-ingress.sh` mounts 8443 and 10000 on Tailscale, after Kevin's operator hand
