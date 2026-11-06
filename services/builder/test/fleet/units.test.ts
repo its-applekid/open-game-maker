@@ -10,7 +10,7 @@ import { registryPath, writeRegistry } from '../../src/fleet/registry.js';
 import { codexHomeFor } from '../../src/fleet/daemon-dir.js';
 import { daemonPaths, writeAtomic, writeDaemonSecrets } from '../../src/fleet/secrets.js';
 import { createSystemctl, mintTokens } from '../../src/fleet/systemctl.js';
-import { assertTransition, slugFor } from '../../src/fleet/types.js';
+import { assertTransition, daemonSlugFor } from '../../src/fleet/types.js';
 import { cleanupHomes, fakeRunner, fleetEnv, liveRow, systemctlCalls, tempHome } from './helpers.js';
 
 afterEach(cleanupHomes);
@@ -77,17 +77,16 @@ describe('tempHome', () => {
   });
 });
 
-describe('slugFor', () => {
-  it('lower-cases owner and name into [a-z0-9-]', () => {
-    expect(slugFor('Everdred-Games/Castle_Run')).toBe('everdred-games-castle-run');
+describe('daemonSlugFor', () => {
+  it('keys a daemon by the game slug, lower-cased, because the unit and the label prefix use it', () => {
+    expect(daemonSlugFor('Castle-Run')).toBe('castle-run');
   });
 
-  it('truncates long names to 48 characters with a hash suffix that keeps them unique', () => {
-    const a = slugFor(`owner/${'a'.repeat(60)}`);
-    const b = slugFor(`owner/${'a'.repeat(59)}b`);
-    expect(a).toHaveLength(48);
-    expect(a).toMatch(/^[a-z0-9-]+$/);
-    expect(a).not.toBe(b);
+  it('refuses a slug that cannot name a unit or a label prefix', () => {
+    for (const bad of ['Castle_Run', 'castle run', '-castle', 'castle-', 'castle--run', '']) {
+      expect(() => daemonSlugFor(bad)).toThrow(/cannot key a daemon/);
+    }
+    expect(() => daemonSlugFor('a'.repeat(49))).toThrow(/longer than 48 characters/);
   });
 });
 

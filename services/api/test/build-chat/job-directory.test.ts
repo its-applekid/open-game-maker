@@ -47,6 +47,8 @@ describe('build chat job directory', () => {
         familyId: 'f_1',
         ownerId: 'u_1',
         title: 'Game',
+        // The game's slug keys its daemon.
+        slug: 'owner-game',
         visibility: 'private',
         repoVisibility: 'private',
         createdAt: NOW,

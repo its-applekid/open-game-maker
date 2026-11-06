@@ -18,7 +18,7 @@ export function startFeedConsumers(deps: FeedDeps): { stop(): Promise<void>; tic
   async function running(): Promise<RunningDaemon[]> {
     const found: RunningDaemon[] = [];
     for (const daemon of await deps.fleet.listDaemons('running')) {
-      const live = await deps.fleet.daemonFor(daemon.repo);
+      const live = await deps.fleet.daemonFor(daemon.slug);
       if (live) found.push({ slug: daemonSlug(daemon), client: live.client });
     }
     return found;

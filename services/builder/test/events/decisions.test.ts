@@ -2,12 +2,12 @@ import { schema } from '@ogm/db';
 import { describe, expect, it } from 'vitest';
 
 import { createDecisionsPoller } from '../../src/events/decisions.js';
-import { decision, harness, REPO, SLUG } from './helpers.js';
+import { decision, harness, SLUG } from './helpers.js';
 import type { AiurClient } from '@ogm/aiur-client';
 
 function setup() {
   const h = harness();
-  const client = h.clientFor(REPO);
+  const client = h.clientFor(SLUG);
   const poll = createDecisionsPoller(h.deps);
   const daemons = [{ slug: SLUG, client: client as unknown as AiurClient }];
   const rows = () => h.db.select().from(schema.checkpoints).all();

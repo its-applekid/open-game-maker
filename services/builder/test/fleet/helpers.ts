@@ -55,8 +55,8 @@ export function memoryStore(initial: DaemonRow[] = []): DaemonStore & { rows: Ma
   const rows = new Map(initial.map((row) => [row.slug, { ...row }]));
   return {
     rows,
-    async byRepo(repo) {
-      return [...rows.values()].find((row) => row.repo === repo);
+    async bySlug(slug) {
+      return rows.get(slug);
     },
     async list() {
       return [...rows.values()];
@@ -144,10 +144,11 @@ export function buildFleet(home: string, overrides: Partial<FleetDeps> & { jobs?
   const fetchImpl = (overrides.fetch as ReturnType<typeof fakeFetch> | undefined) ?? fakeFetch([200]);
   const sleeps: number[] = [];
   const alerts: string[] = [];
+  // Keyed by game slug: a daemon's active jobs are its own game's, never another game's in the same repository.
   const jobs = overrides.jobs ?? {};
   const fleet = createFleet({
     env: fleetEnv(home),
-    activeJobs: async (repo) => (jobs[repo] ?? []).map((kind) => ({ kind })),
+    activeJobs: async (gameSlug) => (jobs[gameSlug] ?? []).map((kind) => ({ kind })),
     portFree: async () => true,
     sleep: async (ms) => {
       sleeps.push(ms);

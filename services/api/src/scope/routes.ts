@@ -231,7 +231,7 @@ const routes = new Hono<ApiBindings>()
       );
       if (job.aiurRepo !== null && job.aiurIssueNumber !== null) {
         try {
-          const aiur = await deps.aiurClientForRepo(job.aiurRepo);
+          const aiur = await deps.aiurClientForGame(job.gameId);
           await aiur.cancel(String(job.aiurIssueNumber));
         } catch (error) {
           deps.log({

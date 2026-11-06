@@ -2,7 +2,13 @@ import { createHash } from 'node:crypto';
 
 import type { ScopeChoices } from '@ogm/contracts';
 
-export type ScopeTicketInput = { jobId: string; sessionId: string; choices: ScopeChoices };
+export type ScopeTicketInput = {
+  jobId: string;
+  sessionId: string;
+  choices: ScopeChoices;
+  // The daemon's lifecycle-label prefix: a game daemon's scope ticket carries `<game-slug>:todo`, never `agent:todo`.
+  labelPrefix?: string;
+};
 
 export function renderScopeTicket(input: ScopeTicketInput): {
   title: string;
@@ -32,7 +38,7 @@ export function renderScopeTicket(input: ScopeTicketInput): {
     title,
     body: `${unsigned}\n\n<!-- gm-job:${input.jobId} gm-ticket:scope gm-sig:${sig} gm-scope:${input.sessionId} -->`,
     sig,
-    labels: ['complexity:1', `feature:gm-${input.jobId}`, 'agent:todo'],
+    labels: ['complexity:1', `feature:gm-${input.jobId}`, `${input.labelPrefix ?? 'agent'}:todo`],
   };
 }
 

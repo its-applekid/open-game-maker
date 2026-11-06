@@ -5,11 +5,12 @@ import { vi } from 'vitest';
 import type { FeedDeps } from '../../src/events/index.js';
 import type { GameDaemon } from '../../src/fleet/types.js';
 
-export const SLUG = 'everdred-games-castle-run';
-export const REPO = 'everdred-games/castle_run';
+export const SLUG = 'castle-run';
+export const REPO = 'everdred-games/instance';
 
 export function daemon(slug = SLUG, repo = REPO): GameDaemon {
   return {
+    slug,
     repo,
     checkoutPath: `/home/x/.local/share/ogm/daemons/${slug}`,
     unit: `ogm-aiur@${slug}.service`,
@@ -55,9 +56,9 @@ export function harness(daemons: GameDaemon[] = [daemon()]) {
   migrate({ sqlite });
   const listed = { daemons };
   const clients = new Map<string, ReturnType<typeof fakeClient>>();
-  const clientFor = (repo: string) => {
-    if (!clients.has(repo)) clients.set(repo, fakeClient());
-    return clients.get(repo) as ReturnType<typeof fakeClient>;
+  const clientFor = (gameSlug: string) => {
+    if (!clients.has(gameSlug)) clients.set(gameSlug, fakeClient());
+    return clients.get(gameSlug) as ReturnType<typeof fakeClient>;
   };
   const subscriptions: { options: SubscribeEventsOptions; resolve: () => void }[] = [];
   const subscribe = vi.fn(
@@ -75,9 +76,9 @@ export function harness(daemons: GameDaemon[] = [daemon()]) {
     db,
     fleet: {
       listDaemons: async (status) => listed.daemons.filter((d) => status === undefined || d.status === status),
-      daemonFor: async (repo) => {
-        const found = listed.daemons.find((d) => d.repo === repo);
-        return found ? { daemon: found, client: clientFor(repo) as unknown as AiurClient } : null;
+      daemonFor: async (gameSlug) => {
+        const found = listed.daemons.find((d) => d.slug === gameSlug);
+        return found ? { daemon: found, client: clientFor(gameSlug) as unknown as AiurClient } : null;
       },
     },
     activeJobs: (slug) => jobs.get(slug) ?? [],

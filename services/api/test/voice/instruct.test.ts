@@ -38,7 +38,7 @@ async function setup() {
     .where(eq(schema.jobs.id, ids.running))
     .run();
   const message = vi.fn().mockResolvedValue({ request_id: 'message-one' });
-  deps.aiurClientForRepo = async () => ({ message }) as unknown as AiurClient;
+  deps.aiurClientForGame = async () => ({ message }) as unknown as AiurClient;
   const { app } = await makeApp(deps);
   const request = (target: VoiceTarget, text: string, idempotencyKey = 'voice-one', secret = SECRET) =>
     app.request('/internal/voice/instruct', {

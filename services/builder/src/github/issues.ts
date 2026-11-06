@@ -20,7 +20,13 @@ export interface IssuesClient {
   labels(repo: string, issueNumber: number): Promise<string[]>;
   addLabel(repo: string, issueNumber: number, name: string): Promise<void>;
   removeLabel(repo: string, issueNumber: number, name: string): Promise<void>;
-  setStateLabel(repo: string, issueNumber: number, state: 'todo' | 'cancelled' | 'paused'): Promise<void>;
+  // `prefix` is the daemon's lifecycle-label prefix: a game daemon writes `<game-slug>:<state>`, never `agent:<state>`.
+  setStateLabel(
+    repo: string,
+    issueNumber: number,
+    state: 'todo' | 'cancelled' | 'paused',
+    prefix?: string,
+  ): Promise<void>;
 }
 
 export class OutcomeUnknownError extends Error {
@@ -160,10 +166,11 @@ export function createIssuesClient(deps: IssuesClientDeps): IssuesClient {
       }
     },
 
-    async setStateLabel(repo, issueNumber, state) {
-      const target = `agent:${state}`;
+    async setStateLabel(repo, issueNumber, state, prefix = 'agent') {
+      const target = `${prefix}:${state}`;
+      await this.ensureLabel(repo, target);
       const current = await this.labels(repo, issueNumber);
-      for (const label of current.filter((label) => label.startsWith('agent:') && label !== target)) {
+      for (const label of current.filter((label) => label.startsWith(`${prefix}:`) && label !== target)) {
         await this.removeLabel(repo, issueNumber, label);
       }
       if (!current.includes(target)) await this.addLabel(repo, issueNumber, target);

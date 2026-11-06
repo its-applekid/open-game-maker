@@ -5,6 +5,8 @@ import type { JobKind } from './fleet/types.js';
 
 export type ProvisionInput = {
   gameId: string;
+  // The game's slug: the key of the daemon that will build it in the instance repository.
+  gameSlug: string;
   owner: string;
   visibility: 'public' | 'private';
   kind: JobKind;
@@ -42,7 +44,7 @@ export async function provisionGameRepo(input: ProvisionInput, deps: ProvisionDe
   if (!result.ok) return result;
 
   const repo = `${input.owner}/gm-${input.gameId}`;
-  await deps.fleet.prepareDaemonDir(repo, input.kind);
+  await deps.fleet.prepareDaemonDir({ slug: input.gameSlug, repo }, input.kind);
   await deps.setGameRepo(input.gameId, repo);
   return { ok: true, repo, sha: result.sha };
 }

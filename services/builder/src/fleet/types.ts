@@ -1,10 +1,11 @@
-import { createHash } from 'node:crypto';
-
 export type DaemonStatus = 'stopped' | 'starting' | 'running' | 'idle';
 export type JobKind = 'new_game' | 'feature' | 'repair';
 
 // T02 §4 contract; `unit` is `ogm-aiur@<slug>.service` and `checkoutPath` the daemon directory.
+// A daemon is keyed by the game it builds (`slug` = the game's slug), not by its repository: every daemon on one
+// instance repository shares `repo` and works only its own `games/<slug>/` folder.
 export type GameDaemon = {
+  slug: string;
   repo: string;
   checkoutPath: string;
   unit: string;
@@ -32,14 +33,14 @@ export type DaemonRow = {
 };
 
 export interface DaemonStore {
-  byRepo(repo: string): Promise<DaemonRow | undefined>;
+  bySlug(slug: string): Promise<DaemonRow | undefined>;
   list(): Promise<DaemonRow[]>;
   insert(row: DaemonRow): Promise<void>;
-  update(slug: string, patch: Partial<Omit<DaemonRow, 'slug' | 'repo'>>): Promise<DaemonRow>;
+  update(slug: string, patch: Partial<Omit<DaemonRow, 'slug'>>): Promise<DaemonRow>;
 }
 
-// Jobs admitted and not finished (filed, running or paused) for one repo, from OGM-013's jobs table.
-export type ActiveJobs = (repo: string) => Promise<{ kind: JobKind }[]>;
+// Jobs admitted and not finished (filed, running or paused) for one game's daemon, from OGM-013's jobs table.
+export type ActiveJobs = (gameSlug: string) => Promise<{ kind: JobKind }[]>;
 
 export type FleetEnv = {
   home: string;
@@ -72,14 +73,20 @@ export function assertTransition(from: DaemonStatus, to: DaemonStatus): void {
 }
 
 const MAX_SLUG = 48;
+const GAME_SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
-// `withHash` disambiguates repos that flatten to the same slug (`a/b.c` and `a/b-c`).
-export function slugFor(repo: string, withHash = false): string {
-  const slug = repo
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-  if (slug.length <= MAX_SLUG && !withHash) return slug;
-  const hash = createHash('sha256').update(repo.toLowerCase()).digest('hex').slice(0, 4);
-  return `${slug.slice(0, MAX_SLUG - 5).replace(/-+$/, '')}-${hash}`;
+// A daemon's key, its unit name and its label prefix are all the game's own slug, so the row joins the game row and
+// aiur reads `<slug>:todo` on the instance repository. Slugs come from `gm new`, which enforces the same shape.
+export function daemonSlugFor(gameSlug: string): string {
+  const slug = gameSlug.trim().toLowerCase();
+  if (!GAME_SLUG.test(slug)) {
+    throw new Error(`game slug "${gameSlug}" cannot key a daemon: use lower-case letters, numbers and single hyphens`);
+  }
+  if (slug.length > MAX_SLUG) {
+    throw new Error(`game slug "${gameSlug}" is longer than ${MAX_SLUG} characters and cannot key a daemon`);
+  }
+  return slug;
 }
+
+// A daemon's target: the game it builds and the instance repository that game lives in.
+export type DaemonKey = { slug: string; repo: string };

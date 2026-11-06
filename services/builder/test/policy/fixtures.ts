@@ -5,6 +5,8 @@ export const workedInput = {
   baseBranch: 'main',
   workspaceRoot: '/srv/ogm-test/.local/share/ogm/daemons/castle-run/workspaces',
   port: 4101,
+  // The daemon's label prefix is its game slug, so aiur only transitions this game's labels on the shared repo.
+  labelPrefix: 'castle-run',
   intakeLogin: 'ogm-intake',
   botAccount: 'ogm-builder',
   kind: 'new_game',

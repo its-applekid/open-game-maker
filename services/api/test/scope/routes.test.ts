@@ -166,7 +166,7 @@ describe('scope session routes', () => {
       expect(deps.db.select().from(schema.scopeSessions).get()?.status).toBe('abandoned');
       expect(deps.db.select().from(schema.jobs).get()?.state).toBe('cancelled');
     });
-    deps.aiurClientForRepo = async () => ({ cancel }) as unknown as AiurClient;
+    deps.aiurClientForGame = async () => ({ cancel }) as unknown as AiurClient;
 
     const abandoned = await app.request(`/api/v1/games/${ids.game}/scope/sessions/${created.sessionId}/abandon`, {
       method: 'POST',

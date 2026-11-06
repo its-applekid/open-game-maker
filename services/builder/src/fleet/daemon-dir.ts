@@ -12,7 +12,9 @@ import type { DaemonRow, FleetEnv, JobKind } from './types.js';
 export type DaemonFiles = { hooks: string; prompt: string };
 export type DaemonFilesProvider = (row: DaemonRow) => Promise<DaemonFiles>;
 
-export const gameRepoDaemonFiles: DaemonFilesProvider = async () => renderDaemonFiles();
+// Each daemon renders its own game's hook and prompt: the hook checks the instance repo out sparsely (this game's
+// folder plus `packages/` and the root config) and the prompt carries the game-scope rules.
+export const gameRepoDaemonFiles: DaemonFilesProvider = async (row) => renderDaemonFiles({ gameSlug: row.slug });
 
 export function aiurRoot(env: FleetEnv): string {
   return env.aiurRoot ?? join(env.home, 'github/aiur');
@@ -35,6 +37,8 @@ export function renderInputFor(
 ): RenderInput {
   return {
     repo: row.repo,
+    // A game daemon's label prefix is its game slug, so aiur only reads and transitions this game's labels.
+    labelPrefix: row.slug,
     workspaceRoot: paths.workspaces,
     port: row.port,
     intakeLogin: env.intakeLogin,

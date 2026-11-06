@@ -16,6 +16,7 @@ tracker:
     repo: everdred-games/castle-run
     bot_account: ogm-builder
     identity_mode: separate_account
+    label_prefix: castle-run
     allowed_users:
       - ogm-intake
     trusted_accounts:

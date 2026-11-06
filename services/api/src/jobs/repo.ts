@@ -111,17 +111,16 @@ export function acceptedFor(db: Db, row: JobRow): CreateJobAccepted {
   return { jobId: row.id, state: row.state, reservation, slot: row.slot, position: Math.max(1, position) };
 }
 
+// A daemon's ticket maps to a job through the daemon's game, not its repository: several games share one repo, and
+// issue numbers are only unique inside a repository.
 export function byTicket(db: Db, daemonSlug: string, ticket: string): { id: string; state: JobState } | null {
   const issueNumber = Number(ticket);
   if (!Number.isSafeInteger(issueNumber)) return null;
   const found = db
     .select({ id: schema.jobs.id, state: schema.jobs.state })
-    .from(schema.gameDaemons)
-    .innerJoin(
-      schema.jobs,
-      and(eq(schema.jobs.aiurRepo, schema.gameDaemons.repo), eq(schema.jobs.aiurIssueNumber, issueNumber)),
-    )
-    .where(eq(schema.gameDaemons.slug, daemonSlug))
+    .from(schema.jobs)
+    .innerJoin(schema.games, eq(schema.games.id, schema.jobs.gameId))
+    .where(and(eq(schema.games.slug, daemonSlug), eq(schema.jobs.aiurIssueNumber, issueNumber)))
     .get();
   return found ?? null;
 }
@@ -131,11 +130,11 @@ const NON_TERMINAL_STATES: JobState[] = ['queued', 'admitted', 'filed', 'running
 export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket: string }[] {
   return db
     .select({ jobId: schema.jobs.id, issueNumber: schema.jobs.aiurIssueNumber })
-    .from(schema.gameDaemons)
-    .innerJoin(schema.jobs, eq(schema.jobs.aiurRepo, schema.gameDaemons.repo))
+    .from(schema.jobs)
+    .innerJoin(schema.games, eq(schema.games.id, schema.jobs.gameId))
     .where(
       and(
-        eq(schema.gameDaemons.slug, daemonSlug),
+        eq(schema.games.slug, daemonSlug),
         inArray(schema.jobs.state, NON_TERMINAL_STATES),
         isNull(schema.jobs.releasedAt),
       ),
@@ -146,19 +145,15 @@ export function activeJobs(db: Db, daemonSlug: string): { jobId: string; ticket:
     .map(({ jobId, issueNumber }) => ({ jobId, ticket: String(issueNumber) }));
 }
 
-export function activeJobsForRepo(db: Db, repo: string): { kind: 'new_game' | 'feature' | 'repair' }[] {
-  const match = /^([^/]+)\/([^/]+)$/.exec(repo.toLowerCase());
-  if (!match) return [];
-  const owner = match[1]!;
-  const name = match[2]!;
+// Jobs admitted and not finished for one game's daemon: the fleet sizes its concurrency from these.
+export function activeJobsForSlug(db: Db, gameSlug: string): { kind: 'new_game' | 'feature' | 'repair' }[] {
   return db
     .select({ kind: schema.jobs.kind })
     .from(schema.jobs)
     .innerJoin(schema.games, eq(schema.jobs.gameId, schema.games.id))
     .where(
       and(
-        eq(sql`lower(${schema.games.githubOwner})`, owner),
-        eq(sql`lower(${schema.games.githubRepo})`, name),
+        eq(schema.games.slug, gameSlug.toLowerCase()),
         inArray(schema.jobs.state, SLOT_STATES),
         isNull(schema.jobs.releasedAt),
       ),

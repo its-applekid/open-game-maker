@@ -115,7 +115,7 @@ const routes = new Hono<ApiBindings>()
     requireAuthorization(authorize(actorFromPrincipal(principal), 'admin.budget.set', { familyId: row.familyId }));
     if (row.aiurRepo === null) throw new HttpError(409, 'job_not_filed');
     const { amountMicroUsd } = await parseBody(c, raiseBody);
-    const aiur = await deps.aiurClientForRepo(row.aiurRepo);
+    const aiur = await deps.aiurClientForGame(row.gameId);
     return c.json(
       await raiseCap(
         { db: deps.db, sqlite: deps.sqlite, events: deps.events, defaults: defaults(deps) },

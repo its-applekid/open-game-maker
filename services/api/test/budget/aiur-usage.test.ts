@@ -9,7 +9,7 @@ import {
   type UsageReconcilerDeps,
 } from '../../src/budget/aiur-usage.js';
 import { reserve } from '../../src/budget/ledger.js';
-import { activeJobsForRepo } from '../../src/jobs/repo.js';
+import { activeJobsForSlug } from '../../src/jobs/repo.js';
 import { markTerminal } from '../../src/jobs/spend-cap.js';
 import { makeDeps } from '../helpers.js';
 
@@ -50,6 +50,8 @@ function setup(input: { usage?: () => Promise<TicketUsage>; applyUsage?: ApplyUs
       familyId: 'f_1',
       ownerId: 'u_1',
       title: 'Game',
+      // The game's slug keys its daemon.
+      slug: 'owner-game',
       visibility: 'private',
       githubOwner: 'owner',
       githubRepo: 'game',
@@ -178,7 +180,7 @@ describe('aiur usage reconciliation', () => {
         return usage();
       },
     });
-    expect(activeJobsForRepo(base.db, 'owner/game')).toEqual([{ kind: 'feature' }]);
+    expect(activeJobsForSlug(base.db, 'owner-game')).toEqual([{ kind: 'feature' }]);
     const lifecycle = { ...deps, events: base.events };
     markTerminal(lifecycle, 'j_1', 'done', { deferRelease: true });
     markTerminal(lifecycle, 'j_1', 'done', { deferRelease: true });
@@ -204,6 +206,6 @@ describe('aiur usage reconciliation', () => {
         .all()
         .filter(({ kind }) => kind === 'release'),
     ).toEqual([expect.objectContaining({ amountMicroUsd: 3_265_488 })]);
-    expect(activeJobsForRepo(base.db, 'owner/game')).toEqual([]);
+    expect(activeJobsForSlug(base.db, 'owner-game')).toEqual([]);
   });
 });

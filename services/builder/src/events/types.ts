@@ -27,7 +27,7 @@ export const INTERVALS = {
 // The slice of OGM-034's fleet the feed needs.
 export type FeedFleet = {
   listDaemons(status?: DaemonStatus): Promise<GameDaemon[]>;
-  daemonFor(repo: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null>;
+  daemonFor(gameSlug: string): Promise<{ daemon: GameDaemon; client: AiurClient } | null>;
 };
 
 // A job filed on a daemon and not yet terminal. OGM-013 owns the jobs table and implements this.
@@ -58,7 +58,7 @@ export type FeedDeps = {
 
 export type RunningDaemon = { slug: string; client: AiurClient };
 
-// `unit` is `ogm-aiur@<slug>.service` (fleet/systemctl.ts).
+// `unit` is `ogm-aiur@<slug>.service` (fleet/systemctl.ts); the row's own slug is the fallback, never the repository.
 export function daemonSlug(daemon: GameDaemon): string {
-  return /^ogm-aiur@(.+)\.service$/.exec(daemon.unit)?.[1] ?? daemon.repo;
+  return /^ogm-aiur@(.+)\.service$/.exec(daemon.unit)?.[1] ?? daemon.slug;
 }

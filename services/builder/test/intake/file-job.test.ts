@@ -30,6 +30,8 @@ function seed(db: Db, twoTickets = false, kind: 'feature' | 'scope' = 'feature')
       familyId: 'f_1',
       ownerId: 'u_1',
       title: 'Game',
+      // The game's slug keys its daemon and prefixes its lifecycle labels.
+      slug: 'castle-run',
       visibility: 'private',
       githubOwner: 'owner',
       githubRepo: 'game',
@@ -103,8 +105,8 @@ function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
   const calls: string[] = [];
   let issueNumber = 0;
   const issues: IssuesClient = {
-    ensureLabel: vi.fn(async () => {
-      calls.push('ensure-feature');
+    ensureLabel: vi.fn(async (_repo, name) => {
+      calls.push(`ensure:${name}`);
     }),
     findByMarkers: vi.fn(async () => null),
     create: vi.fn(async (_repo, issue) => {
@@ -142,6 +144,7 @@ function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
     ensureDaemon: vi.fn(async () => ({
       status: 'running' as const,
       daemon: {
+        slug: 'castle-run',
         repo: 'owner/game',
         checkoutPath: '/srv/ogm/owner-game',
         unit: 'ogm-aiur@owner-game.service',
@@ -156,7 +159,7 @@ function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
     db,
     fleet,
     issues,
-    aiurForRepo: async () => aiur,
+    aiurForGame: async () => aiur,
     shippedSkills: ['gm-core', 'gm-verify'],
     failJob,
     now: () => NOW,
@@ -257,8 +260,17 @@ describe('fileJob', () => {
     expect(issue?.body).toContain('gm-ticket:scope');
     expect(issue?.body).toContain('gm-scope:s_88000000-0000-4000-8000-000000000001');
     expect(issue?.body).toContain('## Load skills\n- gm-scope-options');
-    expect(input.calls).toEqual(['ensure-feature', 'create:1', 'cap:1:9.000001', 'label:1:agent:todo', 'nudge:1']);
+    expect(input.calls).toEqual([
+      'ensure:feature:gm-j_1',
+      'ensure:castle-run:todo',
+      'create:1',
+      'cap:1:9.000001',
+      'label:1:castle-run:todo',
+      'nudge:1',
+    ]);
     expect(input.db.select().from(schema.scopeSessions).get()?.ticket).toBe('1');
+    // The daemon is keyed by the game's slug, not its repository: two games in one instance repo get their own daemon.
+    expect(input.fleet.ensureDaemon).toHaveBeenCalledWith({ slug: 'castle-run', repo: 'owner/game' }, 'feature');
     close(input);
   });
 
@@ -268,13 +280,14 @@ describe('fileJob', () => {
     await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [1, 2] });
 
     expect(input.calls).toEqual([
-      'ensure-feature',
+      'ensure:feature:gm-j_1',
+      'ensure:castle-run:todo',
       'create:1',
       'create:2',
       'cap:1:9.000001',
-      'label:1:agent:todo',
+      'label:1:castle-run:todo',
       'cap:2:9.000001',
-      'label:2:agent:todo',
+      'label:2:castle-run:todo',
       'nudge:1,2',
     ]);
     expect(input.db.select().from(schema.jobs).where(eq(schema.jobs.id, 'j_1')).get()).toMatchObject({
@@ -300,7 +313,13 @@ describe('fileJob', () => {
     await input.intake.fileJob('j_1');
 
     expect(input.issues.create).not.toHaveBeenCalled();
-    expect(input.calls).toEqual(['ensure-feature', 'cap:7:9.000001', 'label:7:agent:todo', 'nudge:7']);
+    expect(input.calls).toEqual([
+      'ensure:feature:gm-j_1',
+      'ensure:castle-run:todo',
+      'cap:7:9.000001',
+      'label:7:castle-run:todo',
+      'nudge:7',
+    ]);
     expect(input.db.select().from(schema.jobTickets).get()).toMatchObject({
       issueNumber: 7,
       capSetAt: NOW.toISOString(),
@@ -318,7 +337,13 @@ describe('fileJob', () => {
     vi.mocked(input.issues.create).mockRejectedValueOnce(new OutcomeUnknownError('owner/game', 'j_1', 'T1'));
 
     await expect(input.intake.fileJob('j_1')).resolves.toEqual({ filed: true, issues: [12] });
-    expect(input.calls).toEqual(['ensure-feature', 'cap:12:9.000001', 'label:12:agent:todo', 'nudge:12']);
+    expect(input.calls).toEqual([
+      'ensure:feature:gm-j_1',
+      'ensure:castle-run:todo',
+      'cap:12:9.000001',
+      'label:12:castle-run:todo',
+      'nudge:12',
+    ]);
     close(input);
   });
 

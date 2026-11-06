@@ -13,8 +13,9 @@ import { buildFleet, cleanupHomes, fakeFetch, liveRow, memoryStore, systemctlCal
 
 afterEach(cleanupHomes);
 
-const repo = 'everdred-games/castle_run';
-const slug = 'everdred-games-castle-run';
+// One instance repository holds every game; a daemon is keyed by the game's own slug.
+const repo = 'everdred-games/instance';
+const slug = 'castle-run';
 const okPreflight = async () => ({ ok: true as const });
 
 async function mode(path: string): Promise<number> {
@@ -27,16 +28,17 @@ describe('ensureDaemon', () => {
     const preflight = vi.fn(async () => ({ ok: true as const }));
     const { fleet, store, runner, fetch, sleeps } = buildFleet(home, { fetch: fakeFetch([503, 503, 200]), preflight });
 
-    const result = await fleet.ensureDaemon(repo, 'feature');
+    const result = await fleet.ensureDaemon({ slug, repo }, 'feature');
 
     expect(result).toMatchObject({ status: 'running', daemon: { port: 4101, clientToken: 'aiur_token1' } });
     const dir = join(home, '.local/share/ogm/daemons', slug);
     const config = parse(await readFile(join(dir, '.aiur/config'), 'utf8'));
     expect(config.tracker.github.repo).toBe(repo);
+    expect(config.tracker.github.label_prefix).toBe(slug);
     expect(config.server).toMatchObject({ host: '127.0.0.1', port: 4101 });
     expect(config.instance.id).toBe(slug);
-    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles().hooks);
-    expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe(renderDaemonFiles().prompt);
+    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles({ gameSlug: slug }).hooks);
+    expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe(renderDaemonFiles({ gameSlug: slug }).prompt);
     expect((await stat(join(dir, 'workspaces'))).isDirectory()).toBe(true);
 
     const envFile = join(home, '.config/ogm/env', `ogm-aiur@${slug}.env`);
@@ -64,7 +66,7 @@ describe('ensureDaemon', () => {
     const preflight = async () => ({ ok: false as const, reasons: ['config drift: agent.codex'] });
     const { fleet, store, runner } = buildFleet(home, { preflight });
 
-    const result = await fleet.ensureDaemon(repo, 'feature');
+    const result = await fleet.ensureDaemon({ slug, repo }, 'feature');
 
     expect(result).toEqual({ status: 'stopped', reasons: ['config drift: agent.codex'] });
     expect(systemctlCalls(runner)).toEqual([]);
@@ -76,7 +78,7 @@ describe('ensureDaemon', () => {
     const home = await tempHome();
     const { fleet } = buildFleet(home);
 
-    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toMatchObject({ status: 'running' });
+    await expect(fleet.ensureDaemon({ slug, repo }, 'feature')).resolves.toMatchObject({ status: 'running' });
   });
 
   it('isolates daemon Codex homes and refreshes every live profile when membership changes', async () => {
@@ -84,16 +86,16 @@ describe('ensureDaemon', () => {
     const preflight = vi.fn(realPreflight);
     const { fleet, store, runner } = buildFleet(home, {
       preflight,
-      jobs: { 'owner/alpha': ['feature'], 'owner/charlie': ['feature'] },
+      jobs: { alpha: ['feature'], charlie: ['feature'] },
     });
-    const repos = ['owner/alpha', 'owner/bravo', 'owner/charlie'];
+    const games = ['alpha', 'bravo', 'charlie'];
 
-    for (const gameRepo of repos) {
-      await expect(fleet.ensureDaemon(gameRepo, 'feature')).resolves.toMatchObject({ status: 'running' });
+    for (const game of games) {
+      await expect(fleet.ensureDaemon({ slug: game, repo }, 'feature')).resolves.toMatchObject({ status: 'running' });
     }
 
     const sharedAuth = join(home, '.config/ogm/codex-gamebuilder/auth.json');
-    for (const game of ['owner-alpha', 'owner-bravo', 'owner-charlie']) {
+    for (const game of games) {
       const codexHome = join(home, '.config/ogm/codex', game);
       const profile = await readFile(join(codexHome, 'config.toml'), 'utf8');
       const daemonDir = join(home, '.local/share/ogm/daemons', game);
@@ -104,48 +106,47 @@ describe('ensureDaemon', () => {
       expect(envFile).toContain(`CODEX_HOME=${codexHome}\n`);
       expect((await lstat(join(codexHome, 'auth.json'))).isSymbolicLink()).toBe(true);
       expect(await readlink(join(codexHome, 'auth.json'))).toBe(sharedAuth);
-      for (const other of ['owner-alpha', 'owner-bravo', 'owner-charlie'].filter((slug) => slug !== game)) {
+      for (const other of games.filter((other) => other !== game)) {
         expect(profile).toContain(join(home, '.local/share/ogm/daemons', other, 'workspaces'));
       }
     }
 
     expect(preflight).toHaveBeenCalledTimes(6);
     expect(new Set(preflight.mock.calls.slice(-3).map(([daemonDir]) => daemonDir))).toEqual(
-      new Set(
-        ['owner-alpha', 'owner-bravo', 'owner-charlie'].map((game) => join(home, '.local/share/ogm/daemons', game)),
-      ),
+      new Set(games.map((game) => join(home, '.local/share/ogm/daemons', game))),
     );
 
-    await store.update('owner-bravo', {
+    await store.update('bravo', {
       status: 'idle',
       idleSince: new Date(Date.now() - IDLE_STOP_MS).toISOString(),
     });
-    await expect(fleet.stopIdleDaemons()).resolves.toEqual(['owner-bravo']);
+    await expect(fleet.stopIdleDaemons()).resolves.toEqual(['bravo']);
 
     expect(preflight).toHaveBeenCalledTimes(8);
     expect(new Set(preflight.mock.calls.slice(-2).map(([daemonDir]) => daemonDir))).toEqual(
-      new Set(['owner-alpha', 'owner-charlie'].map((game) => join(home, '.local/share/ogm/daemons', game))),
+      new Set(['alpha', 'charlie'].map((game) => join(home, '.local/share/ogm/daemons', game))),
     );
-    expect(store.rows.get('owner-alpha')?.status).toBe('running');
-    expect(store.rows.get('owner-charlie')?.status).toBe('running');
-    expect(
-      systemctlCalls(runner).filter((call) => call.includes('owner-alpha') || call.includes('owner-charlie')),
-    ).toEqual(['--user start ogm-aiur@owner-alpha.service', '--user start ogm-aiur@owner-charlie.service']);
+    expect(store.rows.get('alpha')?.status).toBe('running');
+    expect(store.rows.get('charlie')?.status).toBe('running');
+    expect(systemctlCalls(runner).filter((call) => call.includes('@alpha') || call.includes('@charlie'))).toEqual([
+      '--user start ogm-aiur@alpha.service',
+      '--user start ogm-aiur@charlie.service',
+    ]);
   });
 
   it('fails closed when a live peer cannot pass membership refresh preflight', async () => {
     const home = await tempHome();
     const { fleet, runner } = buildFleet(home);
 
-    await expect(fleet.ensureDaemon('owner/alpha', 'feature')).resolves.toMatchObject({ status: 'running' });
-    await expect(fleet.ensureDaemon('owner/bravo', 'feature')).resolves.toMatchObject({ status: 'running' });
-    await rm(join(home, '.local/share/ogm/daemons/owner-alpha/.aiur/config'));
+    await expect(fleet.ensureDaemon({ slug: 'alpha', repo }, 'feature')).resolves.toMatchObject({ status: 'running' });
+    await expect(fleet.ensureDaemon({ slug: 'bravo', repo }, 'feature')).resolves.toMatchObject({ status: 'running' });
+    await rm(join(home, '.local/share/ogm/daemons/alpha/.aiur/config'));
 
-    await expect(fleet.ensureDaemon('owner/charlie', 'feature')).resolves.toEqual({
+    await expect(fleet.ensureDaemon({ slug: 'charlie', repo }, 'feature')).resolves.toEqual({
       status: 'stopped',
-      reasons: ['owner-alpha: missing .aiur/config'],
+      reasons: ['alpha: missing .aiur/config'],
     });
-    expect(systemctlCalls(runner)).not.toContain('--user start ogm-aiur@owner-charlie.service');
+    expect(systemctlCalls(runner)).not.toContain('--user start ogm-aiur@charlie.service');
   });
 
   it('refuses a fifth daemon with waiting_capacity while four are live, without touching systemd', async () => {
@@ -153,16 +154,21 @@ describe('ensureDaemon', () => {
     const store = memoryStore([liveRow(1), liveRow(2, 'idle'), liveRow(3), liveRow(4)]);
     const { fleet, runner } = buildFleet(home, { store });
 
-    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toEqual({ status: 'waiting_capacity', live: 4 });
+    await expect(fleet.ensureDaemon({ slug, repo }, 'feature')).resolves.toEqual({
+      status: 'waiting_capacity',
+      live: 4,
+    });
     expect(runner.calls).toEqual([]);
   });
 
-  it('holds the cap when several repos are admitted at once', async () => {
+  it('holds the cap when several games are admitted at once', async () => {
     const home = await tempHome();
     const store = memoryStore([liveRow(1), liveRow(2), liveRow(3)]);
     const { fleet } = buildFleet(home, { store, preflight: okPreflight });
 
-    const results = await Promise.all(['owner/a', 'owner/b', 'owner/c'].map((r) => fleet.ensureDaemon(r, 'feature')));
+    const results = await Promise.all(
+      ['a', 'b', 'c'].map((game) => fleet.ensureDaemon({ slug: game, repo }, 'feature')),
+    );
 
     expect(results.map((result) => result.status).sort()).toEqual(['running', 'waiting_capacity', 'waiting_capacity']);
     expect(new Set([...store.rows.values()].map((row) => row.port)).size).toBe(store.rows.size);
@@ -173,21 +179,21 @@ describe('ensureDaemon', () => {
     const store = memoryStore([liveRow(1), liveRow(2), liveRow(3), liveRow(4, 'starting')]);
     const { fleet, runner } = buildFleet(home, { store, preflight: okPreflight });
 
-    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toMatchObject({ status: 'running' });
+    await expect(fleet.ensureDaemon({ slug, repo }, 'feature')).resolves.toMatchObject({ status: 'running' });
     await expect(fleet.stopIdleDaemons()).resolves.toContain('owner-game4');
     expect(systemctlCalls(runner)).toContain('--user stop ogm-aiur@owner-game4.service');
     expect(store.rows.get('owner-game4')?.status).toBe('stopped');
   });
 
-  it('treats repo names case-insensitively and gives colliding names distinct slugs', async () => {
+  it('normalises a game slug to lower case and looks the daemon up by it', async () => {
     const home = await tempHome();
     const { fleet, store } = buildFleet(home);
 
-    await fleet.ensureDaemon('Owner/My.Game', 'feature');
-    await fleet.ensureDaemon('owner/my-game', 'feature');
-    await expect(fleet.daemonFor('OWNER/MY.GAME')).resolves.toMatchObject({ daemon: { port: 4101 } });
+    await fleet.ensureDaemon({ slug: 'My-Game', repo: 'Owner/Instance' }, 'feature');
+    await expect(fleet.daemonFor('MY-GAME')).resolves.toMatchObject({ daemon: { port: 4101 } });
 
-    expect([...store.rows.keys()]).toEqual(['owner-my-game', expect.stringMatching(/^owner-my-game-[0-9a-f]{4}$/)]);
+    expect([...store.rows.keys()]).toEqual(['my-game']);
+    expect(store.rows.get('my-game')?.repo).toBe('owner/instance');
   });
 
   it('starts a daemon when three are live and a fourth is stopped', async () => {
@@ -195,7 +201,7 @@ describe('ensureDaemon', () => {
     const store = memoryStore([liveRow(1), liveRow(2), liveRow(3), liveRow(4, 'stopped')]);
     const { fleet } = buildFleet(home, { store, preflight: okPreflight });
 
-    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toMatchObject({
+    await expect(fleet.ensureDaemon({ slug, repo }, 'feature')).resolves.toMatchObject({
       status: 'running',
       daemon: { port: 4105 },
     });
@@ -206,7 +212,9 @@ describe('ensureDaemon', () => {
     const store = memoryStore([liveRow(1, 'idle', { idleSince: '2026-11-01T00:00:00.000Z' })]);
     const { fleet, runner } = buildFleet(home, { store });
 
-    await expect(fleet.ensureDaemon('owner/game1', 'feature')).resolves.toMatchObject({ status: 'running' });
+    await expect(fleet.ensureDaemon({ slug: 'owner-game1', repo: 'owner/game1' }, 'feature')).resolves.toMatchObject({
+      status: 'running',
+    });
     expect(runner.calls).toEqual([]);
     expect(store.rows.get('owner-game1')).toMatchObject({ status: 'running', idleSince: null });
   });
@@ -215,11 +223,11 @@ describe('ensureDaemon', () => {
     const home = await tempHome();
     const { fleet, store, jobs } = buildFleet(home);
 
-    await fleet.ensureDaemon(repo, 'new_game');
+    await fleet.ensureDaemon({ slug, repo }, 'new_game');
     expect(store.rows.get(slug)?.maxConcurrentAgents).toBe(1);
 
-    jobs[repo] = ['new_game'];
-    await fleet.ensureDaemon(repo, 'feature');
+    jobs[slug] = ['new_game'];
+    await fleet.ensureDaemon({ slug, repo }, 'feature');
     expect(store.rows.get(slug)?.maxConcurrentAgents).toBe(2);
     const config = parse(await readFile(join(home, '.local/share/ogm/daemons', slug, '.aiur/config'), 'utf8'));
     expect(config.agent.max_concurrent_agents).toBe(2);
@@ -229,7 +237,7 @@ describe('ensureDaemon', () => {
     const home = await tempHome();
     const { fleet, store, runner, alerts } = buildFleet(home, { fetch: fakeFetch([503]) });
 
-    const result = await fleet.ensureDaemon(repo, 'feature');
+    const result = await fleet.ensureDaemon({ slug, repo }, 'feature');
 
     expect(result).toMatchObject({ status: 'stopped' });
     expect(systemctlCalls(runner)).toEqual([
@@ -247,7 +255,7 @@ describe('ensureDaemon', () => {
     const firstWindow = READY_TIMEOUT_MS / START_POLL_MS + 1;
     const { fleet, runner } = buildFleet(home, { fetch: fakeFetch([...Array(firstWindow).fill(503), 200]) });
 
-    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toMatchObject({ status: 'running' });
+    await expect(fleet.ensureDaemon({ slug, repo }, 'feature')).resolves.toMatchObject({ status: 'running' });
     expect(systemctlCalls(runner)).toEqual([
       `--user start ogm-aiur@${slug}.service`,
       `--user restart ogm-aiur@${slug}.service`,
@@ -260,7 +268,7 @@ describe('ensureDaemon', () => {
       env: { ...(await import('./helpers.js')).fleetEnv(home), builderBotToken: undefined },
     });
 
-    await expect(fleet.ensureDaemon(repo, 'feature')).resolves.toEqual({
+    await expect(fleet.ensureDaemon({ slug, repo }, 'feature')).resolves.toEqual({
       status: 'stopped',
       reasons: ['OGM_BUILDER_BOT_TOKEN is not set'],
     });
@@ -282,7 +290,7 @@ describe('stopIdleDaemons', () => {
     ]);
     const { fleet, runner } = buildFleet(home, {
       store,
-      jobs: { 'owner/game2': ['feature'] },
+      jobs: { 'owner-game2': ['feature'] },
       preflight: okPreflight,
     });
 
@@ -297,7 +305,7 @@ describe('stopIdleDaemons', () => {
   it('keeps the workspaces directory when it stops a daemon', async () => {
     const home = await tempHome();
     const { fleet, store } = buildFleet(home);
-    await fleet.ensureDaemon(repo, 'feature');
+    await fleet.ensureDaemon({ slug, repo }, 'feature');
     await store.update(slug, { status: 'idle', idleSince: ago(IDLE_STOP_MS) });
 
     await fleet.stopIdleDaemons(at);
@@ -326,15 +334,15 @@ describe('checkHealth', () => {
 });
 
 describe('daemonFor and listDaemons', () => {
-  it('returns a client for a running daemon and nothing for an unknown repo', async () => {
+  it('returns a client for a running daemon and nothing for an unknown game', async () => {
     const home = await tempHome();
     const { fleet } = buildFleet(home);
-    await fleet.ensureDaemon(repo, 'feature');
+    await fleet.ensureDaemon({ slug, repo }, 'feature');
 
-    const found = await fleet.daemonFor(repo);
+    const found = await fleet.daemonFor(slug);
     expect(found?.client.baseUrl).toBe('http://127.0.0.1:4101');
     expect(found?.daemon.clientToken).toBe('aiur_token1');
-    await expect(fleet.daemonFor('owner/none')).resolves.toBeNull();
+    await expect(fleet.daemonFor('no-such-game')).resolves.toBeNull();
     await expect(fleet.listDaemons('running')).resolves.toHaveLength(1);
     await expect(fleet.listDaemons('stopped')).resolves.toHaveLength(0);
   });

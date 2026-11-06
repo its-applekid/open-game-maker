@@ -12,6 +12,7 @@ afterEach(cleanupHomes);
 
 const input: ProvisionInput = {
   gameId: 'g_01J',
+  gameSlug: 'castle-run',
   owner: 'everdred-games',
   visibility: 'private',
   kind: 'new_game',
@@ -50,15 +51,18 @@ describe('provisionGameRepo', () => {
     });
     expect(setGameRepo).toHaveBeenCalledWith('g_01J', 'everdred-games/gm-g_01J');
 
-    const row = await store.byRepo('everdred-games/gm-g_01j');
-    expect(row?.status).toBe('stopped');
-    const dir = join(home, '.local/share/ogm/daemons', row!.slug);
-    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles().hooks);
-    expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe(renderDaemonFiles().prompt);
+    // The daemon is keyed by the game's slug, and its rendered hook and prompt carry the game's sparse checkout.
+    const row = await store.bySlug('castle-run');
+    expect(row).toMatchObject({ repo: 'everdred-games/gm-g_01j', status: 'stopped' });
+    const dir = join(home, '.local/share/ogm/daemons', 'castle-run');
+    expect(await readFile(join(dir, '.aiur/hooks'), 'utf8')).toBe(renderDaemonFiles({ gameSlug: 'castle-run' }).hooks);
+    expect(await readFile(join(dir, '.aiur/prompt.md'), 'utf8')).toBe(
+      renderDaemonFiles({ gameSlug: 'castle-run' }).prompt,
+    );
     expect(parse(await readFile(join(dir, '.aiur/config'), 'utf8')).tracker.github.repo).toBe(
       'everdred-games/gm-g_01j',
     );
-    expect((await stat(join(home, '.config/ogm/daemons', row!.slug, 'hook-secret'))).mode & 0o777).toBe(0o600);
+    expect((await stat(join(home, '.config/ogm/daemons', 'castle-run', 'hook-secret'))).mode & 0o777).toBe(0o600);
     expect(systemctlCalls(runner)).toEqual([]);
   });
 
