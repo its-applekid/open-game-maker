@@ -5,7 +5,8 @@ description: Install and build a Game Maker repo inside the network-off sandbox.
 
 # Build offline
 
-1. From the game repo, run `pnpm install --offline --frozen-lockfile`.
+1. From the instance repository root, run `pnpm install --offline`. After `gm new` this refreshes `pnpm-lock.yaml`, so
+   commit the change; later installs add `--frozen-lockfile`.
 2. Run `gm build`; when asset targets are needed, run `gm build assets --tier mobile,desktop`. `gm build` fails naming
    `dist/manifest.json` or `dist/design/design.json` when either is missing or invalid: fix `src/manifest.ts` or
    `design/*.json` (a key defined in two design files fails the build).
