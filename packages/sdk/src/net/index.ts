@@ -1,5 +1,14 @@
-import type { ActionFrame, GameManifest, MultiplayerHooks } from '@ogm/contracts';
+import type {
+  ActionFrame,
+  AuthorityMode,
+  GameManifest,
+  MultiplayerHooks,
+  MultiplayerHooksV2,
+  NetSeat,
+  NetStart,
+} from '@ogm/contracts';
 
+import type { Rng } from '../core/rng.js';
 import {
   assertByteLength,
   decodeBase64,
@@ -12,6 +21,8 @@ import {
 import { HostChannel } from './host.js';
 import { PeerChannel, type WireSnapshot } from './peer.js';
 import { NET_STATE_CHANGES, RoleStore, type NetPlayer, type NetRole, type NetStateChanges } from './roles.js';
+import { ModeMismatchError, resolveAuthorityMode } from './mode.js';
+import { PerSeatMode, type PerSeatDiagnostics } from './modes/per-seat.js';
 
 export interface GmNet {
   readonly role: NetRole;
@@ -24,9 +35,28 @@ export interface GmNet {
   onEvent(callback: (event: unknown) => void): () => void;
   readonly snapshotHz: 20;
   readonly interpolationDelayMs: 100;
+  /** The authority mode this instance runs (`'host'` when the manifest declares none). */
+  readonly mode: AuthorityMode;
+  /** This client's seat; equal to `localPlayerIndex` in v1. */
+  readonly localSeat: number;
+  /** `''` outside a per-seat match. */
+  readonly epoch: string;
+  readonly tick: number;
+  readonly started: boolean;
+  onSeats(callback: (seats: readonly NetSeat[]) => void): () => void;
+  onStart(callback: (start: NetStart) => void): () => void;
+  now(): NetTime;
+  /** The tick-stamped frame this client holds for `seat`, if any. */
+  frameFor(seat: number, tick: number): ActionFrame | undefined;
+  /** Per-seat authority only: a seeded stream, `'shared'` or a seat index. */
+  rng(stream: 'shared' | number): Rng;
+  digest(): readonly number[];
 }
 
-export interface NetDiagnostics {
+export type NetTime = { serverMs: number; tick: number; offsetMs: number; rttMs: number; jitterMs: number };
+
+export interface NetDiagnostics extends PerSeatDiagnostics {
+  mode: AuthorityMode;
   dropped: number;
   eventGaps: number;
   outOfOrderSnapshots: number;
@@ -38,33 +68,66 @@ export interface NetControllerOptions {
   manifest: GameManifest;
   hooks: MultiplayerHooks;
   localPlayerIndex: number;
-  send(type: 'net.input' | 'net.snapshot' | 'net.event', payload: unknown): void;
+  send(type: string, payload: unknown): void;
   acceptInput(frame: ActionFrame): void;
   syncPlayers(players: ReadonlyArray<NetPlayer>): void;
   setLocalPlayerIndex(playerIndex: number): void;
   recordEvent(kind: string, payload: unknown): void;
   now(): number;
   warn?(message: string): void;
+  /** Virtual-clock control for the start gate and drift resync; `boot` wires them to the runtime clock. */
+  pauseClock?(): void;
+  resumeClock?(): void;
+  resetClock?(tick: number): void;
 }
 
 export interface NetController {
   readonly net: GmNet;
   readonly role: NetRole;
+  readonly mode: AuthorityMode;
+  /** `false` only for a host-mode peer: the one boolean that separates "renders" from "also simulates". */
+  readonly stepLocally: boolean;
   readonly diagnostics: Readonly<NetDiagnostics>;
   handleMessage(type: string, payload: unknown): void;
   handleLocalFrames(frames: ActionFrame[]): void;
+  /** Per-seat authority: the local seat's sampled input, sent as it is sampled. */
+  sampleLocal(frame: ActionFrame): void;
+  beforeStep(tick: number, frames: ActionFrame[]): void;
   afterStep(tick: number): void;
+  /** Evaluates the start gate; the runtime calls this before its clock advances (D-N2-12). */
+  gate(nowMs?: number): void;
   render(): void;
   dispose(): void;
 }
 
+/** The v2 inbound names a per-seat controller handles. Host mode ignores them (routing is N3's). */
+const V2_INBOUND = new Set([
+  'net.start',
+  'net.start.cancel',
+  'net.seats',
+  'net.inputs',
+  'net.state',
+  'net.checksum',
+  'net.recovery',
+  'net.recovery.request',
+  'net.tick',
+]);
+
 export function createNetController(options: NetControllerOptions): NetController {
+  const mode = resolveAuthorityMode(options.manifest);
+  if (mode === 'rollback') {
+    throw new ModeMismatchError("authority mode 'rollback' is not implemented yet");
+  }
+
   const roles = new RoleStore(options.localPlayerIndex, options.hooks);
   const inputListeners = new Set<(playerIndex: number, frame: ActionFrame) => void>();
   const eventListeners = new Set<(event: unknown) => void>();
+  const seatListeners = new Set<(seats: readonly NetSeat[]) => void>();
+  const startListeners = new Set<(start: NetStart) => void>();
   const eventBuffer = new Map<number, unknown>();
   const warned = new Set<string>();
   const diagnostics: NetDiagnostics = {
+    ...zeroDiagnostics(mode),
     dropped: 0,
     eventGaps: 0,
     outOfOrderSnapshots: 0,
@@ -75,6 +138,8 @@ export function createNetController(options: NetControllerOptions): NetControlle
   let outgoingEventSequence = 0;
   let eventGapStartedAt: number | undefined;
   let disposed = false;
+
+  const perSeat = mode === 'per-seat' ? createPerSeatMode() : undefined;
 
   const oversized = (kind: 'input' | 'snapshot' | 'event', error: unknown) => {
     diagnostics.dropped += 1;
@@ -142,6 +207,36 @@ export function createNetController(options: NetControllerOptions): NetControlle
     },
     snapshotHz: 20,
     interpolationDelayMs: 100,
+    get mode() {
+      return mode;
+    },
+    get localSeat() {
+      return perSeat?.localSeat ?? roles.localPlayerIndex;
+    },
+    get epoch() {
+      return perSeat?.currentEpoch ?? '';
+    },
+    get tick() {
+      return perSeat?.tick ?? 0;
+    },
+    get started() {
+      return perSeat?.isStarted ?? false;
+    },
+    onSeats: (callback) => subscribe(seatListeners, callback),
+    onStart: (callback) => subscribe(startListeners, callback),
+    now: () => ({
+      serverMs: options.now() + (perSeat?.offsetMs ?? 0),
+      tick: perSeat?.tick ?? 0,
+      offsetMs: perSeat?.offsetMs ?? 0,
+      rttMs: 0,
+      jitterMs: 0,
+    }),
+    frameFor: (seat, tick) => perSeat?.frameFor(seat, tick),
+    rng: (stream) => {
+      if (!perSeat) throw new Error('gm.net streams are only available in per-seat authority');
+      return perSeat.rng(stream);
+    },
+    digest: () => perSeat?.digest() ?? [],
     onPlayerJoined: (callback) => roles.onPlayerJoined(callback),
     onPlayerLeft: (callback) => roles.onPlayerLeft(callback),
     onInput: (callback) => subscribe(inputListeners, callback),
@@ -171,9 +266,17 @@ export function createNetController(options: NetControllerOptions): NetControlle
     get role() {
       return roles.role;
     },
+    mode,
+    get stepLocally() {
+      return perSeat !== undefined || roles.role !== 'peer';
+    },
     diagnostics,
     handleMessage(type, payload) {
       if (disposed) return;
+      if (perSeat && V2_INBOUND.has(type)) {
+        perSeat.handleMessage(type, payload);
+        return;
+      }
       if (type === 'net.players') {
         const message = payload as { local: number; players: NetPlayer[] };
         roles.updatePlayers(message.local, message.players);
@@ -189,10 +292,21 @@ export function createNetController(options: NetControllerOptions): NetControlle
         receiveEvent(payload as { seq: number; data: string });
       }
     },
-    handleLocalFrames: (frames) => peer.sendFrames(frames),
-    afterStep: (tick) => host.afterStep(tick),
+    handleLocalFrames: (frames) => {
+      if (!perSeat) peer.sendFrames(frames);
+    },
+    sampleLocal: (frame) => perSeat?.sampleLocal(frame),
+    beforeStep: (tick, frames) => perSeat?.beforeStep(tick, frames),
+    afterStep: (tick) => {
+      if (perSeat) perSeat.afterStep(tick);
+      else host.afterStep(tick);
+    },
+    gate: (nowMs) => {
+      perSeat?.gateOpen(nowMs);
+    },
     render() {
-      peer.render();
+      if (perSeat) perSeat.render();
+      else peer.render();
       advanceEventGap();
     },
     dispose() {
@@ -200,11 +314,40 @@ export function createNetController(options: NetControllerOptions): NetControlle
       disposed = true;
       stopStateSync();
       roles.dispose();
+      perSeat?.dispose();
       inputListeners.clear();
       eventListeners.clear();
+      seatListeners.clear();
+      startListeners.clear();
       eventBuffer.clear();
     },
   };
+
+  function createPerSeatMode(): PerSeatMode {
+    const hooks = options.hooks as MultiplayerHooksV2;
+    if (!hooks.capture || !hooks.restore || !hooks.digest) {
+      throw new ModeMismatchError("authority mode 'per-seat' requires net.capture, net.restore and net.digest");
+    }
+    return new PerSeatMode({
+      manifest: options.manifest,
+      hooks,
+      localSeat: options.localPlayerIndex,
+      diagnostics,
+      send: (type, payload) => options.send(type, payload),
+      now: options.now,
+      pauseClock: () => options.pauseClock?.(),
+      resumeClock: () => options.resumeClock?.(),
+      resetClock: (tick) => options.resetClock?.(tick),
+      recordEvent: options.recordEvent,
+      emitSeats: (seats) => {
+        for (const listener of seatListeners) listener(seats);
+      },
+      emitStart: (start) => {
+        for (const listener of startListeners) listener(start);
+      },
+      warn: options.warn,
+    });
+  }
 
   function receiveEvent(message: { seq: number; data: string }): void {
     if (message.seq < expectedEventSequence || eventBuffer.has(message.seq)) return;
@@ -243,6 +386,28 @@ export function createNetController(options: NetControllerOptions): NetControlle
   }
 }
 
+function zeroDiagnostics(mode: AuthorityMode): Omit<NetDiagnostics, 'dropped' | 'eventGaps' | 'oversized'> {
+  return {
+    mode,
+    epoch: '',
+    tick: 0,
+    lateStartTicks: 0,
+    inputDelayTicks: 0,
+    inputGaps: 0,
+    lateInputs: 0,
+    localResponseMs: 0,
+    remoteUpdateMs: 0,
+    clockOffsetMs: 0,
+    clockResyncs: 0,
+    desyncs: 0,
+    recoveries: 0,
+    hardResyncs: 0,
+    desynced: false,
+    outOfOrderSnapshots: 0,
+    stalls: 0,
+  };
+}
+
 function subscribe<T>(listeners: Set<T>, callback: T): () => void {
   listeners.add(callback);
   return () => listeners.delete(callback);
@@ -251,3 +416,7 @@ function subscribe<T>(listeners: Set<T>, callback: T): () => void {
 export { type NetPlayer, type NetRole } from './roles.js';
 export { interpolateState } from './peer.js';
 export { bindLocalPlayer, type LocalPlayerBindingOptions } from './bind.js';
+export { ModeMismatchError, resolveAuthorityMode } from './mode.js';
+export { PerSeatMode } from './modes/per-seat.js';
+export { DIGEST_SCALE, fold, sameWords, sortedIds, toUnits } from './foundations/checksum.js';
+export { createStreams, type Streams } from './foundations/streams.js';
