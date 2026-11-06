@@ -83,8 +83,13 @@ describe('RoomClient with GameRoom', () => {
       owner.join({ roomId: room.roomId, grant: ownerGrant, pin, expiresAt: Date.now() + 600_000 }),
       watcher.join({ roomId: room.roomId, grant: watcherGrant, pin, expiresAt: Date.now() + 600_000 }),
     ]);
-    await waitFor(() => ownerStore.getState().status === 'connected' && watcherStore.getState().status === 'connected');
-    await waitFor(() => sync.appliedRev === 0);
+    /* A protocol-2 join sends the seat table beside the welcome, and this file boots a real room beside
+     * eighteen jsdom files; the default 8 s wait is too tight for both under load. */
+    await waitFor(
+      () => ownerStore.getState().status === 'connected' && watcherStore.getState().status === 'connected',
+      15_000,
+    );
+    await waitFor(() => sync.appliedRev === 0, 15_000);
 
     let hostDoc = initialDoc;
     for (let rev = 1; rev <= 3; rev += 1) {
