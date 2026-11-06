@@ -32,13 +32,13 @@ describe('notification rendering', () => {
     expect(render(buildTrigger, {})).toEqual({
       title: 'Your build is ready',
       body: ids.game,
-      url: `/games/${ids.game}`,
+      url: `/play/${ids.game}`,
     });
     expect(render({ ...buildTrigger, ok: false }, {})).toMatchObject({ title: 'A build needs you' });
     expect(render({ kind: 'job.started', userIds: [ids.userOne], gameId: ids.game, jobId: ids.job }, {})).toEqual({
       title: 'Your queued change started',
       body: ids.game,
-      url: `/games/${ids.game}?chat=${ids.job}`,
+      url: `/play/${ids.game}?chat=${ids.job}`,
     });
     expect(
       render({ kind: 'intake.report', userIds: [ids.userOne], dropId: 'drop-1', status: 'awaiting-license' }, {}),
@@ -84,7 +84,7 @@ describe('deliver', () => {
       kind: 'build.done',
       title: 'Your build is ready',
       body: ids.game,
-      url: `/games/${ids.game}`,
+      url: `/play/${ids.game}`,
     });
     expect(sendNotification.mock.calls[0][2]).toEqual({ TTL: 3600, urgency: 'normal', timeout: 10_000 });
   });

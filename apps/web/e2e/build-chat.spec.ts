@@ -71,7 +71,7 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await page.setViewportSize({ width: 390, height: 844 });
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page);
-  await page.goto('/games?test');
+  await page.goto('/all?test');
 
   await expect(page.getByRole('button', { name: 'Menu' })).toHaveAttribute('data-building', 'true');
   await openBuildChat(page);
@@ -126,7 +126,7 @@ test('large pasted text is a compact expandable attachment on phone and desktop'
   );
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page);
-  await page.goto('/games?test', { waitUntil: 'domcontentloaded' });
+  await page.goto('/all?test', { waitUntil: 'domcontentloaded' });
   await openBuildChat(page);
 
   const textbox = page.getByRole('textbox', { name: 'Message the builder' });
@@ -180,7 +180,7 @@ test('attaches files with the button and by pasting an image, then sends them wi
       201,
     );
   });
-  await page.goto('/games?test');
+  await page.goto('/all?test');
   await openBuildChat(page);
 
   const chooser = page.waitForEvent('filechooser');
@@ -222,7 +222,7 @@ test('attaches files with the button and by pasting an image, then sends them wi
 test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page, { brokenPicker: true });
-  await page.goto('/games?test');
+  await page.goto('/all?test');
 
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
