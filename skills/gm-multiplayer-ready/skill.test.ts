@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 import { COMMANDS_DIR, checkSkill, loadCommands } from '@ogm/gm-cli';
-import { InputFrameSchema, hudModelSchema, type MultiplayerHooks } from '@ogm/contracts';
+import { InputFrameSchema, hudModelSchema, type MultiplayerHooks, type MultiplayerHooksV2 } from '@ogm/contracts';
 import { describe, expect, it } from 'vitest';
 
 const SKILL = fileURLToPath(new URL('./SKILL.md', import.meta.url));
@@ -14,7 +14,12 @@ const hooks = {
   applySnapshot: true,
   hud: true,
 } satisfies Record<keyof MultiplayerHooks, true>;
-const sdkExports = { InputFrame: InputFrameSchema.shape, HudModel: hudModelSchema, MultiplayerHooks: hooks };
+const sdkExports = {
+  InputFrame: InputFrameSchema.shape,
+  HudModel: hudModelSchema,
+  MultiplayerHooks: hooks,
+  MultiplayerHooksV2: hooks satisfies Record<keyof MultiplayerHooksV2 & keyof MultiplayerHooks, true>,
+};
 
 /* T07 §4.4, verbatim: the skill is the only place agents read these rules, so a paraphrase is a regression. */
 const RULES = [
@@ -22,10 +27,10 @@ const RULES = [
   'All per-player state lives in `players: Map<playerIndex, PlayerState>`; no singleton `player`.',
   'Entity ids are host-minted, globally unique strings; never array positions or per-session counters.',
   'Spawn points are design data (`design/spawns.json`), at least `maxPlayers` of them.',
-  'The host is authoritative; peers render snapshots and send inputs only; game logic never assumes a server.',
+  "Authority is declared, not assumed: a game sets `net.authority` in its manifest (`'per-seat'` or `'host'`) and keeps its simulation deterministic; game logic never assumes a server.",
   '`serializeSnapshot()/applySnapshot()` cover everything visible; transient effects are derived, not synced.',
   'HUD reads `players.get(localPlayerIndex)`; camera rig follows the local avatar.',
-  '`tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`.',
+  '`tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`; under per-seat authority every seat runs the step itself, so the same frames must always produce the same state.',
 ];
 
 describe('gm-multiplayer-ready skill', () => {

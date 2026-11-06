@@ -137,6 +137,9 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
         setLocalPlayerIndex: (playerIndex) => runtime.setLocalPlayerIndex(playerIndex),
         recordEvent: (kind, payload) => events.push(++eventCursor, kind, payload),
         now: markNow,
+        pauseClock: () => runtime.clock.pause(),
+        resumeClock: () => runtime.clock.resume(),
+        resetClock: (tick) => runtime.clock.reset(tick),
       }),
     );
     const hooks = new SdkHooks(runtime, module.manifest, marks);
@@ -292,6 +295,27 @@ export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions 
         case 'net.input':
         case 'net.snapshot':
         case 'net.event':
+        case 'net.mode':
+        case 'net.seats':
+        case 'net.primary':
+        case 'net.start':
+        case 'net.start.cancel':
+        case 'net.tick':
+        case 'net.state':
+        case 'net.inputs':
+        case 'net.checksum':
+        case 'net.recovery':
+        case 'net.seat':
+        case 'net.transport':
+          /* Netcode v2 inbound: routing stays N3's, and the SDK consumes the names a per-seat match needs. */
+          active.handleNet(envelope.t, envelope.payload);
+          return;
+        case 'net.pause':
+          active.clock.pause();
+          active.handleNet(envelope.t, envelope.payload);
+          return;
+        case 'net.resume':
+          active.clock.resume();
           active.handleNet(envelope.t, envelope.payload);
           return;
         case 'phase':

@@ -16,6 +16,10 @@
       "types": "./dist/core/index.d.ts",
       "import": "./dist/core/index.js"
     },
+    "./net": {
+      "types": "./dist/net/index.d.ts",
+      "import": "./dist/net/index.js"
+    },
     "./assets": {
       "types": "./dist/assets/index.d.ts",
       "import": "./dist/assets/index.js"

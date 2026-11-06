@@ -1,0 +1,30 @@
+{
+  "epoch": "epoch-7",
+  "seed": 12345,
+  "startAt": 1000,
+  "tick": 0,
+  "primary": 0,
+  "privateSeed": 987654321,
+  "seats": [
+    {
+      "seat": 0,
+      "userId": "user-7",
+      "name": "Ada",
+      "team": 0,
+      "connected": true,
+      "ready": true,
+      "forfeited": false,
+      "spectator": false
+    },
+    {
+      "seat": 1,
+      "userId": "user-42",
+      "name": "Robin",
+      "team": 0,
+      "connected": true,
+      "ready": true,
+      "forfeited": false,
+      "spectator": false
+    }
+  ]
+}
