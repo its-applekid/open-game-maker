@@ -34,6 +34,7 @@ async function world() {
     .set({ title: 'Spooky Castle', visibility: 'listed', repoVisibility: 'public' })
     .where(eq(schema.games.id, ids.game))
     .run();
+  // A creator's linked GitHub account is irrelevant now: the instance App owns the repository.
   deps.db
     .insert(schema.githubConnections)
     .values({ userId: ids.user, login: 'octocat', installationId: '123', connectedAt: now })
@@ -191,12 +192,12 @@ describe('game forks', () => {
     });
     expect(context.operations).toEqual([
       {
-        kind: 'fork',
-        sourceGameId: ids.game,
-        sourceSha: foldSha,
-        newGameId: body.game.id,
-        owner: 'octocat',
+        kind: 'create_game',
+        gameId: body.game.id,
+        slug: 'spooky-fork',
+        templateRef: 'game-2d@1',
         visibility: 'public',
+        from: { gameId: ids.game, sha: foldSha },
       },
     ]);
 
@@ -206,8 +207,11 @@ describe('game forks', () => {
     expect(game).toMatchObject({
       visibility: 'private',
       repoVisibility: 'public',
-      githubOwner: 'octocat',
-      githubRepo: `gm-${body.game.id}`,
+      slug: 'spooky-fork',
+      githubOwner: 'instance',
+      githubRepo: 'games',
+      githubPath: 'games/spooky-fork',
+      repoUrl: 'https://github.com/instance/games',
       forkedFromGameId: ids.game,
       forkedFromReleaseId: releaseId,
     });

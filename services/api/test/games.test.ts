@@ -50,14 +50,6 @@ function seedFamily(deps: ReturnType<typeof makeDeps>) {
     .run();
 }
 
-async function connect(app: Awaited<ReturnType<typeof makeApp>>['app'], user = creator) {
-  return app.request('/api/v1/github/connect', {
-    method: 'POST',
-    headers: { ...asUser(user.userId), 'content-type': 'application/json' },
-    body: JSON.stringify({ installationId: '12345' }),
-  });
-}
-
 async function createGame(app: Awaited<ReturnType<typeof makeApp>>['app'], user = creator) {
   return app.request('/api/v1/games', {
     method: 'POST',
@@ -72,32 +64,29 @@ describe('games routes', () => {
     seedFamily(deps);
     const provisioner = new NullRepoProvisioner();
     deps.registry.repoProvisioner = provisioner;
-    deps.registry.githubInstallations = { loginFor: async () => 'creator-gh' };
     const { app } = await makeApp(deps);
 
-    expect((await connect(app)).status).toBe(200);
+    // No GitHub connection: the operator installed the App on the instance repository once.
     const response = await createGame(app);
     expect(response.status).toBe(201);
-    const body = (await response.json()) as { id: string; repo: { owner: string; name: string; url: string } };
+    const body = (await response.json()) as {
+      id: string;
+      slug: string;
+      repo: { owner: string; name: string; url: string };
+    };
     expect(body.repo).toEqual({
-      owner: 'creator-gh',
-      name: `gm-${body.id}`,
-      url: `https://github.com/creator-gh/gm-${body.id}`,
+      owner: 'instance',
+      name: 'games',
+      url: 'https://github.com/instance/games',
     });
-    expect(provisioner.calls).toEqual([
-      {
-        id: body.id,
-        title: 'Castle Game',
-        owner: { login: 'creator-gh', installationId: '12345' },
-        visibility: 'private',
-      },
-    ]);
+    expect(provisioner.calls).toEqual([{ id: body.id, title: 'Castle Game', slug: body.slug, visibility: 'private' }]);
     expect(deps.db.select().from(schema.games).get()).toMatchObject({
       id: body.id,
       ownerId: creator.userId,
-      githubOwner: 'creator-gh',
-      githubRepo: `gm-${body.id}`,
-      repoUrl: `https://github.com/creator-gh/gm-${body.id}`,
+      githubOwner: 'instance',
+      githubRepo: 'games',
+      githubPath: `games/${body.slug}`,
+      repoUrl: 'https://github.com/instance/games',
     });
     await expect(deps.registry.gameResolver?.(body.id)).resolves.toEqual({
       familyId,
@@ -118,15 +107,15 @@ describe('games routes', () => {
     expect(provisioner.calls).toEqual([]);
   });
 
-  it('requires a GitHub connection before creating a game row', async () => {
+  it('creates a game for a creator who never connected GitHub', async () => {
     const deps = makeDeps();
     seedFamily(deps);
     deps.registry.repoProvisioner = new NullRepoProvisioner();
     const { app } = await makeApp(deps);
+    expect(deps.db.select().from(schema.githubConnections).all()).toEqual([]);
     const response = await createGame(app);
-    expect(response.status).toBe(409);
-    expect(await response.json()).toEqual({ error: 'github_not_connected' });
-    expect(deps.db.select().from(schema.games).all()).toEqual([]);
+    expect(response.status).toBe(201);
+    expect(deps.db.select().from(schema.games).all()).toHaveLength(1);
   });
 
   it('refuses an admin patch of another adult game', async () => {
@@ -162,9 +151,7 @@ describe('games routes', () => {
         throw new Error('commit service unavailable');
       },
     };
-    deps.registry.githubInstallations = { loginFor: async () => 'creator-gh' };
     const { app } = await makeApp(deps);
-    await connect(app);
     const failed = await createGame(app);
     expect(failed.status).toBe(502);
     const failure = (await failed.json()) as { error: string; details: { gameId: string } };
@@ -182,7 +169,7 @@ describe('games routes', () => {
       headers: asUser(creator.userId),
     });
     expect(retried.status).toBe(200);
-    expect(deps.db.select().from(schema.games).get()?.repoUrl).toContain('https://github.com/creator-gh/');
+    expect(deps.db.select().from(schema.games).get()?.repoUrl).toBe('https://github.com/instance/games');
   });
 
   it('lists family-visible games plus the caller private games', async () => {
@@ -257,11 +244,12 @@ describe('games routes', () => {
 });
 
 describe('CommitServiceRepoProvisioner', () => {
-  it('posts create_repo with the service token and derives the repository URL', async () => {
+  it('posts create_game with the service token and derives the game folder', async () => {
     const requests: { input: string; init?: RequestInit }[] = [];
     const provisioner = new CommitServiceRepoProvisioner({
       baseUrl: 'http://127.0.0.1:4301',
       token: 'secret-token',
+      instanceRepo: { owner: 'instance', name: 'games' },
       templateRef: 'templates/custom@v2',
       fetch: async (input, init) => {
         requests.push({ input: String(input), init });
@@ -269,20 +257,20 @@ describe('CommitServiceRepoProvisioner', () => {
       },
     });
     await expect(
-      provisioner.provision({
-        id: 'g-1',
-        title: 'Castle',
-        owner: { login: 'maker', installationId: '999' },
-        visibility: 'public',
-      }),
-    ).resolves.toEqual({ owner: 'maker', repo: 'gm-g-1', url: 'https://github.com/maker/gm-g-1' });
+      provisioner.provision({ id: 'g-1', title: 'Castle', slug: 'castle', visibility: 'public' }),
+    ).resolves.toEqual({
+      owner: 'instance',
+      repo: 'games',
+      url: 'https://github.com/instance/games',
+      path: 'games/castle',
+    });
     expect(requests).toHaveLength(1);
     expect(requests[0]?.input).toBe('http://127.0.0.1:4301/internal/commit');
     expect(requests[0]?.init?.headers).toMatchObject({ authorization: 'Bearer secret-token' });
     expect(JSON.parse(String(requests[0]?.init?.body))).toEqual({
-      kind: 'create_repo',
+      kind: 'create_game',
       gameId: 'g-1',
-      owner: 'maker',
+      slug: 'castle',
       visibility: 'public',
       templateRef: 'templates/custom@v2',
     });

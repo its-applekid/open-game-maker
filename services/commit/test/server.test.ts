@@ -97,7 +97,7 @@ describe('commit HTTP service', () => {
       at: '2026-11-01T00:00:00.000Z',
       op: 'release',
       gameId: 'game-1',
-      repo: 'alice/gm-game-1',
+      repo: 'alice/instance',
       result: 'allowed',
       sha: 'tag-1',
       actor: 'api',

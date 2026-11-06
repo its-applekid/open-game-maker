@@ -2,6 +2,11 @@ import type { CommitResult } from '../types.js';
 import type { OperationContext } from './context.js';
 import type { ExtractCommitOp } from './operation-types.js';
 
+/*
+ * A game's visibility no longer flips a repository. Every game shares the instance repository, whose visibility the
+ * operator sets at setup, so this operation keeps only its gate: making a game's content public still has to pass the
+ * boundary checks before the API records the change.
+ */
 export async function setVisibility(
   op: ExtractCommitOp<'set_visibility'>,
   context: OperationContext,
@@ -12,13 +17,8 @@ export async function setVisibility(
     gameId: op.gameId,
     repository,
     targetVisibility: op.visibility,
+    gamePath: repository.path,
   });
   if (!verdict.allowed) return { ok: false, verdict };
-
-  const github = await context.app.forOwner(repository.owner);
-  await github.request('PATCH /repos/{owner}/{repo}', {
-    ...repository,
-    private: op.visibility === 'private',
-  });
   return { ok: true, sha: op.visibility };
 }

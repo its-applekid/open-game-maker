@@ -1,5 +1,7 @@
 import path from 'node:path';
 
+import { GAMES_ROOT, PACKAGES_ROOT, gameFolder as folderFor } from '@ogm/contracts';
+
 export class UnsafePathError extends Error {
   readonly path: string;
 
@@ -55,10 +57,29 @@ export function normalizeBranchName(input: string): string {
   return input;
 }
 
-export function repositoryName(gameId: string): string {
-  if (!/^[A-Za-z0-9._-]+$/u.test(gameId) || gameId === '.' || gameId === '..') {
-    throw new Error('invalid game id');
-  }
+// Every game in an instance lives in one folder of the instance repository: `games/<slug>/`; components the instance's
+// games share live under `packages/`. The convention itself lives in the contract so the API and the commit service
+// cannot drift apart.
+export { GAMES_ROOT, PACKAGES_ROOT };
 
-  return `gm-${gameId}`;
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/u;
+
+export function normalizeGameSlug(input: string): string {
+  if (input.length === 0 || input.length > 48 || !SLUG_PATTERN.test(input)) throw new Error('invalid game slug');
+  return input;
+}
+
+export function gameFolder(slug: string): string {
+  return folderFor(normalizeGameSlug(slug));
+}
+
+// A game's registry path without its trailing slash, so folder comparisons are one shape everywhere.
+export function normalizeGamePath(input: string): string {
+  const normalized = normalizeCommitPath(input).replace(/\/+$/u, '');
+  const segments = normalized.split('/');
+  if (segments.length !== 2 || segments[0] !== GAMES_ROOT) {
+    throw new UnsafePathError(input, 'not a game folder');
+  }
+  normalizeGameSlug(segments[1] ?? '');
+  return normalized;
 }

@@ -345,3 +345,40 @@ describe('vendored rule', () => {
     });
   });
 });
+
+describe('game folder rule', () => {
+  const gamePath = 'games/castle-game';
+
+  it('allows a change anywhere inside the game folder', () => {
+    const files = [
+      file(`${gamePath}/index.html`),
+      file(`${gamePath}/design/design.json`),
+      file(`${gamePath}/packages/local/ui.ts`),
+    ];
+    expect(evaluateDiff(input({ files, gamePath }))).toEqual({ allowed: true, reasons: [] });
+  });
+
+  it("refuses a file in another game's folder", () => {
+    const files = [file(`${gamePath}/index.html`), file('games/puzzle-game/index.html')];
+    const [reason] = evaluateDiff(input({ files, gamePath })).reasons;
+    expect(reason).toMatchObject({ code: 'path', path: 'games/puzzle-game/index.html' });
+  });
+
+  it('refuses a repository-root file such as a workflow or a package manifest', () => {
+    const files = [file('.github/workflows/ci.yml'), file('package.json')];
+    const flagged = evaluateDiff(input({ files, gamePath })).reasons.map(({ path }) => path);
+    // The path rule also owns the workflow, so assert the game folder rule named both files rather than a count.
+    expect(flagged).toContain('.github/workflows/ci.yml');
+    expect(flagged).toContain('package.json');
+  });
+
+  it('refuses packages/ unless the change is an approved promotion', () => {
+    const files = [file('packages/shared/ui.ts')];
+    expect(codes(evaluateDiff(input({ files, gamePath })))).toEqual(['path']);
+    expect(evaluateDiff(input({ files, gamePath, promotion: true }))).toEqual({ allowed: true, reasons: [] });
+  });
+
+  it('leaves a change with no game folder to the repository-wide rules', () => {
+    expect(evaluateDiff(input({ files: [file('docs/ops/self-host.md')] }))).toEqual({ allowed: true, reasons: [] });
+  });
+});

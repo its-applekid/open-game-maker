@@ -33,6 +33,8 @@ function gateError(error: unknown): BoundaryVerdict {
   };
 }
 
+const gatedKinds = ['create_game', 'fold_design', 'merge', 'release', 'restore_game', 'set_visibility'];
+
 export class RealBoundaryGate implements BoundaryGate {
   readonly #app: GitHubApp;
   readonly #api: BoundaryApi;
@@ -46,7 +48,7 @@ export class RealBoundaryGate implements BoundaryGate {
 
   async evaluate(input: GateInput): Promise<BoundaryVerdict> {
     if (input.kind === 'set_visibility' && input.targetVisibility === 'private') return allowed();
-    if (!['fold_design', 'merge', 'release', 'set_visibility'].includes(input.kind)) return allowed();
+    if (!gatedKinds.includes(input.kind)) return allowed();
 
     try {
       const [blocklist, profileNames] = await Promise.all([this.#blocklist.load(), this.#api.piiTerms(input.gameId)]);
@@ -73,6 +75,8 @@ export class RealBoundaryGate implements BoundaryGate {
             files: required(input.files, 'files'),
             blocklist,
             profileNames,
+            ...(input.gamePath === undefined ? {} : { gamePath: input.gamePath }),
+            ...(input.promotion === true ? { promotion: true } : {}),
           }),
         );
       }
@@ -85,6 +89,8 @@ export class RealBoundaryGate implements BoundaryGate {
           prNumber: required(input.prNumber, 'prNumber'),
           blocklist,
           profileNames,
+          ...(input.gamePath === undefined ? {} : { gamePath: input.gamePath }),
+          ...(input.promotion === true ? { promotion: true } : {}),
         });
         if (built.headSha !== expectedHead) {
           return {
@@ -96,7 +102,7 @@ export class RealBoundaryGate implements BoundaryGate {
       }
 
       const sha =
-        input.kind === 'release'
+        input.kind === 'release' || input.kind === 'restore_game'
           ? required(input.sha, 'sha')
           : (input.sha ?? (await mainHead(github.request, input.repository)));
       return evaluateBoundary(
@@ -107,6 +113,7 @@ export class RealBoundaryGate implements BoundaryGate {
           visibility: input.kind === 'set_visibility' ? 'public' : input.repository.visibility,
           blocklist,
           profileNames,
+          ...(input.gamePath === undefined ? {} : { gamePath: input.gamePath }),
         }),
       );
     } catch (error) {

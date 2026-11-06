@@ -1,9 +1,10 @@
 import type { BoundaryGate } from '../gate.js';
 import type { TemplateSource } from '../template-source.js';
-import type { GitHubApp, Repository } from '../types.js';
+import type { GameRepository, GitHubApp } from '../types.js';
 
 export type RepositoryResolver = {
-  resolve(gameId: string): Promise<Repository>;
+  // A game resolves to the instance repository plus the game's folder and current slug.
+  resolve(gameId: string): Promise<GameRepository>;
 };
 
 export type OperationContext = {

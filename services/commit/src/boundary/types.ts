@@ -24,6 +24,10 @@ export type BoundaryInput = {
   lockfile: AssetsLock | null;
   blocklist: ReadonlySet<string> | null;
   profileNames: string[];
+  // Set for a change inside the instance monorepo: every touched path must sit in this game's folder.
+  gamePath?: string;
+  // Only a change the executor approved as a promotion may also touch `packages/`.
+  promotion?: boolean;
 };
 
 export type BoundaryRule = (input: BoundaryInput) => BoundaryReason[];

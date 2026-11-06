@@ -4,9 +4,10 @@ import type { ActiveRepository, BoundaryApi } from './api-client.js';
 import type { PullSnapshot } from './inputs.js';
 
 export type BoundaryCheckRequest = {
-  gameId: string;
   repository: Repository;
   pull: PullSnapshot;
+  // Every game that lives in this repository: a pull request is attributed to the one game whose folder it touches.
+  games: { gameId: string; path: string }[];
 };
 
 export type BoundaryCheck = (request: BoundaryCheckRequest) => Promise<void>;
@@ -33,22 +34,35 @@ function repositoryOf(active: ActiveRepository): Repository {
   return { owner: active.owner, name: active.name, visibility: active.visibility };
 }
 
+// Games share one repository, so the open pull requests of a repository are checked once against all its games.
+export function groupActiveRepositories(
+  active: ActiveRepository[],
+): { repository: Repository; games: { gameId: string; path: string }[] }[] {
+  const groups = new Map<string, { repository: Repository; games: { gameId: string; path: string }[] }>();
+  for (const entry of active) {
+    const key = `${entry.owner}/${entry.name}`.toLocaleLowerCase();
+    const group = groups.get(key) ?? { repository: repositoryOf(entry), games: [] };
+    group.games.push({ gameId: entry.gameId, path: entry.path });
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 export async function runBoundaryPoll(options: {
   api: Pick<BoundaryApi, 'activeRepositories'>;
   app: GitHubApp;
   check: BoundaryCheck;
   log: Log;
 }): Promise<void> {
-  const repositories = await options.api.activeRepositories();
-  await mapConcurrent(repositories, POLL_CONCURRENCY, async (active) => {
-    const repository = repositoryOf(active);
+  const groups = groupActiveRepositories(await options.api.activeRepositories());
+  await mapConcurrent(groups, POLL_CONCURRENCY, async ({ repository, games }) => {
     try {
       const pulls = await openPulls(options.app, repository);
       await mapConcurrent(pulls, POLL_CONCURRENCY, async (pull) =>
         options.check({
-          gameId: active.gameId,
           repository,
           pull: { number: pull.number, draft: pull.draft, headSha: pull.head.sha },
+          games,
         }),
       );
     } catch (error) {

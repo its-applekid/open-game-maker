@@ -8,10 +8,18 @@ import { BoundaryCheckPoster } from '../../src/boundary/check-run.js';
 import { buildDiffInput } from '../../src/boundary/inputs.js';
 import { runBoundaryPoll } from '../../src/boundary/poller.js';
 import { registerBoundaryWebhook } from '../../src/boundary/webhook.js';
-import type { AuthenticatedGitHub, GitHubApp, GitHubIdentity, Repository } from '../../src/types.js';
+import type { ActiveRepository } from '../../src/boundary/api-client.js';
+import type { AuthenticatedGitHub, GitHubApp, GitHubIdentity } from '../../src/types.js';
 import { fakeRequest } from '../helpers.js';
 
-const repository: Repository = { owner: 'alice', name: 'gm-game-1', visibility: 'private' };
+const repository = {
+  owner: 'alice',
+  name: 'instance',
+  visibility: 'private',
+  path: 'games/castle-game',
+  slug: 'castle-game',
+} as const satisfies ActiveRepository;
+const game = { owner: repository.owner, name: repository.name, visibility: repository.visibility } as const;
 const emptyLock = { version: 1, family: 'any', pov: 'iso', assets: [] };
 
 function appWith(request: AuthenticatedGitHub['request']): GitHubApp {
@@ -179,9 +187,9 @@ describe('boundary poller', () => {
     });
 
     expect(check).toHaveBeenCalledWith({
-      gameId: 'game-1',
-      repository,
+      repository: game,
       pull: { number: 7, draft: false, headSha: 'head-7' },
+      games: [{ gameId: 'game-1', path: repository.path }],
     });
   });
 
@@ -201,7 +209,7 @@ describe('boundary poller', () => {
       api: {
         activeRepositories: async () => [
           { gameId: 'game-1', ...repository },
-          { gameId: 'game-2', ...repository, name: 'gm-game-2' },
+          { gameId: 'game-2', ...repository, name: 'other-instance' },
         ],
       },
       app: appWith(request),
@@ -225,7 +233,7 @@ describe('boundary webhook', () => {
     const secret = 'webhook-secret-for-tests';
     registerBoundaryWebhook(app, {
       secret,
-      resolveRepository: async () => ({ gameId: 'game-1', ...repository }),
+      resolveRepository: async () => [{ gameId: 'game-1', ...repository }],
       run,
     });
 
@@ -245,9 +253,9 @@ describe('boundary webhook', () => {
     });
     expect(good.status).toBe(202);
     expect(run).toHaveBeenCalledWith({
-      gameId: 'game-1',
-      repository,
+      repository: game,
       pull: { number: 7, draft: false, headSha: 'head-7' },
+      games: [{ gameId: 'game-1', path: repository.path }],
     });
   });
 
@@ -263,7 +271,7 @@ describe('boundary webhook', () => {
     const secret = 'webhook-secret-for-tests';
     registerBoundaryWebhook(app, {
       secret,
-      resolveRepository: async () => ({ gameId: 'game-1', ...repository }),
+      resolveRepository: async () => [{ gameId: 'game-1', ...repository }],
       run,
     });
 
@@ -282,7 +290,7 @@ describe('boundary webhook', () => {
   it('rejects an oversized webhook before signature verification', async () => {
     const app = new Hono();
     const run = vi.fn(async () => {});
-    registerBoundaryWebhook(app, { secret: 'secret', resolveRepository: async () => undefined, run });
+    registerBoundaryWebhook(app, { secret: 'secret', resolveRepository: async () => [], run });
 
     const response = await app.request('/internal/github/webhook', {
       method: 'POST',

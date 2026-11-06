@@ -54,11 +54,13 @@ function seed(deps: ReturnType<typeof makeDeps>): void {
       familyId: 'family-1',
       ownerId: 'u-owner',
       title: 'Castle Game',
+      slug: 'castle-game',
       visibility: 'private',
-      githubOwner: 'alice',
-      githubRepo: 'gm-game-1',
+      githubOwner: 'instance',
+      githubRepo: 'games',
+      githubPath: 'games/castle-game',
       repoVisibility: 'private',
-      repoUrl: 'https://github.com/alice/gm-game-1',
+      repoUrl: 'https://github.com/instance/games',
       createdAt: now.toISOString(),
     })
     .run();
@@ -73,7 +75,16 @@ describe('commit boundary internal routes', () => {
     const repositories = await app.request('/internal/games/active-repos', { headers });
     expect(repositories.status).toBe(200);
     expect(await repositories.json()).toEqual({
-      repositories: [{ gameId: 'game-1', owner: 'alice', name: 'gm-game-1', visibility: 'private' }],
+      repositories: [
+        {
+          gameId: 'game-1',
+          owner: 'instance',
+          name: 'games',
+          visibility: 'private',
+          path: 'games/castle-game',
+          slug: 'castle-game',
+        },
+      ],
     });
 
     const terms = await app.request('/internal/games/game-1/pii-terms', { headers });
@@ -81,6 +92,46 @@ describe('commit boundary internal routes', () => {
     expect(await terms.json()).toEqual({
       terms: ['Alice Example', 'alice@example.com', 'Bob Example', 'bob@example.com'],
     });
+  });
+
+  it('resolves one game to its folder in the instance repository', async () => {
+    const deps = makeDeps();
+    seed(deps);
+    // A row written before the instance monorepo has no recorded folder: it falls back to the slug and the instance repo.
+    deps.db
+      .insert(schema.games)
+      .values({
+        id: 'game-legacy',
+        familyId: 'family-1',
+        ownerId: 'u-owner',
+        title: 'Legacy',
+        slug: 'legacy-game',
+        visibility: 'private',
+        repoVisibility: 'private',
+        createdAt: now.toISOString(),
+      })
+      .run();
+    const { app } = await makeApp(deps);
+
+    const registered = await app.request('/internal/games/game-1/repo', { headers });
+    expect(registered.status).toBe(200);
+    expect(await registered.json()).toEqual({
+      gameId: 'game-1',
+      owner: 'instance',
+      name: 'games',
+      visibility: 'private',
+      path: 'games/castle-game',
+      slug: 'castle-game',
+    });
+
+    expect(await (await app.request('/internal/games/game-legacy/repo', { headers })).json()).toMatchObject({
+      gameId: 'game-legacy',
+      owner: 'instance',
+      name: 'games',
+      path: 'games/legacy-game',
+      slug: 'legacy-game',
+    });
+    expect((await app.request('/internal/games/missing/repo', { headers })).status).toBe(404);
   });
 
   it('allows only the commit service and does not expose unknown games', async () => {

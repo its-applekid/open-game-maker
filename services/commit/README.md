@@ -2,11 +2,22 @@
 
 The only OGM process that writes to GitHub. The API sends it one operation at a time on
 `POST http://127.0.0.1:$OGM_COMMIT_PORT/internal/commit` (loopback only, `Bearer $OGM_COMMIT_SERVICE_TOKEN`), and it
-runs that operation as the OGM GitHub App: create a game repo `<owner>/gm-<gameId>` from its template, fold a design
-transaction onto `main`, fork, merge, tag a release, create a branch, change visibility, or file a platform bug report
-(`src/ops/registry.ts`). Every operation is appended to `$OGM_DATA_DIR/commit/audit.jsonl`.
+runs that operation as the OGM GitHub App: add a game's folder `games/<slug>/` in the instance repository from its
+template, fold a design transaction onto `main`, fork, merge, tag a release, create a branch, change visibility, or file
+a platform bug report (`src/ops/registry.ts`). Every operation is appended to `$OGM_DATA_DIR/commit/audit.jsonl`.
 
-It also runs the `ogm/boundary` check on pull requests in active game repos (path, size, secret, PII, rights and
+Every game in an instance lives in ONE implementation repository (`OGM_INSTANCE_REPO`), under `games/<slug>/`; components
+the instance's games share live under `packages/`. The service never creates a repository. A change for one game may touch only that game's folder, and
+`packages/` only through a promotion the executor approved — the `gameFolderRule` in
+`src/boundary/rules/game-folder.ts` refuses anything else.
+
+A game's folder stays fixed for the life of the game, so renaming a game never moves its history; release tags are
+namespaced by folder (`<slug>/v<version>`) so two games can each have v1.0.0. No production instance has per-game
+`gm-<gameId>` repositories to migrate: the instance monorepo was the first layout that shipped, so there is nothing to
+read read-only and no migration step. A fork still copies a folder from another repository when its source predates the
+monorepo.
+
+It also runs the `ogm/boundary` check on pull requests in the instance repository (path, size, secret, PII, rights and
 blocklist rules in `src/boundary/`), and the same checks gate any change to public visibility
 (`src/publish-gate/gate.ts`).
 
@@ -15,9 +26,10 @@ Build it with `pnpm build`; until `services/commit/dist/index.js` exists the uni
 
 ## GitHub App
 
-Create it at `https://github.com/settings/apps/new` (or under the organization that will own game repos), generate a
-private key, and install the App on every owner it must write to: the owner of game repos and the owner of
-`OGM_PLATFORM_ISSUE_REPO`. Webhook can stay inactive (see Events). For Connect GitHub, set the App's Setup URL to
+Create it at `https://github.com/settings/apps/new` (or under the organization that will own the instance
+repository), generate a private key, and install the App on the instance repository only — every game in the instance
+lives there — plus the owner of `OGM_PLATFORM_ISSUE_REPO` for platform bug reports. Creators never connect GitHub
+themselves. Webhook can stay inactive (see Events). For Connect GitHub, set the App's Setup URL to
 `<app-origin>/connect/github` with Redirect on update ticked; the API then asks
 `GET /internal/installations/:id` which account an installation id belongs to (`src/server.ts:105`).
 
@@ -25,20 +37,16 @@ Repository permissions, each with the calls that need it:
 
 | Permission | Access | Calls |
 | --- | --- | --- |
-| Administration | Read and write | create repo `POST /orgs/{org}/repos` or `POST /user/repos` (`src/ops/repository.ts:5`, used by `create-repo.ts:24` and `fork.ts:116`); ruleset `POST /repos/{owner}/{repo}/rulesets` (`src/ops/create-repo.ts:37`); invite the builder bot `PUT /repos/{owner}/{repo}/collaborators/{username}` (`src/ops/create-repo.ts:54`); make public `PATCH /repos/{owner}/{repo}` (`src/ops/create-repo.ts:60`, `src/ops/set-visibility.ts:19`, `src/ops/fork.ts:65`) |
-| Contents | Read and write | git blobs, trees, commits (`src/ops/git-data.ts:16`, `:23`, `:39`; `src/ops/fork.ts:79`, `:83`, `:126`, `:129`, `:136`); refs `POST /repos/{owner}/{repo}/git/refs` (`src/ops/create-repo.ts:28`, `src/ops/create-branch.ts:19`, `src/ops/release.ts:29`, `src/ops/fork.ts:147`); move `main` `PATCH .../git/refs/{ref}` (`src/ops/fold-design.ts:50`); tags `POST .../git/tags` (`src/ops/release.ts:20`); a retried release reads its existing tag `GET .../git/ref/{ref}`, `GET .../git/tags/{tag_sha}` (`src/ops/release.ts:53`, `:62`); reads for the boundary check (`src/boundary/inputs.ts:53`, `:86`, `:177`, `:181`, `:282`) |
-| Workflows | Read and write | the template's `.github/workflows/ci.yml` (`packages/game-repo-template/src/repo.ts:32`) is in the initial commit and in forked trees; GitHub refuses those refs without it (`src/ops/create-repo.ts:28`, `src/ops/fork.ts:147`) |
-| Pull requests | Read and write | merge `PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge` (`src/ops/merge.ts:28`); list open pulls (`src/boundary/poller.ts:21`); one pull (`src/ops/merge.ts:13`, `src/boundary/inputs.ts:125`); its files (`src/boundary/inputs.ts:72`) |
+| Contents | Read and write | git blobs, trees, commits (`src/ops/git-data.ts`); refs `POST /repos/{owner}/{repo}/git/refs` (`src/ops/create-game.ts`, `src/ops/create-branch.ts`, `src/ops/release.ts`); move `main` `PATCH .../git/refs/{ref}` (`src/ops/fold-design.ts`, `src/ops/restore-game.ts`); tags `POST .../git/tags` (`src/ops/release.ts`); a retried release reads its existing tag `GET .../git/ref/{ref}`, `GET .../git/tags/{tag_sha}` (`src/ops/release.ts`); reads for the boundary check (`src/boundary/inputs.ts`) |
+| Pull requests | Read and write | open a game's pull request and merge it `POST .../pulls`, `PUT .../pulls/{pull_number}/merge` (`src/ops/create-game.ts`, `src/ops/merge.ts`); list open pulls (`src/boundary/poller.ts`); one pull (`src/ops/merge.ts`, `src/boundary/inputs.ts`); its files (`src/boundary/inputs.ts`) |
 | Checks | Read and write | read `ogm/boundary` runs (`src/boundary/check-run.ts:54`); create them (`src/boundary/check-run.ts:91`) |
-| Issues | Read and write | platform bug reports `POST /repos/{owner}/{repo}/issues` (`src/ops/file-issue.ts:12`); template labels `POST /repos/{owner}/{repo}/labels` (`src/ops/create-repo.ts:35`) |
-| Metadata | Read | mandatory; existing-repo lookup `GET /repos/{owner}/{repo}` (`src/ops/repository.ts:25`) |
+| Issues | Read and write | platform bug reports and per-game reports `POST /repos/{owner}/{repo}/issues` (`src/ops/file-issue.ts`); a game's label `POST /repos/{owner}/{repo}/labels` (`src/ops/create-game.ts`) |
+| Metadata | Read | mandatory; GitHub requires it for every other permission. |
 
-No organization or account permissions. `GET /app/installations`, `GET /app/installations/{installation_id}` and `GET /app` are signed
-with the App's JWT and need none (`src/auth/app.ts:63`, `:119`, `:108`).
-
-A personal account as game-repo owner uses `POST /user/repos` with an installation token. GitHub's REST reference lists
-that as allowed, but community reports say it can fail with `Resource not accessible by integration`; an organization
-owner (`POST /orgs/{org}/repos`) is the safe case. The first build in setup step 8 shows which you have.
+No organization or account permissions: the service never creates a repository or changes one's visibility, because the
+instance repository already exists and its visibility belongs to the operator. `GET /app/installations`,
+`GET /app/installations/{installation_id}` and `GET /app` are signed with the App's JWT and need none
+(`src/auth/app.ts:63`, `:119`, `:108`).
 
 ### Events
 
@@ -75,7 +83,7 @@ install -m 600 services/commit/ops/ogm-commit.env.example ~/.config/ogm/env/ogm-
 | `GITHUB_APP_ID` | the App id |
 | `GITHUB_APP_PRIVATE_KEY_PATH` | absolute path to the PEM, mode 0600, outside the repo |
 | `OGM_GITHUB_WEBHOOK_SECRET` | optional, see Events |
-| `OGM_BUILDER_BOT_LOGIN` | same as `api.env`; invited to each game repo with push |
+| `OGM_BUILDER_BOT_LOGIN` | same as `api.env`; invited to the instance repository with push |
 
 ### Shared tokens
 

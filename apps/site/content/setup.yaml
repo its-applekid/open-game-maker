@@ -438,15 +438,15 @@ steps:
         check: ops/bin/ogm-status --check exits 0
         cites: [ops/bin/ogm-status]
       - kind: hand
-        text: On a phone, sign in at <app-origin>, connect GitHub, agree a game scope, and confirm the private repo, aiur unit, build chat, and game appear.
-        command: '# Open <app-origin>/new on a phone and create a game under <github-owner>.'
-        writes: ['<github-owner>/gm-<gameId>', ~/.config/ogm/env/ogm-aiur@<slug>.env]
-        check: /admin/builds, the private repo, systemctl --user status ogm-aiur@<slug>, and /g/<gameId> all show the build
+        text: On a phone, sign in at <app-origin>, agree a game scope, and confirm the aiur unit, build chat, and game appear.
+        command: '# Open <app-origin>/new on a phone and create a game in the instance repository.'
+        writes: ['<github-owner>/<instance-repo>/games/<gameId>', ~/.config/ogm/env/ogm-aiur@<slug>.env]
+        check: /admin/builds, the game's folder in the instance repository, systemctl --user status ogm-aiur@<slug>, and /g/<gameId> all show the build
         cites: [services/builder/src/provision.ts, services/builder/src/fleet, apps/web/src]
       - kind: hand
         text: Edit the game while playing, publish a release, open its games-host URL, and invite a friend.
         command: '# Complete one design transaction, publish from /g/<gameId>/releases, then open /join/<token>.'
-        writes: ['<github-owner>/gm-<gameId>']
+        writes: ['<github-owner>/<instance-repo>/games/<gameId>']
         check: /g/<gameId>/versions shows the edit and https://<tailnet-host>:10000 serves the release
         cites: [apps/web/src, services/games-host/src]
       - kind: run

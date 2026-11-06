@@ -1,4 +1,4 @@
-import type { Repository } from './types.js';
+import type { GameRepository } from './types.js';
 import { fetchWithTimeout } from './fetch-timeout.js';
 
 type Fetch = typeof fetch;
@@ -15,7 +15,7 @@ export class RepoResolver {
     this.fetchImpl = fetchWithTimeout(fetchImpl, timeoutMs);
   }
 
-  async resolve(gameId: string): Promise<Repository> {
+  async resolve(gameId: string): Promise<GameRepository> {
     const response = await this.fetchImpl(
       `${this.internalUrl.replace(/\/$/u, '')}/internal/games/${encodeURIComponent(gameId)}/repo`,
       { headers: { authorization: `Bearer ${this.serviceToken}` } },
@@ -28,12 +28,14 @@ export class RepoResolver {
   }
 }
 
-function isRepository(value: unknown): value is Repository {
+function isRepository(value: unknown): value is GameRepository {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.owner === 'string' &&
     typeof candidate.name === 'string' &&
+    typeof candidate.path === 'string' &&
+    typeof candidate.slug === 'string' &&
     (candidate.visibility === 'private' || candidate.visibility === 'public')
   );
 }

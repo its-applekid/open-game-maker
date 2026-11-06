@@ -46,6 +46,8 @@ export function setup(overrides: Partial<ReleaseRuntime> = {}) {
       familyId: ids.family,
       ownerId: ids.user,
       title: 'Game',
+      slug: 'castle-game',
+      githubPath: 'games/castle-game',
       visibility: 'private',
       repoVisibility: 'private',
       createdAt: now,

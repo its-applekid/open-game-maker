@@ -6,6 +6,7 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
 import { HttpError } from '../app/errors.js';
+import { gameFolder } from '@ogm/contracts';
 import { assignSlug } from './slug.js';
 
 export type GameRow = typeof schema.games.$inferSelect;
@@ -73,12 +74,16 @@ export function createGameRow(
   input: { familyId: string; ownerId: string; title: string; repoVisibility: 'public' | 'private' },
 ): GameRow {
   const id = `g_${randomUUID()}`;
+  const slug = assignSlug(db, input.title);
   const row: typeof schema.games.$inferInsert = {
     id,
     familyId: input.familyId,
     ownerId: input.ownerId,
     title: input.title,
-    slug: assignSlug(db, input.title),
+    slug,
+    // The registry records the folder the game's files live in. It stays fixed when the title (and slug) changes, so a
+    // rename never moves the game's history.
+    githubPath: gameFolder(slug),
     visibility: 'private',
     repoVisibility: input.repoVisibility,
     createdAt: new Date().toISOString(),
@@ -87,32 +92,29 @@ export function createGameRow(
   return findGame(db, row.id);
 }
 
-export function requireGithubConnection(db: Db, userId: string) {
-  const connection = db
-    .select()
-    .from(schema.githubConnections)
-    .where(eq(schema.githubConnections.userId, userId))
-    .get();
-  if (!connection) throw new HttpError(409, 'github_not_connected');
-  return connection;
+// A creator's GitHub login, when they linked one. The instance repository belongs to the operator's App, so a game is
+// created without it; maintainers still see connections in the admin GitHub panel.
+export function findGithubConnection(db: Db, userId: string) {
+  return db.select().from(schema.githubConnections).where(eq(schema.githubConnections.userId, userId)).get();
 }
 
 export async function provisionGame(deps: AppDeps, game: GameRow): Promise<GameRow> {
   if (game.repoUrl) return game;
   const provisioner = deps.registry.repoProvisioner;
   if (!provisioner) throw new HttpError(503, 'repo_provisioner_unavailable');
-  const owner = requireGithubConnection(deps.db, game.ownerId);
+  const slug = game.slug;
+  if (slug === null) throw new HttpError(409, 'game_slug_missing');
 
   try {
     const repo = await provisioner.provision({
       id: game.id,
       title: game.title,
-      owner: { login: owner.login, installationId: owner.installationId },
+      slug,
       visibility: game.repoVisibility,
     });
     deps.db
       .update(schema.games)
-      .set({ githubOwner: repo.owner, githubRepo: repo.repo, repoUrl: repo.url })
+      .set({ githubOwner: repo.owner, githubRepo: repo.repo, githubPath: repo.path, repoUrl: repo.url })
       .where(eq(schema.games.id, game.id))
       .run();
     return findGame(deps.db, game.id);

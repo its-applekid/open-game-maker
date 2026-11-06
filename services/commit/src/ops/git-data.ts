@@ -20,6 +20,25 @@ export async function createTreeFromFiles(
     });
     tree.push({ path, mode: file.mode ?? '100644', type: 'blob', sha: blob.data.sha });
   }
+  return createTree(request, repo, tree, baseTree);
+}
+
+export type TreeEntry = { path: string; mode: string; type: 'blob' | 'commit'; sha: string | null };
+
+// A tree built from blobs that already exist in the repository: copying or restoring a folder moves no bytes.
+// A `null` sha deletes that path from the base tree, which is how a folder is replaced in one commit.
+export async function createTree(
+  request: GitHubRequest,
+  repo: { owner: string; name: string },
+  entries: TreeEntry[],
+  baseTree?: string,
+): Promise<string> {
+  const tree = entries.map((entry) => ({
+    path: normalizeCommitPath(entry.path),
+    mode: entry.mode,
+    type: entry.type,
+    sha: entry.sha,
+  }));
   const response = await request<{ sha: string }>('POST /repos/{owner}/{repo}/git/trees', {
     ...repo,
     ...(baseTree === undefined ? {} : { base_tree: baseTree }),

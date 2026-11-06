@@ -6,6 +6,9 @@ export type ActiveRepository = {
   owner: string;
   name: string;
   visibility: Visibility;
+  // The game's folder in the instance repository, and its current URL slug for release tags.
+  path: string;
+  slug: string;
 };
 
 export interface BoundaryApi {
@@ -71,6 +74,8 @@ function isActiveRepository(value: unknown): value is ActiveRepository {
     typeof repository.gameId === 'string' &&
     typeof repository.owner === 'string' &&
     typeof repository.name === 'string' &&
+    typeof repository.path === 'string' &&
+    typeof repository.slug === 'string' &&
     (repository.visibility === 'private' || repository.visibility === 'public')
   );
 }

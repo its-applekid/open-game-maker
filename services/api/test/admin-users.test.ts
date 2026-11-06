@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { schema } from '@ogm/db';
+import { eq } from 'drizzle-orm';
 
 import { ALLOW_LIST_SEEDED_KEY, listAllowedUsers, seedAllowList, setAllowedRole } from '../src/auth/allow-list.js';
+import { NullRepoProvisioner } from '../src/games/repo-provisioner.js';
 import { signIn } from './auth-helpers.js';
 import { makeApp } from './helpers.js';
 
@@ -193,17 +195,31 @@ describe('/api/v1/admin/users', () => {
 describe('roles at the API boundary', () => {
   it('refuses game creation from a player and admits a maker', async () => {
     const made = await makeApp();
+    const provisioner = new NullRepoProvisioner();
+    made.deps.registry.repoProvisioner = provisioner;
     setAllowedRole(made.deps.db, 'kim@example.com', 'player');
     const player = await signIn(made.app, outbox(made.deps), 'kim@example.com');
     const maker = await signIn(made.app, outbox(made.deps), 'sam@example.com');
+    const makerId = made.deps.db.select().from(schema.user).where(eq(schema.user.email, 'sam@example.com')).get()!.id;
+    const joinedAt = new Date().toISOString();
+    made.deps.db
+      .insert(schema.families)
+      .values({ id: 'family-maker', name: 'Maker household', ownerUserId: makerId, createdAt: joinedAt })
+      .run();
+    made.deps.db
+      .insert(schema.familyMembers)
+      .values([{ familyId: 'family-maker', userId: makerId, role: 'owner', capability: 'creator', joinedAt }])
+      .run();
     const create = { ...body({ title: 'Puzzle', repoVisibility: 'private' }) };
 
     const fromPlayer = await made.app.request('/api/v1/games', { ...create, headers: { cookie: player.session } });
     const fromMaker = await made.app.request('/api/v1/games', { ...create, headers: { cookie: maker.session } });
 
     expect(fromPlayer.status).toBe(403);
-    // 409 is the GitHub-connection gate, which sits after role authorization.
-    expect(fromMaker.status).toBe(409);
-    expect(await fromMaker.json()).toMatchObject({ error: 'github_not_connected' });
+    // Role authorization admits the maker; the game lands as a folder in the instance repository.
+    expect(fromMaker.status).toBe(201);
+    expect(provisioner.calls).toEqual([
+      { id: expect.stringMatching(/^g_/), title: 'Puzzle', slug: 'puzzle', visibility: 'private' },
+    ]);
   });
 });

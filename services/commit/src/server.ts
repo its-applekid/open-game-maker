@@ -11,8 +11,7 @@ import type { BoundaryCheck } from './boundary/poller.js';
 import { registerBoundaryWebhook } from './boundary/webhook.js';
 import type { OperationContext, RepositoryResolver } from './ops/context.js';
 import { executeOperation } from './ops/registry.js';
-import { repositoryName } from './paths.js';
-import type { CommitOp, CommitResult, GitHubInstallations, Repository } from './types.js';
+import type { CommitOp, CommitResult, GameRepository, GitHubInstallations } from './types.js';
 
 type ServerDependencies = {
   serviceToken: string;
@@ -25,7 +24,7 @@ type ServerDependencies = {
   now?: () => Date;
   boundaryWebhook?: {
     secret: string | undefined;
-    resolveRepository(owner: string, name: string): Promise<ActiveRepository | undefined>;
+    resolveRepository(owner: string, name: string): Promise<ActiveRepository[]>;
     run: BoundaryCheck;
     onError?(error: unknown): void;
   };
@@ -44,25 +43,22 @@ function isLoopback(address: string | undefined): boolean {
 }
 
 function gameIdOf(op: CommitOp): string {
-  if (op.kind === 'fork') return op.newGameId;
-  if (op.kind === 'file_issue') return 'platform';
+  if (op.kind === 'file_issue') return op.gameId ?? 'platform';
   return op.gameId;
 }
 
 async function repoNameFor(op: CommitOp, context: OperationContext): Promise<string> {
-  if (op.kind === 'create_repo') return `${op.owner}/${repositoryName(op.gameId)}`;
-  if (op.kind === 'fork') return `${op.owner}/${repositoryName(op.newGameId)}`;
-  if (op.kind === 'file_issue') {
+  if (op.kind === 'file_issue' && op.gameId === undefined) {
     return `${context.platformIssueRepo.owner}/${context.platformIssueRepo.name}`;
   }
-  const repo = await context.repos.resolve(op.gameId);
+  const repo = await context.repos.resolve(gameIdOf(op));
   return `${repo.owner}/${repo.name}`;
 }
 
 function memoizedRepos(source: RepositoryResolver): RepositoryResolver {
-  const values = new Map<string, Promise<Repository>>();
+  const values = new Map<string, Promise<GameRepository>>();
   return {
-    resolve(gameId: string): Promise<Repository> {
+    resolve(gameId: string): Promise<GameRepository> {
       const existing = values.get(gameId);
       if (existing !== undefined) return existing;
       const pending = source.resolve(gameId);

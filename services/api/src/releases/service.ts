@@ -54,6 +54,12 @@ export function buildResponse(row: BuildRow): Build {
   };
 }
 
+// A release tag is the game's folder name plus the version: `<slug>/v<version>`. Rows written before slugs existed keep
+// their game id, which is still a valid ref segment.
+function releaseSlug(game: { slug: string | null; id: string }): string {
+  return game.slug ?? game.id;
+}
+
 function releaseResponse(row: ReleaseRow): Release {
   return {
     id: row.id,
@@ -217,6 +223,8 @@ function appendRelease(
     changelog: Changelog;
     actor: string;
     noteIds?: string[];
+    // The game's folder name under games/, so tags read `<slug>/v<version>` and never collide across games.
+    slug: string;
   },
 ): ReleaseRow {
   return deps.sqlite
@@ -242,7 +250,7 @@ function appendRelease(
         version: input.version,
         buildId: input.buildId,
         snapshotId: input.snapshotId,
-        gitTag: `gm/${input.gameId}/v${input.version}`,
+        gitTag: `${input.slug}/v${input.version}`,
         kind: input.kind,
         restoresReleaseId: input.restoresReleaseId ?? null,
         predecessorReleaseId: input.expected,
@@ -311,6 +319,7 @@ export async function publish(
         changelog: prepared.changelog,
         noteIds: prepared.noteIds,
         actor: input.actor,
+        slug: releaseSlug(game),
       }),
     );
   });
@@ -338,10 +347,17 @@ export async function rollback(
     const saves = await affectedSaves(runtime, input.gameId, build);
     const version = await releaseVersion(deps, runtime, input.gameId);
     const changelog = { summary: `Restores ${target.version}`, items: [] };
+    /* Restoring rewrites only this game's folder on main; the tag then points at the commit that did it. */
+    const restored = await runtime.commit.execute({
+      kind: 'restore_game',
+      gameId: input.gameId,
+      sha: foldSha,
+    });
+    if (!restored.ok) throw new ReleaseError('gate_refused', 403, { verdict: restored.verdict });
     const result = await runtime.commit.execute({
       kind: 'release',
       gameId: input.gameId,
-      sha: foldSha,
+      sha: restored.sha,
       semver: version,
       changelog: changelog.summary,
     });
@@ -356,6 +372,7 @@ export async function rollback(
       restoresReleaseId: target.id,
       changelog,
       actor: input.actor,
+      slug: releaseSlug(game),
     });
     return {
       ...releaseResponse(row),

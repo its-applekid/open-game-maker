@@ -1,48 +1,73 @@
+import { gameFolder } from '@ogm/contracts';
+
 import type { RepoProvisioner } from '../app/registry.js';
 
 export type { RepoProvisioner } from '../app/registry.js';
 
 type ProvisionInput = Parameters<RepoProvisioner['provision']>[0];
+export type ProvisionedRepo = Awaited<ReturnType<RepoProvisioner['provision']>>;
 
 export class NullRepoProvisioner implements RepoProvisioner {
   readonly calls: ProvisionInput[] = [];
+  readonly #owner: string;
+  readonly #repo: string;
 
-  async provision(game: ProvisionInput): Promise<{ owner: string; repo: string; url: string }> {
+  constructor(instanceRepo: { owner: string; name: string } = { owner: 'instance', name: 'games' }) {
+    this.#owner = instanceRepo.owner;
+    this.#repo = instanceRepo.name;
+  }
+
+  async provision(game: ProvisionInput): Promise<ProvisionedRepo> {
     this.calls.push(game);
-    const repo = `gm-${game.id}`;
-    return { owner: game.owner.login, repo, url: `https://github.com/${game.owner.login}/${repo}` };
+    const path = gameFolder(game.slug);
+    return {
+      owner: this.#owner,
+      repo: this.#repo,
+      url: `https://github.com/${this.#owner}/${this.#repo}`,
+      path,
+    };
   }
 }
 
+// A game is a folder in the instance repository, so provisioning adds `games/<slug>/` on a branch and merges it as the
+// bot — the commit service creates no repository and needs no per-creator GitHub account.
 export class CommitServiceRepoProvisioner implements RepoProvisioner {
   readonly #baseUrl: string;
   readonly #token: string;
   readonly #templateRef: string;
+  readonly #instanceRepo: { owner: string; name: string };
   readonly #fetch: typeof fetch;
 
-  constructor(input: { baseUrl: string; token: string; templateRef?: string; fetch?: typeof fetch }) {
+  constructor(input: {
+    baseUrl: string;
+    token: string;
+    instanceRepo: { owner: string; name: string };
+    templateRef?: string;
+    fetch?: typeof fetch;
+  }) {
     this.#baseUrl = input.baseUrl.replace(/\/$/, '');
     this.#token = input.token;
+    this.#instanceRepo = input.instanceRepo;
     this.#templateRef = input.templateRef ?? 'game-2d@1';
     this.#fetch = input.fetch ?? fetch;
   }
 
-  async provision(game: ProvisionInput): Promise<{ owner: string; repo: string; url: string }> {
+  async provision(game: ProvisionInput): Promise<ProvisionedRepo> {
     const response = await this.#fetch(`${this.#baseUrl}/internal/commit`, {
       method: 'POST',
       headers: { authorization: `Bearer ${this.#token}`, 'content-type': 'application/json' },
       body: JSON.stringify({
-        kind: 'create_repo',
+        kind: 'create_game',
         gameId: game.id,
-        owner: game.owner.login,
+        slug: game.slug,
         visibility: game.visibility,
         templateRef: this.#templateRef,
       }),
       signal: AbortSignal.timeout(30_000),
     });
     const result = (await response.json().catch(() => null)) as { ok?: boolean } | null;
-    if (!response.ok || result?.ok !== true) throw new Error(`commit service refused create_repo (${response.status})`);
-    const repo = `gm-${game.id}`;
-    return { owner: game.owner.login, repo, url: `https://github.com/${game.owner.login}/${repo}` };
+    if (!response.ok || result?.ok !== true) throw new Error(`commit service refused create_game (${response.status})`);
+    const { owner, name } = this.#instanceRepo;
+    return { owner, repo: name, url: `https://github.com/${owner}/${name}`, path: gameFolder(game.slug) };
   }
 }

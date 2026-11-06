@@ -29,6 +29,8 @@ export const apiEnvSpec = {
   OGM_COMMIT_INTERNAL_URL: { kind: 'url' },
   OGM_COMMIT_SERVICE_TOKEN: { kind: 'secret' },
   OGM_GAME_TEMPLATE_REF: { kind: 'string', default: 'game-2d@1' },
+  // The one implementation repository this instance keeps its games in, as `owner/repository`.
+  OGM_INSTANCE_REPO: { kind: 'string' },
   OGM_BUILDER_BOT_TOKEN: { kind: 'secret' },
   OGM_BUILDER_BOT_LOGIN: { kind: 'string' },
   OGM_INTAKE_GITHUB_TOKEN: { kind: 'secret' },

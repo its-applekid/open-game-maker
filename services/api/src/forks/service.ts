@@ -1,7 +1,7 @@
 import { mkdir, realpath, rmdir, symlink, unlink } from 'node:fs/promises';
 import { dirname } from 'node:path';
 
-import type { BoundaryVerdict, Build, CommitOp, CommitResult } from '@ogm/contracts';
+import { gameFolder, type BoundaryVerdict, type Build, type CommitOp, type CommitResult } from '@ogm/contracts';
 import { schema } from '@ogm/db';
 import { buildDir } from '@ogm/games-host/layout';
 import { authorize, type Actor } from '@ogm/policy';
@@ -10,6 +10,7 @@ import { and, eq } from 'drizzle-orm';
 import { copyCatalog } from '../achievements/catalog.js';
 import type { AppDeps } from '../app/types.js';
 import { ensureMainBranch, stableId } from '../design/store.js';
+import { assignSlug } from '../games/slug.js';
 import { CommitUnavailable } from '../releases/commit-client.js';
 import type { RightsReason } from '../releases/rights.js';
 import type { ReleaseRuntime } from '../releases/service.js';
@@ -86,7 +87,7 @@ function requireRelease(deps: AppDeps, sourceGameId: string, releaseId: string) 
   return { release, build, foldSha };
 }
 
-async function executeFork(runtime: ReleaseRuntime, operation: Extract<CommitOp, { kind: 'fork' }>) {
+async function executeFork(runtime: ReleaseRuntime, operation: Extract<CommitOp, { kind: 'create_game' }>) {
   let result: CommitResult;
   try {
     result = await runtime.commit.execute(operation);
@@ -142,42 +143,47 @@ export async function forkGame(
 
   const rights = await runtime.checkRights(source.build.artifactPath, input.visibility);
   if (rights.length) throw new ForkError('rights', 422, { rights });
-  const connection = deps.db
-    .select()
-    .from(schema.githubConnections)
-    .where(eq(schema.githubConnections.userId, input.actor.userId))
-    .get();
-  if (!connection) throw new ForkError('github_not_connected', 409);
 
   const createdAt = runtime.now().toISOString();
   const gameId = stableId('g', runtime.now());
   const branchId = stableId('b', runtime.now());
   const buildId = stableId('build', runtime.now());
-  const result = await executeFork(runtime, {
-    kind: 'fork',
-    sourceGameId: sourceGame.id,
-    sourceSha: source.foldSha,
-    newGameId: gameId,
-    owner: connection.login,
-    visibility: input.visibility,
-  });
-  const cleanupArtifact = await aliasArtifact(deps.config.gamesRoot, source.build.artifactPath, gameId, buildId);
   const title = input.name ?? `${sourceGame.title} (fork)`;
-  const repository = `gm-${gameId}`;
+  const slug = assignSlug(deps.db, title);
+  const path = gameFolder(slug);
+  const { owner, name } = deps.config.instanceRepo;
   const game: typeof schema.games.$inferInsert = {
     id: gameId,
     familyId: input.actor.familyId,
     ownerId: input.actor.userId,
     title,
+    slug,
     visibility: 'private',
     repoVisibility: input.visibility,
-    githubOwner: connection.login,
-    githubRepo: repository,
-    repoUrl: `https://github.com/${connection.login}/${repository}`,
+    githubOwner: owner,
+    githubRepo: name,
+    githubPath: path,
+    repoUrl: `https://github.com/${owner}/${name}`,
     forkedFromGameId: sourceGame.id,
     forkedFromReleaseId: source.release.id,
     createdAt,
   };
+  // The registry row has to exist first: the commit service reads the new game's folder from it.
+  deps.db.insert(schema.games).values(game).run();
+  let result: { sha: string };
+  try {
+    result = await executeFork(runtime, {
+      kind: 'create_game',
+      gameId,
+      slug,
+      templateRef: deps.config.gameTemplateRef,
+      visibility: input.visibility,
+      from: { gameId: sourceGame.id, sha: source.foldSha },
+    });
+  } catch (error) {
+    deps.db.delete(schema.games).where(eq(schema.games.id, gameId)).run();
+    throw error;
+  }
   const build: typeof schema.builds.$inferInsert = {
     id: buildId,
     gameId,
@@ -192,10 +198,9 @@ export async function forkGame(
     artifactPath: source.build.artifactPath,
     createdAt,
   };
-
+  const cleanupArtifact = await aliasArtifact(deps.config.gamesRoot, source.build.artifactPath, gameId, buildId);
   try {
     deps.db.transaction((tx) => {
-      tx.insert(schema.games).values(game).run();
       const branch = ensureMainBranch(deps.sqlite, gameId, { id: branchId, now: new Date(createdAt) });
       tx.insert(schema.builds).values(build).run();
       tx.update(schema.branches).set({ latestBuildId: buildId }).where(eq(schema.branches.id, branch.id)).run();
