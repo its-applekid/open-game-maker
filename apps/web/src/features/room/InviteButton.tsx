@@ -48,7 +48,7 @@ export function InviteButton({ branchId, buildId, gameId, maxPlayers = 4, onRoom
       if (roomRef.current === undefined) {
         const room = await api<CreatedRoom>(`/games/${encodeURIComponent(gameId)}/rooms`, {
           method: 'POST',
-          /* The room speaks the protocol this tab's client joins with (#497 D-N3-17). */
+          /* The room speaks the protocol this tab's client joins with (ticket 497 D-N3-17). */
           json: { branchId, buildId, maxPlayers, protocol: PROTOCOL_VERSION },
         });
         roomRef.current = room.roomId;
