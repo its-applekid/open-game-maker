@@ -39,7 +39,10 @@ function update(dt) {
    `maxPlayers` entries, and set `maxPlayers` in `gm.manifest.json`. Spawn seat `i` at `spawns[i % spawns.length]`.
 
 5. **Net hooks.** On the game instance add `net`:
-   - `spawn(playerIndex, playerId)` adds the avatar; `despawn(playerId)` removes it.
+   - `spawn(playerIndex, playerId)` adds the avatar; `despawn(playerId)` removes it. In a per-seat match the seat table
+     fires these for the *other* seats; this client's own seat is the avatar the game built at mount, so `spawn` is
+     never called for it and must not be relied on to create it. A seat word whose avatar is gone means that seat
+     left or forfeited — ignore it rather than rebuilding the avatar.
    - `snapshot()` returns `{ tick, state: { tick, entities: { [id]: { p, r?, ...visible } } } }`.
    - `applySnapshot(snapshot)` writes those fields back. Derive effects (dust, flashes, sounds) from state changes
      on each client; do not put them in the snapshot.
