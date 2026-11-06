@@ -8,7 +8,6 @@ type PlayEditBarProps = {
   mode: 'play' | 'edit';
   saved?: string;
   build: 'draft' | 'published';
-  buildStatus?: string;
   playLabel?: string;
   children?: ReactNode;
   onBack(): void;
@@ -21,7 +20,6 @@ export function PlayEditBar({
   mode,
   saved,
   build,
-  buildStatus,
   playLabel = 'Play',
   children,
   onBack,
@@ -36,7 +34,6 @@ export function PlayEditBar({
       <span className="play-title">{title}</span>
       {saved ? <output className="saved-state">{saved}</output> : null}
       <span className="build-badge">{build === 'draft' ? 'Draft' : 'Published'}</span>
-      {buildStatus ? <output className="build-state">{buildStatus}</output> : null}
       <div className="mode-segment" role="group" aria-label="Mode">
         <button
           className="tap-primary"

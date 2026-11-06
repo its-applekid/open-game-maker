@@ -1,0 +1,42 @@
+/* The game's open Commands (M3): the same rows checkpoint cards use, so the inbox reads as part of the studio. */
+.commands-inbox {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.commands-inbox-item {
+  position: relative;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+  padding: 14px 56px 14px 14px;
+  border: 1px solid var(--rule);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--paper) 78%, transparent);
+}
+
+.commands-inbox-question {
+  margin: 0;
+  color: var(--ink);
+  font: 700 15px/1.25 var(--display);
+}
+
+.commands-inbox-open {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.commands-inbox-open .icon svg {
+  width: 18px;
+  height: 18px;
+}

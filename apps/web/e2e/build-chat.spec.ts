@@ -71,20 +71,14 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await page.setViewportSize({ width: 390, height: 844 });
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page);
-  await page.goto('/games?test');
+  await page.goto('/all?test');
 
-  const fab = page.getByRole('button', { name: '1 build running, 50% done. Show progress' });
-  await expect(fab).toBeVisible();
-  expect((await fab.boundingBox())!.width).toBeGreaterThanOrEqual(64);
-  expect((await fab.boundingBox())!.height).toBeGreaterThanOrEqual(64);
-
-  await fab.click();
-  await page.getByRole('button', { name: /Show each build/ }).click();
-  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+  await expect(page.getByRole('button', { name: 'Menu' })).toHaveAttribute('data-building', 'true');
+  await openBuildChat(page);
 
   const panel = page.locator('.build-chat-panel');
   await expect(panel).toBeVisible();
-  expect((await panel.boundingBox())!.height).toBe(844);
+  expect((await panel.boundingBox())!.height).toBeCloseTo(page.viewportSize()!.height, 4);
   expect(
     Number.parseFloat(await panel.evaluate((element) => getComputedStyle(element).paddingBottom)),
   ).toBeGreaterThanOrEqual(12);
@@ -125,6 +119,42 @@ test('phone build dock opens the streamed chat and posts text once', async ({ pa
   await expect(page.locator('.build-chat-panel')).toHaveCSS('height', '390px');
 });
 
+test('large pasted text is a compact expandable attachment on phone and desktop', async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.setViewportSize(
+    testInfo.project.name === 'phone' ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+  );
+  await installAuthRoutes(page, { signedIn: true });
+  await installBuildRoutes(page);
+  await page.goto('/all?test', { waitUntil: 'domcontentloaded' });
+  await openBuildChat(page);
+
+  const textbox = page.getByRole('textbox', { name: 'Message the builder' });
+  const smallPasteAccepted = await textbox.evaluate((element) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', 'a'.repeat(1_500));
+    return element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  });
+  expect(smallPasteAccepted).toBe(true);
+
+  const largePaste = 'a'.repeat(1_501);
+  const largePasteAccepted = await textbox.evaluate((element, text) => {
+    const data = new DataTransfer();
+    data.setData('text/plain', text);
+    return element.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+  }, largePaste);
+  expect(largePasteAccepted).toBe(false);
+
+  const composer = page.locator('.build-chat-composer');
+  const chip = composer.getByRole('listitem');
+  await expect(chip.getByText('Pasted text')).toBeVisible();
+  await expect(chip.getByText('1.5 KB')).toBeVisible();
+  expect((await chip.boundingBox())!.width).toBeLessThanOrEqual((await composer.boundingBox())!.width);
+
+  await chip.getByText('Pasted text').click();
+  await expect(chip.locator('pre')).toHaveText(largePaste);
+});
+
 // #222: files reach the builder as attachment ids on the message; the composer only shows their names.
 test('attaches files with the button and by pasting an image, then sends them with the message', async ({ page }) => {
   // Two uploads and a post on top of the dock flow, which alone takes most of the default budget on software GL.
@@ -150,10 +180,8 @@ test('attaches files with the button and by pasting an image, then sends them wi
       201,
     );
   });
-  await page.goto('/games?test');
-  await page.getByRole('button', { name: '1 build running, 50% done. Show progress' }).click();
-  await page.getByRole('button', { name: /Show each build/ }).click();
-  await page.getByRole('button', { name: /Add the moonlit door/ }).click();
+  await page.goto('/all?test');
+  await openBuildChat(page);
 
   const chooser = page.waitForEvent('filechooser');
   await page.getByRole('button', { name: 'Attach files' }).click();
@@ -194,12 +222,10 @@ test('attaches files with the button and by pasting an image, then sends them wi
 test('a broken picker leaves the chat dock mounted', async ({ page }) => {
   await installAuthRoutes(page, { signedIn: true });
   await installBuildRoutes(page, { brokenPicker: true });
-  await page.goto('/games?test');
+  await page.goto('/all?test');
 
   await expect(page.getByRole('button', { name: 'Try again' })).toBeVisible();
-  await expect(
-    page.locator('#chat-dock-slot').getByRole('button', { name: '1 build running, 50% done. Show progress' }),
-  ).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
 });
 
 test('asking for a change with no build running starts an edit job and streams it', async ({ page }) => {
@@ -271,7 +297,8 @@ test('asking for a change with no build running starts an edit job and streams i
   expect(postAdmissionJobRequestAt! - admittedAt!).toBeLessThan(2_000);
   // A scheduled poll cannot start until five seconds after the initial response.
   expect(postAdmissionJobRequestAt! - firstJobResponseAt!).toBeLessThan(4_000);
-  await expect(page.locator('.play-bar .build-state')).toHaveText('Waiting for a free slot', { timeout: 2_000 });
+  await page.getByRole('button', { name: 'Menu' }).click();
+  await expect(page.getByText('Waiting for a free slot')).toBeVisible({ timeout: 2_000 });
 });
 
 async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean; posts?: unknown[] } = {}) {
@@ -288,7 +315,7 @@ async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean;
               createdAt: job.createdAt,
             },
           ]
-        : [{ id: job.gameId }],
+        : [{ id: job.gameId, title: 'Moonlit Door' }],
     }),
   );
   await page.route('**/api/v1/jobs?gameId=*', (route) => json(route, { jobs: [job] }));
@@ -320,6 +347,22 @@ async function installBuildRoutes(page: Page, options: { brokenPicker?: boolean;
       body: '<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360"><rect width="100%" height="100%" fill="#7b4f9d"/></svg>',
     });
   });
+}
+
+async function openBuildChat(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        type TestWindow = Window & { __ogmHost?: { get(name: string): unknown } };
+        return Boolean((window as TestWindow).__ogmHost?.get('jobs'));
+      }),
+    )
+    .toBe(true);
+  await page.evaluate((id) => {
+    type JobsApi = { open(jobId: string): void };
+    type TestWindow = Window & { __ogmHost?: { get(name: string): unknown } };
+    ((window as TestWindow).__ogmHost?.get('jobs') as JobsApi).open(id);
+  }, jobId);
 }
 
 function message(id: string, kind: string, overrides: Record<string, unknown>) {

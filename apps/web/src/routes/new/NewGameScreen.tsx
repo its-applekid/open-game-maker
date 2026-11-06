@@ -35,12 +35,12 @@ const VIEW_LABELS: Record<string, string> = {
 };
 
 const STEP_COLORS: Record<ChoiceKey, string> = {
-  genre: '#fe8019',
-  vibe: '#d3869b',
-  family: '#83a598',
-  world: '#b8bb26',
-  players: '#8ec07c',
-  view: '#fabd2f',
+  genre: 'var(--gruvbox-orange)',
+  vibe: 'var(--gruvbox-purple)',
+  family: 'var(--gruvbox-blue)',
+  world: 'var(--gruvbox-green)',
+  players: 'var(--gruvbox-aqua)',
+  view: 'var(--gruvbox-yellow)',
 };
 
 const testState: { step: StepKey; picks: NewGameChoices; sessionId?: string } = {
@@ -53,7 +53,7 @@ export function NewGameScreen() {
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
   const [choices, setChoices] = useState<NewGameChoices>({});
-  const [notice, setNotice] = useState('');
+  const [limitFeedback, setLimitFeedback] = useState(0);
   const [gameId, setGameId] = useState<string>();
   const [createError, setCreateError] = useState('');
   const [createAttempt, setCreateAttempt] = useState(0);
@@ -98,14 +98,28 @@ export function NewGameScreen() {
     };
   }, [choices, createAttempt, ensureGame, gameId, step]);
 
+  useEffect(() => {
+    if (!limitFeedback) return;
+    const timeout = window.setTimeout(() => setLimitFeedback(0), 300);
+    return () => window.clearTimeout(timeout);
+  }, [limitFeedback]);
+
   const go = (next: StepKey) => {
     const params = new URLSearchParams(search);
     params.set('step', next);
     setSearch(params);
-    setNotice('');
+    setLimitFeedback(0);
   };
 
-  const setChoice = (key: ChoiceKey, next: StepChoice) => setChoices((current) => ({ ...current, [key]: next }));
+  const setChoice = (key: ChoiceKey, next: StepChoice) => {
+    setLimitFeedback(0);
+    setChoices((current) => ({ ...current, [key]: next }));
+  };
+
+  const rejectLimit = () => {
+    setLimitFeedback((current) => current + 1);
+    window.navigator.vibrate?.(10);
+  };
 
   const toggle = (key: ChoiceKey, id: string, max: number) => {
     const current = choices[key] ?? { picks: [] };
@@ -114,15 +128,14 @@ export function NewGameScreen() {
       return;
     }
     if (current.picks.length + (current.other ? 1 : 0) >= max) {
-      setNotice('Unpick one first.');
+      rejectLimit();
       return;
     }
     setChoice(key, { ...current, picks: max === 1 ? [id] : [...current.picks, id] });
-    setNotice('');
   };
 
   const back = () => {
-    if (stepIndex === 0) navigate('/games');
+    if (stepIndex === 0) navigate('/all');
     else go(STEP_ORDER[stepIndex - 1]!);
   };
 
@@ -165,10 +178,7 @@ export function NewGameScreen() {
         ) : (
           <>
             <p className="new-ask">{current?.ask}</p>
-            <p className="new-hint">{current?.hint}</p>
-            {notice ? (
-              <p role="status" className="new-notice">{`${current?.hint.split('·')[0].trim()}. ${notice}`}</p>
-            ) : null}
+            {current?.hint ? <p className="new-hint">{current.hint}</p> : null}
             {step === 'family' && catalog.isError ? (
               <p className="new-retry" role="alert">
                 Style choices are unavailable.{' '}
@@ -182,13 +192,12 @@ export function NewGameScreen() {
                 selected={selected?.picks ?? []}
                 other={selected?.other}
                 full={count >= (current?.max ?? 1)}
-                onFull={() => setNotice('Unpick one first.')}
+                onFull={rejectLimit}
                 onOtherChange={(other) =>
                   setChoice('family', { picks: selected?.picks ?? [], ...(other ? { other } : {}) })
                 }
                 onSelect={(id) => {
                   setChoice('family', { picks: [id] });
-                  setNotice('');
                 }}
               />
             ) : (
@@ -198,6 +207,7 @@ export function NewGameScreen() {
                     key={item.id}
                     {...item}
                     pressed={selected?.picks.includes(item.id) ?? false}
+                    limitFeedback={limitFeedback}
                     onToggle={() => toggle(current.key, item.id, current.max)}
                   />
                 ))}
@@ -206,7 +216,8 @@ export function NewGameScreen() {
                     title={current.title}
                     value={selected?.other}
                     full={count >= current.max}
-                    onFull={() => setNotice('Unpick one first.')}
+                    limitFeedback={limitFeedback}
+                    onFull={rejectLimit}
                     onChange={(other) =>
                       setChoice(current.key, { picks: selected?.picks ?? [], ...(other ? { other } : {}) })
                     }
@@ -214,6 +225,7 @@ export function NewGameScreen() {
                 ) : null}
               </div>
             )}
+            {current && current.max > 1 ? <PickCapacity count={count} max={current.max} /> : null}
           </>
         )}
       </div>
@@ -230,6 +242,16 @@ export function NewGameScreen() {
         </footer>
       ) : null}
     </section>
+  );
+}
+
+function PickCapacity({ count, max }: { count: number; max: number }) {
+  return (
+    <div className="new-pick-capacity" role="img" aria-label={`${count} of ${max} picked`}>
+      {Array.from({ length: max }, (_, index) => (
+        <i className={index < count ? 'filled' : ''} aria-hidden="true" key={index} />
+      ))}
+    </div>
   );
 }
 

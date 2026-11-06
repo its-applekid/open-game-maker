@@ -50,7 +50,8 @@ describe('gm skill pack', () => {
     const text = build.join('\n');
 
     expect(build.length).toBeLessThanOrEqual(60);
-    expect(text).toContain('pnpm install --offline --frozen-lockfile');
+    expect(text).toContain('From the instance repository root, run `pnpm install --offline`');
+    expect(text).toContain('later installs add `--frozen-lockfile`');
     expect(text).toContain('gm build');
     expect(text).toContain('ERR_PNPM_NO_OFFLINE_META');
     expect(text).toContain('package name, exact version, and reason');

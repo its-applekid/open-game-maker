@@ -32,3 +32,16 @@ export {
 } from './families.js';
 export { coverageTable, recompute } from './families-coverage.js';
 export { LICENSES, licenseFor, type LicenseRow } from './licenses.js';
+export {
+  MAP_FEATURES,
+  MAP_INDEX_PATH,
+  buildMapIndex,
+  featuresOf,
+  layoutRow,
+  loadMapIndex,
+  writeMapIndex,
+  type LayoutRow,
+  type LayoutSpecRow,
+  type MapFeature,
+  type MapIndex,
+} from './maps.js';

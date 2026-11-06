@@ -1,0 +1,189 @@
+import { expect, test, type Page, type Route, type TestInfo } from '@playwright/test';
+import { readFile } from 'node:fs/promises';
+
+import { installAuthRoutes } from './fixtures/auth-routes';
+import { installNewRoutes } from './fixtures/new-routes';
+import { installGameApi } from './support/mock-game-api';
+
+const gameId = 'g_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f';
+const runningJob = {
+  id: 'j_8f1c2a4e-5b6d-4c7e-9f00-1a2b3c4d5e6f',
+  gameId,
+  branchId: 'main',
+  familyId: 'family-1',
+  creatorId: 'u1',
+  kind: 'feature',
+  complexity: 2,
+  state: 'running',
+  pausedReason: null,
+  start: 'now',
+  startAt: null,
+  slot: 'edit',
+  plan: {
+    title: 'Add the moon gate',
+    summary: 'Add a moon gate.',
+    scope: { included: ['gate'], excluded: [] },
+    tickets: [],
+  },
+  reservation: { amountMicroUsd: 1_000_000, sizeClass: 'small', confidence: 'high' },
+  hardCapMicroUsd: 1_000_000,
+  usageMicroUsd: 420_000,
+  aiurRepo: null,
+  aiurIssueNumber: null,
+  aiurSpendCapMicroUsd: null,
+  idempotencyKey: null,
+  createdAt: '2026-11-03T18:00:00.000Z',
+  updatedAt: new Date().toISOString(),
+  terminalAt: null,
+  stage: 'building',
+  stageText: 'Building the moon gate',
+  progressPercent: 42,
+  openRequestCount: 2,
+};
+
+test.use({ serviceWorkers: 'block' });
+
+test('opens the same volume and report menu on the title', async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await installAuthRoutes(page);
+  await stubBrandArt(page);
+  await stubTown(page);
+  await page.goto('/');
+
+  await capturePhone(page, testInfo, 'title-menu-closed');
+  await page.getByRole('button', { name: 'Menu' }).click();
+
+  await expect(page.getByRole('slider', { name: 'Volume' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Report a problem' })).toBeVisible();
+  await expect(page.locator('.bug-fab')).toHaveCount(0);
+  await capturePhone(page, testInfo, 'title-menu-open');
+});
+
+test('shows the active build ring and contextual build in the games menu', async ({ page }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  await installAuthRoutes(page, { signedIn: true });
+  await stubBrandArt(page);
+  await installGamesMenuApi(page);
+  await page.goto('/all');
+
+  const trigger = page.getByRole('button', { name: 'Menu' });
+  await expect(trigger).toHaveAttribute('data-building', 'true');
+  await expect(page.locator('.studio-menu-control [role="status"]')).toHaveText('Building Moon Vault');
+  await expect(page.locator('.studio-menu-badge')).toHaveText('2');
+  await capturePhone(page, testInfo, 'games-menu-building');
+
+  await trigger.click();
+  await expect(page.getByRole('group', { name: 'Moon Vault builds' })).toBeVisible();
+  const jobBar = page.getByRole('button', { name: /Add the moon gate.*Active.*Building the moon gate.*42%/ });
+  await expect(jobBar).toBeVisible();
+  await expect(page.locator('.bug-fab')).toHaveCount(0);
+  await capturePhone(page, testInfo, 'games-menu-open');
+
+  // A job bar opens that ticket's conversation over the screen instead of leaving it (#478).
+  await jobBar.click();
+  await expect(page).toHaveURL(/\/all/);
+  await expect(page.getByRole('dialog', { name: 'Add the moon gate' })).toBeVisible();
+  await capturePhone(page, testInfo, 'games-menu-conversation');
+});
+
+for (const mode of ['play', 'edit'] as const) {
+  test(`opens game actions in ${mode} context`, async ({ page }) => {
+    await installAuthRoutes(page, { signedIn: true });
+    await installGameApi(page);
+    await page.goto(`/g/game?mode=${mode}`);
+    await page.getByRole('button', { name: 'Menu' }).click();
+    await expect(page.getByRole('link', { name: 'Versions' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Publish' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Rollback' })).toBeVisible();
+  });
+}
+
+test('keeps the phone menu row clear of style media', async ({ page, isMobile }, testInfo) => {
+  testInfo.setTimeout(90_000);
+  test.skip(!isMobile, 'phone layout acceptance path');
+  await installAuthRoutes(page, { signedIn: true });
+  await installNewRoutes(page);
+  await page.route('**/api/v1/me', (route) => json(route, { platformRole: 'none' }));
+  await page.goto('/new?test&step=family');
+  await page.waitForFunction(() => window.__ogmHost?.get('new') !== undefined);
+  await page.getByRole('button', { name: 'Isometric' }).dispatchEvent('click');
+
+  const menu = page.getByRole('button', { name: 'Menu' });
+  const media = page.locator('.new-style-track');
+  await expect(media).toHaveCount(2);
+  const [menuBox, mediaTop] = await Promise.all([
+    menu.evaluate((element) => element.getBoundingClientRect().toJSON()),
+    media.evaluateAll((elements) => Math.min(...elements.map((element) => element.getBoundingClientRect().top))),
+  ]);
+
+  expect(menuBox.bottom).toBeLessThanOrEqual(mediaTop);
+  await capturePhone(page, testInfo, 'new-style-menu-row');
+});
+
+async function installGamesMenuApi(page: Page) {
+  await page.route('**/api/v1/**', async (route) => {
+    const url = new URL(route.request().url());
+    if (url.pathname === '/api/v1/notifications/stream') {
+      return route.fulfill({ contentType: 'text/event-stream', body: 'retry: 60000\n\n' });
+    }
+    if (url.pathname === '/api/v1/games') {
+      return json(route, {
+        games: [
+          {
+            id: gameId,
+            familyId: 'family-1',
+            ownerId: 'u1',
+            title: 'Moon Vault',
+            repo: null,
+            createdAt: '2026-11-03T17:00:00.000Z',
+          },
+        ],
+      });
+    }
+    if (url.pathname === '/api/v1/jobs' && url.searchParams.has('gameId')) return json(route, { jobs: [runningJob] });
+    if (url.pathname === '/api/v1/jobs' && url.searchParams.get('state') === 'active') {
+      return json(route, { jobs: [runningJob] });
+    }
+    if (url.pathname.endsWith('/branches')) {
+      return json(route, { branches: [{ id: 'main', name: 'main', latestBuildId: 'build-1' }] });
+    }
+    if (url.pathname === `/api/v1/games/${gameId}/commands`) return json(route, { commands: [] });
+    if (url.pathname.endsWith('/chat/messages')) return json(route, { messages: [], last_seq: 0 });
+    if (url.pathname.endsWith('/chat')) return route.fulfill({ contentType: 'text/event-stream', body: ': open\n\n' });
+    if (url.pathname.endsWith('/checkpoints/budget')) return json(route, { used: 0, max: 3 });
+    if (url.pathname === '/api/v1/me') return json(route, { platformRole: 'none' });
+    return json(route, { error: 'not_mocked', path: url.pathname }, 404);
+  });
+}
+
+async function stubTown(page: Page) {
+  await page.route('**/town/index.html*', (route) =>
+    route.fulfill({
+      contentType: 'text/html',
+      body: '<!doctype html><body style="margin:0;background:#504945"></body>',
+    }),
+  );
+  await page.route('**/town/models/bake/poster-*', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="390" height="844"><rect width="100%" height="100%" fill="#504945"/></svg>',
+    }),
+  );
+}
+
+async function stubBrandArt(page: Page) {
+  const logo = await readFile(new URL('../../site/public/hero/logo.webp', import.meta.url));
+  await page.route(/\/art\/logo\.webp$/, (route) => route.fulfill({ contentType: 'image/webp', body: logo }));
+}
+
+async function capturePhone(page: Page, testInfo: TestInfo, name: string) {
+  if (testInfo.project.name !== 'phone') return;
+  await page.waitForTimeout(200);
+  const path = testInfo.outputPath(`${name}.png`);
+  await page.screenshot({ path });
+  await testInfo.attach(name, { path, contentType: 'image/png' });
+}
+
+async function json(route: Route, body: unknown, status = 200) {
+  await route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+}

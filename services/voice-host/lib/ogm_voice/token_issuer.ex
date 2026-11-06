@@ -48,8 +48,8 @@ defmodule OgmVoice.TokenIssuer do
   @impl true
   def verify(token, scope, opts \\ []) do
     with {:ok, claims} <- Hmac.verify(token, scope, bind(opts)),
-         {:ok, target} <- signed_target(token) do
-      {:ok, Map.put(claims, :target, target)}
+         {:ok, signed} <- signed_claims(token) do
+      {:ok, Map.merge(claims, signed)}
     end
   end
 
@@ -62,12 +62,13 @@ defmodule OgmVoice.TokenIssuer do
     end
   end
 
-  defp signed_target(token) do
+  defp signed_claims(token) do
     with ["vct1", payload, _mac] <- String.split(token, ".", parts: 3),
          {:ok, json} <- Base.url_decode64(payload, padding: false),
-         {:ok, %{"target" => target}} when is_map(target) <- Jason.decode(json),
+         {:ok, %{"target" => target, "nonce" => nonce}} when is_map(target) and is_binary(nonce) and nonce != "" <-
+           Jason.decode(json),
          {:ok, _key} <- OgmVoice.Target.key(target) do
-      {:ok, target}
+      {:ok, %{target: target, nonce: nonce}}
     else
       _ -> {:error, :invalid}
     end

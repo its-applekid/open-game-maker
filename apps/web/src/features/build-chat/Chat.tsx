@@ -24,6 +24,7 @@ export function Chat({
   onBack,
   onAdmitted,
   onMessages,
+  heading = true,
 }: {
   jobId?: string;
   job?: Job;
@@ -31,6 +32,8 @@ export function Chat({
   onBack(): void;
   onAdmitted?(jobId: string, draft: EditDraft): void;
   onMessages?(jobId: string, messages: StreamedChatMessage[]): void;
+  // The dock keeps its own header; the conversation modal already names the job, so it hides this one.
+  heading?: boolean;
 }) {
   const streamId = jobId ?? job?.id;
   const target: EditDraft = job
@@ -132,12 +135,14 @@ export function Chat({
 
   return (
     <section className="build-chat-chat" aria-label={`${job?.plan.title ?? target.title} build chat`}>
-      <header className="build-chat-chat-head">
-        <button className="build-chat-back tap-secondary" type="button" onClick={onBack}>
-          Back
-        </button>
-        <h3>{job?.plan.title ?? target.title}</h3>
-      </header>
+      {heading ? (
+        <header className="build-chat-chat-head">
+          <button className="build-chat-back tap-secondary" type="button" onClick={onBack}>
+            Back
+          </button>
+          <h3>{job?.plan.title ?? target.title}</h3>
+        </header>
+      ) : null}
       <MessageList messages={messages} />
       {refusal && !waitingForAdmin ? (
         <Offers offers={refusal.offers} disabled={submitting} onChoose={(offer) => void choose(offer)} />

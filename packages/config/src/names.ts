@@ -13,6 +13,7 @@ export const OGM_ENV_UNITS = [
   'backup',
   'gm',
   'web',
+  'core-bump',
 ] as const;
 
 export type EnvUnit = (typeof OGM_ENV_UNITS)[number] | 'shared';
@@ -22,6 +23,7 @@ export type EnvName = {
   readonly unit: EnvUnit;
   readonly kind: EnvKind;
   readonly doc: string;
+  readonly initial?: string;
 };
 
 export const OGM_ENV_NAMES: readonly EnvName[] = [
@@ -83,6 +85,13 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'public app origin deploy.sh uses for the retired Netlify-host redirect',
   },
   {
+    name: 'OGM_INSTANCE_ALL_ASSETS',
+    unit: 'web',
+    kind: 'bool',
+    doc: 'ship every host-library asset used by instance screens (default true)',
+    initial: '1',
+  },
+  {
     name: 'VITE_GAMES_ORIGIN',
     unit: 'web',
     kind: 'url',
@@ -93,6 +102,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     unit: 'web',
     kind: 'url',
     doc: 'API origin deploy.sh writes into Netlify _redirects for /api and /auth (same as OGM_PUBLIC_ORIGIN)',
+  },
+  {
+    name: 'VITE_ICE_URLS',
+    unit: 'web',
+    kind: 'string',
+    doc: 'public STUN/TURN URLs for the optional peer-to-peer transport (comma separated, no credentials)',
   },
   {
     name: 'VITE_INSTANCE_LOGO_URL',
@@ -171,8 +186,18 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     doc: 'service -> API bearer (X-Ogm-Service names the caller)',
   },
   { name: 'OGM_JOB_TOKEN_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for gmj1 job tokens' },
-  { name: 'OGM_AGE_COOKIE_SECRET', unit: 'api', kind: 'secret', doc: 'HMAC key for the ogm_age cookie' },
-  { name: 'OGM_MAINTAINER_EMAILS', unit: 'api', kind: 'string', doc: 'comma-separated maintainer emails (optional)' },
+  {
+    name: 'OGM_ALLOWED_EMAILS',
+    unit: 'api',
+    kind: 'string',
+    doc: 'first-start seed of the allow list; makers (optional)',
+  },
+  {
+    name: 'OGM_MAINTAINER_EMAILS',
+    unit: 'api',
+    kind: 'string',
+    doc: 'first-start seed of the allow list as admins, and the break-glass role (optional)',
+  },
   {
     name: 'GOOGLE_CLIENT_ID',
     unit: 'api',
@@ -230,6 +255,24 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   },
   { name: 'OGM_VOICE_PROVIDER', unit: 'voice-host', kind: 'string', doc: 'fake, elevenlabs_agents or openai_realtime' },
   {
+    name: 'ELEVENLABS_API_KEY',
+    unit: 'voice-host',
+    kind: 'secret',
+    doc: 'ElevenLabs API key for live dictation, conversations and narration',
+  },
+  {
+    name: 'ELEVENLABS_AGENT_ID',
+    unit: 'voice-host',
+    kind: 'string',
+    doc: 'ElevenLabs hosted conversational-agent id',
+  },
+  {
+    name: 'OGM_VOICE_CLEANUP_ROOT',
+    unit: 'voice-host',
+    kind: 'path',
+    doc: 'durable provider-conversation cleanup queue',
+  },
+  {
     name: 'OGM_VOICE_LLM',
     unit: 'voice-host',
     kind: 'string',
@@ -270,5 +313,29 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     unit: 'commit',
     kind: 'secret',
     doc: 'optional HMAC secret for GitHub pull-request webhooks',
+  },
+  {
+    name: 'OGM_CORE_BUMP_REPOS',
+    unit: 'core-bump',
+    kind: 'string',
+    doc: 'comma-separated owner/repository of every instance repository kept on the core',
+  },
+  {
+    name: 'OGM_CORE_BUMP_CORE_REPO',
+    unit: 'core-bump',
+    kind: 'string',
+    doc: 'owner/repository of the core an instance repository pins',
+  },
+  {
+    name: 'OGM_CORE_BUMP_CORE_BRANCH',
+    unit: 'core-bump',
+    kind: 'string',
+    doc: 'core branch instances follow (default main)',
+  },
+  {
+    name: 'OGM_CORE_BUMP_WORK_DIR',
+    unit: 'core-bump',
+    kind: 'path',
+    doc: '~/.local/state/ogm/core-bump (scratch clones)',
   },
 ];

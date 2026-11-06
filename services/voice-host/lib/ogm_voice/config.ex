@@ -19,7 +19,9 @@ defmodule OgmVoice.Config do
     "elevenlabs_agents" => :elevenlabs_agents,
     "openai_realtime" => :openai_realtime
   }
-  @allowed_tools ~w(get_status get_details list_open_commands propose_instruction record_summary end_conversation)
+  @allowed_tools ~w(
+    get_status get_details list_open_commands answer_command propose_instruction record_summary end_conversation
+  )
 
   @enforce_keys [
     :port,
@@ -32,7 +34,13 @@ defmodule OgmVoice.Config do
     :token_secret,
     :internal_secret
   ]
-  defstruct @enforce_keys ++ [narration_enabled: false]
+  defstruct @enforce_keys ++
+              [
+                narration_enabled: false,
+                cleanup_root: nil,
+                dictation_transcriber: VoiceTranscribe.Scribe,
+                dictation_transcriber_opts: nil
+              ]
 
   @type secret :: (-> String.t() | nil)
   @type t :: %__MODULE__{
@@ -44,6 +52,9 @@ defmodule OgmVoice.Config do
           api_internal_url: String.t(),
           render_dir: Path.t(),
           narration_enabled: boolean(),
+          cleanup_root: Path.t() | nil,
+          dictation_transcriber: module(),
+          dictation_transcriber_opts: keyword() | nil,
           token_secret: secret(),
           internal_secret: secret()
         }
@@ -67,11 +78,15 @@ defmodule OgmVoice.Config do
     secret!(env, "OGM_VOICE_TOKEN_SECRET")
     secret!(env, "OGM_VOICE_INTERNAL_SECRET")
 
+    llm = llm!(env, provider)
+    cleanup_root = cleanup_root!(env, provider)
+
     %__MODULE__{
       port: port!(env, "OGM_VOICE_PORT", "40400"),
       internal_port: port!(env, "OGM_VOICE_INTERNAL_PORT", "40401"),
       provider: provider,
-      llm: llm!(env, provider),
+      llm: llm,
+      cleanup_root: cleanup_root,
       max_sessions: positive!(env, "OGM_VOICE_MAX_SESSIONS", "2"),
       api_internal_url: url!(env, "OGM_API_INTERNAL_URL"),
       render_dir: path!(env, "OGM_VOICE_RENDER_DIR", Path.join(System.tmp_dir!(), "ogm-voice-renders")),
@@ -90,6 +105,8 @@ defmodule OgmVoice.Config do
       llm: config.llm,
       cloud_disclosure_accepted: true,
       transcript: :none,
+      provider_cleanup: not is_nil(config.cleanup_root),
+      cleanup_root: config.cleanup_root,
       credentials: OgmVoice.Ports.Credentials,
       briefing_source: OgmVoice.Ports.BriefingSource,
       agent_channel: OgmVoice.Ports.AgentChannel,
@@ -113,6 +130,15 @@ defmodule OgmVoice.Config do
       credentials: OgmVoice.Ports.Credentials,
       privacy: privacy()
     ]
+  end
+
+  @doc "The credential-safe options for one Scribe dictation WebSocket."
+  @spec dictation(t()) :: keyword()
+  def dictation(%__MODULE__{} = config) do
+    transcriber_opts =
+      config.dictation_transcriber_opts || [api_key_fun: fn -> System.get_env("ELEVENLABS_API_KEY") end]
+
+    [transcriber: config.dictation_transcriber, transcriber_opts: transcriber_opts]
   end
 
   defp privacy do
@@ -141,6 +167,18 @@ defmodule OgmVoice.Config do
       llm -> llm
     end
   end
+
+  # A live conversation exists at the provider until the durable queue deletes it, so its root must
+  # survive a restart. The fake provider has nothing to delete.
+  defp cleanup_root!(env, provider) do
+    if cleanup_root_set?(env) do
+      path!(env, "OGM_VOICE_CLEANUP_ROOT", "")
+    else
+      if provider == "fake", do: nil, else: fail!("OGM_VOICE_CLEANUP_ROOT", "is missing")
+    end
+  end
+
+  defp cleanup_root_set?(env), do: get(env, "OGM_VOICE_CLEANUP_ROOT", "") != ""
 
   defp port!(env, name, default) do
     port = positive!(env, name, default)

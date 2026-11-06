@@ -11,6 +11,7 @@ const links = [
   ['.', 'Oversight'],
   ['members', 'Members'],
   ['invites', 'Invites'],
+  ['users', 'Users'],
   ['budgets', 'Budgets'],
   ['builds', 'Builds'],
   ['intake', 'Intake'],
@@ -23,7 +24,7 @@ export function AdminLayout() {
 
   if (me.isPending) return <p className="admin-state">Loading admin…</p>;
   if (me.isError) return <p className="admin-state">Not allowed</p>;
-  if (requireAdmin(me.data) === 'redirect') return <Navigate replace to="/games" />;
+  if (requireAdmin(me.data) === 'redirect') return <Navigate replace to="/all" />;
 
   return (
     <div className="admin-shell">

@@ -71,18 +71,36 @@ test('title passes a tap on the town through to it', async ({ page }) => {
   await expect.poll(() => page.evaluate(() => (window as StubbedWindow).__tapSeen)).toEqual([0.5, 0.5]);
 });
 
-test('title Start is a primary-size target and the sound toggle is labelled', async ({ page }) => {
+test('title Start is a primary-size target and the menu is labelled', async ({ page }) => {
   await stubTown(page);
   await page.goto('/');
 
   const start = page.getByRole('button', { name: 'Start', exact: true });
   const box = (await start.boundingBox())!;
   expect(box.height).toBeGreaterThanOrEqual(64);
-  await expect(page.getByRole('button', { name: /sound/i })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Menu' })).toBeVisible();
 
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
-  await expect(page).toHaveURL(/\/age\?next=%2Fconnect%2Fgithub$/);
+  await expect(page).toHaveURL(/\/signin\?next=%2Fconnect%2Fgithub$/);
   await expect(page.locator('.title-town iframe')).toHaveCount(0);
+});
+
+test('title only shows its thin aqua focus outline for keyboard input', async ({ page }) => {
+  await stubTown(page);
+  await page.goto('/');
+
+  const start = page.getByRole('button', { name: 'Start', exact: true });
+  await expect(start).toBeFocused();
+  await expect(start).toHaveCSS('outline-style', 'none');
+
+  await page.keyboard.press('Shift+Tab');
+  const menu = page.getByRole('button', { name: 'Menu' });
+  await expect(menu).toBeFocused();
+  await expect(menu).toHaveCSS('outline-width', '2px');
+  await expect(menu).toHaveCSS('outline-color', 'rgb(142, 192, 124)');
+
+  await page.evaluate(() => window.dispatchEvent(new PointerEvent('pointerdown')));
+  await expect(menu).toHaveCSS('outline-style', 'none');
 });
 
 test('a configured logo uses the default title box without stretching', async ({ page }) => {

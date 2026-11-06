@@ -12,6 +12,10 @@ export function rejectionAction(rejection: JoinRejection): RejectionAction {
       return { message: `Room is full (${rejection.max})`, label: 'Back to games', reload: false };
     case 'PROTOCOL_MISMATCH':
       return { message: 'The game needs to reload', label: 'Reload', reload: true };
+    case 'RULESET_MISMATCH':
+      return { message: 'The game was updated', label: 'Reload', reload: true };
+    case 'SEAT_TAKEN':
+      return { message: 'That seat is taken', label: 'Back to games', reload: false };
     case 'GRANT_INVALID':
     case 'GRANT_EXPIRED':
     case 'GRANT_REVOKED':

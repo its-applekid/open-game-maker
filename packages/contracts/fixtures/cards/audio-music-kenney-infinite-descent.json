@@ -49,7 +49,8 @@
     "peak_dbfs": -0.5,
     "spectral_centroid_hz": 2789,
     "tempo_bpm": null,
-    "loopable": null
+    "loopable": null,
+    "search_notes": "tense mysterious loop · 12 s"
   },
   "flags": [
     "low-confidence"

@@ -6,6 +6,7 @@ import { installAuthRoutes } from './fixtures/auth-routes';
 import { mockGamesRoutes } from './fixtures/games-routes';
 import { installNewRoutes } from './fixtures/new-routes';
 import { installGameApi } from './support/mock-game-api';
+import { prototypePaletteNormalizationCss } from './support/prototype-palette';
 import { attachComparison, prototypeThresholds } from './support/visual-compare';
 
 const referenceOrigin = 'http://127.0.0.1:43176';
@@ -175,6 +176,7 @@ async function prepareTitle(app: Page, reference: Page): Promise<Masks> {
     installAuthRoutes(app, { signedIn: true }),
   ]);
   await app.route('**/town/index.html*', (route) => route.fulfill({ contentType: 'text/html', body: townStub }));
+  await app.route('**/api/v1/games', (route) => route.fulfill({ json: { games: [] } }));
   await Promise.all([
     app.goto('/?test', { waitUntil: 'domcontentloaded' }),
     reference.goto(`${referenceOrigin}/studio/index.html#library`, { waitUntil: 'domcontentloaded' }),
@@ -224,7 +226,7 @@ async function prepareGames(app: Page, reference: Page): Promise<Masks> {
   await app.route('**/api/v1/jobs?gameId=*', (route) => route.fulfill({ json: { jobs: [] } }));
   await app.route('**/api/v1/budget/status', (route) => route.fulfill({ json: { unitLabel: 'coins' } }));
   await Promise.all([
-    app.goto('/games?test&spotlight=goblin-cellar', { waitUntil: 'domcontentloaded' }),
+    app.goto('/all?test&spotlight=goblin-cellar', { waitUntil: 'domcontentloaded' }),
     reference.goto(`${referenceOrigin}/studio/index.html#library`, { waitUntil: 'domcontentloaded' }),
   ]);
   const prototypeGame = reference.locator('#lib-grid .tile', { hasText: 'Goblin Cellar' });
@@ -258,6 +260,12 @@ async function prepareCreationOption(app: Page, reference: Page): Promise<Masks>
   await Promise.all([
     expect(appChoice).toHaveAttribute('aria-pressed', 'true'),
     expect(referenceChoice).toHaveAttribute('aria-pressed', 'true'),
+  ]);
+  // #462 intentionally replaces the prototype's pick-limit hint with capacity dots.
+  // Remove both affordances so this comparison continues to own the surrounding shell.
+  await Promise.all([
+    app.locator('.new-pick-capacity').evaluate((capacity) => capacity.remove()),
+    reference.locator('#wz-hint').evaluate((hint) => hint.remove()),
   ]);
   return { app: [], reference: [] };
 }
@@ -294,6 +302,7 @@ async function prepareEditor(app: Page, reference: Page): Promise<Masks> {
   await Promise.all([neutralizeAppAssets(app), neutralizeReferenceAssets(reference)]);
   await installAuthRoutes(app, { signedIn: true });
   await installGameApi(app);
+  await app.route('**/api/v1/me', (route) => route.fulfill({ json: { platformRole: 'none' } }));
   await app.route('**/api/v1/games/game/branches', (route) => route.fulfill({ json: { branches: [] } }));
   await app.route('**/api/v1/games', (route) => route.fulfill({ json: { games: [] } }));
   await app.route('**/api/v1/budget/status', (route) => route.fulfill({ json: { unitLabel: 'coins' } }));
@@ -367,6 +376,7 @@ async function normalize(page: Page): Promise<void> {
   });
   await page.addStyleTag({
     content: `
+      ${prototypePaletteNormalizationCss}
       *, *::before, *::after { animation: none !important; transition: none !important; caret-color: transparent !important; }
       html, body, button, input, textarea { font-family: Arial, sans-serif !important; }
       #bg canvas, .studio-backdrop canvas { visibility: hidden !important; }

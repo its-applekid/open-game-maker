@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '../../../lib/api/client';
 import { CheckpointCard, type CheckpointBudget } from '../checkpoint-card';
+import { answerCheckpoint } from '../checkpoints';
 import type { StreamedChatMessage } from '../stream';
 
 export function CheckpointRow({
@@ -32,10 +33,7 @@ export function CheckpointRow({
   const answer = async (optionId: string) => {
     setAnswering(true);
     try {
-      await api(`/jobs/${encodeURIComponent(message.job_id)}/checkpoints/${encodeURIComponent(message.id)}/answer`, {
-        method: 'POST',
-        json: { option_id: optionId },
-      });
+      await answerCheckpoint(message.job_id, message.id, optionId);
     } catch {
       setAnswering(false);
     }

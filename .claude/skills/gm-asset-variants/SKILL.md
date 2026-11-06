@@ -38,15 +38,18 @@ Starting from an existing resource and making a variation of it is a normal step
    Prefer runtime tinting in the shader when that's all the variant does: one tint per instance costs nothing and needs no file. Make a file when the geometry, texture or timing changes.
 3. **Write the generator, not the file.** Add a spec to the project's variant script (`tools/variants.mjs` in `apps/web/title-town`): name, set, op, from, params. Running the script rebuilds every variant from the sources, deterministically.
    - The script must refuse to write to a path that is a source.
+   - A rebuild never redoes finished work: skip a variant whose output is newer than every input it names, and only `--force` rebuilds everything. A batch that redoes 43 models to change one is how a set stops being cheap to iterate.
    - three.js runs in headless Chromium (`variants.html` with `GLTFLoader` and `GLTFExporter`) because the loader and exporter need a browser. Use `--use-angle=gl-egl --enable-gpu` for the Intel GPU.
-4. **Check by eye.** Render a lineup of each variant next to its source (`tools/lineup.html?set=...` in `apps/web/title-town`). Read the screenshot and look for:
+4. **Keep the set one world.** Write the set's style in one paragraph once — era, palette, materials, wear, and the level of detail — and put it beside the variant specs, so every variation is judged against the same words instead of against the model it happened to start from. When two candidates could serve, render them under the same light in one image and pick by looking; record one line saying why the pick won. Cohesion is decided here, before the game mixes the set, and it is the cheapest place to fix it.
+5. **Check by eye.** Render a lineup of each variant next to its source (`tools/lineup.html?set=...` in `apps/web/title-town`). Read the screenshot and look for:
    - seams where bands meet;
    - floating parts, missing faces, inside-out faces;
    - the scale against the source.
 
    Fix the worst problem and rebuild. Don't ship a variant you haven't looked at.
-5. **Use it.** The game loads `models/variants/manifest.json` and adds each variant to its set (the title prototype's `addVariants()`). Variants then mix with originals at random, so neither looks repeated.
-6. **Report.** One line per batch: how many variants, which sources, which operations, where the files are, and anything that didn't come out clean.
+   Then check the whole set in proportion, not one row at a time: `python3 -I scripts/assets/check_glb.py --lineup models/variants/*.glb` prints the to-scale positions and a scale bar for the lineup still. The same command without `--lineup` fails a variant that stands off its origin, is the wrong real height (`--height`), or blows a triangle or texture budget (`--budget`).
+6. **Use it.** The game loads `models/variants/manifest.json` and adds each variant to its set (the title prototype's `addVariants()`). Variants then mix with originals at random, so neither looks repeated.
+7. **Report.** One line per batch: how many variants, which sources, which operations, where the files are, and anything that didn't come out clean.
 
 ## Gotchas
 

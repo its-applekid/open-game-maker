@@ -42,6 +42,7 @@ export const JobStage = z.enum([
   'final_tests',
   'fixing',
   'ready',
+  'parked',
   'out_of_budget',
   'paused',
   'done',
@@ -98,6 +99,7 @@ export const Job = z.object({
   stageText: z.string().optional(),
   phase: z.enum(['brainstorm', 'plan', 'work', 'review']).optional(),
   progressPercent: z.number().int().min(0).max(100).optional(),
+  openRequestCount: z.number().int().nonnegative().optional(),
 });
 // The words OGM-076/079 display verbatim; `paused` reads JOB_WAITING_FOR_ANSWER while aiur holds a decision.
 export const JOB_STAGE_WORDS = {
@@ -108,6 +110,7 @@ export const JOB_STAGE_WORDS = {
   final_tests: 'Running final tests',
   fixing: 'Fixing a problem',
   ready: 'Ready to try',
+  parked: 'Parked',
   out_of_budget: 'Out of budget',
   paused: 'Paused',
   done: 'Done',

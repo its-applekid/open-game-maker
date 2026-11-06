@@ -31,3 +31,4 @@ export interface GateResult {
 export { runL0, checkHookPresence, type L0CheckId, type RunL0Options } from './l0-static.js';
 export { runL1, runPromiseSpecs, type RunL1Options } from './l1-smoke.js';
 export { scanFile, scanRepo, type WallClockFinding } from './no-wall-clock.js';
+export { scanPackageImports, scanWallClock, type ImportFinding } from './test-only.js';

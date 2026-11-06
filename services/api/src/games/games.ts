@@ -6,6 +6,7 @@ import { and, eq, isNull, or } from 'drizzle-orm';
 
 import type { AppDeps } from '../app/types.js';
 import { HttpError } from '../app/errors.js';
+import { assignSlug } from './slug.js';
 
 export type GameRow = typeof schema.games.$inferSelect;
 
@@ -15,6 +16,7 @@ export function gameResponse(game: GameRow) {
     familyId: game.familyId,
     ownerId: game.ownerId,
     title: game.title,
+    slug: game.slug,
     visibility: game.visibility,
     repoVisibility: game.repoVisibility,
     repo:
@@ -70,11 +72,13 @@ export function createGameRow(
   db: Db,
   input: { familyId: string; ownerId: string; title: string; repoVisibility: 'public' | 'private' },
 ): GameRow {
+  const id = `g_${randomUUID()}`;
   const row: typeof schema.games.$inferInsert = {
-    id: `g_${randomUUID()}`,
+    id,
     familyId: input.familyId,
     ownerId: input.ownerId,
     title: input.title,
+    slug: assignSlug(db, input.title),
     visibility: 'private',
     repoVisibility: input.repoVisibility,
     createdAt: new Date().toISOString(),

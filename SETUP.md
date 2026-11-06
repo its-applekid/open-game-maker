@@ -308,34 +308,34 @@ Check: aiur status
 >
 > Hand steps in this step: `After step 4 creates the builder machine user's PAT, return here to put it and a random Erlang cookie in ~/.aiur/.env with mode 0600`; `Run aiur login codex gamebuilder and aiur login claude default in a browser, then place the Codex login at ~/.config/ogm/codex-gamebuilder/auth.json`.
 
-## 4. Set up the games private repo
+## 4. Set up the instance repository
 
-Outcome: Builder and intake machine users can create private gm-<gameId> repositories through the GitHub App.
+Outcome: Builder and intake automation can update games and shared packages in one private instance repository, with the GitHub App installed on that repository only.
 
 Time: ~30 min, mostly hand steps
 
 Preconditions: Step 3 is complete and a GitHub owner is chosen.
 
-### 4.1 Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>. (HAND)
+### 4.1 Choose the GitHub account or free organization and create one private <github-owner>/<instance-repo> repository for this running Game Maker instance. Games live under games/<game-slug>/ and components shared by this instance's games live under packages/<name>/. (HAND)
 
 Command:
 
 ```sh
-# In GitHub, choose or create <github-owner>; game repositories remain private by default.
+# In GitHub, choose or create <github-owner>, then create one private <github-owner>/<instance-repo> repository.
 ```
 
-Writes: `<github-owner>/gm-<gameId>`
+Writes: `<github-owner>/<instance-repo>`
 
-Check: <github-owner> is recorded for the remaining setup steps
+Check: <github-owner>/<instance-repo> is recorded in the instance environment for the remaining setup steps
 
-Hand back to the human: Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>.
+Hand back to the human: Choose the GitHub account or free organization and create one private <github-owner>/<instance-repo> repository for this running Game Maker instance. Games live under games/<game-slug>/ and components shared by this instance's games live under packages/<name>/.
 
-### 4.2 Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env. (HAND)
+### 4.2 Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles. (HAND)
 
 Command:
 
 ```sh
-# Create the two machine users and scoped PATs in GitHub.
+# Create one or two machine users and scoped PATs in GitHub.
 # Set OGM_INTAKE_GITHUB_TOKEN, OGM_INTAKE_BOT_LOGIN,
 # OGM_BUILDER_BOT_TOKEN, and OGM_BUILDER_BOT_LOGIN in api.env.
 ```
@@ -344,14 +344,14 @@ Writes: `~/.config/ogm/env/api.env`, `~/.aiur/.env`
 
 Check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/env/api.env
 
-Hand back to the human: Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env.
+Hand back to the human: Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles.
 
-### 4.3 Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation. (HAND)
+### 4.3 Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation. (HAND)
 
 Command:
 
 ```sh
-# Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App on <github-owner>.
+# Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App only on <github-owner>/<instance-repo>.
 chmod 600 ~/.config/ogm/ogm-github-app.pem
 systemctl --user restart ogm-commit
 # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
@@ -361,7 +361,7 @@ Writes: `~/.config/ogm/ogm-github-app.pem`, `~/.config/ogm/env/ogm-commit.env`
 
 Check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
 
-Hand back to the human: Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
+Hand back to the human: Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
 
 ### 4.4 Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
 
@@ -377,9 +377,9 @@ Check: grep -l '^OGM_INTERNAL_TOKEN=' ~/.config/ogm/env/*.env lists both files
 
 ### Ask an agent
 
-> You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 4, Set up the games private repo**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
+> You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 4, Set up the instance repository**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Choose the GitHub account or free organization that owns private repos named <github-owner>/gm-<gameId>`; `Create free ogm-intake and ogm-builder machine users and repo-and-issues PATs, then put only their tokens and logins in api.env and ~/.aiur/.env`; `Create and install the GitHub App, grant the permissions the commit service uses, and store its private key outside the repo. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation`.
+> Hand steps in this step: `Choose the GitHub account or free organization and create one private <github-owner>/<instance-repo> repository for this running Game Maker instance. Games live under games/<game-slug>/ and components shared by this instance's games live under packages/<name>/`; `Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles`; `Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation`.
 
 ## 5. Find assets
 
@@ -557,27 +557,29 @@ Writes: `~/.config/ogm/tls`
 
 Check: curl --fail https://<tailnet-host>:8443/healthz from a phone off Wi-Fi
 
-### 7.3 Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment. (HAND)
+### 7.3 Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, include the host library assets its screens use, build the town, and approve the manual deployment. (HAND)
 
 Command:
 
 ```sh
 # Write the Netlify site id to apps/web/.netlify-site-id.
 pnpm --filter @ogm/config exec ogm-env-init web
-# Set OGM_PUBLIC_APP_ORIGIN=https://makeopen.games in web.env; deploy.sh redirects the retired Netlify host to it.
+# Set OGM_PUBLIC_APP_ORIGIN=<app-origin> in web.env; each instance uses its own subdomain or domain.
+# OGM_INSTANCE_ALL_ASSETS=1 is the generated instance default; licensed files stay gitignored and are staged only for this deploy.
 # Set VITE_GAMES_ORIGIN=https://<tailnet-host>:10000 in web.env; deploy.sh bakes it in and refuses without it.
 # Set VITE_API_ORIGIN=https://<tailnet-host>:8443 in web.env; deploy.sh writes _redirects from it.
+# Optional: export OGM_DEPLOY_LOAD_SECONDS=<seconds> to override the 60-second title readiness window.
 # Set OGM_APP_ORIGIN=<app-origin> in games.env so the games host allows the app as a frame ancestor.
-apps/web/tools/town.sh --public
+apps/web/tools/town.sh
 apps/web/tools/deploy.sh --dry-run
 apps/web/tools/deploy.sh
 ```
 
 Writes: `apps/web/.netlify-site-id`, `~/.config/ogm/env/web.env`, `~/.config/ogm/env/games.env`
 
-Check: <app-origin> loads the title town, <app-origin>/api/healthz answers, and a game opens on a phone
+Check: <app-origin> plays Underground on the title and Camelot on Games/New Game, <app-origin>/api/healthz answers, and a game opens on a phone
 
-Hand back to the human: Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment.
+Hand back to the human: Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, include the host library assets its screens use, build the town, and approve the manual deployment.
 
 ### 7.4 Choose instance branding for the logo shown on the title, sign-in, and games screens without changing the app icons. (OPTIONAL)
 
@@ -595,33 +597,40 @@ Writes: `~/.config/ogm/env/web.env`
 
 Check: the title and app screens use the selected logo without stretching, while the favicon and app icons are unchanged
 
-### 7.5 Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
+### 7.5 Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console. (HAND)
 
 Command:
 
 ```sh
+# Set OGM_ALLOWED_EMAILS=<email>,<email> in api.env before the first start: those become maker rows.
+# OGM_MAINTAINER_EMAILS seeds admin rows and stays a break-glass role. After the first start,
+# add, re-role and remove users at <app-origin>/admin/users; the env lists no longer decide.
 # Optional Google redirect: <app-origin>/auth/callback/google
-# Set SMTP_URL, SMTP_FROM, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET,
-# and OGM_MAINTAINER_EMAILS only for the options you enable.
+# Set SMTP_URL, SMTP_FROM, GOOGLE_CLIENT_ID, and GOOGLE_CLIENT_SECRET only for the options you enable.
 ```
 
 Writes: `~/.config/ogm/env/api.env`
 
-Check: complete the iPhone check in docs/ops/netlify-proxy.md
+Check: complete the iPhone check in docs/ops/netlify-proxy.md, including Start → email → magic link with no birth-date step
 
-Hand back to the human: Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console.
+Hand back to the human: Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console.
 
-### 7.6 Keep the fake voice provider unless the operator separately chooses a live provider and accepts its spending. (OPTIONAL)
+### 7.6 Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values. (HAND)
 
 Command:
 
 ```sh
-# Keep OGM_VOICE_PROVIDER=fake in voice-host.env for the no-spend setup.
+# No-spend default: keep OGM_VOICE_PROVIDER=fake in voice-host.env.
+# Live only after accepting provider charges: set OGM_VOICE_PROVIDER=elevenlabs_agents,
+# ELEVENLABS_API_KEY, ELEVENLABS_AGENT_ID, OGM_VOICE_LLM, and an absolute
+# durable OGM_VOICE_CLEANUP_ROOT in voice-host.env, then restart ogm-voice-host.
 ```
 
-Writes: `~/.config/ogm/env/voice-host.env`
+Writes: `~/.config/ogm/env/voice-host.env`, `<voice-cleanup-root>`
 
-Check: grep '^OGM_VOICE_PROVIDER=fake$' ~/.config/ogm/env/voice-host.env
+Check: curl --fail --silent http://127.0.0.1:40401/healthz
+
+Hand back to the human: Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values.
 
 ### 7.7 Set the default daily allowance and reset zone, then adjust per-family budgets in the admin page after sign-in.
 
@@ -668,7 +677,7 @@ Check: test -r the path named by OGM_VAPID_KEY_FILE
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 7, Configure**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Create the free Netlify app site, record its site id, set the app, games and API origins, build the town, and approve the manual deployment`; `Verify passkey and magic-link sign-in, and optionally configure SMTP or a Google OAuth client in its web console`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
+> Hand steps in this step: `Create the free Netlify app site for this instance on its own subdomain or domain, record its site id, set the app, games and API origins, include the host library assets its screens use, build the town, and approve the manual deployment`; `Set the sign-in allow-list, verify Start goes straight to email sign-in with no birth-date step, and optionally configure SMTP or a Google OAuth client in its web console`; `Keep the no-spend fake voice provider, or explicitly accept ElevenLabs charges and configure live dictation, conversation, and cleanup values`; `Choose a backup target with enough space, configure absolute data and blob roots, and run the backup and restore proof`.
 
 ## 8. Verify
 

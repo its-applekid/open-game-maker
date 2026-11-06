@@ -187,11 +187,11 @@ mkdirSync(resolvedDirectory, { recursive: true, mode: 0o700 });
 
 const target = join(resolvedDirectory, `${unit}.env`);
 const existingValues = readExistingValues(resolvedDirectory);
-// web.env feeds a public build, so it gets public build settings and never the shared secrets.
+// web.env feeds a static build, so it gets its own deploy settings and never the shared secrets.
 const rows = OGM_ENV_NAMES.filter(({ unit: owner }) => owner === unit || (owner === 'shared' && unit !== 'web'));
 let generated = 0;
-const lines = rows.map(({ name, kind }) => {
-  if (kind !== 'secret') return `${name}=`;
+const lines = rows.map(({ name, kind, initial }) => {
+  if (kind !== 'secret') return `${name}=${initial ?? ''}`;
   const existing = existingValues.get(name);
   if (existing) return `${name}=${existing}`;
   generated += 1;

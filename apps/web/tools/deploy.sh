@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build, inspect, and manually deploy the public app site.
-# Host-local inputs (all gitignored) are OGM_PUBLIC_APP_ORIGIN in web.env, assets-local/, scripts/audio/.venv/,
+# Host-local inputs (all gitignored) are the origins and OGM_INSTANCE_ALL_ASSETS in web.env, assets-local/,
+# scripts/audio/.venv/,
 # prototypes/ui-v0/site/assets/, prototypes/studio-v0/{town,demo}/, and
 # apps/web/title-town/models/{bake,sprites,variants,candidates,mdungeon}/.
 set -euo pipefail
@@ -39,6 +40,14 @@ if [[ -z "$GAMES_ORIGIN" ]]; then
 fi
 printf 'games origin: %s (OGM_APP_ORIGIN in games.env must list this app for frame-ancestors)\n' "$GAMES_ORIGIN"
 
+INSTANCE_ALL_ASSETS="$(node "$ROOT/apps/web/tools/games-origin.mjs" --instance-all-assets)"
+ASSET_FILTER_ARGS=()
+if [[ "$INSTANCE_ALL_ASSETS" == 1 ]]; then
+  printf '%s\n' 'instance assets: every host-library asset used by the screens is enabled'
+else
+  printf '%s\n' 'instance assets: public-only mode is enabled'
+  ASSET_FILTER_ARGS+=(--public)
+fi
 INSTANCE_LOGO_URL="$(node "$ROOT/apps/web/tools/instance-branding.mjs")"
 
 # The /api and /auth proxy target is a host value, so _redirects is written here and never kept in the repo.
@@ -64,7 +73,7 @@ fi
 if [[ ! -d "$ROOT/apps/web/title-town/models/sounds" ]]; then
   bash "$ROOT/apps/web/title-town/tools/sounds.sh"
 fi
-bash "$ROOT/apps/web/tools/town.sh" --public
+bash "$ROOT/apps/web/tools/town.sh" "${ASSET_FILTER_ARGS[@]}"
 
 VITE_GAMES_ORIGIN="$GAMES_ORIGIN" VITE_INSTANCE_LOGO_URL="$INSTANCE_LOGO_URL" \
   pnpm --dir "$ROOT" --filter @ogm/web build
@@ -72,9 +81,9 @@ VITE_GAMES_ORIGIN="$GAMES_ORIGIN" VITE_INSTANCE_LOGO_URL="$INSTANCE_LOGO_URL" \
 bash "$ROOT/prototypes/studio-v0/tools/build.sh"
 cp -R "$ROOT/apps/web/dist/." "$DEPLOY_DIR/"
 node "$ROOT/apps/web/tools/stage-prototype.mjs" \
-  "$ROOT/prototypes/studio-v0" "$ROOT/prototypes/ui-v0/site" "$DEPLOY_DIR/proto"
+  "$ROOT/prototypes/studio-v0" "$ROOT/prototypes/ui-v0/site" "$DEPLOY_DIR/proto" "${ASSET_FILTER_ARGS[@]}"
 printf '%s\n' "$REDIRECTS" >"$DEPLOY_DIR/_redirects"
-if [[ -d "$DEPLOY_DIR/art/packs" ]]; then
+if [[ "$INSTANCE_ALL_ASSETS" == 0 && -d "$DEPLOY_DIR/art/packs" ]]; then
   find "$DEPLOY_DIR/art/packs" -maxdepth 1 -type f -name 'synty-*' -delete
 fi
 
@@ -95,6 +104,7 @@ fi
 RECORD_DIR="$(mktemp -d)"
 PREVIEW_LOG="$RECORD_DIR/preview.log"
 LOAD_LOG="$RECORD_DIR/loadrec.log"
+LOAD_SECONDS="${OGM_DEPLOY_LOAD_SECONDS:-60}"
 pnpm --dir "$ROOT/apps/web" exec vite preview \
   --host 127.0.0.1 --port 43171 --outDir "$DEPLOY_DIR" \
   >"$PREVIEW_LOG" 2>&1 &
@@ -111,7 +121,7 @@ if ! curl --fail --silent --output /dev/null http://127.0.0.1:43171/; then
 fi
 
 node "$ROOT/apps/web/tools/loadrec.mjs" \
-  "$RECORD_DIR" http://127.0.0.1:43171/ 22 >"$LOAD_LOG"
+  "$RECORD_DIR" http://127.0.0.1:43171/ "$LOAD_SECONDS" >"$LOAD_LOG"
 sed -n '1,160p' "$LOAD_LOG"
 
 VIDEO="$(find "$RECORD_DIR" -maxdepth 1 -type f -name '*.webm' | head -n 1)"

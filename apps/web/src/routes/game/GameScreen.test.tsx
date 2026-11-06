@@ -83,7 +83,7 @@ function renderGame(entry = '/g/game') {
       <MemoryRouter initialEntries={[entry]}>
         <Routes>
           <Route path="/g/:gameId" element={<GameScreen />} />
-          <Route path="/games" element={<h1>Games destination</h1>} />
+          <Route path="/all" element={<h1>Games destination</h1>} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,

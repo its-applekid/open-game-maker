@@ -203,6 +203,7 @@ export async function runVerify(options: RunVerifyOptions): Promise<RunVerifyRes
     budgets,
     probes,
     clients: 1,
+    seats: [],
     unchecked: [...unchecked],
     verdict: error ? 'error' : verdictFor({ budgets, console: consoleEntries }),
     ...(error ? { error } : {}),

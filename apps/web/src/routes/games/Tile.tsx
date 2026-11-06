@@ -29,7 +29,6 @@ export function Tile({ game, job, selected, tabIndex, onClick, onFocus }: TilePr
         <Cover game={game} />
         {job && <span className="game-building-chip">{jobLabel(job)}</span>}
         {!game.publishedReleaseId && <span className="game-new-badge">New</span>}
-        <span className="game-tile-shine" aria-hidden="true" />
         <span className="game-tile-meta">
           <strong>{game.title}</strong>
           {tags.length > 0 && (

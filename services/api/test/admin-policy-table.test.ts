@@ -56,6 +56,26 @@ const ROUTES: Row[] = [
   { method: 'GET', path: '/intake', expect: ok(200) },
   { method: 'GET', path: '/mail?unopened=1', expect: ok(200) },
   { method: 'POST', path: `/mail/${X.mail}/opened`, expect: ok(204, 404) },
+  { method: 'GET', path: '/users', expect: ok(200) },
+  {
+    method: 'POST',
+    path: '/users',
+    body: { email: 'guest@example.com', role: 'player' },
+    expect: ok(201, 201),
+  },
+  {
+    method: 'PATCH',
+    path: '/users/guest@example.com',
+    body: { role: 'maker' },
+    expect: ok(404, 404),
+  },
+  { method: 'DELETE', path: '/users/guest@example.com', expect: ok(404, 404) },
+  {
+    method: 'POST',
+    path: '/users/guest@example.com/invite',
+    body: {},
+    expect: ok(404, 404),
+  },
 ];
 
 const PARAM: Record<string, string> = { u: ':userId', g: ':id', i: ':id', m: ':id' };
@@ -80,7 +100,10 @@ describe('admin policy table', () => {
       .filter((route) => route.path.startsWith('/api/v1/admin/'))
       .map((route) => `${route.method} ${route.path.replace('/api/v1/admin', '')}`);
     const template = (path: string) =>
-      path.split('?')[0].replace(/\/(u|g|i|m)-[a-z0-9]+/g, (_, kind: string) => `/${PARAM[kind]}`);
+      path
+        .split('?')[0]
+        .replace(/\/users\/[^/]+/, '/users/:email')
+        .replace(/\/(u|g|i|m)-[a-z0-9]+/g, (_, kind: string) => `/${PARAM[kind]}`);
     expect(new Set(ROUTES.map((row) => `${row.method} ${template(row.path)}`))).toEqual(new Set(mounted));
   });
 

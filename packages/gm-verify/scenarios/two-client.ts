@@ -552,6 +552,7 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
     budgets,
     probes,
     clients: 2,
+    seats: [],
     unchecked: [...ALWAYS_UNCHECKED, 'WAN latency', 'sign-in'],
     verdict: error ? 'fail' : verdictFor({ budgets, console: consoleList }),
     ...(error ? { error } : {}),

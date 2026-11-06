@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router';
+import { useLocation, useNavigate, useSearchParams } from 'react-router';
 
 import { registerTestApi } from '../../app/testHook';
+import { CopyLink } from './CopyLink';
 import { glideTiles, measureTiles, type TileRects } from './flip';
 import { Spotlight } from './Spotlight';
 import { Tile } from './Tile';
@@ -10,6 +11,7 @@ import { indexActiveJobs, useActiveJobs } from './useActiveJobs';
 import { useBranches } from './useBranches';
 import { useGames } from './useGames';
 import { measureGridColumns, useGridNav } from './useGridNav';
+import { useGridCapacity } from './useGridCapacity';
 import './games.css';
 import './games-responsive.css';
 
@@ -18,7 +20,10 @@ const gamesTestSnapshot: { selected: string | null; tiles: string[] } = { select
 
 export function GamesScreen() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const spotlightDismissed = isSpotlightDismissed(location.state);
+
   const gamesQuery = useGames();
   const jobsQuery = useActiveJobs();
   const games = gamesQuery.data ?? [];
@@ -32,20 +37,25 @@ export function GamesScreen() {
   const activeJobs = useMemo(() => indexActiveJobs(jobs), [jobs]);
   const sortedGames = useMemo(() => sortGames(games, activeJobs), [games, activeJobs]);
   const selectedIndex = selected ? sortedGames.findIndex((game) => game.id === selected.id) : null;
+  const gridCapacity = useGridCapacity(gridRef, sortedGames.length > 0);
+  const initialViewChosen = useRef(false);
+  const fitsThumbnailRow = gridCapacity !== null && sortedGames.length <= gridCapacity;
 
   const select = (index: number) => {
     const game = sortedGames[index];
     if (!game) return;
+    initialViewChosen.current = true;
     const next = new URLSearchParams(searchParams);
     next.set('spotlight', game.id);
-    setSearchParams(next);
+    setSearchParams(next, { state: null });
   };
 
   const close = () => {
+    initialViewChosen.current = true;
     const returningTo = selected?.id;
     const next = new URLSearchParams(searchParams);
     next.delete('spotlight');
-    setSearchParams(next);
+    setSearchParams(next, { state: { spotlightDismissed: true } });
     queueMicrotask(() => {
       if (!returningTo) return;
       const cell = [...(gridRef.current?.querySelectorAll<HTMLElement>('[data-game-id]') ?? [])].find(
@@ -73,6 +83,28 @@ export function GamesScreen() {
     containerRef: gridRef,
   });
 
+  useEffect(() => {
+    if (initialViewChosen.current || gamesQuery.isPending || jobsQuery.isPending) return;
+    if (sortedGames.length === 0) return;
+    if (gridCapacity === null) return;
+
+    initialViewChosen.current = true;
+    if (selectedId || spotlightDismissed || !fitsThumbnailRow) return;
+    const next = new URLSearchParams(searchParams);
+    next.set('spotlight', sortedGames[0]!.id);
+    setSearchParams(next, { replace: true });
+  }, [
+    fitsThumbnailRow,
+    gamesQuery.isPending,
+    gridCapacity,
+    jobsQuery.isPending,
+    searchParams,
+    selectedId,
+    setSearchParams,
+    sortedGames,
+    spotlightDismissed,
+  ]);
+
   useLayoutEffect(() => {
     glideTiles(gridRef.current, previousRects.current);
     previousRects.current = measureTiles(gridRef.current);
@@ -92,7 +124,7 @@ export function GamesScreen() {
   if (gamesQuery.isPending) return <p className="games-status">Loading your games…</p>;
 
   return (
-    <div className="games-screen">
+    <div className={`games-screen${fitsThumbnailRow ? ' games-single-row' : ''}`}>
       {selected && (
         <Spotlight
           game={selected}
@@ -136,6 +168,7 @@ export function GamesScreen() {
                         select(index);
                       }}
                     />
+                    <CopyLink id={game.id} slug={game.slug} title={game.title} />
                   </div>
                 ))}
               </div>
@@ -146,11 +179,24 @@ export function GamesScreen() {
 
       <button type="button" className="tap-primary games-new" onClick={() => navigate('/new')}>
         <span className="plus" aria-hidden="true">
-          +
+          <svg viewBox="0 0 16 16" width="14" height="14">
+            <path d="M8 2.5v11M2.5 8h11" stroke="currentColor" strokeWidth="3" strokeLinecap="round" fill="none" />
+          </svg>
         </span>
         <span>New game</span>
       </button>
     </div>
+  );
+}
+
+// Changing the spotlight changes the screen error boundary's key, so the route
+// remounts this screen while the closing navigation lands. The dismissal rides
+// along on the history entry so the few-games select view stays dismissed.
+function isSpotlightDismissed(state: unknown): boolean {
+  return (
+    typeof state === 'object' &&
+    state !== null &&
+    (state as { spotlightDismissed?: unknown }).spotlightDismissed === true
   );
 }
 

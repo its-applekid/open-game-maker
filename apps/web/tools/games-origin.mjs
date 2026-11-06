@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-// Print the games origin deploy.sh bakes into the build, read from <env dir>/web.env.
-// The API and public app origin readers use the same validation for deploy-time redirects.
+// Read deploy settings from <env dir>/web.env. The CLI prints the games origin by default, or the resolved instance
+// asset mode when passed --instance-all-assets.
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -54,10 +54,24 @@ export const readApiOrigin = (envDir) => readOrigin(envDir, 'VITE_API_ORIGIN', [
 // The custom domain is deployment configuration, so previews and self-hosted deployments do not bake in this host's URL.
 export const readPublicAppOrigin = (envDir) => readOrigin(envDir, 'OGM_PUBLIC_APP_ORIGIN');
 
+export function readInstanceAllAssets(envDir) {
+  const name = 'OGM_INSTANCE_ALL_ASSETS';
+  const file = join(envDir, 'web.env');
+  if (!existsSync(file)) throw new Error(`${name} is not set: ${file} is missing (run ogm-env-init web)`);
+  const raw = readEnvValue(file, name);
+  if (raw === '' || raw === 'true' || raw === '1') return true;
+  if (raw === 'false' || raw === '0') return false;
+  throw new Error(`${name} in ${file} expected true, false, 1, or 0`);
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const envDir = process.env.OGM_ENV_DIR || join(homedir(), '.config', 'ogm', 'env');
   try {
-    process.stdout.write(`${readGamesOrigin(envDir)}\n`);
+    const mode = process.argv[2];
+    if (mode && mode !== '--instance-all-assets') {
+      throw new Error(`usage: ${process.argv[1]} [--instance-all-assets]`);
+    }
+    process.stdout.write(`${mode ? Number(readInstanceAllAssets(envDir)) : readGamesOrigin(envDir)}\n`);
   } catch (error) {
     process.stderr.write(`deploy: ${error.message}\n`);
     process.exit(1);

@@ -6,9 +6,17 @@ export const NET_LIMITS = {
 } as const;
 
 export class NetPayloadTooLargeError extends RangeError {
+  /* Kept beside the message so a caller can report how many bytes the codec refused, not only that it refused some. */
+  readonly byteLength: number;
+  readonly maximum: number;
+  readonly label: string;
+
   constructor(label: string, byteLength: number, maximum: number) {
     super(`${label} payload is ${byteLength} bytes; maximum is ${maximum}`);
     this.name = 'NetPayloadTooLargeError';
+    this.byteLength = byteLength;
+    this.maximum = maximum;
+    this.label = label;
   }
 }
 

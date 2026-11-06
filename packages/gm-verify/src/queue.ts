@@ -129,6 +129,7 @@ function errorReport(runId: string, error: string, request?: VerifyRequest): Ver
     budgets: unknownBudgets(),
     probes: {},
     clients: 1,
+    seats: [],
     unchecked: [...ALWAYS_UNCHECKED],
     verdict: 'error',
     error,

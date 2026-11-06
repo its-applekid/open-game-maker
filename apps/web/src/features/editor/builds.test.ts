@@ -2,18 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { Job, ReapplyReport } from '@ogm/contracts/browser';
 
-import { activeBuildStatus, inspectBuildChange, readyBuildSignal } from './builds';
+import { inspectBuildChange, readyBuildSignal } from './builds';
 import type { DesignSnapshot, OptionalCapability } from './api';
 
 const current = { rev: 4, buildId: 'b_01BX5ZZKBKACTAV9WEVGEMMVRZ', doc: {} } as DesignSnapshot;
 const next = { rev: 4, buildId: 'b_01BX5ZZKBKACTAV9WEVGEMMVS0', doc: {} } as DesignSnapshot;
 
 describe('editor build lifecycle', () => {
-  it('uses the existing job stage copy without disabling editing', () => {
-    const jobs = [{ state: 'running', stage: 'building', stageText: 'Building your game' }] as Job[];
-    expect(activeBuildStatus(jobs)).toBe('Building your game');
-  });
-
   it('uses the latest ready job revision as the branch inspection signal', () => {
     const jobs = [
       { id: 'old', branchId: 'main', state: 'done', stage: 'done', updatedAt: '2026-11-01T01:00:00Z' },

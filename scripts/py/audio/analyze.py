@@ -1,19 +1,28 @@
-"""Analyse every audio file in assets-local/packs once (plan U2/U5): code facts, vendor tags, a CLAP embedding, a waveform preview.
+"""Analyse every audio file in assets-local/packs once (plan U2/U5): name tags, code facts, vendor tags, a CLAP embedding,
+a waveform preview and a two-second clip.
 
-usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N]
+usage: .venv/bin/python -I analyze.py [--workers N] [--packs DIR] [--only PACK_GLOB] [--limit N] [--refresh]
 writes, per file, packs/<id>/<ver>/analysis/<path without ext>.analysis.json:
-  {"file", "sha256", "bytes", "music", "measure": {audio, sidecar, timing_s}, "vendor": {...}, "clap": {"model", "windows": [...],
-   "excerpts": [{"name", "start_s", "end_s", "embedding": [512 floats]}]}, "preview": bucket key}
+  {"file", "sha256", "bytes", "music", "names": {ucs, group, subkind, terms}, "measure": {audio, sidecar, timing_s},
+   "vendor": {...}, "clap": {"model", "windows": [...], "excerpts": [{"name", "start_s", "end_s", "embedding": [512 floats]}]},
+   "preview": {"waveform": key, "clip": key}}
 Labels are not scored here: the card step scores any label set against the stored embeddings, so labels can change without
-re-listening. Re-runs skip files whose sidecar already has the same sha256."""
+re-listening. Re-runs skip files whose sidecar already has the same sha256; `--refresh` re-does them, which is how a run
+adds a newly recorded field to files carded earlier.
+Run with `--limit 20` first: the summary prints what the rest of the run will cost."""
 import argparse, fnmatch, hashlib, json, os, re, struct, subprocess, sys, time
 from multiprocessing import Pool
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+import name_tags
+import previews
+from card_coverage import project_run_hours
+
 ROOT = HERE.parents[2] / "assets-local"
 AUDIO_EXT = {".wav", ".ogg", ".mp3", ".flac", ".m4a", ".aif", ".aiff"}
-MUSIC_PACKS = ("sidetrax-*", "kenney-music-*")
+MUSIC_PACKS = name_tags.MUSIC_PACKS  # the families named in #509 plus Sidetrax and Kenney music; see name_tags
 CLAP_ID = "laion/clap-htsat-unfused"
 CLAP_SR = 48000
 WIN_S = 10  # CLAP's native window; whole windows only, so its random-crop path never runs
@@ -21,7 +30,7 @@ PRIVATE_VENDORS = ("sidetrax-", "synty-")  # redistribution none/in-build: previ
 
 
 def is_music(pack: str) -> bool:
-    return any(fnmatch.fnmatch(pack, g) for g in MUSIC_PACKS)
+    return name_tags.is_music(pack)
 
 
 def audio_files(packs: Path, only: str):
@@ -47,6 +56,13 @@ def audio_files(packs: Path, only: str):
 def sidecar_path(vdir: Path, f: Path) -> Path:
     rel = f.relative_to(vdir / "extracted").with_suffix("")
     return vdir / "analysis" / (rel.as_posix() + ".analysis.json")
+
+
+def job_list(packs: Path, only: str, limit: int = 0, refresh: bool = False):
+    """The work for the pool: (pack id, version dir, file, whether to ignore an existing sidecar)."""
+    jobs = audio_files(packs, only)
+    jobs = jobs[:limit] if limit else jobs
+    return [(pid, vdir, f, refresh) for pid, vdir, f in jobs]
 
 
 def sha256(f: Path) -> str:
@@ -153,10 +169,10 @@ def waveform_png(y, out: Path):
 
 
 def analyse(job):
-    pid, vdir, f = job
+    pid, vdir, f, refresh = job
     sc = sidecar_path(vdir, f)
     h = sha256(f)
-    if sc.exists():
+    if sc.exists() and not refresh:
         try:
             if json.loads(sc.read_text()).get("sha256") == h:
                 return {"file": str(f), "status": "skip"}
@@ -168,16 +184,30 @@ def analyse(job):
         sys.path.insert(0, str(HERE))
         import measure
         music = is_music(pid)
-        meas = measure.measure(f, loop_search=music and pid.startswith("sidetrax-"), music=music)
+        rel = f.relative_to(vdir / "extracted")
+        # Names first, before anything is measured or embedded: what the file and its folder say is free, and on the
+        # fields it can answer it outranks the model (asset-searchability §5).
+        names = name_tags.names_for(pid, rel)
+        meas = measure.measure(f, loop_search=music, music=music)
         dur = meas["audio"]["duration_s"]
         y, _ = librosa.load(str(f), sr=CLAP_SR, mono=True)
         spans = excerpts(meas["sidecar"].get("loudness_short_term_1hz", []), dur, music)
         prefix = "private/previews" if pid.startswith(PRIVATE_VENDORS) else "previews"
         key = f"{prefix}/{h[:2]}/{h[:16]}-waveform.png"
         waveform_png(y, ROOT / key)
-        res = {"file": f.relative_to(vdir / "extracted").as_posix(), "pack": pid, "sha256": h, "bytes": f.stat().st_size, "music": music,
-               "measure": meas, "vendor": vendor_tags(f), "clap": {"model": CLAP_ID, "excerpts": embed(y, spans)},
-               "preview": {"waveform": key}, "analysed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "secs": round(time.time() - t0, 1)}
+        preview = {"waveform": key}
+        clip_key = previews.clip_key(prefix, h)
+        # Asked once per worker process, not once per file: an encoder that cannot start is a fact card_coverage reports
+        # as a missing `previews.clip` column, not ten thousand identical lines.
+        if previews.have_ffmpeg():
+            try:
+                previews.clip(f, ROOT / clip_key)
+                preview["clip"] = clip_key
+            except (OSError, RuntimeError, ValueError) as e:  # a missing preview must not cost the file its card
+                print(json.dumps({"file": str(f), "preview": "fail", "error": str(e)[:300]}), flush=True)
+        res = {"file": rel.as_posix(), "pack": pid, "sha256": h, "bytes": f.stat().st_size, "music": music,
+               "measure": meas, "vendor": vendor_tags(f), "names": names, "clap": {"model": CLAP_ID, "excerpts": embed(y, spans)},
+               "preview": preview, "analysed_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "secs": round(time.time() - t0, 1)}
     except Exception as e:  # one bad file must not stop the batch; reported, retried on the next run
         return {"file": str(f), "status": "fail", "error": f"{type(e).__name__}: {e}"[:300]}
     sc.parent.mkdir(parents=True, exist_ok=True)
@@ -193,17 +223,24 @@ def main():
     ap.add_argument("--packs", type=Path, default=ROOT / "packs")
     ap.add_argument("--only", default="*")
     ap.add_argument("--limit", type=int, default=0)
+    ap.add_argument("--refresh", action="store_true", help="re-analyse a file whose sidecar already matches its sha256")
     a = ap.parse_args()
-    jobs = audio_files(a.packs, a.only)
-    jobs = jobs[:a.limit] if a.limit else jobs
+    jobs = job_list(a.packs, a.only, a.limit, a.refresh)
     print(json.dumps({"files": len(jobs), "workers": a.workers}), flush=True)
     counts = {}
+    secs, timed = 0.0, 0
     with Pool(a.workers, maxtasksperchild=200) as pool:
         for i, r in enumerate(pool.imap_unordered(analyse, jobs, chunksize=1), 1):
             counts[r["status"]] = counts.get(r["status"], 0) + 1
+            if r["status"] == "ok":
+                secs, timed = secs + (r.get("secs") or 0.0), timed + 1
             if r["status"] != "skip":
                 print(json.dumps({"n": i, **r}), flush=True)
-    print(json.dumps({"done": counts}), flush=True)
+    # Calibration (C3 §13's cost guard): the first files of a run price the rest, so `--limit 20` answers "how long will
+    # this take" before the long run starts. Wall-clock per worker, so it reads low by roughly the worker count.
+    per_file = secs / timed if timed else None
+    print(json.dumps({"done": counts, "calibration": {"files": timed, "secs_per_file": round(per_file, 1) if per_file else None,
+                                                     "projected_hours": project_run_hours(per_file, len(jobs) - timed)}}), flush=True)
 
 
 if __name__ == "__main__":

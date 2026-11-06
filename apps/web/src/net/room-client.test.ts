@@ -56,7 +56,7 @@ describe('RoomClient', () => {
     expect(transport.joinById).toHaveBeenCalledWith('room-1', {
       grant: 'secret-grant',
       buildId: 'build-1',
-      protocol: 1,
+      protocol: 2,
     });
     expect(store.getState()).toMatchObject({
       status: 'connected',
@@ -147,7 +147,7 @@ describe('RoomClient', () => {
     expect(transport.joinById).toHaveBeenLastCalledWith('room-1', {
       grant: 'replacement-secret',
       buildId: 'build-1',
-      protocol: 1,
+      protocol: 2,
     });
     expect(store.getState().status).toBe('connecting');
   });

@@ -11,7 +11,7 @@ source "$test_dir/lib.sh"
 built=0
 [[ -n ${CI:-} || -d $repo/services/api/dist ]] && built=1
 
-for service in api rooms games-host intake commit; do
+for service in api rooms games-host intake commit core-bump; do
   dir=$repo/services/$service
   entry=$("$repo/ops/bin/ogm-entry" "$dir") || fail "services/$service has no node start script"
   relative=${entry#"$dir/"}

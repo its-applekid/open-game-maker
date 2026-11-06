@@ -14,7 +14,7 @@ describe('setup content', () => {
       [1, 'Host an instance', 4],
       [2, 'Install dependencies', 8],
       [3, 'Set up aiur for agent orchestration', 6],
-      [4, 'Set up the games private repo', 4],
+      [4, 'Set up the instance repository', 4],
       [5, 'Find assets', 4],
       [6, 'Local asset pipeline, optional Google Drive drop', 4],
       [7, 'Configure', 9],

@@ -145,17 +145,27 @@ function gmArgs(...args: string[]): string[] {
 
 async function gmNew(
   commandRunner: ProcessRunner,
-  destination: string,
+  instanceDir: string,
   template: 'game-2d' | 'game-3d',
   prepareWorkspace = true,
-): Promise<void> {
-  rmSync(destination, { recursive: true, force: true });
-  const result = await commandRunner(process.execPath, gmArgs('new', template, destination), {
+): Promise<string> {
+  rmSync(instanceDir, { recursive: true, force: true });
+  const initialized = await commandRunner(process.execPath, gmArgs('instance', 'init', instanceDir), {
     cwd: repoRoot,
     timeoutMs: 120_000,
   });
+  if (initialized.code !== 0) {
+    throw new Error(`gm instance init failed: ${(initialized.stderr || initialized.stdout).trim()}`);
+  }
+  const slug = 'eval-game';
+  const result = await commandRunner(process.execPath, gmArgs('new', template, slug), {
+    cwd: instanceDir,
+    timeoutMs: 120_000,
+  });
   if (result.code !== 0) throw new Error(`gm new failed: ${(result.stderr || result.stdout).trim()}`);
-  if (prepareWorkspace) isolateGameWorkspace(destination, template);
+  const gameDir = join(instanceDir, 'games', slug);
+  if (prepareWorkspace) isolateGameWorkspace(gameDir, template);
+  return gameDir;
 }
 
 function cardRoots(): string[] {
@@ -307,15 +317,14 @@ export async function runEvaluation(
   if (!options.dryRun) {
     for (const template of new Set(tasks.map((task) => task.template))) {
       const freshDir = join(scratchRoot, `.fresh-${template}`);
-      await gmNew(commandRunner, freshDir, template, false);
-      freshDirs.set(template, freshDir);
+      freshDirs.set(template, await gmNew(commandRunner, freshDir, template, false));
     }
   }
 
   const runs = await runPool(tasks, options.maxParallel, async ({ config, brief, prompt, template }) => {
     const started = now();
-    const gameDir = join(scratchRoot, `${brief.id}-${config.name}`);
-    await gmNew(commandRunner, gameDir, template);
+    const instanceDir = join(scratchRoot, `${brief.id}-${config.name}`);
+    const gameDir = await gmNew(commandRunner, instanceDir, template);
     applyConfig(gameDir, config);
 
     if (options.dryRun) {

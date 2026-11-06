@@ -1,0 +1,62 @@
+[
+  { "t": "net.ready", "ready": true },
+  { "t": "net.start.request", "force": true },
+  { "t": "net.end.request", "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11" },
+  { "t": "net.seat.request", "seat": 2 },
+  {
+    "t": "net.inputs",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "seat": 1,
+    "firstTick": 120,
+    "frames": [
+      { "seq": 7, "tick": 120, "axes": [0, -1], "buttons": 1 },
+      { "seq": 8, "tick": 121, "axes": [0, -1], "buttons": 1 }
+    ]
+  },
+  {
+    "t": "net.state",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "seat": 1,
+    "seq": 9,
+    "tick": 121,
+    "data": "AQIDBA=="
+  },
+  {
+    "t": "net.event",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "id": "ev_01J9Z",
+    "seq": 12,
+    "from": 1,
+    "target": "team",
+    "team": 1,
+    "round": 2,
+    "data": "BQY="
+  },
+  {
+    "t": "net.checksum",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "scope": "seat",
+    "tick": 140,
+    "sum": 3735928559
+  },
+  {
+    "t": "net.recovery.request",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "scope": "events",
+    "tick": 140,
+    "seat": 2
+  },
+  {
+    "t": "net.recovery",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "scope": "shared",
+    "tick": 140,
+    "snapshot": "AQIDBA=="
+  },
+  {
+    "t": "net.signal",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "to": 3,
+    "data": "BwgJ"
+  }
+]

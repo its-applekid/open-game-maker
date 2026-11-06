@@ -31,6 +31,14 @@ Never report a visual result you haven't looked at. Reading code or logs is not 
 - When the creator gave a reference image, put it beside your render in one image and compare before showing
   anything (shape, view angle, palette); record clips only once that pair matches.
 
+## Judge a set of assets
+
+When the thing to look at is a set (a pack, variants, a showcase), judge it whole: one good item beside an off-style
+one is a failed set. Score cohesion, reference fidelity, brief, mesh quality, texture quality, assembly, scale and
+labels, pass only with no category below 6 and an average of 7 or more, and name at most five fixes, worst first. A
+thumbnail grid is not scale: put the set in a to-scale lineup with a scale bar beside the render. The bar, the caps and
+the deliverable gate are `python3 -I scripts/assets/set_critic.py`; detail is in `docs/research/anykit-lessons-2026-11.md`.
+
 ## Deliver
 
 - `apps/web/title-town/tools/capture.mjs record` encodes H.264 `yuv420p`, 960 px wide, CRF 27, `+faststart` (a 2-minute clip is about 5-10 MB).

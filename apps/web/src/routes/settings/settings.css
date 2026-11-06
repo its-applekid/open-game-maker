@@ -37,8 +37,8 @@
   border: 1px solid var(--rule);
   border-radius: 999px;
   padding-inline: 18px;
-  background: var(--yellow-b);
-  color: var(--dark);
+  background: var(--action-secondary);
+  color: var(--action-secondary-text);
   font-weight: 800;
   text-decoration: none;
 }

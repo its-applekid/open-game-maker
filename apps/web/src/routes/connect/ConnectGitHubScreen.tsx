@@ -18,7 +18,7 @@ type Status = { kind: 'loading' | 'disconnected' | 'error' } | { kind: 'connecte
 export function ConnectGitHubScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  const next = safeNext(params.get('next'), '/games');
+  const next = safeNext(params.get('next'), '/all');
   // GitHub's install redirect: the new `installation_id` and our `state` (nonce and next).
   const [callback] = useState(() => ({ installationId: params.get('installation_id'), state: params.get('state') }));
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
@@ -61,7 +61,7 @@ export function ConnectGitHubScreen() {
         // GitHub came back (an org install awaiting approval brings no installation_id). Drop the one-shot
         // callback parameters so a reload never replays them.
         const returnedNext = readGitHubInstallState(callback.state);
-        navigate(`/connect/github?next=${encodeURIComponent(safeNext(returnedNext, '/games'))}`, { replace: true });
+        navigate(`/connect/github?next=${encodeURIComponent(safeNext(returnedNext, '/all'))}`, { replace: true });
         void (callback.installationId && returnedNext !== null ? finishInstall(callback.installationId) : loadStatus());
       } else {
         void loadStatus();

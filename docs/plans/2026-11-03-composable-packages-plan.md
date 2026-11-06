@@ -10,13 +10,13 @@
 
 ## Outcome
 
-Keep the working boundaries already in the repository, make them consumable from the game repositories the platform actually creates, and add one catalog that can describe core, implementation-shared, game-local, and asset-pack components.
+Keep the working boundaries already in the repository, make them consumable from the games and shared packages in each Game Maker instance repository, and add one catalog that can describe core, implementation-shared, game-local, and asset-pack components.
 
 The smallest viable shape is:
 
-1. publish immutable TypeScript packages for reusable code instead of copying that code into games;
+1. consume implementation-shared TypeScript packages from the instance workspace and publish immutable versions when a release or cross-repository promotion needs them, instead of copying reusable code into games;
 2. keep raw asset bytes in the host asset library and pin pack snapshots by collection ID and content hash rather than wrapping bytes in npm packages;
-3. keep the existing per-game repositories and add an implementation-shared component repository, instead of migrating every game into a new monorepo;
+3. keep every instance's games under `games/<game-slug>/` and its implementation-shared components under `packages/<name>/` in one configured repository;
 4. make `gm components search` the discovery front door for both core and implementation scopes;
 5. use the existing Aiur Command, pull-request, review, and human merge gates for curation and promotion; and
 6. preserve the existing showcase output while moving pack interpretation into reusable presentation code, then add a bounded adapter-backed renderer as a later step.
@@ -27,7 +27,7 @@ This is a plan only. It does not authorize an external package publication. The 
 
 The comparison target is `docs/plans/2026-11-02-architecture-handoff.md` on `research`, especially §§3–17. The existing decisions not reopened here are:
 
-- `docs/plans/ogm-v1-build/decisions.md` on `research`: D-ASSETS-REFERENCE and D-COMPOSABLE-DEPENDENCIES.
+- `docs/plans/ogm-v1-build/decisions.md`: D-ASSETS-REFERENCE, D-COMPOSABLE-DEPENDENCIES, and D-INSTANCE-MONOREPO.
 - `docs/research/engine-layering-2026-11-01.md` on `research`: L1 engine, L2 pack adapter, L3 game, and the rule of two.
 - `docs/plans/2026-11-02-scope-and-engine-layers-brief.md` on `research`: shared pure showcase core now, adapter-backed browser/headless rendering later.
 - The checked-in prototype remains the visual and interaction authority. This plan adds no UI chrome and does not redesign the showcase.
@@ -41,20 +41,20 @@ The comparison target is `docs/plans/2026-11-02-architecture-handoff.md` on `res
 | Shared contracts and bridge | `packages/contracts` (`@ogm/contracts`) and `packages/iframe-bridge` (`@ogm/iframe-bridge`) | Workspace dependencies used by the SDK, CLI, adapters, templates, apps, and services | Real reusable boundaries, but both are `0.0.0` and private; the SDK depends on both |
 | Pack presentation | `packages/pack-adapters/{smallscaleint,kaykit,limezu-modern}` | `gm new --set` adds an exact adapter version read from its package manifest | Correct package-per-set boundary; current version is `0.0.0` and all packages still depend on workspaces |
 | Optional capabilities | Mostly SDK subpaths; multiplayer behavior also lives in `templates/game-multiplayer` | Template copy plus imports from `@gm/sdk` | No independently versioned capability package or component record |
-| Gameplay systems | Game/template source | Copied with the game | No implementation-shared or core gameplay-system package exists |
-| Game scaffolds | `templates/game-2d`, `templates/game-3d`, `templates/game-multiplayer` | `packages/gm-cli/src/commands/new/index.ts` copies a template and writes `gm.lock.json` | Good scaffolding boundary, but copied manifests retain unresolved `workspace:*` dependencies |
-| Game repositories | `packages/game-repo-template/src/repo.ts`, `services/commit/src/ops/create-repo.ts` | One GitHub repository per game, populated from a template; commit service is the writer | Established V1 model; there is no implementation-wide component repository |
+| Gameplay systems | Game/template source | Copied with each game | No `packages/<name>/` implementation-shared or core gameplay-system package exists |
+| Game scaffolds | `templates/game-2d`, `templates/game-3d`, `templates/game-multiplayer` | `packages/gm-cli/src/commands/new/index.ts` copies a template and writes `gm.lock.json` | Good scaffolding boundary, but it must target `games/<game-slug>/`; core dependencies need released versions while instance-shared dependencies may use `workspace:*` |
+| Instance repository | `packages/game-repo-template/src/repo.ts`, `services/commit/src/ops/create-repo.ts` | The current code provisions one GitHub repository per game | Must become one configured repository per running instance, with games under `games/` and shared components under `packages/`; the GitHub App is installed on that repository only |
 | Asset references | `packages/contracts/src/assets.ts`, `packages/gm-cli/src/commands/assets`, `packages/gm-cli/src/packs` | A game commits `assets.lock.json`; host library stores immutable pack versions and raw files | Strong D-ASSETS-REFERENCE implementation; games do not pin the pack snapshot they were authored against |
 | Showcases | `scripts/assets/showcase`, `skills/gm-asset-showcase/SKILL.md` | Node compositor creates baked media; the skill asks the agent to inspect and repair it | Working output path, but pack interpretation is separate from adapters and repair attempts are not bounded by a machine-readable result |
 | Component discovery | CLI directory scanner under `packages/gm-cli/src/commands` | Assets, maps, docs, skills, and templates are discoverable through separate commands | No package/component catalog, search, registration, or upgrade command |
-| Promotion guidance | `skills/gm-pack-adapter/SKILL.md`, `skills/gm-core/SKILL.md` | Human-readable rule-of-two guidance and PR `## Promote` evidence | Good policy seed, but no cross-repository promotion transaction or migration record |
+| Promotion guidance | `skills/gm-pack-adapter/SKILL.md`, `skills/gm-core/SKILL.md` | Human-readable rule-of-two guidance and PR `## Promote` evidence | Good policy seed, but no transaction or migration record for promoting an instance package to core |
 | Aiur governance | Aiur `website/docs-app/concepts/{executor,commands}.md`, `reference/cli-decisions.md`, `reference/merge-policy.md`, and `docs/security/human-only-merge-gate.md` | Durable Commands, Executor routing, PR review states, CI gates, merge queue, and `aiur pr merge` | Exists; current policy keeps merge authority human-only and should be reused unchanged |
 
 ### The immediate break in the handoff
 
-`packages/game-repo-template/src/repo.ts` copies a template out of this monorepo, but every template still declares `@gm/sdk` and `@ogm/contracts` as `workspace:*`. The SDK also declares `@ogm/iframe-bridge` as `workspace:*`. The pack adapters, SDK, contracts, and iframe bridge are private `0.0.0` packages. A standalone game repository therefore has neither an addressable release nor workspace sources for the direct and transitive dependencies.
+`packages/game-repo-template/src/repo.ts` copies a template into a standalone repository, but the instance topology now requires a game directory inside the configured implementation repository. Every template still declares `@gm/sdk` and `@ogm/contracts` as `workspace:*`, while the SDK declares `@ogm/iframe-bridge` the same way. Core packages and pack adapters are private `0.0.0` packages, so an instance workspace needs addressable core releases; implementation-owned packages can remain real workspace dependencies under the instance repository's `packages/` directory.
 
-Package transport and exact game-repository pins are the first dependency. Catalog, promotion, and upgrade work would otherwise describe artifacts that games still cannot install.
+Instance-repository scaffolding plus core package transport are the first dependencies. Catalog, promotion, and upgrade work would otherwise describe artifacts that games still cannot resolve from either the local workspace or an immutable release.
 
 ## Handoff §§3–15 gap analysis
 
@@ -64,13 +64,13 @@ Package transport and exact game-repository pins are the first dependency. Catal
 | §4 Metadata preservation and enrichment | **Needs adjustment** | Import keeps originals and hashes; cards carry `source`, collection data, and field provenance in `packages/gm-cli/src/packs/cards.ts` | Provenance says who wrote the current normalized field, but an enrichment can replace a normalized source value. Preserve immutable source facts beside derived facts, with conflict state and confidence, before adding new enrichment writers. |
 | §5 Automated visual understanding | **Needs adjustment** | `scripts/assets/showcase/verify.mjs` performs structural media checks; `skills/gm-asset-showcase/SKILL.md` requires visual inspection and repair | Keep the existing diorama forms. Add a three-attempt render/inspect/repair budget, a per-attempt result, retained key frames, and successful regression fixtures. Exhaustion is a clear failure, not an unbounded loop. |
 | §6 Capability layers | **Needs adjustment** | SDK subpaths and pack adapters exist; templates and games own the rest | Name capability kinds and thresholds. Keep mandatory engine APIs in `@gm/sdk`; split an optional platform capability only when it has an independent lifecycle or heavy dependency; promote renderer-neutral gameplay after two real consumers; keep single-game behavior local. |
-| §7 Real package dependencies | **Missing** | Workspace packages are private `0.0.0`; copied game manifests retain `workspace:*`; `gm new --set` can pin only the adapter version it reads locally | Publish immutable artifacts, rewrite scaffolds to exact versions, and make the builder seed those releases. Templates remain scaffolds, not copied capability ownership. Ejection remains an explicit fork, never the default install path. |
+| §7 Real package dependencies | **Missing** | Core workspace packages are private `0.0.0`; copied game manifests retain unresolved `workspace:*`; `gm new --set` can pin only the adapter version it reads locally | Publish immutable core artifacts, keep instance-owned shared code as workspace packages, and let releases pin immutable versions where reproducibility crosses the workspace boundary. Templates remain scaffolds, not copied capability ownership. |
 | §8 Versioning and upgrades | **Missing** | There is no release cadence, compatibility record, outdated command, migration descriptor, or rollback command for core/adapter packages | Use semantic versions and immutable releases. Games pin exact versions. `gm components outdated` reports compatible targets; `gm components update --to` changes one dependency and records a reversible migration. No automatic upgrades in V1. |
 | §9 Asset packs as versioned dependencies | **Needs adjustment** | Pack import rejects changed bytes at an existing version and creates `t<tier>:<pack>@<version>` collection IDs; `assets.lock.json` hashes selected files | Add an exact game-level pack-snapshot map with collection ID plus hash-manifest digest. A wizard update creates a new pack version; the game changes only when an explicit update selects it. Raw bytes stay out of git and npm. |
 | §10 Aiur ownership | **Exists** | Aiur Executor, Commands, ticket states, CI policy, merge queue, and human merge command already cover orchestration and authority | Reuse these surfaces. Component work may create tickets, Commands, and PRs, but must not introduce a second queue, daemon, review state, or merge credential. |
 | §11 Command requests | **Exists** for governance; **needs adjustment** in `gm` | Aiur supports durable blocking/nonblocking Commands, reversible Executor answers, human-only product/publication/security decisions, and deadlines | `gm components register/promote` should raise or attach an Aiur Command with evidence. Routine catalog curation is reversible and Executor-eligible; package publication destination and product-scope changes remain human-owned. |
 | §12 `gm` CLI discovery | **Missing** | CLI has asset, map, pattern, skill, and scaffold discovery, but no component manifest or component commands | Add a federated catalog and `gm components search/info/add/outdated/update/register/promote`. Search core and implementation scopes by default, show compatibility and examples, and require search evidence before creating a reusable package. |
-| §13 Core versus implementation repositories | **Needs adjustment** | Core monorepo and per-game repos exist; commit service deliberately provisions one repo per game | Preserve per-game repos. Add one implementation-shared components repository and catalog. Treat that repository plus its consumer game repos as the implementation scope; do not migrate all games into a monorepo merely to match the handoff wording. |
+| §13 Core versus implementation repositories | **Needs adjustment** | Core monorepo exists; the commit service still provisions one repository per game | Replace the per-game topology with one configured implementation repository per running instance. Put games in `games/<game-slug>/`, shared components in `packages/<name>/`, and the implementation catalog in that repository; install the GitHub App only there. |
 | §14 Upstream contribution without core write | **Needs adjustment** | Rule-of-two skills and normal PR review exist; Aiur prevents self-merge | Add a promotion proposal containing consumers, compatibility, ownership, tests, and migration. The proposing agent opens destination work through normal credentials; it never assumes direct core write or merge authority. After merge, consumers update deliberately and the old record becomes a redirect/deprecation. |
 | §15 Skill guidance | **Needs adjustment** | `gm-core`, `gm-pack-adapter`, the three `gm-set-*` skills, `gm-asset-showcase`, and `gm-verify` cover much of the desired policy | Add discovery/version/promotion instructions after commands exist. Fix current per-set skill examples whose export names differ from their actual adapter `src/index.ts` exports. Pin compatibility and migration guidance in the skills. |
 
@@ -83,8 +83,8 @@ Package transport and exact game-repository pins are the first dependency. Catal
 | Mandatory engine | `@gm/sdk`, plus its released `@ogm/contracts` and `@ogm/iframe-bridge` dependencies while those names remain public contracts | Stays together unless an area needs independent releases or materially heavy optional dependencies | Games and released package manifests pin exact versions; supported compatibility ranges live in catalog metadata, while the lock resolves exact artifacts |
 | Optional platform capability | `@gm/cap-<capability>` in core scope | Independent lifecycle, permissions, or heavy dependency; multiplayer is the first candidate, not a mandate to split every SDK subpath | May depend on SDK/contracts, never on a game or pack adapter |
 | Pack presentation adapter | Existing `@gm/pack-<set>` | A pack needs reusable interpretation, bindings, or presentation beyond cards | May depend on SDK/contracts and renderer peers; no gameplay, UI, narrative, or raw asset bytes |
-| Gameplay system | `@gm/system-<capability>` in core; an implementation-owned namespace in implementation scope | Two real games share the same renderer-neutral behavior and API | No Phaser, Three, pack-specific vocabulary, game content, or UI; renderer bindings remain in consumers or thin bindings packages |
-| Game-local component | Inside one game repository | Default for exceptional or unproven behavior | Can depend on released components; cannot be discovered outside the game until registered or proposed |
+| Gameplay system | `@gm/system-<capability>` in core; `packages/<name>/` in the instance repository for implementation scope | Two real games share the same renderer-neutral behavior and API | Instance games consume it through the workspace; immutable releases support deployment and promotion. No Phaser, Three, pack-specific vocabulary, game content, or UI |
+| Game-local component | Inside `games/<game-slug>/` | Default for exceptional or unproven behavior | Can depend on released core or workspace implementation components; cannot be discovered outside the game until registered or proposed |
 
 Subpath exports are API organization, not separate versions. Do not split every `@gm/sdk/*` export into a package. A split must buy independent compatibility, upgrade, or dependency behavior.
 
@@ -105,9 +105,9 @@ Use one versioned JSON schema, stored with each authoritative catalog and merged
 - owner, source repository, lifecycle (`candidate`, `curated`, `deprecated`), and provenance;
 - promotion evidence, replacement/redirect, migrations, and rollback notes.
 
-Core records live in this repository. Implementation records live in the implementation-shared repository. Game-local records are read from the current game only. Search merges the three sources but never changes authority: an implementation record cannot masquerade as core.
+Core records live in this repository. Implementation records live with `packages/` in the configured instance repository. Game-local records are read from the current `games/<game-slug>/` directory only. Search merges the three sources but never changes authority: an implementation record cannot masquerade as core.
 
-Core catalog snapshots ship with the matching `gm` release. An explicit `gm components sync` reads the one implementation repository configured through `@ogm/config`, validates its approved repository identity and commit, and materializes a content-hashed snapshot in the host-local cache used by builders and offline agents. A missing implementation catalog is a valid empty scope; a stale or invalid snapshot produces a visible search warning and cannot replace the last valid snapshot.
+Core catalog snapshots ship with the matching `gm` release. An explicit `gm components sync` reads the implementation catalog from the one instance repository configured through `@ogm/config`, validates that repository's identity and commit, and materializes a content-hashed snapshot in the host-local cache used by builders and offline agents. A missing implementation catalog is a valid empty scope; a stale or invalid snapshot produces a visible search warning and cannot replace the last valid snapshot.
 
 Only `curated` records from the two approved catalogs are installable. `candidate` records may appear in search with their status but cannot resolve through `add` or `update`. Package names must match the namespace allowed for their authority scope, and every install verifies the exact version and lockfile integrity. A game cannot supply a catalog URL or elevate its own record to a reusable scope.
 
@@ -115,7 +115,7 @@ Only `curated` records from the two approved catalogs are installable. `candidat
 
 Use an npm-compatible GitHub Packages feed for V1 because the system already depends on GitHub identity, repositories, Actions, and pnpm. Publish from reviewed tags, seed the builder's offline pnpm store, and pin lockfile integrity. This adds no new long-running service.
 
-External publication is a human-owned decision. CP-01 must obtain and record approval of the package owner, visibility, retention, and credential path before enabling publication. If that destination is declined, the fallback is an instance-local npm-compatible feed with the same immutable package contract; do not hide host `file:` paths in game manifests or commit tarballs to game repositories.
+External publication is a human-owned decision. CP-01 must obtain and record approval of the package owner, visibility, retention, and credential path before enabling publication. If that destination is declined, the fallback is an instance-local npm-compatible feed with the same immutable package contract; do not hide host `file:` paths in game manifests or commit tarballs to the instance repository.
 
 Release the exact dependency closure from leaves to consumers: contracts, iframe bridge, SDK, adapters, then catalog metadata. Use a read-only package credential for games and builders and a separate publisher credential available only to the reviewed release workflow; both stay in the existing host/Actions secret stores and are never logged. A catalog version becomes `curated` only after a clean standalone install/build smoke, so a partial publish remains undiscoverable and old catalog snapshots keep working.
 
@@ -123,10 +123,10 @@ Release the exact dependency closure from leaves to consumers: contracts, iframe
 
 1. `gm components search <need>` searches core, implementation, and current-game records. Filters include kind, renderer, pack, SDK range, lifecycle, and scope.
 2. `gm components sync` refreshes the configured implementation snapshot; `info <id>` shows exact versions, compatibility, dependencies, examples, consumers, provenance, and migration status.
-3. `gm components add <id>@<version>` resolves compatibility, changes the game manifest and lock only, and runs the component's focused conformance check. Code delegates to pnpm; an asset-pack record delegates to the existing pack/asset resolver behind the same component command.
-4. If no result fits, the agent keeps the behavior game-local and may run `gm components register --scope implementation`. The command writes a proposal, not a catalog record directly.
+3. `gm components add <id>@<version>` resolves compatibility, changes only the selected `games/<game-slug>/` manifest plus the instance lock, and runs the component's focused conformance check. Code delegates to pnpm; an asset-pack record delegates to the existing pack/asset resolver behind the same component command.
+4. If no result fits, the agent keeps the behavior game-local and may run `gm components register --scope implementation`. The command proposes moving it into the instance repository's `packages/`; it does not write a catalog record directly.
 5. Aiur carries the proposal as a normal ticket/PR and, when a decision is needed, a durable Command. Executor curation may accept reversible catalog changes. External publication, product scope, spend, and security stay human-owned.
-6. After two demonstrated implementation consumers, `gm components promote <id> --to core` prepares an upstream proposal with consumer evidence, compatibility, ownership, tests, migration, and rollback. It does not assume core write or merge access.
+6. After two demonstrated instance-game consumers, `gm components promote <id> --to core` prepares an upstream proposal with consumer evidence, compatibility, ownership, tests, migration, and rollback. It does not assume core write or merge access.
 7. Destination maintainers merge through the existing human review and `aiur pr merge` path. A successful promotion publishes a maintained release, adds a replacement record, and leaves the old implementation version installable.
 8. Consumers choose when to run `gm components update`. No promotion or new release silently edits a game.
 
@@ -157,10 +157,10 @@ Each attempt retains the scene input, tool versions, frames, findings, and resul
 | Test | Expected composition | Proof of success |
 | --- | --- | --- |
 | Tiny sprite pack stays lightweight | Raw files + collection/cards; optionally a few data-only presentation facts. No adapter, gameplay system, or renderer dependency unless repeated interpretation appears | Importing and cataloging the pack installs no code package. A game pins only its pack snapshot and selected assets. Search still finds it as an asset pack. |
-| Rich pack gets excellent presentation without becoming a game | Asset snapshot + `@gm/pack-*` presentation adapter + showcase scene; no game repo and no game rules | The adapter and showcase render the pack's actions, palette, scale, and roles. Package boundary checks reject gameplay/UI/content, and baked outputs pass the bounded visual loop. |
+| Rich pack gets excellent presentation without becoming a game | Asset snapshot + `@gm/pack-*` presentation adapter + showcase scene; no game directory and no game rules | The adapter and showcase render the pack's actions, palette, scale, and roles. Package boundary checks reject gameplay/UI/content, and baked outputs pass the bounded visual loop. |
 | Wizard pack gains a version without unrelated churn | New immutable collection version and hash; explicit game pack update | An old game rebuilds from the old snapshot. Updating one game changes its `assetPacks` entry and only asset locks affected by actual selections; SDK, unrelated packages, and other games do not move. |
 | 2D and 3D RPGs share gameplay without sharing rendering | One renderer-neutral `@gm/system-*`; separate Phaser/Three bindings in the consumers | The system package imports neither renderer nor pack adapter. Contract tests run once, each consumer has a focused integration fixture, and both can pin the same system version. |
-| Chess changes without rebuilding unrelated systems | Chess remains game-local until a second real consumer justifies a system package; if promoted, dependencies are explicit | A chess-only change selects the chess repo/tests. A promoted chess-system change selects that package and known consumers, not unrelated SDK, pack, shooter, or RPG tests. The catalog dependency closure explains the selection. |
+| Chess changes without rebuilding unrelated systems | Chess remains under `games/chess/` until a second real consumer justifies a system package under `packages/`; if promoted, dependencies are explicit | A chess-only change selects `games/chess/` tests. A shared chess-system change selects that package and known consumers, not unrelated SDK, pack, shooter, or RPG tests. The catalog dependency closure explains the selection. |
 
 ## Handoff §16 recommendations
 
@@ -174,13 +174,13 @@ Each attempt retains the scene input, tool versions, frames, findings, and resul
 | CLI discovery | Add federated `gm components search/info/add` across core, implementation, and current-game scopes. Include code, presentation adapters, and asset packs in one query model while preserving their different install mechanisms. |
 | Exceptional game needs | Default to game-local code. Let an agent register an implementation candidate only after searching and recording why existing components do not fit. No core write is assumed. |
 | Promotion workflow | Use rule-of-two evidence, an Aiur ticket/Command, a destination PR, human merge, a maintained release, and explicit consumer migration. Preserve the old version and publish a redirect/deprecation instead of deleting it. |
-| Existing implementation | Fix package transport first; retain SDK/contracts, three adapter packages, asset library, showcase, per-game repos, commit service, and Aiur governance. Add an implementation-shared repository and catalog rather than replacing those working systems. |
+| Existing implementation | Fix instance-repository scaffolding and core package transport first; retain SDK/contracts, three adapter packages, asset library, showcase, commit service, and Aiur governance. Move per-game repository assumptions to `games/<game-slug>/` paths and keep implementation-shared packages/catalog in `packages/`. |
 
 ## Dependency-ordered ticket drafts
 
 The IDs below are planning identifiers, not assigned GitHub issue numbers. Each draft follows the repository ticket shape and should be copied into an issue only when scheduled.
 
-### CP-01 — Publish versioned core packages to standalone games
+### CP-01 — Publish versioned core packages to instance games
 
 **Kind:** platform contract
 
@@ -190,13 +190,13 @@ The IDs below are planning identifiers, not assigned GitHub issue numbers. Each 
 
 **Depends on:** operator approval of external package destination (human-owned publication decision)
 
-**Outcome:** `@gm/sdk`, `@ogm/contracts`, `@ogm/iframe-bridge`, and current `@gm/pack-*` releases are immutable and installable by the standalone repositories the commit service creates.
+**Outcome:** `@gm/sdk`, `@ogm/contracts`, `@ogm/iframe-bridge`, and current `@gm/pack-*` releases are immutable and installable by every game workspace in the configured instance repository.
 
-**Scope:** choose and document the approved npm-compatible destination; add leaf-to-consumer reviewed-tag publishing for the complete reusable dependency closure; replace template and released-package `workspace:*` dependencies with exact released versions; teach `gm new` and the game-repo copier to resolve exact versions; diagnose and migrate any existing game manifest that still carries a workspace pin; seed the builder's pnpm store. Do not publish raw assets or redesign package APIs.
+**Scope:** choose and document the approved npm-compatible destination; add leaf-to-consumer reviewed-tag publishing for the complete core dependency closure; replace template and released-core `workspace:*` dependencies with exact released versions; teach `gm new` and instance-game scaffolding to resolve those versions while preserving `workspace:*` for instance-owned `packages/`; diagnose and migrate legacy standalone-game manifests; seed the builder's pnpm store. Do not publish raw assets or redesign package APIs.
 
-**Acceptance:** a freshly provisioned 2D game and 3D game install, typecheck, test, and build outside the monorepo with no workspace link; a legacy workspace-pinned game migrates once; dependencies publish before consumers and the catalog updates only after the standalone smoke; an old version remains installable; lockfiles contain integrity; publisher and read-only credentials are distinct and no token is committed or logged.
+**Acceptance:** fresh 2D and 3D directories install, typecheck, test, and build inside a synthetic instance workspace using released core packages and workspace implementation packages; a legacy standalone game migrates once; dependencies publish before consumers and the catalog updates only after the clean-workspace smoke; an old version remains installable; lockfiles contain integrity; publisher and read-only credentials are distinct and no token is committed or logged.
 
-**Surfaces:** package manifests, release workflow, `packages/gm-cli/src/commands/new`, `packages/game-repo-template`, builder store seeding, setup docs.
+**Surfaces:** package manifests, release workflow, `packages/gm-cli/src/commands/new`, instance-repository scaffolding, builder store seeding, setup docs.
 
 ### CP-02 — Define the component catalog contract
 
@@ -216,7 +216,7 @@ The IDs below are planning identifiers, not assigned GitHub issue numbers. Each 
 
 **Surfaces:** `packages/contracts`, a core catalog directory, synthetic fixtures, contract documentation.
 
-### CP-03 — Establish the implementation-shared component repository
+### CP-03 — Establish instance-shared packages and catalog
 
 **Kind:** repository boundary
 
@@ -226,13 +226,13 @@ The IDs below are planning identifiers, not assigned GitHub issue numbers. Each 
 
 **Depends on:** CP-01, CP-02
 
-**Outcome:** implementation-owned packages and catalog records have a maintained home without moving or copying existing game repositories.
+**Outcome:** implementation-owned packages and catalog records have a maintained home beside their consumer games in the configured instance repository.
 
-**Scope:** bootstrap one `<implementation-components-repo>` through an operator-approved GitHub provisioning path with a pnpm workspace, catalog, package template, CI, CODEOWNERS, and release policy. Reuse normal Aiur PR/review/merge flow. Configure the host to sync its read-only catalog snapshot; the commit service continues to own game repositories and does not become the component-repository writer. Do not create another daemon or give game agents core write access.
+**Scope:** bootstrap `games/`, `packages/`, the implementation catalog, package template, CI, CODEOWNERS, and release policy in the configured instance repository. Reuse its normal Aiur PR/review/merge flow and configure the host to sync a read-only catalog snapshot from an approved commit. The commit service writes game and shared-package paths in this repository; it does not create repositories or give instance agents core write access. Do not create another daemon.
 
-**Acceptance:** a synthetic implementation package publishes, is read by a standalone game, and cannot edit the core catalog; per-game repo creation and release behavior remain unchanged.
+**Acceptance:** a synthetic implementation package is consumed through the workspace by two game directories, can produce an immutable release, and cannot edit the core catalog; no operation creates a per-game repository.
 
-**Surfaces:** implementation repo template, host catalog configuration/cache, builder package credentials, operator docs; commit-service game-repo behavior is regression coverage only.
+**Surfaces:** instance-repository template, host catalog configuration/cache, builder package credentials, operator docs, and commit-service path routing.
 
 ### CP-04 — Add federated `gm components` discovery and install
 
@@ -374,7 +374,7 @@ The IDs below are planning identifiers, not assigned GitHub issue numbers. Each 
 
 **Scope:** update `gm-core`, `gm-pack-adapter`, `gm-asset-showcase`, `gm-verify`, and the three `gm-set-*` skills; correct stale adapter export examples; require search-before-build, exact pins, bounded repair, upgrade review, and promotion evidence; add synthetic tiny/rich/wizard/2D+3D/chess fixtures.
 
-**Acceptance:** each skill command/example resolves; the five architecture tests pass from clean standalone fixtures; reverting the relevant capability makes each test fail; skill validation rejects an undocumented new reusable package.
+**Acceptance:** each skill command/example resolves; the five architecture tests pass from clean instance-workspace fixtures; reverting the relevant capability makes each test fail; skill validation rejects an undocumented new reusable package.
 
 **Surfaces:** `skills/`, `.claude/skills/` mirrors where applicable, component fixtures, package/CLI conformance checks.
 
@@ -387,4 +387,4 @@ The IDs below are planning identifiers, not assigned GitHub issue numbers. Each 
 5. Add cross-scope promotion in CP-10 only after install, compatibility, and rollback are real.
 6. Finish with CP-11 so skills describe shipped interfaces and the five architecture tests cover the final graph.
 
-The plan is done when standalone games consume exact released packages, both catalogs are searchable, asset snapshots are reproducible, upgrades and promotion are explicit and reversible, the showcase shares adapter facts with a bounded repair loop, and all five tests pass without adding another orchestration or merge system.
+The plan is done when games in one instance repository consume workspace implementation packages and exact released core packages, both catalogs are searchable, asset snapshots are reproducible, upgrades and promotion are explicit and reversible, the showcase shares adapter facts with a bounded repair loop, and all five tests pass without adding another orchestration or merge system.

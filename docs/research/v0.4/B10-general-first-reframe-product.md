@@ -5,6 +5,8 @@
 - **Companion:** B9 (`B9-general-audience-reframe-legal.md`) covers the legal and vendor-terms side. It did not exist when this was written. §7 lists every conclusion that depends on it.
 - **Labels:** [V] verified in a primary source or cited B-report; [I] inferred or design proposal; [U] unverified. Research only: nothing was bought, filed, committed or sent. This is not legal advice.
 
+> **Operational supersession (2026-11-03):** V1 remains adult-only, but operator allow-list admission replaces the birth-date screen and server attestation. Screen-specific V1 recommendations below are historical; the V3 parental-controls research is unchanged.
+
 > **Version scope (2026-10-25):** Read this report through `docs/spec/release-plan.md`; the decision log wins on conflict. The three age bands now arrive one per version: **V1 is adults only (18+)**, **V2 adds teens (13–17)**, **V3 adds children (under 13)** with parental controls. What applies where:
 > - **V1:** §2 column (b) for adults, the "survives for everyone" notes in §2, §4 copy rules, the adult parts of §5 and §6.
 > - **V2 (teens):** column (b) for teens, with B9's under-18 vendor routing (§8); teen supervision (opt-in); A5, A7.

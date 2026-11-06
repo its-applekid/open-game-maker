@@ -6,7 +6,7 @@
   min-height: 100svh;
   overflow: hidden;
   padding: max(24px, var(--safe-t)) max(16px, var(--safe-r)) max(32px, var(--safe-b)) max(16px, var(--safe-l));
-  background: #a69b8d;
+  background: var(--surface-page);
 }
 
 .title-town {
@@ -60,7 +60,7 @@
   display: block;
   width: min(80vw, 34rem);
   height: auto;
-  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 8px 24px var(--shadow-color));
 }
 
 .title-logo img[data-instance-logo='custom'] {
@@ -79,39 +79,14 @@
   min-height: var(--tap-primary);
   border: 0;
   border-radius: var(--r);
-  background: var(--orange);
-  color: var(--cream);
+  background: var(--action-primary);
+  color: var(--action-primary-text);
   font: 700 28px var(--display);
   box-shadow: var(--pop);
   cursor: pointer;
 }
 
-.title-start:focus-visible,
-.title-sound:focus-visible {
+.title-start:focus-visible {
   outline: 3px solid var(--yellow-b);
   outline-offset: 3px;
-}
-
-.title-sound {
-  position: absolute;
-  z-index: 2;
-  top: max(16px, var(--safe-t));
-  right: max(16px, var(--safe-r));
-  display: grid;
-  place-items: center;
-  width: var(--tap-secondary);
-  height: var(--tap-secondary);
-  padding: 0;
-  border: 1px solid var(--rule);
-  border-radius: 50%;
-  background: var(--paper);
-  backdrop-filter: var(--glass);
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.title-sound .icon {
-  display: grid;
-  width: 24px;
-  height: 24px;
 }

@@ -14,7 +14,8 @@ import { create, type StoreApi, type UseBoundStore } from 'zustand';
 export type RoomStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'rejected' | 'desynced' | 'ended';
 export type RoomRole = 'host' | 'peer';
 export type RoomIdentity = Extract<ServerMessage, { t: 'welcome' }>['you'];
-export type RoomEndedReason = Extract<ServerMessage, { t: 'ended' }>['reason'];
+/** Protocol 2 adds `abandoned` (every seat forfeited); the editor treats it as an ordinary ending. */
+export type RoomEndedReason = Extract<ServerMessage, { t: 'ended' }>['reason'] | 'abandoned';
 
 export type RoomController = {
   send(message: ClientMessage): void;

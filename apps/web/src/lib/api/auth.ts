@@ -48,10 +48,6 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
   }
 }
 
-export async function requireAge(next: string): Promise<void> {
-  navigate(`/age?next=${encodeURIComponent(next)}`);
-}
-
 export async function signOut(): Promise<void> {
   const result = await authClient.signOut();
   if (result.error) throw result.error;
@@ -103,19 +99,6 @@ export function safeNext(value: string | null, fallback: string): string {
   if (!value?.startsWith('/') || value.startsWith('//')) return fallback;
   const target = new URL(value, window.location.origin);
   return target.origin === window.location.origin ? `${target.pathname}${target.search}${target.hash}` : fallback;
-}
-
-export function isAgeRequiredError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const candidate = error as {
-    status?: number;
-    statusCode?: number;
-    code?: string;
-    body?: { code?: string; error?: string };
-  };
-  const status = candidate.status ?? candidate.statusCode;
-  const code = candidate.code ?? candidate.body?.code ?? candidate.body?.error;
-  return status === 403 && code?.toLowerCase() === 'age_required';
 }
 
 export function authErrorMessage(error: unknown, fallback: string): string {

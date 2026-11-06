@@ -1,0 +1,39 @@
+{
+  "runId": "r-two-client-1",
+  "renderer": "ANGLE (Intel, Mesa Intel(R) Graphics (ADL GT2), OpenGL ES 3.2)",
+  "software": false,
+  "viewport": "desktop",
+  "tier": "desktop",
+  "frames": [
+    { "t": 1.2, "path": "steps/1-host.png", "viewport": "desktop" },
+    { "t": 1.3, "path": "steps/1-peer.png", "viewport": "desktop" },
+    { "t": 6.4, "path": "steps/6-peer.png", "viewport": "desktop" }
+  ],
+  "console": [],
+  "budgets": {
+    "downloadBytes": [0, 0, "unknown"],
+    "drawCalls": [0, 0, "unknown"],
+    "triangles": [0, 0, "unknown"],
+    "textureBytes": [0, 0, "unknown"]
+  },
+  "probes": {
+    "loadavg1": 0.42,
+    "welcomeMs": 388,
+    "designRev1": true,
+    "designRev2": true,
+    "designRev3": true,
+    "canarySentFrames": 2,
+    "watcherFrames": 6,
+    "playSwitchMs": 41,
+    "peerMovedPx": 96,
+    "hostLeftEndedMs": 2114,
+    "step7FreshRoom": true,
+    "draftPin": "b2"
+  },
+  "clients": 2,
+  "unchecked": ["iPhone Safari", "sound", "WAN latency", "sign-in"],
+  "verdict": "pass",
+  "startedAt": "2026-11-03T09:12:00.000Z",
+  "endedAt": "2026-11-03T09:12:41.000Z",
+  "gmVerifyVersion": "0.1.0"
+}

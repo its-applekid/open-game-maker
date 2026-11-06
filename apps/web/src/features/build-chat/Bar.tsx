@@ -1,7 +1,5 @@
 import type { Job } from '@ogm/contracts';
 
-import { combinedProgress } from './Fab';
-
 export function Bar({ jobs, expanded, onToggle }: { jobs: Job[]; expanded: boolean; onToggle(): void }) {
   const active = jobs.filter((job) => !['done', 'failed', 'cancelled'].includes(job.state));
   const progress = combinedProgress(jobs);
@@ -18,5 +16,14 @@ export function Bar({ jobs, expanded, onToggle }: { jobs: Job[]; expanded: boole
       </span>
       <span className="build-chat-chevron">{expanded ? 'Hide builds ▴' : 'Show each build ▾'}</span>
     </button>
+  );
+}
+
+function combinedProgress(jobs: Job[]): number {
+  const active = jobs.filter((job) => !['done', 'failed', 'cancelled'].includes(job.state));
+  const total = active.reduce((sum, job) => sum + job.reservation.amountMicroUsd, 0);
+  if (total === 0) return active.length === 0 && jobs.length > 0 ? 1 : 0;
+  return (
+    active.reduce((sum, job) => sum + job.reservation.amountMicroUsd * ((job.progressPercent ?? 0) / 100), 0) / total
   );
 }

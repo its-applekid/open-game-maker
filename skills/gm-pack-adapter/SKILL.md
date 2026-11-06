@@ -21,7 +21,8 @@ read and adapt the idea. In a PR, add `## Promote` with the observed second use,
 Keep one package at `packages/pack-adapters/<set>/`, published as `@gm/pack-<set>`. Public exports come only from
 `src/index.ts`: verified convention data, canonical vocabulary, bindings over plain state, Tiled JSON map loading,
 and a card-derived editor palette. Bindings may register with `defineFeature`; synthetic timing tests use `FixedClock`.
-`gm new --set <set>` pins it; `gm skills sync` keeps only the chosen set skill installed.
+From an instance repository, `gm new <template> <game-slug> --set <set>` pins it; `gm skills sync` keeps only the chosen
+set skill installed.
 
 ## Checklist
 

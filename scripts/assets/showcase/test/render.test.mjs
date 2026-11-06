@@ -161,6 +161,30 @@ test("keeps neighboring scene props out of the active continuous region", async 
   }
 });
 
+test("draws the runner above a cut-away region when requested", async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
+  try {
+    const fixture = await buildContinuousFixture(root);
+    const project = await loadProject(fixture.project);
+    project.regions["regions/west.json"].runner_foreground = true;
+    project.sequence.runner.z = -100;
+    project.regions["regions/west.json"].sprites[0].z = 100;
+    const library = await loadAssetLibrary({ assetsRoot: fixture.assets, catalogFile: fixture.catalog });
+    const prepared = await prepareContinuousFrame({
+      project,
+      library,
+      tau: 0,
+      width: 64,
+      height: 64,
+      spriteFps: 4,
+    });
+
+    assert.equal(prepared.entities.at(-1).id, "runner");
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 test.skipIf(!ffmpegAvailable)("renders baked media without a client compositor (requires ffmpeg and ffprobe)", async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), "ogm-showcase-test-"));
   try {

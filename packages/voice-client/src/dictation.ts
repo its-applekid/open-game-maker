@@ -1,3 +1,5 @@
+import { startCapture, type CaptureHandle } from './audio/capture.js';
+
 export interface DictationTranscript {
   kind: 'partial' | 'final';
   text: string;
@@ -8,64 +10,45 @@ export interface DictationError {
   message: string;
 }
 
-interface RecognitionResultLike {
-  readonly isFinal: boolean;
-  readonly 0: { readonly transcript: string };
+export interface DictationConnection {
+  token: string;
+  url: string;
 }
 
-interface RecognitionEventLike {
-  readonly resultIndex: number;
-  readonly results: ArrayLike<RecognitionResultLike>;
+export interface DictationOptions {
+  connection(): Promise<DictationConnection>;
 }
 
-interface RecognitionLike {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  onresult: ((event: RecognitionEventLike) => void) | null;
-  onerror: ((event: { error: string }) => void) | null;
-  onend: (() => void) | null;
-  start(): void;
-  stop(): void;
-}
-
-type RecognitionConstructor = new () => RecognitionLike;
 type DictationEventMap = {
   transcript: DictationTranscript;
   error: DictationError;
 };
 
-const recognitionGlobal = () =>
-  globalThis as typeof globalThis & {
-    SpeechRecognition?: RecognitionConstructor;
-    webkitSpeechRecognition?: RecognitionConstructor;
-  };
-
-function browserLanguage(): string {
-  if (typeof document !== 'undefined' && document.documentElement.lang) {
-    return document.documentElement.lang;
-  }
-  if (typeof navigator !== 'undefined' && navigator.language) return navigator.language;
-  return 'en-US';
-}
+const MAX_BUFFERED_BASE64_BYTES = 640_000;
 
 export class Dictation {
-  static readonly vendorNote = 'Browser dictation may send microphone audio to your browser vendor for transcription.';
+  static readonly vendorNote = 'ElevenLabs Scribe transcription uses provider credits while the microphone is active.';
 
   static isSupported(): boolean {
-    const browser = recognitionGlobal();
-    return Boolean(browser.SpeechRecognition ?? browser.webkitSpeechRecognition);
+    return (
+      typeof navigator !== 'undefined' &&
+      typeof navigator.mediaDevices?.getUserMedia === 'function' &&
+      typeof AudioContext !== 'undefined'
+    );
   }
 
-  private recognition: RecognitionLike | undefined;
   private readonly listeners = new Map<keyof DictationEventMap, Set<(value: never) => void>>();
-  private finalParts: string[] = [];
+  private capture: CaptureHandle | undefined;
+  private socket: WebSocket | undefined;
+  private pendingChunks: string[] = [];
+  private pendingBytes = 0;
+  private generation = 0;
   private started = false;
-  private ended = false;
-  private endRequested = false;
-  private finalEmitted = false;
+  private released = false;
+  private committed = false;
+  private finished = false;
 
-  constructor(private readonly lang = browserLanguage()) {}
+  constructor(private readonly options: DictationOptions) {}
 
   on<K extends keyof DictationEventMap>(event: K, listener: (value: DictationEventMap[K]) => void): () => void {
     const listeners = this.listeners.get(event) ?? new Set();
@@ -75,68 +58,217 @@ export class Dictation {
   }
 
   pressStart(): void {
-    if (this.recognition) return;
-    const browser = recognitionGlobal();
-    const Constructor = browser.SpeechRecognition ?? browser.webkitSpeechRecognition;
-    if (!Constructor) {
-      this.emit('error', { code: 'unsupported', message: 'Browser dictation is unavailable.' });
+    if (this.started) return;
+    if (!Dictation.isSupported()) {
+      this.emit('error', { code: 'unsupported', message: 'Microphone dictation is unavailable.' });
       return;
     }
 
-    this.finalParts = [];
-    this.started = true;
-    this.ended = false;
-    this.endRequested = false;
-    this.finalEmitted = false;
-
-    const recognition = new Constructor();
-    recognition.continuous = false;
-    recognition.interimResults = true;
-    recognition.lang = this.lang;
-    recognition.onresult = (event) => this.handleResult(event);
-    recognition.onerror = (event) => this.handleError(event.error);
-    recognition.onend = () => {
-      this.ended = true;
-      this.recognition = undefined;
-      if (this.endRequested) this.emitFinal();
-    };
-    this.recognition = recognition;
-    recognition.start();
+    const generation = this.reset();
+    this.watchVisibility();
+    void this.beginCapture(generation);
+    void this.beginSocket(generation);
   }
 
   pressEnd(): void {
-    if (!this.started || this.finalEmitted) return;
-    this.endRequested = true;
-    if (this.recognition) this.recognition.stop();
-    else if (this.ended) this.emitFinal();
+    if (!this.started || this.released) return;
+    this.released = true;
+    this.stopCapture();
+    this.commitIfReady();
   }
 
-  private handleResult(event: RecognitionEventLike) {
-    for (let index = event.resultIndex; index < event.results.length; index += 1) {
-      const result = event.results[index];
-      if (!result) continue;
-      const text = result[0].transcript.trim();
-      if (result.isFinal) this.finalParts.push(text);
-      else this.emit('transcript', { kind: 'partial', text });
+  cancel(): void {
+    if (!this.started || this.finished) return;
+    if (this.socket?.readyState === WebSocket.OPEN) this.send({ v: 1, type: 'stop' });
+    this.finish();
+  }
+
+  private reset(): number {
+    this.generation += 1;
+    this.pendingChunks = [];
+    this.pendingBytes = 0;
+    this.started = true;
+    this.released = false;
+    this.committed = false;
+    this.finished = false;
+    return this.generation;
+  }
+
+  private async beginCapture(generation: number): Promise<void> {
+    try {
+      const capture = await startCapture((chunk) => this.sendAudio(generation, chunk));
+      if (generation !== this.generation || this.finished || this.released) {
+        capture.stop();
+      } else {
+        this.capture = capture;
+      }
+    } catch (error) {
+      if (generation !== this.generation || this.finished) return;
+      this.fail(this.captureError(error));
     }
   }
 
-  private handleError(error: string) {
-    if (error === 'no-speech') return;
-    if (error === 'not-allowed' || error === 'service-not-allowed') {
-      this.emit('error', { code: 'mic_denied', message: 'Microphone permission denied.' });
+  private async beginSocket(generation: number): Promise<void> {
+    try {
+      const connection = await this.options.connection();
+      if (generation !== this.generation) return;
+      const url = new URL(connection.url);
+      url.searchParams.set('token', connection.token);
+      const socket = new WebSocket(url);
+      this.socket = socket;
+
+      if (this.finished) {
+        socket.close();
+        return;
+      }
+
+      socket.addEventListener('open', () => {
+        if (socket !== this.socket || this.finished) return;
+        for (const chunk of this.pendingChunks) this.send({ v: 1, type: 'audio', data_b64: chunk });
+        this.pendingChunks = [];
+        this.pendingBytes = 0;
+        this.commitIfReady();
+      });
+      socket.addEventListener('message', (event) => this.receive(socket, event as MessageEvent));
+      socket.addEventListener('error', () => {
+        if (socket === this.socket && !this.finished) {
+          this.fail({ code: 'socket_error', message: 'Dictation connection failed.' });
+        }
+      });
+      socket.addEventListener('close', () => {
+        if (socket === this.socket && !this.finished) {
+          this.fail({ code: 'socket_error', message: 'Dictation connection closed before transcription finished.' });
+        }
+      });
+    } catch {
+      if (generation === this.generation && !this.finished) {
+        this.fail({ code: 'token_error', message: 'Dictation could not be authorized.' });
+      }
+    }
+  }
+
+  private sendAudio(generation: number, chunk: string): void {
+    if (generation !== this.generation || this.finished || this.released) return;
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.send({ v: 1, type: 'audio', data_b64: chunk });
       return;
     }
-    this.emit('error', { code: 'dictation_error', message: `Dictation failed: ${error}` });
+
+    this.pendingBytes += chunk.length;
+    if (this.pendingBytes > MAX_BUFFERED_BASE64_BYTES) {
+      this.fail({ code: 'audio_backlog', message: 'Dictation took too long to connect. Try again.' });
+      return;
+    }
+    this.pendingChunks.push(chunk);
   }
 
-  private emitFinal() {
-    if (this.finalEmitted) return;
-    this.finalEmitted = true;
-    this.emit('transcript', { kind: 'final', text: this.finalParts.filter(Boolean).join(' ') });
+  private commitIfReady(): void {
+    if (!this.released || this.committed || this.socket?.readyState !== WebSocket.OPEN) return;
+    this.committed = true;
+    this.send({ v: 1, type: 'commit' });
+  }
+
+  private receive(socket: WebSocket, event: MessageEvent): void {
+    if (socket !== this.socket || this.finished) return;
+    if (typeof event.data !== 'string') {
+      this.fail({ code: 'invalid_frame', message: 'Dictation returned an invalid response.' });
+      return;
+    }
+
+    let frame: unknown;
+    try {
+      frame = JSON.parse(event.data);
+    } catch {
+      this.fail({ code: 'invalid_frame', message: 'Dictation returned an invalid response.' });
+      return;
+    }
+
+    if (isTranscript(frame)) {
+      this.emit('transcript', { kind: frame.kind, text: frame.text });
+      if (frame.kind === 'final') this.finish();
+      return;
+    }
+    if (isError(frame)) {
+      this.fail({ code: frame.code, message: frame.message });
+      return;
+    }
+    if (isEnded(frame)) {
+      this.finish();
+      return;
+    }
+    this.fail({ code: 'invalid_frame', message: 'Dictation returned an invalid response.' });
+  }
+
+  private fail(error: DictationError): void {
+    if (this.finished) return;
+    this.emit('error', error);
+    this.finish();
+  }
+
+  private finish(): void {
+    if (this.finished) return;
+    this.finished = true;
+    this.started = false;
+    this.stopCapture();
+    this.pendingChunks = [];
+    this.pendingBytes = 0;
+    this.unwatchVisibility();
+    this.socket?.close();
+    this.socket = undefined;
+  }
+
+  private stopCapture(): void {
+    this.capture?.stop();
+    this.capture = undefined;
+  }
+
+  private send(frame: object): void {
+    this.socket?.send(JSON.stringify(frame));
+  }
+
+  private readonly handleVisibility = () => {
+    if (document.visibilityState === 'hidden') this.cancel();
+  };
+
+  private watchVisibility(): void {
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  private unwatchVisibility(): void {
+    if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', this.handleVisibility);
+  }
+
+  private captureError(error: unknown): DictationError {
+    if (error instanceof DOMException && error.name === 'NotAllowedError') {
+      return { code: 'mic_denied', message: 'Microphone permission denied.' };
+    }
+    return { code: 'capture_error', message: 'Microphone capture failed.' };
   }
 
   private emit<K extends keyof DictationEventMap>(event: K, value: DictationEventMap[K]) {
     for (const listener of this.listeners.get(event) ?? []) listener(value as never);
   }
+}
+
+function isTranscript(frame: unknown): frame is { v: 1; type: 'transcript'; kind: 'partial' | 'final'; text: string } {
+  if (!frame || typeof frame !== 'object') return false;
+  const value = frame as Record<string, unknown>;
+  return (
+    value.v === 1 &&
+    value.type === 'transcript' &&
+    (value.kind === 'partial' || value.kind === 'final') &&
+    typeof value.text === 'string'
+  );
+}
+
+function isError(frame: unknown): frame is { v: 1; type: 'error'; code: string; message: string } {
+  if (!frame || typeof frame !== 'object') return false;
+  const value = frame as Record<string, unknown>;
+  return value.v === 1 && value.type === 'error' && typeof value.code === 'string' && typeof value.message === 'string';
+}
+
+function isEnded(frame: unknown): frame is { v: 1; type: 'ended' } {
+  if (!frame || typeof frame !== 'object') return false;
+  const value = frame as Record<string, unknown>;
+  return value.v === 1 && value.type === 'ended';
 }

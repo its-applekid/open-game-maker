@@ -1,6 +1,5 @@
 # The splash page at / (apps/site/src/render/html.ts). The hero line is a placeholder until Kevin approves it.
 line: Say a game. Watch it get built. Play it with your family.
-app_origin: https://makeopen.games/
 cta:
   setup: Set up your own
   sign_in: Sign in

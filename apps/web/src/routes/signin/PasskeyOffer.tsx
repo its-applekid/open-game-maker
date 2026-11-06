@@ -7,11 +7,13 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const mounted = useRef(true);
+  const registrationRequest = useRef<AbortController | null>(null);
 
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      registrationRequest.current?.abort();
     };
   }, []);
 
@@ -20,16 +22,21 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
   }, [onDone, passkeys.data]);
 
   async function addPasskey() {
+    if (registrationRequest.current) return;
+    const controller = new AbortController();
+    registrationRequest.current = controller;
     setSaving(true);
     setError('');
     try {
-      const result = await authClient.passkey.addPasskey();
+      const result = await authClient.passkey.addPasskey({ fetchOptions: { signal: controller.signal } });
       if (result.error) throw result.error;
       if (mounted.current) onDone();
     } catch (caught) {
-      if (!mounted.current) return;
-      setError(authErrorMessage(caught, 'Could not add the passkey.'));
-      setSaving(false);
+      if (!mounted.current || controller.signal.aborted) return;
+      setError(withEmailFallback(authErrorMessage(caught, 'Could not add the passkey.')));
+    } finally {
+      if (registrationRequest.current === controller) registrationRequest.current = null;
+      if (mounted.current) setSaving(false);
     }
   }
 
@@ -52,4 +59,9 @@ export function PasskeyOffer({ onDone }: { onDone: () => void }) {
       </section>
     </main>
   );
+}
+
+function withEmailFallback(message: string): string {
+  const detail = /[.!?]$/.test(message) ? message : `${message}.`;
+  return `${detail} You can still sign in with an email link.`;
 }
