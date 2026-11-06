@@ -27,7 +27,7 @@ const RULES = [
   'All per-player state lives in `players: Map<playerIndex, PlayerState>`; no singleton `player`.',
   'Entity ids are host-minted, globally unique strings; never array positions or per-session counters.',
   'Spawn points are design data (`design/spawns.json`), at least `maxPlayers` of them.',
-  'Authority is declared, not assumed: a game sets `net.authority` in its manifest (`\'per-seat\'` or `\'host\'`) and keeps its simulation deterministic; game logic never assumes a server.',
+  "Authority is declared, not assumed: a game sets `net.authority` in its manifest (`'per-seat'` or `'host'`) and keeps its simulation deterministic; game logic never assumes a server.",
   '`serializeSnapshot()/applySnapshot()` cover everything visible; transient effects are derived, not synced.',
   'HUD reads `players.get(localPlayerIndex)`; camera rig follows the local avatar.',
   '`tick(seconds)` and `render_game_to_text()` work with `players.length ≥ 2`; under per-seat authority every seat runs the step itself, so the same frames must always produce the same state.',

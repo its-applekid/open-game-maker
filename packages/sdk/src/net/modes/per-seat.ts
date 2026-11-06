@@ -113,10 +113,7 @@ export class PerSeatMode {
     this.localSeat = options.localSeat;
     this.seats = [seatRecord(options.localSeat)];
     this.inputDelayTicks = clampDelay(options.manifest.net?.inputDelayTicks ?? DEFAULT_INPUT_DELAY_TICKS);
-    this.stateEveryTicks = Math.max(
-      1,
-      Math.round(60 / (options.manifest.net?.seatStateHz ?? DEFAULT_SEAT_STATE_HZ)),
-    );
+    this.stateEveryTicks = Math.max(1, Math.round(60 / (options.manifest.net?.seatStateHz ?? DEFAULT_SEAT_STATE_HZ)));
     this.rings = new InputRings({ seats: [options.localSeat] });
     this.gate = new StartGate({
       resetClock: (tick) => options.resetClock(tick),

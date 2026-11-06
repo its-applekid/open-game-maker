@@ -246,10 +246,7 @@ describe('per-seat authority hooks', () => {
   it('keeps the shared digest independent of any seat position', async () => {
     const state = createSimulation(defaultDesign);
     addPlayer(state, 1, playerId(1));
-    const shared = digestSimulation(
-      { ...state, tick: 0, players: new Map() },
-      toUnits,
-    );
+    const shared = digestSimulation({ ...state, tick: 0, players: new Map() }, toUnits);
     const moved = createSimulation(defaultDesign);
     const player = moved.players.get(0)!;
     player.p[0] += 100;

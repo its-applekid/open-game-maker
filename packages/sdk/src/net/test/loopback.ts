@@ -146,16 +146,14 @@ export function createLoopbackMatch(options: LoopbackOptions): LoopbackMatch {
     const due = queue
       .filter((message) => message.dueAtMs <= nowMs() + 1e-9)
       .sort(
-        (left, right) =>
-          left.dueAtMs - right.dueAtMs || left.sender - right.sender || left.sequence - right.sequence,
+        (left, right) => left.dueAtMs - right.dueAtMs || left.sender - right.sender || left.sequence - right.sequence,
       );
     for (const message of due) {
       const index = queue.indexOf(message);
       if (index >= 0) queue.splice(index, 1);
-      entries.find((entry) => entry.seat === message.recipient)?.controller.handleMessage(
-        message.type,
-        message.payload,
-      );
+      entries
+        .find((entry) => entry.seat === message.recipient)
+        ?.controller.handleMessage(message.type, message.payload);
     }
   }
 

@@ -232,7 +232,9 @@ export function restoreShared(state: SimulationState, slice: SharedSlice): void 
 /** Seat words first (sorted by id), then the shared platform words, so two clients fold the same order. */
 export function digestSimulation(state: SimulationState, toUnits: (value: number) => number): number[] {
   const words = [toUnits(state.tick)];
-  const players = [...state.players.values()].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  const players = [...state.players.values()].sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  );
   for (const player of players) {
     words.push(
       toUnits(player.p[0]),
@@ -242,7 +244,9 @@ export function digestSimulation(state: SimulationState, toUnits: (value: number
       player.onGround ? 1 : 0,
     );
   }
-  for (const platform of [...state.platforms].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))) {
+  for (const platform of [...state.platforms].sort((left, right) =>
+    left.id < right.id ? -1 : left.id > right.id ? 1 : 0,
+  )) {
     words.push(toUnits(platform.x), toUnits(platform.y), toUnits(platform.width), toUnits(platform.height));
   }
   return words;

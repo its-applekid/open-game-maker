@@ -177,7 +177,16 @@ export const hostToGameSchema = z
      */
     envelope('net.mode', z.looseObject({ mode: authorityModeSchema })),
     envelope('net.seats', z.looseObject({ seats: z.array(netSeatSchema).max(MAX_PLAYERS) })),
-    envelope('net.primary', z.looseObject({ seat: z.number().int().min(0).max(MAX_PLAYERS - 1) })),
+    envelope(
+      'net.primary',
+      z.looseObject({
+        seat: z
+          .number()
+          .int()
+          .min(0)
+          .max(MAX_PLAYERS - 1),
+      }),
+    ),
     envelope('net.start', netStartSchema),
     envelope('net.start.cancel', z.looseObject({ epoch: z.string().min(1).max(64) })),
     envelope('net.tick', z.looseObject({ tick: z.number().int().min(0), serverMs: z.number() })),
@@ -188,10 +197,7 @@ export const hostToGameSchema = z
     envelope('net.checksum', netChecksumPayloadSchema),
     envelope('net.recovery', netRecoveryPayloadSchema),
     envelope('net.seat', netSeatSchema),
-    envelope(
-      'net.transport',
-      z.looseObject({ transport: z.enum(['ws-relay', 'webrtc-mesh', 'webrtc-star']) }),
-    ),
+    envelope('net.transport', z.looseObject({ transport: z.enum(['ws-relay', 'webrtc-mesh', 'webrtc-star']) })),
     envelope('phase', z.looseObject({ phase: phaseSchema })),
     /** `test.*` requests carry an `id` that the matching `test.result` names in `replyTo`. */
     envelope('test.advanceTime', testMs),

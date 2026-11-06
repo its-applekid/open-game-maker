@@ -40,7 +40,10 @@ describe('net contract', () => {
     expect(startJson(start)).toBe(true);
     expect(seatJson(loadJson('fixtures/net/seat.json'))).toBe(true);
 
-    const tooMany = { ...(start as Record<string, unknown>), seats: Array(NET_LIMITS.maxSeats + 1).fill(start.seats[0]) };
+    const tooMany = {
+      ...(start as Record<string, unknown>),
+      seats: Array(NET_LIMITS.maxSeats + 1).fill(start.seats[0]),
+    };
     expect(netStartSchema.safeParse(tooMany).success).toBe(false);
     expect(startJson(tooMany)).toBe(false);
   });

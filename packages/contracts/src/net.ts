@@ -32,18 +32,9 @@ export const authorityModeSchema = z.enum(AUTHORITY_MODES);
 /** Absent means `'host'`, which keeps every build written before v2 on today's code path. */
 export const netManifestSchema = z.strictObject({
   authority: authorityModeSchema.optional(),
-  maxSeats: z
-    .number()
-    .int()
-    .min(1)
-    .max(NET_LIMITS.maxSeats),
+  maxSeats: z.number().int().min(1).max(NET_LIMITS.maxSeats),
   inputDelayTicks: z.number().int().min(2).max(8).optional(),
-  seatStateHz: z
-    .number()
-    .int()
-    .min(1)
-    .max(30)
-    .optional(),
+  seatStateHz: z.number().int().min(1).max(30).optional(),
   spectators: z.enum(['off', 'on']).optional(),
   forfeit: z.enum(['continue', 'skip', 'surrender']).optional(),
 });
