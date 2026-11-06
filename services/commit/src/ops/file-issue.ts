@@ -1,14 +1,10 @@
+import { gameIssueLabel } from '../labels.js';
 import type { CommitResult } from '../types.js';
 import { refused } from '../result.js';
 import type { OperationContext } from './context.js';
 import type { ExtractCommitOp } from './operation-types.js';
 
 const PLATFORM_LABELS = ['bug', 'source:report'];
-
-// A game's issue carries its own label, so intake can tell whose work it is in the shared instance repository.
-export function gameIssueLabel(slug: string): string {
-  return `game:${slug}`;
-}
 
 /*
  * Platform bugs go to the configured platform repository; a report about one game lands in the instance repository

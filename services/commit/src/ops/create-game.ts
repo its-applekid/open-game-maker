@@ -1,3 +1,4 @@
+import { gameIssueLabel } from '../labels.js';
 import { GitHubRequestError } from '../github-request.js';
 import { gameFolder } from '../paths.js';
 import { refused } from '../result.js';
@@ -17,6 +18,87 @@ export const MAX_COPY_BYTES = 100 * 1024 * 1024;
 // Repo-level paths belong to the instance repository (one workflow, one workspace), never to a game's folder.
 function repoLevel(path: string): boolean {
   return path === '.github' || path.startsWith('.github/');
+}
+
+/*
+ * The marker a create's merge commit carries. A retried create whose earlier response was lost finds its own folder on
+ * `main` through this marker and reports the merge instead of refusing the folder as someone else's.
+ */
+function createMarker(folder: string): string {
+  return `Game-Folder: ${folder}`;
+}
+
+/*
+ * The merge commit this operation already made for the folder. A retried create whose earlier response was lost finds
+ * its own folder on `main` and reports that merge instead of refusing the folder as someone else's: the commits that
+ * touch the folder are the creates and forks of it, and the marker the merge carries names this one.
+ */
+async function createdMerge(
+  request: GitHubRequest,
+  repository: GameRepository,
+  folder: string,
+  marker: string,
+): Promise<string | null> {
+  const history = await request<{ sha: string; commit?: { message?: string } }[]>('GET /repos/{owner}/{repo}/commits', {
+    ...repository,
+    path: folder,
+    per_page: '20',
+  });
+  const mine = history.data.find(
+    (commit) => typeof commit.commit?.message === 'string' && commit.commit.message.includes(marker),
+  );
+  return mine?.sha ?? null;
+}
+
+/*
+ * Points the game's branch at this attempt's commit. A branch left behind by an earlier refused attempt would otherwise
+ * keep its old head, and the pull request would merge that instead of the folder just built.
+ */
+async function moveGameBranch(
+  request: GitHubRequest,
+  repository: GameRepository,
+  branch: string,
+  sha: string,
+): Promise<void> {
+  try {
+    await request('POST /repos/{owner}/{repo}/git/refs', { ...repository, ref: `refs/heads/${branch}`, sha });
+  } catch (error) {
+    if (!(error instanceof GitHubRequestError) || error.status !== 422) throw error;
+    await request('PATCH /repos/{owner}/{repo}/git/refs/{ref}', {
+      ...repository,
+      ref: `heads/${branch}`,
+      sha,
+      force: true,
+    });
+  }
+}
+
+// The pull request for this game's branch, reusing the open one a refused attempt left behind.
+async function openPull(
+  request: GitHubRequest,
+  repository: GameRepository,
+  branch: string,
+  title: string,
+): Promise<Pull> {
+  try {
+    const created = await request<Pull>('POST /repos/{owner}/{repo}/pulls', {
+      ...repository,
+      head: branch,
+      base: 'main',
+      title,
+    });
+    return created.data;
+  } catch (error) {
+    if (!(error instanceof GitHubRequestError) || error.status !== 422) throw error;
+    const existing = await request<Pull[]>('GET /repos/{owner}/{repo}/pulls', {
+      ...repository,
+      head: `${repository.owner}:${branch}`,
+      state: 'open',
+    });
+    const pull = existing.data[0];
+    if (pull === undefined) throw error;
+    return pull;
+  }
 }
 
 function sameRepository(left: GameRepository, right: GameRepository): boolean {
@@ -109,13 +191,16 @@ export async function createGame(op: ExtractCommitOp<'create_game'>, context: Op
     ...repository,
     ref: 'heads/main',
   });
-  if (await gameFolderExists({ request: github.request, repository, sha: head.data.object.sha, gamePath: folder })) {
-    return refused('denylist', 'game folder already exists in the instance repository', folder);
-  }
   const base = await github.request<CommitData>('GET /repos/{owner}/{repo}/git/commits/{commit_sha}', {
     ...repository,
     commit_sha: head.data.object.sha,
   });
+  const marker = createMarker(folder);
+  if (await gameFolderExists({ request: github.request, repository, sha: head.data.object.sha, gamePath: folder })) {
+    const existing = await createdMerge(github.request, repository, folder, marker);
+    if (existing !== null) return { ok: true, sha: existing };
+    return refused('denylist', 'game folder already exists in the instance repository', folder);
+  }
 
   let tree: string;
   if (op.from === undefined) {
@@ -153,24 +238,16 @@ export async function createGame(op: ExtractCommitOp<'create_game'>, context: Op
 
   await ensureGameLabel(github.request, repository, op.slug);
   const branch = `game/${op.slug}`;
-  try {
-    await github.request('POST /repos/{owner}/{repo}/git/refs', { ...repository, ref: `refs/heads/${branch}`, sha });
-  } catch (error) {
-    if (!(error instanceof GitHubRequestError) || error.status !== 422) throw error;
-  }
+  await moveGameBranch(github.request, repository, branch, sha);
   const title = op.from === undefined ? `Add game ${op.slug}` : `Fork ${op.from.gameId} into ${op.slug}`;
-  const pull = await github.request<Pull>('POST /repos/{owner}/{repo}/pulls', {
-    ...repository,
-    head: branch,
-    base: 'main',
-    title,
-  });
+  const pull = await openPull(github.request, repository, branch, title);
   const merged = await github.request<MergeResponse>('PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge', {
     ...repository,
-    pull_number: pull.data.number,
+    pull_number: pull.number,
     sha,
     merge_method: 'squash',
-    commit_title: `${title} (#${pull.data.number})`,
+    commit_title: `${title} (#${pull.number})`,
+    commit_message: marker,
   });
   if (!merged.data.merged) return refused('denylist', `not mergeable: ${merged.data.message}`);
   return { ok: true, sha: merged.data.sha ?? sha };
@@ -181,7 +258,7 @@ export async function ensureGameLabel(request: GitHubRequest, repository: GameRe
   try {
     await request('POST /repos/{owner}/{repo}/labels', {
       ...repository,
-      name: `game:${slug}`,
+      name: gameIssueLabel(slug),
       color: '0e8a16',
       description: `Game ${slug}`,
     });

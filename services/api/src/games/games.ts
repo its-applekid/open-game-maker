@@ -92,12 +92,6 @@ export function createGameRow(
   return findGame(db, row.id);
 }
 
-// A creator's GitHub login, when they linked one. The instance repository belongs to the operator's App, so a game is
-// created without it; maintainers still see connections in the admin GitHub panel.
-export function findGithubConnection(db: Db, userId: string) {
-  return db.select().from(schema.githubConnections).where(eq(schema.githubConnections.userId, userId)).get();
-}
-
 export async function provisionGame(deps: AppDeps, game: GameRow): Promise<GameRow> {
   if (game.repoUrl) return game;
   const provisioner = deps.registry.repoProvisioner;

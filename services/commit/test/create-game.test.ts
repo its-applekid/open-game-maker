@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { GitHubRequestError } from '../src/github-request.js';
 import { createGame, MAX_COPY_BYTES, MAX_COPY_FILES } from '../src/ops/create-game.js';
 import type { GameRepository } from '../src/types.js';
 import { contextWith, fakeRequest } from './helpers.js';
@@ -73,6 +74,8 @@ describe('create_game', () => {
     expect(calls.find((call) => call.route.endsWith('/pulls/{pull_number}/merge'))?.parameters).toMatchObject({
       sha: 'folder-commit',
       merge_method: 'squash',
+      // The marker a retried create reads to recognise its own merge.
+      commit_message: 'Game-Folder: games/castle-game',
     });
     expect(calls.some((call) => call.route === 'POST /user/repos')).toBe(false);
   });
@@ -82,6 +85,10 @@ describe('create_game', () => {
       if (call.route.endsWith('/git/ref/{ref}')) return { object: { sha: 'main-1' } };
       if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'base-tree' } };
       if (call.route.endsWith('/git/trees/{tree_sha}')) return folderTree([{ path: 'README.md' }]);
+      // The folder's history on main names a create this operation did not make.
+      if (call.route === 'GET /repos/{owner}/{repo}/commits') {
+        return [{ sha: 'other-merge', commit: { message: 'Add game castle-game (#3)\n\nGame-Folder: games/other' } }];
+      }
       throw new Error(`unexpected route ${call.route}`);
     });
     await expect(
@@ -91,6 +98,84 @@ describe('create_game', () => {
       ),
     ).resolves.toMatchObject({ ok: false, verdict: { reasons: [{ code: 'denylist' }] } });
     expect(calls.some((call) => call.route.endsWith('/git/trees'))).toBe(false);
+  });
+
+  it('reports the merge already on main when a retried create finds its own folder', async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.endsWith('/git/ref/{ref}')) return { object: { sha: 'main-1' } };
+      if (call.route.endsWith('/git/commits/{commit_sha}')) return { tree: { sha: 'base-tree' } };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) return folderTree([{ path: 'README.md' }]);
+      // The merge commit this operation made before its response was lost carries the folder marker.
+      if (call.route === 'GET /repos/{owner}/{repo}/commits') {
+        return [{ sha: 'merge-9', commit: { message: 'Add game castle-game (#7)\n\nGame-Folder: games/castle-game' } }];
+      }
+      throw new Error(`unexpected route ${call.route}`);
+    });
+    await expect(
+      createGame(
+        { kind: 'create_game', gameId: 'game-1', slug: 'castle-game', templateRef: 'default', visibility: 'private' },
+        contextWith(request),
+      ),
+    ).resolves.toEqual({ ok: true, sha: 'merge-9' });
+    // Nothing was written a second time: no new commit, branch, pull request or merge.
+    expect(calls.map((call) => call.route)).toEqual([
+      'GET /repos/{owner}/{repo}/git/ref/{ref}',
+      'GET /repos/{owner}/{repo}/git/commits/{commit_sha}',
+      'GET /repos/{owner}/{repo}/git/commits/{commit_sha}',
+      'GET /repos/{owner}/{repo}/git/trees/{tree_sha}',
+      'GET /repos/{owner}/{repo}/commits',
+    ]);
+    expect(calls.find((call) => call.route === 'GET /repos/{owner}/{repo}/commits')?.parameters).toMatchObject({
+      path: 'games/castle-game',
+    });
+  });
+
+  it("moves a branch a refused attempt left behind and reuses that attempt's open pull request", async () => {
+    const { request, calls } = fakeRequest((call) => {
+      if (call.route.endsWith('/git/ref/{ref}')) return { object: { sha: 'main-1' } };
+      if (call.route.endsWith('/git/commits/{commit_sha}'))
+        return { tree: { sha: 'base-tree' }, message: 'chore: setup' };
+      if (call.route.endsWith('/git/trees/{tree_sha}')) return folderTree();
+      if (call.route.endsWith('/git/blobs')) return { sha: 'blob-1' };
+      if (call.route.endsWith('/git/trees')) return { sha: 'new-tree' };
+      if (call.route.endsWith('/git/commits')) return { sha: 'folder-commit' };
+      if (call.route === 'POST /repos/{owner}/{repo}/labels') {
+        throw new GitHubRequestError('Validation Failed: already_exists', 422);
+      }
+      if (call.route === 'POST /repos/{owner}/{repo}/git/refs') {
+        throw new GitHubRequestError('Reference already exists', 422);
+      }
+      if (call.route === 'PATCH /repos/{owner}/{repo}/git/refs/{ref}') return {};
+      if (call.route === 'POST /repos/{owner}/{repo}/pulls') {
+        throw new GitHubRequestError('A pull request already exists for the branch', 422);
+      }
+      if (call.route === 'GET /repos/{owner}/{repo}/pulls') return [{ number: 12, title: 'Add game castle-game' }];
+      if (call.route.endsWith('/pulls/{pull_number}/merge')) return { merged: true, message: 'ok', sha: 'merge-2' };
+      throw new Error(`unexpected route ${call.route}`);
+    });
+    const result = await createGame(
+      { kind: 'create_game', gameId: 'game-1', slug: 'castle-game', templateRef: 'default', visibility: 'private' },
+      contextWith(request),
+    );
+
+    expect(result).toEqual({ ok: true, sha: 'merge-2' });
+    // The stale branch now points at this attempt's commit, so the reused pull request merges the new folder.
+    expect(calls.find((call) => call.route === 'PATCH /repos/{owner}/{repo}/git/refs/{ref}')?.parameters).toMatchObject(
+      {
+        ref: 'heads/game/castle-game',
+        sha: 'folder-commit',
+        force: true,
+      },
+    );
+    expect(calls.find((call) => call.route === 'GET /repos/{owner}/{repo}/pulls')?.parameters).toMatchObject({
+      head: 'alice:game/castle-game',
+      state: 'open',
+    });
+    expect(calls.find((call) => call.route.endsWith('/pulls/{pull_number}/merge'))?.parameters).toMatchObject({
+      pull_number: 12,
+      sha: 'folder-commit',
+      commit_message: 'Game-Folder: games/castle-game',
+    });
   });
 
   it('refuses a registry path that does not match the slug', async () => {
@@ -177,8 +262,8 @@ describe('create_game', () => {
           ? {
               truncated: false,
               tree: [
-                { path: 'games/source-game/README.md', mode: '100644', type: 'blob', sha: 'old-blob', size: 4 },
-                { path: 'games/source-game/saves/slot.json', mode: '100644', type: 'blob', sha: 'save', size: 2 },
+                { path: 'README.md', mode: '100644', type: 'blob', sha: 'old-blob', size: 4 },
+                { path: 'saves/slot.json', mode: '100644', type: 'blob', sha: 'save', size: 2 },
               ],
             }
           : folderTree();
@@ -192,7 +277,7 @@ describe('create_game', () => {
       return {};
     });
     // A per-game repository kept read-only from before the instance monorepo: its game sits at the repository root.
-    const source: GameRepository = { ...sourceRepository(), name: 'legacy-game' };
+    const source: GameRepository = { ...sourceRepository(), name: 'legacy-game', path: '' };
     await expect(
       createGame(
         {

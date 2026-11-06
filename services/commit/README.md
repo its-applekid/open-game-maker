@@ -3,19 +3,28 @@
 The only OGM process that writes to GitHub. The API sends it one operation at a time on
 `POST http://127.0.0.1:$OGM_COMMIT_PORT/internal/commit` (loopback only, `Bearer $OGM_COMMIT_SERVICE_TOKEN`), and it
 runs that operation as the OGM GitHub App: add a game's folder `games/<slug>/` in the instance repository from its
-template, fold a design transaction onto `main`, fork, merge, tag a release, create a branch, change visibility, or file
-a platform bug report (`src/ops/registry.ts`). Every operation is appended to `$OGM_DATA_DIR/commit/audit.jsonl`.
+template, fold a design transaction onto `main`, fork, merge, tag a release, create a branch, restore one game's folder
+from an earlier commit, or file a bug report (`src/ops/registry.ts`). Every operation is appended to
+`$OGM_DATA_DIR/commit/audit.jsonl`.
 
 Every game in an instance lives in ONE implementation repository (`OGM_INSTANCE_REPO`), under `games/<slug>/`; components
-the instance's games share live under `packages/`. The service never creates a repository. A change for one game may touch only that game's folder, and
-`packages/` only through a promotion the executor approved — the `gameFolderRule` in
-`src/boundary/rules/game-folder.ts` refuses anything else.
+the instance's games share live under `packages/`. The service never creates a repository. A change for one game may touch
+only that game's folder, and `packages/` only through a promotion the executor approved — the `gameFolderRule` in
+`src/boundary/rules/game-folder.ts` refuses anything else. A promotion never arrives as a pull request: the API folds it
+onto `main` directly, so the PR check attributes each pull request to the one game whose folder it changes and refuses one
+that spans folders or `packages/`.
 
 A game's folder stays fixed for the life of the game, so renaming a game never moves its history; release tags are
-namespaced by folder (`<slug>/v<version>`) so two games can each have v1.0.0. No production instance has per-game
+namespaced by the game's slug (`<slug>/v<version>`) so two games can each have v1.0.0. No production instance has per-game
 `gm-<gameId>` repositories to migrate: the instance monorepo was the first layout that shipped, so there is nothing to
 read read-only and no migration step. A fork still copies a folder from another repository when its source predates the
 monorepo.
+
+`set_visibility` no longer patches a repository: the instance repository's visibility belongs to the operator, so the
+operation only runs the boundary checks and the API records the game's own setting. A game's create merges its folder
+through a pull request as the bot and runs the same boundary rules inline before merging; the create's pull request is
+not itself polled for an `ogm/boundary` check, so an instance repository that requires status checks for everyone would
+block that merge — the operator's ruleset should exempt the App's game-folder merges.
 
 It also runs the `ogm/boundary` check on pull requests in the instance repository (path, size, secret, PII, rights and
 blocklist rules in `src/boundary/`), and the same checks gate any change to public visibility
@@ -37,8 +46,8 @@ Repository permissions, each with the calls that need it:
 
 | Permission | Access | Calls |
 | --- | --- | --- |
-| Contents | Read and write | git blobs, trees, commits (`src/ops/git-data.ts`); refs `POST /repos/{owner}/{repo}/git/refs` (`src/ops/create-game.ts`, `src/ops/create-branch.ts`, `src/ops/release.ts`); move `main` `PATCH .../git/refs/{ref}` (`src/ops/fold-design.ts`, `src/ops/restore-game.ts`); tags `POST .../git/tags` (`src/ops/release.ts`); a retried release reads its existing tag `GET .../git/ref/{ref}`, `GET .../git/tags/{tag_sha}` (`src/ops/release.ts`); reads for the boundary check (`src/boundary/inputs.ts`) |
-| Pull requests | Read and write | open a game's pull request and merge it `POST .../pulls`, `PUT .../pulls/{pull_number}/merge` (`src/ops/create-game.ts`, `src/ops/merge.ts`); list open pulls (`src/boundary/poller.ts`); one pull (`src/ops/merge.ts`, `src/boundary/inputs.ts`); its files (`src/boundary/inputs.ts`) |
+| Contents | Read and write | git blobs, trees, commits (`src/ops/git-data.ts`); refs `POST /repos/{owner}/{repo}/git/refs` (`src/ops/create-game.ts`, `src/ops/create-branch.ts`, `src/ops/release.ts`); move `main` or a game's branch `PATCH .../git/refs/{ref}` (`src/ops/create-game.ts`, `src/ops/fold-design.ts`, `src/ops/restore-game.ts`); tags `POST .../git/tags` (`src/ops/release.ts`); a retried release reads its existing tag `GET .../git/ref/{ref}`, `GET .../git/tags/{tag_sha}` (`src/ops/release.ts`); reads for the boundary check (`src/boundary/inputs.ts`) |
+| Pull requests | Read and write | open a game's pull request and merge it `POST .../pulls`, `PUT .../pulls/{pull_number}/merge` (`src/ops/create-game.ts`, `src/ops/merge.ts`); list open pulls, including the head-scoped list a retried create reuses (`src/ops/create-game.ts`, `src/boundary/poller.ts`); one pull (`src/ops/merge.ts`, `src/boundary/inputs.ts`); its files (`src/boundary/inputs.ts`) |
 | Checks | Read and write | read `ogm/boundary` runs (`src/boundary/check-run.ts:54`); create them (`src/boundary/check-run.ts:91`) |
 | Issues | Read and write | platform bug reports and per-game reports `POST /repos/{owner}/{repo}/issues` (`src/ops/file-issue.ts`); a game's label `POST /repos/{owner}/{repo}/labels` (`src/ops/create-game.ts`) |
 | Metadata | Read | mandatory; GitHub requires it for every other permission. |
