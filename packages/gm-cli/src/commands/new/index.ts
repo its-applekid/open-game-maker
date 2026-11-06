@@ -11,6 +11,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
+import { readFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { loadFamilies } from '@ogm/asset-cards';
@@ -88,17 +89,24 @@ function pinAdapter(gameDir: string, set: string, version: string): void {
   writeFileSync(packagePath, `${JSON.stringify(packageJson, null, 2)}\n`);
 }
 
+async function readPackageJson(path: string): Promise<Record<string, unknown> | null> {
+  try {
+    return JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+}
+
 async function findInstanceGames(start: string): Promise<string | null> {
   let current = resolve(start);
   for (;;) {
     const packagePath = join(current, 'package.json');
     if (existsSync(packagePath)) {
-      const packageJson = JSON.parse(readFileSync(packagePath, 'utf8')) as {
-        gameMaker?: { instance?: unknown };
-      };
+      const packageJson = await readPackageJson(packagePath);
+      const instance = (packageJson?.gameMaker as { instance?: unknown } | undefined)?.instance;
       const gamesPath = join(current, 'games');
       const packagesPath = join(current, 'packages');
-      if (packageJson.gameMaker?.instance === true && existsSync(join(current, 'pnpm-workspace.yaml'))) {
+      if (instance === true && existsSync(join(current, 'pnpm-workspace.yaml'))) {
         const [games, packages] = await Promise.all([
           resolveContainedPath(current, gamesPath).catch(() => null),
           resolveContainedPath(current, packagesPath).catch(() => null),
@@ -201,7 +209,9 @@ export const command: GmCommand = {
     } finally {
       if (existsSync(staging)) rmSync(staging, { recursive: true, force: true });
     }
-    ctx.out(`created ${destination}. Next: cd ${destination} && pnpm install --offline`);
+    ctx.out(
+      `created ${destination}. Next: cd ${dirname(gamesRoot)} && pnpm install --offline (refreshes pnpm-lock.yaml; commit it)`,
+    );
     ctx.emit('new.create', { game: requested, template, family: family ?? null, set: set ?? null, pov: pov ?? null });
     return EXIT.ok;
   },

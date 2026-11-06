@@ -63,7 +63,9 @@ describe('gm new', () => {
     });
 
     expect(result.code).toBe(0);
-    expect(result.out.at(-1)).toBe(`created ${game}. Next: cd ${game} && pnpm install --offline`);
+    expect(result.out.at(-1)).toBe(
+      `created ${game}. Next: cd ${cwd} && pnpm install --offline (refreshes pnpm-lock.yaml; commit it)`,
+    );
     expect(result.err).toEqual([]);
     expect(readFileSync(join(game, 'src/main.ts'), 'utf8')).toContain('booted = true');
     expect(JSON.parse(readFileSync(join(game, 'package.json'), 'utf8')).name).toBe('@game/my-game');
@@ -217,5 +219,16 @@ describe('gm new', () => {
     expect(result.err[0]).toContain('not inside a Game Maker instance repository');
     expect(existsSync(join(outside, 'escaped'))).toBe(false);
     expect(readFileSync(join(original, 'README.md'), 'utf8')).toBe('# Games\n');
+  });
+
+  it('keeps searching past a parent directory with an unreadable manifest', async () => {
+    const { cwd, pack } = makeSource();
+    const nested = join(cwd, 'games', 'broken', 'inner');
+    write(nested, 'package.json', '{not json\n');
+
+    const result = await gm(['new', 'game-2d', 'from-nested'], { cwd: nested, env: { GM_SKILLS_DIR: pack } });
+
+    expect(result.code).toBe(0);
+    expect(existsSync(join(cwd, 'games/from-nested/package.json'))).toBe(true);
   });
 });
