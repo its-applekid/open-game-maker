@@ -3792,6 +3792,118 @@ export interface Map {
     status: "pending" | "extracted" | "low-confidence" | "image-only";
     confidence?: number;
   };
+  /**
+   * C3 §12 layout facts, so a map is chosen by structure and not by text: the graph counts come from a validated layout spec (code recomputes them) and grid, biome, features and levels from code measurements on the export. An absent field is unknown, never zero.
+   */
+  layout?: {
+    /**
+     * Rooms in the layout spec; code counts them from the graph.
+     */
+    rooms?: number;
+    connections?: number;
+    entrances?: number;
+    dead_ends?: number;
+    /**
+     * Independent cycles: connections - rooms + components, with outside counted as a node.
+     */
+    loops?: number;
+    secrets?: number;
+    /**
+     * Floors of this place the image shows, from the export title and its level links.
+     */
+    levels?: number;
+    longest_path_rooms?: number;
+    /**
+     * Specs by room count: small <= 5, medium 6-15, large 16-40, huge > 40.
+     */
+    size_class?: "tiny" | "small" | "medium" | "large" | "huge";
+    flow?: "linear" | "branching" | "hub-and-spoke" | "loop" | "maze" | "open";
+    /**
+     * The one place the map shows, from the map type and the judged environments.
+     */
+    biome?:
+      | "dungeon"
+      | "crypt"
+      | "cave"
+      | "mine"
+      | "sewer"
+      | "castle"
+      | "temple"
+      | "ruins"
+      | "graveyard"
+      | "camp"
+      | "town"
+      | "village"
+      | "city"
+      | "interior"
+      | "tavern"
+      | "shop"
+      | "house"
+      | "farm"
+      | "forest"
+      | "jungle"
+      | "grassland"
+      | "mountain"
+      | "snow"
+      | "desert"
+      | "swamp"
+      | "beach"
+      | "ocean"
+      | "underwater"
+      | "sky"
+      | "space"
+      | "space-station"
+      | "industrial"
+      | "road"
+      | "arena"
+      | "neutral";
+    /**
+     * What is drawn that a builder asks for by name: water, roads, stairs, blocking props.
+     *
+     * Items: The map-layout-spec feature types plus the drawn structures a builder asks for by name (road, bridge, stairs, door).
+     */
+    features?: (
+      | "pillar"
+      | "water"
+      | "pit"
+      | "chasm"
+      | "lava"
+      | "altar"
+      | "statue"
+      | "throne"
+      | "tomb"
+      | "sarcophagus"
+      | "trap"
+      | "treasure"
+      | "chest"
+      | "fireplace"
+      | "well"
+      | "fountain"
+      | "bed"
+      | "table"
+      | "bookshelf"
+      | "barrel"
+      | "crate"
+      | "rubble"
+      | "stalagmite"
+      | "cage"
+      | "portal"
+      | "lever"
+      | "light-source"
+      | "road"
+      | "bridge"
+      | "stairs"
+      | "door"
+      | "spawn-hint"
+      | "exit-hint"
+    )[];
+    grid?: {
+      type?: "square" | "hex" | "none";
+      cols?: number;
+      rows?: number;
+      cell_px?: number;
+    };
+  };
 }
 export interface CollectionInfo {
   vendor: string;

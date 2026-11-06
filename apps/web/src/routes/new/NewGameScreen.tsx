@@ -135,7 +135,7 @@ export function NewGameScreen() {
   };
 
   const back = () => {
-    if (stepIndex === 0) navigate('/games');
+    if (stepIndex === 0) navigate('/all');
     else go(STEP_ORDER[stepIndex - 1]!);
   };
 

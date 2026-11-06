@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { DictationError, DictationTranscript, VoiceClient } from '@ogm/voice-client';
+import { Dictation, type DictationError, type DictationTranscript, type VoiceClient } from '@ogm/voice-client';
 
 import { Composer, type DictationPort } from './Composer';
 
@@ -10,6 +10,7 @@ class FakeDictation implements DictationPort {
   errorListeners: Array<(value: DictationError) => void> = [];
   pressStart = vi.fn();
   pressEnd = vi.fn();
+  cancel = vi.fn();
   on(event: 'transcript', listener: (value: DictationTranscript) => void): () => void;
   on(event: 'error', listener: (value: DictationError) => void): () => void;
   on(
@@ -28,7 +29,10 @@ class FakeDictation implements DictationPort {
   }
 }
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('Composer', () => {
   it('keeps a dictated final transcript for review until Send', async () => {
@@ -46,6 +50,7 @@ describe('Composer', () => {
     const dictate = screen.getByRole('button', { name: 'Hold to talk' });
     expect(dictate).toHaveTextContent('');
     fireEvent.pointerDown(dictate);
+    expect(screen.getByRole('status')).toHaveTextContent('Dictation uses ElevenLabs transcription credits.');
     dictation.finish('make the door red');
 
     await waitFor(() => expect(screen.getByRole('textbox')).toHaveValue('make the door red'));
@@ -68,6 +73,24 @@ describe('Composer', () => {
 
     await waitFor(() => expect(screen.queryByRole('button', { name: 'Start voice chat' })).not.toBeInTheDocument());
     expect(screen.getByRole('button', { name: 'Hold to talk' })).toBeVisible();
+  });
+
+  it('cancels dictation on pointer cancellation and unmount', () => {
+    const dictation = new FakeDictation();
+    const view = render(
+      <Composer
+        jobId="j_1"
+        dictation={dictation}
+        postText={vi.fn()}
+        probeVoice={vi.fn().mockResolvedValue({ available: false })}
+      />,
+    );
+
+    fireEvent.pointerCancel(screen.getByRole('button', { name: 'Hold to talk' }));
+    expect(dictation.cancel).toHaveBeenCalledOnce();
+    expect(dictation.pressEnd).not.toHaveBeenCalled();
+    view.unmount();
+    expect(dictation.cancel).toHaveBeenCalledTimes(2);
   });
 
   it('rolls back an optimistic row and restores text when posting fails', async () => {
@@ -163,9 +186,84 @@ describe('Composer', () => {
     fireEvent.click(start);
     fireEvent.click(start);
 
+    expect(screen.getByRole('status')).toHaveTextContent('Voice chat uses ElevenLabs conversational-AI credits.');
     expect(createVoiceClient).toHaveBeenCalledOnce();
     expect(startFromGesture).toHaveBeenCalledOnce();
     expect(start).toBeDisabled();
     await act(async () => resolveStart());
+  });
+
+  it('rebinds dictation and voice availability when the target changes', async () => {
+    vi.spyOn(Dictation, 'isSupported').mockReturnValue(true);
+    const connectDictation = vi.fn(() => new Promise<never>(() => undefined));
+    const secondProbe = new Promise<{ available: false }>(() => undefined);
+    const probeVoice = vi
+      .fn()
+      .mockResolvedValueOnce({
+        available: true,
+        token: 'token-a',
+        url: 'wss://voice.example.test',
+        expiresAt: '2026-11-03T22:00:00Z',
+      })
+      .mockReturnValueOnce(secondProbe);
+    const targetA = { kind: 'build' as const, game_id: 'g_1', job_id: 'j_1', ticket: '57', creator_id: 'u_1' };
+    const targetB = { kind: 'build' as const, game_id: 'g_1', job_id: 'j_2', ticket: '58', creator_id: 'u_1' };
+    const { rerender } = render(
+      <Composer
+        jobId="j_1"
+        voiceTarget={targetA}
+        postText={vi.fn()}
+        probeVoice={probeVoice}
+        connectDictation={connectDictation}
+      />,
+    );
+
+    await screen.findByRole('button', { name: 'Start voice chat' });
+    rerender(
+      <Composer
+        jobId="j_2"
+        voiceTarget={targetB}
+        postText={vi.fn()}
+        probeVoice={probeVoice}
+        connectDictation={connectDictation}
+      />,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Start voice chat' })).not.toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole('button', { name: 'Hold to talk' }));
+    await waitFor(() => expect(connectDictation).toHaveBeenCalledWith(targetB));
+  });
+
+  it('returns to typing when the voice host ends the call', async () => {
+    const listeners = new Map<string, (frame: never) => void>();
+    const client = {
+      on: vi.fn((type: string, listener: (frame: never) => void) => {
+        listeners.set(type, listener);
+        return () => listeners.delete(type);
+      }),
+      startFromGesture: vi.fn().mockResolvedValue(undefined),
+      end: vi.fn(),
+    } as unknown as VoiceClient;
+    render(
+      <Composer
+        jobId="j_1"
+        voiceTarget={{ kind: 'build', game_id: 'g_1', job_id: 'j_1', ticket: '57', creator_id: 'u_1' }}
+        dictation={new FakeDictation()}
+        postText={vi.fn()}
+        probeVoice={vi.fn().mockResolvedValue({
+          available: true,
+          token: 'token',
+          url: 'wss://voice.example.test',
+          expiresAt: '2026-11-03T22:00:00Z',
+        })}
+        createVoiceClient={() => client}
+      />,
+    );
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Start voice chat' }));
+    await screen.findByRole('region', { name: 'Voice chat' });
+    act(() => listeners.get('ended')?.({ v: 1, type: 'ended', reason: 'agent_end' } as never));
+
+    await waitFor(() => expect(screen.getByRole('textbox')).toBeVisible());
   });
 });

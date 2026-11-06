@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-import { IsoTime } from './api.js';
+import { Id, IsoTime } from './api.js';
 
 // The conversation a browser opens: sent as {"v":1,"type":"start","target":VoiceTarget} on the voice socket.
 export const VoiceTarget = z.discriminatedUnion('kind', [
@@ -42,7 +42,7 @@ export const BriefingPush = z.object({
         id: z.string(),
         version: z.union([z.string(), z.number()]).optional(),
         question: z.string(),
-        options: z.array(z.string()).optional(),
+        options: z.array(z.union([z.string(), z.object({ id: z.string(), label: z.string() }).strict()])).optional(),
       }),
     )
     .optional(),
@@ -59,12 +59,45 @@ export const InstructResponse = z.object({
   status: z.enum(['delivered', 'queued_at_reset', 'needs_choice', 'failed']),
 });
 
+// Voice host → API: one final normalized turn from a two-way conversation.
+// `turn_id` is provider-owned for agent turns and host-owned for final user turns.
+export const VoiceTranscriptRequest = z
+  .object({
+    target: VoiceTarget,
+    conversation_id: z.string().min(1).max(128),
+    turn_id: z.string().min(1).max(128),
+    actor: z.enum(['creator', 'agent']),
+    text: z.string().trim().min(1).max(8000),
+  })
+  .strict();
+export const VoiceTranscriptResponse = z.object({
+  message_id: Id,
+  inserted: z.boolean(),
+});
+
+// Voice host → API: one spoken answer to an open Aiur Command.
+export const VoiceCommandAnswerRequest = z
+  .object({
+    target: VoiceTarget,
+    command_id: z.string().min(1).max(200),
+    choice: z.string().trim().min(1).max(4000),
+    idempotency_key: z.string().min(1).max(200),
+  })
+  .strict();
+export const VoiceCommandAnswerResponse = z.object({
+  status: z.enum(['answered', 'stale', 'failed']),
+});
+
 export type VoiceTarget = z.infer<typeof VoiceTarget>;
 export type VoiceTokenRequest = z.infer<typeof VoiceTokenRequest>;
 export type VoiceTokenResponse = z.infer<typeof VoiceTokenResponse>;
 export type BriefingPush = z.infer<typeof BriefingPush>;
 export type InstructRequest = z.infer<typeof InstructRequest>;
 export type InstructResponse = z.infer<typeof InstructResponse>;
+export type VoiceTranscriptRequest = z.infer<typeof VoiceTranscriptRequest>;
+export type VoiceTranscriptResponse = z.infer<typeof VoiceTranscriptResponse>;
+export type VoiceCommandAnswerRequest = z.infer<typeof VoiceCommandAnswerRequest>;
+export type VoiceCommandAnswerResponse = z.infer<typeof VoiceCommandAnswerResponse>;
 
 export const voiceSchemas = {
   'voice.token.request.v1': VoiceTokenRequest,
@@ -72,4 +105,8 @@ export const voiceSchemas = {
   'voice.briefing.push.v1': BriefingPush,
   'voice.instruct.request.v1': InstructRequest,
   'voice.instruct.response.v1': InstructResponse,
+  'voice.transcript.request.v1': VoiceTranscriptRequest,
+  'voice.transcript.response.v1': VoiceTranscriptResponse,
+  'voice.command-answer.request.v1': VoiceCommandAnswerRequest,
+  'voice.command-answer.response.v1': VoiceCommandAnswerResponse,
 } satisfies Record<string, z.ZodType>;

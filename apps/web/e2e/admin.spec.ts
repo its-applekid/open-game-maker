@@ -57,7 +57,7 @@ test('redirects a non-admin session out of the admin surface', async ({ page }) 
 
   await page.goto('/admin');
 
-  await expect(page).toHaveURL(/\/games$/);
+  await expect(page).toHaveURL(/\/all$/);
 });
 
 test('protects the owner and confirms member removal', async ({ page }) => {

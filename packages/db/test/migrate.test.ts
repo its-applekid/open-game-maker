@@ -51,7 +51,8 @@ describe('migrate', () => {
         '20261102160540_game_abuse_flags.sql',
         '20261102161607_chat_attachments.sql',
         '20261103023559_games_forked_from.sql',
-        '20261105221238_allow_list.sql',
+        '20261105220609_game_slugs.sql',
+        '20261106011027_allow_list.sql',
       ],
     });
     expect(migrate({ sqlite })).toEqual({ applied: [] });
@@ -89,7 +90,8 @@ describe('migrate', () => {
       'migration:20261102160540_game_abuse_flags.sql',
       'migration:20261102161607_chat_attachments.sql',
       'migration:20261103023559_games_forked_from.sql',
-      'migration:20261105221238_allow_list.sql',
+      'migration:20261105220609_game_slugs.sql',
+      'migration:20261106011027_allow_list.sql',
     ]);
     sqlite.close();
   });

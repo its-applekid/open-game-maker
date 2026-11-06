@@ -136,7 +136,7 @@ test('phone creation flow reaches scope admission and queues at reset', async ({
 
   await activate(page, 'Finish');
   await activate(page, 'Queue for the reset');
-  await expect(page).toHaveURL(/\/games\?spotlight=g_/, { timeout: 5_000 });
+  await expect(page).toHaveURL(/\/all\?spotlight=g_/, { timeout: 5_000 });
   expect(routes.scopeMessages).toEqual(['Keep the first version small.']);
   expect(routes.admissions).toHaveLength(2);
   expect(routes.admissions[0]).toMatchObject({ start: 'now', idempotencyKey: expect.stringMatching(/:1$/) });

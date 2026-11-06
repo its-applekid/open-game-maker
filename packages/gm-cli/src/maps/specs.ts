@@ -80,8 +80,10 @@ async function loadSpec(abs: string, path: string, cards: Map<string, ResolvedCa
   return { path, spec, sourceCard, allowed, errors };
 }
 
-/** C3 §10 example: "small crypt 3-5 rooms one loop secret door" → size small, type crypt, rooms 3-5, loops ≥ 1, secrets ≥ 1. */
-export function parseQuery(words: string[], flags: SpecFlags = {}): SpecQuery {
+/** C3 §10 example: "small crypt 3-5 rooms one loop secret door" → size small, type crypt, rooms 3-5, loops ≥ 1, secrets ≥ 1. */ export function parseQuery(
+  words: string[],
+  flags: SpecFlags = {},
+): SpecQuery {
   const tokens = words.flatMap((word) => word.toLowerCase().split(/\s+/)).filter(Boolean);
   const q: SpecQuery = { types: [], words: [] };
   for (let i = 0; i < tokens.length; i += 1) {
@@ -146,4 +148,24 @@ export function matchSpec(spec: MapLayoutSpec, q: SpecQuery): { hard: boolean; s
   if (q.sizeWord && computed.size_class === q.sizeWord) score += 1;
   for (const word of q.words) if (text.includes(word) || text.includes(word.replace(/s$/, ''))) score += 1;
   return { hard, score };
+}
+
+/**
+ * The specs that may enter the map index: validated by `validateLayoutSpec` and with `tags.computed` agreeing with the
+ * graph. A drifted or unreadable spec is reported and left out, so the index never answers from a spec code distrusts.
+ */
+export async function indexedSpecs(
+  root: string,
+  index: CardIndex,
+): Promise<{ specs: MapLayoutSpec[]; invalid: string[] }> {
+  const specs: MapLayoutSpec[] = [];
+  const invalid: string[] = [];
+  for (const loaded of await loadSpecs(root, index)) {
+    if (!loaded.spec || loaded.errors.length > 0) {
+      invalid.push(`${loaded.path}: ${loaded.errors.join('; ')}`);
+      continue;
+    }
+    specs.push(loaded.spec);
+  }
+  return { specs, invalid };
 }

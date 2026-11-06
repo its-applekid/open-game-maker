@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "60fca825-e525-46ea-92c2-d436a29072f0",
+  "id": "c9d1a04f-e336-4f32-96fc-965213322b99",
   "prevId": "668d5392-b9ad-4c8b-a4f1-b7676fcc4659",
   "tables": {
     "app_meta": {
@@ -221,6 +221,53 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "game_slugs": {
+      "name": "game_slugs",
+      "columns": {
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "game_id": {
+          "name": "game_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "game_slugs_game_id_index": {
+          "name": "game_slugs_game_id_index",
+          "columns": ["game_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "game_slugs_game_id_games_id_fk": {
+          "name": "game_slugs_game_id_games_id_fk",
+          "tableFrom": "game_slugs",
+          "tableTo": "games",
+          "columnsFrom": ["game_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
     "games": {
       "name": "games",
       "columns": {
@@ -250,6 +297,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "slug": {
+          "name": "slug",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "visibility": {
@@ -341,6 +395,11 @@
           "name": "games_owner_id_index",
           "columns": ["owner_id"],
           "isUnique": false
+        },
+        "games_slug_unique": {
+          "name": "games_slug_unique",
+          "columns": ["slug"],
+          "isUnique": true
         }
       },
       "foreignKeys": {
@@ -5896,55 +5955,6 @@
         "releases_kind_check": {
           "name": "releases_kind_check",
           "value": "\"releases\".\"kind\" IN ('publish', 'rollback')"
-        }
-      }
-    },
-    "allowed_users": {
-      "name": "allowed_users",
-      "columns": {
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "added_by": {
-          "name": "added_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "added_at": {
-          "name": "added_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {
-        "allowed_users_added_at_index": {
-          "name": "allowed_users_added_at_index",
-          "columns": ["added_at"],
-          "isUnique": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {
-        "allowed_users_role_check": {
-          "name": "allowed_users_role_check",
-          "value": "\"allowed_users\".\"role\" IN ('player', 'maker', 'admin')"
         }
       }
     }

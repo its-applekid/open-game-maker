@@ -309,7 +309,7 @@ export function GameScreen() {
     } finally {
       clearRoomGrant();
       frameRef.current?.dispose();
-      void navigate('/games');
+      void navigate('/all');
     }
   }, [navigate, room.session]);
   const activateRoom = useCallback(
