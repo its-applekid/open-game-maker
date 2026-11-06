@@ -386,6 +386,21 @@
         "vertices": { "type": "integer", "minimum": 0 },
         "materials": { "type": "array", "items": { "type": "string" } },
         "texture_keys": { "type": "array", "items": { "type": "string" }, "description": "Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards." },
+        "texture_sizes": {
+          "type": "array",
+          "description": "Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB.",
+          "items": {
+            "type": "object",
+            "required": ["key", "width_px", "height_px"],
+            "properties": {
+              "key": { "type": "string" },
+              "width_px": { "type": "integer", "minimum": 1 },
+              "height_px": { "type": "integer", "minimum": 1 }
+            },
+            "additionalProperties": false
+          }
+        },
+        "max_texture_px": { "type": "integer", "minimum": 1, "description": "Largest texture dimension on this model: the number a device-tier texture cap is compared against." },
         "has_collision_mesh": { "type": "boolean" },
         "lod_count": { "type": "integer", "minimum": 0 },
         "normalized": { "type": "boolean", "description": "False until B11 normalization ran; bounds are then in source units." }
@@ -588,7 +603,8 @@
           },
           "additionalProperties": false
         },
-        "ucs_cat_id": { "type": "string", "pattern": "^[A-Z]{3,5}[A-Z][a-z]+$", "description": "Optional Universal Category System CatID (e.g. DOORWood), model-proposed, for SFX." }
+        "ucs_cat_id": { "type": "string", "pattern": "^[A-Z]{3,5}[A-Z][a-z]+$", "description": "Optional Universal Category System CatID (e.g. DOORWood), read from a UCS filename and otherwise model-proposed, for SFX." },
+        "variation_group": { "type": "string", "pattern": "^[a-z0-9][a-z0-9/-]*$", "maxLength": 120, "description": "The set a sound effect belongs to: its folder and name with the trailing variation number removed (weapons/sword-slice for Sword_Slice_01 and _02). Shared by every file of the set, so 'give me four sword impacts' is one group query. A file with no sibling carries no group." }
       },
       "additionalProperties": false
     },

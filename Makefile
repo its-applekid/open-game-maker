@@ -8,6 +8,9 @@ test: test-py
 
 test-py:
 	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I scripts/py/drive-sync/test_drive_sync.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I scripts/assets/test_check_glb.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I scripts/assets/test_set_critic.py
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) -I scripts/assets/test_smallscaleint_ui_audit.py
 	$(MAKE) py-compile
 
 test-py-models:

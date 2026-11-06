@@ -25,6 +25,16 @@ list it under unchecked.
 - Check the title, main play state, first action, HUD, and any changed scene or screen.
 - Treat the sheet as the source of truth. Do not infer appearance from scene objects or source code.
 
+## Judge a set as a set
+
+A set of assets is judged whole: one beautiful item beside an off-style one is a failed set. Score cohesion, reference
+fidelity, brief, mesh quality, texture quality, assembly (parts seated and connected, nothing hovering), scale (real
+size alone and relative to the others), and labels, most damaging problem first. Pass only with no category below 6 and
+an average of 7 or more; name at most five fixes. Put proportion in front of you with a to-scale lineup and a scale bar
+side by side, not a grid of thumbnails at unrelated scales. `python3 -I scripts/assets/set_critic.py` holds the bar,
+the fixes cap, the round cap and the deliverable gate; the rubric and the reason for each are in
+`docs/research/anykit-lessons-2026-11.md`.
+
 ## Binary visual checklist
 
 Copy this into the PR and answer every line from the sheet:
