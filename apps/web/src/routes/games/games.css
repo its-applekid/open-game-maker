@@ -232,7 +232,48 @@
 }
 
 .games-grid [role='gridcell'] {
+  position: relative;
   min-width: 0;
+}
+
+/* One icon control per game: the shareable `/play/<slug>` link, copied to the clipboard (ticket 513). */
+.game-copy {
+  position: absolute;
+  z-index: 4;
+  top: 16px;
+  right: 16px;
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 0;
+  border-radius: 999px;
+  background: var(--surface-deep);
+  color: var(--games-hi);
+  cursor: pointer;
+  transition:
+    opacity 0.3s var(--games-ease),
+    transform 0.3s var(--games-ease);
+}
+
+.game-copy:hover,
+.game-copy:focus-visible,
+.game-copy[data-copied='true'] {
+  transform: translateY(-2px);
+}
+
+.game-copy[data-copied='true'] {
+  color: var(--action-primary);
+}
+
+.game-copy .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* The building chip sits below the copy control so both stay legible on one tile. */
+.games-grid [role='gridcell'] .game-building-chip {
+  top: 60px;
 }
 
 .games-screen:not(.games-single-row) .games-grid [role='gridcell'].is-selected {

@@ -1,15 +1,16 @@
 import { z } from 'zod';
 
-import { base64Schema, bytesSchema, type Binary } from './binary.js';
 import { ClientMessageSchema, InputFrameSchema, LIMITS_V2, RoomStateSchema, ServerMessageSchema } from './room.js';
 
 /*
- * Protocol 2 (#497, N1 `docs/plans/netcode-platform.md` §7/§9.2/§9.3). A v2 room has a seat table,
- * teams, an epoch the room mints and a tick it derives from `startAt`; everything else is relayed
- * untouched. The room never reads `data`, `snapshot`, `events` or `frames`.
+ * Net protocol v2 (`docs/plans/netcode-platform.md` §4.4/§7/§9.2/§9.3). One contract family: the authority modes a
+ * manifest may declare, the wire messages of a per-seat match, the seat/start records the room hands each client,
+ * and the room's v2 control messages. `InputFrameSchema` is room.ts's, imported rather than copied: the frame the
+ * SDK emits is the frame the room validates, and a copy is a drift source (the copy rule in `bridge.ts` is about
+ * keeping engine packages free of room code, which does not apply inside this package).
  *
- * The emitted family is `net`, not `room.v2`: `scripts/check-fixtures.mjs` pairs an emitted schema with
- * `fixtures/<family>/<name>.json`, so a second `room.*` version would share v1's fixture (#497 §3.10).
+ * Binary payloads travel as base64 strings (`netData`), the form the bridge and the SDK codec already use, so the
+ * emitted JSON schemas validate the wire form directly.
  */
 
 const id = z.string().min(1);
@@ -20,8 +21,25 @@ const seatIndex = nonNegativeInt.max(LIMITS_V2.maxPlayersCeiling - 1);
 const teamIndex = nonNegativeInt.max(7);
 const uint32 = nonNegativeInt.max(4_294_967_295);
 const epochId = id;
-/** `'host' | 'per-seat' | …` — `AuthorityMode` from N1 §3.1, opaque to the room. */
-const authorityMode = z.string().min(1).max(32);
+const tick = nonNegativeInt;
+
+/** A base64 payload of at most `bytes`; the wire is JSON, so the cap is the encoded character count. */
+const netData = (bytes: number) => z.string().max(Math.ceil(bytes / 3) * 4);
+
+export const AUTHORITY_MODES = ['per-seat', 'host', 'rollback'] as const;
+export type AuthorityMode = (typeof AUTHORITY_MODES)[number];
+export const authorityModeSchema = z.enum(AUTHORITY_MODES);
+
+/** Absent means `'host'`, which keeps every build written before v2 on today's code path. */
+export const netManifestSchema = z.strictObject({
+  authority: authorityModeSchema.optional(),
+  maxSeats: z.number().int().min(1).max(LIMITS_V2.maxPlayersCeiling),
+  inputDelayTicks: z.number().int().min(2).max(8).optional(),
+  seatStateHz: z.number().int().min(1).max(30).optional(),
+  spectators: z.enum(['off', 'on']).optional(),
+  forfeit: z.enum(['continue', 'skip', 'surrender']).optional(),
+});
+export type NetManifest = z.infer<typeof netManifestSchema>;
 
 export const TeamPolicySchema = z.enum(['none', 'alternate']);
 export type TeamPolicy = z.infer<typeof TeamPolicySchema>;
@@ -31,26 +49,123 @@ export const RecoveryScopeSchema = z.enum(['shared', 'seat', 'events']);
 export const EventTargetSchema = z.enum(['all', 'seat', 'team']);
 export const SeatEventSchema = z.enum(['net.seat.online', 'net.seat.offline', 'net.seat.forfeit']);
 
-/** One row of the room's seat table. `userId: ''` means an unassigned seat; `seat` always equals its index. */
-export const SeatSchema = z
-  .object({
-    seat: seatIndex,
-    userId: z.string(),
-    name: z.string().max(40),
-    team: teamIndex,
-    connected: z.boolean(),
-    ready: z.boolean(),
-    forfeited: z.boolean(),
-  })
-  .strict();
-export type Seat = z.infer<typeof SeatSchema>;
+/**
+ * One row of the room's seat table, and the seat record `net.start`/`net.seats` carry. `userId: ''` marks an
+ * unassigned row in the room's own table; a seat handed to a client always names its user.
+ */
+export const netSeatSchema = z.strictObject({
+  seat: seatIndex,
+  userId: z.string().max(64),
+  name: z.string().max(40),
+  team: teamIndex,
+  connected: z.boolean(),
+  ready: z.boolean(),
+  forfeited: z.boolean(),
+  spectator: z.boolean(),
+});
+export type NetSeat = z.infer<typeof netSeatSchema>;
+
+export type NetTime = { serverMs: number; tick: number; offsetMs: number; rttMs: number; jitterMs: number };
+
+/** Client → room → peers: the sender's frames for the last `redundancy` ticks. */
+export const netInputsPayloadSchema = z.strictObject({
+  epoch: epochId,
+  seat: seatIndex,
+  firstTick: tick,
+  frames: z.array(InputFrameSchema).min(1).max(LIMITS_V2.inputFramesPerMessage),
+});
+export type NetInputsPayload = z.infer<typeof netInputsPayloadSchema>;
+
+/** A seat's owned-state slice, or a filtered copy addressed to one recipient. */
+export const netStatePayloadSchema = z.strictObject({
+  epoch: epochId,
+  seat: seatIndex,
+  seq: tick,
+  tick,
+  to: seatIndex.optional(),
+  data: netData(LIMITS_V2.stateBytes),
+});
+export type NetStatePayload = z.infer<typeof netStatePayloadSchema>;
+
+/** A routed event: the room reads the header and never the payload. */
+export const netEventPayloadSchema = z.strictObject({
+  epoch: epochId,
+  id: eventId,
+  seq: nonNegativeInt,
+  from: seatIndex,
+  target: EventTargetSchema,
+  to: seatIndex.optional(),
+  team: teamIndex.optional(),
+  round: nonNegativeInt.optional(),
+  data: netData(LIMITS_V2.eventBytes),
+});
+export type NetEventPayload = z.infer<typeof netEventPayloadSchema>;
+
+export const netChecksumPayloadSchema = z.strictObject({
+  epoch: epochId,
+  scope: ChecksumScopeSchema,
+  tick,
+  sum: uint32,
+});
+export type NetChecksumPayload = z.infer<typeof netChecksumPayloadSchema>;
+
+export const netRecoveryRequestPayloadSchema = z.strictObject({
+  epoch: epochId,
+  scope: RecoveryScopeSchema,
+  tick,
+  seat: seatIndex.optional(),
+});
+export type NetRecoveryRequestPayload = z.infer<typeof netRecoveryRequestPayloadSchema>;
+
+/** An answer from the arbiter. `to` addresses a filtered `seat`-scope answer to the seat that asked. */
+export const netRecoveryPayloadSchema = z.strictObject({
+  epoch: epochId,
+  scope: RecoveryScopeSchema,
+  tick,
+  seat: seatIndex.optional(),
+  to: seatIndex.optional(),
+  snapshot: netData(LIMITS_V2.recoveryBytes).optional(),
+  events: netData(LIMITS_V2.recoveryBytes).optional(),
+});
+export type NetRecoveryPayload = z.infer<typeof netRecoveryPayloadSchema>;
+
+export const netSignalPayloadSchema = z.strictObject({
+  epoch: epochId,
+  to: seatIndex,
+  data: netData(LIMITS_V2.signalBytes),
+});
+export type NetSignalPayload = z.infer<typeof netSignalPayloadSchema>;
+
+/** The room's `net.start`: the epoch, the authority mode, tick 0's server time and every seat. */
+export const netStartSchema = z.strictObject({
+  epoch: epochId,
+  mode: authorityModeSchema,
+  startAt: nonNegativeInt,
+  seed: uint32,
+  primarySeat: seatIndex,
+  seats: z.array(netSeatSchema).min(1).max(LIMITS_V2.maxPlayersCeiling),
+  /** Present only in the per-seat copy of `net.start`. */
+  privateSeed: uint32.optional(),
+});
+export type NetStart = z.infer<typeof netStartSchema>;
+
+/** `welcome.you`; `seat` is `null` and `playerIndex` `-1` for a spectator. */
+export const NetWelcomeYouSchema = z.strictObject({
+  userId: id,
+  seat: seatIndex.nullable(),
+  playerIndex: int,
+  sessionId: id,
+  spectator: z.boolean(),
+  team: teamIndex,
+});
+export type NetWelcomeYou = z.infer<typeof NetWelcomeYouSchema>;
 
 /**
- * A v2 `welcome.state`. `RoomStateSchema` is `.strict()` and is what the web validates `welcome.state`
- * with, so a v2 room needs its own shape or the client drops the welcome silently (#497 §3.10 trap 2).
+ * A v2 `welcome.state`. `RoomStateSchema` is `.strict()` and is what the web validates `welcome.state` with, so a
+ * v2 room needs its own shape or the client drops the welcome silently (#497 §3.10 trap 2).
  */
 export const RoomStateV2Schema = RoomStateSchema.extend({
-  seats: z.array(SeatSchema).max(LIMITS_V2.maxPlayersCeiling),
+  seats: z.array(netSeatSchema).max(LIMITS_V2.maxPlayersCeiling),
   spectators: z.array(id),
   epoch: z.string(),
   startAt: nonNegativeInt,
@@ -61,143 +176,83 @@ export const RoomStateV2Schema = RoomStateSchema.extend({
 }).strict();
 export type RoomStateV2 = z.infer<typeof RoomStateV2Schema>;
 
-/** `welcome.you`; `seat` is `null` and `playerIndex` `-1` for a spectator. */
-export const NetWelcomeYouSchema = z
-  .object({
-    userId: id,
-    seat: seatIndex.nullable(),
-    playerIndex: int,
-    sessionId: id,
-    spectator: z.boolean(),
-    team: teamIndex,
-  })
-  .strict();
-
-export const NetStartSchema = z
-  .object({
-    t: z.literal('net.start'),
-    epoch: epochId,
-    mode: authorityMode,
-    startAt: nonNegativeInt,
-    seed: uint32,
-    primarySeat: seatIndex,
-    seats: z.array(SeatSchema).max(LIMITS_V2.maxPlayersCeiling),
-    privateSeed: uint32.optional(),
-  })
-  .strict();
-
-function netMessageSchemas<B extends Binary>(binary: B) {
-  const data = (maxBytes: number) => binary(maxBytes) as ReturnType<B>;
-  const msg = <T extends string, S extends z.ZodRawShape>(t: T, shape: S) =>
-    z.object({ t: z.literal(t), ...shape }).strict();
-  const seatEvent = msg('net.seat', { event: SeatEventSchema, epoch: epochId, seat: seatIndex });
-  const relayed = {
-    inputs: msg('net.inputs', {
-      epoch: epochId,
-      seat: seatIndex,
-      firstTick: nonNegativeInt,
-      frames: z.array(InputFrameSchema).min(1).max(LIMITS_V2.inputFramesPerMessage),
-    }),
-    state: msg('net.state', {
-      epoch: epochId,
-      seat: seatIndex,
-      seq: nonNegativeInt,
-      tick: nonNegativeInt,
-      data: data(LIMITS_V2.stateBytes),
-    }),
-    event: msg('net.event', {
-      epoch: epochId,
-      id: eventId,
-      seq: nonNegativeInt,
-      from: seatIndex,
-      target: EventTargetSchema,
-      to: seatIndex.optional(),
-      team: teamIndex.optional(),
-      round: nonNegativeInt.optional(),
-      data: data(LIMITS_V2.eventBytes),
-    }),
-    checksum: msg('net.checksum', { epoch: epochId, scope: ChecksumScopeSchema, tick: nonNegativeInt, sum: uint32 }),
-    signal: msg('net.signal', { epoch: epochId, to: seatIndex, data: data(LIMITS_V2.signalBytes) }),
-    recovery: msg('net.recovery', {
-      epoch: epochId,
-      scope: RecoveryScopeSchema,
-      tick: nonNegativeInt,
-      seat: seatIndex.optional(),
-      snapshot: data(LIMITS_V2.stateBytes).optional(),
-      events: data(LIMITS_V2.recoveryBytes).optional(),
-    }),
-    recoveryRequest: msg('net.recovery.request', {
-      epoch: epochId,
-      scope: RecoveryScopeSchema,
-      tick: nonNegativeInt,
-      seat: seatIndex.optional(),
-    }),
-  };
-
-  return {
-    client: z.discriminatedUnion('t', [
-      relayed.inputs,
-      relayed.state,
-      relayed.event,
-      relayed.checksum,
-      relayed.recoveryRequest,
-      relayed.recovery,
-      relayed.signal,
-      msg('net.ready', { ready: z.boolean() }),
-      msg('net.start.request', { force: z.boolean().optional() }),
-      msg('net.end.request', { epoch: epochId }),
-      msg('net.seat.request', { seat: seatIndex }),
-    ]),
-    server: z.discriminatedUnion('t', [
-      msg('welcome', { you: NetWelcomeYouSchema, epoch: epochId.optional(), state: RoomStateV2Schema }),
-      NetStartSchema,
-      msg('net.start.cancel', { reason: z.enum(['seat-offline', 'not-ready']) }),
-      msg('net.tick', { epoch: epochId, serverTime: nonNegativeInt, tick: nonNegativeInt }),
-      msg('net.primary', { epoch: epochId, seat: seatIndex }),
-      msg('net.seats', {
-        epoch: z.string(),
-        seats: z.array(SeatSchema).max(LIMITS_V2.maxPlayersCeiling),
-        spectators: z.array(id),
-      }),
-      seatEvent,
-      msg('net.pause', { epoch: epochId, tick: nonNegativeInt, startAt: nonNegativeInt }),
-      msg('net.resume', { epoch: epochId, tick: nonNegativeInt, startAt: nonNegativeInt }),
-      msg('net.epoch.end', { epoch: epochId, tick: nonNegativeInt }),
-      relayed.inputs,
-      relayed.state,
-      relayed.event,
-      relayed.checksum,
-      relayed.signal,
-      relayed.recovery,
-      msg('ended', { reason: z.enum(['host-left', 'owner-closed', 'idle', 'revoked', 'abandoned']) }),
-    ]),
-  };
-}
-
-const wire = netMessageSchemas(bytesSchema);
-const json = netMessageSchemas(base64Schema);
+const netStartMessageSchema = netStartSchema.extend({ t: z.literal('net.start') });
 
 /** Client → room, protocol 2. */
-export const NetClientMessageSchema = wire.client;
+export const NetClientMessageSchema = z.discriminatedUnion('t', [
+  netInputsPayloadSchema.extend({ t: z.literal('net.inputs') }),
+  netStatePayloadSchema.extend({ t: z.literal('net.state') }),
+  netEventPayloadSchema.extend({ t: z.literal('net.event') }),
+  netChecksumPayloadSchema.extend({ t: z.literal('net.checksum') }),
+  netRecoveryRequestPayloadSchema.extend({ t: z.literal('net.recovery.request') }),
+  netRecoveryPayloadSchema.extend({ t: z.literal('net.recovery') }),
+  netSignalPayloadSchema.extend({ t: z.literal('net.signal') }),
+  z.strictObject({ t: z.literal('net.ready'), ready: z.boolean() }),
+  z.strictObject({ t: z.literal('net.start.request'), force: z.boolean().optional() }),
+  z.strictObject({ t: z.literal('net.end.request'), epoch: epochId }),
+  z.strictObject({ t: z.literal('net.seat.request'), seat: seatIndex }),
+]);
 export type NetClientMessage = z.infer<typeof NetClientMessageSchema>;
+
 /** Room → client, protocol 2. */
-export const NetServerMessageSchema = wire.server;
+export const NetServerMessageSchema = z.discriminatedUnion('t', [
+  z.strictObject({
+    t: z.literal('welcome'),
+    you: NetWelcomeYouSchema,
+    epoch: epochId.optional(),
+    state: RoomStateV2Schema,
+  }),
+  netStartMessageSchema,
+  z.strictObject({ t: z.literal('net.start.cancel'), reason: z.enum(['seat-offline', 'not-ready']) }),
+  z.strictObject({ t: z.literal('net.tick'), epoch: epochId, serverTime: nonNegativeInt, tick }),
+  z.strictObject({ t: z.literal('net.primary'), epoch: epochId, seat: seatIndex }),
+  z.strictObject({
+    t: z.literal('net.seats'),
+    epoch: epochId,
+    seats: z.array(netSeatSchema).max(LIMITS_V2.maxPlayersCeiling),
+    spectators: z.array(id),
+  }),
+  z.strictObject({ t: z.literal('net.seat'), event: SeatEventSchema, epoch: epochId, seat: seatIndex }),
+  z.strictObject({ t: z.literal('net.pause'), epoch: epochId, tick, startAt: nonNegativeInt }),
+  z.strictObject({ t: z.literal('net.resume'), epoch: epochId, tick, startAt: nonNegativeInt }),
+  z.strictObject({ t: z.literal('net.epoch.end'), epoch: epochId, tick }),
+  netInputsPayloadSchema.extend({ t: z.literal('net.inputs') }),
+  netStatePayloadSchema.extend({ t: z.literal('net.state') }),
+  netEventPayloadSchema.extend({ t: z.literal('net.event') }),
+  netChecksumPayloadSchema.extend({ t: z.literal('net.checksum') }),
+  netSignalPayloadSchema.extend({ t: z.literal('net.signal') }),
+  netRecoveryPayloadSchema.extend({ t: z.literal('net.recovery') }),
+  z.strictObject({
+    t: z.literal('ended'),
+    reason: z.enum(['host-left', 'owner-closed', 'idle', 'revoked', 'abandoned']),
+  }),
+]);
 export type NetServerMessage = z.infer<typeof NetServerMessageSchema>;
 
-export const NetClientMessageJsonSchema = json.client;
-export const NetServerMessageJsonSchema = json.server;
+/** The relayed batch the SDK packs: one array of net messages, capped. */
+export const netMessageSchema = z.discriminatedUnion('t', [
+  netInputsPayloadSchema.extend({ t: z.literal('net.inputs') }),
+  netStatePayloadSchema.extend({ t: z.literal('net.state') }),
+  netChecksumPayloadSchema.extend({ t: z.literal('net.checksum') }),
+  netRecoveryRequestPayloadSchema.extend({ t: z.literal('net.recovery.request') }),
+  netRecoveryPayloadSchema.extend({ t: z.literal('net.recovery') }),
+]);
+export type NetMessage = z.infer<typeof netMessageSchema>;
 
-/** Either protocol's client messages: the room's single validation call (v1 ∪ v2). */
+export const netMessagesSchema = z.array(netMessageSchema).max(LIMITS_V2.maxBatchMessages);
+
 export const netSchemas = {
-  'net.client-messages.v1': z.array(NetClientMessageJsonSchema),
-  'net.server-messages.v1': z.array(NetServerMessageJsonSchema),
-  'net.room-state.v1': RoomStateV2Schema,
-  'net.start.v1': NetStartSchema,
+  'net.client-messages.v2': z.array(NetClientMessageSchema),
+  'net.server-messages.v2': z.array(NetServerMessageSchema),
+  'net.room-state.v2': RoomStateV2Schema,
+  'net.messages.v2': netMessagesSchema,
+  'net.seat.v2': netSeatSchema,
+  'net.start.v2': netStartSchema,
 } satisfies Record<string, z.ZodType>;
 
 /**
- * One room serves one protocol, but the process serves both: the handler, the bridge and the web
- * client each validate with one schema over the union of the shipped v1 shapes and the v2 family.
+ * One room serves one protocol, but the process serves both: the handler, the bridge and the web client each
+ * validate with one schema over the union of the shipped v1 shapes and the v2 family.
  */
 export const RoomClientMessageSchema = z.union([ClientMessageSchema, NetClientMessageSchema]);
 export type RoomClientMessage = z.infer<typeof RoomClientMessageSchema>;

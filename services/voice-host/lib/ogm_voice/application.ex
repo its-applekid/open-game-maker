@@ -12,17 +12,23 @@ defmodule OgmVoice.Application do
   @spec children(OgmVoice.Config.t()) :: [Supervisor.child_spec() | {module(), term()}]
   def children(%OgmVoice.Config{} = config) do
     :ok = OgmVoice.TokenIssuer.install(config.token_secret)
+    :ok = OgmVoice.Ports.CommandSource.install(config.api_internal_url, config.internal_secret)
     :ok = File.mkdir_p(config.render_dir)
     :ok = File.chmod(config.render_dir, 0o700)
 
     [
       OgmVoice.Cache,
+      OgmVoice.DictationLeases,
       {OgmVoice.Delivery, api_url: config.api_internal_url, secret: config.internal_secret},
-      {OgmVoice.NoCleanup, OgmVoice.Config.instance()},
+      {OgmVoice.TranscriptDelivery, api_url: config.api_internal_url, secret: config.internal_secret},
       VoiceConverse.child_spec(OgmVoice.Config.voice_converse(config)),
       Supervisor.child_spec(
         {Bandit,
-         plug: {OgmVoice.Transport, instance: OgmVoice.Config.instance(), token_issuer: OgmVoice.TokenIssuer},
+         plug:
+           {OgmVoice.Transport,
+            instance: OgmVoice.Config.instance(),
+            token_issuer: OgmVoice.TokenIssuer,
+            dictation: OgmVoice.Config.dictation(config)},
          scheme: :http,
          ip: {127, 0, 0, 1},
          port: config.port,

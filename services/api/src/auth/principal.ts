@@ -2,7 +2,6 @@ import type { Principal } from '@ogm/contracts';
 import type { Sqlite } from '@ogm/db';
 
 import type { Resolver } from '../app/registry.js';
-import { emailIsAllowed } from './access.js';
 import type { Auth } from './auth.js';
 
 type Membership = { family_id: string; role: string; capability: string };
@@ -22,24 +21,29 @@ export function sessionDisplayName(name: string, email: string): string {
   return trimmed && trimmed.toLowerCase() !== email.trim().toLowerCase() ? trimmed : FALLBACK_DISPLAY_NAME;
 }
 
-// A session cookie or `Authorization: Bearer <session token>` (bearer plugin) becomes a `user`.
+export type RoleLookup = (email: string) => 'player' | 'maker' | 'admin' | null;
+
+// A session cookie or `Authorization: Bearer <session token>` (bearer plugin) becomes a `user`. The
+// allow list decides whether the address may sign in at all and which role it holds; the family
+// still supplies the games it can see. `maintainers` is the operator's break-glass set from
+// `OGM_MAINTAINER_EMAILS`, kept as its own audited platform role.
 export function sessionResolver(
   auth: Auth,
   sqlite: Sqlite,
-  allowedEmails: ReadonlySet<string>,
-  maintainers: ReadonlySet<string>,
+  roleFor: RoleLookup,
+  maintainers: ReadonlySet<string> = new Set(),
 ): Resolver {
   return async (c) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) return null;
-    if (!emailIsAllowed(session.user.email, allowedEmails)) return null;
+    const email = session.user.email.trim().toLowerCase();
+    const role = roleFor(email);
+    if (role === null) return null;
 
     const member = membership(sqlite, session.user.id);
-    const platformRole: Extract<Principal, { kind: 'user' }>['platformRole'] = maintainers.has(
-      session.user.email.toLowerCase(),
-    )
+    const platformRole: Extract<Principal, { kind: 'user' }>['platformRole'] = maintainers.has(email)
       ? 'maintainer'
-      : member?.role === 'owner' || member?.role === 'admin'
+      : role === 'admin'
         ? 'admin'
         : 'none';
     return {
@@ -48,7 +52,7 @@ export function sessionResolver(
       displayName: sessionDisplayName(session.user.name, session.user.email),
       familyId: member?.family_id ?? '',
       platformRole,
-      capability: member?.capability === 'creator' ? 'creator' : 'player',
+      capability: role === 'player' ? 'player' : 'creator',
     };
   };
 }

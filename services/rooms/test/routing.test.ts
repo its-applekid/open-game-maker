@@ -23,7 +23,7 @@ const event = (overrides: Partial<Extract<NetClientMessage, { t: 'net.event' }>>
     seq: 1,
     from: 0,
     target: 'all',
-    data: new Uint8Array([1]),
+    data: 'AQ==',
     ...overrides,
   }) as NetClientMessage;
 
@@ -74,7 +74,7 @@ describe('routing', () => {
     } as NetClientMessage;
     expect(route(inputs, 1).sessions.sort()).toEqual(['s0', 's2', 's3']);
 
-    const state = { t: 'net.state', epoch, seat: 1, seq: 2, tick: 5, data: new Uint8Array([1]) } as NetClientMessage;
+    const state = { t: 'net.state', epoch, seat: 1, seq: 2, tick: 5, data: 'AQ==' } as NetClientMessage;
     expect(route(state, 1).sessions.sort()).toEqual(['s0', 's2', 's3']);
 
     const checksum = { t: 'net.checksum', epoch, scope: 'shared', tick: 5, sum: 1 } as NetClientMessage;
@@ -88,8 +88,6 @@ describe('routing', () => {
     expect(
       route({ t: 'net.recovery.request', epoch, scope: 'events', tick: 9, seat: 3 } as NetClientMessage, 1).sessions,
     ).toEqual(['s3']);
-    expect(route({ t: 'net.signal', epoch, to: 3, data: new Uint8Array([1]) } as NetClientMessage, 0).sessions).toEqual(
-      ['s3'],
-    );
+    expect(route({ t: 'net.signal', epoch, to: 3, data: 'AQ==' } as NetClientMessage, 0).sessions).toEqual(['s3']);
   });
 });

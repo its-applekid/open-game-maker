@@ -58,6 +58,8 @@ export const LIMITS_V2 = {
   startLeadMs: 1_000,
   /** Per-sender sequence window the client-side inbox keeps for gap detection. */
   eventHistory: 256,
+  /** Most net messages one relayed batch may carry. */
+  maxBatchMessages: 32,
 } as const;
 
 /** Simulation rate the epoch mapping converts milliseconds into ticks with (a constant, never a loop). */

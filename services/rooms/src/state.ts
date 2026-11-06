@@ -100,6 +100,7 @@ export const SeatState = schema(
     connected: t.boolean().default(false),
     ready: t.boolean().default(false),
     forfeited: t.boolean().default(false),
+    spectator: t.boolean().default(false),
   },
   'SeatState',
 );

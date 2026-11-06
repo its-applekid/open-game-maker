@@ -6,6 +6,7 @@ import {
   PROTOCOL_VERSION,
   type ClientMessage,
   type JoinOptions,
+  type Phase,
   type RoomPin,
   type ServerMessage,
 } from '@ogm/contracts/browser';
@@ -50,6 +51,8 @@ export type RoomClientOptions = {
   fetchGrant?: (roomId: string) => Promise<RoomGrant>;
   clientFactory?: (roomsUrl: string) => ClientTransport;
   now?: () => number;
+  /** Ping cadence by phase; the relay transport reads these pongs. 1 Hz while playing, 5 s otherwise by default. */
+  pingIntervalMs?: (phase?: Phase) => number;
 };
 
 const encoder = new TextEncoder();
@@ -62,6 +65,7 @@ export class RoomClient {
   private readonly transport: ClientTransport;
   private readonly fetchGrant: (roomId: string) => Promise<RoomGrant>;
   private readonly now: () => number;
+  private readonly pingInterval: (phase?: Phase) => number;
   private readonly listeners = new Set<ServerMessageListener>();
   private readonly receivedMessages: ServerMessage[] = [];
   private readonly warned = new Set<ClientMessage['t']>();
@@ -69,7 +73,8 @@ export class RoomClient {
   private credentials?: JoinRoom;
   private roomCleanup: Array<() => void> = [];
   private grantTimer?: ReturnType<typeof setTimeout>;
-  private pingTimer?: ReturnType<typeof setInterval>;
+  private pingTimer?: ReturnType<typeof setTimeout>;
+  private pingPhaseUnsubscribe?: () => void;
   private refreshInFlight?: { operationId: number; promise: Promise<boolean> };
   private consentedLeave = false;
   private reconnectingOperationId?: number;
@@ -82,6 +87,7 @@ export class RoomClient {
       options.clientFactory?.(options.roomsUrl) ?? (new ColyseusClient(options.roomsUrl) as unknown as ClientTransport);
     this.fetchGrant = options.fetchGrant ?? fetchRoomGrant;
     this.now = options.now ?? Date.now;
+    this.pingInterval = options.pingIntervalMs ?? defaultPingInterval;
     this.store.getState().bind(this);
   }
 
@@ -318,14 +324,33 @@ export class RoomClient {
 
   private startPing(): void {
     if (this.pingTimer !== undefined) return;
-    this.pingTimer = setInterval(() => this.send({ t: 'ping', c: this.now() }), 5_000);
+    this.schedulePing();
+    this.pingPhaseUnsubscribe = this.store.subscribe((next, previous) => {
+      if (next.phase !== previous.phase) this.schedulePing();
+    });
+  }
+
+  /**
+   * A chained timeout rather than an interval, so the cadence follows the phase: the transport estimator needs samples
+   * at 1 Hz while a match runs, and the room's own `ping` bucket (10/s) is far above four seats at that rate.
+   */
+  private schedulePing(): void {
+    if (this.pingTimer !== undefined) clearTimeout(this.pingTimer);
+    const delay = this.pingInterval(this.store.getState().phase);
+    this.pingTimer = setTimeout(() => {
+      this.pingTimer = undefined;
+      this.send({ t: 'ping', c: this.now() });
+      this.schedulePing();
+    }, delay);
   }
 
   private clearTimers(): void {
     if (this.grantTimer !== undefined) clearTimeout(this.grantTimer);
-    if (this.pingTimer !== undefined) clearInterval(this.pingTimer);
+    if (this.pingTimer !== undefined) clearTimeout(this.pingTimer);
     this.grantTimer = undefined;
     this.pingTimer = undefined;
+    this.pingPhaseUnsubscribe?.();
+    this.pingPhaseUnsubscribe = undefined;
   }
 
   private warnOnce(type: ClientMessage['t']): void {
@@ -375,6 +400,10 @@ function exceedsClientLimit(message: ClientMessage): boolean {
     default:
       return false;
   }
+}
+
+function defaultPingInterval(phase?: Phase): number {
+  return phase === 'playing' ? 1_000 : 5_000;
 }
 
 function asEpochMs(expiresAt: number): number {

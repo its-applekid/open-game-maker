@@ -1,0 +1,10 @@
+{
+  "seat": 1,
+  "userId": "user-42",
+  "name": "Robin",
+  "team": 0,
+  "connected": true,
+  "ready": true,
+  "forfeited": false,
+  "spectator": false
+}

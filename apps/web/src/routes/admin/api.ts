@@ -5,6 +5,7 @@ import type { BuildTimeline, Rollup } from '@ogm/contracts';
 import { queryClient } from '../../app/query';
 import { api, ApiError } from '../../lib/api/client';
 import type {
+  AdminAllowedUser,
   AdminBudget,
   AdminBuild,
   AdminBuildData,
@@ -21,6 +22,7 @@ export const adminKeys = {
   me: () => ['admin', 'me'] as const,
   members: () => ['admin', 'members'] as const,
   invites: () => ['admin', 'invites'] as const,
+  users: () => ['admin', 'users'] as const,
   settings: () => ['admin', 'settings'] as const,
   budget: () => ['admin', 'budget'] as const,
   games: () => ['admin', 'games'] as const,
@@ -53,6 +55,14 @@ export function useMembers() {
   return useQuery({
     queryKey: adminKeys.members(),
     queryFn: () => adminRequest<{ members: AdminMember[] }>('/admin/members'),
+    retry: false,
+  });
+}
+
+export function useAllowedUsers() {
+  return useQuery({
+    queryKey: adminKeys.users(),
+    queryFn: () => adminRequest<{ users: AdminAllowedUser[] }>('/admin/users'),
     retry: false,
   });
 }

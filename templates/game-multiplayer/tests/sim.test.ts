@@ -1,14 +1,19 @@
-import type { HostApi, Patch } from '@ogm/contracts';
+import type { HostApi, MultiplayerHooksV2, Patch } from '@ogm/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
+import { toUnits } from '@gm/sdk/net';
 import { connectPhaserLifecycle, defaultDesign, game, getGameContext } from '../src/game.js';
 import gmManifest from '../gm.manifest.json' with { type: 'json' };
 import { hud } from '../src/hud.js';
 import {
   addPlayer,
   applyInput,
+  captureOwned,
+  captureShared,
   createSimulation,
+  digestSimulation,
   playerId,
+  restoreOwned,
   serializeSimulation,
   spawns,
   stepSimulation,
@@ -191,5 +196,110 @@ describe('2D game module', () => {
 
     expect(instance.pick?.(0, 0)).toEqual([{ id: 'plat_1', kind: 'entity' }]);
     expect(instance.worldToScreen?.('plat_1')).toEqual({ x: 300, y: 270 });
+  });
+});
+
+describe('per-seat authority hooks', () => {
+  const manifest = gmManifest as { net?: { authority?: string; maxSeats?: number } };
+
+  it('declares per-seat authority for four seats', () => {
+    expect(manifest.net).toEqual({ authority: 'per-seat', maxSeats: 4 });
+    expect(game.manifest.net?.authority).toBe('per-seat');
+  });
+
+  it('gives two simulations fed the same 600 frames equal digests', () => {
+    const frames = Array.from({ length: 600 }, (_value, index) => ({
+      playerIndex: index % 2,
+      tick: index,
+      source: 'network' as const,
+      actions: { move: index % 5 === 0 ? 1 : -1, jump: index % 40 === 0 },
+    }));
+    const run = () => {
+      const state = createSimulation(defaultDesign);
+      addPlayer(state, 1, playerId(1));
+      for (const frame of frames) {
+        applyInput(state, frame.playerIndex, frame);
+        stepSimulation(state, defaultDesign, 1 / 60);
+      }
+      return digestSimulation(state, toUnits);
+    };
+
+    const first = run();
+    expect(run()).toEqual(first);
+    expect(first[0]).toBe(toUnits(600));
+    expect(first.length).toBeGreaterThan(3);
+  });
+
+  it('changes the digest when one avatar moves by one 1/256 unit', async () => {
+    const instance = await game.mount({} as HostApi, defaultDesign);
+    const hooks = instance.net as MultiplayerHooksV2;
+    hooks.spawn(1, playerId(1));
+    const before = hooks.digest!();
+    const owned = hooks.capture!({ seat: 0 });
+    const slice = owned.state as { seat: number; player: { p: [number, number] } };
+    slice.player.p[0] += 1 / 256;
+    hooks.restore!({ tick: owned.tick, state: slice });
+
+    expect(hooks.digest!()).not.toEqual(before);
+  });
+
+  it('keeps the shared digest independent of any seat position', async () => {
+    const state = createSimulation(defaultDesign);
+    addPlayer(state, 1, playerId(1));
+    const shared = digestSimulation({ ...state, tick: 0, players: new Map() }, toUnits);
+    const moved = createSimulation(defaultDesign);
+    const player = moved.players.get(0)!;
+    player.p[0] += 100;
+    expect(digestSimulation({ ...moved, players: new Map() }, toUnits)).toEqual(shared);
+    expect(captureShared(state).platforms.length).toBeGreaterThan(0);
+  });
+
+  it('withholds the private counter from every recipient but its owner, and never from the digest contract', async () => {
+    const instance = await game.mount({} as HostApi, defaultDesign);
+    const hooks = instance.net as MultiplayerHooksV2;
+    hooks.spawn(1, playerId(1));
+    const state = getGameContext().state;
+    state.players.get(1)!.secret = 7;
+
+    // Seat 1 is this client: its own slice carries the counter, and a payload for seat 0 does not.
+    getGameContext().localPlayerIndex = 1;
+    const own = hooks.view!(1) as { state: { player: { secret: number; p: [number, number] } } };
+    const forOther = hooks.view!(0) as { state: { player: Record<string, unknown> } };
+    expect(own.state.player.secret).toBe(7);
+    expect(forOther.state.player).not.toHaveProperty('secret');
+    expect(forOther.state.player.p).toEqual(own.state.player.p);
+
+    // A private change must not move `digest()`: two seats exchanging sums could otherwise read it as an oracle.
+    const before = hooks.digest!();
+    state.players.get(1)!.secret += 1;
+    expect(hooks.digest!()).toEqual(before);
+    state.players.get(1)!.p[0] += 1 / 256;
+    expect(hooks.digest!()).not.toEqual(before);
+  });
+
+  it('restores exactly the slice it is given', () => {
+    const state = createSimulation(defaultDesign);
+    addPlayer(state, 1, playerId(1));
+    const owned = captureOwned(state, 1)!;
+    state.players.get(1)!.p[0] = 5;
+    restoreOwned(state, owned);
+    expect(state.players.get(1)!.p[0]).toBe(owned.player.p[0]);
+    expect(state.players.get(0)!.p[0]).not.toBe(owned.player.p[0]);
+  });
+
+  it('merges a redacted slice instead of zeroing what it omits', () => {
+    // A slice produced for another seat has no `secret`; restoring it must keep this client's own value rather than
+    // rebuilding the avatar without it (§3.7).
+    const state = createSimulation(defaultDesign);
+    addPlayer(state, 1, playerId(1));
+    const player = state.players.get(1)!;
+    player.secret = 3;
+    const visible = { ...player };
+    delete (visible as Partial<typeof player>).secret;
+    restoreOwned(state, { seat: 1, player: visible });
+
+    expect(state.players.get(1)!.secret).toBe(3);
+    expect(state.players.get(1)!.p).toEqual(player.p);
+    expect(state.players.get(0)).toBeDefined();
   });
 });

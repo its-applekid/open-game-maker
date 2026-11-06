@@ -10,8 +10,14 @@ Env (through `@ogm/config`): `OGM_API_PORT`, `OGM_ANALYTICS_RETENTION_DAYS` (def
 context adds `OGM_APP_ORIGIN`, `OGM_SESSION_SECRET`, `OGM_WS_TOKEN_SECRET` and the optional
 `OGM_ALLOWED_EMAILS`, `OGM_MAINTAINER_EMAILS`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `SMTP_URL`, `SMTP_FROM` (see
 `docs/ops/netlify-proxy.md`). Room lifecycle calls add `OGM_ROOMS_INTERNAL_URL` and `OGM_ROOMS_INTERNAL_SECRET`.
-`OGM_ALLOWED_EMAILS` is a trimmed, case-insensitive comma-separated sign-in allow-list. Maintainers are always
-admitted; leaving the allow-list empty admits maintainers only and logs one warning at API startup.
+The sign-in allow list lives in the `allowed_users` table (lowercase email, `player` / `maker` / `admin` role,
+who added it, when) and admins manage it at `/admin/users`. `OGM_ALLOWED_EMAILS` and `OGM_MAINTAINER_EMAILS` are
+read once, on the first start after this table exists: the allowed addresses become `maker` rows and the
+maintainers become `admin` rows. After that the database is the source of truth, so editing the env lists changes
+nothing and an empty table admits nobody (one `auth-allow-list-empty` warning at startup).
+`OGM_MAINTAINER_EMAILS` also stays a break-glass platform role read from the environment on every boot.
+Roles reach the API as `capability` (a `player` cannot create or edit) and `platformRole` (`admin` manages users),
+never as hidden buttons.
 The API also reads `OGM_COMMIT_INTERNAL_URL`, `OGM_COMMIT_SERVICE_TOKEN`, `OGM_GAME_TEMPLATE_REF` (defaults to
 `game-2d@1`), `OGM_VAPID_KEY_FILE`, `OGM_VAPID_SUBJECT`, `OGM_BUILDER_WORKSPACES_ROOT` (optional), and
 `OGM_CHAT_POLL_MS` (default `10000`), and `OGM_CHECKPOINT_POLL_MS` (default `5000`).

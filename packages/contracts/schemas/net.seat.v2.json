@@ -1,0 +1,48 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "seat": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7
+    },
+    "userId": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "name": {
+      "type": "string",
+      "maxLength": 40
+    },
+    "team": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 7
+    },
+    "connected": {
+      "type": "boolean"
+    },
+    "ready": {
+      "type": "boolean"
+    },
+    "forfeited": {
+      "type": "boolean"
+    },
+    "spectator": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "seat",
+    "userId",
+    "name",
+    "team",
+    "connected",
+    "ready",
+    "forfeited",
+    "spectator"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/net.seat.v2.json"
+}

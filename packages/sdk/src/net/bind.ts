@@ -11,10 +11,23 @@ export interface LocalPlayerBindingOptions {
   onFrame(callback: () => void): () => void;
 }
 
+/**
+ * Bind the camera rig and the HUD to *this* client's seat (netcode §5.1, §8.1).
+ *
+ * A spectator (`localSeat === null`) holds no seat: it attaches no camera and asks for no HUD, because there is no
+ * seat whose private slice it could draw. Both callbacks read the seat at call time, so a client that learns it is
+ * spectating when `net.start` arrives stops attaching without being rebound.
+ */
 export function bindLocalPlayer(net: GmNet, options: LocalPlayerBindingOptions): () => void {
-  const refreshHud = () => options.updateHud(options.hud(net.localPlayerIndex));
+  const refreshHud = () => {
+    const seat = net.localSeat;
+    if (seat === null) return;
+    options.updateHud(options.hud(seat));
+  };
   const refreshBinding = () => {
-    options.rig.attach(options.target, net.localPlayerIndex);
+    const seat = net.localSeat;
+    if (seat === null) return;
+    options.rig.attach(options.target, seat);
     refreshHud();
   };
   const stateChanges = net as GmNet & Partial<NetStateChanges>;

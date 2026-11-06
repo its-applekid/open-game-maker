@@ -40,7 +40,7 @@ run_setup > "$scratch/first.out"
 unit_dir=$config_home/systemd/user
 [[ -x $repo/ops/bin/ogm-run ]] || fail "ogm-run should be executable"
 unit_count=$(find "$unit_dir" -maxdepth 1 -type f | wc -l)
-assert_eq "12" "$unit_count" "installer should render all twelve unit files"
+assert_eq "14" "$unit_count" "installer should render all fourteen unit files"
 
 if grep -R -Fq -- '@REPO@' "$unit_dir"; then
   fail "rendered unit files still contain @REPO@"
@@ -104,10 +104,19 @@ assert_grep 'Persistent=true' "$unit_dir/ogm-backup.timer"
 assert_grep 'RandomizedDelaySec=300' "$unit_dir/ogm-backup.timer"
 assert_grep 'WantedBy=timers.target' "$unit_dir/ogm-backup.timer"
 
+assert_grep 'Type=oneshot' "$unit_dir/ogm-core-bump.service"
+assert_grep 'Slice=ogm.slice' "$unit_dir/ogm-core-bump.service"
+assert_grep 'EnvironmentFile=-%h/.config/ogm/env/core-bump.env' "$unit_dir/ogm-core-bump.service"
+assert_grep "ExecStart=$repo/ops/bin/ogm-run core-bump" "$unit_dir/ogm-core-bump.service"
+assert_grep 'NoNewPrivileges=yes' "$unit_dir/ogm-core-bump.service"
+assert_not_grep 'Restart=' "$unit_dir/ogm-core-bump.service"
+assert_grep 'OnUnitActiveSec=15min' "$unit_dir/ogm-core-bump.timer"
+assert_grep 'WantedBy=timers.target' "$unit_dir/ogm-core-bump.timer"
+
 env_mode=$(stat -c '%a' "$home/.config/ogm/env")
 assert_eq "700" "$env_mode" "environment directory should be private"
 
-expected_log=$'--user daemon-reload\n--user enable --now ogm-api ogm-rooms ogm-games ogm-commit ogm-voice-host ogm-intake ogm-drive-sync ogm-backup.timer\n--user list-units ogm-* --no-pager'
+expected_log=$'--user daemon-reload\n--user enable --now ogm-api ogm-rooms ogm-games ogm-commit ogm-voice-host ogm-intake ogm-drive-sync ogm-backup.timer ogm-core-bump.timer\n--user list-units ogm-* --no-pager'
 actual_log=$(cat "$systemctl_log")
 assert_eq "$expected_log" "$actual_log" "systemctl calls should follow the required order"
 
@@ -142,7 +151,7 @@ HOME=$home \
   OGM_SYSTEMCTL_LOG=$stop_log \
   PATH=$fake_bin:$PATH \
   "$repo/ops/bin/ogm-host-setup.sh" --stop
-expected_stop='--user disable --now ogm-api ogm-rooms ogm-games ogm-commit ogm-voice-host ogm-intake ogm-drive-sync ogm-backup.timer'
+expected_stop='--user disable --now ogm-api ogm-rooms ogm-games ogm-commit ogm-voice-host ogm-intake ogm-drive-sync ogm-backup.timer ogm-core-bump.timer'
 actual_stop=$(cat "$stop_log")
 assert_eq "$expected_stop" "$actual_stop" "stop mode should disable every enabled unit"
 

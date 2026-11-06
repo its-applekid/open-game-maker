@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { MemoryRouter, useLocation } from 'react-router';
+import { MemoryRouter, useLocation, type InitialEntry } from 'react-router';
 
 import { GamesScreen } from './GamesScreen';
 
@@ -75,16 +75,28 @@ const branches = [
   },
 ];
 
+// Auto-selection waits for a layout measurement and a data round trip; jsdom needs more than the 1s default when CI
+// runs the suites in parallel.
+const AUTO_SELECT = { timeout: 3_000 } as const;
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
 }
 
 function LocationProbe() {
   const location = useLocation();
-  return <output data-testid="location">{`${location.pathname}${location.search}`}</output>;
+  return (
+    <>
+      <output data-testid="location">{`${location.pathname}${location.search}`}</output>
+      <output data-testid="location-state">{JSON.stringify(location.state ?? null)}</output>
+    </>
+  );
 }
 
-function renderGames(entry = '/games', client = new QueryClient({ defaultOptions: { queries: { retry: false } } })) {
+function renderGames(
+  entry: InitialEntry = '/all',
+  client = new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+) {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[entry]}>
@@ -150,9 +162,11 @@ describe('GamesScreen', () => {
   ])('opens the first game and keeps every thumbnail visible with $label', async ({ count }) => {
     gamesResponse = games.slice(0, count);
     setGridColumns(3);
-    const { container } = renderGames('/games?test');
+    const { container } = renderGames('/all?test');
 
-    expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' })).toBeVisible();
+    // The selection and the spotlight mount either side of a paint; allow for a
+    // slow first render under the fully parallel suite.
+    expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' }, AUTO_SELECT)).toBeVisible();
     expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_1');
     expect(container.querySelectorAll('.game-tile')).toHaveLength(count);
     expect(container.querySelectorAll('[data-game-id].is-selected')).toHaveLength(1);
@@ -161,12 +175,24 @@ describe('GamesScreen', () => {
   it('keeps the zoomed-out grid when the games overflow one thumbnail row', async () => {
     gamesResponse = [...games, { ...games[2]!, id: 'g_4', title: 'Fourth Game', updatedAt: '2026-10-24T00:00:00Z' }];
     setGridColumns(3);
-    const { container } = renderGames('/games?test');
+    const { container } = renderGames('/all?test');
 
     await screen.findByRole('button', { name: 'Fourth Game' });
     expect(screen.queryByRole('region', { name: /spotlight/ })).toBeNull();
     expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight');
     expect(container.querySelectorAll('.game-tile')).toHaveLength(4);
+  });
+
+  it('keeps the grid dismissed after the closing navigation lands', async () => {
+    renderGames('/games?test');
+    fireEvent.click(await screen.findByRole('button', { name: 'Goblin Cellar' }));
+    await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
+
+    fireEvent.keyDown(await screen.findByRole('button', { name: 'Close game' }), { key: 'Escape' });
+
+    await waitFor(() => expect(screen.getByTestId('location')).not.toHaveTextContent('spotlight'));
+    expect(screen.getByTestId('location-state')).toHaveTextContent('{"spotlightDismissed":true}');
+    expect(screen.queryByRole('region', { name: /spotlight/ })).toBeNull();
   });
 
   it('waits for active jobs before selecting the first sorted game', async () => {
@@ -183,14 +209,14 @@ describe('GamesScreen', () => {
       return json({ error: 'unexpected' }, 500);
     });
     setGridColumns(3);
-    const { container } = renderGames('/games?test');
+    const { container } = renderGames('/all?test');
 
-    await screen.findByRole('button', { name: /Midnight Crumbs/ });
+    await screen.findByRole('button', { name: /^Midnight Crumbs/ });
     expect(screen.queryByRole('region', { name: /spotlight/ })).toBeNull();
 
     resolveJobs(json({ jobs: [{ ...jobs[0]!, gameId: 'g_2' }] }));
 
-    expect(await screen.findByRole('heading', { name: 'Goblin Cellar' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Goblin Cellar' }, AUTO_SELECT)).toBeVisible();
     expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2');
     expect(container.querySelector<HTMLElement>('[data-game-id]')?.dataset.gameId).toBe('g_2');
   });
@@ -198,7 +224,7 @@ describe('GamesScreen', () => {
   it('renders real tiles, prioritizes the building game, and shows its friendly progress', async () => {
     const { container } = renderGames();
 
-    await screen.findByRole('button', { name: /Midnight Crumbs/ });
+    await screen.findByRole('button', { name: /^Midnight Crumbs/ });
     const tiles = [...container.querySelectorAll<HTMLElement>('[data-game-id]')];
     expect(tiles.map((tile) => tile.dataset.gameId)).toEqual(['g_1', 'g_2', 'g_3']);
     expect(screen.getByText('Building 40%')).toBeVisible();
@@ -206,9 +232,9 @@ describe('GamesScreen', () => {
   }, 10_000);
 
   it('opens the URL-selected spotlight and falls back to main when branches are unavailable', async () => {
-    const { container } = renderGames('/games?spotlight=g_1');
+    const { container } = renderGames('/all?spotlight=g_1');
 
-    expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Midnight Crumbs' }, AUTO_SELECT)).toBeVisible();
     expect(container.querySelector('.games-spotlight-media .game-cover')).toBeVisible();
     expect(screen.queryByText(/Your library|My games|Selected game|Choose what happens next|Versions/)).toBeNull();
     expect(screen.getByRole('button', { name: 'Close game' })).toHaveTextContent('×');
@@ -229,8 +255,8 @@ describe('GamesScreen', () => {
   });
 
   it('writes selection to the URL and returns focus to the tile after closing with Escape', async () => {
-    renderGames('/games?test');
-    const tile = await screen.findByRole('button', { name: /Goblin Cellar/ });
+    renderGames('/all?test');
+    const tile = await screen.findByRole('button', { name: /^Goblin Cellar/ });
 
     fireEvent.click(tile);
     await waitFor(() => expect(screen.getByTestId('location')).toHaveTextContent('spotlight=g_2'));
@@ -257,8 +283,8 @@ describe('GamesScreen', () => {
         },
       });
     });
-    renderGames('/games?test');
-    const tile = await screen.findByRole('button', { name: /Goblin Cellar/ });
+    renderGames('/all?test');
+    const tile = await screen.findByRole('button', { name: /^Goblin Cellar/ });
 
     fireEvent.click(tile);
     const close = await screen.findByRole('button', { name: 'Close game' });
@@ -282,7 +308,7 @@ describe('GamesScreen', () => {
     const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     client.setQueryData(['games'], games);
 
-    const { container } = renderGames('/games', client);
+    const { container } = renderGames('/all', client);
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t refresh the library');
     expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
@@ -299,7 +325,7 @@ describe('GamesScreen', () => {
 
     const { container } = renderGames();
 
-    await screen.findByRole('button', { name: /Midnight Crumbs/ });
+    await screen.findByRole('button', { name: /^Midnight Crumbs/ });
     expect(container.querySelectorAll('[data-game-id]')).toHaveLength(3);
     expect(screen.queryByRole('alert')).toBeNull();
   });

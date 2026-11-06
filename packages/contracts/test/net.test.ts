@@ -2,10 +2,16 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { toJSONSchema } from 'zod';
 
+import { gameManifestSchema } from '../src/game.js';
 import {
-  NetClientMessageJsonSchema,
+  AUTHORITY_MODES,
   NetClientMessageSchema,
   NetServerMessageSchema,
+  netManifestSchema,
+  netMessageSchema,
+  netMessagesSchema,
+  netSeatSchema,
+  netStartSchema,
   RoomClientMessageSchema,
   RoomServerMessageSchema,
   RoomStateV2Schema,
@@ -30,18 +36,9 @@ const start = loadJson<Json>('fixtures/net/start.json');
 
 const epoch = '6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11';
 
-/* fixtures carry binary as base64; the wire carries bytes */
-function toWire(message: Json): Json {
-  const copy: Json = { ...message };
-  if (typeof copy.data === 'string') copy.data = Uint8Array.from(Buffer.from(copy.data, 'base64'));
-  if (typeof copy.snapshot === 'string') copy.snapshot = Uint8Array.from(Buffer.from(copy.snapshot, 'base64'));
-  if (typeof copy.events === 'string') copy.events = Uint8Array.from(Buffer.from(copy.events, 'base64'));
-  return copy;
-}
-
 describe('net fixtures', () => {
   const files = readdirSync(new URL('../fixtures/net/', import.meta.url)).filter((file) => file.endsWith('.json'));
-  const stemOf = (file: string) => `net.${file.replace(/\.json$/, '')}.v1`;
+  const stemOf = (file: string) => `net.${file.replace(/\.json$/, '')}.v2`;
 
   it('has one fixture per emitted net schema', () => {
     expect(files.map(stemOf).sort()).toEqual(Object.keys(schemas).sort());
@@ -61,24 +58,67 @@ describe('net fixtures', () => {
   });
 });
 
+describe('net contract', () => {
+  it('round-trips every relayed v2 wire message through Zod', () => {
+    const batch = loadJson('fixtures/net/messages.json');
+    expect(netMessagesSchema.safeParse(batch).success).toBe(true);
+    for (const message of batch as unknown[]) {
+      expect(netMessageSchema.safeParse(message).success).toBe(true);
+    }
+  });
+
+  it('names the authority modes the manifest vocabulary accepts', () => {
+    expect(AUTHORITY_MODES).toEqual(['per-seat', 'host', 'rollback']);
+    expect(netManifestSchema.safeParse({ authority: 'per-seat', maxSeats: 4 }).success).toBe(true);
+    expect(netManifestSchema.safeParse({ authority: 'server', maxSeats: 4 }).success).toBe(false);
+    expect(netManifestSchema.safeParse({ maxSeats: 4 }).success).toBe(true);
+  });
+
+  it('caps seats at the emitted limit and refuses a seat out of range', () => {
+    expect(netStartSchema.safeParse(start).success).toBe(true);
+    const tooMany = { ...start, seats: Array(LIMITS_V2.maxPlayersCeiling + 1).fill((start.seats as Json[])[0]) };
+    expect(netStartSchema.safeParse(tooMany).success).toBe(false);
+
+    const seat = loadJson<Json>('fixtures/net/seat.json');
+    expect(netSeatSchema.safeParse(seat).success).toBe(true);
+    expect(netSeatSchema.safeParse({ ...seat, seat: LIMITS_V2.maxPlayersCeiling }).success).toBe(false);
+  });
+
+  it('rejects an oversized batch and a frame the room would reject', () => {
+    const frame = { seq: 1, tick: 1, axes: [], buttons: 0 };
+    const message = { t: 'net.inputs', epoch: 'epoch-7', seat: 0, firstTick: 1, frames: [frame] };
+    const tooMany = Array(LIMITS_V2.maxBatchMessages + 1).fill(message);
+    expect(netMessagesSchema.safeParse(tooMany).success).toBe(false);
+
+    const withText = { ...message, frames: [{ ...frame, text: 'hi' }] };
+    expect(netMessagesSchema.safeParse([withText]).success).toBe(false);
+  });
+
+  it('carries manifest.net through the game manifest, and refuses a bad one there too', () => {
+    const manifest = loadJson('fixtures/game.v1.json') as Json;
+    expect(gameManifestSchema.safeParse({ ...manifest, net: { authority: 'per-seat', maxSeats: 4 } }).success).toBe(
+      true,
+    );
+    expect(gameManifestSchema.safeParse({ ...manifest, net: { authority: 'per-seat', maxSeats: 9 } }).success).toBe(
+      false,
+    );
+  });
+});
+
 describe('protocol 2 messages', () => {
-  it('parses every client message from both its wire and base64 forms', () => {
+  it('parses every client message and every server message from its fixture', () => {
     for (const fixture of clientMessages) {
-      expect(NetClientMessageSchema.safeParse(toWire(fixture)).success, `${fixture.t} wire`).toBe(true);
-      expect(NetClientMessageJsonSchema.safeParse(fixture).success, `${fixture.t} json`).toBe(true);
+      expect(NetClientMessageSchema.safeParse(fixture).success, `${fixture.t}`).toBe(true);
     }
-  });
-
-  it('parses every server message from both its wire and base64 forms', () => {
     for (const fixture of serverMessages) {
-      expect(NetServerMessageSchema.safeParse(toWire(fixture)).success, `${fixture.t} wire`).toBe(true);
+      expect(NetServerMessageSchema.safeParse(fixture).success, `${fixture.t}`).toBe(true);
     }
   });
 
-  it('rejects a relayed event one byte over the event cap', () => {
+  it('rejects a relayed event one character over the event cap', () => {
     const base = clientMessages.find((message) => message.t === 'net.event') as Json;
-    const atCap = { ...base, data: new Uint8Array(LIMITS_V2.eventBytes) };
-    const overCap = { ...base, data: new Uint8Array(LIMITS_V2.eventBytes + 1) };
+    const atCap = { ...base, data: 'A'.repeat(Math.ceil(LIMITS_V2.eventBytes / 3) * 4) };
+    const overCap = { ...base, data: 'A'.repeat(Math.ceil(LIMITS_V2.eventBytes / 3) * 4 + 4) };
     expect(NetClientMessageSchema.safeParse(atCap).success).toBe(true);
     expect(NetClientMessageSchema.safeParse(overCap).success).toBe(false);
   });
@@ -117,14 +157,14 @@ describe('protocol 2 messages', () => {
 
   it('accepts a net.start copy with and without the per-seat private seed', () => {
     const { privateSeed: _privateSeed, ...shared } = start;
-    expect(NetServerMessageSchema.safeParse(start).success).toBe(true);
-    expect(NetServerMessageSchema.safeParse(shared).success).toBe(true);
+    expect(NetServerMessageSchema.safeParse({ t: 'net.start', ...start }).success).toBe(true);
+    expect(NetServerMessageSchema.safeParse({ t: 'net.start', ...shared }).success).toBe(true);
   });
 
   it('carries a spectator identity with no seat', () => {
     const welcome = serverMessages.find((message) => message.t === 'welcome') as Json;
     const you = { ...(welcome.you as Json), seat: null, playerIndex: -1, spectator: true };
-    expect(NetServerMessageSchema.safeParse({ ...toWire(welcome), you }).success).toBe(true);
+    expect(NetServerMessageSchema.safeParse({ ...welcome, you }).success).toBe(true);
   });
 });
 

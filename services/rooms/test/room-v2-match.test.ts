@@ -295,7 +295,7 @@ describe('v2 routing, protocol and pinning', () => {
       seq: 1,
       from: 0,
       target: 'all',
-      data: new Uint8Array([1, 2, 3]),
+      data: 'AQID',
     });
     await waitFor(() => atP2.mock.calls.length === 1, 'relayed event', 2_000);
 
@@ -317,7 +317,7 @@ describe('v2 routing, protocol and pinning', () => {
       seq: 1,
       from: 0,
       target: 'all',
-      data: new Uint8Array([1]),
+      data: 'AQ==',
     });
     await sleep(40);
     expect(room.seatDrops.NO_EPOCH).toBe(1);
@@ -330,7 +330,7 @@ describe('v2 routing, protocol and pinning', () => {
       seq: 1,
       from: 0,
       target: 'all',
-      data: new Uint8Array([1]),
+      data: 'AQ==',
     });
     await sleep(40);
     expect(room.seatDrops.SPECTATOR_NOT_SEATED).toBe(1);

@@ -24,6 +24,9 @@ defmodule OgmVoice.BudgetBriefingTest do
     assert role =~ "ask an admin"
     assert role =~ "[later]"
     assert role =~ "get_status"
+    assert role =~ "every open Command"
+    assert role =~ "answer_command"
+    assert role =~ "its own change"
     assert role =~ "record_summary"
   end
 

@@ -1,4 +1,4 @@
-import type { Seat, TeamPolicy } from '@ogm/contracts';
+import type { NetSeat, TeamPolicy } from '@ogm/contracts';
 
 import { MembershipState, type GameRoomState, type SeatState } from './state.js';
 
@@ -15,7 +15,7 @@ export function teamOf(seat: number, policy: TeamPolicy): number {
   return policy === 'alternate' ? seat % 2 : 0;
 }
 
-export function seatsSnapshot(state: GameRoomState): Seat[] {
+export function seatsSnapshot(state: GameRoomState): NetSeat[] {
   return state.seats.map((seat) => ({
     seat: seat.seat,
     userId: seat.userId,
@@ -24,6 +24,7 @@ export function seatsSnapshot(state: GameRoomState): Seat[] {
     connected: seat.connected,
     ready: seat.ready,
     forfeited: seat.forfeited,
+    spectator: seat.spectator,
   }));
 }
 

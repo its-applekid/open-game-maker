@@ -1,6 +1,10 @@
 {
   "protocol": 2,
-  "pin": { "gameId": "g_01J", "branchId": "b_01J", "buildId": "sha256-3f9a" },
+  "pin": {
+    "gameId": "g_01J",
+    "branchId": "b_01J",
+    "buildId": "sha256-3f9a"
+  },
   "ownerId": "u_01JOWNER",
   "editorSessionId": "s_owner1",
   "phase": "playing",
@@ -26,7 +30,10 @@
       "sessions": []
     }
   },
-  "presence": { "selection": [], "privateMode": false },
+  "presence": {
+    "selection": [],
+    "privateMode": false
+  },
   "seats": [
     {
       "seat": 0,
@@ -35,7 +42,8 @@
       "team": 0,
       "connected": true,
       "ready": true,
-      "forfeited": false
+      "forfeited": false,
+      "spectator": false
     },
     {
       "seat": 1,
@@ -44,10 +52,29 @@
       "team": 1,
       "connected": false,
       "ready": false,
-      "forfeited": false
+      "forfeited": false,
+      "spectator": false
     },
-    { "seat": 2, "userId": "", "name": "", "team": 0, "connected": false, "ready": false, "forfeited": false },
-    { "seat": 3, "userId": "", "name": "", "team": 1, "connected": false, "ready": false, "forfeited": false }
+    {
+      "seat": 2,
+      "userId": "",
+      "name": "",
+      "team": 0,
+      "connected": false,
+      "ready": false,
+      "forfeited": false,
+      "spectator": false
+    },
+    {
+      "seat": 3,
+      "userId": "",
+      "name": "",
+      "team": 1,
+      "connected": false,
+      "ready": false,
+      "forfeited": false,
+      "spectator": false
+    }
   ],
   "spectators": [],
   "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",

@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
-import type { Seat } from '@ogm/contracts';
+import type { NetSeat } from '@ogm/contracts';
 
 import { type Harness, connect, joinOptions, newRoom, rejectionCode, sleep, startHarness } from './helpers.js';
 
@@ -8,7 +8,7 @@ import { type Harness, connect, joinOptions, newRoom, rejectionCode, sleep, star
  * A generous idle window: a slow first join must not race the room's 1 s idle disposal. */
 const timings = { idleDisposeSec: 30 };
 
-const seatsOf = (room: { state: { seats: Iterable<Seat> } }): Seat[] =>
+const seatsOf = (room: { state: { seats: Iterable<NetSeat> } }): NetSeat[] =>
   [...room.state.seats].map((seat) => ({ ...seat }));
 
 describe('v2 seats, teams and spectators', () => {

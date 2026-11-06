@@ -3,11 +3,13 @@ import { extname, join } from 'node:path';
 
 import {
   buildIndex,
+  buildMapIndex,
   coverageTable,
   loadFamilies,
   recompute,
   writeFamilies,
   writeIndex,
+  writeMapIndex,
   type CardIndex,
 } from '@ogm/asset-cards';
 import { FsBlobStore, type BlobHash } from '@ogm/blob-store';
@@ -15,6 +17,7 @@ import { FsBlobStore, type BlobHash } from '@ogm/blob-store';
 import { EXIT, UsageError, type GmCommand, type GmContext } from '../../command.js';
 import { printJson, requireAssetsRoot } from '../../context.js';
 import { PREVIEW_KINDS, sha256File, walk, type PreviewKind } from '../../packs/hashwalk.js';
+import { indexedSpecs } from '../../maps/specs.js';
 
 /** Library prefixes copied into the blob store; originals are never read here, let alone moved. */
 const IMPORT_PREFIXES = ['previews', join('private', 'previews'), join('private', 'hash-manifests')];
@@ -102,11 +105,17 @@ async function runIndex(ctx: GmContext, flags: Record<string, unknown>): Promise
   const familyReport = flags.families === true ? recompute(index, loadFamilies()) : null;
   if (familyReport && familyReport.failures.length === 0) writeFamilies(familyReport.families);
   await writeIndex(root, index);
+  // The map-inspiration index is derived from the same cards + layout specs, so one command keeps both current.
+  const { specs } = await indexedSpecs(root, index);
+  const { maps, hidden } = buildMapIndex(index, specs);
+  await writeMapIndex(root, maps);
 
   const summary = {
     cards: index.cards.length,
     collections: Object.keys(index.collections).length,
     errors: index.errors.length,
+    maps: maps.rows.length,
+    map_rows_hidden: hidden,
     ...(imported ?? {}),
     ...(familyReport ? { families: familyReport.families.length, family_failures: familyReport.failures.length } : {}),
   };
@@ -120,6 +129,7 @@ async function runIndex(ctx: GmContext, flags: Record<string, unknown>): Promise
     });
   else {
     ctx.out(`${summary.cards} cards, ${summary.collections} collections, ${summary.errors} errors`);
+    ctx.out(`maps: ${summary.maps} layout rows (${summary.map_rows_hidden} hidden for rights)`);
     for (const error of index.errors) ctx.out(`  ${error.path}: ${error.errors.join('; ')}`);
     if (imported)
       ctx.out(`previews: ${imported.put} put, ${imported.skipped} already stored, ${imported.mapped} cards mapped`);

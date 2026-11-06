@@ -6,6 +6,17 @@
   "next_steps": ["Paint the door red"],
   "waiting_on": "",
   "questions": [],
+  "commands": [
+    {
+      "id": "decision-1",
+      "version": 3,
+      "question": "Which door color?",
+      "options": [
+        { "id": "red", "label": "Red" },
+        { "id": "blue", "label": "Blue" }
+      ]
+    }
+  ],
   "extra": [{ "title": "Budget", "text": "About 3 more changes fit today." }],
   "sections": [
     { "id": "budget", "text": "About 3 more changes fit today." },

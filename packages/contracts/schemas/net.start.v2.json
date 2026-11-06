@@ -2,18 +2,17 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "type": "object",
   "properties": {
-    "t": {
-      "type": "string",
-      "const": "net.start"
-    },
     "epoch": {
       "type": "string",
       "minLength": 1
     },
     "mode": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 32
+      "enum": [
+        "per-seat",
+        "host",
+        "rollback"
+      ]
     },
     "startAt": {
       "type": "integer",
@@ -31,6 +30,7 @@
       "maximum": 7
     },
     "seats": {
+      "minItems": 1,
       "maxItems": 8,
       "type": "array",
       "items": {
@@ -42,7 +42,8 @@
             "maximum": 7
           },
           "userId": {
-            "type": "string"
+            "type": "string",
+            "maxLength": 64
           },
           "name": {
             "type": "string",
@@ -61,6 +62,9 @@
           },
           "forfeited": {
             "type": "boolean"
+          },
+          "spectator": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -70,7 +74,8 @@
           "team",
           "connected",
           "ready",
-          "forfeited"
+          "forfeited",
+          "spectator"
         ],
         "additionalProperties": false
       }
@@ -82,7 +87,6 @@
     }
   },
   "required": [
-    "t",
     "epoch",
     "mode",
     "startAt",
@@ -91,5 +95,5 @@
     "seats"
   ],
   "additionalProperties": false,
-  "$id": "https://open-game-maker-2000.local/schemas/net.start.v1.json"
+  "$id": "https://open-game-maker-2000.local/schemas/net.start.v2.json"
 }
