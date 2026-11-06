@@ -178,9 +178,14 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     name: 'OGM_ALLOWED_EMAILS',
     unit: 'api',
     kind: 'string',
-    doc: 'comma-separated sign-in allow-list (optional; empty admits maintainers only)',
+    doc: 'first-start seed of the allow list; makers (optional)',
   },
-  { name: 'OGM_MAINTAINER_EMAILS', unit: 'api', kind: 'string', doc: 'comma-separated maintainer emails (optional)' },
+  {
+    name: 'OGM_MAINTAINER_EMAILS',
+    unit: 'api',
+    kind: 'string',
+    doc: 'first-start seed of the allow list as admins, and the break-glass role (optional)',
+  },
   {
     name: 'GOOGLE_CLIENT_ID',
     unit: 'api',
