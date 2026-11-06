@@ -1,5 +1,6 @@
 """Focused tests for the KayKit v7 card, preview, and QA preprocessor."""
 import json
+import struct
 import subprocess
 import sys
 import tempfile
@@ -11,6 +12,31 @@ from unittest import mock
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import preprocess_kaykit as kaykit  # noqa: E402
+
+
+def png_bytes(width: int, height: int) -> bytes:
+    """The bytes `check_glb.image_size` reads a PNG size from: signature, IHDR length, type, width, height."""
+    return b"\x89PNG\r\n\x1a\n" + struct.pack(">I", 13) + b"IHDR" + struct.pack(">II", width, height) + b"\x08\x06\0"
+
+
+def glb_bytes(images: list[bytes]) -> bytes:
+    """A minimal GLB whose BIN chunk holds one embedded image per entry, exposed as `images[i]`."""
+    views, binary = [], b""
+    for index, blob in enumerate(images):
+        views.append({"buffer": 0, "byteOffset": len(binary), "byteLength": len(blob)})
+        binary += blob
+    document = {
+        "asset": {"version": "2.0"},
+        "buffers": [{"byteLength": len(binary)}],
+        "bufferViews": views,
+        "images": [{"name": f"Atlas{index}", "bufferView": index, "mimeType": "image/png"}
+                   for index in range(len(images))],
+    }
+    encoded = json.dumps(document).encode("utf-8")
+    encoded += b" " * (-len(encoded) % 4)
+    binary += b"\0" * (-len(binary) % 4)
+    body = struct.pack("<II", len(encoded), 0x4E4F534A) + encoded + struct.pack("<II", len(binary), 0x004E4942) + binary
+    return b"glTF" + struct.pack("<II", 2, 12 + len(body)) + body
 
 
 class KayKitPreprocessor(unittest.TestCase):
@@ -264,6 +290,208 @@ class KayKitPreprocessor(unittest.TestCase):
         analyses[models[-1].uid]["analysis"]["bounds"]["max"] = [0.02, 0.02, 0.02]
         report = kaykit.qa_markdown(analyses, {model.pack_id: models}, generated="2026-11-01")
         self.assertIn("`kaykit-test-pack/small`: largest bound 0.02 (pack median 1)", report)
+
+    def test_card_records_measured_texture_sizes_for_gltf_and_glb(self):
+        extracted = self.pack / "1.0" / "extracted"
+        (extracted / "Models" / "gltf" / "Textures" / "Barrel.png").write_bytes(png_bytes(512, 256))
+        self.add_glb("Models/glb/Orc_Axe.gltf.glb").write_bytes(glb_bytes([png_bytes(2048, 1024)]))
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        analysis = {"triangles": 12, "vertices": 8, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "pivot": "base-center", "materials": ["KayKit"], "rig": None, "clips": []}
+
+        barrel = kaykit.build_card(models["barrel"], analysis, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(barrel["geometry"]["texture_sizes"],
+                         [{"key": "Models/gltf/Textures/Barrel.png", "width_px": 512, "height_px": 256}])
+        self.assertEqual(barrel["geometry"]["max_texture_px"], 512)
+
+        # A GLB keeps its images inside the container: the size comes from the buffer view, not a side file.
+        orc_axe = kaykit.build_card(models["orc_axe"], analysis, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(orc_axe["geometry"]["texture_sizes"],
+                         [{"key": "Atlas0", "width_px": 2048, "height_px": 1024}])
+        self.assertEqual(orc_axe["geometry"]["max_texture_px"], 2048)
+        kaykit.validate([barrel, orc_axe])
+
+    def test_card_omits_texture_sizes_it_cannot_measure(self):
+        # The fixture texture is four bytes, not a PNG header: an unreadable texture is left out, not guessed.
+        [model] = kaykit.discover_models(self.root)
+        analysis = {"triangles": 12, "vertices": 8, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "pivot": "base-center", "materials": [], "rig": None, "clips": []}
+        card = kaykit.build_card(model, analysis, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(card["geometry"]["texture_keys"], ["Models/gltf/Textures/Barrel.png"])
+        self.assertNotIn("texture_sizes", card["geometry"])
+        self.assertNotIn("max_texture_px", card["geometry"])
+
+    def test_character_card_lists_the_clips_of_every_library_on_its_rig(self):
+        for name in ("Knight", "Rig_Medium_General", "Rig_Medium_Tools"):
+            self.add_glb(f"Models/glb/{name}.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        bones = [{"name": "root", "parent": None}, {"name": "hips", "parent": "root"}]
+        rig = {"rig_type": "humanoid", "rig_id": "rig:89200673d97d", "joint_count": 2, "bones": bones}
+        geometry = {"triangles": 10, "vertices": 20, "bounds": {"min": [0, 0, 0], "max": [1, 2, 1]},
+                    "pivot": "base-center", "materials": [], "rig": rig}
+        analyses = {
+            "knight": {**geometry, "clips": []},
+            "rig_medium_general": {**geometry, "clips": [{"name": "Idle_A", "duration": 1.0},
+                                                         {"name": "T-Pose", "duration": 0.2}]},
+            "rig_medium_tools": {**geometry, "clips": [{"name": "Chopping", "duration": 0.9},
+                                                       {"name": "Idle_A", "duration": 1.0}]},
+        }
+        results = {models[key].uid: {"ok": True, "analysis": analysis} for key, analysis in analyses.items()}
+        libraries = kaykit.library_clips(list(models.values()), results)
+        self.assertEqual(libraries["rig:89200673d97d"],
+                         [{"name": "Idle_A", "duration": 1.0}, {"name": "T-Pose", "duration": 0.2},
+                          {"name": "Chopping", "duration": 0.9}, {"name": "Idle_A", "duration": 1.0}])
+
+        card = kaykit.build_card(models["knight"], analyses["knight"], "2026-11-01T00:00:00+00:00",
+                                 libraries=libraries)
+        # One entry per clip name, in name order, canonicalized like a library card's clips.
+        self.assertEqual([row["name"] for row in card["rig"]["clips"]], ["Chopping", "Idle_A", "T-Pose"])
+        self.assertEqual([row["canonical"] for row in card["rig"]["clips"]], ["other", "idle", "other"])
+        kaykit.validate([card])
+
+    def test_character_on_a_subset_rig_gets_the_clips_it_retargets_to(self):
+        for name in ("Mannequin_Medium", "Rig_Medium_General"):
+            self.add_glb(f"Models/glb/{name}.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        shared = {"rig_type": "humanoid", "rig_id": "rig:89200673d97d", "joint_count": 3,
+                  "bones": [{"name": "root", "parent": None}, {"name": "hips", "parent": "root"},
+                            {"name": "hand.r", "parent": "hips"}]}
+        subset = {**shared, "rig_id": "rig:a83c5e75e523", "joint_count": 2, "bones": shared["bones"][:2]}
+        geometry = {"triangles": 10, "vertices": 20, "bounds": {"min": [0, 0, 0], "max": [1, 2, 1]},
+                    "pivot": "base-center", "materials": [], "clips": []}
+        analyses = {"mannequin_medium": {**geometry, "rig": subset},
+                    "rig_medium_general": {**geometry, "rig": shared,
+                                           "clips": [{"name": "Walking_A", "duration": 1.1}]}}
+        results = {models[key].uid: {"ok": True, "analysis": analysis} for key, analysis in analyses.items()}
+        retargets = kaykit.retarget_rigs(list(models.values()), results)
+        libraries = kaykit.library_clips(list(models.values()), results)
+
+        card = kaykit.build_card(models["mannequin_medium"], analyses["mannequin_medium"],
+                                 "2026-11-01T00:00:00+00:00", retarget_rig_id=retargets[models["mannequin_medium"].uid],
+                                 libraries=libraries)
+        self.assertEqual(card["rig"]["retarget_rig_id"], "rig:89200673d97d")
+        self.assertEqual([row["name"] for row in card["rig"]["clips"]], ["Walking_A"])
+
+    def test_partial_run_keeps_the_clips_a_full_run_measured_and_drops_them_when_they_move(self):
+        self.add_glb("Models/glb/Knight.glb")
+        self.add_glb("Models/glb/Rig_Medium_General.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        rig = {"rig_type": "humanoid", "rig_id": "rig:89200673d97d", "joint_count": 2,
+               "bones": [{"name": "root", "parent": None}, {"name": "hips", "parent": "root"}]}
+        geometry = {"triangles": 10, "vertices": 20, "bounds": {"min": [0, 0, 0], "max": [1, 2, 1]},
+                    "pivot": "base-center", "materials": [], "clips": []}
+        analyses = {"knight": {**geometry, "rig": rig},
+                    "rig_medium_general": {**geometry, "rig": rig, "clips": [{"name": "Idle_A", "duration": 1.0}]}}
+        results = {models[key].uid: {"ok": True, "analysis": analysis} for key, analysis in analyses.items()}
+        card_path = self.root / "packs" / models["knight"].pack_id / "cards" / "knight.card.json"
+
+        kaykit.write_cards(self.root, list(models.values()), results, "2026-11-01T00:00:00+00:00")
+        self.assertEqual([row["name"] for row in json.loads(card_path.read_text())["rig"]["clips"]], ["Idle_A"])
+
+        # `--only` another pack, or a failed library render: nothing measured the library, so keep what is written.
+        partial = {models["knight"].uid: results[models["knight"].uid],
+                   models["rig_medium_general"].uid: {"ok": False, "error": "render failed"}}
+        kaykit.write_cards(self.root, list(models.values()), partial, "2026-11-02T00:00:00+00:00")
+        self.assertEqual([row["name"] for row in json.loads(card_path.read_text())["rig"]["clips"]], ["Idle_A"])
+
+        # A library that was measured, on a rig this skeleton does not fit, means the old clips no longer play here.
+        moved = {**rig, "rig_id": "rig:111111111111",
+                 "bones": [{"name": "root", "parent": None}, {"name": "spine", "parent": "root"}]}
+        refit = {**results, models["rig_medium_general"].uid:
+                 {"ok": True, "analysis": {**analyses["rig_medium_general"], "rig": moved}}}
+        kaykit.write_cards(self.root, list(models.values()), refit, "2026-11-03T00:00:00+00:00")
+        self.assertEqual(json.loads(card_path.read_text())["rig"]["clips"], [])
+
+    def test_card_carries_the_searchable_tags_a_name_and_a_measurement_can_carry(self):
+        [model] = kaykit.discover_models(self.root)
+        analysis = {"triangles": 456, "vertices": 300, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "pivot": "base-center", "materials": [], "rig": None, "clips": []}
+        card = kaykit.build_card(model, analysis, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(card["describe"]["objects"], ["barrel"])
+        self.assertEqual(card["describe"]["keywords"], ["kaykit", "test"])
+        self.assertEqual(card["describe"]["description"],
+                         "KayKit Test Pack: prop, 456 triangles.")
+        self.assertEqual(card["provenance"]["describe.objects"]["by"], "code")
+        kaykit.validate([card])
+
+    def test_variant_suffixes_stay_out_of_objects_and_into_keywords(self):
+        extracted = self.pack / "1.0" / "extracted"
+        for name in ("Box_B.gltf", "Food_Barrel_Empty.gltf"):
+            document = {"asset": {"version": "2.0"}, "buffers": [], "images": []}
+            (extracted / "Models" / "gltf" / name).write_text(json.dumps(document))
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        analysis = {"triangles": 10, "vertices": 8, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "pivot": "base-center", "materials": [], "rig": None, "clips": []}
+        box = kaykit.build_card(models["box_b"], analysis, "2026-11-01T00:00:00+00:00")
+        barrel = kaykit.build_card(models["food_barrel_empty"], analysis, "2026-11-01T00:00:00+00:00")
+        self.assertEqual(box["describe"]["objects"], ["box"])
+        self.assertEqual(barrel["describe"]["objects"], ["barrel", "food"])
+        self.assertIn("empty", box["describe"]["keywords"] + barrel["describe"]["keywords"])
+        self.assertEqual(len(box["describe"]["keywords"]), len(set(box["describe"]["keywords"])))
+
+    def test_rigged_character_description_names_the_rig_and_its_shared_clips(self):
+        self.add_glb("Models/glb/Knight.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        rig = {"rig_type": "humanoid", "rig_id": "rig:89200673d97d", "joint_count": 23,
+               "bones": [{"name": "root", "parent": None}]}
+        analysis = {"triangles": 5800, "vertices": 3000, "bounds": {"min": [0, 0, 0], "max": [1, 2, 1]},
+                    "pivot": "base-center", "materials": [], "rig": rig, "clips": []}
+        library = [{"name": "Idle_A", "duration": 1.0}, {"name": "Running_A", "duration": 0.7}]
+        card = kaykit.build_card(models["knight"], analysis, "2026-11-01T00:00:00+00:00",
+                                 libraries={"rig:89200673d97d": library})
+        self.assertEqual(card["describe"]["description"],
+                         "KayKit Test Pack: rigged character, 5800 triangles, 2 shared clips.")
+        self.assertIn("animated", card["describe"]["keywords"])
+        self.assertIn("rigged", card["describe"]["keywords"])
+
+    def test_category_lineups_page_across_the_set_and_skip_unrendered_models(self):
+        [model] = kaykit.discover_models(self.root)
+        models = [
+            kaykit.Model(model.pack_id, model.version, model.title, model.extracted, model.primary, f"prop-{index:03d}",
+                         model.files)
+            for index in range(kaykit.LINEUP_PAGE_SIZE + 1)
+        ] + [kaykit.Model(model.pack_id, model.version, model.title, model.extracted, model.primary, "knight",
+                      model.files)]
+        analysis = {"triangles": 1, "vertices": 3, "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "pivot": "base-center", "materials": [], "rig": None, "clips": []}
+        results = {item.uid: {"ok": True, "output": f"packs/{item.pack_id}/thumbnails/{item.key}.png",
+                              "analysis": analysis} for item in models}
+        results[models[0].uid] = {"ok": False, "error": "render failed"}
+
+        pages = kaykit.category_lineups({model.pack_id: models}, results)
+
+        self.assertEqual([page["output"] for page in pages],
+                         ["derived/kaykit/lineups/prop-01.png", "derived/kaykit/lineups/prop-02.png"])
+        self.assertEqual([len(page["items"]) for page in pages], [kaykit.LINEUP_PAGE_SIZE, 1])
+        self.assertEqual(pages[0]["html"], "derived/kaykit/lineups/prop-01.html")
+        labels = [item["label"] for page in pages for item in page["items"]]
+        self.assertNotIn("Prop 000", labels)
+        self.assertEqual(labels, sorted(labels, key=str.lower))
+
+    def test_qa_report_counts_categories_and_flags_textures_over_the_mobile_cap(self):
+        [model] = kaykit.discover_models(self.root)
+        (model.extracted / "Models" / "gltf" / "Textures" / "Barrel.png").write_bytes(png_bytes(4096, 2048))
+        analysis = {"pivot": "base-center", "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "triangles": 10, "rig": None, "clips": []}
+        report = kaykit.qa_markdown({model.uid: {"ok": True, "output": "thumb.png", "analysis": analysis}},
+                                    {model.pack_id: [model]}, generated="2026-11-01")
+        self.assertIn("## Categories", report)
+        self.assertIn("prop 1", report)
+        self.assertIn("## Texture budget", report)
+        self.assertIn("`kaykit-test-pack/barrel`: `Models/gltf/Textures/Barrel.png` is 4096x2048 px (cap 2048)", report)
+
+    def test_qa_report_names_a_character_whose_rig_has_no_clip_library(self):
+        self.add_glb("Models/glb/Knight.glb")
+        models = {model.key: model for model in kaykit.discover_models(self.root)}
+        rig = {"rig_type": "humanoid", "rig_id": "rig:89200673d97d", "joint_count": 2,
+               "bones": [{"name": "root", "parent": None}, {"name": "hips", "parent": "root"}]}
+        analysis = {"pivot": "base-center", "bounds": {"min": [0, 0, 0], "max": [1, 1, 1]},
+                    "triangles": 10, "rig": rig, "clips": []}
+        report = kaykit.qa_markdown({models["knight"].uid: {"ok": True, "output": "thumb.png", "analysis": analysis}},
+                                    {models["knight"].pack_id: [models["knight"]]}, generated="2026-11-01")
+        heading = "## Characters with no clip library on their rig"
+        self.assertIn(heading, report)
+        self.assertIn("`kaykit-test-pack/knight`", report.split(heading, 1)[1].split("\n## ", 1)[0])
 
     def test_main_records_the_generation_timestamp_in_the_qa_report(self):
         [model] = kaykit.discover_models(self.root)

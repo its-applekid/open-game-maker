@@ -19,6 +19,7 @@ import numpy as np
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import labels as L
+import name_tags
 from import_sidetrax import stem_key
 
 REPO = HERE.parents[2]
@@ -230,6 +231,16 @@ def library_summary(entries, limit=SUMMARY_MAX):
     return "; ".join(parts)[:limit].strip(" ;")
 
 
+def keywords_of(d, exclude=()):
+    """Search words the name layer already knows (`describe.keywords`), minus whatever another field says.
+
+    The name layer runs before the model (asset-searchability §5), so a UCS category, a spelled-out subcategory and the
+    words in the filename reach the card even when CLAP is not part of the run at all.
+    """
+    names = d.get("names") or {}
+    return name_tags.search_terms(names.get("ucs") or {}, names.get("terms") or [], exclude)
+
+
 def music_describe(d, lift, sets, a, subkind):
     names = lambda k: sets[k][0]
     proposed = []
@@ -282,6 +293,9 @@ def music_describe(d, lift, sets, a, subkind):
     if envs:
         text += f"; evokes {L.ENVIRONMENTS[envs[0]]}"
     desc["description"] = (text + ".")[:300]
+    keywords = keywords_of(d, [*moods, *genre, *instruments, *(L.ENVIRONMENTS[e] for e in envs)])
+    if keywords:
+        desc["keywords"] = keywords
     return desc, proposed
 
 
@@ -313,7 +327,13 @@ def sfx_describe(d, lift, sets, a, stem, pid):
     elif pid in UI_PACKS:
         subkind, roles = "sfx/ui", ["feedback"]
     else:
-        subkind = noun_sub[named[0]] if named else (ev[2] if p[top] >= 0.15 else "sfx/other")
+        # The name layer runs first (asset-searchability §5): a UCS category or a folder word is evidence from the file
+        # itself, so it outranks CLAP. "voice" is never taken from a name, only from a voice pack, for the same reason
+        # CLAP cannot say it: a scream is a creature sound, not a spoken line.
+        named_sub = (d.get("names") or {}).get("subkind")
+        if named_sub == "voice":
+            named_sub = None
+        subkind = named_sub or (noun_sub[named[0]] if named else (ev[2] if p[top] >= 0.15 else "sfx/other"))
         if subkind.startswith("music/") or subkind == "voice":  # voice only from the voice packs, never a CLAP guess
             subkind = "sfx/other"
         roles = {"ambience": ["ambience-bed"], "voice": ["voice-line"], "sfx/ui": ["feedback"]}.get(subkind, ["feedback", "effect"])
@@ -332,6 +352,9 @@ def sfx_describe(d, lift, sets, a, stem, pid):
         desc["objects"], desc["keywords"] = ["voice"], [w for w in objects if w != "voice"][:12]
     if mats:
         desc["materials"] = mats
+    keywords = keywords_of(d, [*objects, *mats])
+    if keywords:  # a voice pack's keywords are the spoken words; the name layer adds its own on top
+        desc["keywords"] = list(dict.fromkeys([*desc.get("keywords", []), *keywords]))[:12]
     conf = round(min(0.85, 0.35 + float(p[top])), 2)
     return desc, subkind, conf, events[top], float(p[top])
 
@@ -346,6 +369,11 @@ def build(rows, sets, means, packs: Path):
             same_name[stem_key(Path(d["file"]).stem)].append(d)
     written, flags_count, counts = 0, defaultdict(int), defaultdict(lambda: defaultdict(int))
     described = defaultdict(list)  # pid -> (subkind, describe) of every card written, for the per-library summary
+    group_sizes = defaultdict(int)  # a variation group of one is not a set: only names with siblings get the field
+    for d in rows:
+        group = (d.get("names") or {}).get("group")
+        if group:
+            group_sizes[(d["_pack"], group)] += 1
     for pid, items in by_pack.items():
         cc = json.loads((packs / pid / "collection.card.json").read_text())
         coll = cc["id"]
@@ -373,6 +401,7 @@ def build(rows, sets, means, packs: Path):
             matched = settle_tempo(a, v) if d["music"] else None
             rel = Path(d["file"])
             stem = rel.stem
+            names = d.get("names") or {}
             path_id = kebab(rel.with_suffix("").as_posix())
             lift = {k: d["_p"][k] / means[(d["music"], k)] for k in d["_p"]}
             prov = {"*": {"by": "code", "tool": TOOL, "at": NOW, "input": "analyze.py: Essentia + librosa measures, sha256"}}
@@ -387,6 +416,11 @@ def build(rows, sets, means, packs: Path):
                 flags += ["low-confidence", "mood-unverified"]
             else:
                 describe, subkind, conf, ev, pev = sfx_describe(d, lift, sets, a, stem, pid)
+                for field, (value, why) in name_tags.card_name_fields(names, group_sizes[(pid, names.get("group"))]).items():
+                    a[field] = value
+                    prov[f"audio.{field}"] = {"by": "filename", "tool": TOOL, "at": NOW, "input": why}
+                if names.get("subkind") and names["subkind"] == subkind:
+                    prov["subkind"] = {"by": "filename", "tool": TOOL, "at": NOW, "input": "UCS category or folder word, ahead of CLAP"}
                 prov["describe"] = {"by": "model", "model": CLAP_ID, "tool": TOOL, "at": NOW, "confidence": conf,
                                     "input": f"CLAP vs {len(L.SFX_EVENTS)} sound events (top: {ev} p={pev:.2f}) + {len(L.MATERIALS)} materials"}
                 prov["describe.objects"] = {"by": "filename", "tool": TOOL, "at": NOW, "input": "filename words, plus the top CLAP event noun when p>=0.2"}
@@ -408,7 +442,8 @@ def build(rows, sets, means, packs: Path):
             card = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:{pid}/{path_id}@{ver}", "card_type": "asset", "status": "tagged",
                     "title": (v.get("title") or title_of(stem))[:120], "kind": "audio", "subkind": subkind, "collection": coll,
                     "source": {"files": files, "content_hash": "sha256:" + d["sha256"]},
-                    "previews": {"waveform": d["preview"]["waveform"]}, "describe": describe, "audio": a, "provenance": prov}
+                    "previews": {k: value for k, value in (d.get("preview") or {}).items() if value},
+                    "describe": describe, "audio": a, "provenance": prov}
             if len(g) > 1:
                 card["audio"]["cuts"] = [{"path": x["file"], "role": "loop" if "loop" in x["file"].lower() else "alt-mix",
                                           "duration_s": x["measure"]["audio"]["duration_s"], "loudness_lufs": x["measure"]["audio"].get("loudness_lufs"),
