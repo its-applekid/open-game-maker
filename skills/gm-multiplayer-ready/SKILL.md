@@ -108,10 +108,9 @@ after packing. An oversized payload is dropped with one warning, so keep snapsho
 
 ## Starting shape
 
-From the instance repository root, `gm new game-multiplayer <game-slug>` writes the scaffold to
-`games/<game-slug>/`: a `players` map, `applyInput`, four spawns in `design/spawns.json` with `maxPlayers` 4 in
-`gm.manifest.json`, `net` hooks, and a HUD plus camera that follow `localPlayerIndex`. Grow the game from there; do not
-copy its grey boxes into the creator's theme.
+From the instance repository root, `gm new game-multiplayer <game-slug>` writes the scaffold to `games/<game-slug>/`: a
+`players` map, `applyInput`, four spawns in `design/spawns.json` with `maxPlayers` 4 in `gm.manifest.json`, `net` hooks,
+and a HUD plus camera that follow `localPlayerIndex`. Grow the game from there; do not copy its grey boxes into the theme.
 
 To convert an existing single-player game, follow `references/convert-single-to-multiplayer.md` step by step.
 
