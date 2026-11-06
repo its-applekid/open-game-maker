@@ -23,7 +23,12 @@ proxies `/api/*` and `/auth/*`; deploy writes `_redirects` from it, so the repo 
 OGM_INSTANCE_ALL_ASSETS=1
 VITE_GAMES_ORIGIN=https://<tailnet-host>:10000
 VITE_API_ORIGIN=https://<tailnet-host>:8443
+VITE_INSTANCE_LOGO_URL=/branding/logo.webp
 ```
+
+`VITE_INSTANCE_LOGO_URL` is optional: leave it blank for the Open Game Maker 2000 logo, or point it at a PNG, WebP or SVG
+(root-relative path or HTTPS URL) to brand this instance. The configured image is fitted into the existing title, sign-in
+and games logo boxes without stretching; favicon and app icons stay separate.
 
 The deploy load check waits up to 60 seconds for `town-ready` and stops recording as soon as it arrives. Override the
 window for a slower host by exporting `OGM_DEPLOY_LOAD_SECONDS=<seconds>` before running `apps/web/tools/deploy.sh`.

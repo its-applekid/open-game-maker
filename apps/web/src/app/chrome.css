@@ -37,6 +37,11 @@
   filter: drop-shadow(0 5px 12px var(--shadow-color));
 }
 
+.studio-logo img[data-instance-logo='custom'] {
+  width: min(40vw, 10rem);
+  object-fit: contain;
+}
+
 .studio-menu-control {
   position: fixed;
   z-index: 50;
