@@ -585,6 +585,10 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
   private startEpoch(client: Client, force: boolean): void {
     const seat = this.seatFor(client);
     if (seat === undefined) return this.drop(client, 'net.start.request', 'SPECTATOR_NOT_SEATED');
+    /* The primary is derived, not stored history: elect before validating so a room whose seat 0 never
+     * joined (or forfeited) can still start, and a stale primary cannot hold the match. */
+    const elected = electPrimary(this.state);
+    if (elected !== undefined) this.state.primarySeat = elected;
     if (seat.seat !== this.state.primarySeat) return this.drop(client, 'net.start.request', 'NOT_PRIMARY');
     if (this.state.epoch !== '') return this.drop(client, 'net.start.request', 'EPOCH_ACTIVE');
     if (!force && !canStart(seatsSnapshot(this.state))) return this.drop(client, 'net.start.request', 'NOT_READY');
@@ -604,7 +608,6 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
 
   private startPayload(seat: number | undefined): object {
     return {
-      t: 'net.start',
       epoch: this.state.epoch,
       mode: this.authorityMode,
       startAt: this.state.startAt,
@@ -799,8 +802,6 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
 
   private handleEditorDeparture(client: Client): void {
     if (client.sessionId !== this.state.editorSessionId) return;
-    /* D-N3-13: `pausedForHost` stays an editing-phase rule. A v2 match pauses through its own mechanism. */
-    if (this.isV2 && this.state.phase !== 'editing' && this.state.phase !== 'migrating') return;
     const replacement = this.connectedOwnerSessions().at(-1);
     if (replacement) {
       this.state.editorSessionId = replacement.sessionId;
@@ -808,6 +809,8 @@ export class GameRoom extends Room<{ state: GameRoomState }> {
     }
     this.previousPhase = this.state.phase === 'pausedForHost' ? this.previousPhase : this.state.phase;
     this.state.editorSessionId = undefined;
+    /* D-N3-13: `pausedForHost` stays an editing-phase rule; a v2 match pauses through its own mechanism. */
+    if (this.isV2 && this.state.phase === 'playing') return;
     this.setPhase('pausedForHost');
   }
 
