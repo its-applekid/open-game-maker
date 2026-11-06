@@ -65,6 +65,11 @@ export class LinkTransport implements Transport {
     return this.inner.kind;
   }
 
+  /** The remote seat the inner transport talks to; the relay sentinel when it is not keyed to a peer. */
+  get seat(): number {
+    return this.inner.seat;
+  }
+
   get appliedDrops(): number {
     return this.dropped;
   }
@@ -107,7 +112,8 @@ export class LinkTransport implements Transport {
       this.delivered += 1;
       this.bytesOut += bytes.length;
       this.lastDelayMs = this.clock.now() - now;
-      this.handlers?.message(channel, bytes);
+      /* Delivered out of the decorator into the real transport, which carries it to the other seats. */
+      this.inner.send(channel, bytes);
     });
     this.timers.add(cancel);
   }
@@ -143,7 +149,7 @@ export class LinkTransport implements Transport {
   /** The inner transport's callbacks, with the decorator's own numbers folded into `stats`. */
   private wrap(handlers: TransportHandlers): TransportHandlers {
     return {
-      message: (channel, bytes) => handlers.message(channel, bytes),
+      message: (channel, seat, bytes) => handlers.message(channel, seat, bytes),
       stats: (stats) => handlers.stats(this.counters(stats)),
       closed: (reason) => handlers.closed(reason),
     };

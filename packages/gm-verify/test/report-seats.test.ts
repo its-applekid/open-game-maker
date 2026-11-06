@@ -139,7 +139,10 @@ describe('the report schema stays additive for seats and link', () => {
 
   it('leaves seats optional in the emitted JSON Schema, so a report written before N6 still validates', () => {
     const path = fileURLToPath(new URL('../schemas/verify-report.v1.json', import.meta.url));
-    const schema = JSON.parse(readFileSync(path, 'utf8')) as { required: string[]; properties: Record<string, unknown> };
+    const schema = JSON.parse(readFileSync(path, 'utf8')) as {
+      required: string[];
+      properties: Record<string, unknown>;
+    };
 
     expect(schema.required).not.toContain('seats');
     expect(schema.required).not.toContain('link');

@@ -3,45 +3,18 @@
  *
  * A transport carries three channels with fixed delivery properties. Reliability is a property of the channel, not a
  * per-call argument, so a caller cannot accidentally put an input on a reliable ordered channel and head-of-line block
- * the match. The seam sits below `bridge-forwarding.ts`: the game iframe, the bridge envelopes and the room protocol
- * never learn which transport carried a byte.
+ * the whole match. The seam sits below `bridge-forwarding.ts`: the game iframe, the bridge envelopes and the room
+ * protocol never learn which transport carried a byte.
+ *
+ * The declarations themselves live in `@ogm/contracts` because `@ogm/gm-verify`'s link simulator implements them and a
+ * test-only package must not import app source. One declaration of the seam, re-exported here so every app import keeps
+ * working (D-N6-4).
  */
 
-/** `input` and `state` are latest-wins; `event` is rules-relevant and never rides a lossy channel. */
-export type ChannelName = 'input' | 'state' | 'event';
+import type { TransportStats } from '@ogm/contracts';
 
-export type TransportKind = 'ws-relay' | 'webrtc';
-
-/** The relay is not keyed to one peer, so its `seat` is this sentinel; a pair transport carries a real seat. */
-export const ALL_SEATS = -1;
-
-export interface TransportStats {
-  readonly kind: TransportKind;
-  readonly rttMs: number;
-  readonly jitterMs: number;
-  readonly lossPct: number;
-  readonly bytesOut: number;
-  readonly bytesIn: number;
-  readonly drops: number;
-  readonly connectedMs: number;
-}
-
-export interface TransportHandlers {
-  /** `seat` is the sending seat; a transport never invents one. */
-  message(channel: ChannelName, seat: number, bytes: Uint8Array): void;
-  stats(stats: TransportStats): void;
-  closed(reason: string): void;
-}
-
-export interface Transport {
-  readonly kind: TransportKind;
-  /** The remote seat this transport talks to; the switchboard keys pairs by it. */
-  readonly seat: number;
-  open(handlers: TransportHandlers): Promise<void>;
-  send(channel: ChannelName, bytes: Uint8Array): void;
-  stats(): TransportStats;
-  close(reason: string): void;
-}
+export type { ChannelName, Transport, TransportHandlers, TransportKind, TransportStats } from '@ogm/contracts';
+export { ALL_SEATS } from '@ogm/contracts';
 
 /**
  * The selection policy of §6.5, in the units the measurements behind it use: `probeMs` is ~300 input frames and 100

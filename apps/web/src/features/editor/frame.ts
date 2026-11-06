@@ -16,6 +16,8 @@ import { hostToGameSchema, SDK_PROTOCOL } from '@ogm/contracts/browser';
 
 type FrameLike = Pick<GameFrame, 'dispose' | 'on' | 'send' | 'setMode' | 'setSettings'> & {
   bridge: Pick<GameFrame['bridge'], 'dropped'>;
+  /** Optional so a test double need not answer diagnostics; `netInfo()` reports `undefined` when it cannot ask. */
+  request?: GameFrame['request'];
 };
 
 export type GameLoadProgress = Extract<GameLoadEvent, { t: 'load.progress' }>['payload'];
@@ -50,6 +52,11 @@ export type GameFrameController = {
   sendRoomMessage(envelope: Envelope<string, unknown>): void;
   onSaveWrite(callback: (save: SaveData<unknown>) => void): () => void;
   onEvent(callback: (kind: 'achievement' | 'analytics' | 'checkpoint', payload: unknown) => void): () => void;
+  /**
+   * `test.renderInfo`, or `undefined` when the game refused it (a published build answers `ok: false`) or did not answer
+   * within `timeoutMs`. Read by the diagnostics overlay; nothing in the product path calls it.
+   */
+  netInfo(timeoutMs?: number): Promise<unknown>;
   dispose(): void;
 };
 
@@ -254,6 +261,28 @@ export function mountGameFrame(options: MountGameFrameOptions): GameFrameControl
       const send = frame.send as (type: Exclude<HostToGame['t'], 'hello'>, payload: unknown) => void;
       send(message.t, message.payload);
     },
+    netInfo: (timeoutMs = 1_000) =>
+      new Promise((resolve) => {
+        if (disposed) {
+          resolve(undefined);
+          return;
+        }
+        if (frame.request === undefined) {
+          resolve(undefined);
+          return;
+        }
+        const timer = setTimeout(() => resolve(undefined), timeoutMs);
+        void frame
+          .request('test.renderInfo', {})
+          .then((reply: unknown) => {
+            clearTimeout(timer);
+            resolve(reply);
+          })
+          .catch(() => {
+            clearTimeout(timer);
+            resolve(undefined);
+          });
+      }),
     onSaveWrite: (callback) => frame.on('save.write', callback),
     onEvent: (callback) => frame.on('event', ({ kind, payload }) => callback(kind, payload)),
     dispose: () => {

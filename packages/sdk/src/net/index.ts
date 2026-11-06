@@ -21,6 +21,7 @@ import {
 import { HostChannel } from './host.js';
 import { PeerChannel, type WireSnapshot } from './peer.js';
 import { NET_STATE_CHANGES, RoleStore, type NetPlayer, type NetRole, type NetStateChanges } from './roles.js';
+import { EventDelayRing } from './diagnostics.js';
 import { ModeMismatchError, resolveAuthorityMode } from './mode.js';
 import { PerSeatMode, type PerSeatDiagnostics } from './modes/per-seat.js';
 
@@ -68,6 +69,12 @@ export interface NetDiagnostics extends PerSeatDiagnostics {
   outOfOrderSnapshots: number;
   stalls: number;
   oversized: number;
+  /** How long the last event that arrived from the room waited before the game was handed it. 0 before the first. */
+  eventDelayMs: number;
+  /** Nearest-rank p95 of the last {@link EVENT_DELAY_SAMPLES} deliveries; 0 while the ring is empty. */
+  eventDelayP95Ms: number;
+  /** Bytes the codec refused, as well as the `oversized` count of refusals. */
+  droppedBytes: number;
 }
 
 export interface NetControllerOptions {
@@ -148,7 +155,13 @@ export function createNetController(options: NetControllerOptions): NetControlle
     outOfOrderSnapshots: 0,
     stalls: 0,
     oversized: 0,
+    eventDelayMs: 0,
+    eventDelayP95Ms: 0,
+    droppedBytes: 0,
   };
+  /* When each buffered event arrived from the room, so the delivery delay is measured in the event channel itself. */
+  const eventArrivedAt = new Map<number, number>();
+  const eventDelays = new EventDelayRing();
   let expectedEventSequence = 1;
   let outgoingEventSequence = 0;
   let eventGapStartedAt: number | undefined;
@@ -159,6 +172,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
   const oversized = (kind: 'input' | 'snapshot' | 'event', error: unknown) => {
     diagnostics.dropped += 1;
     diagnostics.oversized += 1;
+    if (error instanceof NetPayloadTooLargeError) diagnostics.droppedBytes += error.byteLength;
     if (warned.has(kind)) return;
     warned.add(kind);
     (options.warn ?? console.warn)(`gm.net refused oversized ${kind} payload: ${String(error)}`);
@@ -342,6 +356,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
       seatListeners.clear();
       startListeners.clear();
       eventBuffer.clear();
+      eventArrivedAt.clear();
     },
   };
 
@@ -377,6 +392,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
       const bytes = decodeBase64(message.data);
       assertByteLength(bytes, NET_LIMITS.eventBytes, 'event');
       eventBuffer.set(message.seq, unpackJson(bytes));
+      eventArrivedAt.set(message.seq, options.now());
     } catch (error) {
       if (error instanceof NetPayloadTooLargeError) oversized('event', error);
       else diagnostics.dropped += 1;
@@ -390,6 +406,11 @@ export function createNetController(options: NetControllerOptions): NetControlle
     while (eventBuffer.has(expectedEventSequence)) {
       const event = eventBuffer.get(expectedEventSequence);
       eventBuffer.delete(expectedEventSequence);
+      const arrivedAt = eventArrivedAt.get(expectedEventSequence);
+      eventArrivedAt.delete(expectedEventSequence);
+      if (arrivedAt !== undefined) eventDelays.add(options.now() - arrivedAt);
+      diagnostics.eventDelayMs = eventDelays.latest;
+      diagnostics.eventDelayP95Ms = eventDelays.p95;
       emitEvent(event);
       options.recordEvent('net.event', event);
       expectedEventSequence += 1;
@@ -408,7 +429,9 @@ export function createNetController(options: NetControllerOptions): NetControlle
   }
 }
 
-function zeroDiagnostics(mode: AuthorityMode): Omit<NetDiagnostics, 'dropped' | 'eventGaps' | 'oversized'> {
+function zeroDiagnostics(
+  mode: AuthorityMode,
+): Omit<NetDiagnostics, 'dropped' | 'eventGaps' | 'oversized' | 'eventDelayMs' | 'eventDelayP95Ms' | 'droppedBytes'> {
   return {
     mode,
     epoch: '',
