@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { claimAttachments, storeAttachment } from '../../src/build-chat/attachments.js';
 import { insertChatRow } from '../../src/build-chat/store.js';
 import { contextTokenSecret, signContextToken } from '../../src/new-game/token.js';
-import { makeApp, makeDeps, INTERNAL_TOKEN } from '../helpers.js';
+import { asUser, installUsers, makeApp, makeDeps, INTERNAL_TOKEN } from '../helpers.js';
 
 const NOW = '2026-11-04T18:00:00.000Z';
 const GAME = 'g_47500000-0000-4000-8000-000000000001';
@@ -12,6 +12,8 @@ const SCOPE_JOB = 'j_47500000-0000-4000-8000-000000000002';
 const REQUEST = 'j_47500000-0000-4000-8000-000000000003';
 const OTHER_REQUEST = 'j_47500000-0000-4000-8000-000000000004';
 const SESSION = 's_47500000-0000-4000-8000-000000000005';
+const FAMILY = 'f_47500000-0000-4000-8000-000000000006';
+const CREATOR = 'u_47500000-0000-4000-8000-000000000007';
 const SCOPE = {
   session_id: SESSION,
   revision: 1,
@@ -31,8 +33,8 @@ function seedJob(id: string, kind: 'new_game' | 'feature' | 'scope', extra: Reco
     id,
     gameId: GAME,
     branchId: 'main',
-    familyId: 'f_47500000-0000-4000-8000-000000000006',
-    creatorId: 'u_47500000-0000-4000-8000-000000000007',
+    familyId: FAMILY,
+    creatorId: CREATOR,
     kind,
     complexity: kind === 'scope' ? 1 : 3,
     state: 'filed' as const,
@@ -57,9 +59,9 @@ async function setup() {
   deps.db
     .insert(schema.families)
     .values({
-      id: 'f_47500000-0000-4000-8000-000000000006',
+      id: FAMILY,
       name: 'Family',
-      ownerUserId: 'u_47500000-0000-4000-8000-000000000007',
+      ownerUserId: CREATOR,
       createdAt: NOW,
     })
     .run();
@@ -67,8 +69,8 @@ async function setup() {
     .insert(schema.games)
     .values({
       id: GAME,
-      familyId: 'f_47500000-0000-4000-8000-000000000006',
-      ownerId: 'u_47500000-0000-4000-8000-000000000007',
+      familyId: FAMILY,
+      ownerId: CREATOR,
       title: 'Lantern Bay',
       slug: 'lantern-bay',
       visibility: 'private',
@@ -94,7 +96,7 @@ async function setup() {
     .values({
       id: SESSION,
       gameId: GAME,
-      creatorId: 'u_47500000-0000-4000-8000-000000000007',
+      creatorId: CREATOR,
       jobId: SCOPE_JOB,
       status: 'agreed',
       revision: 1,
@@ -131,7 +133,7 @@ async function setup() {
   });
   const attachment = await storeAttachment(deps.sqlite, deps.blobStore, {
     jobId: SCOPE_JOB,
-    creatorId: 'u_47500000-0000-4000-8000-000000000007',
+    creatorId: CREATOR,
     type: 'text/markdown',
     name: 'mood-board.md',
     bytes: new TextEncoder().encode('# dusk\n'),
@@ -139,10 +141,21 @@ async function setup() {
   claimAttachments(deps.sqlite, {
     ids: [attachment.id],
     jobId: SCOPE_JOB,
-    creatorId: 'u_47500000-0000-4000-8000-000000000007',
+    creatorId: CREATOR,
     messageId: voice.row!.id,
   });
   const server = await makeApp(deps);
+  installUsers(deps, [
+    {
+      kind: 'user',
+      userId: CREATOR,
+      displayName: 'Creator',
+      familyId: FAMILY,
+      platformRole: 'none',
+      capability: 'creator',
+      email: 'creator@example.test',
+    },
+  ]);
   const get = (path: string, headers: Record<string, string> = {}) =>
     server.app.request(`http://127.0.0.1:4000${path}`, { headers });
   const scoped = (requestId = REQUEST, secret = contextTokenSecret(deps.config.jobTokenSecret)) =>
@@ -155,6 +168,8 @@ describe('GET /internal/new-game/requests/:requestId', () => {
     const { get } = await setup();
     expect((await get(`/internal/new-game/requests/${REQUEST}`)).status).toBe(401);
     expect((await get(`/internal/new-game/requests/${REQUEST}`, { authorization: 'Bearer nope' })).status).toBe(401);
+    // A signed-in creator's session is not an authorised agent: the raw scope chat stays behind the internal token.
+    expect((await get(`/internal/new-game/requests/${REQUEST}`, asUser(CREATOR))).status).toBe(401);
   });
 
   it('returns the private context to a scoped token for this request only', async () => {
