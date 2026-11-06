@@ -19,6 +19,8 @@ from pathlib import Path
 
 import numpy as np
 
+import layout_fields
+
 REPO = Path(__file__).resolve().parents[3]
 COLL_DIR = REPO / "assets-local/inspiration/profantasy-cc3"
 MAPS = COLL_DIR / "maps"
@@ -400,6 +402,11 @@ def cards():
         else:
             prov["map.map_type"] = {"by": "model", "model": CLIP_ID, "tool": TOOL, "at": NOW, "confidence": type_conf,
                                     "input": "CLIP map-type prompts, lift vs library; no type word in title or folder"}
+        layers = layout_fields.layout(map_type, envs, objects, keywords, g, lvl) if is_map else {}
+        if layers:
+            mapb["layout"] = layers
+            prov["map.layout"] = {"by": "code", "tool": TOOL, "at": NOW,
+                                  "input": "export grid, map type, judged environments, CAD symbol and label words"}
         flags = ["low-confidence"] if not tt and type_conf < 0.6 else []
         card = {"schema": "ogm.asset-card/1.0", "vocab": VOCAB, "id": f"t1:profantasy-cc3/{kebab(Path(rel).with_suffix('').as_posix())}@{VERSION}",
                 "card_type": "asset", "status": "tagged", "title": title, "kind": "inspiration", "subkind": "map", "collection": COLL_ID,

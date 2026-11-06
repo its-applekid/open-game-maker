@@ -127,6 +127,35 @@ cache, `--strict` to stop at the first invalid asset, or `--json` for manifest a
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is
 reserved for a later release, so V1 builds should omit that flag. Audio builds also require `ffmpeg`.
 
+## Find a map or a tileset
+
+```text
+gm maps index [--json]
+gm maps search [<words...>] [--rooms 3-5] [--loops N] [--secret] [--levels N] [--size <class>]
+               [--type <map type|set>] [--biome <env>] [--feature <name>] [--scale <class>]
+               [--grid <type>] [--flow <flow>] [--tilesets|--maps]
+```
+
+`gm maps index` writes `assets-local/index/maps.index.json`: one row per inspiration map and tileset card an agent may
+build from, with the layout as columns (biome, features, scale, grid, rooms, loops, secrets, levels, size, flow). A map
+needs `derive-layout` in its resolved rights and a tileset needs `in-game`; anything else is counted in a `hidden` line
+and never reaches the file. `gm packs index` refreshes the same index, so one command keeps both current.
+
+`gm maps search` reads only that file — no card index parse, no spec scan per query — and prints one line per hit:
+
+```text
+t1:<collection>/<map>@<version>  crypt  crypt  battlemap  square@32  4/1/1  small  loop  road,stairs,tomb,water
+```
+
+The columns are the id, the map type (or the tileset set), the biome, the scale, the grid and its cell size, rooms /
+loops / secrets, the size class, the flow and the drawn features. A filter never matches a row whose column is unknown,
+so `--rooms 3-5` excludes a map with no layout spec rather than assuming it has three rooms. The command prints a facet
+line (`2 of 2 (map 1, tileset 1) — biome: crypt 1, dungeon 1`) so a caller narrows instead of paging.
+
+**A map row never carries a path.** Maps are chosen from the columns and facts here; there is no preview or tile key in
+the output and no preview command for an inspiration map, so an agent cannot end up looking at a four-thousand-file
+library. Contact sheets stay a human tool: `gm assets sheet`.
+
 ## Search the asset library
 
 ```text

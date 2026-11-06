@@ -5,6 +5,7 @@ import type { VoiceTarget } from '@ogm/contracts';
 // Same format as voice_converse's `VoiceConverse.TokenIssuer.Hmac`, which the voice host verifies:
 // `vct1.` + base64url(JSON{scope, sub, exp, nonce, target}) + `.` + base64url(HMAC-SHA256(secret, body)).
 export const VOICE_TOKEN_SCOPE = 'converse';
+export const VOICE_DICTATION_TOKEN_SCOPE = 'dictate';
 export const VOICE_TOKEN_TTL_SEC = 300;
 export const VOICE_TOKEN_MIN_SECRET_BYTES = 32;
 

@@ -116,6 +116,37 @@ export const assetCardMetaDefs: Record<string, object> = {
         },
         "description": "Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards."
       },
+      "texture_sizes": {
+        "type": "array",
+        "description": "Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB.",
+        "items": {
+          "type": "object",
+          "required": [
+            "key",
+            "width_px",
+            "height_px"
+          ],
+          "properties": {
+            "key": {
+              "type": "string"
+            },
+            "width_px": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "height_px": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "max_texture_px": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "Largest texture dimension on this model: the number a device-tier texture cap is compared against."
+      },
       "has_collision_mesh": {
         "type": "boolean"
       },
@@ -3335,6 +3366,18 @@ export interface Geometry {
    * Textures used, by path within the collection; a shared atlas shows up as the same entry on many cards.
    */
   texture_keys?: string[];
+  /**
+   * Measured pixel size of each texture the model references, read from the image headers. `key` is the texture path for an external image and the image name for one embedded in a GLB.
+   */
+  texture_sizes?: {
+    key: string;
+    width_px: number;
+    height_px: number;
+  }[];
+  /**
+   * Largest texture dimension on this model: the number a device-tier texture cap is compared against.
+   */
+  max_texture_px?: number;
   has_collision_mesh?: boolean;
   lod_count?: number;
   /**
@@ -3648,9 +3691,13 @@ export interface Audio {
     tempo_bpm?: number;
   };
   /**
-   * Optional Universal Category System CatID (e.g. DOORWood), model-proposed, for SFX.
+   * Optional Universal Category System CatID (e.g. DOORWood), read from a UCS filename and otherwise model-proposed, for SFX.
    */
   ucs_cat_id?: string;
+  /**
+   * The set a sound effect belongs to: its folder and name with the trailing variation number removed (weapons/sword-slice for Sword_Slice_01 and _02). Shared by every file of the set, so 'give me four sword impacts' is one group query. A file with no sibling carries no group.
+   */
+  variation_group?: string;
 }
 export interface Font {
   family: string;
@@ -3744,6 +3791,118 @@ export interface Map {
     id?: LayoutSpecId;
     status: "pending" | "extracted" | "low-confidence" | "image-only";
     confidence?: number;
+  };
+  /**
+   * C3 §12 layout facts, so a map is chosen by structure and not by text: the graph counts come from a validated layout spec (code recomputes them) and grid, biome, features and levels from code measurements on the export. An absent field is unknown, never zero.
+   */
+  layout?: {
+    /**
+     * Rooms in the layout spec; code counts them from the graph.
+     */
+    rooms?: number;
+    connections?: number;
+    entrances?: number;
+    dead_ends?: number;
+    /**
+     * Independent cycles: connections - rooms + components, with outside counted as a node.
+     */
+    loops?: number;
+    secrets?: number;
+    /**
+     * Floors of this place the image shows, from the export title and its level links.
+     */
+    levels?: number;
+    longest_path_rooms?: number;
+    /**
+     * Specs by room count: small <= 5, medium 6-15, large 16-40, huge > 40.
+     */
+    size_class?: "tiny" | "small" | "medium" | "large" | "huge";
+    flow?: "linear" | "branching" | "hub-and-spoke" | "loop" | "maze" | "open";
+    /**
+     * The one place the map shows, from the map type and the judged environments.
+     */
+    biome?:
+      | "dungeon"
+      | "crypt"
+      | "cave"
+      | "mine"
+      | "sewer"
+      | "castle"
+      | "temple"
+      | "ruins"
+      | "graveyard"
+      | "camp"
+      | "town"
+      | "village"
+      | "city"
+      | "interior"
+      | "tavern"
+      | "shop"
+      | "house"
+      | "farm"
+      | "forest"
+      | "jungle"
+      | "grassland"
+      | "mountain"
+      | "snow"
+      | "desert"
+      | "swamp"
+      | "beach"
+      | "ocean"
+      | "underwater"
+      | "sky"
+      | "space"
+      | "space-station"
+      | "industrial"
+      | "road"
+      | "arena"
+      | "neutral";
+    /**
+     * What is drawn that a builder asks for by name: water, roads, stairs, blocking props.
+     *
+     * Items: The map-layout-spec feature types plus the drawn structures a builder asks for by name (road, bridge, stairs, door).
+     */
+    features?: (
+      | "pillar"
+      | "water"
+      | "pit"
+      | "chasm"
+      | "lava"
+      | "altar"
+      | "statue"
+      | "throne"
+      | "tomb"
+      | "sarcophagus"
+      | "trap"
+      | "treasure"
+      | "chest"
+      | "fireplace"
+      | "well"
+      | "fountain"
+      | "bed"
+      | "table"
+      | "bookshelf"
+      | "barrel"
+      | "crate"
+      | "rubble"
+      | "stalagmite"
+      | "cage"
+      | "portal"
+      | "lever"
+      | "light-source"
+      | "road"
+      | "bridge"
+      | "stairs"
+      | "door"
+      | "spawn-hint"
+      | "exit-hint"
+    )[];
+    grid?: {
+      type?: "square" | "hex" | "none";
+      cols?: number;
+      rows?: number;
+      cell_px?: number;
+    };
   };
 }
 export interface CollectionInfo {
