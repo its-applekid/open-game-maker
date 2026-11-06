@@ -23,10 +23,7 @@ export type IntakeDeps = {
   fleet:
     | Pick<Fleet, 'ensureDaemon'>
     | {
-        ensureDaemon(
-          key: DaemonKey,
-          kind: 'new_game' | 'feature' | 'repair',
-        ): Promise<EnsureResult>;
+        ensureDaemon(key: DaemonKey, kind: 'new_game' | 'feature' | 'repair'): Promise<EnsureResult>;
       };
   issues: IssuesClient;
   aiurForGame: (gameSlug: string) => Promise<Pick<AiurClient, 'setSpendCap' | 'nudgeTodo'>>;
