@@ -20,7 +20,7 @@ import {
 } from './codec.js';
 import { HostChannel } from './host.js';
 import { PeerChannel, type WireSnapshot } from './peer.js';
-import { NET_STATE_CHANGES, RoleStore, type NetPlayer, type NetRole, type NetStateChanges } from './roles.js';
+import { NET_STATE_CHANGES, playerId, RoleStore, type NetPlayer, type NetRole, type NetStateChanges } from './roles.js';
 import { EventDelayRing } from './diagnostics.js';
 import { ModeMismatchError, resolveAuthorityMode } from './mode.js';
 import { PerSeatMode, type PerSeatDiagnostics } from './modes/per-seat.js';
@@ -162,6 +162,8 @@ export function createNetController(options: NetControllerOptions): NetControlle
   /* When each buffered event arrived from the room, so the delivery delay is measured in the event channel itself. */
   const eventArrivedAt = new Map<number, number>();
   const eventDelays = new EventDelayRing();
+  /* Seats have already been spawned through the v1 hook, so a `net.seats` repeat does not spawn one twice. */
+  const spawnedSeats = new Set<number>();
   let expectedEventSequence = 1;
   let outgoingEventSequence = 0;
   let eventGapStartedAt: number | undefined;
@@ -360,6 +362,28 @@ export function createNetController(options: NetControllerOptions): NetControlle
     },
   };
 
+  /**
+   * A seat is a player. The v1 hooks (`spawn`/`despawn`) stay the one way a game learns that somebody joined — the design
+   * keeps them for every existing template — so a per-seat match fires them from the seat table, exactly as the v1 path
+   * fires them from `net.players`. A game that also listens to `net.seats` is unaffected: its own spawn is idempotent
+   * per player index, which is the contract the v1 path already assumed.
+   */
+  function syncSeatedPlayers(seats: readonly NetSeat[]): void {
+    const seated = new Set(
+      seats.filter((seat) => seat.userId !== '' && !seat.forfeited && !seat.spectator).map((seat) => seat.seat),
+    );
+    for (const seat of seated) {
+      if (spawnedSeats.has(seat)) continue;
+      options.hooks.spawn(seat, playerId(seat));
+      spawnedSeats.add(seat);
+    }
+    for (const seat of [...spawnedSeats]) {
+      if (seated.has(seat)) continue;
+      options.hooks.despawn(playerId(seat));
+      spawnedSeats.delete(seat);
+    }
+  }
+
   function createPerSeatMode(): PerSeatMode {
     const hooks = options.hooks as MultiplayerHooksV2;
     if (!hooks.capture || !hooks.restore || !hooks.digest) {
@@ -377,6 +401,7 @@ export function createNetController(options: NetControllerOptions): NetControlle
       resetClock: (tick) => options.resetClock?.(tick),
       recordEvent: options.recordEvent,
       emitSeats: (seats) => {
+        syncSeatedPlayers(seats);
         for (const listener of seatListeners) listener(seats);
       },
       emitStart: (start) => {
