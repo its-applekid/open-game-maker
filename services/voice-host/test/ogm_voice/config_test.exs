@@ -24,7 +24,7 @@ defmodule OgmVoice.ConfigTest do
            } = config
 
     assert [
-             transcriber: VoiceTranscribe.ElevenLabs.Scribe,
+             transcriber: VoiceTranscribe.Scribe,
              transcriber_opts: [api_key_fun: api_key_fun]
            ] = Config.dictation(config)
 
@@ -40,6 +40,25 @@ defmodule OgmVoice.ConfigTest do
                required_provider_options: %{elevenlabs_agents: %{record_voice: false}}
              }
            ] = Config.narration(config)
+  end
+
+  test "defaults dictation to the pinned Aiur Scribe transcriber the dependency provides" do
+    [transcriber: transcriber, transcriber_opts: _opts] = Config.dictation(Config.from_env!(@env))
+
+    assert transcriber == VoiceTranscribe.Scribe
+    assert Code.ensure_loaded?(transcriber)
+    assert function_exported?(transcriber, :start, 1)
+    assert function_exported?(transcriber, :push, 2)
+    assert function_exported?(transcriber, :commit, 1)
+    assert function_exported?(transcriber, :stop, 1)
+  end
+
+  test "the pinned transcriber reports :unconfigured without an ElevenLabs key instead of opening a socket" do
+    [transcriber: transcriber, transcriber_opts: opts] = Config.dictation(Config.from_env!(@env))
+
+    opts = Keyword.merge(opts, owner: self(), api_key_fun: fn -> nil end)
+
+    assert {:error, :unconfigured} = transcriber.start(opts)
   end
 
   test "narration renders stay off until explicitly enabled, so a provider key alone never spends" do

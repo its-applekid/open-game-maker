@@ -38,7 +38,7 @@ defmodule OgmVoice.Config do
               [
                 narration_enabled: false,
                 cleanup_root: nil,
-                dictation_transcriber: VoiceTranscribe.ElevenLabs.Scribe,
+                dictation_transcriber: VoiceTranscribe.Scribe,
                 dictation_transcriber_opts: nil
               ]
 
