@@ -11,6 +11,7 @@ export * from './room.js';
 export { BoundaryVerdict, CommitOp, CommitResult } from './commit.js';
 export * from './bridge.js';
 export * from './game.js';
+export * from './net.js';
 export * from './input.js';
 export * from './assets.js';
 export * from './credits.js';
