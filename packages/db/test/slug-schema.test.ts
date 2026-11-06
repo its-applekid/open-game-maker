@@ -28,8 +28,8 @@ describe('game slug schema', () => {
       VALUES ('f_1', 'Family', 'u_1', '2026-11-05T00:00:00.000Z');
       INSERT INTO games (id, family_id, owner_id, title, visibility, repo_visibility, created_at)
       VALUES
-        ('g_aaaa1111', 'f_1', 'u_1', 'Castle Game', 'listed', 'private', '2026-11-05T00:00:00.000Z'),
-        ('g_bbbb2222', 'f_1', 'u_1', 'Castle Game', 'listed', 'private', '2026-11-05T00:00:00.000Z');
+        ('g_aaaa111122223333', 'f_1', 'u_1', 'Castle Game', 'listed', 'private', '2026-11-05T00:00:00.000Z'),
+        ('g_bbbb222233334444', 'f_1', 'u_1', 'Castle Game', 'listed', 'private', '2026-11-05T00:00:00.000Z');
     `);
     copyFileSync(join(MIGRATIONS_DIR, migration), join(dir, migration));
     expect(migrate({ sqlite, dir })).toEqual({ applied: [migration] });
@@ -37,13 +37,13 @@ describe('game slug schema', () => {
     expect(
       sqlite.prepare<[], { id: string; slug: string | null }>('SELECT id, slug FROM games ORDER BY id').all(),
     ).toEqual([
-      { id: 'g_aaaa1111', slug: 'game-aaaa1111' },
-      { id: 'g_bbbb2222', slug: 'game-bbbb2222' },
+      { id: 'g_aaaa111122223333', slug: 'game-aaaa11112222' },
+      { id: 'g_bbbb222233334444', slug: 'game-bbbb22223333' },
     ]);
 
-    expect(() => sqlite.prepare("UPDATE games SET slug = 'game-aaaa1111' WHERE id = 'g_bbbb2222'").run()).toThrow(
-      /UNIQUE/,
-    );
+    expect(() =>
+      sqlite.prepare("UPDATE games SET slug = 'game-aaaa11112222' WHERE id = 'g_bbbb222233334444'").run(),
+    ).toThrow(/UNIQUE/);
     expect(
       sqlite.prepare<[], { count: number }>('SELECT count(*) AS count FROM games WHERE slug IS NULL').get(),
     ).toEqual({ count: 0 });
@@ -51,11 +51,11 @@ describe('game slug schema', () => {
     sqlite
       .prepare(
         `INSERT INTO game_slugs (slug, game_id, created_at)
-         VALUES ('castle-game', 'g_aaaa1111', '2026-11-05T00:00:00.000Z')`,
+         VALUES ('castle-game', 'g_aaaa111122223333', '2026-11-05T00:00:00.000Z')`,
       )
       .run();
     expect(
-      sqlite.prepare<[], { slug: string }>("SELECT slug FROM game_slugs WHERE game_id = 'g_aaaa1111'").get(),
+      sqlite.prepare<[], { slug: string }>("SELECT slug FROM game_slugs WHERE game_id = 'g_aaaa111122223333'").get(),
     ).toEqual({ slug: 'castle-game' });
     expect(sqlite.prepare('PRAGMA foreign_key_check').all()).toEqual([]);
     sqlite.close();
