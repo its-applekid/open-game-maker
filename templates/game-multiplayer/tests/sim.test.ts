@@ -1,14 +1,19 @@
 import type { HostApi, Patch } from '@ogm/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
+import { toUnits } from '@gm/sdk/net';
 import { connectPhaserLifecycle, defaultDesign, game, getGameContext } from '../src/game.js';
 import gmManifest from '../gm.manifest.json' with { type: 'json' };
 import { hud } from '../src/hud.js';
 import {
   addPlayer,
   applyInput,
+  captureOwned,
+  captureShared,
   createSimulation,
+  digestSimulation,
   playerId,
+  restoreOwned,
   serializeSimulation,
   spawns,
   stepSimulation,
@@ -191,5 +196,73 @@ describe('2D game module', () => {
 
     expect(instance.pick?.(0, 0)).toEqual([{ id: 'plat_1', kind: 'entity' }]);
     expect(instance.worldToScreen?.('plat_1')).toEqual({ x: 300, y: 270 });
+  });
+});
+
+describe('per-seat authority hooks', () => {
+  const manifest = gmManifest as { net?: { authority?: string; maxSeats?: number } };
+
+  it('declares per-seat authority for four seats', () => {
+    expect(manifest.net).toEqual({ authority: 'per-seat', maxSeats: 4 });
+    expect(game.manifest.net?.authority).toBe('per-seat');
+  });
+
+  it('gives two simulations fed the same 600 frames equal digests', () => {
+    const frames = Array.from({ length: 600 }, (_value, index) => ({
+      playerIndex: index % 2,
+      tick: index,
+      source: 'network' as const,
+      actions: { move: index % 5 === 0 ? 1 : -1, jump: index % 40 === 0 },
+    }));
+    const run = () => {
+      const state = createSimulation(defaultDesign);
+      addPlayer(state, 1, playerId(1));
+      for (const frame of frames) {
+        applyInput(state, frame.playerIndex, frame);
+        stepSimulation(state, defaultDesign, 1 / 60);
+      }
+      return digestSimulation(state, toUnits);
+    };
+
+    const first = run();
+    expect(run()).toEqual(first);
+    expect(first[0]).toBe(toUnits(600));
+    expect(first.length).toBeGreaterThan(3);
+  });
+
+  it('changes the digest when one avatar moves by one 1/256 unit', async () => {
+    const instance = await game.mount({} as HostApi, defaultDesign);
+    instance.net.spawn(1, playerId(1));
+    const before = instance.net.digest!();
+    const ownsOne = instance.net.capture!({ seat: 0 });
+    const slice = ownsOne.state as { seat: number; player: { p: [number, number] } };
+    slice.player.p[0] += 1 / 256;
+    instance.net.restore!({ tick: ownsOne.tick, state: slice });
+
+    expect(instance.net.digest!()).not.toEqual(before);
+  });
+
+  it('keeps the shared digest independent of any seat position', async () => {
+    const state = createSimulation(defaultDesign);
+    addPlayer(state, 1, playerId(1));
+    const shared = digestSimulation(
+      { ...state, tick: 0, players: new Map() },
+      toUnits,
+    );
+    const moved = createSimulation(defaultDesign);
+    const player = moved.players.get(0)!;
+    player.p[0] += 100;
+    expect(digestSimulation({ ...moved, players: new Map() }, toUnits)).toEqual(shared);
+    expect(captureShared(state).platforms.length).toBeGreaterThan(0);
+  });
+
+  it('restores exactly the slice it is given', () => {
+    const state = createSimulation(defaultDesign);
+    addPlayer(state, 1, playerId(1));
+    const owned = captureOwned(state, 1)!;
+    state.players.get(1)!.p[0] = 5;
+    restoreOwned(state, owned);
+    expect(state.players.get(1)!.p[0]).toBe(owned.player.p[0]);
+    expect(state.players.get(0)!.p[0]).not.toBe(owned.player.p[0]);
   });
 });

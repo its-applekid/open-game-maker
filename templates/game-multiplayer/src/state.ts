@@ -192,3 +192,58 @@ export function applySnapshotState(state: SimulationState, saved: SerializedSimu
     if (!seen.has(playerIndex)) state.players.delete(playerIndex);
   }
 }
+
+/* ----------------------------------------------------------------------------------------------------------------
+ * Per-seat authority (netcode v2).
+ *
+ * `capture({ seat })` returns that seat's owned slice, `capture({})` the shared slice, and `restore` applies exactly
+ * the slice it is handed — one seat's avatar, or the platform list — so the SDK can reconcile three remote seats
+ * without overwriting the local one. `digest` folds the whole visible state in canonical order: entities sorted by
+ * id, positions and velocities in 1/256 units, `onGround` as 0/1.
+ * -------------------------------------------------------------------------------------------------------------- */
+
+export interface OwnedSlice {
+  seat: number;
+  player: PlayerState;
+}
+
+export interface SharedSlice {
+  platforms: Platform[];
+}
+
+export function captureOwned(state: SimulationState, seat: number): OwnedSlice | undefined {
+  const player = state.players.get(seat);
+  return player ? { seat, player: structuredClone(player) } : undefined;
+}
+
+export function captureShared(state: SimulationState): SharedSlice {
+  return { platforms: structuredClone(state.platforms) };
+}
+
+export function restoreOwned(state: SimulationState, slice: OwnedSlice): void {
+  state.players.set(slice.seat, structuredClone(slice.player));
+  if (!state.inputs.has(slice.seat)) state.inputs.set(slice.seat, { move: 0, jumpQueued: false });
+}
+
+export function restoreShared(state: SimulationState, slice: SharedSlice): void {
+  state.platforms = structuredClone(slice.platforms);
+}
+
+/** Seat words first (sorted by id), then the shared platform words, so two clients fold the same order. */
+export function digestSimulation(state: SimulationState, toUnits: (value: number) => number): number[] {
+  const words = [toUnits(state.tick)];
+  const players = [...state.players.values()].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  for (const player of players) {
+    words.push(
+      toUnits(player.p[0]),
+      toUnits(player.p[1]),
+      toUnits(player.v[0]),
+      toUnits(player.v[1]),
+      player.onGround ? 1 : 0,
+    );
+  }
+  for (const platform of [...state.platforms].sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0))) {
+    words.push(toUnits(platform.x), toUnits(platform.y), toUnits(platform.width), toUnits(platform.height));
+  }
+  return words;
+}
