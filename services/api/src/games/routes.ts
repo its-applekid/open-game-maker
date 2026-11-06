@@ -110,9 +110,10 @@ const routes = new Hono<ApiBindings>()
     const body = await parseBody(c, patchBody);
     const db = c.get('deps').db;
     const title = body.title;
-    const renamed = title !== undefined && title !== game.title;
     const slug =
-      renamed && title !== undefined ? assignSlug(db, title, { gameId: game.id, slug: game.slug }) : game.slug;
+      title !== undefined && title !== game.title
+        ? assignSlug(db, title, { gameId: game.id, slug: game.slug })
+        : game.slug;
     db.update(schema.games)
       .set({ ...body, slug })
       .where(eq(schema.games.id, game.id))
