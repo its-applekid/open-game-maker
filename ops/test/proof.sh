@@ -71,7 +71,7 @@ set +e
 "$proof" --repo "$clone" --slug castle-run > /dev/null 2> "$scratch/norelease.txt"
 code=$?
 set -e
-assert_eq 4 "$code" 'ogm-proof should refuse a game with no release tag'
+assert_eq 3 "$code" 'ogm-proof should refuse a game with no release tag'
 assert_grep 'no castle-run/v* release tag yet' "$scratch/norelease.txt"
 
 # Publishing without the rollback leaves one release, so --expect-rollback names the missing half.
@@ -80,8 +80,17 @@ set +e
 "$proof" --repo "$clone" --slug castle-run --expect-rollback > /dev/null 2> "$scratch/one.txt"
 code=$?
 set -e
-assert_eq 5 "$code" 'ogm-proof should refuse --expect-rollback with one release'
+assert_eq 4 "$code" 'ogm-proof should refuse --expect-rollback with one release'
 assert_grep 'needs a publish and a rollback release; found 1' "$scratch/one.txt"
+
+# The helper writes nothing into the repository it reads, so an --out inside the clone is refused.
+set +e
+"$proof" --repo "$clone" --slug castle-run --out "$clone/evidence" > /dev/null 2> "$scratch/inside.txt"
+code=$?
+set -e
+assert_eq 64 "$code" 'ogm-proof should refuse an --out inside the clone'
+assert_grep '--out is inside the repository clone' "$scratch/inside.txt"
+[[ ! -e $clone/evidence ]] || fail 'ogm-proof wrote into the clone it read'
 
 # Usage refusals: a slug with a path separator or an unknown ref cannot be resolved to one game's folder.
 set +e

@@ -230,7 +230,7 @@ a registry instead of vendoring tarballs. Publishing is prepared but switched of
 Every game in an instance lives in the one repository named by `OGM_INSTANCE_REPO`: `games/<slug>/` per game and
 `packages/` for components the instance's games share. No repository is created per game. This run proves that flow on
 the deployed app from a phone, so it happens after a deploy and needs the operator's sign-in. It covers acceptance
-checks 3, 4, 8, 12 and 18 in [acceptance.md](../plans/ogm-v1-build/acceptance.md); record the results in the pull
+checks 3, 4, 7, 11 and 18 in [acceptance.md](../plans/ogm-v1-build/acceptance.md); record the results in the pull
 request, since the planning pack is frozen.
 
 1. Sign in at `<app-origin>/login`: the age screen, then passkey or magic link, then the games picker.
@@ -245,9 +245,9 @@ request, since the planning pack is frozen.
 
 Save the phone screen recording under `~/.local/share/ogm/acceptance/<date>/` with a `SHA256SUMS`, as
 [acceptance.md](../plans/ogm-v1-build/acceptance.md) describes. The helper reads the folder, the commits and the release
-tags a run left in that clone and prints one record to paste into the pull request; it needs no token and writes nothing
-to the repository. Its exit code names the step that did not land: 2 no `games/<slug>/`, 3 no commits under the folder,
-4 no `<slug>/v*` release tag, and 5 fewer than two releases with `--expect-rollback`.
+tags a run left in that clone and prints one record to paste into the pull request; it needs no token and writes
+nothing to the repository. Its exit code names the step that did not land: 2 no `games/<slug>/`, 3 no `<slug>/v*`
+release tag, and 4 fewer than two releases with `--expect-rollback`.
 
 ```
 ops/bin/ogm-proof --repo <clone> --slug <slug> --expect-rollback [--out <dir>]

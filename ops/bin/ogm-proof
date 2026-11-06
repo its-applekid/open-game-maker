@@ -2,10 +2,10 @@
 # OGM instance-monorepo proof evidence: read one game's folder, its commits and its release tags out of a clone of the
 # instance repository, so a proof run's evidence is one command and one record. Read-only: no network, no tokens, no
 # git writes. usage: ogm-proof --repo <clone> --slug <game-slug> [--ref <ref>] [--expect-rollback] [--out <dir>]
-# exit 0 when the folder, its commits and its releases are all present; 2 no games/<slug>/ on the ref;
-# 3 no commits under the folder; 4 no <slug>/v* release tag; 5 --expect-rollback and fewer than two releases;
-# 64 bad usage. The record names the repository's folder, commits and tags only, never the clone path, an owner
-# name or a host name, so it can be pasted into a pull request as is.
+# exit 0 when the folder and its release tags are present; 2 no games/<slug>/ on the ref; 3 no <slug>/v* release tag;
+# 4 --expect-rollback and fewer than two releases; 64 bad usage or an --out inside the clone. The record names the
+# repository's folder, commits and tags only, never the clone path, an owner name or a host name, so it can be pasted
+# into a pull request as is.
 
 set -uo pipefail
 
@@ -73,21 +73,16 @@ git -C "$repo" rev-parse --verify --quiet "$ref^{commit}" > /dev/null || {
 head_sha=$(git -C "$repo" rev-parse "$ref^{commit}")
 folder="games/$slug"
 
-files=$(git -C "$repo" ls-tree -r --name-only "$head_sha" -- "$folder")
-[[ $? -eq 0 ]] || {
+if ! listing=$(git -C "$repo" ls-tree -r --name-only "$head_sha" -- "$folder"); then
   printf 'ogm-proof: git could not read %s in the clone\n' "$head_sha" >&2
   exit 64
-}
-files=$(printf '%s\n' "$files" | sort)
+fi
+files=$(printf '%s\n' "$listing" | sort)
 if [[ -z $files ]]; then
   printf 'ogm-proof: %s is not on %s (%s)\n' "$folder" "$ref" "${head_sha:0:12}" >&2
   exit 2
 fi
 commits=$(git -C "$repo" log --format='%H%x09%aI%x09%s' "$head_sha" -- "$folder")
-if [[ -z $commits ]]; then
-  printf 'ogm-proof: no commits touch %s\n' "$folder" >&2
-  exit 3
-fi
 releases=
 while read -r tag; do
   [[ -n $tag ]] || continue
@@ -97,12 +92,12 @@ done < <(git -C "$repo" tag --list "$slug/v*" --sort=creatordate)
 releases=${releases%$'\n'}
 if [[ -z $releases ]]; then
   printf 'ogm-proof: no %s/v* release tag yet\n' "$slug" >&2
-  exit 4
+  exit 3
 fi
 release_count=$(printf '%s\n' "$releases" | grep -c .)
 if ((rollback)) && ((release_count < 2)); then
   printf 'ogm-proof: --expect-rollback needs a publish and a rollback release; found %s\n' "$release_count" >&2
-  exit 5
+  exit 4
 fi
 
 record=$(mktemp)
@@ -124,7 +119,22 @@ trap 'rm -f -- "$record"' EXIT
 } > "$record"
 cat -- "$record"
 if [[ -n $out ]]; then
-  mkdir -p "$out"
+  # The helper writes nothing into the repository it reads, so an --out inside the clone is refused.
+  out_abs=$(realpath -m -- "$out")
+  top=$(git -C "$repo" rev-parse --show-toplevel 2> /dev/null || true)
+  if [[ -n $top ]]; then
+    top_abs=$(realpath -m -- "$top")
+    case "$out_abs/" in
+      "$top_abs"/*)
+        printf 'ogm-proof: --out is inside the repository clone; choose a directory outside it\n' >&2
+        exit 64
+        ;;
+    esac
+  fi
+  mkdir -p "$out" || {
+    printf 'ogm-proof: cannot create --out\n' >&2
+    exit 64
+  }
   cp -- "$record" "$out/proof-$slug.md"
   printf 'wrote %s/proof-%s.md\n' "$out" "$slug"
 fi
