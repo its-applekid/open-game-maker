@@ -1,4 +1,4 @@
-import type { HostApi, Patch } from '@ogm/contracts';
+import type { HostApi, MultiplayerHooksV2, Patch } from '@ogm/contracts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { toUnits } from '@gm/sdk/net';
@@ -232,14 +232,15 @@ describe('per-seat authority hooks', () => {
 
   it('changes the digest when one avatar moves by one 1/256 unit', async () => {
     const instance = await game.mount({} as HostApi, defaultDesign);
-    instance.net.spawn(1, playerId(1));
-    const before = instance.net.digest!();
-    const ownsOne = instance.net.capture!({ seat: 0 });
-    const slice = ownsOne.state as { seat: number; player: { p: [number, number] } };
+    const hooks = instance.net as MultiplayerHooksV2;
+    hooks.spawn(1, playerId(1));
+    const before = hooks.digest!();
+    const owned = hooks.capture!({ seat: 0 });
+    const slice = owned.state as { seat: number; player: { p: [number, number] } };
     slice.player.p[0] += 1 / 256;
-    instance.net.restore!({ tick: ownsOne.tick, state: slice });
+    hooks.restore!({ tick: owned.tick, state: slice });
 
-    expect(instance.net.digest!()).not.toEqual(before);
+    expect(hooks.digest!()).not.toEqual(before);
   });
 
   it('keeps the shared digest independent of any seat position', async () => {

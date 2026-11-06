@@ -178,6 +178,9 @@ export class PerSeatMode {
     const encoded = encodeInputFrame(frame, this.options.manifest.inputs.actions, ++this.inputSequence);
     this.rings.record({ ...encoded, seat: this.localSeat });
     this.sampledTicks.add(frame.tick);
+    for (const sampled of this.sampledTicks) {
+      if (sampled < frame.tick - 240) this.sampledTicks.delete(sampled);
+    }
     if (frame.tick % this.rings.cadenceTicks === 0) this.sendInputs(frame.tick);
   }
 
