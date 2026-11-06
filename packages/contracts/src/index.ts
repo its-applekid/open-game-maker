@@ -10,6 +10,8 @@ export * from './analytics.js';
 export * from './reports.js';
 export * from './notifications.js';
 export * from './room.js';
+export * from './net.js';
+export * from './net-events.js';
 export { BoundaryVerdict, CommitOp, CommitResult } from './commit.js';
 export * from './bridge.js';
 export * from './game.js';

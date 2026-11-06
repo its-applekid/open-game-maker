@@ -1,0 +1,59 @@
+{
+  "protocol": 2,
+  "pin": { "gameId": "g_01J", "branchId": "b_01J", "buildId": "sha256-3f9a" },
+  "ownerId": "u_01JOWNER",
+  "editorSessionId": "s_owner1",
+  "phase": "playing",
+  "phaseAt": 1761899500,
+  "playRev": 41,
+  "lastRev": 42,
+  "maxPlayers": 4,
+  "members": {
+    "u_01JOWNER": {
+      "userId": "u_01JOWNER",
+      "name": "Kevin",
+      "role": "owner",
+      "playerIndex": 0,
+      "connected": true,
+      "sessions": ["s_owner1"]
+    },
+    "u_01J": {
+      "userId": "u_01J",
+      "name": "Sam",
+      "role": "player",
+      "playerIndex": 1,
+      "connected": false,
+      "sessions": []
+    }
+  },
+  "presence": { "selection": [], "privateMode": false },
+  "seats": [
+    {
+      "seat": 0,
+      "userId": "u_01JOWNER",
+      "name": "Kevin",
+      "team": 0,
+      "connected": true,
+      "ready": true,
+      "forfeited": false
+    },
+    {
+      "seat": 1,
+      "userId": "u_01J",
+      "name": "Sam",
+      "team": 1,
+      "connected": false,
+      "ready": false,
+      "forfeited": false
+    },
+    { "seat": 2, "userId": "", "name": "", "team": 0, "connected": false, "ready": false, "forfeited": false },
+    { "seat": 3, "userId": "", "name": "", "team": 1, "connected": false, "ready": false, "forfeited": false }
+  ],
+  "spectators": [],
+  "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+  "startAt": 1761899400,
+  "pausedAt": 0,
+  "primarySeat": 0,
+  "seed": 2748321608,
+  "rulesetHash": "fnv1a64:9f2c1d7a4b3e5061"
+}

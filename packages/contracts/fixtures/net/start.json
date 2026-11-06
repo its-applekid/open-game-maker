@@ -1,0 +1,29 @@
+{
+  "t": "net.start",
+  "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+  "mode": "per-seat",
+  "startAt": 1761899400,
+  "seed": 2748321608,
+  "primarySeat": 0,
+  "seats": [
+    {
+      "seat": 0,
+      "userId": "u_01JOWNER",
+      "name": "Kevin",
+      "team": 0,
+      "connected": true,
+      "ready": true,
+      "forfeited": false
+    },
+    {
+      "seat": 1,
+      "userId": "u_01J",
+      "name": "Sam",
+      "team": 1,
+      "connected": true,
+      "ready": true,
+      "forfeited": false
+    }
+  ],
+  "privateSeed": 1013904223
+}

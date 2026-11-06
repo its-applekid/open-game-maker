@@ -1,0 +1,161 @@
+[
+  {
+    "t": "welcome",
+    "you": {
+      "userId": "u_01J",
+      "seat": 1,
+      "playerIndex": 1,
+      "sessionId": "s_sam1",
+      "spectator": false,
+      "team": 1
+    },
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "state": {
+      "protocol": 2,
+      "pin": { "gameId": "g_01J", "branchId": "b_01J", "buildId": "sha256-3f9a" },
+      "ownerId": "u_01JOWNER",
+      "editorSessionId": "s_owner1",
+      "phase": "playing",
+      "phaseAt": 1761899500,
+      "playRev": 41,
+      "lastRev": 42,
+      "maxPlayers": 4,
+      "members": {
+        "u_01JOWNER": {
+          "userId": "u_01JOWNER",
+          "name": "Kevin",
+          "role": "owner",
+          "playerIndex": 0,
+          "connected": true,
+          "sessions": ["s_owner1"]
+        }
+      },
+      "presence": { "selection": [], "privateMode": false },
+      "seats": [
+        {
+          "seat": 0,
+          "userId": "u_01JOWNER",
+          "name": "Kevin",
+          "team": 0,
+          "connected": true,
+          "ready": true,
+          "forfeited": false
+        },
+        { "seat": 1, "userId": "", "name": "", "team": 1, "connected": false, "ready": false, "forfeited": false }
+      ],
+      "spectators": [],
+      "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+      "startAt": 1761899400,
+      "pausedAt": 0,
+      "primarySeat": 0,
+      "seed": 2748321608,
+      "rulesetHash": "fnv1a64:9f2c1d7a4b3e5061"
+    }
+  },
+  {
+    "t": "net.start",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "mode": "per-seat",
+    "startAt": 1761899400,
+    "seed": 2748321608,
+    "primarySeat": 0,
+    "seats": [
+      {
+        "seat": 0,
+        "userId": "u_01JOWNER",
+        "name": "Kevin",
+        "team": 0,
+        "connected": true,
+        "ready": true,
+        "forfeited": false
+      }
+    ],
+    "privateSeed": 1013904223
+  },
+  { "t": "net.start.cancel", "reason": "seat-offline" },
+  {
+    "t": "net.tick",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "serverTime": 1761899460,
+    "tick": 60
+  },
+  { "t": "net.primary", "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11", "seat": 1 },
+  {
+    "t": "net.seats",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "seats": [
+      {
+        "seat": 0,
+        "userId": "u_01JOWNER",
+        "name": "Kevin",
+        "team": 0,
+        "connected": true,
+        "ready": true,
+        "forfeited": false
+      }
+    ],
+    "spectators": ["u_01JSPECTATOR"]
+  },
+  { "t": "net.seat", "event": "net.seat.offline", "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11", "seat": 1 },
+  { "t": "net.seat", "event": "net.seat.online", "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11", "seat": 1 },
+  { "t": "net.seat", "event": "net.seat.forfeit", "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11", "seat": 3 },
+  {
+    "t": "net.pause",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "tick": 88,
+    "startAt": 1761899400
+  },
+  {
+    "t": "net.resume",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "tick": 88,
+    "startAt": 1761899488
+  },
+  { "t": "net.epoch.end", "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11", "tick": 320 },
+  {
+    "t": "net.inputs",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "seat": 1,
+    "firstTick": 120,
+    "frames": [{ "seq": 7, "tick": 120, "axes": [0, -1], "buttons": 1 }]
+  },
+  {
+    "t": "net.state",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "seat": 1,
+    "seq": 9,
+    "tick": 121,
+    "data": "AQIDBA=="
+  },
+  {
+    "t": "net.event",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "id": "ev_01J9Z",
+    "seq": 12,
+    "from": 1,
+    "target": "all",
+    "data": "BQY="
+  },
+  {
+    "t": "net.checksum",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "scope": "shared",
+    "tick": 140,
+    "sum": 3735928559
+  },
+  {
+    "t": "net.signal",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "to": 3,
+    "data": "BwgJ"
+  },
+  {
+    "t": "net.recovery",
+    "epoch": "6f1c0f7e-0d2b-4a1e-9d54-2b6a1c9c3f11",
+    "scope": "seat",
+    "tick": 140,
+    "seat": 2,
+    "events": "CgsM"
+  },
+  { "t": "ended", "reason": "abandoned" }
+]
