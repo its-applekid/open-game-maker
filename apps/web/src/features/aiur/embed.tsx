@@ -28,7 +28,13 @@ const ALL_FEATURES: AiurEmbedFeatures = { voice: true, dictation: true, attachme
 
 export function gameScope(gameId: string, tickets: string[]): AiurEmbedScope {
   const game = encodeURIComponent(gameId);
-  return { game: gameId, tickets, commands: `/api/v1/games/${game}/commands`, conversation: '', stream: '' };
+  return {
+    game: gameId,
+    tickets: [...new Set(tickets)],
+    commands: `/api/v1/games/${game}/commands`,
+    conversation: '',
+    stream: '',
+  };
 }
 
 export function jobScope(gameId: string, jobId: string, ticket: string | null): AiurEmbedScope {
@@ -56,7 +62,9 @@ function assign(label: string, ref: React.RefObject<HTMLElement | null>, propert
 
 function listen<T>(ref: React.RefObject<HTMLElement | null>, name: string, handler: (detail: T) => void) {
   const latest = useRef(handler);
-  latest.current = handler;
+  useEffect(() => {
+    latest.current = handler;
+  }, [handler]);
   useEffect(() => {
     const node = ref.current;
     if (!node) return;
