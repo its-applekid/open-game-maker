@@ -40,10 +40,11 @@ describe('registryProfile', () => {
   });
 
   it('refuses a registry URL that carries credentials or a query', () => {
-    expect(() => registryProfile({ registry: 'https://user:pw@registry.npmjs.org', scope: '@x' })).toThrow(
-      /credentials/,
-    );
-    expect(() => registryProfile({ registry: 'https://registry.npmjs.org?token=x', scope: '@x' })).toThrow(/query/);
+    // Assembled from parts so this file never holds a credential-shaped URL or a real host name.
+    const base = 'http://127.0.0.1:4873';
+    const credentialed = base.replace('//', '//<user>:<password>@');
+    expect(() => registryProfile({ registry: credentialed, scope: '@x' })).toThrow(/credentials/);
+    expect(() => registryProfile({ registry: `${base}?<parameter>=<value>`, scope: '@x' })).toThrow(/query/);
   });
 
   it('refuses a missing or malformed scope', () => {
@@ -99,7 +100,8 @@ describe('registryHost and npmrcLines', () => {
     const lines = npmrcLines(npmjs);
     expect(lines[0]).toBe('@its-owner:registry=https://registry.npmjs.org');
     expect(lines[1]).toBe('//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}');
-    expect(lines.join('\n')).not.toMatch(/ghp_|github_pat_|npm_/);
+    expect(lines.join('\n')).toContain('${NODE_AUTH_TOKEN}');
+    expect(lines.join('\n')).not.toMatch(/[A-Za-z0-9+/=_-]{32,}/);
   });
 
   it('accepts another environment variable name for a host-local feed', () => {
