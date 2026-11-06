@@ -103,6 +103,12 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
     kind: 'url',
     doc: 'API origin deploy.sh writes into Netlify _redirects for /api and /auth (same as OGM_PUBLIC_ORIGIN)',
   },
+  {
+    name: 'VITE_ICE_URLS',
+    unit: 'web',
+    kind: 'string',
+    doc: 'public STUN/TURN URLs for the optional peer-to-peer transport (comma separated, no credentials)',
+  },
   { name: 'OGM_DATA_DIR', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/data (SQLite, state)' },
   { name: 'OGM_BLOB_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/blobs' },
   { name: 'OGM_GAMES_ROOT', unit: 'shared', kind: 'path', doc: '~/.local/share/ogm/games (release directories)' },
