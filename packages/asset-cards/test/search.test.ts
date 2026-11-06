@@ -290,6 +290,37 @@ describe('search', () => {
   });
 });
 
+describe('audio direction', () => {
+  it('finds music by mood and by kind without any search words', () => {
+    expect(ids({ words: [], kind: 'audio', moods: ['tense'] })).toEqual([LOOP]);
+    expect(ids({ words: [], kind: 'audio', moods: ['tense', 'mysterious'] })).toEqual([LOOP]);
+    expect(ids({ words: [], kind: 'audio', moods: ['tense', 'cheerful'] })).toEqual([]);
+    expect(ids({ words: [], kind: 'audio', moods: ['tense'], includeDraft: true })).toEqual([LOOP, DRAFT_LOOP]);
+  });
+
+  it('matches any of the given genres, and only cards that carry one', () => {
+    expect(ids({ words: [], genres: ['chiptune'] })).toEqual([LOOP]);
+    expect(ids({ words: [], genres: ['chiptune', 'ambient'], includeDraft: true })).toEqual([LOOP, DRAFT_LOOP]);
+    expect(ids({ words: [], genres: ['orchestral'] })).toEqual([]);
+  });
+
+  it('ranks a card tagged with the mood above one that only says the word in its description', () => {
+    const tagged = index.cards.find((card) => card.id === LOOP);
+    const sleezy = index.cards.find((card) => card.id === ORC);
+    if (!tagged || !sleezy) throw new Error('fixture cards missing');
+    const taggedCopy = { ...tagged, describe: { ...tagged.describe, moods: ['calm'] } };
+    const proseCopy = {
+      ...sleezy,
+      describe: { ...sleezy.describe, description: 'A calm, quiet prop for a still room.' },
+    };
+    const library = { ...index, cards: [proseCopy, taggedCopy] };
+    expect(search(library, { words: ['calm'], includeDraft: true }).map((card) => card.id)).toEqual([
+      taggedCopy.id,
+      proseCopy.id,
+    ]);
+  });
+});
+
 describe('statusAllowed', () => {
   it('encodes the per-kind defaults', () => {
     expect(statusAllowed('model', 'draft')).toBe(true);

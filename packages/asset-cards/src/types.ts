@@ -1,4 +1,4 @@
-import type { AssetCard, Audience, Redistribution, Use } from '@ogm/contracts';
+import type { AssetCard, Audience, Genre, Mood, Redistribution, Use } from '@ogm/contracts';
 
 export type Rights = { uses: Use[]; audience: Audience; redistribution: Redistribution };
 
@@ -31,6 +31,13 @@ export type SearchQuery = {
   kind?: string;
   subkind?: string;
   family?: string;
+  /**
+   * `describe.moods` the card must carry, all of them. This is the audio-style direction query (#357): a creator picks
+   * a mood, and every mood the card was tagged with has to agree.
+   */
+  moods?: Mood[];
+  /** `describe.genre`, any of them: styles are alternatives on one axis, moods are separate axes. */
+  genres?: Genre[];
   /** Exact curated compatibility-set id. */
   set?: string;
   /** The game's family (from `assets.lock.json`): only cards of this family or `any` (R55). */

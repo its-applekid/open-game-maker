@@ -19,10 +19,14 @@ show that sound still needs a tap; the SDK also handles interrupted or hidden co
 
 ## Samples and generated cues
 
-Find pack samples with `gm assets search --kind audio`, select them with `gm assets use`, and play their logical ids
-through `GmAudio.play()`. Packs provide build-ready MP3 samples. Do not load an Ogg-only URL or bypass the asset
-manifest. For repeated cues, pass `pitch: 0.05` for ±5% variation or choose a short pool with
-`GmAudio.playOneOf()`; keep the mechanic deterministic and vary only its sound.
+Find pack samples by what they sound like, not by pack. `gm assets search --kind audio --mood tense` returns the
+tracks and effects whose cards carry that mood; `--genre chiptune` narrows a style axis, and no words are needed.
+Then `gm assets facets --kind audio` counts the moods, genres, instruments and `game_fit` situations the cards hold,
+which is how you see the direction space before choosing. Select a hit with `gm assets use` and play its logical id
+through `GmAudio.play()`. Prefer a card whose row already says what you need over opening files. Packs provide
+build-ready MP3 samples. Do not load an Ogg-only URL or bypass the asset manifest. For repeated cues, pass
+`pitch: 0.05` for ±5% variation or choose a short pool with `GmAudio.playOneOf()`; keep the mechanic deterministic and
+vary only its sound.
 
 Use `GmAudio.zzfx()` for small interface, pickup, movement, and impact cues. Start from
 [the preset sheet](references/zzfx-presets.md), then change one parameter at a time. The second ZzFX value controls
