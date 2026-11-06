@@ -61,13 +61,13 @@ describe('per-seat visibility over the loopback harness', () => {
   it('keeps a hidden owned field out of every byte the other seat received', () => {
     const { loopback, seen, games } = run({ ticks: 120 });
 
-    const fromSeat1 = seen.filter((observation) => observation.recipient === 0 && observation.kind === 'net.state');
-    expect(fromSeat1.length).toBeGreaterThan(10);
+    // Every payload seat 0 accepted from seat 1, whatever carried it: a recovery answer would leak the same field.
+    const fromSeat1 = seen.filter((observation) => observation.recipient === 0);
+    const state = fromSeat1.filter((observation) => observation.kind === 'net.state');
+    expect(state.length).toBeGreaterThan(10);
     for (const observation of fromSeat1) expect(observation.text).not.toContain(CANARY);
 
-    // A shape assertion as well as a substring one: the redacted slice is shorter by exactly the field's JSON.
-    const longest = Math.max(...fromSeat1.map((observation) => observation.bytes));
-    expect(longest).toBeLessThan(Buffer.byteLength(JSON.stringify({ secret: CANARY })) + longest);
+    // A shape assertion as well as a substring one: the redacted slice never carries the field, so no payload has it.
     expect(fromSeat1.some((observation) => observation.text.includes('"secret"'))).toBe(false);
 
     // Privacy costs the seat that holds the value nothing: seat 1 still has its own secret locally.
