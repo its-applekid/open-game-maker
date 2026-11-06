@@ -13,3 +13,5 @@ export * from './run.js';
 export * from './queue.js';
 export * from './replay.js';
 export * from './gates/index.js';
+export * from './link/schedule.js';
+export * from './link/transport.js';

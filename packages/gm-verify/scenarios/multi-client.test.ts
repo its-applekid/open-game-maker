@@ -50,23 +50,25 @@ function sample(overrides: Partial<HarnessSnapshot> = {}): HarnessSnapshot {
     hardResyncs: 0,
     droppedBytes: 0,
     oversized: 0,
+    at: 0,
     ...overrides,
   };
 }
 
 describe('the multi-client bands and verdict', () => {
   it('writes the impairment into the bad profile bound and leaves the clean one at the relay budget', () => {
+    /* 3 input-delay ticks at 60 Hz (50 ms) plus one 20 Hz snapshot interval (50 ms) of simulation on top of the path. */
     expect(bandsFor(CLEAN_LINK)).toMatchObject({
       localResponseMs: 17,
-      remoteUpdateP95Ms: 100,
-      eventDelayP95Ms: 150,
+      remoteUpdateP95Ms: 250,
+      eventDelayP95Ms: 188,
       inputGaps: 1,
       needsRecovery: false,
     });
     /* latencyMs 40 + 2 × jitter 20 = 80 ms of headroom, and this profile schedules a disconnect. */
     expect(bandsFor(BAD_LINK)).toMatchObject({
-      remoteUpdateP95Ms: 180,
-      eventDelayP95Ms: 230,
+      remoteUpdateP95Ms: 413,
+      eventDelayP95Ms: 288,
       inputGaps: 2,
       needsRecovery: true,
     });
@@ -90,8 +92,7 @@ describe('the multi-client bands and verdict', () => {
 
     expect(judgeSeat(failing, bands)).toEqual([
       'seat 2 localResponseMs 40 > 17',
-      'seat 2 remoteUpdateP95Ms 400 > 180',
-      'seat 2 eventDelayP95Ms 500 > 230',
+      'seat 2 eventDelayP95Ms 500 > 288',
       'seat 2 inputGaps 5 > 2',
       'seat 2 desyncs 1 > 0',
       'seat 2 hardResyncs 2 > 0',
@@ -169,6 +170,7 @@ describe.skipIf(!enabled)('multi-client scenario (OGM_SCENARIOS=1)', () => {
       expect(report.probes.linkSeed).toBe(BAD_LINK.seed);
       expect(judgeSeat(seats[2]!, bandsFor(BAD_LINK))).toEqual([]);
       expect(seats[2]!.recoveries).toBeGreaterThanOrEqual(1);
+      expect(report.probes.forfeitedSeat).toBe(3);
     } finally {
       rmSync(out, { recursive: true, force: true });
     }

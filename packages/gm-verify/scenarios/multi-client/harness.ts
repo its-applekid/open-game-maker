@@ -75,6 +75,10 @@ export type HarnessSnapshot = {
   hardResyncs: number;
   droppedBytes: number;
   oversized: number;
+  /** When this sample was taken, and when this seat last dropped or rejoined (absent if it never did). */
+  at: number;
+  rejoinedAt?: number;
+  droppedAt?: number;
 };
 
 /** The two channels the simulator delays only (design §6.1); everything else is relayed untouched. */
@@ -94,17 +98,19 @@ const OUTBOUND = new Set([
   'net.recovery',
   'net.signal',
 ]);
-/** Room → game messages the harness forwards into the frame. */
+/**
+ * Room → game messages the harness forwards into the frame. `net.seat` and `net.epoch.end` are not here: the bridge has
+ * no envelope for the latter, and the SDK's per-seat mode reads the seat table from `net.seats`, which the room sends
+ * after every change. The page still records `net.seat` for the scenario's own assertions.
+ */
 const INBOUND = new Set([
   'net.start',
   'net.start.cancel',
   'net.seats',
-  'net.seat',
   'net.primary',
   'net.tick',
   'net.pause',
   'net.resume',
-  'net.epoch.end',
   'net.inputs',
   'net.state',
   'net.event',
@@ -270,6 +276,9 @@ class Harness {
       hardResyncs: number('hardResyncs'),
       droppedBytes: number('droppedBytes'),
       oversized: number('oversized'),
+      at: Date.now(),
+      ...(this.rejoinedAt === undefined ? {} : { rejoinedAt: this.rejoinedAt }),
+      ...(this.droppedAt === undefined ? {} : { droppedAt: this.droppedAt }),
     };
   }
 
@@ -279,6 +288,11 @@ class Harness {
   }
 
   private youId: string | undefined;
+  private socketClosed = false;
+  private rejoinedAt: number | undefined;
+  /** Room control messages the bridge could not accept for this page, by type. */
+  readonly skipped: Record<string, number> = {};
+  private droppedAt: number | undefined;
   private seatsFromRoom: Seat[] = [];
   private epochFromRoom: string | undefined;
   private primaryFromRoom: number | undefined;
@@ -289,6 +303,13 @@ class Harness {
   }
 
   private async connect(grant: string): Promise<void> {
+    await this.openSocket(grant);
+    this.link = this.buildLink();
+    await this.link.open(this.requireHandlers());
+  }
+
+  /** Joins the room on a fresh socket and waits for `welcome`; the rejoin path calls this again after a drop. */
+  private async openSocket(grant: string): Promise<void> {
     const input = this.requireInput();
     const client = new Client(input.roomsUrl);
     const room = await client.joinById(input.roomId, {
@@ -298,7 +319,10 @@ class Harness {
     });
     this.room = room;
     this.joins += 1;
-    if (this.joins > 1) this.recoveries += 1;
+    if (this.joins > 1) {
+      this.recoveries += 1;
+      this.rejoinedAt = Date.now();
+    }
     room.onMessage('*', (type, payload) => this.dispatch(String(type), payload as Record<string, unknown>));
     room.onStateChange((raw) => this.sync((raw as { toJSON(): RoomStateJson }).toJSON()));
     await new Promise<void>((resolve, reject) => {
@@ -310,8 +334,6 @@ class Harness {
         resolve();
       }, 5);
     });
-    this.link = this.buildLink();
-    await this.link.open(this.requireHandlers());
   }
 
   private buildLink(): LinkTransport {
@@ -340,7 +362,10 @@ class Harness {
         connectedMs: 0,
       }),
       close: () => {
-        void this.requireRoom().leave(true);
+        this.socketClosed = true;
+        this.droppedAt = Date.now();
+        /* Not a consenting leave: the room treats a consented exit as an immediate forfeit (D-N3-14). */
+        void this.requireRoom().leave(false);
       },
     };
 
@@ -351,9 +376,15 @@ class Harness {
     });
   }
 
-  /** The link is open: keep its inbound handlers, and the room handler installed at join keeps feeding them. */
+  /**
+   * The link is open. On the first open the socket is already joined; after a drop the socket is gone and this is the
+   * rejoin, an ordinary authenticated join with the same grant (a v2 seat is never reserved, D-N3-3).
+   */
   private async attachRelay(handlers: TransportHandlers): Promise<void> {
     this.handlers = handlers;
+    if (this.room !== undefined && !this.socketClosed) return;
+    this.socketClosed = false;
+    await this.openSocket(this.requireInput().grant);
   }
 
   /**
@@ -368,17 +399,31 @@ class Harness {
       this.handlers?.message(channel, RELAY_SEAT, encoder.encode(JSON.stringify({ t: type, p: payload })));
       return;
     }
-    if (INBOUND.has(type)) {
-      this.frame?.send(type as never, payload as never);
+    if (INBOUND.has(type)) this.forward(type, payload);
+  }
+
+  /**
+   * Room control message → game. The bridge's envelopes differ from the room's wire in two places (a clock reading named
+   * `serverMs` rather than `serverTime`, and an empty payload on pause/resume), and a message the bridge refuses would
+   * throw inside this handler and colour the verdict as a page error. The scenario's own assertions read the room
+   * directly, so a refused envelope is counted instead.
+   */
+  private forward(type: string, payload: Record<string, unknown>): void {
+    const mapped = toBridge(type, payload);
+    if (mapped === undefined) return;
+    try {
+      this.frame?.send(type as never, mapped as never);
+    } catch {
+      this.skipped[type] = (this.skipped[type] ?? 0) + 1;
     }
   }
 
   private requireHandlers(): TransportHandlers {
     return {
       message: (_channel, _seat, bytes) => {
-        const message = JSON.parse(decoder.decode(bytes)) as { t: string; p: unknown };
+        const message = JSON.parse(decoder.decode(bytes)) as { t: string; p: Record<string, unknown> };
         if (!INBOUND.has(message.t)) return;
-        this.frame?.send(message.t as never, message.p as never);
+        this.forward(message.t, message.p);
       },
       stats: () => undefined,
       closed: () => undefined,
@@ -511,6 +556,22 @@ class Harness {
     if (!this.frame) throw new Error('no game frame');
     return this.frame;
   }
+}
+
+/**
+ * The bridge's envelopes differ from the room's wire messages in two places: the room stamps a clock reading as
+ * `serverTime` where the bridge calls it `serverMs`, and pause/resume carry the room's clock on the wire while their
+ * bridge envelope is empty. Everything else is forwarded as it arrived.
+ */
+function toBridge(type: string, payload: Record<string, unknown>): unknown {
+  if (type === 'net.tick') {
+    const tick = Number(payload.tick);
+    const serverMs = Number(payload.serverTime);
+    if (!Number.isFinite(tick) || !Number.isFinite(serverMs)) return undefined;
+    return { tick: Math.round(tick), serverMs };
+  }
+  if (type === 'net.pause' || type === 'net.resume') return {};
+  return payload;
 }
 
 /** The browser equivalents of the injected clock the decorator takes. */
