@@ -123,10 +123,11 @@ describe('review deck answers', () => {
     expect(answers).toHaveLength(1);
     expect(answers[0]).toMatchObject({
       option: 'wood',
-      alternatives_considered: ['wood'],
+      // The only like is the card the answer chose, so aiur's "other options considered" is empty and stays absent.
       rationale:
         "Creator chose 'Wooden' in the build chat. Reviewed the deck: liked Wooden; disliked Iron ('Too cold for the lantern room')",
     });
+    expect(answers[0]!.alternatives_considered).toBeUndefined();
     // The map travels as JSON text in custom_response beside the option id, in aiur's multi-question shape, so the
     // worker reads every card's verdict and the creator's words off the decision's answer.
     expect(JSON.parse(answers[0]!.response ?? 'null')).toEqual({
@@ -136,6 +137,26 @@ describe('review deck answers', () => {
         { option_id: 'iron', verdict: 'dislike', reason: 'Too cold for the lantern room' },
       ],
     });
+  });
+
+  it('names the likes the creator passed over as aiur’s alternatives, never the chosen card', async () => {
+    const { app, deps, answers } = await setup();
+    insertOpenDesignCheckpoint(deps, {
+      options: [
+        { id: 'wood', label: 'Wooden' },
+        { id: 'iron', label: 'Iron' },
+        { id: 'oak', label: 'Oaken' },
+      ],
+    });
+    const review = {
+      likes: ['wood', 'oak'],
+      dislikes: [{ option_id: 'iron', reason: 'Too cold for the lantern room' }],
+    };
+
+    expect((await answerReview(app, { option_id: 'oak', review })).status).toBe(200);
+
+    // 'oak' is the answer, so the alternatives aiur records are the likes left over: 'wood', and never 'oak' itself.
+    expect(answers[0]).toMatchObject({ option: 'oak', alternatives_considered: ['wood'] });
   });
 
   it('carries the whole-set notes beside the per-card votes and into the ledger', async () => {

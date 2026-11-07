@@ -233,7 +233,16 @@ export async function answerCheckpoint(input: AnswerInput): Promise<AnswerOutcom
         option.label,
         review === undefined ? undefined : reviewSummary(checkpoint, review),
       ),
-      ...(review === undefined ? {} : { alternatives_considered: review.likes, response: reviewPayload(review) }),
+      ...(review === undefined
+        ? {}
+        : {
+            // aiur's field is the options the creator considered but did not choose: the likes left over once the
+            // answer's card is taken out. The whole map travels in `response`, so nothing is lost when this is empty.
+            ...(review.likes.some((id) => id !== optionId)
+              ? { alternatives_considered: review.likes.filter((id) => id !== optionId) }
+              : {}),
+            response: reviewPayload(review),
+          }),
     });
     const patch = {
       ...winnerPatch(decided),
