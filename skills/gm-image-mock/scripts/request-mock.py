@@ -11,6 +11,7 @@ ap.add_argument('--prompt-file', required=True)
 ap.add_argument('--out', required=True, help='workspace-relative output directory')
 ap.add_argument('--ref', action='append', default=[], help='workspace-relative reference image (free-licence only)')
 ap.add_argument('--aspect', default='9:16')
+ap.add_argument('--model', default=None, help='image model id (default: the broker\'s)')
 ap.add_argument('--name', default=None, help='file stem for the image (default: a random id)')
 ap.add_argument('--wait', type=int, default=600, help='seconds to wait for the broker')
 a = ap.parse_args()
@@ -27,6 +28,7 @@ req = {
     'out': os.path.relpath(os.path.abspath(a.out), root),
     'refs': [os.path.relpath(os.path.abspath(r), root) for r in a.ref],
     'aspect': a.aspect,
+    'model': a.model,
 }
 for d in ('requests', 'done'):
     os.makedirs(os.path.join(root, '.gm-mock', d), exist_ok=True)
@@ -40,6 +42,7 @@ while time.time() < end:
         r = json.load(open(done))
         if r.get('ok'):
             print(os.path.join(req['out'], r['file']))
+            json.dump({**req, **r}, open(os.path.join(root, req['out'], rid + '.json'), 'w'), indent=1)  # the record: prompt, refs, model, cost, time
             sys.exit(0)
         sys.exit('mock failed: ' + r.get('error', 'unknown'))
     time.sleep(3)
