@@ -4,8 +4,11 @@ Grey-box Phaser 4 scaffold for games created by Open Game Maker 2000, shaped for
 from `templates/game-2d` at commit `89a6683a05955fc21aca4f4bb6db44d59a4201c2`; all implementation in this directory is
 original.
 
-- Every avatar lives in `players: Map<playerIndex, PlayerState>` and is keyed by its host-minted id (`p<index>`).
+- Every avatar lives in `players: Map<playerIndex, PlayerState>` and is keyed by its seat's id (`p<seat>`).
 - Input reaches the world only through `applyInput(state, playerIndex, frame)` inside the fixed step.
+- The seat table is the authority on who is playing: the world holds one avatar per occupied seat, the seat this
+  client holds is its own avatar, and a seat that forfeits loses its avatar. A broadcast during a match is not a
+  respawn — an avatar already in the world keeps the position it reached.
 - Spawn points are design data in `design/spawns.json`, one per seat (`gm.manifest.json` `maxPlayers`).
 - `net.snapshot`/`net.applySnapshot` carry every visible field as `entities[id].p`, which peers interpolate.
 - The HUD and the camera follow `gm.net.localPlayerIndex`, so the host and each peer draw their own slice.
