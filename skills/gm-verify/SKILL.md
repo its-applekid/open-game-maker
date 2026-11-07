@@ -65,3 +65,7 @@ Visual findings advise; `gm check`, `gm test`, console errors, and budgets block
 - After every `gm run`, send exactly one current still or clip with `gm chat post`.
 - Never install software or add a paid visual judge to verify a game.
 - Always list `iPhone Safari` and `sound` as unchecked unless an operator actually checked them.
+
+**Seeing your own output.** Numeric checks (luminance, colour counts, magenta) never prove a frame looks right. If
+you cannot view images yourself, run the `gm-image-mock` look request on each still beside its target mock and put
+its answers in the evidence; fix every defect it names before the PR.

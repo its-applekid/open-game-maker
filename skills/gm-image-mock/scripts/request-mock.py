@@ -8,7 +8,7 @@ import argparse, json, os, sys, time, uuid
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--prompt-file', default=None, help='image prompt, or the line to speak for --kind voice')
-ap.add_argument('--kind', default='image', choices=['image', 'voice', 'voices'], help='voice: one ElevenLabs sample; voices: list the voices')
+ap.add_argument('--kind', default='image', choices=['image', 'voice', 'voices', 'look'], help='voice: one ElevenLabs sample; voices: list the voices; look: a vision model answers --prompt-file about the --ref images')
 ap.add_argument('--voice-id', default='')
 ap.add_argument('--voice-model', default='eleven_v3', help='eleven_v3 (expressive, takes [excited]-style tags), eleven_multilingual_v2 or eleven_flash_v2_5')
 ap.add_argument('--stability', default='', help='v3: 0.0 creative, 0.5 natural, 1.0 robust')
