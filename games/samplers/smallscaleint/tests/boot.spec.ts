@@ -12,7 +12,19 @@ test('boots, advances the sampler deterministically, and draws a non-blank frame
   });
   expect(await page.evaluate(() => window.__gm!.renderGameToText().tick)).toBe(initialTick);
 
-  const before = await page.evaluate(() => window.__gm!.renderInfo());
+  // `calls` is the draw calls of the frame just rendered (#272), not a since-boot render count. Rendering the
+  // same frame twice must report the Canvas renderer's per-frame drawCount both times: more than nothing, and
+  // not doubled by the second render.
+  const frameDraws = await page.evaluate(() => {
+    const hooks = window.__gm!;
+    window.__frame!(0);
+    const first = hooks.renderInfo().calls;
+    window.__frame!(0);
+    return { first, second: hooks.renderInfo().calls };
+  });
+  expect(frameDraws.first).toBeGreaterThan(0);
+  expect(frameDraws.second).toBe(frameDraws.first);
+
   const variance = await page.evaluate(() => {
     window.__frame!(0.5);
     const canvas = document.querySelector('canvas');
@@ -31,7 +43,7 @@ test('boots, advances the sampler deterministically, and draws a non-blank frame
   });
   const after = await page.evaluate(() => window.__gm!.renderInfo());
 
-  expect(after.calls - before.calls).toBe(1);
+  expect(after.calls).toBeGreaterThan(0);
   expect(after.backend).toBe('canvas');
   expect(variance).toBeGreaterThan(0);
 

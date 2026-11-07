@@ -9,8 +9,17 @@ const mock = vi.hoisted(() => {
   const games: MockGame[] = [];
 
   class MockGame {
-    readonly loop = { sleep: vi.fn(), step: vi.fn(), wake: vi.fn() };
-    readonly renderer = { type: 1 };
+    readonly renderer = { type: 1, drawElements: vi.fn(), drawInstancedArrays: vi.fn() };
+    readonly loop = {
+      sleep: vi.fn(),
+      wake: vi.fn(),
+      lastTime: 0,
+      // Two draws per pass, like a scene with two sprites.
+      step: vi.fn(() => {
+        this.renderer.drawElements();
+        this.renderer.drawElements();
+      }),
+    };
     readonly scale = { resize: vi.fn() };
     readonly events = {
       once: vi.fn((_event: string, callback: () => void) => queueMicrotask(callback)),
@@ -107,7 +116,22 @@ describe('createPhaserGame', () => {
     expect(rt.frameListeners).toHaveLength(1);
     rt.frameListeners[0]!(1 / 60);
     expect(game.loop.step).toHaveBeenCalledOnce();
-    expect(wrapper.info()).toMatchObject({ calls: 1, backend: 'webgl' });
+    expect(wrapper.info()).toMatchObject({ calls: 2, backend: 'webgl' });
+  });
+
+  it('reports the last frame draw calls rather than a running total', async () => {
+    const rt = runtime();
+    const wrapper = await createPhaserGame(rt as unknown as Runtime<unknown, unknown>, {
+      parent: document.body,
+      presentation: presentation('fixed'),
+      scenes: [],
+    });
+    const game = mock.games[0]!;
+
+    for (let frame = 0; frame < 12; frame += 1) rt.frameListeners[0]!(1 / 60);
+
+    expect(game.loop.step).toHaveBeenCalledTimes(12);
+    expect(wrapper.info()).toMatchObject({ calls: 2 });
   });
 
   it('allows a 2D game to opt into the canvas renderer', async () => {
