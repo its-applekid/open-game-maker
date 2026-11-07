@@ -39,15 +39,15 @@ function compiledBuild(): BuildKind {
 /**
  * The manifest a build reports once mounted: the game's own manifest plus the save facts the host needs to judge a
  * stored slot before it offers Load. Both come from the running instance, so a static `manifest.json` cannot drift
- * from the code that actually writes saves.
+ * from the code that actually writes saves — and a build without a `migrate` hook cannot claim a migration it lacks.
  */
 function readyManifest<D, S>(manifest: GameManifest, instance: GameInstance<D, S>): GameManifest {
   if (!manifest.saves) return manifest;
   const saveSchema = instance.serialize().saveSchemaVersion;
-  if (typeof instance.migrate === 'function' && saveSchema > 0) {
-    return { ...manifest, saveSchema, migratesFrom: saveSchema - 1 };
-  }
-  return { ...manifest, saveSchema };
+  const next: GameManifest = { ...manifest, saveSchema };
+  if (typeof instance.migrate === 'function' && saveSchema > 0) next.migratesFrom = saveSchema - 1;
+  else delete next.migratesFrom;
+  return next;
 }
 
 export async function boot<D, S>(module: GameModule<D, S>, options: BootOptions = {}): Promise<Runtime<D, S>> {

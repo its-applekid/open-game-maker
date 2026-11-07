@@ -96,6 +96,22 @@ describe('boot', () => {
     expect(module.manifest).not.toHaveProperty('saveSchema');
   });
 
+  // A static manifest is only a hint: the running build corrects a declared migration it does not implement.
+  it('drops a manifest migration the mounted build cannot implement', async () => {
+    const fixture = createCounterGame({ migrate: false });
+    const declared = { ...fixture.module.manifest, saveSchema: 4, migratesFrom: 3 };
+
+    const pending = boot({ ...fixture.module, manifest: declared }, { hostOrigin: 'https://app.test', headless: true });
+    await vi.waitFor(() => expect(bridge.onMessage).toBeTypeOf('function'));
+    bridge.onMessage!(hello('draft'));
+    await pending;
+
+    const ready = bridge.send.mock.calls.find(([envelope]) => envelope.t === 'ready')?.[0];
+    expect(ready?.payload.manifest).toEqual(expect.objectContaining({ saveSchema: 1 }));
+    expect(ready?.payload.manifest).not.toHaveProperty('migratesFrom');
+    expect(declared).toMatchObject({ saveSchema: 4, migratesFrom: 3 });
+  });
+
   it('uses the build manifest host origin when the caller does not provide one', async () => {
     const fixture = createCounterGame();
     fixture.module.manifest.hostOrigin = 'https://HOST-A.example.test:443';
