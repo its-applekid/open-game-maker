@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema": {
+      "type": "string",
+      "const": "ogm.thumbnail-scene-3d/1.0"
+    },
+    "set_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "pack",
+            "set"
+          ]
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "additionalProperties": false
+    },
+    "canvas": {
+      "type": "object",
+      "properties": {
+        "width": {
+          "type": "number",
+          "const": 1024
+        },
+        "height": {
+          "type": "number",
+          "const": 1024
+        },
+        "background": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        }
+      },
+      "required": [
+        "width",
+        "height",
+        "background"
+      ],
+      "additionalProperties": false
+    },
+    "camera": {
+      "type": "object",
+      "properties": {
+        "projection": {
+          "type": "string",
+          "const": "perspective"
+        },
+        "fov_deg": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 90
+        },
+        "position": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "target": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "orbit_deg": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 360
+        }
+      },
+      "required": [
+        "projection",
+        "fov_deg",
+        "position",
+        "target",
+        "orbit_deg"
+      ],
+      "additionalProperties": false
+    },
+    "lighting": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "const": "scene"
+        },
+        "intensity": {
+          "type": "number",
+          "const": 1
+        }
+      },
+      "required": [
+        "mode",
+        "intensity"
+      ],
+      "additionalProperties": false
+    },
+    "duration_ms": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 20000
+    },
+    "fps": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "maximum": 60
+    },
+    "ground": {
+      "type": "object",
+      "properties": {
+        "size_m": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            },
+            {
+              "type": "number",
+              "exclusiveMinimum": 0
+            }
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "position": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "number"
+            }
+          ],
+          "items": false,
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "colour": {
+          "type": "string",
+          "pattern": "^#[0-9a-f]{6}$"
+        }
+      },
+      "required": [
+        "size_m",
+        "position",
+        "colour"
+      ],
+      "additionalProperties": false
+    },
+    "items": {
+      "minItems": 1,
+      "maxItems": 24,
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "prop",
+              "character",
+              "creature",
+              "building",
+              "nature",
+              "vehicle",
+              "weapon",
+              "food",
+              "effect"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "hero",
+              "companion",
+              "enemy",
+              "prop"
+            ]
+          },
+          "card_id": {
+            "type": "string",
+            "pattern": "^t[1-3]:[a-z0-9][a-z0-9-]*\\/[a-z0-9][a-z0-9/._-]*@[A-Za-z0-9._-]+$"
+          },
+          "position": {
+            "type": "array",
+            "prefixItems": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "items": false,
+            "minItems": 3,
+            "maxItems": 3
+          },
+          "rotation_y": {
+            "type": "number"
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "card_id",
+          "position",
+          "rotation_y",
+          "scale"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema",
+    "set_id",
+    "target",
+    "canvas",
+    "camera",
+    "lighting",
+    "duration_ms",
+    "fps",
+    "ground",
+    "items"
+  ],
+  "additionalProperties": false,
+  "$id": "https://open-game-maker-2000.local/schemas/thumbnail-scene-3d.v1.json"
+}

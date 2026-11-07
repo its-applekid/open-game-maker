@@ -1,0 +1,30 @@
+{
+  "schema": "ogm.thumbnail-sheet-3d/1.0",
+  "background": "#e9e1cc",
+  "grid": [2, 1],
+  "rotate_deg_per_second": 45,
+  "ground": {
+    "size_m": [6.4, 4.2],
+    "position": [0, 0, 0],
+    "colour": "#c8c3b8"
+  },
+  "camera": {
+    "fov_deg": 35,
+    "position": [0, 9, 7],
+    "target": [0, 0.6, 0]
+  },
+  "models": [
+    {
+      "id": "sheet-0-nature-tree",
+      "card_id": "t1:kenney-mini-dungeon/nature/tree@1.0",
+      "position": [-1.1, 0, 0],
+      "scale": 1
+    },
+    {
+      "id": "sheet-1-props-crate",
+      "card_id": "t1:kenney-mini-dungeon/props/crate@1.0",
+      "position": [1.1, 0, 0],
+      "scale": 1
+    }
+  ]
+}

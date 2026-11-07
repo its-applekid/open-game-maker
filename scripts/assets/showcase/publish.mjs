@@ -11,7 +11,7 @@ function manifestMediaFiles(manifest) {
     for (const stop of manifest.stops ?? []) {
       for (const track of [stop.region, stop.sheet]) files.push(...Object.values(track ?? {}));
     }
-  } else if (manifest?.schema === "ogm.set-showcase-media/2") {
+  } else if (manifest?.schema === "ogm.set-showcase-media/2" || manifest?.schema === "ogm.set-showcase-media/3") {
     for (const track of Object.values(manifest.tracks ?? {})) files.push(...Object.values(track ?? {}));
     for (const stop of manifest.stops ?? []) {
       for (const track of [stop.region, stop.sheet]) files.push(...Object.values(track ?? {}));
