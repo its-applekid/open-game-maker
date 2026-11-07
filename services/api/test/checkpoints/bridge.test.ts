@@ -309,7 +309,7 @@ describe('checkpoint routes and inbox', () => {
       body: {
         option_id: 'iron',
         expected_version: 2,
-        idempotency_key: `ogm:${CP_ID}:2`,
+        idempotency_key: `ogm:player:${CP_ID}:2`,
         rationale: "Creator chose 'Iron' in the build chat",
       },
     });

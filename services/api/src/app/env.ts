@@ -46,6 +46,8 @@ export const apiEnvSpec = {
   OGM_BUILDER_WORKSPACES_ROOT: { kind: 'path', required: false },
   OGM_CHAT_POLL_MS: { kind: 'int', default: '10000' },
   OGM_CHECKPOINT_POLL_MS: { kind: 'int', default: '5000' },
+  // How long a New Game design Command may stay open before its recommended option answers it (default 5 minutes).
+  OGM_DESIGN_DEFAULT_MS: { kind: 'int', default: '300000' },
 } as const;
 
 export function loadApiEnv(source?: Record<string, string | undefined>) {
@@ -74,6 +76,9 @@ export function loadApiEnv(source?: Record<string, string | undefined>) {
   }
   if (env.OGM_CHECKPOINT_POLL_MS <= 0) {
     throw new ConfigError('api', [], [{ name: 'OGM_CHECKPOINT_POLL_MS', reason: 'must be a positive integer' }]);
+  }
+  if (env.OGM_DESIGN_DEFAULT_MS <= 0) {
+    throw new ConfigError('api', [], [{ name: 'OGM_DESIGN_DEFAULT_MS', reason: 'must be a positive integer' }]);
   }
   if (env.OGM_INTAKE_SWEEP_SECONDS <= 0) {
     throw new ConfigError('api', [], [{ name: 'OGM_INTAKE_SWEEP_SECONDS', reason: 'must be a positive integer' }]);

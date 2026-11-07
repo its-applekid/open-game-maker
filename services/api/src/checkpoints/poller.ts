@@ -1,10 +1,11 @@
 import { createHash } from 'node:crypto';
 
 import { AiurConfigError, type Decision } from '@ogm/aiur-client';
-import type { Sqlite } from '@ogm/db';
+import type { Db, Sqlite } from '@ogm/db';
 
 import type { AiurClientResolver, ChatJobDirectory } from '../app/registry.js';
 import type { LogLine } from '../app/types.js';
+import { isDesignJob, tryRecordDesignDecision } from '../design-decisions/store.js';
 import {
   insertChatRow,
   listCheckpoints,
@@ -16,6 +17,7 @@ import { correlate, recommendationOf, statusOf } from './correlate.js';
 import type { InboxWriter } from './inbox.js';
 
 type PollerDeps = {
+  db: Db;
   sqlite: Sqlite;
   jobs: () => ChatJobDirectory | null;
   clientFor: () => AiurClientResolver | null;
@@ -105,6 +107,29 @@ export function createCheckpointPoller(deps: PollerDeps) {
                 status,
                 at: now().toISOString(),
               });
+              // An answer that reached aiur without this app answering it — voice, the aiur dashboard, the Executor —
+              // still belongs in the game's decision history. The default sweep's own answers are already recorded, and
+              // whoever answered already knows, so this path records the decision without messaging the Executor. A
+              // failed history write must not stop the card update below or count as an aiur outage.
+              if (status === 'answered' && after.option_id !== undefined && isDesignJob(job.kind)) {
+                tryRecordDesignDecision(
+                  deps.db,
+                  {
+                    gameId: job.gameId,
+                    jobId: job.jobId,
+                    ticket: job.aiur?.ticket ?? null,
+                    checkpointId: after.checkpoint_id ?? action.row.id,
+                    decisionId: after.decision_id,
+                    question: after.question,
+                    options: after.options.map(({ id, label }) => ({ id, label })),
+                    recommended: after.recommend ?? null,
+                    chosen: after.option_id,
+                    origin: 'player',
+                    at: now().toISOString(),
+                  },
+                  deps.log,
+                );
+              }
             }
             updateCheckpoint(deps.sqlite, action.row.id, action.patch);
             published = true;

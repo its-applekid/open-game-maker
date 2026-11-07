@@ -33,6 +33,8 @@ export interface AppDeps {
     builderWorkspacesRoot?: string;
     chatPollMs?: number;
     checkpointPollMs?: number;
+    // How long an open design Command waits for the player before its provisional default answers it.
+    designDefaultMs: number;
     analyticsRetentionDays: number;
     // Both unset until the voice host is configured; the token route answers 503 meanwhile.
     voiceTokenSecret?: string;

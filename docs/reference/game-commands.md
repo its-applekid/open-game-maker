@@ -43,6 +43,64 @@ against the job's checkpoint and calls aiur's canonical Decision API with the ch
 from the inbox, from the job conversation modal and from an inline checkpoint card are the same operation. A `409`
 means another writer answered first and the returned status is the winner's.
 
+## Skipping a question
+
+`POST /api/v1/jobs/:jobId/checkpoints/:checkpointId/skip` takes the Command's recommended option without the player
+choosing, and records the decision as skipped. A Command without a recommendation cannot be skipped (`409`
+`checkpoint_recommendation_missing`).
+
+## Design decisions
+
+Every answered New Game Command — in the creation chat's `scope` ticket or on the New Game request's own ticket — is a
+design decision. Each records the decision id (`D-01`, `D-02`, …), the question, the options, the recommended option,
+the answer that now stands, whether the player answered or a provisional default did, whether the player skipped, what
+it affects and what it superseded. An answer on an edit's feature ticket is not a design decision.
+
+- **Provisional default.** An open design Command with a recommendation that goes unanswered for
+  `OGM_DESIGN_DEFAULT_MS` (default five minutes) is answered with that recommendation. The default is provisional: it
+  unblocks the tickets waiting on the Command, and the Executor is messaged on the New Game parent issue so it can
+  re-plan the Build Order.
+- **Late change.** A later answer to the same Command is a new decision whose `supersedes` names the earlier one. Aiur
+  keeps the answer the Command was first given; the decision history carries the later choice, and the Executor is
+  messaged with the decision id and affected tickets so it can re-plan with `gm-new-game-plan`. The answer route returns
+  `200` with `status: "superseded"` and the earlier decision's id in `supersedes`.
+- A repeat of the same answer for the same Command records nothing and answers `200` with the answer already standing.
+
+`GET /internal/games/:gameId/design-decisions` returns the whole history, oldest first, to the shared internal secret
+(`x-ogm-internal`) or to a design agent's scoped `ngc1` request token whose game is this one — the private read the
+Executor and the design agent use. A token minted for another game's request is `403`; a user session reads neither.
+
+```json
+{
+  "decisions": [
+    {
+      "id": "D-01",
+      "game_id": "g_...",
+      "job_id": "j_...",
+      "ticket": "42",
+      "checkpoint_id": "cp_...",
+      "decision_id": "d_...",
+      "question": "Which door?",
+      "options": [
+        { "id": "wood", "label": "Wooden" },
+        { "id": "iron", "label": "Iron" }
+      ],
+      "recommended": "iron",
+      "chosen": "iron",
+      "origin": "default",
+      "skipped": false,
+      "affects": ["42"],
+      "supersedes": null,
+      "at": "2026-11-04T18:06:00.000Z"
+    }
+  ]
+}
+```
+
+`GET /api/v1/games/:gameId/design-decisions` returns the player's readable summary — the question, the chosen label and
+whether the choice was theirs or a default — to a signed-in member who may play the game. The options and the aiur
+decision id stay in the private history.
+
 ## Embedding
 
 The browser renders the inbox and every job conversation through aiur's embeddable components (aiur#7487, #7488) when

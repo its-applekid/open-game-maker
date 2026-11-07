@@ -76,6 +76,7 @@ export function makeDeps(): AppDeps & { lines: LogLine[] } {
       gamesRoot: mkdtempSync(join(tmpdir(), 'ogm-api-games-')),
       vapidKeyFile: join(privateDirectory, 'ogm-api.vapid.json'),
       vapidSubject: 'mailto:operator@example.test',
+      designDefaultMs: 300_000,
       analyticsRetentionDays: 90,
       defaultDailyAllowanceMicroUsd: 5_000_000,
       resetZoneDefault: 'America/Los_Angeles',

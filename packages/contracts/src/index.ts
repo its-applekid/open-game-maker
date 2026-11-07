@@ -34,3 +34,4 @@ export * from './style-showcase.js';
 export * from './commands.js';
 export * from './vocabulary.js';
 export * from './transport.js';
+export * from './design-decisions.js';
