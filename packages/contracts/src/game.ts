@@ -192,6 +192,7 @@ export interface GmTestHooks {
   /** Keyframe + advanceTime to absolute time, one render. */
   renderAt(ms: number): void;
   renderGameToText(): { coords: string; tick: number; mode: 'play' | 'edit'; state: unknown; players: unknown[] };
+  /** `calls` is the draw calls of the most recently rendered frame, not a since-boot total (#272). */
   renderInfo(): { calls: number; triangles: number; frameMs: number; textureBytes: number; backend: string };
   hitTest(nx: number, ny: number): boolean;
   setSeed(seed: number): void;
