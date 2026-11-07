@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 
-import type { GameCommand, GameCommandsPage } from '@ogm/contracts';
+import type { CommandReview, GameCommand, GameCommandsPage } from '@ogm/contracts';
 
 import { queryClient } from '../../app/query';
 import { api } from '../../lib/api/client';
@@ -24,7 +24,12 @@ export function useGameCommands(gameId: string | null | undefined) {
   return { ...query, commands: query.data?.commands ?? EMPTY };
 }
 
-export async function answerCommand(gameId: string, command: GameCommand, optionId: string): Promise<void> {
-  await answerCheckpoint(command.job_id, command.checkpoint_id, optionId);
+export async function answerCommand(
+  gameId: string,
+  command: GameCommand,
+  optionId: string,
+  review?: CommandReview,
+): Promise<void> {
+  await answerCheckpoint(command.job_id, command.checkpoint_id, optionId, review);
   await queryClient.invalidateQueries({ queryKey: gameCommandsQueryKey(gameId) });
 }

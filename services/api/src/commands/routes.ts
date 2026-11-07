@@ -51,6 +51,7 @@ export default new Hono<ApiBindings>().get('/games/:gameId/commands', async (c) 
         options,
         ...(checkpoint.recommend === undefined ? {} : { recommend: checkpoint.recommend }),
         blocking: checkpoint.blocking ?? false,
+        pick: checkpoint.pick ?? 'one',
         opened_at: row.at,
       });
       if (command.success) commands.push(command.data);
