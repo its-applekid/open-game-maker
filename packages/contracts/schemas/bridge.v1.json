@@ -2811,6 +2811,16 @@
                     "saves": {
                       "type": "boolean"
                     },
+                    "saveSchema": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "migratesFrom": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
                     "net": {
                       "type": "object",
                       "properties": {
