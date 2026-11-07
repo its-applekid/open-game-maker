@@ -10,7 +10,7 @@ for (const file of (await readdir(dist)).filter(
 )) {
   const module = await import(new URL(file, dist).href);
   const records = Object.entries(module)
-    .filter(([name]) => name === 'schemas' || /^[a-z]+Schemas$/.test(name))
+    .filter(([name]) => name === 'schemas' || /^[a-z0-9]+Schemas$/.test(name))
     .map(([, record]) => record);
   for (const [stem, schema] of records.flatMap((record) => Object.entries(record))) {
     const jsonSchema = toJSONSchema(schema, { target: 'draft-2020-12' });

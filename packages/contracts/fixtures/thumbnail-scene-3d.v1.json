@@ -1,0 +1,57 @@
+{
+  "schema": "ogm.thumbnail-scene-3d/1.0",
+  "set_id": "kenney-mini-dungeon",
+  "target": {
+    "kind": "pack",
+    "id": "kenney-mini-dungeon"
+  },
+  "canvas": {
+    "width": 1024,
+    "height": 1024,
+    "background": "#e9e1cc"
+  },
+  "camera": {
+    "projection": "perspective",
+    "fov_deg": 35,
+    "position": [5.28, 3.63, 5.28],
+    "target": [0, 1, 0],
+    "orbit_deg": 360
+  },
+  "lighting": {
+    "mode": "scene",
+    "intensity": 1
+  },
+  "duration_ms": 4000,
+  "fps": 24,
+  "ground": {
+    "size_m": [12.6, 12.6],
+    "position": [0, 0, 0],
+    "colour": "#c8c3b8"
+  },
+  "items": [
+    {
+      "id": "characters-hero",
+      "kind": "character",
+      "card_id": "t1:kenney-mini-dungeon/characters/hero@1.0",
+      "position": [3.3, 0, 0],
+      "rotation_y": -1.571,
+      "scale": 1
+    },
+    {
+      "id": "nature-tree",
+      "kind": "nature",
+      "card_id": "t1:kenney-mini-dungeon/nature/tree@1.0",
+      "position": [-1.65, 0, 2.858],
+      "rotation_y": 2.618,
+      "scale": 1
+    },
+    {
+      "id": "props-crate",
+      "kind": "prop",
+      "card_id": "t1:kenney-mini-dungeon/props/crate@1.0",
+      "position": [-1.65, 0, -2.858],
+      "rotation_y": 0.524,
+      "scale": 1
+    }
+  ]
+}

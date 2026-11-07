@@ -63,10 +63,12 @@ async function sendFile(response, root, requested) {
   });
 }
 
-export async function startStaticServer(assetRoot) {
+export async function startStaticServer(assetRoot, options = {}) {
   const root = await realpath(resolve(assetRoot));
   const threeRoot = await realpath(THREE_ROOT);
-  const renderer = await readFile(RENDERER_PAGE);
+  const page = options.page ? resolve(options.page) : RENDERER_PAGE;
+  const pagePath = options.pagePath ?? '/renderer';
+  const renderer = await readFile(page);
   const server = createServer((request, response) => {
     let pathname;
     try {
@@ -75,7 +77,7 @@ export async function startStaticServer(assetRoot) {
       response.writeHead(400).end('bad path');
       return;
     }
-    if (pathname === '/' || pathname === '/renderer') {
+    if (pathname === '/' || pathname === pagePath) {
       response.writeHead(200, { 'Content-Type': MIME['.html'] }).end(renderer);
       return;
     }
@@ -115,7 +117,7 @@ export function rigWithId(rig) {
   };
 }
 
-function browserArgs(softwareGL) {
+export function browserArgs(softwareGL) {
   return softwareGL
     ? ['--use-angle=swiftshader', '--enable-gpu', '--ignore-gpu-blocklist']
     : ['--use-angle=gl-egl', '--enable-gpu', '--ignore-gpu-blocklist'];

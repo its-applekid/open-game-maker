@@ -69,7 +69,7 @@ async function inspectMp4(file) {
   };
 }
 
-async function verifyTrack({ media, output, width, height, seconds, fps, library }) {
+export async function verifyTrack({ media, output, width, height, seconds, fps, library }) {
   const mp4File = path.join(output, media.mp4);
   const gifFile = path.join(output, media.gif);
   const posterFile = path.join(output, media.poster);

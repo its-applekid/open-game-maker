@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OGM glTF scene renderer</title>
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "/three/build/three.module.js",
+          "three/addons/": "/three/examples/jsm/"
+        }
+      }
+    </script>
+    <style>
+      html,
+      body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+        background: #e9e1cc;
+      }
+
+      canvas {
+        display: block;
+        position: absolute;
+        top: 0;
+      }
+
+      #region {
+        left: 0;
+      }
+
+      #sheet {
+        left: 1024px;
+      }
+    </style>
+  </head>
+  <body>
+    <script type="module">
+      import * as THREE from 'three';
+      import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+      const SIZE = 1024;
+      const loader = new GLTFLoader();
+      const cache = new Map();
+      const tracked = [];
+
+      const region = { renderer: null, scene: null, camera: null, groups: new Map(), mixers: new Map() };
+      const sheet = { renderer: null, scene: null, camera: null, groups: new Map() };
+
+      function rendererFor(id) {
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, preserveDrawingBuffer: true });
+        renderer.setPixelRatio(1);
+        renderer.setSize(SIZE, SIZE, false);
+        renderer.domElement.id = id;
+        renderer.outputColorSpace = THREE.SRGBColorSpace;
+        renderer.toneMapping = THREE.ACESFilmicToneMapping;
+        renderer.toneMappingExposure = 1;
+        document.body.append(renderer.domElement);
+        return renderer;
+      }
+
+      function lights(scene) {
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x756b5e, 2.1));
+        const key = new THREE.DirectionalLight(0xffffff, 3.2);
+        key.position.set(4, 7, 5);
+        scene.add(key);
+        const fill = new THREE.DirectionalLight(0xbfd5ff, 1.1);
+        fill.position.set(-4, 3, -2);
+        scene.add(fill);
+      }
+
+      function addGround(scene, spec) {
+        const [width, depth] = spec.size_m;
+        const geometry = new THREE.PlaneGeometry(width, depth);
+        const material = new THREE.MeshStandardMaterial({ color: spec.colour, roughness: 1 });
+        const mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = -Math.PI / 2;
+        mesh.position.fromArray(spec.position);
+        scene.add(mesh);
+        tracked.push(geometry, material);
+      }
+
+      async function load(url) {
+        if (!cache.has(url)) cache.set(url, await loader.loadAsync(url));
+        return cache.get(url);
+      }
+
+      async function place(spec, groups, mixers, time) {
+        const gltf = await load(spec.url);
+        const model = gltf.scene.clone(true);
+        const box = new THREE.Box3().setFromObject(model);
+        const centre = box.getCenter(new THREE.Vector3());
+        model.position.set(-centre.x, -box.min.y, -centre.z);
+        const group = new THREE.Group();
+        group.add(model);
+        group.position.fromArray(spec.position);
+        group.rotation.y = spec.rotation_y ?? 0;
+        group.scale.setScalar(spec.scale ?? 1);
+        groups.set(spec.id, group);
+        if (spec.clip) {
+          const clip = gltf.animations.find((animation) => animation.name === spec.clip);
+          if (!clip) throw new Error(`${spec.url} has no clip ${spec.clip}`);
+          const mixer = new THREE.AnimationMixer(model);
+          mixer.clipAction(clip).play();
+          mixer.setTime(time ?? 0);
+          mixers.set(spec.id, mixer);
+        }
+        return group;
+      }
+
+      window.loadScene = async (payload) => {
+        region.scene = new THREE.Scene();
+        region.scene.background = new THREE.Color(payload.background);
+        region.camera = new THREE.PerspectiveCamera(payload.camera.fov_deg, 1, 0.001, 100000);
+        region.groups.clear();
+        region.mixers.clear();
+        lights(region.scene);
+        addGround(region.scene, payload.ground);
+        for (const spec of payload.items) {
+          region.scene.add(await place(spec, region.groups, region.mixers, 0));
+        }
+        region.renderer ??= rendererFor('region');
+        region.camera.updateProjectionMatrix();
+        region.renderer.render(region.scene, region.camera);
+        return { ids: payload.items.map((item) => item.id) };
+      };
+
+      window.renderRegion = (payload) => {
+        region.camera.position.fromArray(payload.camera.position);
+        region.camera.lookAt(new THREE.Vector3().fromArray(payload.camera.target));
+        for (const [id, move] of Object.entries(payload.moves ?? {})) {
+          const group = region.groups.get(id);
+          if (!group) throw new Error(`no region item ${id}`);
+          if (move.position) group.position.fromArray(move.position);
+          if (typeof move.rotation_y === 'number') group.rotation.y = move.rotation_y;
+        }
+        if (typeof payload.time === 'number') {
+          for (const mixer of region.mixers.values()) mixer.setTime(payload.time);
+        }
+        region.renderer.render(region.scene, region.camera);
+        return { time: payload.time ?? 0 };
+      };
+
+      window.loadSheet = async (payload) => {
+        sheet.scene = new THREE.Scene();
+        sheet.scene.background = new THREE.Color(payload.background);
+        sheet.camera = new THREE.PerspectiveCamera(payload.camera.fov_deg, 1, 0.001, 100000);
+        sheet.camera.position.fromArray(payload.camera.position);
+        sheet.camera.lookAt(new THREE.Vector3().fromArray(payload.camera.target));
+        sheet.groups.clear();
+        lights(sheet.scene);
+        addGround(sheet.scene, payload.ground);
+        for (const group of payload.groups) {
+          const entries = [];
+          for (const spec of group.models) entries.push(await place(spec, sheet.groups, new Map(), 0));
+          for (const entry of entries) {
+            entry.visible = false;
+            sheet.scene.add(entry);
+          }
+        }
+        sheet.renderer ??= rendererFor('sheet');
+        sheet.camera.updateProjectionMatrix();
+        sheet.renderer.render(sheet.scene, sheet.camera);
+        return { groups: payload.groups.map((group) => group.id) };
+      };
+
+      window.renderSheet = (payload) => {
+        const visible = new Set(payload.ids ?? []);
+        for (const [id, group] of sheet.groups.entries()) {
+          group.visible = visible.has(id);
+          if (group.visible && typeof payload.rotation_y === 'number') group.rotation.y = payload.rotation_y;
+        }
+        sheet.renderer.render(sheet.scene, sheet.camera);
+        return { ids: [...visible] };
+      };
+
+      window.sceneReady = true;
+    </script>
+  </body>
+</html>
