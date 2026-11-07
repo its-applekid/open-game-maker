@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "a66bba05-e610-4fbd-b17c-a1264a8cde6f",
+  "id": "948764ca-d47b-4bba-895f-f8f70bd72cda",
   "prevId": "cf1899aa-41dc-45d3-b676-ee951e65f4ae",
   "tables": {
     "app_meta": {
@@ -6193,7 +6193,7 @@
           "name": "job_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "ticket": {

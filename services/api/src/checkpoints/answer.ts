@@ -1,5 +1,5 @@
 import { AiurHttpError, type Decision } from '@ogm/aiur-client';
-import type { CommandReview, DesignDecision, ReviewAnswerPayload } from '@ogm/contracts';
+import type { CommandReview, DesignDecision } from '@ogm/contracts';
 
 import type { ChatJob } from '../app/registry.js';
 import type { AppDeps } from '../app/types.js';
@@ -7,6 +7,7 @@ import { getChatRuntime } from '../build-chat/routes.js';
 import { parseCheckpoint, updateCheckpoint, type ChatRow, type StoredCheckpoint } from '../build-chat/store.js';
 import { notifyExecutor } from '../design-decisions/notify.js';
 import { isDesignJob, latestForCheckpoint, tryRecordDesignDecision } from '../design-decisions/store.js';
+import { reviewDecisionFields, reviewProblem } from '../reviews/review-answer.js';
 import { jobTitle, tryRecordReview } from '../reviews/store.js';
 import { answeredOption, statusOf } from './correlate.js';
 import { checkpointRuntime } from './runtime.js';
@@ -35,53 +36,6 @@ export type AnswerInput = {
   review?: CommandReview;
   now?: () => Date;
 };
-
-// A review judges every card of its Command exactly once. A partial or invented map is refused before aiur is called.
-function reviewProblem(checkpoint: StoredCheckpoint, review: CommandReview): string | null {
-  const cards = new Set(checkpoint.options.map(({ id }) => id));
-  const seen = new Set<string>();
-  for (const id of review.likes) {
-    if (!cards.has(id)) return `like ${id} is not a card of this Command`;
-    if (seen.has(id)) return `card ${id} is judged twice`;
-    seen.add(id);
-  }
-  for (const { option_id: id } of review.dislikes) {
-    if (!cards.has(id)) return `dislike ${id} is not a card of this Command`;
-    if (seen.has(id)) return `card ${id} is judged twice`;
-    seen.add(id);
-  }
-  for (const { id } of checkpoint.options) if (!seen.has(id)) return `card ${id} is not judged`;
-  return null;
-}
-
-// What aiur's decision records as the creator's reasoning: the whole map, with their words on a dislike.
-function reviewSummary(checkpoint: StoredCheckpoint, review: CommandReview): string {
-  const label = (id: string) => checkpoint.options.find(({ id: candidate }) => candidate === id)?.label ?? id;
-  const liked = review.likes.map(label).join(', ');
-  const disliked = review.dislikes
-    .map(({ option_id: id, reason }) => (reason === undefined ? label(id) : `${label(id)} ('${reason}')`))
-    .join(', ');
-  return `Reviewed the deck: liked ${liked === '' ? 'nothing' : liked}; disliked ${disliked === '' ? 'nothing' : disliked}`;
-}
-
-// The answer's payload for aiur's `custom_response`: the whole map as JSON text, in the multi-question shape aiur uses
-// (`{kind: "question_answers", ...}`) until aiur #7778 adds a structured field. The worker reads it off the decision's
-// answer, so it stays a flat object with no card labels (the option ids name the cards).
-function reviewPayload(review: CommandReview): string {
-  const payload: ReviewAnswerPayload = {
-    kind: 'question_answers',
-    answers: [
-      ...review.likes.map((option_id) => ({ option_id, verdict: 'like' as const })),
-      ...review.dislikes.map(({ option_id, reason }) => ({
-        option_id,
-        verdict: 'dislike' as const,
-        ...(reason === undefined ? {} : { reason }),
-      })),
-    ],
-    ...(review.notes === undefined ? {} : { notes: review.notes }),
-  };
-  return JSON.stringify(payload);
-}
 
 function winnerPatch(decision: Decision) {
   const status = statusOf(decision);
@@ -198,9 +152,10 @@ export async function answerCheckpoint(input: AnswerInput): Promise<AnswerOutcom
   if (!option) return { kind: 'invalid_option' };
   const review = input.review;
   if (review !== undefined) {
-    const problem = reviewProblem(checkpoint, review);
+    const problem = reviewProblem(checkpoint.options, review);
     if (problem !== null) return { kind: 'review_invalid', reason: problem };
   }
+  const fields = review === undefined ? undefined : reviewDecisionFields(checkpoint.options, review, optionId);
 
   const design = isDesignJob(job.kind);
   const previous = design ? latestForCheckpoint(deps.db, job.gameId, checkpoint.checkpoint_id ?? row.id) : null;
@@ -228,20 +183,16 @@ export async function answerCheckpoint(input: AnswerInput): Promise<AnswerOutcom
       option: optionId,
       expected_version: checkpoint.version,
       idempotency_key: `ogm:${input.source}:${checkpointId}:${checkpoint.version}`,
-      rationale: rationale(
-        input.source,
-        option.label,
-        review === undefined ? undefined : reviewSummary(checkpoint, review),
-      ),
-      ...(review === undefined
+      rationale: rationale(input.source, option.label, fields?.rationale),
+      // aiur's "alternatives considered" are the likes left over once the answer's card is taken out; the whole map
+      // travels in `response`, so nothing is lost when there are none.
+      ...(fields === undefined
         ? {}
         : {
-            // aiur's field is the options the creator considered but did not choose: the likes left over once the
-            // answer's card is taken out. The whole map travels in `response`, so nothing is lost when this is empty.
-            ...(review.likes.some((id) => id !== optionId)
-              ? { alternatives_considered: review.likes.filter((id) => id !== optionId) }
-              : {}),
-            response: reviewPayload(review),
+            ...(fields.alternatives_considered === undefined
+              ? {}
+              : { alternatives_considered: fields.alternatives_considered }),
+            response: fields.response,
           }),
     });
     const patch = {

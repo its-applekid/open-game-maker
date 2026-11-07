@@ -228,6 +228,36 @@ The same `vendor/core.json` pin supplies the version of each core package when a
 a registry instead of vendoring tarballs. Publishing is prepared but switched off: see
 [core-packages.md](core-packages.md).
 
+## Register a game whose repository already exists
+
+Every game the app creates gets a new `games/<slug>/` folder in the instance repository. A game that already has
+one — a game in an Open-Games monorepo, say — is registered instead, so nothing is created and no repository or
+folder is touched. Registration is an admin API call, never a hand-edited row:
+
+```
+POST /api/v1/admin/games/import   # signed in as the family's owner or admin
+{"title":"Blobs",
+ "repo":{"owner":"<owner>","name":"<repository>","path":"games/blobs"},
+ "daemon":{"port":4011,"checkoutPath":"<instance checkout>"}}
+```
+
+`ownerId` defaults to the admin who calls it and must be a member of that admin's family. `visibility` defaults to
+`private` and `repoVisibility` to `public`. The daemon's `unit` and `envFile` default to the builder's convention for
+the instance repository — `ogm-aiur@<repository>.service` and `<home>/.config/ogm/env/ogm-aiur@<repository>.env` — so
+pass them only when the instance runs under a different name.
+
+The folder under `games/` is the game's slug: `games/blobs` registers `blobs`, so the game's folder, its `/play/<slug>`
+link and its daemon key are one name. A folder already answered by another game, or a repository and folder already
+registered, is refused with a conflict rather than quietly shadowing the first game. So is a slug or port a daemon row
+already answers to.
+
+The `daemon` block is the game's link to the aiur instance already building that repository: its port and its
+checkout, and — when the instance runs under a different name — its systemd unit and env file. The registration
+writes that row keyed by the same slug and carrying the game's repository, so the fleet's daemon, the Commands poller
+and the game's inbox read that instance's aiur and no other's.
+The row's `status` defaults to `running`, because the instance the game is registered against is already up. Nothing
+else changes — the game appears in the games picker and opens from its play link as soon as it is registered.
+
 ## Prove the instance monorepo flow
 
 Every game in an instance lives in the one repository named by `OGM_INSTANCE_REPO`: `games/<slug>/` per game and

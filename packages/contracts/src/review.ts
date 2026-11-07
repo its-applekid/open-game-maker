@@ -60,7 +60,8 @@ export const ReviewLedgerDislike = ReviewLedgerCard.extend({ reason: ReviewReaso
 export const CommandReviewEntry = z.object({
   id: Id,
   game_id: Id,
-  job_id: Id,
+  // The job that owns the Command; null for a registered game's Command, which no job owns (#573).
+  job_id: Id.nullable(),
   // The aiur ticket the Command belongs to; null until the job is linked.
   ticket: z.string().nullable(),
   title: z.string().trim().min(1).max(200),

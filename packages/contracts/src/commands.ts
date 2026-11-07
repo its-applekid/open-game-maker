@@ -4,8 +4,9 @@ import { Id, IsoTime } from './api.js';
 import { ChatMedia } from './chat.js';
 
 // The per-game Commands inbox (M3, A2a): one game's open aiur Commands in the shape the embeddable
-// `<aiur-commands>` component consumes (aiur#7487). A Command is one open aiur decision attached to a job's
-// ticket; the inbox answers it through the job's checkpoint route, which calls aiur's canonical answer path.
+// `<aiur-commands>` component consumes (aiur#7487). A Command is one open aiur decision; a job's Command is answered
+// through the job's checkpoint route and a Command with no job — a registered game's, read from its own aiur instance —
+// through the game's answer route. Both call aiur's canonical answer path.
 export const CommandOption = z.object({
   id: z.string().regex(/^[a-z0-9_-]{1,32}$/),
   label: z.string().trim().min(1).max(200),
@@ -18,7 +19,9 @@ export const CommandOption = z.object({
 export const MAX_COMMAND_OPTIONS = 12;
 
 export const GameCommand = z.object({
-  job_id: Id,
+  // Null when the Command belongs to no job: a game registered from a repository that already exists reads its
+  // instance's open Commands, and its `checkpoint_id` is aiur's decision id.
+  job_id: Id.nullable(),
   // The aiur ticket the Command belongs to; null until the job is linked to a ticket.
   ticket: z.string().nullable(),
   title: z.string().trim().min(1).max(200),
@@ -37,7 +40,8 @@ export const GameCommand = z.object({
   opened_at: IsoTime,
 });
 
-// GET /api/v1/games/:gameId/commands → the open Commands of every job the caller can edit in that game.
+// GET /api/v1/games/:gameId/commands → the open Commands of every job the caller can edit in that game, plus the
+// Commands its own aiur instance holds for it when no job owns them.
 export const GameCommandsPage = z.object({ commands: z.array(GameCommand) });
 
 export type CommandOption = z.infer<typeof CommandOption>;

@@ -1,7 +1,7 @@
 CREATE TABLE `command_reviews` (
 	`id` text PRIMARY KEY NOT NULL,
 	`game_id` text NOT NULL,
-	`job_id` text NOT NULL,
+	`job_id` text,
 	`ticket` text,
 	`title` text NOT NULL,
 	`checkpoint_id` text NOT NULL,

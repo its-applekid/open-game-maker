@@ -8,8 +8,15 @@
         "type": "object",
         "properties": {
           "job_id": {
-            "type": "string",
-            "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-z]{1,3}_[0-9a-f-]{36}$"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "ticket": {
             "type": [

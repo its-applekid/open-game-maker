@@ -15,9 +15,9 @@ export const commandReviews = sqliteTable(
     gameId: text('game_id')
       .notNull()
       .references(() => games.id, { onDelete: 'cascade' }),
-    jobId: text('job_id')
-      .notNull()
-      .references(() => jobs.id, { onDelete: 'cascade' }),
+    // The job that owns the Command; null when no job does — a registered game reads its own aiur instance's open
+    // Commands (#573), so its review still lands in the ledger without a job to point at.
+    jobId: text('job_id').references(() => jobs.id, { onDelete: 'cascade' }),
     // The aiur ticket the Command belongs to; null until the job is linked to one.
     ticket: text('ticket'),
     title: text('title').notNull(),
