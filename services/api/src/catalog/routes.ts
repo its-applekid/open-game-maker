@@ -1,8 +1,6 @@
 import { createHash } from 'node:crypto';
-import { createReadStream } from 'node:fs';
 import { lstat, readFile, realpath, stat } from 'node:fs/promises';
 import { extname, isAbsolute, join, relative } from 'node:path';
-import { Readable } from 'node:stream';
 
 import { Hono } from 'hono';
 
@@ -27,6 +25,8 @@ import {
 
 import type { ApiBindings } from '../app/types.js';
 import { requirePrincipal } from '../app/principal.js';
+import { audioStyleRoutes } from './audio-styles.js';
+import { streamMedia } from './byte-range.js';
 
 export type { StyleFamilyApi } from '@ogm/asset-cards';
 
@@ -245,21 +245,6 @@ async function discoverShowcase(
   };
 }
 
-function byteRange(value: string, bytes: number): { start: number; end: number } | undefined {
-  const match = /^bytes=(\d*)-(\d*)$/.exec(value);
-  if (!match || (!match[1] && !match[2]) || bytes === 0) return undefined;
-  if (!match[1]) {
-    const length = Number(match[2]);
-    if (!Number.isSafeInteger(length) || length <= 0) return undefined;
-    return { start: Math.max(0, bytes - length), end: bytes - 1 };
-  }
-  const start = Number(match[1]);
-  const requestedEnd = match[2] ? Number(match[2]) : bytes - 1;
-  if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start >= bytes || requestedEnd < start)
-    return undefined;
-  return { start, end: Math.min(requestedEnd, bytes - 1) };
-}
-
 /** Fail closed unless every pack resolves to a recognized public SPDX license. */
 export function setRequiresPrivateRepository(
   packIds: readonly string[],
@@ -359,51 +344,34 @@ export function catalogRoutes(opts: { assetsRoot?: string }): Hono<ApiBindings> 
     );
     return next.entry;
   };
-  return new Hono<ApiBindings>()
-    .get('/style-families', async (c) => {
-      // One shared build per cache period, so a burst never rebuilds the index concurrently; a failed build is retried.
-      if (!cached || Date.now() - cached.at > CACHE_MS) {
-        const next = { at: Date.now(), entry: build(c.get('deps').blobStore) };
-        cached = next;
-        next.entry.catch(() => {
-          if (cached === next) cached = undefined;
-        });
-      }
-      const entry = await cached.entry;
-      c.header('ETag', entry.etag);
-      c.header('Cache-Control', 'public, max-age=300');
-      if (c.req.header('if-none-match') === entry.etag) return c.body(null, 304);
-      c.header('Content-Type', 'application/json');
-      return c.body(entry.body);
-    })
-    .get('/style-sets/:setId/showcase/:file', async (c) => {
-      requirePrincipal(c, ['user']);
-      const discovered = await cachedShowcase(c.req.param('setId'));
-      const file = discovered?.files.get(c.req.param('file'));
-      if (!file) return c.json({ error: 'not_found' }, 404);
-
-      const headers: Record<string, string> = {
-        'Accept-Ranges': 'bytes',
-        'Cache-Control': 'private, max-age=300',
-        'Content-Type': file.mime,
-      };
-      const requested = c.req.header('range');
-      if (!requested) {
-        headers['Content-Length'] = String(file.bytes);
-        return new Response(Readable.toWeb(createReadStream(file.path)) as ReadableStream, { status: 200, headers });
-      }
-      const range = byteRange(requested, file.bytes);
-      if (!range) {
-        headers['Content-Range'] = `bytes */${file.bytes}`;
-        return new Response(null, { status: 416, headers });
-      }
-      headers['Content-Length'] = String(range.end - range.start + 1);
-      headers['Content-Range'] = `bytes ${range.start}-${range.end}/${file.bytes}`;
-      return new Response(
-        Readable.toWeb(createReadStream(file.path, { start: range.start, end: range.end })) as ReadableStream,
-        { status: 206, headers },
-      );
-    });
+  return (
+    new Hono<ApiBindings>()
+      .get('/style-families', async (c) => {
+        // One shared build per cache period, so a burst never rebuilds the index concurrently; a failed build is retried.
+        if (!cached || Date.now() - cached.at > CACHE_MS) {
+          const next = { at: Date.now(), entry: build(c.get('deps').blobStore) };
+          cached = next;
+          next.entry.catch(() => {
+            if (cached === next) cached = undefined;
+          });
+        }
+        const entry = await cached.entry;
+        c.header('ETag', entry.etag);
+        c.header('Cache-Control', 'public, max-age=300');
+        if (c.req.header('if-none-match') === entry.etag) return c.body(null, 304);
+        c.header('Content-Type', 'application/json');
+        return c.body(entry.body);
+      })
+      .get('/style-sets/:setId/showcase/:file', async (c) => {
+        requirePrincipal(c, ['user']);
+        const discovered = await cachedShowcase(c.req.param('setId'));
+        const file = discovered?.files.get(c.req.param('file'));
+        if (!file) return c.json({ error: 'not_found' }, 404);
+        return streamMedia(file, c.req.header('range'));
+      })
+      // The Sound step's tiles and their 60 s montages (#357); the montage builder writes the files this reads.
+      .route('/', audioStyleRoutes({ assetsRoot: opts.assetsRoot, prefix }))
+  );
 }
 
 const env = loadEnv('api', { OGM_ASSETS_ROOT: { kind: 'path', required: false } });

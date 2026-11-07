@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 
 import { describe, expect, it } from 'vitest';
 
-import { GAME_FIT, GENRES, INSTRUMENTS, MOODS } from '../src/vocabulary.js';
+import { GAME_FIT, GENRES, INSTRUMENTS, MOODS, AUDIO_STYLES, audioStyle } from '../src/vocabulary.js';
 
 type Schema = {
   $defs: {
@@ -29,5 +29,18 @@ describe('audio direction vocabulary', () => {
 
   it('offers exactly the game situations describe.game_fit validates', () => {
     expect([...GAME_FIT]).toEqual(enumOf(refName(schema.$defs.describe.properties.game_fit.propertyNames.$ref)));
+  });
+
+  it('offers audio style tiles whose axes the cards can carry, each with one direction', () => {
+    expect(AUDIO_STYLES.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(AUDIO_STYLES.map((style) => style.id)).size).toBe(AUDIO_STYLES.length);
+    for (const style of AUDIO_STYLES) {
+      expect(GENRES).toContain(style.style);
+      expect(MOODS).toContain(style.mood);
+      expect(style.label).toContain('·');
+    }
+    expect(audioStyle('chiptune-playful')).toMatchObject({ style: 'chiptune', mood: 'playful' });
+    expect(audioStyle('not-a-style')).toBeUndefined();
+    expect(audioStyle(undefined)).toBeUndefined();
   });
 });

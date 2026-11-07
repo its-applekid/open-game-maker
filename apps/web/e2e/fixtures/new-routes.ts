@@ -14,6 +14,9 @@ export async function installNewRoutes(page: Page): Promise<NewRouteState> {
   let scopeAgreed = false;
 
   await page.route('**/api/catalog/style-families', (route) => json(route, catalog));
+  // The creation flow asks for the Sound step's tiles on every screen. No montage is rendered in this fixture, so the
+  // API offers none and the flow skips the step; answer the request so it never falls through to the dev proxy.
+  await page.route('**/api/catalog/audio-styles', (route) => json(route, { families: [] }));
   await page.route('**/e2e/*', (route) => {
     const path = new URL(route.request().url()).pathname;
     if (path.endsWith('.mp4'))

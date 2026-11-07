@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import type { ScopeChoices } from '@ogm/contracts';
+import { audioDirectionText, hasAudioDirection } from '@ogm/contracts';
 
 export type ScopeTicketInput = {
   jobId: string;
@@ -24,6 +25,9 @@ export function renderScopeTicket(input: ScopeTicketInput): {
     `- World: ${plain(input.choices.world)}`,
     `- Players: ${input.choices.players}`,
     `- Point of view: ${plain(input.choices.pov)}`,
+    ...(hasAudioDirection(input.choices.audio)
+      ? [`- Audio direction: ${plain(audioDirectionText(input.choices.audio))}`]
+      : []),
     ...(input.choices.other === undefined ? [] : [`- Other: ${plain(input.choices.other)}`]),
   ].join('\n');
   const file = `.gm/scope/${input.sessionId}.json`;

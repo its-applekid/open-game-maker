@@ -40,6 +40,32 @@ export type StyleChoice = {
 
 export type PickerFamily = Pick<CatalogFamily, 'id' | 'label'>;
 
+/** One audio style tile the Sound step offers: a direction and the 60 s montage that plays for it (#357). */
+export type AudioStyleTile = {
+  id: string;
+  label: string;
+  style: string;
+  mood: string;
+  sampleUrl: string;
+};
+
+export type AudioStyleFamily = { id: string; label: string; styles: AudioStyleTile[] };
+
+export function useAudioStyles() {
+  return useQuery({
+    queryKey: ['catalog', 'audio-styles'],
+    queryFn: fetchAudioStyles,
+    staleTime: 5 * 60_000,
+    retry: false,
+  });
+}
+
+async function fetchAudioStyles(): Promise<AudioStyleFamily[]> {
+  const response = await fetch('/api/catalog/audio-styles', { credentials: 'include' });
+  if (!response.ok) throw new Error(`audio styles ${response.status}`);
+  return ((await response.json()) as { families: AudioStyleFamily[] }).families;
+}
+
 export function useCatalog() {
   return useQuery({
     queryKey: ['catalog', 'style-families'],

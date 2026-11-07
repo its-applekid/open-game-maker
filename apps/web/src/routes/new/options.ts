@@ -1,6 +1,12 @@
-import type { ScopeChoices } from '@ogm/contracts';
+import {
+  AUDIO_STYLES,
+  audioStyle,
+  hasAudioDirection,
+  type AudioDirection,
+  type ScopeChoices,
+} from '@ogm/contracts/browser';
 
-export const STEP_ORDER = ['genre', 'vibe', 'family', 'world', 'players', 'view', 'talk'] as const;
+export const STEP_ORDER = ['genre', 'vibe', 'family', 'sound', 'world', 'players', 'view', 'talk'] as const;
 export type StepKey = (typeof STEP_ORDER)[number];
 export type ChoiceKey = Exclude<StepKey, 'talk'>;
 export type Option = { id: string; label: string };
@@ -109,8 +115,9 @@ function labelsFor(key: 'genre' | 'vibe' | 'world', picks: string[]): string[] {
 
 export function scopeChoicesFrom(choices: NewGameChoices): ScopeChoices {
   const other = (Object.entries(choices) as [ChoiceKey, StepChoice | undefined][])
-    .flatMap(([key, value]) => (value?.other ? [`${key}: ${value.other}`] : []))
+    .flatMap(([key, value]) => (key !== 'sound' && value?.other ? [`${key}: ${value.other}`] : []))
     .join('\n');
+  const audio = audioDirectionFrom(choices);
   return {
     genre: labelsFor('genre', choices.genre?.picks ?? []).join(', ') || 'Open-ended',
     vibe: labelsFor('vibe', choices.vibe?.picks ?? []).join(', ') || 'Open-ended',
@@ -118,12 +125,32 @@ export function scopeChoicesFrom(choices: NewGameChoices): ScopeChoices {
     world: labelsFor('world', choices.world?.picks ?? []).join(', ') || 'Open-ended',
     players: choices.players?.picks.includes('multi') ? 'multi' : 'single',
     pov: choices.view?.picks[0] ?? 'fixed',
+    ...(audio ? { audio } : {}),
     ...(other ? { other } : {}),
   };
+}
+
+/**
+ * The audio direction the Sound step picked, as the contract's direction axes: a style tile's genre and mood, plus any
+ * free text. A step with no pick (or a skip) yields no direction, so the game falls back to the tagging defaults.
+ */
+export function audioDirectionFrom(choices: NewGameChoices): AudioDirection | undefined {
+  const choice = choices.sound;
+  if (!choice) return undefined;
+  const style = audioStyle(choice.picks[0]);
+  const direction: AudioDirection = {
+    ...(style ? { style: style.style, mood: style.mood } : {}),
+    ...(choice.other ? { other: choice.other } : {}),
+  };
+  return hasAudioDirection(direction) ? direction : undefined;
 }
 
 export function choiceLabels(key: ChoiceKey, choice: StepChoice | undefined): string[] {
   if (!choice) return [];
   if (key === 'genre' || key === 'vibe' || key === 'world') return labelsFor(key, choice.picks);
+  if (key === 'sound') {
+    const labels = new Map<string, string>(AUDIO_STYLES.map(({ id, label }) => [id, label]));
+    return choice.picks.map((pick) => labels.get(pick) ?? pick);
+  }
   return choice.picks;
 }

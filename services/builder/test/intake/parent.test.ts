@@ -20,6 +20,7 @@ const CHOICES = {
   world: 'floating islands',
   players: 'single',
   pov: 'isometric',
+  audio: { style: 'chiptune', mood: 'playful' },
 };
 
 const PLAN = {
@@ -224,6 +225,7 @@ describe('New Game parent issue', () => {
     expect(parent?.body).toContain('## Creation choices');
     expect(parent?.body).toContain('- Genre: platformer');
     expect(parent?.body).toContain('- World: floating islands');
+    expect(parent?.body).toContain('- Audio direction: chiptune, playful');
     expect(parent?.body).toContain(`Brief: ${PLAN.summary}`);
     expect(parent?.body).toContain('- Game: g_1');
     expect(parent?.body).toContain('- Private context reference: j_1');

@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { ScopeChoices } from '@ogm/contracts';
+import { audioDirectionText, hasAudioDirection } from '@ogm/contracts';
 import { schema, type Db } from '@ogm/db';
 import { and, desc, eq, lte } from 'drizzle-orm';
 
@@ -81,6 +82,7 @@ function choicesSection(choices: ScopeChoices | null): string {
     `- World: ${plain(choices.world)}`,
     `- Players: ${choices.players}`,
     `- Point of view: ${plain(choices.pov)}`,
+    ...(hasAudioDirection(choices.audio) ? [`- Audio direction: ${plain(audioDirectionText(choices.audio))}`] : []),
     ...(choices.other === undefined ? [] : [`- Other: ${plain(choices.other)}`]),
   ];
   return ['## Creation choices', ...lines].join('\n');

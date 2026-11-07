@@ -3,7 +3,8 @@ import { useNavigate, useSearchParams } from 'react-router';
 
 import { registerTestApi } from '../../app/testHook';
 import { ScopeChat } from '../../features/scope-chat';
-import { styleChoices, useCatalog } from './catalog';
+import { AudioStyleStep } from './AudioStyleStep';
+import { styleChoices, useAudioStyles, useCatalog } from './catalog';
 import { OptionTile } from './OptionTile';
 import { OtherTile } from './OtherTile';
 import { StyleStep } from './StyleStep';
@@ -38,6 +39,7 @@ const STEP_COLORS: Record<ChoiceKey, string> = {
   genre: 'var(--gruvbox-orange)',
   vibe: 'var(--gruvbox-purple)',
   family: 'var(--gruvbox-blue)',
+  sound: 'var(--gruvbox-red)',
   world: 'var(--gruvbox-green)',
   players: 'var(--gruvbox-aqua)',
   view: 'var(--gruvbox-yellow)',
@@ -59,7 +61,9 @@ export function NewGameScreen() {
   const [createAttempt, setCreateAttempt] = useState(0);
   const ensureGame = useCreateGame();
   const catalog = useCatalog();
+  const audio = useAudioStyles();
   const families = useMemo(() => styleChoices(catalog.data ?? []), [catalog.data]);
+  const audioFamilies = audio.data ?? [];
   const step = validStep(search.get('step'));
   const stepIndex = STEP_ORDER.indexOf(step);
   const selectedFamily = families.find(({ id }) => id === choices.family?.picks[0]);
@@ -139,6 +143,12 @@ export function NewGameScreen() {
     else go(STEP_ORDER[stepIndex - 1]!);
   };
 
+  // A Sound step with no carded audio offers no tiles; skip past it rather than show an empty screen.
+  useEffect(() => {
+    if (step !== 'sound' || audio.isLoading || audioFamilies.length > 0) return;
+    go(STEP_ORDER[STEP_ORDER.indexOf('sound') + 1] ?? 'talk');
+  }, [audio.isLoading, audioFamilies.length, go, step]);
+
   const current =
     step === 'talk' ? undefined : stepDefinition(step, families, selectedFamily?.views, choices.genre?.picks);
   const selected = current ? (choices[current.key] ?? { picks: [] }) : undefined;
@@ -179,7 +189,19 @@ export function NewGameScreen() {
           <>
             <p className="new-ask">{current?.ask}</p>
             {current?.hint ? <p className="new-hint">{current.hint}</p> : null}
-            {step === 'family' && catalog.isError ? (
+            {step === 'sound' ? (
+              <AudioStyleStep
+                families={audioFamilies}
+                selected={selected?.picks ?? []}
+                other={selected?.other}
+                full={count >= (current?.max ?? 1)}
+                onFull={rejectLimit}
+                onOtherChange={(other) =>
+                  setChoice('sound', { picks: selected?.picks ?? [], ...(other ? { other } : {}) })
+                }
+                onSelect={(id) => setChoice('sound', { picks: [id] })}
+              />
+            ) : step === 'family' && catalog.isError ? (
               <p className="new-retry" role="alert">
                 Style choices are unavailable.{' '}
                 <button type="button" onClick={() => void catalog.refetch()}>
@@ -275,6 +297,9 @@ function stepDefinition(
       options: families,
     };
   }
+  if (step === 'sound') {
+    return { key: 'sound', title: 'Sound', ask: 'How should it sound?', hint: 'Pick one', max: 1, options: [] };
+  }
   if (step === 'view') {
     const options: Option[] = viewsFor(familyViews ?? ['fixed'], genres ?? []).map((id) => ({
       id,
@@ -312,7 +337,7 @@ function TalkStep({
         {rows.length > 0 ? (
           rows.map((row) => (
             <span className="new-summary-row" key={row.key}>
-              <b>{row.key === 'family' ? 'Style' : row.key}</b>
+              <b>{row.key === 'family' ? 'Style' : row.key === 'sound' ? 'Sound' : row.key}</b>
               {row.labels.map((label) => (
                 <span className="new-chip" key={label}>
                   {label}

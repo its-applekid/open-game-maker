@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { STEP_ORDER, STATIC_STEPS, scopeChoicesFrom, viewsFor } from './options';
+import { AUDIO_STYLES } from '@ogm/contracts/browser';
+
+import { STEP_ORDER, STATIC_STEPS, audioDirectionFrom, scopeChoicesFrom, viewsFor } from './options';
 
 describe('new game options', () => {
   it('keeps the designed step order and pick limits', () => {
-    expect(STEP_ORDER).toEqual(['genre', 'vibe', 'family', 'world', 'players', 'view', 'talk']);
+    expect(STEP_ORDER).toEqual(['genre', 'vibe', 'family', 'sound', 'world', 'players', 'view', 'talk']);
     expect(STATIC_STEPS.genre.options).toHaveLength(14);
     expect(STATIC_STEPS.genre.max).toBe(3);
     expect(STATIC_STEPS.vibe.options).toHaveLength(11);
@@ -36,5 +38,26 @@ describe('new game options', () => {
       pov: 'iso',
       other: 'genre: delivery\nworld: rope bridges',
     });
+  });
+
+  it('turns a picked sound tile into the contract audio direction', () => {
+    const style = AUDIO_STYLES[0]!;
+    expect(audioDirectionFrom({ sound: { picks: [style.id] } })).toEqual({ style: style.style, mood: style.mood });
+    expect(audioDirectionFrom({ sound: { picks: ['unknown'], other: 'drums made of rain' } })).toEqual({
+      other: 'drums made of rain',
+    });
+    expect(audioDirectionFrom({})).toBeUndefined();
+    expect(audioDirectionFrom({ sound: { picks: [] } })).toBeUndefined();
+    expect(
+      scopeChoicesFrom({
+        genre: { picks: ['platformer'] },
+        vibe: { picks: ['cozy'] },
+        family: { picks: ['chunky-low-poly'] },
+        sound: { picks: [style.id], other: 'light as air' },
+        world: { picks: ['forest'] },
+        players: { picks: ['single'] },
+        view: { picks: ['iso'] },
+      }),
+    ).toMatchObject({ audio: { style: style.style, mood: style.mood, other: 'light as air' } });
   });
 });
