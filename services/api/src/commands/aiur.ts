@@ -9,9 +9,10 @@ import type { AppDeps } from '../app/types.js';
 // them to this game. A Command read here has no job, so its decision id is the checkpoint id the game's answer route
 // takes, and the embeddable `<aiur-commands>` component renders it exactly as it renders a job's.
 //
-// A decision aiur has answered, deferred away or dismissed is not an open Command and is left out, as the job
-// checkpoints leave it out. A Command whose options fall outside the inbox contract (fewer than two, more than five,
-// or an option id aiur would not accept) is dropped rather than failing the whole inbox.
+// A decision aiur has answered, dismissed or called moot is not an open Command and is left out, as the job
+// checkpoints leave it out. An open or deferred decision is still waiting on the creator. A Command whose options
+// fall outside the inbox contract (fewer than two, more than five, or an option id aiur would not accept) is dropped
+// rather than failing the whole inbox.
 const OPEN = new Set(['open', 'deferred']);
 
 function isOpen(decision: Decision): boolean {

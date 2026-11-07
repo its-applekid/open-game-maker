@@ -8,7 +8,8 @@ import { answerCommand, useGameCommands } from './commands';
 import './commands-inbox.css';
 
 // One game's open Commands (M3): the same list the embeddable `<aiur-commands>` component renders when aiur ships it.
-// Answering goes through the job's checkpoint route, so the answer lands in aiur's canonical Decision API either way.
+// Answering goes through the job's checkpoint route when a job owns the Command, and through the game's own route when
+// it does not; either way the answer lands in aiur's canonical Decision API.
 export function CommandsInbox({ gameId, onOpenJob }: { gameId: string; onOpenJob(jobId: string): void }) {
   const { commands } = useGameCommands(gameId);
   const [answering, setAnswering] = useState<string>();
