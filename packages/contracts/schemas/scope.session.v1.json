@@ -71,6 +71,27 @@
           "minLength": 1,
           "maxLength": 200
         },
+        "audio": {
+          "type": "object",
+          "properties": {
+            "style": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "mood": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            },
+            "other": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200
+            }
+          },
+          "additionalProperties": false
+        },
         "other": {
           "type": "string",
           "minLength": 1,

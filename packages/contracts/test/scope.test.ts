@@ -1,6 +1,14 @@
 import { readFileSync } from 'node:fs';
 
-import { AgreedScope, ScopeChoices, ScopeRevisionRequest, ScopeSession } from '../src/scope.js';
+import {
+  AgreedScope,
+  AudioDirection,
+  ScopeChoices,
+  ScopeRevisionRequest,
+  ScopeSession,
+  audioDirectionText,
+  hasAudioDirection,
+} from '../src/scope.js';
 import { describe, expect, it } from 'vitest';
 
 function fixture(name: string): unknown {
@@ -9,7 +17,10 @@ function fixture(name: string): unknown {
 
 describe('scope contracts', () => {
   it('accepts the worked choices and agreed scope fixtures', () => {
-    expect(ScopeChoices.parse(fixture('choices'))).toMatchObject({ players: 'single' });
+    expect(ScopeChoices.parse(fixture('choices'))).toMatchObject({
+      players: 'single',
+      audio: { style: 'chiptune', mood: 'playful' },
+    });
     expect(AgreedScope.parse(fixture('agreed'))).toMatchObject({
       revision: 1,
       title: 'Fox Workshop',
@@ -41,5 +52,17 @@ describe('scope contracts', () => {
     const { revision: _revision, ...legacyAgreement } = agreed as Record<string, unknown>;
     expect(AgreedScope.parse(legacyAgreement).revision).toBe(1);
     expect(ScopeRevisionRequest.safeParse({ expectedRevision: 0 }).success).toBe(false);
+  });
+
+  it('reads the audio direction as a direction, not pack ids, and refuses an empty one', () => {
+    expect(AudioDirection.parse({ style: 'orchestral' })).toEqual({ style: 'orchestral' });
+    expect(AudioDirection.parse({ mood: 'tense' })).toEqual({ mood: 'tense' });
+    expect(AudioDirection.parse({ other: 'drums made of rain' })).toEqual({ other: 'drums made of rain' });
+    expect(AudioDirection.safeParse({ style: 'orchestral', packs: ['pixabay'] }).success).toBe(false);
+    expect(hasAudioDirection(AudioDirection.parse({ style: 'chiptune', mood: 'playful' }))).toBe(true);
+    expect(hasAudioDirection(AudioDirection.parse({}))).toBe(false);
+    expect(hasAudioDirection(undefined)).toBe(false);
+    expect(audioDirectionText({ style: 'chiptune', mood: 'playful' })).toBe('chiptune, playful');
+    expect(audioDirectionText({ other: 'drums made of rain' })).toBe('drums made of rain');
   });
 });

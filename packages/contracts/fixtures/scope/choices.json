@@ -5,5 +5,9 @@
   "world": "floating islands",
   "players": "single",
   "pov": "isometric",
+  "audio": {
+    "style": "chiptune",
+    "mood": "playful"
+  },
   "other": "A helpful fox runs the workshop."
 }

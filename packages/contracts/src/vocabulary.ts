@@ -129,3 +129,37 @@ export type Mood = (typeof MOODS)[number];
 export type Genre = (typeof GENRES)[number];
 export type GameFit = (typeof GAME_FIT)[number];
 export type Instrument = (typeof INSTRUMENTS)[number];
+
+/**
+ * One offered audio style tile (#357): a style axis and a mood axis, picked as a single direction. The picker shows
+ * one tile per entry and each tile plays one pre-rendered 60 s montage; the direction is stored on the game, never the
+ * pack ids. The list is taste-led (the ticket's wording), not every facet combination the cards could produce: it is
+ * the handful of directions a creator recognises, and the montage builder renders a sample only for the styles whose
+ * audio is carded. Add a style when its cards exist; a tile without a montage is worse than no tile.
+ */
+export type AudioStyle = {
+  id: string;
+  label: string;
+  style: Genre;
+  mood: Mood;
+};
+
+export const AUDIO_STYLES = [
+  { id: 'chiptune-playful', label: 'Chiptune · Playful', style: 'chiptune', mood: 'playful' },
+  { id: 'chiptune-energetic', label: 'Chiptune · Energetic', style: 'chiptune', mood: 'energetic' },
+  { id: 'orchestral-epic', label: 'Orchestral · Epic', style: 'orchestral', mood: 'epic' },
+  { id: 'orchestral-sad', label: 'Orchestral · Sad', style: 'orchestral', mood: 'sad' },
+  { id: 'cinematic-tense', label: 'Cinematic · Tense', style: 'cinematic', mood: 'tense' },
+  { id: 'acoustic-cozy', label: 'Acoustic · Cozy', style: 'acoustic', mood: 'cozy' },
+  { id: 'electronic-energetic', label: 'Electronic · Energetic', style: 'electronic', mood: 'energetic' },
+  { id: 'ambient-calm', label: 'Ambient · Calm', style: 'ambient', mood: 'calm' },
+  { id: 'ambient-mysterious', label: 'Ambient · Mysterious', style: 'ambient', mood: 'mysterious' },
+  { id: 'rock-energetic', label: 'Rock · Energetic', style: 'rock', mood: 'energetic' },
+  { id: 'piano-sad', label: 'Piano · Sad', style: 'piano', mood: 'sad' },
+  { id: 'folk-cheerful', label: 'Folk · Cheerful', style: 'folk', mood: 'cheerful' },
+] as const satisfies readonly AudioStyle[];
+
+/** The style a tile names, as a card query's `genres`/`moods` filters, or undefined for an id not in the list. */
+export function audioStyle(id: string | undefined): AudioStyle | undefined {
+  return AUDIO_STYLES.find((style) => style.id === id);
+}

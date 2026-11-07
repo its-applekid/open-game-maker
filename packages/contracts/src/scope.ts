@@ -4,6 +4,20 @@ import { Id, IsoTime } from './api.js';
 
 const shortText = z.string().trim().min(1).max(200);
 
+/**
+ * The audio direction a creator picks instead of packs (#357): a style/genre axis and a mood axis, both optional so a
+ * creator can name only the one they care about, plus free text for a direction the vocabulary does not hold. It is a
+ * direction, never pack ids: `gm-audio` reads it and pulls tracks and effects across every pack whose cards match.
+ * At least one axis or `other` should be present; `hasAudioDirection` enforces that for the picker and the skill.
+ */
+export const AudioDirection = z
+  .object({
+    style: shortText.optional(),
+    mood: shortText.optional(),
+    other: z.string().trim().min(1).max(200).optional(),
+  })
+  .strict();
+
 export const ScopeChoices = z
   .object({
     genre: shortText,
@@ -12,6 +26,7 @@ export const ScopeChoices = z
     world: shortText,
     players: z.enum(['single', 'multi']),
     pov: shortText,
+    audio: AudioDirection.optional(),
     other: z.string().trim().min(1).max(2000).optional(),
   })
   .strict();
@@ -67,6 +82,22 @@ export const ScopeSession = z
   .strict();
 
 export type ScopeChoices = z.infer<typeof ScopeChoices>;
+export type AudioDirection = z.infer<typeof AudioDirection>;
+
+/** True when the direction names at least one axis or a free-text direction; an empty object is not a direction. */
+export function hasAudioDirection(direction: AudioDirection | undefined): direction is AudioDirection {
+  if (!direction) return false;
+  return direction.style !== undefined || direction.mood !== undefined || direction.other !== undefined;
+}
+
+/** The direction as one queryable line, for a scope document or a skill prompt: `chiptune, playful`. */
+export function audioDirectionText(direction: AudioDirection): string {
+  const parts = [direction.style, direction.mood, direction.other].filter(
+    (value): value is string => value !== undefined && value !== '',
+  );
+  return parts.join(', ');
+}
+
 export type AgreedScope = z.infer<typeof AgreedScope>;
 export type AgreedScopeTicket = z.infer<typeof AgreedScopeTicket>;
 export type ScopeRevisionRequest = z.infer<typeof ScopeRevisionRequest>;
