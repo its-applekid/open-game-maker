@@ -304,13 +304,25 @@ describe('3D scene renderer', () => {
       const root = await mkdtemp(join(tmpdir(), 'ogm-scene-3d-render-'));
       const { cards } = await buildSceneFixture(root);
       const scene = buildPackScene({ cards, target: { kind: 'pack', id: 'fixture-pack-a' }, set: 'fixture-set' });
-      await renderPackScene({ root, scene, outputBase: 'packs/fixture-pack-a/scene', softwareGL: true });
+      const outputs = await renderPackScene({
+        root,
+        scene,
+        outputBase: 'packs/fixture-pack-a/scene',
+        softwareGL: true,
+        stillsOnly: true,
+      });
+      expect(outputs).toEqual({
+        still1024: join(root, 'packs/fixture-pack-a/scene.1024.png'),
+        still256: join(root, 'packs/fixture-pack-a/scene.256.png'),
+      });
       const metadata = await sharp(join(root, 'packs/fixture-pack-a/scene.1024.png')).metadata();
       expect(metadata).toMatchObject({ width: 1024, height: 1024 });
       const stats = await sharp(join(root, 'packs/fixture-pack-a/scene.1024.png')).stats();
       expect(stats.channels[0].stdev).toBeGreaterThan(1);
       const small = await sharp(join(root, 'packs/fixture-pack-a/scene.256.png')).metadata();
       expect(small).toMatchObject({ width: 256, height: 256 });
+      const rendered = await readdir(join(root, 'packs/fixture-pack-a'));
+      expect(rendered.filter((file) => /\.(mp4|gif)$/.test(file))).toEqual([]);
     },
     120_000,
   );

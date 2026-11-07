@@ -516,14 +516,15 @@ export async function renderPackScene({
   scene: input,
   outputBase,
   softwareGL = process.env.GM_VERIFY_SOFTWARE_GL === '1',
+  stillsOnly = false,
 }) {
   const scene = thumbnailScene3dSchema.parse(input);
   const root = await realpath(resolve(assetRoot));
   await enforceRightsBase(root, await sceneCards(root, scene.items), outputBase);
   const still1024 = await safeOutput(root, `${outputBase}.1024.png`);
   const still256 = await safeOutput(root, `${outputBase}.256.png`);
-  const mp4 = await safeOutput(root, `${outputBase}.1024.mp4`);
-  const gif = await safeOutput(root, `${outputBase}.256.gif`);
+  const mp4 = stillsOnly ? undefined : await safeOutput(root, `${outputBase}.1024.mp4`);
+  const gif = stillsOnly ? undefined : await safeOutput(root, `${outputBase}.256.gif`);
   const stage = await mkdtemp(join(dirname(still1024), '.scene-3d-'));
   try {
     await withScenePage(root, softwareGL, async (page, serverUrl) => {
@@ -533,7 +534,8 @@ export async function renderPackScene({
         ground: scene.ground,
         items: await sceneItems(root, serverUrl, scene.items),
       });
-      const times = sceneFrameTimes(scene);
+      // A stills-only render needs the frame at time zero; the loop needs every frame.
+      const times = stillsOnly ? [0] : sceneFrameTimes(scene);
       for (const [index, time] of times.entries()) {
         const angle = (time / (scene.duration_ms / 1000)) * ((scene.camera.orbit_deg * Math.PI) / 180);
         await page.evaluate((payload) => globalThis.renderRegion(payload), {
@@ -548,6 +550,11 @@ export async function renderPackScene({
     const stagedStill256 = join(stage, 'still.256.png');
     await copyFile(join(stage, '000.png'), stagedStill1024);
     await sharp(stagedStill1024).resize(256, 256, { kernel: 'nearest' }).png().toFile(stagedStill256);
+    if (stillsOnly) {
+      await rename(stagedStill1024, still1024);
+      await rename(stagedStill256, still256);
+      return { still1024, still256 };
+    }
     const frames = sceneFrameTimes(scene).length;
     const args = videoArgs({
       framePattern: join(stage, '%03d.png'),
@@ -814,13 +821,14 @@ export async function renderPackArt({
   durationMs,
   fps,
   softwareGL = process.env.GM_VERIFY_SOFTWARE_GL === '1',
+  stillsOnly = false,
 }) {
   const root = await realpath(resolve(assetRoot));
   const scene = buildPackScene({ cards, target: { kind: 'pack', id: pack }, set, durationMs, fps });
   const collections = await loadCollections(root, cards);
   const base = previewBase({ cards, collections, base: `packs/${pack}/scene` });
   await writeFile(await safeOutput(root, `${base}.scene.json`), `${JSON.stringify(scene, null, 2)}\n`);
-  const outputs = await renderPackScene({ root, scene, outputBase: base, softwareGL });
+  const outputs = await renderPackScene({ root, scene, outputBase: base, softwareGL, stillsOnly });
   return { base, outputs };
 }
 

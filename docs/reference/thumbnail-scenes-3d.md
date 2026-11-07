@@ -103,4 +103,6 @@ target failed. `scene` and `batch` write each artifact under its rights-gated ba
 The renderer reuses the Playwright/three.js harness in `apps/web/tools/render-gltf.mjs`: it binds an ephemeral server
 to `127.0.0.1`, blocks browser egress, stages every still and video privately, and replaces final outputs only after
 both encodes succeed. Rendering needs Chromium and `ffmpeg`; a host without either cannot generate these artifacts,
-so run `batch` where both are installed.
+so run `batch` where both are installed. A host with Chromium but no `ffmpeg` can still render a pack's stills:
+`renderPackScene` takes `stillsOnly`, which draws the frame at time zero and writes the 1024 px and 256 px PNGs
+without encoding a loop.
