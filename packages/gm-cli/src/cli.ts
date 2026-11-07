@@ -22,6 +22,7 @@ export {
   type SkillReferenceCatalog,
   type SkillReferenceMisses,
 } from './skills/lint.js';
+export * from './ledger/index.js';
 
 export const COMMANDS_DIR = fileURLToPath(new URL('./commands/', import.meta.url));
 

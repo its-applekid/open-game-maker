@@ -9,6 +9,10 @@ Confirm `gm.lock.json` has `set: "smallscaleint"`. Inspect chosen cards with `gm
 `gm assets search --set smallscaleint`, and compare candidates with `gm assets sheet`. Fetch one implementation
 pattern at a time with `gm docs pattern <topic>`.
 
+Before you offer or build an option set, read `design/feedback.json`, the game's creator rejection ledger (#567), and
+keep its rules in front of you. A rejected option never comes back: run `gm options check` on the set first, and record a
+rejection you hear with `gm options reject`.
+
 ## Adapter exports
 
 | Export | Use |

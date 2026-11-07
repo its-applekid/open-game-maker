@@ -60,6 +60,8 @@ describe('command registry', () => {
       'maps index',
       'maps search',
       'new',
+      'options check',
+      'options reject',
       'packs blocklist',
       'packs import',
       'packs index',

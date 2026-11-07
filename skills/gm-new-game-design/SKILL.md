@@ -17,6 +17,12 @@ ask them to repeat or reconfirm it. Large pastes arrive as attachments; read the
 Then read `references/resources.md` (what the engine, hosting and asset library can really do) and
 `references/question-protocol.md` (how to ask, recommend, default and revise).
 
+Read `design/feedback.json`, the game's creator rejection ledger (#567), before you build any option set: its entries
+carry the creator's words, the rule derived from them, and the scope each rule covers. A rejected option never comes
+back. Run `gm options check` on an option set before it reaches the player, and record a rejection or a reason you hear
+with `gm options reject`, which also withdraws the open options and Commands it invalidates. Give each option its
+provenance (`--provenance <id>=@<file>.json`) when you offer it, so the check can read what it was built from.
+
 ## The conversation
 
 - **Let them imagine first.** Open with room for a free description and keep listening while they brain-dump: short
