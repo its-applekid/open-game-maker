@@ -6,6 +6,7 @@ import { Hono } from 'hono';
 import type { Context } from 'hono';
 
 import type { AuditEntry, AuditWriter } from './audit.js';
+import { GitHubOAuthNotConfiguredError } from './auth/app.js';
 import type { ActiveRepository } from './boundary/api-client.js';
 import type { BoundaryCheck } from './boundary/poller.js';
 import { registerBoundaryWebhook } from './boundary/webhook.js';
@@ -97,7 +98,38 @@ export function createCommitApp(dependencies: ServerDependencies): Hono {
     return undefined;
   };
 
-  // The API resolves the account behind an installation id the browser brought back from GitHub (#280).
+  // The API resolves the account behind an installation id the browser brought back from GitHub (#280). A login is
+  // only returned for an installation the user who authorized `code` controls, so learning an id proves nothing.
+  app.post('/internal/installations/:id/ownership', async (context) => {
+    const refused = refuseCaller(context);
+    if (refused !== undefined) return refused;
+    const id = context.req.param('id');
+    if (!/^[1-9][0-9]{0,14}$/u.test(id)) return context.json({ error: 'installation_not_found' }, 404);
+    const installations = dependencies.installations;
+    if (installations === undefined) return context.json({ error: 'installations unavailable' }, 503);
+    const body = (await context.req.json().catch(() => undefined)) as unknown;
+    const code = typeof body === 'object' && body !== null && 'code' in body ? body.code : undefined;
+    if (typeof code !== 'string' || !/^[A-Za-z0-9_-]{1,255}$/u.test(code)) {
+      return context.json({ error: 'code_required' }, 422);
+    }
+    let login: string | null;
+    try {
+      login = await installations.installationLoginForUser(Number(id), code);
+    } catch (error) {
+      if (error instanceof GitHubOAuthNotConfiguredError) {
+        return context.json({ error: 'github_oauth_unavailable' }, 503);
+      }
+      return context.json({ error: 'installation lookup failed' }, 502);
+    }
+    if (login === null) return context.json({ error: 'installation_not_found' }, 404);
+    return context.json({ login }, 200);
+  });
+
+  /*
+   * Revalidates an installation the API already stored for a creator, so a screen stops claiming "Connected" after
+   * the App is uninstalled or access is revoked. This never grants a connection: the API only asks about ids it has
+   * already proven and stored.
+   */
   app.get('/internal/installations/:id', async (context) => {
     const refused = refuseCaller(context);
     if (refused !== undefined) return refused;

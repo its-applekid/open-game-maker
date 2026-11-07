@@ -68,7 +68,7 @@ describe('auth client helpers', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/github/connection', expect.anything());
   });
 
-  it('posts only the installation id when connecting', async () => {
+  it('posts the installation id with the OAuth code that proves ownership', async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(
       async () =>
         new Response(JSON.stringify({ connected: true, login: 'octocat' }), {
@@ -78,11 +78,14 @@ describe('auth client helpers', () => {
     );
     vi.stubGlobal('fetch', fetch);
 
-    await expect(connectGitHubInstallation('4242')).resolves.toEqual({ connected: true, login: 'octocat' });
+    await expect(connectGitHubInstallation('4242', 'code-abc')).resolves.toEqual({
+      connected: true,
+      login: 'octocat',
+    });
     expect(fetch.mock.calls[0]?.[0]).toBe('/api/v1/github/connect');
     expect(fetch.mock.calls[0]?.[1]).toMatchObject({
       method: 'POST',
-      body: JSON.stringify({ installationId: '4242' }),
+      body: JSON.stringify({ installationId: '4242', code: 'code-abc' }),
     });
   });
 

@@ -7,7 +7,7 @@ import { manifest } from './src/manifest.js';
 
 export default defineConfig(({ mode }) => ({
   define: {
-    __GM_BUILD__: JSON.stringify(mode === 'published' ? 'published' : (process.env.GM_BUILD ?? 'test')),
+    __GM_BUILD__: JSON.stringify(mode === 'published' ? 'published' : mode === 'test' ? 'test' : 'draft'),
   },
   resolve: {
     alias: {

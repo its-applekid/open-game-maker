@@ -70,17 +70,26 @@ describe('ConnectGitHubScreen', () => {
   });
 
   it('connects the installation GitHub returns with and shows the login', async () => {
-    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=nonce%3A%2Fall');
+    renderConnect('/connect/github?installation_id=4242&code=code-abc&setup_action=install&state=nonce%3A%2Fall');
 
     expect(await screen.findByText('@octocat')).toBeVisible();
     expect(auth.readGitHubInstallState).toHaveBeenCalledWith('nonce:/all');
     expect(auth.connectGitHubInstallation).toHaveBeenCalledTimes(1);
-    expect(auth.connectGitHubInstallation).toHaveBeenCalledWith('4242');
+    expect(auth.connectGitHubInstallation).toHaveBeenCalledWith('4242', 'code-abc');
     expect(auth.getGitHubStatus).not.toHaveBeenCalled();
     expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fall');
 
     fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Games destination' })).toBeVisible());
+  });
+
+  it('refuses a callback GitHub returned without an OAuth code', async () => {
+    renderConnect('/connect/github?installation_id=4242&setup_action=install&state=nonce%3A%2Fall');
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Could not connect GitHub.');
+    expect(auth.connectGitHubInstallation).not.toHaveBeenCalled();
+    expect(await screen.findByRole('button', { name: 'Connect GitHub' })).toBeVisible();
+    expect(screen.getByTestId('location')).toHaveTextContent('/connect/github?next=%2Fall');
   });
 
   it('ignores a callback link this tab did not start', async () => {
@@ -104,9 +113,10 @@ describe('ConnectGitHubScreen', () => {
 
   it('shows a refused installation and lets the creator start again', async () => {
     auth.connectGitHubInstallation.mockRejectedValueOnce(new Error('api 409'));
-    renderConnect('/connect/github?installation_id=4242&state=nonce%3A%2Fall');
+    renderConnect('/connect/github?installation_id=4242&code=code-abc&state=nonce%3A%2Fall');
 
     expect(await screen.findByRole('alert')).toHaveTextContent('Could not connect GitHub.');
+    expect(auth.connectGitHubInstallation).toHaveBeenCalledWith('4242', 'code-abc');
     fireEvent.click(screen.getByRole('button', { name: 'Connect GitHub' }));
     expect(assign).toHaveBeenCalledTimes(1);
   });

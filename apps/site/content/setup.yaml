@@ -204,14 +204,15 @@ steps:
         check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/env/api.env
         cites: [.env.example, docs/ops/runbook.md]
       - kind: hand
-        text: Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
+        text: Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, tick Request user authorization (OAuth) during installation so GitHub returns the code that proves which account a creator controls, put the App's client id and client secret in ogm-commit.env, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
         command: |-
-          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App only on <github-owner>/<instance-repo>.
+          # Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update and Request user authorization (OAuth) during installation; install the App only on <github-owner>/<instance-repo>.
+          # Copy the App's client id and client secret into GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET.
           chmod 600 ~/.config/ogm/ogm-github-app.pem
           systemctl --user restart ogm-commit
           # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
         writes: [~/.config/ogm/ogm-github-app.pem, ~/.config/ogm/env/ogm-commit.env]
-        check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
+        check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation and no github-oauth-not-configured warning
         cites:
           [
             services/commit/README.md,

@@ -44,13 +44,13 @@ function seed(app: { deps: ReturnType<typeof makeDeps> }) {
 async function setup() {
   const deps = makeDeps();
   deps.registry.repoProvisioner = new NullRepoProvisioner();
-  deps.registry.githubInstallations = { loginFor: async () => 'castle-gh' };
+  deps.registry.githubInstallations = { loginFor: async () => 'castle-gh', revalidate: async () => 'castle-gh' };
   seed({ deps });
   const { app } = await makeApp(deps);
   await app.request('/api/v1/github/connect', {
     method: 'POST',
     headers: { ...asUser(owner.userId), 'content-type': 'application/json' },
-    body: JSON.stringify({ installationId: '12345' }),
+    body: JSON.stringify({ installationId: '12345', code: 'code-abc' }),
   });
   return { deps, app };
 }

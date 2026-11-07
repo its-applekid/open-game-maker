@@ -90,7 +90,7 @@ fallback when it is blank.
 | `intake.env` | `OGM_ASSETS_ROOT`, `OGM_STATE_DIR` | |
 | `drive-sync.env` | none; the worker reads `~/.config/ogm/drive-sync.toml` and `drive-sa.json` (`scripts/py/drive-sync/README.md`) | |
 | `backup.env` | `OGM_DATA_DIR`, `OGM_BLOB_ROOT`, `OGM_BACKUP_TARGET` | |
-| `ogm-commit.env` | `OGM_COMMIT_PORT`, `OGM_DATA_DIR`, `OGM_API_INTERNAL_URL`, `OGM_PLATFORM_ISSUE_REPO`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `OGM_BUILDER_BOT_LOGIN` | `OGM_BLOCKLIST_FILE`, `OGM_GITHUB_WEBHOOK_SECRET` |
+| `ogm-commit.env` | `OGM_COMMIT_PORT`, `OGM_DATA_DIR`, `OGM_API_INTERNAL_URL`, `OGM_PLATFORM_ISSUE_REPO`, `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY_PATH`, `OGM_BUILDER_BOT_LOGIN` | `OGM_BLOCKLIST_FILE`, `OGM_GITHUB_WEBHOOK_SECRET`, `GITHUB_APP_CLIENT_ID`, `GITHUB_APP_CLIENT_SECRET` |
 | `repair.env` | `OGM_API_INTERNAL_URL`, `OGM_GAMES_ROOT`; no unit runs `services/repair` yet | |
 | `core-bump.env` | `OGM_CORE_BUMP_REPOS`, `OGM_CORE_BUMP_CORE_REPO`; the App credentials come from `ogm-commit.env` | `OGM_CORE_BUMP_CORE_BRANCH`, `OGM_CORE_BUMP_WORK_DIR` |
 
