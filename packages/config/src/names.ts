@@ -184,6 +184,18 @@ export const OGM_ENV_NAMES: readonly EnvName[] = [
   { name: 'GITHUB_APP_ID', unit: 'commit', kind: 'string', doc: 'OGM GitHub App id' },
   { name: 'GITHUB_APP_INSTALLATION_ID', unit: 'commit', kind: 'string', doc: "installation id on Kevin's account" },
   { name: 'GITHUB_APP_PRIVATE_KEY_PATH', unit: 'commit', kind: 'path', doc: 'PEM path under ~/.config/ogm' },
+  {
+    name: 'GITHUB_APP_CLIENT_ID',
+    unit: 'commit',
+    kind: 'string',
+    doc: 'App OAuth client id; set with the secret to accept GitHub connections',
+  },
+  {
+    name: 'GITHUB_APP_CLIENT_SECRET',
+    unit: 'commit',
+    kind: 'secret',
+    doc: 'App OAuth client secret; proves which account controls an installation',
+  },
   { name: 'OGM_BACKUP_TARGET', unit: 'backup', kind: 'string', doc: 'ssh:<host>:<path> or local:<path>' },
   {
     name: 'OGM_INTERNAL_TOKEN',

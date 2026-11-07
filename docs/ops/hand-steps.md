@@ -18,7 +18,7 @@ Fill the placeholders first: `<user>` is the account that runs OGM, `<tailnet-ho
   - ctx: OGM-008 docs/ops/hand-steps.md · T03 E03-9
 - [ ] `xdg-open https://github.com/signup` — GATE-MACHINE-USERS: create the free `ogm-intake` and `ogm-builder` machine users, put their PATs in the builder env file, then remove your own PAT from `~/.aiur/.env`
   - ctx: OGM-008 docs/ops/hand-steps.md · T03 E03-8
-- [ ] `xdg-open https://github.com/settings/apps/new` — GATE-GITHUB-APP: create the OGM GitHub App and install it on the instance repository only (every game in an instance lives in that one repo); its App id and PEM path go in `~/.config/ogm/env/ogm-commit.env`, and `OGM_INSTANCE_REPO` in `api.env` names the repo as `owner/repository`; permissions and the installation lookup are in [services/commit/README.md](../../services/commit/README.md)
+- [ ] `xdg-open https://github.com/settings/apps/new` — GATE-GITHUB-APP: create the OGM GitHub App and install it on the instance repository only (every game in an instance lives in that one repo); tick **Request user authorization (OAuth) during installation** and put its App id, PEM path, OAuth client id and client secret in `~/.config/ogm/env/ogm-commit.env`, and `OGM_INSTANCE_REPO` in `api.env` names the repo as `owner/repository`; permissions and the installation lookup are in [services/commit/README.md](../../services/commit/README.md)
   - ctx: OGM-008 docs/ops/hand-steps.md
 - [ ] `xdg-open https://console.cloud.google.com/apis/credentials` — GATE-GOOGLE-OAUTH: create an OAuth client (testing mode) for Google sign-in; passkey and magic link work without it
   - ctx: OGM-008 docs/ops/hand-steps.md

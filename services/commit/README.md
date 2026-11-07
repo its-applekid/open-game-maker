@@ -39,8 +39,12 @@ Create it at `https://github.com/settings/apps/new` (or under the organization t
 repository), generate a private key, and install the App on the instance repository only — every game in the instance
 lives there — plus the owner of `OGM_PLATFORM_ISSUE_REPO` for platform bug reports. Creators never connect GitHub
 themselves. Webhook can stay inactive (see Events). For Connect GitHub, set the App's Setup URL to
-`<app-origin>/connect/github` with Redirect on update ticked; the API then asks
-`GET /internal/installations/:id` which account an installation id belongs to (`src/server.ts:105`).
+`<app-origin>/connect/github` with Redirect on update ticked and **Request user authorization (OAuth) during
+installation** ticked; GitHub then appends a `code` beside `installation_id` and the API asks
+`POST /internal/installations/:id/ownership` which account that code proves the creator controls (`src/server.ts:103`).
+Put the App's client id and client secret in `ogm-commit.env` as `GITHUB_APP_CLIENT_ID` and
+`GITHUB_APP_CLIENT_SECRET`. Without them the ownership route answers 503 and Connect GitHub cannot link an account,
+so an installation id learned elsewhere is never enough to claim one.
 
 Repository permissions, each with the calls that need it:
 
@@ -55,7 +59,9 @@ Repository permissions, each with the calls that need it:
 No organization or account permissions: the service never creates a repository or changes one's visibility, because the
 instance repository already exists and its visibility belongs to the operator. `GET /app/installations`,
 `GET /app/installations/{installation_id}` and `GET /app` are signed with the App's JWT and need none
-(`src/auth/app.ts:63`, `:119`, `:108`).
+(`src/auth/app.ts:83`, `:162`, `:173`). The ownership proof's `POST https://github.com/login/oauth/access_token` and
+`GET https://api.github.com/user/installations` need no App permission either: they act as the authorizing user
+(`src/auth/app.ts:120`, `:136`).
 
 ### Events
 
@@ -91,13 +97,15 @@ install -m 600 services/commit/ops/ogm-commit.env.example ~/.config/ogm/env/ogm-
 | `OGM_PLATFORM_ISSUE_REPO` | `owner/repo` that receives bug reports; the App must be installed on its owner |
 | `GITHUB_APP_ID` | the App id |
 | `GITHUB_APP_PRIVATE_KEY_PATH` | absolute path to the PEM, mode 0600, outside the repo |
+| `GITHUB_APP_CLIENT_ID` | the App's OAuth client id; set with the secret to accept GitHub connections |
+| `GITHUB_APP_CLIENT_SECRET` | the App's OAuth client secret; exchanged for the user token that proves ownership |
 | `OGM_GITHUB_WEBHOOK_SECRET` | optional, see Events |
 | `OGM_BUILDER_BOT_LOGIN` | same as `api.env`; invited to the instance repository with push |
 
 ### Shared tokens
 
 `OGM_COMMIT_SERVICE_TOKEN` and `OGM_INTERNAL_TOKEN` must be byte-identical in `api.env` and `ogm-commit.env`. The
-first authenticates the API to this service and this service's repo lookups back to the API (`src/server.ts:98`,
+first authenticates the API to this service and this service's repo lookups back to the API (`src/server.ts:95`,
 `src/repo-resolver.ts:21`); the second authenticates boundary reads from the API's `/internal/games/*` routes with
 `X-Ogm-Service: commit` (`src/boundary/api-client.ts:38`). `ogm-env-init api` generates both; copy the values into
 `ogm-commit.env` without printing them, then restart both units.

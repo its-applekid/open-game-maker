@@ -23,9 +23,25 @@ export class AppNotInstalledError extends Error {
   }
 }
 
+/*
+ * The App has no OAuth client id/secret, so the code GitHub appends to the setup URL cannot be exchanged and no
+ * user token proves which account controls an installation. Callers answer 503 rather than falling back to an
+ * unproven lookup.
+ */
+export class GitHubOAuthNotConfiguredError extends Error {
+  constructor() {
+    super('GitHub App OAuth client id and secret are not configured');
+    this.name = 'GitHubOAuthNotConfiguredError';
+  }
+}
+
 export type GitHubAppConfig = {
   appId: string;
   privateKeyPath: string;
+  // The App's OAuth client credentials. Unset means the App was not given "Request user authorization (OAuth)
+  // during installation", so no code arrives at the setup URL and ownership can never be proven.
+  clientId?: string;
+  clientSecret?: string;
   fetch?: typeof fetch;
   now?: Clock;
   timeoutMs?: number;
@@ -35,6 +51,10 @@ export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubAp
   const privateKey = await readPrivateKey(config.privateKeyPath);
   const now = config.now ?? Date.now;
   const boundedFetch = fetchWithTimeout(config.fetch ?? fetch, config.timeoutMs);
+  const oauth =
+    config.clientId !== undefined && config.clientSecret !== undefined
+      ? { clientId: config.clientId, clientSecret: config.clientSecret }
+      : null;
   const rawRequest = octokitRequest.defaults({ request: { fetch: boundedFetch } });
   const request = Object.assign(withSafeGitHubRequests(rawRequest as unknown as GitHubRequest), {
     endpoint: rawRequest.endpoint,
@@ -91,6 +111,40 @@ export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubAp
     return authentication.token;
   }
 
+  /*
+   * A user access token minted from the code GitHub appended to the App's setup URL. The code is single use and
+   * short lived, so a second exchange for the same code answers an `error` field rather than a token.
+   */
+  async function userTokenFor(code: string): Promise<string | null> {
+    if (oauth === null) throw new GitHubOAuthNotConfiguredError();
+    const response = await boundedFetch('https://github.com/login/oauth/access_token', {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ client_id: oauth.clientId, client_secret: oauth.clientSecret, code }),
+    });
+    if (!response.ok) throw new Error(`GitHub OAuth code exchange failed (${response.status})`);
+    const body = (await response.json().catch(() => null)) as { access_token?: unknown; error?: unknown } | null;
+    if (typeof body?.access_token === 'string' && body.access_token.length > 0) return body.access_token;
+    // A spent or forged code is a refusal, not an outage: GitHub answers with an `error` field, never a 5xx.
+    if (typeof body?.error === 'string') return null;
+    throw new Error('GitHub OAuth code exchange returned no token');
+  }
+
+  /* The installation as GitHub reports it for a user token; null when that user cannot see the installation. */
+  async function installationForUser(token: string, installationId: number): Promise<Installation | null> {
+    for (let page = 1; ; page += 1) {
+      const response = await boundedFetch(`https://api.github.com/user/installations?per_page=100&page=${page}`, {
+        headers: { accept: 'application/vnd.github+json', authorization: `Bearer ${token}` },
+      });
+      if (!response.ok) throw new Error(`GitHub user installations failed (${response.status})`);
+      const body = (await response.json().catch(() => null)) as { installations?: Installation[] } | null;
+      const list = Array.isArray(body?.installations) ? body.installations : [];
+      const match = list.find((installation) => installation.id === installationId);
+      if (match !== undefined) return match;
+      if (list.length < 100) return null;
+    }
+  }
+
   return {
     async forOwner(owner: string): Promise<AuthenticatedGitHub> {
       const installation = await installationFor(owner);
@@ -124,6 +178,17 @@ export async function createGitHubApp(config: GitHubAppConfig): Promise<GitHubAp
         if (error instanceof GitHubRequestError && error.status === 404) return null;
         throw error;
       }
+    },
+    /*
+     * Proof of ownership: the login only comes back when the user who authorized `code` can see the installation.
+     * Knowing an installation id proves nothing on its own, so a creator cannot claim someone else's account.
+     */
+    async installationLoginForUser(installationId: number, code: string): Promise<string | null> {
+      const token = await userTokenFor(code);
+      if (token === null) return null;
+      const installation = await installationForUser(token, installationId);
+      const login = installation?.account?.login;
+      return typeof login === 'string' ? login : null;
     },
   };
 }

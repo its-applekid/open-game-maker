@@ -18,8 +18,17 @@ async function main(): Promise<void> {
   const github = await createGitHubApp({
     appId: config.githubAppId,
     privateKeyPath: config.githubPrivateKeyPath,
+    clientId: config.githubClientId,
+    clientSecret: config.githubClientSecret,
   });
   const log = (entry: Record<string, unknown>) => console.log(JSON.stringify(entry));
+  if (config.githubClientId === undefined || config.githubClientSecret === undefined) {
+    // Without these the App cannot prove who controls an installation, so GitHub connections are refused.
+    log({
+      event: 'github-oauth-not-configured',
+      message: 'set GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET to accept GitHub connections',
+    });
+  }
   const api = new BoundaryApiClient({ baseUrl: config.apiInternalUrl, token: config.internalToken });
   const blocklist = createBlocklistLoader(config.blocklistFile, (message) =>
     log({ event: 'boundary-warning', message }),

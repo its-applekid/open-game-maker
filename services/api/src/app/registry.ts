@@ -27,9 +27,12 @@ export type RepoProvisioner = {
     visibility: 'public' | 'private';
   }): Promise<{ owner: string; repo: string; url: string; path: string }>;
 };
-// The GitHub account an App installation belongs to; null when GitHub has no such installation.
+// The GitHub account an App installation belongs to. A login is only answered for proof of ownership.
 export type GitHubInstallationLookup = {
-  loginFor(installationId: string): Promise<string | null>;
+  // The login of the installation the creator who authorized `code` controls; null when GitHub does not report it.
+  loginFor(installationId: string, code: string): Promise<string | null>;
+  // The login of an installation already stored for a creator; null when the App is no longer installed on it.
+  revalidate(installationId: string): Promise<string | null>;
 };
 export type MailSender = {
   send(message: { to: string; subject: string; text: string }): Promise<void>;

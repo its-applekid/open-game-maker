@@ -346,12 +346,13 @@ Check: grep -E '^(OGM_INTAKE_BOT_LOGIN|OGM_BUILDER_BOT_LOGIN)=' ~/.config/ogm/en
 
 Hand back to the human: Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles.
 
-### 4.3 Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation. (HAND)
+### 4.3 Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, tick Request user authorization (OAuth) during installation so GitHub returns the code that proves which account a creator controls, put the App's client id and client secret in ogm-commit.env, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation. (HAND)
 
 Command:
 
 ```sh
-# Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update; install the App only on <github-owner>/<instance-repo>.
+# Open https://github.com/settings/apps/new; Setup URL: <app-origin>/connect/github, tick Redirect on update and Request user authorization (OAuth) during installation; install the App only on <github-owner>/<instance-repo>.
+# Copy the App's client id and client secret into GITHUB_APP_CLIENT_ID and GITHUB_APP_CLIENT_SECRET.
 chmod 600 ~/.config/ogm/ogm-github-app.pem
 systemctl --user restart ogm-commit
 # Build apps/web with VITE_GITHUB_APP_SLUG=<app-slug> (the slug in https://github.com/apps/<app-slug>).
@@ -359,9 +360,9 @@ systemctl --user restart ogm-commit
 
 Writes: `~/.config/ogm/ogm-github-app.pem`, `~/.config/ogm/env/ogm-commit.env`
 
-Check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation
+Check: journalctl --user -u ogm-commit -n 20 shows the App resolved an installation and no github-oauth-not-configured warning
 
-Hand back to the human: Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
+Hand back to the human: Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, tick Request user authorization (OAuth) during installation so GitHub returns the code that proves which account a creator controls, put the App's client id and client secret in ogm-commit.env, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation.
 
 ### 4.4 Put identical OGM_COMMIT_SERVICE_TOKEN and OGM_INTERNAL_TOKEN values in api.env and ogm-commit.env without printing them.
 
@@ -379,7 +380,7 @@ Check: grep -l '^OGM_INTERNAL_TOKEN=' ~/.config/ogm/env/*.env lists both files
 
 > You are setting up Open Game Maker 2000 on this machine for me. Clone `https://github.com/its-everdred/open-game-maker-2000` (I have access) if it is not at `~/games/open-game-maker-2000`, read `SETUP.md` at its root, and do **step 4, Set up the instance repository**, sub-steps in order. Run each step's Check before moving on. Stop when you reach a hand step and print it for me exactly as written (sudo, browser sign-ins and consoles are mine); continue after I say done. Never add a provider API key, never authorise spending, never print a secret, and never commit anything under `assets-local/` or `~/.config/ogm`. Report each sub-step as done, skipped (why) or blocked (what you need from me).
 >
-> Hand steps in this step: `Choose the GitHub account or free organization and create one private <github-owner>/<instance-repo> repository for this running Game Maker instance. Games live under games/<game-slug>/ and components shared by this instance's games live under packages/<name>/`; `Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles`; `Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation`.
+> Hand steps in this step: `Choose the GitHub account or free organization and create one private <github-owner>/<instance-repo> repository for this running Game Maker instance. Games live under games/<game-slug>/ and components shared by this instance's games live under packages/<name>/`; `Create a free machine user with repo-and-issues access for intake and builder work, or use separate machine users if desired. Put only the selected tokens and logins in api.env and ~/.aiur/.env; one bot account may supply both roles`; `Create the GitHub App, grant the permissions the commit service uses, install it on <github-owner>/<instance-repo> only, and store its private key outside the repo. The App does not create repositories. Set its Setup URL to <app-origin>/connect/github with Redirect on update ticked, tick Request user authorization (OAuth) during installation so GitHub returns the code that proves which account a creator controls, put the App's client id and client secret in ogm-commit.env, and build the web app with VITE_GITHUB_APP_SLUG=<app-slug> so Connect GitHub opens the App installation`.
 
 ## 5. Find assets
 
