@@ -26,6 +26,7 @@ assets-local/
     blocklist/redistribution-none.txt  # gm packs blocklist: the commit check's hash feed (OGM_BLOCKLIST_FILE)
   derived/<pack-id>/                   # variants made from a pack's files; inherit its rights
   derived/kaykit/lineups/              # set-wide thumbnail lineups per category, paginated (preprocess_kaykit.py)
+  audio-styles/<style>-<mood>.mp3      # 60 s style montages the Sound step plays (style_montages.py), host-local
   index/cards.index.json               # gm's card index (gm packs index rebuilds it)
   index/maps.index.json                # gm maps index: layout columns for maps and tilesets, no paths
   inbox/                               # Drive watch-folder intake (scripts/drive-sync/)
@@ -170,6 +171,16 @@ gm assets info <id> --json                             # the whole card, includi
 `--mood` is all-of (a card must carry every mood given) and `--genre` is any-of, and an unknown value is refused with
 the list of moods the cards use. Packs are purchased assets: analysis is local only, no model is trained on them, and
 Sonniss and Synty audio never leaves the host.
+
+### Style montages for the Sound step
+
+The creation flow's Sound step offers a creator one tile per audio direction (a style and a mood) and plays one 60 s
+montage per tile. `scripts/py/audio/style_montages.py` builds those files from the cards — one slice from each
+`variation_group` matching the direction, crossfaded into `audio-styles/<style>-<mood>.mp3` — and logs the slices per
+pack. Run it with `--dry-run` first to print the plans without encoding; the API's `/api/catalog/audio-styles` offers a
+tile only where the contract lists the direction (`AUDIO_STYLES`) and the file exists, so a style whose audio is not
+carded yet shows no tile. The montage is for the creator to judge the direction; the build's audio is still chosen card
+by card. See `docs/research/audio-style-selection-2026-11-06.md`.
 
 ## Drive inbox (`scripts/drive-sync/`)
 

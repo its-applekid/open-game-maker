@@ -17,16 +17,25 @@ The SDK's capture listeners call `GmAudio.unlock()` from the first `pointerup` o
 playback type, and start a silent buffer. Do not add another unlock path. Use `GmAudio.status()` when the game must
 show that sound still needs a tap; the SDK also handles interrupted or hidden contexts.
 
+## Direction first
+
+Read the game's audio direction before you search. The creation choices carry `choices.audio` (`style` and `mood`, plus
+free text) and the scope document repeats it as "Audio direction". That is a direction, never pack ids: pull tracks and
+effects freely across every pack whose cards match it. Turn the axes into flags — `--genre <style> --mood <mood>` —
+then widen one axis when a pack's cards are thin. When no card matches, read `gm assets facets --kind audio` and take the
+closest mood; never force a pack the creator did not pick.
+
 ## Samples and generated cues
 
 Find pack samples by what they sound like, not by pack. `gm assets search --kind audio --mood tense` returns the
 tracks and effects whose cards carry that mood; `--genre chiptune` narrows a style axis, and no words are needed.
 Then `gm assets facets --kind audio` counts the moods, genres, instruments and `game_fit` situations the cards hold,
 which is how you see the direction space before choosing. Select a hit with `gm assets use` and play its logical id
-through `GmAudio.play()`. Prefer a card whose row already says what you need over opening files. Packs provide
-build-ready MP3 samples. Do not load an Ogg-only URL or bypass the asset manifest. For repeated cues, pass
-`pitch: 0.05` for ±5% variation or choose a short pool with `GmAudio.playOneOf()`; keep the mechanic deterministic and
-vary only its sound.
+through `GmAudio.play()`. Check the card's rights with `gm assets info <id>` before it ships: a private-audience or
+redistribution-restricted card cannot go in the build. Prefer a card whose row already says what you need over opening
+files. Packs provide build-ready MP3 samples. Do not load an Ogg-only URL or bypass the asset manifest. For repeated
+cues, pass `pitch: 0.05` for ±5% variation or choose a short pool with `GmAudio.playOneOf()`; keep the mechanic
+deterministic and vary only its sound.
 
 Use `GmAudio.zzfx()` for small interface, pickup, movement, and impact cues. Start from
 [the preset sheet](references/zzfx-presets.md), then change one parameter at a time. The second ZzFX value controls
