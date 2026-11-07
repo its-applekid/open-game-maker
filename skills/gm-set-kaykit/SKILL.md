@@ -12,6 +12,10 @@ Confirm `gm.lock.json` has `set: "kaykit"`. Use `gm assets search --set kaykit`,
 Characters are the KayKit rigged models (`RiggedCharacter`), never capsule or box figures. If no KayKit card loads,
 stop and raise it (gm-core, "A pack you cannot reach is a blocker").
 
+Before you offer or build an option set, read `design/feedback.json`, the game's creator rejection ledger (#567), and
+keep its rules in front of you. A rejected option never comes back: run `gm options check` on the set first, and record a
+rejection you hear with `gm options reject`.
+
 ## Adapter exports
 
 | Export | Use |

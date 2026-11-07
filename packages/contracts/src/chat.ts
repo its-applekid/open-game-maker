@@ -17,6 +17,29 @@ export const ChatMedia = z.object({
   duration_ms: z.number().int().nonnegative().optional(),
 });
 
+// What a presented option was built from: the packs and assets it used, its generator, and when it was built. The
+// game's feedback ledger (#567) reads it to fail an option that repeats a rejection. `aspect` is the design area the
+// option answers; a ledger rule whose scope matches it (or whose scope is "options") applies to the option.
+export const OptionAspect = z.enum(['characters', 'look', 'options', 'scene', 'hud', 'other']);
+export const OptionProvenance = z
+  .object({
+    packs: z.array(z.string().trim().min(1).max(200)).default([]),
+    assets: z.array(z.string().trim().min(1).max(200)).default([]),
+    generator: z.string().trim().min(1).max(200),
+    built_at: IsoTime,
+    aspect: OptionAspect.optional(),
+    kind: z.enum(['stand-in', 'render', 'screenshot', 'clip', 'mockup']).optional(),
+    view: z.enum(['player', 'off-camera', 'other']).optional(),
+  })
+  .strict();
+
+export const ChatCheckpointOption = z.object({
+  id: z.string(),
+  label: z.string(),
+  media_id: z.string().optional(),
+  provenance: OptionProvenance.optional(),
+});
+
 // `decision_id` is "" until OGM-082 correlates it; `media_id` names a BuildChatMessage.id in the same job.
 // `pick` says how the answer is taken: 'one' asks for a single pick (a review's likes become the shortlist), 'many'
 // takes the likes and dislikes as the answer. Absent means 'one', which is what every older checkpoint is.
@@ -24,7 +47,7 @@ export const ChatCheckpoint = z.object({
   decision_id: z.string(),
   question: z.string(),
   options: z
-    .array(z.object({ id: z.string(), label: z.string(), media_id: z.string().optional() }))
+    .array(ChatCheckpointOption)
     // A review deck (A3) needs room for six voices or a 3x3 image mock. No floor: a stored checkpoint from an older
     // daemon may carry a single option, and dropping it would lose the Command.
     .max(12),
@@ -91,6 +114,7 @@ export const CheckpointOpenPayload = z
           id: z.string().regex(/^[a-z0-9_-]{1,32}$/),
           label: z.string().trim().min(1).max(200),
           media_id: ChatMessageId.optional(),
+          provenance: OptionProvenance.optional(),
         }),
       )
       .min(2)
@@ -151,6 +175,9 @@ export const ChatMessagesPage = z.object({
 export type BuildChatMessage = z.infer<typeof BuildChatMessage>;
 export type ChatMedia = z.infer<typeof ChatMedia>;
 export type ChatCheckpoint = z.infer<typeof ChatCheckpoint>;
+export type ChatCheckpointOption = z.infer<typeof ChatCheckpointOption>;
+export type OptionAspect = z.infer<typeof OptionAspect>;
+export type OptionProvenance = z.infer<typeof OptionProvenance>;
 export type ChatAttachment = z.infer<typeof ChatAttachment>;
 export type AgentOutboxLine = z.infer<typeof AgentOutboxLine>;
 export type CheckpointOpenPayload = z.infer<typeof CheckpointOpenPayload>;
@@ -162,6 +189,7 @@ export const chatSchemas = {
   'chat.message.v1': BuildChatMessage,
   'chat.outbox-line.v1': AgentOutboxLine,
   'chat.checkpoint-open-payload.v1': CheckpointOpenPayload,
+  'chat.option-provenance.v1': OptionProvenance,
   'chat.post-payload.v1': ChatPostPayload,
   'chat.post.v1': ChatPostBody,
   'chat.messages.v1': ChatMessagesPage,

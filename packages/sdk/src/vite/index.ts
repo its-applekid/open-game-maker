@@ -19,6 +19,13 @@ export const MANIFEST_FILE = 'manifest.json';
 export const DESIGN_FILE = 'design/design.json';
 export const CREDITS_FILE = 'credits.json';
 
+/**
+ * Files a game keeps in `design/` that are not design docs. The creator feedback ledger (#567) is game data — the
+ * creator's rejections — so the build must not fold it into the published design doc. The build folds every other
+ * `*.json` there.
+ */
+export const DESIGN_DIR_NON_DOCS = ['feedback.json'];
+
 export function regenerateCredits(lockFile: string, creditsFile: string): CreditsDocument {
   let raw: unknown;
   try {
@@ -41,10 +48,10 @@ function mergeDisjoint<T>(into: Record<string, T>, from: Record<string, T>, what
   }
 }
 
-/** Fold every `*.json` in a design directory (name order) into one doc; a key defined twice is an error. */
+/** Fold every design-doc `*.json` in a design directory (name order) into one doc; a key defined twice is an error. */
 export function foldDesignFiles(designDir: string): DesignDoc {
   const files = readdirSync(designDir)
-    .filter((name) => name.endsWith('.json'))
+    .filter((name) => name.endsWith('.json') && !DESIGN_DIR_NON_DOCS.includes(name))
     .sort();
   if (files.length === 0) throw new Error(`${designDir} has no design files`);
 
