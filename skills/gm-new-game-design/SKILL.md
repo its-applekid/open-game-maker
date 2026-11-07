@@ -28,6 +28,8 @@ Then read `references/resources.md` (what the engine, hosting and asset library 
   structure, art direction inside the chosen style, main characters, tone of story, music direction, win and loss.
   There is no question cap; ask as many high-leverage questions as the game needs, and stop asking about details a
   sensible default covers.
+- **Look starts with image mocks.** The first visual review is always generated mock-ups of the player's screen in the
+  chosen kit (`gm-image-mock`): four options that differ greatly, then real-asset dioramas toward the one picked.
 - **Show, don't only tell.** Offer options as concrete samples where they help: an asset lineup or mock-up still, a
   short GIF or clip, a music or sound clip from the library, a story beat in prose, a tiny playable sketch. Pick the
   format that best answers that decision; label mock-ups as mock-ups.

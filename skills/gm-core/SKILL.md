@@ -88,6 +88,7 @@ Use one of: `asset_pipeline`, `level_and_map_building`, `gameplay_code`, `animat
 | gm-ui-hud | Building menus, HUD, layout, or readable game text. |
 | gm-audio | Adding or tuning music and sound effects. |
 | gm-multiplayer-ready | Structuring player state or building multiplayer. |
+| gm-image-mock | Any visual design review: step 1 is generated mocks of the player screen in the kit, before dioramas. |
 | gm-scope-options | Turning a vague brief into distinct creator-facing options. |
 | gm-new-game-design | Scoping a new game from the New Game flow with the player. |
 | gm-new-game-plan | Executor: turning a new-game spec into tickets, epics and a Build Order. |

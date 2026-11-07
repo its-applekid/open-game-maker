@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""Ask the host's mock broker for one generated image mock and wait for it.
+
+Writes <workspace>/.gm-mock/requests/<id>.json; the broker (outside the sandbox) writes <out>/<id>.png and
+<workspace>/.gm-mock/done/<id>.json. Prints the image path, or the broker's error, and exits non-zero on failure.
+"""
+import argparse, json, os, sys, time, uuid
+
+ap = argparse.ArgumentParser()
+ap.add_argument('--prompt-file', required=True)
+ap.add_argument('--out', required=True, help='workspace-relative output directory')
+ap.add_argument('--ref', action='append', default=[], help='workspace-relative reference image (free-licence only)')
+ap.add_argument('--aspect', default='9:16')
+ap.add_argument('--name', default=None, help='file stem for the image (default: a random id)')
+ap.add_argument('--wait', type=int, default=600, help='seconds to wait for the broker')
+a = ap.parse_args()
+
+root = os.getcwd()
+while root != '/' and not os.path.isdir(os.path.join(root, '.git')):
+    root = os.path.dirname(root)
+if root == '/':
+    sys.exit('run inside the workspace')
+rid = a.name or uuid.uuid4().hex[:12]
+req = {
+    'id': rid,
+    'prompt': open(a.prompt_file, encoding='utf-8').read(),
+    'out': os.path.relpath(os.path.abspath(a.out), root),
+    'refs': [os.path.relpath(os.path.abspath(r), root) for r in a.ref],
+    'aspect': a.aspect,
+}
+for d in ('requests', 'done'):
+    os.makedirs(os.path.join(root, '.gm-mock', d), exist_ok=True)
+tmp = os.path.join(root, '.gm-mock', 'requests', rid + '.tmp')
+json.dump(req, open(tmp, 'w'))
+os.rename(tmp, tmp[:-4] + '.json')
+done = os.path.join(root, '.gm-mock', 'done', rid + '.json')
+end = time.time() + a.wait
+while time.time() < end:
+    if os.path.exists(done):
+        r = json.load(open(done))
+        if r.get('ok'):
+            print(os.path.join(req['out'], r['file']))
+            sys.exit(0)
+        sys.exit('mock failed: ' + r.get('error', 'unknown'))
+    time.sleep(3)
+sys.exit('no answer from the mock broker in %ds (is it running on the host?)' % a.wait)
