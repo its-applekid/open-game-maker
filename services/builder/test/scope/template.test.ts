@@ -22,6 +22,7 @@ describe('scope ticket template', () => {
     expect(issue.title.length).toBeLessThanOrEqual(80);
     expect(issue.body).toContain('gm-job:j_88000000-0000-4000-8000-000000000001');
     expect(issue.body).toContain('gm-ticket:scope');
+    expect(issue.body).toContain('- Audio direction: chiptune, playful');
     expect(issue.body).toContain('gm-scope:s_88000000-0000-4000-8000-000000000001');
     expect(issue.body).toContain('## Load skills\n- gm-scope-options');
     expect(issue.body).toContain('ask at most five questions');
