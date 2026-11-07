@@ -492,6 +492,25 @@ async function sceneItems(root, serverUrl, items) {
   return payload;
 }
 
+/**
+ * A preview may only be written where its resolved rights allow. Callers pass the base they intend to
+ * publish, so a private or redistribution:none source cannot be rendered under a public key.
+ */
+async function enforceRightsBase(root, cards, outputBase) {
+  const collections = await loadCollections(root, cards);
+  const base = outputBase.startsWith('private/') ? outputBase.slice('private/'.length) : outputBase;
+  const expected = previewBase({ cards, collections, base });
+  if (expected !== outputBase) {
+    throw new Error(`rights require the preview base ${expected}, not ${outputBase}`);
+  }
+}
+
+async function sceneCards(root, items) {
+  const cards = [];
+  for (const item of items) cards.push((await loadCard(root, item.card_id)).card);
+  return cards;
+}
+
 export async function renderPackScene({
   root: assetRoot,
   scene: input,
@@ -500,6 +519,7 @@ export async function renderPackScene({
 }) {
   const scene = thumbnailScene3dSchema.parse(input);
   const root = await realpath(resolve(assetRoot));
+  await enforceRightsBase(root, await sceneCards(root, scene.items), outputBase);
   const still1024 = await safeOutput(root, `${outputBase}.1024.png`);
   const still256 = await safeOutput(root, `${outputBase}.256.png`);
   const mp4 = await safeOutput(root, `${outputBase}.1024.mp4`);
@@ -601,6 +621,11 @@ export async function renderShowcase3d({
   const root = await realpath(resolve(assetRoot));
   const { sequence, world, sheets, issues } = await checkShowcase3d({ root, sequencePath });
   if (issues.length) throw new Error(issues.map(({ code, path, detail }) => `${code} ${path}: ${detail}`).join('\n'));
+  const sourceCards = [
+    ...(await sceneCards(root, world.items)),
+    ...(await Promise.all([...sheets.values()].flatMap((sheet) => sceneCards(root, sheet.models)))),
+  ];
+  await enforceRightsBase(root, sourceCards.flat(), outputBase);
   const manifestPath = await safeOutput(root, `${outputBase}.manifest.json`);
   const outputDir = dirname(manifestPath);
   const base = basename(outputBase);

@@ -68,7 +68,8 @@ sets/<set-id>/showcase.<stop-id>.sheet.poster.png
 Generated scenes inherit the most restrictive rights of every source card in the composition. If any source is
 private or `redistribution:none`, the scene JSON, stills, and loops are written under the library's `private/`
 prefix — for example `private/packs/<pack-id>/scene.1024.mp4` — and stay reviewable only on the rights-gated asset
-host. Moving the same bytes to a public key would not make them publishable.
+host. Moving the same bytes to a public key would not make them publishable: the renderer refuses a public base
+when any source's resolved rights are private or `redistribution:none`.
 
 ## Commands
 

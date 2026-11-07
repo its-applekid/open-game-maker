@@ -231,6 +231,42 @@ describe('3D batch driver', () => {
   );
 });
 
+describe('3D rights gate', () => {
+  it('refuses to render a private pack scene under a public base', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ogm-scene-3d-rights-pack-'));
+    const { cards } = await buildSceneFixture(root);
+    await json(join(root, 'packs/fixture-pack-a/collection.card.json'), {
+      schema: 'ogm.asset-card/1.0',
+      id: 't1:fixture-pack-a@1.0',
+      card_type: 'collection',
+      rights: { uses: ['in-game'], audience: 'private', redistribution: 'none', basis: [] },
+    });
+    const scene = buildPackScene({ cards, target: { kind: 'pack', id: 'fixture-pack-a' }, set: 'fixture-set' });
+    await expect(
+      renderPackScene({ root, scene, outputBase: 'packs/fixture-pack-a/scene', softwareGL: true }),
+    ).rejects.toThrow('rights require the preview base private/packs/fixture-pack-a/scene');
+  });
+
+  it('refuses to render a private set showcase under a public base', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ogm-scene-3d-rights-set-'));
+    const { cards } = await buildSceneFixture(root);
+    await json(join(root, 'packs/fixture-pack-b/collection.card.json'), {
+      schema: 'ogm.asset-card/1.0',
+      id: 't1:fixture-pack-b@1.0',
+      card_type: 'collection',
+      rights: { uses: ['in-game'], audience: 'private', redistribution: 'none', basis: [] },
+    });
+    const { sequence, world, sheets } = buildSetShowcase({ cards, set: 'fixture-set', fps: 4, framesPerStop: 2 });
+    const base = 'sets/fixture-set/showcase';
+    await json(join(root, `${base}.sequence.json`), sequence);
+    await json(join(root, 'sets/fixture-set/world.json'), world);
+    for (const [id, sheet] of sheets) await json(join(root, `sets/fixture-set/sheets/${id}.json`), sheet);
+    await expect(
+      renderShowcase3d({ root, sequencePath: `${base}.sequence.json`, outputBase: base, softwareGL: true }),
+    ).rejects.toThrow('rights require the preview base private/sets/fixture-set/showcase');
+  });
+});
+
 describe('3D showcase publication', () => {
   it('publishes a version 3 manifest and removes the media its previous manifest owned', async () => {
     const root = await mkdtemp(join(tmpdir(), 'ogm-scene-3d-publish-'));
