@@ -19,8 +19,13 @@ export function ConnectGitHubScreen() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const next = safeNext(params.get('next'), '/all');
-  // GitHub's install redirect: the new `installation_id` and our `state` (nonce and next).
-  const [callback] = useState(() => ({ installationId: params.get('installation_id'), state: params.get('state') }));
+  // GitHub's install redirect: the new `installation_id`, the OAuth `code` proving this creator authorized it, and
+  // our `state` (nonce and next).
+  const [callback] = useState(() => ({
+    installationId: params.get('installation_id'),
+    code: params.get('code'),
+    state: params.get('state'),
+  }));
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
   const [visibility, setVisibility] = useState<RepoVisibility>(getRepoVisibilityDefault);
   const [linking, setLinking] = useState(false);
@@ -39,10 +44,16 @@ export function ConnectGitHubScreen() {
     }
   }, []);
 
-  const finishInstall = useCallback(async (id: string) => {
+  const finishInstall = useCallback(async (id: string, code: string | null) => {
     setStatus({ kind: 'loading' });
+    // A callback without a code means the App did not request user authorization, so ownership cannot be proven.
+    if (code === null) {
+      setError('Could not connect GitHub.');
+      setStatus({ kind: 'disconnected' });
+      return;
+    }
     try {
-      const account = await connectGitHubInstallation(id);
+      const account = await connectGitHubInstallation(id, code);
       if (mounted.current) setStatus({ kind: 'connected', login: account.login });
     } catch {
       if (!mounted.current) return;
@@ -62,7 +73,9 @@ export function ConnectGitHubScreen() {
         // callback parameters so a reload never replays them.
         const returnedNext = readGitHubInstallState(callback.state);
         navigate(`/connect/github?next=${encodeURIComponent(safeNext(returnedNext, '/all'))}`, { replace: true });
-        void (callback.installationId && returnedNext !== null ? finishInstall(callback.installationId) : loadStatus());
+        void (callback.installationId && returnedNext !== null
+          ? finishInstall(callback.installationId, callback.code)
+          : loadStatus());
       } else {
         void loadStatus();
       }

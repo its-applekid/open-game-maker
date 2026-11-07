@@ -14,6 +14,8 @@ const commitSpec = {
   OGM_PLATFORM_ISSUE_REPO: { kind: 'string' },
   GITHUB_APP_ID: { kind: 'string' },
   GITHUB_APP_PRIVATE_KEY_PATH: { kind: 'path' },
+  GITHUB_APP_CLIENT_ID: { kind: 'string', required: false },
+  GITHUB_APP_CLIENT_SECRET: { kind: 'secret', required: false },
   OGM_GITHUB_WEBHOOK_SECRET: { kind: 'secret', required: false },
   OGM_BUILDER_BOT_LOGIN: { kind: 'string' },
 } as const;
@@ -28,6 +30,10 @@ export type CommitConfig = {
   platformIssueRepo: { owner: string; name: string };
   githubAppId: string;
   githubPrivateKeyPath: string;
+  // Unset when the App was not given "Request user authorization (OAuth) during installation"; the ownership
+  // route then answers 503 instead of accepting an unproven installation id.
+  githubClientId: string | undefined;
+  githubClientSecret: string | undefined;
   githubWebhookSecret: string | undefined;
   builderBotLogin: string;
 };
@@ -44,6 +50,8 @@ export function loadCommitConfig(source?: Record<string, string | undefined>): C
     platformIssueRepo: parseRepository(values.OGM_PLATFORM_ISSUE_REPO),
     githubAppId: values.GITHUB_APP_ID,
     githubPrivateKeyPath: values.GITHUB_APP_PRIVATE_KEY_PATH,
+    githubClientId: values.GITHUB_APP_CLIENT_ID,
+    githubClientSecret: values.GITHUB_APP_CLIENT_SECRET,
     githubWebhookSecret: values.OGM_GITHUB_WEBHOOK_SECRET,
     builderBotLogin: values.OGM_BUILDER_BOT_LOGIN,
   };

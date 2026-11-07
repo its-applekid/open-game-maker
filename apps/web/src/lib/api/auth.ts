@@ -60,9 +60,9 @@ export function getGitHubStatus(): Promise<GitHubStatus> {
   return api<GitHubStatus>('/github/connection');
 }
 
-// The API resolves the login from the installation id GitHub appended to the App's setup URL.
-export function connectGitHubInstallation(installationId: string): Promise<GitHubStatus> {
-  return api<GitHubStatus>('/github/connect', { method: 'POST', json: { installationId } });
+// The API proves ownership from the OAuth code GitHub appended to the App's setup URL beside the installation id.
+export function connectGitHubInstallation(installationId: string, code: string): Promise<GitHubStatus> {
+  return api<GitHubStatus>('/github/connect', { method: 'POST', json: { installationId, code } });
 }
 
 const installStateKey = 'ogm.githubInstallState';

@@ -49,4 +49,18 @@ describe('loadCommitConfig', () => {
       githubWebhookSecret: 'w'.repeat(32),
     });
   });
+
+  it('leaves the OAuth client optional so an App without user authorization still starts', () => {
+    expect(loadCommitConfig(base)).toMatchObject({ githubClientId: undefined, githubClientSecret: undefined });
+  });
+
+  it('reads the OAuth client id and secret the ownership proof exchanges codes with', () => {
+    expect(
+      loadCommitConfig({
+        ...base,
+        GITHUB_APP_CLIENT_ID: 'Iv1.0123456789abcdef',
+        GITHUB_APP_CLIENT_SECRET: 's'.repeat(32),
+      }),
+    ).toMatchObject({ githubClientId: 'Iv1.0123456789abcdef', githubClientSecret: 's'.repeat(32) });
+  });
 });

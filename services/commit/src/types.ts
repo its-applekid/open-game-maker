@@ -45,6 +45,12 @@ export type GitHubApp = {
 export type GitHubInstallations = {
   // The account login an installation of the App belongs to, or null when GitHub has no such installation.
   installationLogin(installationId: number): Promise<string | null>;
+  /*
+   * The account login of the installation the user who authorized `code` controls, or null when GitHub reports no
+   * such installation for that user. Throws when the App's OAuth client id and secret are not configured, so a
+   * caller never mistakes "cannot prove" for "not installed".
+   */
+  installationLoginForUser(installationId: number, code: string): Promise<string | null>;
 };
 
 export type OperationName = CommitOp['kind'];
