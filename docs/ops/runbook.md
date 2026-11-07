@@ -251,9 +251,10 @@ link and its daemon key are one name. A folder already answered by another game,
 registered, is refused with a conflict rather than quietly shadowing the first game. So is a slug or port a daemon row
 already answers to.
 
-The `daemon` block is the game's link to the aiur instance already building that repository: its port, its checkout,
-its systemd unit and its env file. The registration writes that row keyed by the same slug and carrying the game's
-repository, so the fleet's daemon, the Commands poller and the game's inbox read that instance's aiur and no other's.
+The `daemon` block is the game's link to the aiur instance already building that repository: its port and its
+checkout, and — when the instance runs under a different name — its systemd unit and env file. The registration
+writes that row keyed by the same slug and carrying the game's repository, so the fleet's daemon, the Commands poller
+and the game's inbox read that instance's aiur and no other's.
 The row's `status` defaults to `running`, because the instance the game is registered against is already up. Nothing
 else changes — the game appears in the games picker and opens from its play link as soon as it is registered.
 

@@ -94,13 +94,11 @@ export default new Hono<ApiBindings>()
     const deps = c.get('deps');
     const body = await parseBody(c, AnswerCommandBody);
     const decisionId = c.req.param('decisionId');
-    let client;
-    try {
-      client = await deps.aiurClientForGame(game.id);
-    } catch (error) {
+    // A game with no daemon row has no aiur instance to answer to; that is a conflict, not a server error.
+    const client = await deps.aiurClientForGame(game.id).catch((error: unknown) => {
       if (error instanceof HttpError) throw new HttpError(409, 'daemon_not_found');
       throw error;
-    }
+    });
     try {
       await client.decide(decisionId, {
         option: body.option_id,

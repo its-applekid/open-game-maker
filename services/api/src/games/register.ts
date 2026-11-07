@@ -58,7 +58,8 @@ export function registerExistingGame(db: Db, input: RegisterGameInput): GameRow 
 
   const slug = registeredSlug(input.repo.path);
   const path = gameFolder(slug);
-  const repo = `${input.repo.owner}/${input.repo.name}`;
+  // The daemon row's repo follows the fleet's convention (lowercase), so the fleet's next start finds this row.
+  const repo = `${input.repo.owner}/${input.repo.name}`.toLowerCase();
   // The slug is the game's identity everywhere else (play link, daemon row, aiur grants), so a taken slug is a
   // conflict rather than a rename: registering `games/blobs` twice would give two games one link.
   if (findGameBySlugOrId(db, slug)) throw new HttpError(409, 'game_slug_taken');
