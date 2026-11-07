@@ -74,7 +74,13 @@ export function platformsFromDesign(design: PlatformDesign): Platform[] {
     }));
 }
 
+/**
+ * Put a seat's avatar in the world at its own spawn point. A spawn is not a respawn: a seat table broadcast fires
+ * `spawn` again for every occupied seat, and an avatar that is already playing keeps the position it reached. The
+ * netcode contract has said so since v1 — `net.players` and the seat table both call this for the same seat.
+ */
 export function addPlayer(state: SimulationState, playerIndex: number, id: string): void {
+  if (state.players.has(playerIndex)) return;
   const spawn = spawns[playerIndex % spawns.length] ?? { x: 96, y: GROUND_Y - PLAYER_HEIGHT };
   state.players.set(playerIndex, {
     id,

@@ -47,7 +47,12 @@ export type TwoClientResult = { report: VerifyReport; reportPath: string; canary
 export type CanaryEvidence = { sentFrames: number; watcherFrames: number; leaked: number };
 
 export const LIMITS = { welcomeMs: 2_000, playSwitchMs: 500 } as const;
-export const TEST_TIMINGS = { ownerReconnectSec: 2, playerReconnectSec: 1, idleDisposeSec: 5 } as const;
+export const TEST_TIMINGS = {
+  ownerReconnectSec: 2,
+  playerReconnectSec: 1,
+  seatReconnectSec: 2,
+  idleDisposeSec: 5,
+} as const;
 
 const HERE = fileURLToPath(new URL('.', import.meta.url));
 const REPO = resolve(HERE, '../../..');
@@ -331,7 +336,9 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
       const response = await fetch(`http://127.0.0.1:${roomsPort}/internal/rooms`, {
         method: 'POST',
         headers: { authorization: `Bearer ${internalSecret}`, 'content-type': 'application/json' },
-        body: JSON.stringify({ ...PIN, ownerId: OWNER.sub, maxPlayers: 4 }),
+        /* The template declares `net.authority: 'per-seat'`, so the match is a protocol-2 room: seats, an epoch and a
+         * seat table the per-seat controller reads. A v1 room relays snapshots it never reads (#544). */
+        body: JSON.stringify({ ...PIN, ownerId: OWNER.sub, maxPlayers: 4, protocol: 2 }),
       });
       assert(response.status === 201, `room creation returned ${response.status}`);
       return ((await response.json()) as { roomId: string }).roomId;
@@ -365,18 +372,8 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
     const welcomeMs = await joinRoom(peer, joinArgs(roomId, await grant(roomId, PEER, 'player')));
     probes.welcomeMs = Math.round(welcomeMs);
     assert(welcomeMs <= LIMITS.welcomeMs, `peer welcome took ${Math.round(welcomeMs)} ms (limit ${LIMITS.welcomeMs})`);
-    await until(
-      host.page,
-      () => window.__harness.netRole === 'host' && window.__harness.gameReady > 0,
-      30_000,
-      'host game',
-    );
-    await until(
-      peer.page,
-      () => window.__harness.netRole === 'peer' && window.__harness.gameReady > 0,
-      30_000,
-      'peer game',
-    );
+    await until(host.page, () => window.__harness.seat === 0 && window.__harness.gameReady > 0, 30_000, 'host game');
+    await until(peer.page, () => window.__harness.seat === 1 && window.__harness.gameReady > 0, 30_000, 'peer game');
     await shoot(1, [
       ['host', host],
       ['peer', peer],
@@ -437,7 +434,18 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
     assert(peer.received.length > watcherBefore, 'watcher received nothing after the canary (presence sync missing)');
     assert(evidence.leaked === 0, `canary leaked into ${evidence.leaked} frame(s) the watcher received`);
 
-    log('4 play; peer playing within 500 ms');
+    log('4 both seats ready, then the primary starts the match; peer playing within 500 ms');
+    await host.page.evaluate(() => window.__harness.ready(true));
+    await peer.page.evaluate(() => window.__harness.ready(true));
+    /* The seat table keeps a row per seat, so the count is the occupied ones. */
+    await until(
+      peer.page,
+      () =>
+        window.__harness.seats.filter((row) => row.userId !== '').length === 2 &&
+        window.__harness.seats.every((row) => row.userId === '' || row.ready),
+      10_000,
+      'peer to see every seat ready',
+    );
     const playSentAt = await host.page.evaluate(() => window.__harness.play());
     await until(peer.page, () => window.__harness.phase === 'playing', 5_000, 'peer phase playing');
     const peerPlayingAt = await peer.page.evaluate(
@@ -484,23 +492,43 @@ export async function runTwoClient(options: TwoClientOptions): Promise<TwoClient
       ['peer', peer],
     ]);
 
-    log('6 host leaves: pausedForHost, then ended host-left');
+    /*
+     * Protocol 2 replaces the v1 `pausedForHost`/`host-left` ending for every seat, the creator's included (D-N3-14):
+     * the seat goes offline for its rejoin window and then forfeits while the room stays open for the seats still in
+     * it. The seven steps' "host leaves" assertion is that consequence, and "the room ends" moved to the last seat.
+     */
+    log('6 host leaves: its seat goes offline then forfeits; the room waits for the peer');
     const leftAt = Date.now();
     await host.context.close();
-    await until(peer.page, () => window.__harness.phase === 'pausedForHost', 5_000, 'pausedForHost');
-    const windowMs = TEST_TIMINGS.ownerReconnectSec * 1_000;
-    await until(peer.page, () => window.__harness.ended !== undefined, windowMs + 5_000, 'ended');
-    probes.hostLeftEndedMs = Date.now() - leftAt;
-    const endedReason = await peer.page.evaluate(() => window.__harness.ended);
-    assert(endedReason === 'host-left', `room ended with ${endedReason}, expected host-left`);
-    const deadline = Date.now() + 5_000;
+    await until(
+      peer.page,
+      () => window.__harness.seatEvents.some((entry) => entry.event === 'net.seat.offline' && entry.seat === 0),
+      10_000,
+      'the host seat to go offline',
+    );
+    await until(
+      peer.page,
+      () => window.__harness.seatEvents.some((entry) => entry.event === 'net.seat.forfeit' && entry.seat === 0),
+      TEST_TIMINGS.seatReconnectSec * 1_000 + 10_000,
+      'the host seat to forfeit',
+    );
+    probes.hostLeftForfeitMs = Date.now() - leftAt;
+    assert(
+      (await peer.page.evaluate(() => window.__harness.ended)) === undefined,
+      'the room ended when its creator left; a protocol-2 room waits for its seats',
+    );
+    assert((await peer.page.evaluate(() => window.__harness.seat)) === 1, 'the peer lost its seat when the host left');
+    await shoot(6, [['peer', peer]]);
+
+    log('6b the last seat leaves: the room ends abandoned and the API hears it');
+    await peer.page.evaluate(() => window.__harness.leave());
+    const deadline = Date.now() + 15_000;
     while (!ended.some((entry) => entry.roomId === roomId) && Date.now() < deadline)
       await new Promise((done) => setTimeout(done, 50));
     assert(
-      ended.some((entry) => entry.roomId === roomId && entry.reason === 'host-left'),
-      'API callback did not receive ended: host-left',
+      ended.some((entry) => entry.roomId === roomId && entry.reason === 'abandoned'),
+      'API callback did not receive ended: abandoned',
     );
-    await shoot(6, [['peer', peer]]);
 
     log('7 reopened host loads a draft; both clients ready and the pin changes');
     stepStartedAt = Date.now();

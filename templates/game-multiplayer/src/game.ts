@@ -4,6 +4,7 @@ import type {
   GameManifest,
   GameModule,
   MultiplayerHooksV2,
+  NetSeat,
   Patch,
   SaveData,
   Snapshot,
@@ -23,6 +24,7 @@ import {
   digestSimulation,
   GROUND_Y,
   platformsFromDesign,
+  playerId,
   removePlayer,
   restoreOwned,
   restoreShared,
@@ -75,6 +77,11 @@ export interface TemplateContext {
   state: SimulationState;
   /** Which player this client is; the HUD and camera follow it. Kept current from `gm.net`. */
   localPlayerIndex: number;
+  /**
+   * The seat this client's own avatar is in. `createSimulation` seeds the world with one avatar at seat 0 before the
+   * seat table arrives; the first table moves that avatar to the seat the room assigned this client.
+   */
+  ownSeat: number;
   paused: boolean;
   disposed: boolean;
   lifecycle?: {
@@ -99,6 +106,41 @@ export function getGameContext(): TemplateContext {
 
 export function connectPhaserLifecycle(lifecycle: TemplateContext['lifecycle']): void {
   getGameContext().lifecycle = lifecycle;
+}
+
+/**
+ * The seat table is the authority on who is playing, so the world follows it: one avatar per occupied seat. The world
+ * is built before the first table arrives and is seeded with one avatar at seat 0, so a client the room seated
+ * elsewhere keeps that avatar only while another seat holds seat 0; its own avatar is the one the table puts at the
+ * seat it holds. Every later table only adds a seat's avatar or removes a forfeited one — an avatar already in the
+ * world keeps the position it reached, so a broadcast during a match never resets anybody. A spectator
+ * (`localSeat === null`) holds no seat and keeps no avatar of its own.
+ */
+export function syncSeatTable(seats: readonly NetSeat[], localSeat: number | null): void {
+  const context = activeContext;
+  if (context === undefined || context.disposed) return;
+  /* An empty table is a page that has not heard from the room yet, not a room without players. */
+  if (seats.length === 0) return;
+  const occupied = seats
+    .filter((seat) => seat.userId !== '' && !seat.forfeited && !seat.spectator)
+    .map((seat) => seat.seat);
+
+  if (localSeat !== null && localSeat !== context.ownSeat) {
+    const placeholder = context.ownSeat;
+    context.ownSeat = localSeat;
+    context.localPlayerIndex = localSeat;
+    /* Seat 0's avatar is this client's own only while no other seat occupies it. */
+    if (!occupied.includes(placeholder)) removePlayer(context.state, playerId(placeholder));
+  }
+  if (localSeat === null && !occupied.includes(context.ownSeat)) {
+    removePlayer(context.state, playerId(context.ownSeat));
+  }
+
+  for (const seat of occupied) addPlayer(context.state, seat, playerId(seat));
+  for (const seat of [...context.state.players.keys()]) {
+    if (seat === context.ownSeat || occupied.includes(seat)) continue;
+    removePlayer(context.state, playerId(seat));
+  }
 }
 
 function hitsPlatform(
@@ -168,6 +210,7 @@ export const game: GameModule<PlatformDesign, PlatformSave> = {
       design: structuredClone(initialDesign),
       state: save ? restoreSimulation(initialDesign, save.data) : createSimulation(initialDesign),
       localPlayerIndex: 0,
+      ownSeat: 0,
       paused: false,
       disposed: false,
       advance(dt, frames) {

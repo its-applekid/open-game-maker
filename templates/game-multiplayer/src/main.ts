@@ -1,7 +1,7 @@
 import { boot, type BuildKind } from '@gm/sdk/core';
 import { defaultInputMapping } from '@gm/sdk/camera';
 
-import { connectPhaserLifecycle, game, getGameContext } from './game.js';
+import { connectPhaserLifecycle, game, getGameContext, syncSeatTable } from './game.js';
 import { installStandaloneHost } from './standalone.js';
 
 declare const __GM_BUILD__: BuildKind;
@@ -26,6 +26,11 @@ async function main(): Promise<void> {
   };
   followNet();
   runtime.onFrame(followNet);
+  // A per-seat match learns who is playing from the seat table; each seat's avatar follows it. The table the room
+  // already sent while the frame was booting is read once here, because that broadcast went out before this listener.
+  const syncSeats = () => syncSeatTable(runtime.net.seats, runtime.net.localSeat);
+  runtime.net.onSeats(syncSeats);
+  syncSeats();
 
   const [{ bindLifecycle, createPhaserGame }, { Boot }, { Level }] = await Promise.all([
     import('@gm/sdk/phaser'),
