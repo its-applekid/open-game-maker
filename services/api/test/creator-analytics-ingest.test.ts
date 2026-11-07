@@ -1,4 +1,5 @@
 import { schema } from '@ogm/db';
+import { desc, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 
 import { deleteUserEvents, ingestPlayEvents } from '../src/creator-analytics/ingest.js';
@@ -6,9 +7,25 @@ import { pseudonymForUser, rotateDueSalts } from '../src/creator-analytics/pseud
 import { makeDeps } from './helpers.js';
 
 const now = '2026-11-01T12:00:00.000Z';
-const later = new Date(Date.now() + 31 * 24 * 60 * 60 * 1_000).toISOString(); // salts are stamped with the real clock by ingestPlayEvents
+const rotationMs = 30 * 24 * 60 * 60 * 1_000;
+const dayMs = 24 * 60 * 60 * 1_000;
 const branchId = 'branch_01ARZ3NDEKTSV4RRFFQ69G5FAV';
 const releaseId = 'release_01ARZ3NDEKTSV4RRFFQ69G5FAV';
+
+// One day past the 30-day rotation window, measured from the salt's stored creation
+// time. ingestPlayEvents stamps the first salt with the wall clock, so a literal
+// instant would stop being due as the real date advances; deriving from the stored
+// time keeps the rotation date-independent.
+function rotationDueFrom(deps: ReturnType<typeof makeDeps>, gameId: string): string {
+  const salt = deps.db
+    .select()
+    .from(schema.analyticsSalts)
+    .where(eq(schema.analyticsSalts.gameId, gameId))
+    .orderBy(desc(schema.analyticsSalts.rotatedAt))
+    .get();
+  if (!salt) throw new Error(`expected a minted analytics salt for ${gameId}`);
+  return new Date(Date.parse(salt.rotatedAt) + rotationMs + dayMs).toISOString();
+}
 
 function seedGames(deps: ReturnType<typeof makeDeps>) {
   deps.db
@@ -92,6 +109,7 @@ describe('creator analytics ingestion', () => {
     const before = pseudonymForUser(deps.db, 'g-one', 'u-player', now);
     ingestPlayEvents(deps.db, 'u-player', 'g-one', [event({ sessionId: 'before' })]);
 
+    const later = rotationDueFrom(deps, 'g-one');
     expect(rotateDueSalts(deps.db, later)).toBe(1);
     const after = pseudonymForUser(deps.db, 'g-one', 'u-player', later);
     expect(after).not.toBe(before);
