@@ -385,6 +385,8 @@ function MediaThumb({ option, onOpen }: { option: GameCommand['options'][number]
 function MediaFullscreen({ card, onClose }: { card: GameCommand['options'][number]; onClose(): void }) {
   const media = card.media;
   if (media === undefined) return null;
+  // An audio sample has no still to fill the screen with; its card's tap replays it instead of opening this viewer.
+  if (mediaKindOf(media) === 'audio') return null;
   return (
     <Dialog
       title={card.label}
