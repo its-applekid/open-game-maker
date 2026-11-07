@@ -45,3 +45,10 @@ sending it (gm-verify): wrong genre, unreadable HUD, extra limbs or off-kit styl
 Raise one `decision.requested` Command: the mocks in `media[]` (option ids A to D), recommendation first, each option
 described as what the player sees in one line. Label them as mock-ups. Record the pick in the decision log; the pick
 is the visual target for the diorama and build work that follows.
+
+## Voice samples
+
+Same rule for audio: sample before you mint. `request-mock.py --kind voices --out <dir>` lists the voices;
+`--kind voice --voice-id <id> --prompt-file <line.txt> --out <dir>` makes one short sample (one line, under 300
+characters). Offer six voices per character choice, each speaking the same two lines in character, and let the
+creator like or dislike them in the review deck before generating any full set.

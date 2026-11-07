@@ -7,7 +7,9 @@ Writes <workspace>/.gm-mock/requests/<id>.json; the broker (outside the sandbox)
 import argparse, json, os, sys, time, uuid
 
 ap = argparse.ArgumentParser()
-ap.add_argument('--prompt-file', required=True)
+ap.add_argument('--prompt-file', default=None, help='image prompt, or the line to speak for --kind voice')
+ap.add_argument('--kind', default='image', choices=['image', 'voice', 'voices'], help='voice: one ElevenLabs sample; voices: list the voices')
+ap.add_argument('--voice-id', default='')
 ap.add_argument('--out', required=True, help='workspace-relative output directory')
 ap.add_argument('--ref', action='append', default=[], help='workspace-relative reference image (free-licence only)')
 ap.add_argument('--aspect', default='9:16')
@@ -24,7 +26,9 @@ if root == '/':
 rid = a.name or uuid.uuid4().hex[:12]
 req = {
     'id': rid,
-    'prompt': open(a.prompt_file, encoding='utf-8').read(),
+    'prompt': open(a.prompt_file, encoding='utf-8').read() if a.prompt_file else '',
+    'kind': a.kind,
+    'voice_id': a.voice_id,
     'out': os.path.relpath(os.path.abspath(a.out), root),
     'refs': [os.path.relpath(os.path.abspath(r), root) for r in a.ref],
     'aspect': a.aspect,
