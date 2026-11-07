@@ -133,6 +133,14 @@ Models receive tiered geometry and texture limits; small prop collections that s
 combined into a single kit GLB. Sprite and pixel-art images keep their source dimensions and use lossless WebP
 encoding.
 
+A sprite card that lists several sheets — a SmallScaleInt character's action sheets, for instance — publishes every
+sheet its `meta.sprite` names, not only the primary file. Each one appears in the manifest's `files` record and in the
+cache plan under the asset's id, and the manifest's `meta.sprite` paths are rewritten from the card's own sheet paths
+to those generated file names. A game therefore resolves each sheet beside the asset's `/a/…` URL in a built game
+exactly as it does beside the copied files in a dev server; the lock keeps the collection's original paths. Sheets the
+card names but the lock does not list keep their own spelling, and a basename two files share is left unresolved
+rather than guessed.
+
 Generated work is cached under `.gm/cache/assets/`. Use `--no-cache` to rebuild without reading or updating that
 cache, `--strict` to stop at the first invalid asset, or `--json` for manifest and budget data on stdout. The selected
 `--budget` tier determines the exit status when a limit is exceeded. `--ktx2` requires `toktx`; KTX2 encoding is

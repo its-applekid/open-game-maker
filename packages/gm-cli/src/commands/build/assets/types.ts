@@ -1,5 +1,7 @@
 import type { AssetMetadata, CacheEntryKind, LockEntry, Tier } from '@ogm/contracts';
 
+import type { ResolvedFile } from '../../../resolve.js';
+
 export type LicenseEntry = {
   id: string;
   attribution?: string;
@@ -25,6 +27,11 @@ export type BuiltFileInfo = {
 export type JobResult = {
   files: Record<string, BuiltFileInfo>;
   assets: Record<string, ManifestAssetEntry>;
+  /**
+   * Generated names of the extra sheet files a card's `meta.sprite` points at, per lock entry, so the manifest
+   * attributes each one to its asset in the cache plan. Absent when the card has no extra sheets.
+   */
+  companions?: Record<string, string[]>;
 };
 
 export type FreshJobResult = JobResult & { buffers: Record<string, Buffer> };
@@ -38,6 +45,11 @@ export type GltfFacts = {
 export type BuildItem = {
   entry: LockEntry;
   source: string;
+  /**
+   * Every file the lock lists for the entry, primary first. Image jobs encode the sheets a sprite card's
+   * `meta.sprite` names; other kinds build from `source` alone.
+   */
+  files?: ResolvedFile[];
   meta?: AssetMetadata;
   facts?: GltfFacts;
   sourceHash?: string;
