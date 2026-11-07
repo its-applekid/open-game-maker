@@ -1,20 +1,14 @@
-import { createHash, timingSafeEqual } from 'node:crypto';
-
 import type { Context, MiddlewareHandler } from 'hono';
 
 import type { Principal } from '@ogm/contracts';
 
 import { HttpError } from './errors.js';
+import { sameSecret } from './internal-auth.js';
 import { verifyJobToken } from './job-token.js';
 import type { ApiBindings } from './types.js';
 
 type ServiceName = Extract<Principal, { kind: 'service' }>['service'];
 const SERVICES: readonly ServiceName[] = ['intake', 'voice-host', 'commit', 'builder', 'rooms', 'repair'];
-
-function sameSecret(given: string, expected: string): boolean {
-  const digest = (value: string) => createHash('sha256').update(value).digest();
-  return timingSafeEqual(digest(given), digest(expected));
-}
 
 function bearer(c: Context): string | null {
   const match = /^Bearer\s+(\S+)$/i.exec(c.req.header('authorization') ?? '');
