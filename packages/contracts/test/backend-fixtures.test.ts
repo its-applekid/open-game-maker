@@ -8,6 +8,7 @@ import { toJSONSchema, type z } from 'zod';
 import { analyticsSchemas, ActivityMeta } from '../src/analytics.js';
 import { apiSchemas } from '../src/api.js';
 import { budgetSchemas, SizeClassRow } from '../src/budget.js';
+import { designDecisionsSchemas } from '../src/design-decisions.js';
 import { CreateJobAccepted, CreateJobRequest, Job, jobsSchemas } from '../src/jobs.js';
 import { notificationsSchemas } from '../src/notifications.js';
 import { reportsSchemas } from '../src/reports.js';
@@ -24,6 +25,7 @@ const families: Record<string, Record<string, z.ZodType>> = {
   scope: scopeSchemas,
   notifications: notificationsSchemas,
   voice: voiceSchemas,
+  designDecisions: designDecisionsSchemas,
 };
 
 const packageRoot = new URL('../', import.meta.url);

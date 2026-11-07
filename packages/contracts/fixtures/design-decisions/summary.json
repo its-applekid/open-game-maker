@@ -1,0 +1,24 @@
+{
+  "decisions": [
+    {
+      "id": "D-01",
+      "question": "Which door should the harbour lantern room use?",
+      "chosen": "iron",
+      "chosen_label": "Iron",
+      "origin": "default",
+      "skipped": false,
+      "supersedes": null,
+      "at": "2026-11-04T18:06:00.000Z"
+    },
+    {
+      "id": "D-02",
+      "question": "Which door should the harbour lantern room use?",
+      "chosen": "wood",
+      "chosen_label": "Wooden",
+      "origin": "player",
+      "skipped": false,
+      "supersedes": "D-01",
+      "at": "2026-11-04T18:20:00.000Z"
+    }
+  ]
+}
