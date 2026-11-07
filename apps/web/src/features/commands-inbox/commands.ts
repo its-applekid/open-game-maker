@@ -24,7 +24,17 @@ export function useGameCommands(gameId: string | null | undefined) {
   return { ...query, commands: query.data?.commands ?? EMPTY };
 }
 
+// A Command a job owns answers through the job's checkpoint route. A Command with no job — a registered game's, read
+// from its own aiur instance — has no checkpoint to validate against, so it answers through the game's route with the
+// version the player saw. Both end at aiur's canonical Decision API.
 export async function answerCommand(gameId: string, command: GameCommand, optionId: string): Promise<void> {
-  await answerCheckpoint(command.job_id, command.checkpoint_id, optionId);
+  if (command.job_id === null) {
+    await api(`/games/${encodeURIComponent(gameId)}/commands/${encodeURIComponent(command.decision_id)}/answer`, {
+      method: 'POST',
+      json: { option_id: optionId, version: command.version },
+    });
+  } else {
+    await answerCheckpoint(command.job_id, command.checkpoint_id, optionId);
+  }
   await queryClient.invalidateQueries({ queryKey: gameCommandsQueryKey(gameId) });
 }

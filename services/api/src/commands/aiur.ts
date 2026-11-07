@@ -1,0 +1,80 @@
+import { AiurHttpError, type Decision } from '@ogm/aiur-client';
+import { GameCommand } from '@ogm/contracts';
+
+import { HttpError } from '../app/errors.js';
+import type { AppDeps } from '../app/types.js';
+
+// A game registered from a repository that already exists has its aiur tickets and no jobs, so its open Commands are
+// not in any job's checkpoints: they are read from the instance's own Decision API, whose scoped grant already limits
+// them to this game. A Command read here has no job, so its decision id is the checkpoint id the game's answer route
+// takes, and the embeddable `<aiur-commands>` component renders it exactly as it renders a job's.
+//
+// A decision aiur has answered, deferred away or dismissed is not an open Command and is left out, as the job
+// checkpoints leave it out. A Command whose options fall outside the inbox contract (fewer than two, more than five,
+// or an option id aiur would not accept) is dropped rather than failing the whole inbox.
+const OPEN = new Set(['open', 'deferred']);
+
+function isOpen(decision: Decision): boolean {
+  if (decision.answer !== null && decision.answer !== undefined) return false;
+  return OPEN.has(decision.decision_status);
+}
+
+function titleOf(decision: Decision): string {
+  const summary = decision.context?.short_summary?.trim() ?? '';
+  const title = summary === '' ? decision.question : summary;
+  return title.length > 200 ? `${title.slice(0, 199)}…` : title;
+}
+
+function recommendOf(decision: Decision): string | undefined {
+  const id = decision.recommendation?.option_id;
+  return typeof id === 'string' && id !== '' ? id : undefined;
+}
+
+export function toGameCommand(decision: Decision): GameCommand | null {
+  const recommend = recommendOf(decision);
+  const command = GameCommand.safeParse({
+    job_id: null,
+    ticket: decision.ticket.identifier,
+    title: titleOf(decision),
+    // Aiur's decision is the checkpoint: one Command, one decision id, one version to answer against.
+    checkpoint_id: decision.decision_id,
+    decision_id: decision.decision_id,
+    version: decision.version,
+    question: decision.question,
+    options: decision.options.map(({ id, label }) => ({ id, label })),
+    ...(recommend === undefined ? {} : { recommend }),
+    blocking: decision.blocking,
+    opened_at: decision.created_at,
+  });
+  return command.success ? command.data : null;
+}
+
+// The game's own open Commands. A game whose daemon row is missing or whose instance cannot be reached has none:
+// the inbox still lists its jobs' Commands, and the failure is logged rather than failing the whole page.
+export async function gameCommandsFromAiur(
+  deps: AppDeps,
+  gameId: string,
+  jobTickets: ReadonlySet<string>,
+): Promise<GameCommand[]> {
+  let decisions: Decision[];
+  try {
+    const client = await deps.aiurClientForGame(gameId);
+    decisions = await client.decisions();
+  } catch (error) {
+    if (error instanceof HttpError) return [];
+    if (error instanceof AiurHttpError) {
+      deps.log({ event: 'game_commands_unavailable', gameId, status: error.status });
+      return [];
+    }
+    deps.log({ event: 'game_commands_unavailable', gameId, error: (error as Error).name });
+    return [];
+  }
+  const commands: GameCommand[] = [];
+  for (const decision of decisions) {
+    // A job's Command is already in its checkpoint, so the game's own read leaves those to the job.
+    if (jobTickets.has(decision.ticket.identifier) || !isOpen(decision)) continue;
+    const command = toGameCommand(decision);
+    if (command) commands.push(command);
+  }
+  return commands;
+}

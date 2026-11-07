@@ -44,6 +44,21 @@ const ROUTES: Row[] = [
   { method: 'PUT', path: `/allowances/${X.player.userId}`, body: { dailyMicroUsd: 1_000 }, expect: ok(200, 404) },
   { method: 'GET', path: '/budget', expect: ok(200) },
   { method: 'GET', path: '/games?includeDelisted=1', expect: ok(200) },
+  {
+    method: 'POST',
+    path: '/games/import',
+    body: {
+      title: 'Registered Game',
+      repo: { owner: 'open-games', name: 'games', path: 'games/registered-game' },
+      daemon: {
+        port: 4021,
+        checkoutPath: '/srv/open-games',
+        unit: 'ogm-aiur@open-games.service',
+        envFile: '/srv/config/ogm-aiur@open-games.env',
+      },
+    },
+    expect: ok(201, 201),
+  },
   { method: 'POST', path: `/games/${X.game}/delist`, expect: ok(200, 404) },
   { method: 'POST', path: `/games/${X.game}/relist`, expect: ok(200, 404) },
   {
