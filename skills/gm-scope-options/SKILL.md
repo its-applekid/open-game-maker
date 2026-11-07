@@ -14,6 +14,13 @@ the creator's own words as the quality bar. Never replace a specific request wit
 Start with the five-line plan and "defaults I'd reach for" pass from `gm-core`. Drop every default that is not
 supported by the brief, or state why it is necessary to deliver an accepted item.
 
+## Read what the creator already rejected
+
+`design/feedback.json` is the game's rejection ledger (#567): the creator's words, the rule derived from them, and the
+scope each rule covers. Read it before proposing anything and keep its rules in front of you. A rejected option never
+comes back, so run `gm options check` on an option set first; when you hear a rejection or a reason, record it with
+`gm options reject`, which also withdraws the open options and Commands it invalidates.
+
 ## Decide whether a choice is needed
 
 A creation brief is vague when it names no playable mechanic or has fewer than three concrete game nouns. A narrow
@@ -27,9 +34,13 @@ working when a sensible reversible default does not change those things.
 For a vague creation brief, offer three clearly different takes in one question. Give each take one line with its
 core verb, short loop, and boundary; recommend one. Different palettes or names are not different takes.
 
-Use one non-blocking checkpoint:
+Record each option's provenance first (the packs and assets it used, its generator, and when it was built) as a JSON
+file per option, then run the ledger check and open one non-blocking checkpoint:
 
-`gm checkpoint open --question "Which game loop should I build?" --option "a=Gather and craft" --option "b=Race and deliver" --option "c=Defend and repair" --recommend a`
+```text
+gm options check --option "a=Gather and craft" --option "b=Race and deliver" --option "c=Defend and repair" --provenance a=@provenance/a.json --provenance b=@provenance/b.json --provenance c=@provenance/c.json
+gm checkpoint open --question "Which game loop should I build?" --option "a=Gather and craft" --option "b=Race and deliver" --option "c=Defend and repair" --recommend a --provenance a=@provenance/a.json --provenance b=@provenance/b.json --provenance c=@provenance/c.json
+```
 
 Open at most three checkpoints during an edit or a single-ticket build. A new game from the New Game flow follows `gm-new-game-design` instead (no cap). Do not add `--blocking` unless the next dependent step truly
 cannot be built before the creator chooses; continue independent work either way.

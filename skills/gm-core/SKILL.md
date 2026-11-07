@@ -34,6 +34,13 @@ Use this order and say when you move down a tier:
 
 Keep one style family per game. Use `gm assets sheet` for visual choices and record why the chosen items fit.
 
+**Never re-offer a rejected option.** `design/feedback.json` is the creator's rejection ledger: read it, keep the rule
+each entry carries, and run `gm options check` on an option set before it reaches the creator. An option that repeats a
+rejection is not an option. Record a rejection you hear first with `gm options reject`, which also names the open
+options and Commands it withdraws. Give every option its provenance when you offer it
+(`gm checkpoint open … --provenance <id>=@<file>.json`): packs, assets, generator, and build time are what the check
+reads, and a ledger-carrying game refuses an option nobody can check.
+
 **A pack you cannot reach is a blocker, not a reason to drop a tier.** If `gm assets search` fails, the asset library is
 missing or unreadable, or a card's files will not load, stop asset work and raise it: a `decision.requested` Command (or
 `Needs Kevin:` in the workpad) naming the path and the error. Never present procedural stand-ins, primitives or

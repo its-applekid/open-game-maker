@@ -9,6 +9,10 @@ Confirm `gm.lock.json` has `set: "limezu-modern"`. Use `gm assets search --set l
 tile facts with `gm assets info`, compare candidates with `gm assets sheet`, and fetch one focused pattern with
 `gm docs pattern <topic>`.
 
+Before you offer or build an option set, read `design/feedback.json`, the game's creator rejection ledger (#567), and
+keep its rules in front of you. A rejected option never comes back: run `gm options check` on the set first, and record a
+rejection you hear with `gm options reject`.
+
 ## Adapter exports
 
 | Export | Use |

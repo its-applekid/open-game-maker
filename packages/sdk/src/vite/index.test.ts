@@ -34,6 +34,18 @@ describe('foldDesignFiles', () => {
     });
   });
 
+  it('leaves the creator feedback ledger out of the design doc', () => {
+    const dir = designDir({
+      'a.json': { schemaVersion: 1, globals: { width: 10 }, entities: { [A]: entity(A) } },
+      'feedback.json': { schemaVersion: 1, entries: [] },
+    });
+    expect(foldDesignFiles(dir)).toEqual({
+      schemaVersion: 1,
+      globals: { width: 10 },
+      entities: { [A]: entity(A) },
+    });
+  });
+
   it('refuses an entity defined by two files instead of silently keeping one', () => {
     const doc = { schemaVersion: 1, globals: {}, entities: { [A]: entity(A) } };
     expect(() => foldDesignFiles(designDir({ 'a.json': doc, 'b.json': doc }))).toThrow(

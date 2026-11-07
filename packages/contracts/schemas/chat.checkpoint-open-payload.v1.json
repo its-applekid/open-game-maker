@@ -38,6 +38,75 @@
                 "pattern": "^[0-7][0-9A-HJKMNP-TV-Z]{25}$"
               }
             ]
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "packs": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "assets": {
+                "default": [],
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 200
+                }
+              },
+              "generator": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "built_at": {
+                "type": "string",
+                "format": "date-time",
+                "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z|([+-](?:[01]\\d|2[0-3]):[0-5]\\d)))$"
+              },
+              "aspect": {
+                "type": "string",
+                "enum": [
+                  "characters",
+                  "look",
+                  "options",
+                  "scene",
+                  "hud",
+                  "other"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "stand-in",
+                  "render",
+                  "screenshot",
+                  "clip",
+                  "mockup"
+                ]
+              },
+              "view": {
+                "type": "string",
+                "enum": [
+                  "player",
+                  "off-camera",
+                  "other"
+                ]
+              }
+            },
+            "required": [
+              "packs",
+              "assets",
+              "generator",
+              "built_at"
+            ],
+            "additionalProperties": false
           }
         },
         "required": [

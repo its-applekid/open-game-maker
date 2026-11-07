@@ -8,6 +8,13 @@ description: Build and verify a pre-rendered, rights-gated asset-set showcase fr
 Use this for a style picker or review reel that demonstrates a whole compatibility set. Source cards, scene data,
 frames, and generated media stay under ignored `assets-local/`; do not commit licensed art or publish private keys.
 
+## Read what the creator already rejected
+
+Read `design/feedback.json`, the game's creator rejection ledger (#567), before you build or present a showcase. Each
+entry carries the creator's words, the rule derived from them, and the scope each rule covers; a rejected option never
+comes back. Run `gm options check` on the showcase choices before they reach the creator and record a rejection you
+hear with `gm options reject`.
+
 ## Author the world
 
 1. Start from installed asset cards and their declared clips. Never invent a source path or copy source pixels into
