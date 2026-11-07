@@ -24,9 +24,13 @@ assets come in step 2, built toward the mock the creator picked.
 3. **The player's screen, nothing else.** Each mock is one in-game frame as the player sees it, from the game's real
    camera: playfield, HUD (score, next, timers), characters, effects at a key moment (a clear, a hit, a win). No
    off-camera, wide, orbit or debug views. Phone portrait first when the game targets phones, then desktop.
-4. **Supporting pics** when the review needs them: character select, aesthetic choices (block sets, frames, palettes),
+4. **Rosters are voted item by item.** For characters (or any set the game ships several of), first ask how many
+   the game starts with, then offer **twice that many** individual options, each its own card with a name and a
+   one-line personality. Push each past the kit's default look (colours, props, expression, pose) so no two read as
+   the same character. Never offer pre-bundled collections as the choice.
+5. **Supporting pics** when the review needs them: character select, aesthetic choices (block sets, frames, palettes),
    a menu. Same rules.
-5. **Respect the creator's feedback.** Read the game's feedback ledger (`design/feedback.json`) when it exists; never
+6. **Respect the creator's feedback.** Read the game's feedback ledger (`design/feedback.json`) when it exists; never
    show an option that breaks a rule there or repeats one the creator rejected.
 
 ## Generate
