@@ -17,7 +17,7 @@ export default defineConfig({
   webServer: {
     // CI builds every workspace package just before browser tests; locally, rebuild the
     // template's workspace dependencies so a stale dist/ from another branch is not bundled.
-    command: `${process.env.CI ? '' : "pnpm --filter '@gm/template-game-3d^...' run build && "}pnpm exec tsc --noEmit && pnpm exec vite build && pnpm preview`,
+    command: `${process.env.CI ? '' : "pnpm --filter '@gm/template-game-3d^...' run build && "}pnpm exec tsc --noEmit && pnpm exec vite build --mode test && pnpm preview`,
     url: 'http://127.0.0.1:43173',
     reuseExistingServer: false,
     timeout: 300_000,
