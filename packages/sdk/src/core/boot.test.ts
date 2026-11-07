@@ -70,12 +70,46 @@ describe('boot', () => {
     expect(bridge.send).toHaveBeenCalledWith(
       expect.objectContaining({
         t: 'ready',
-        payload: expect.objectContaining({ manifest: module.manifest, marks: expect.any(Array) }),
+        payload: expect.objectContaining({
+          manifest: expect.objectContaining({ ...module.manifest, saveSchema: 1, migratesFrom: 0 }),
+          marks: expect.any(Array),
+        }),
       }),
     );
     expect(runtime.hooks.marks[0]?.[0]).toBe('start');
     expect(runtime.hooks.marks.at(-1)?.[0]).toBe('frame0');
     expect(runtime.hooks.ready).toBe(true);
+  });
+
+  // The host judges stored slots against the schema the running build reports, so ready carries the instance's own.
+  it('reports the mounted instance save schema and only a migration it actually implements', async () => {
+    const { module } = await start({ migrate: false });
+
+    expect(bridge.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        t: 'ready',
+        payload: expect.objectContaining({ manifest: expect.objectContaining({ saveSchema: 1 }) }),
+      }),
+    );
+    const ready = bridge.send.mock.calls.find(([envelope]) => envelope.t === 'ready')?.[0];
+    expect(ready?.payload.manifest).not.toHaveProperty('migratesFrom');
+    expect(module.manifest).not.toHaveProperty('saveSchema');
+  });
+
+  // A static manifest is only a hint: the running build corrects a declared migration it does not implement.
+  it('drops a manifest migration the mounted build cannot implement', async () => {
+    const fixture = createCounterGame({ migrate: false });
+    const declared = { ...fixture.module.manifest, saveSchema: 4, migratesFrom: 3 };
+
+    const pending = boot({ ...fixture.module, manifest: declared }, { hostOrigin: 'https://app.test', headless: true });
+    await vi.waitFor(() => expect(bridge.onMessage).toBeTypeOf('function'));
+    bridge.onMessage!(hello('draft'));
+    await pending;
+
+    const ready = bridge.send.mock.calls.find(([envelope]) => envelope.t === 'ready')?.[0];
+    expect(ready?.payload.manifest).toEqual(expect.objectContaining({ saveSchema: 1 }));
+    expect(ready?.payload.manifest).not.toHaveProperty('migratesFrom');
+    expect(declared).toMatchObject({ saveSchema: 4, migratesFrom: 3 });
   });
 
   it('uses the build manifest host origin when the caller does not provide one', async () => {
