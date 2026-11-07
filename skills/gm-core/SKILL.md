@@ -34,6 +34,11 @@ Use this order and say when you move down a tier:
 
 Keep one style family per game. Use `gm assets sheet` for visual choices and record why the chosen items fit.
 
+**A pack you cannot reach is a blocker, not a reason to drop a tier.** If `gm assets search` fails, `assets-local` is
+missing or dangling, or a card's files will not load, stop asset work and raise it: a `decision.requested` Command (or
+`Needs Kevin:` in the workpad) naming the path and the error. Never present procedural stand-ins, primitives or
+placeholders as options for a creator's choice; a choice shown with stand-ins is not a choice.
+
 ## Build loop
 
 Before a large visible choice, offer distinct options through `gm checkpoint open` (at most three checkpoints per

@@ -9,6 +9,9 @@ Confirm `gm.lock.json` has `set: "kaykit"`. Use `gm assets search --set kaykit`,
 `gm assets info`, compare candidates with `gm assets sheet`, and fetch focused guidance with
 `gm docs pattern <topic>`.
 
+Characters are the KayKit rigged models (`RiggedCharacter`), never capsule or box figures. If no KayKit card loads,
+stop and raise it (gm-core, "A pack you cannot reach is a blocker").
+
 ## Adapter exports
 
 | Export | Use |
