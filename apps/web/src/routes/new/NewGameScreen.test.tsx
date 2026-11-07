@@ -38,12 +38,22 @@ const catalog = [
 beforeEach(() => {
   vi.stubGlobal(
     'fetch',
-    vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(catalog), {
-        status: 200,
-        headers: { 'content-type': 'application/json' },
-      }),
-    ),
+    vi.fn().mockImplementation((input: RequestInfo | URL) => {
+      if (String(input).endsWith('/api/catalog/audio-styles')) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ families: [] }), {
+            status: 200,
+            headers: { 'content-type': 'application/json' },
+          }),
+        );
+      }
+      return Promise.resolve(
+        new Response(JSON.stringify(catalog), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        }),
+      );
+    }),
   );
 });
 
@@ -78,7 +88,7 @@ describe('NewGameScreen', () => {
       screen.getByRole('button', { name: 'Back' }),
     );
     expect(container.querySelector('.new-game-head > h1')).toHaveTextContent('Genre');
-    expect(container.querySelector('.new-game-head > .new-dots')).toHaveAttribute('aria-label', 'Step 1 of 7');
+    expect(container.querySelector('.new-game-head > .new-dots')).toHaveAttribute('aria-label', 'Step 1 of 8');
     expect(screen.queryByText(/Create your game|Game setup|Choose a template/)).toBeNull();
   });
 
@@ -196,5 +206,58 @@ describe('NewGameScreen', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Try again' }));
 
     await waitFor(() => expect(createCalls).toBe(2));
+  });
+
+  it('plays an audio style sample and carries the pick into the next step', async () => {
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
+    vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => undefined);
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation((input: RequestInfo | URL) => {
+        const path = String(input);
+        if (path.endsWith('/api/catalog/audio-styles')) {
+          return Promise.resolve(
+            new Response(
+              JSON.stringify({
+                families: [
+                  {
+                    id: 'chiptune',
+                    label: 'Chiptune',
+                    styles: [
+                      {
+                        id: 'chiptune-playful',
+                        label: 'Chiptune · Playful',
+                        style: 'chiptune',
+                        mood: 'playful',
+                        sampleUrl: '/api/catalog/audio-styles/chiptune-playful/sample',
+                      },
+                    ],
+                  },
+                ],
+              }),
+              { status: 200, headers: { 'content-type': 'application/json' } },
+            ),
+          );
+        }
+        return Promise.resolve(
+          new Response(JSON.stringify(catalog), { status: 200, headers: { 'content-type': 'application/json' } }),
+        );
+      }),
+    );
+    renderScreen('/new?step=sound');
+
+    // A single-mood family opens straight into its sample; play then select the direction.
+    fireEvent.click(await screen.findByRole('button', { name: 'Chiptune' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Play Chiptune · Playful' }));
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Select Chiptune · Playful' }));
+
+    fireEvent.click(button('Next'));
+    expect(await screen.findByRole('heading', { name: 'World' })).toBeVisible();
+  });
+
+  it('skips the sound step when no audio style has a montage', async () => {
+    renderScreen('/new?step=sound');
+    expect(await screen.findByRole('heading', { name: 'World' })).toBeVisible();
   });
 });

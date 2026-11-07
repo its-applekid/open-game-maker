@@ -390,6 +390,34 @@
   color: var(--action-primary-text);
   cursor: pointer;
 }
+.new-audio-still {
+  display: grid;
+  place-items: center;
+  gap: 12px;
+  width: min(100%, 360px);
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border: 1px solid var(--rule);
+  border-radius: 18px;
+  background: var(--paper-2);
+}
+.new-audio-play {
+  display: grid;
+  place-items: center;
+  width: max(64px, var(--tap-primary));
+  height: max(64px, var(--tap-primary));
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--action-primary);
+  color: var(--action-primary-text);
+  cursor: pointer;
+}
+.new-audio-label {
+  color: var(--ink);
+  font: 700 20px/1.2 var(--body);
+  text-align: center;
+}
 
 .new-other.picked {
   grid-template-columns: 1fr 1fr;
