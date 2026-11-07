@@ -13,6 +13,7 @@ const allowed = new Map<string, JobState>([
   ['admitted:fail', 'failed'],
   ['admitted:cancel', 'cancelled'],
   ['filed:run', 'running'],
+  ['filed:finish', 'done'],
   ['filed:fail', 'failed'],
   ['filed:cancel', 'cancelled'],
   ['running:pause', 'paused_budget'],

@@ -155,6 +155,17 @@ function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
       },
     })),
   };
+  const completeJob = vi.fn((jobId: string) => {
+    db.update(schema.jobs)
+      .set({
+        state: 'done',
+        terminalAt: NOW.toISOString(),
+        releasedAt: NOW.toISOString(),
+        updatedAt: NOW.toISOString(),
+      })
+      .where(eq(schema.jobs.id, jobId))
+      .run();
+  });
   const intake = createIntake({
     db,
     fleet,
@@ -162,11 +173,12 @@ function harness(twoTickets = false, kind: 'feature' | 'scope' = 'feature') {
     aiurForGame: async () => aiur,
     shippedSkills: ['gm-core', 'gm-verify'],
     failJob,
+    completeJob,
     now: () => NOW,
     sleep: async () => undefined,
     alert: (event) => alerts.push(event),
   });
-  return { sqlite, db, calls, issues, aiur, fleet, intake, alerts, failJob };
+  return { sqlite, db, calls, issues, aiur, fleet, intake, alerts, failJob, completeJob };
 }
 
 function close(input: Harness) {

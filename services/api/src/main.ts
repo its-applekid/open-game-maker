@@ -130,6 +130,8 @@ const intake = createIntake({
   },
   shippedSkills: skillPack().discovery.map(({ name }) => name),
   failJob: (jobId) => void markTerminal(lifecycleDeps, jobId, 'failed'),
+  // A New Game request's parent issue hands the Build Order to the Executor, so the request job ends at filing.
+  completeJob: (jobId) => void markTerminal(lifecycleDeps, jobId, 'done'),
   subscribeAdmitted(listener) {
     return deps.events.on('job.changed', ({ jobId, state }) => {
       if (state === 'admitted') listener(jobId);
