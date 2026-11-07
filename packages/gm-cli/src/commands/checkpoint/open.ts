@@ -2,6 +2,8 @@ import { AgentOutboxLine } from '@ogm/contracts';
 import { ulid } from 'ulid';
 
 import { EXIT, UsageError, type GmCommand } from '../../command.js';
+import { checkOptions, readLedger } from '../../ledger/index.js';
+import { provenancePairs, strings } from '../../ledger/provenance.js';
 import { appendOutboxLine, jobContext, knownChatMessageIds } from '../../outbox.js';
 
 const OPTION_ID = /^[a-z0-9_-]{1,32}$/;
@@ -9,7 +11,7 @@ const OPTION_ID = /^[a-z0-9_-]{1,32}$/;
 export type CheckpointOpenPayload = {
   checkpoint_id: `cp_${string}`;
   question: string;
-  options: { id: string; label: string; media_id?: string }[];
+  options: { id: string; label: string; media_id?: string; provenance?: unknown }[];
   recommend?: string;
   blocking: boolean;
 };
@@ -19,12 +21,6 @@ type EmitEventCall = {
   message: string;
   payload: Record<string, unknown>;
 };
-
-function strings(flags: Record<string, unknown>, name: string): string[] {
-  const value = flags[name];
-  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string');
-  return typeof value === 'string' ? [value] : [];
-}
 
 function pair(raw: string, flag: string): [string, string] {
   const separator = raw.indexOf('=');
@@ -74,6 +70,11 @@ export const command: GmCommand = {
     question: { type: 'string', help: 'bounded direction question for the creator' },
     option: { type: 'string', multiple: true, help: 'candidate id and label; repeat 2-5 times' },
     media: { type: 'string', multiple: true, help: 'option id and prior chat message id; repeat as needed' },
+    provenance: {
+      type: 'string',
+      multiple: true,
+      help: 'option id and its provenance JSON or @file; repeat once per option',
+    },
     recommend: { type: 'string', help: 'option id recommended by the builder' },
     blocking: { type: 'boolean', default: false, help: 'hold this worker until the creator answers' },
   },
@@ -110,14 +111,36 @@ export const command: GmCommand = {
       media.set(optionId, messageId);
     }
 
+    const provenance = provenancePairs(flags, root);
+    for (const id of provenance.keys()) {
+      if (!ids.includes(id)) throw new UsageError(`provenance names unknown option "${id}"`, 'use an id from --option');
+    }
+
+    const checkpointId = `cp_${ulid()}` as const;
+    const options = optionPairs.map(([id, label]) => ({
+      id,
+      label,
+      ...(media.has(id) ? { media_id: media.get(id)! } : {}),
+      ...(provenance.has(id) ? { provenance: provenance.get(id)! } : {}),
+    }));
+    // The ledger gate: an option the game's rejections already invalidated never reaches the creator.
+    const verdict = checkOptions(
+      options.map((option) => ({ ...option, command: checkpointId })),
+      readLedger(root),
+    );
+    if (!verdict.ok) {
+      for (const violation of verdict.violations)
+        ctx.err(`${violation.kind} ${violation.option_id}: ${violation.detail}`);
+      throw new UsageError(
+        'refused to open a checkpoint with an option the feedback ledger rejects',
+        'gm options check --option <id>=<label> to see the violations',
+      );
+    }
+
     const payload: CheckpointOpenPayload = {
-      checkpoint_id: `cp_${ulid()}`,
+      checkpoint_id: checkpointId,
       question,
-      options: optionPairs.map(([id, label]) => ({
-        id,
-        label,
-        ...(media.has(id) ? { media_id: media.get(id)! } : {}),
-      })),
+      options,
       ...(recommend ? { recommend } : {}),
       blocking: flags.blocking === true,
     };

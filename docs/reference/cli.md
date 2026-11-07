@@ -61,6 +61,20 @@ gm skills sync [--check] [--force]
 gm skills list
 ```
 
+`sync` installs the platform's shared `gm-*` runtime skills, the one `gm-set-<set>` skill recorded in `gm.lock.json`,
+and the vendored engine references under `.claude/skills/`. With no recorded set, it installs no set skill.
+Workspace-only package metadata, TypeScript config, and skill tests stay in the platform repository. Relative links
+in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without symlink
+support receive copies and record `"linkMode": "copy"` in `skills.lock`.
+
+The command preserves an installed file whose hash no longer matches the previous lock. Use `--check` to report any
+missing, outdated, or locally edited file without writing; it exits 1 when drift exists. `--force` refreshes locally
+edited pack files but still preserves files the pack did not install. `list` prints the discovery names currently
+recorded in the lock.
+
+The optional `GM_SKILLS_DIR` path selects a platform skill-pack root. Normal installed use locates the pack beside
+`gm-cli`; tests and source checkouts can use the override without network access.
+
 ## Read a mechanic pattern card
 
 ```text
@@ -77,7 +91,7 @@ an unknown topic exits 2 with a list hint. Pattern retrieval is offline and neve
 ```text
 gm chat post --job <id> --text "<one line>" [--image <png>]
 gm chat post --job <id> --text "<one line>" --clip <mp4> --poster <png>
-gm checkpoint open --job <id> --question "<question>" --option <id>=<label> --option <id>=<label> [--media <id>=<chat-message-id>] [--recommend <id>] [--blocking]
+gm checkpoint open --job <id> --question "<question>" --option <id>=<label> --option <id>=<label> [--media <id>=<chat-message-id>] [--provenance <id>=<json|@file>] [--recommend <id>] [--blocking]
 gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
 ```
 
@@ -85,19 +99,30 @@ gm checkpoint wait <checkpoint-id|decision-id> [--timeout <seconds>]
 the checkpoint id and the `decision.requested` `emit_event` call the agent must make. `gm checkpoint wait` prints
 the selected option id, exits 3 on timeout, and exits 4 when the checkpoint becomes moot.
 
-`sync` installs the platform's shared `gm-*` runtime skills, the one `gm-set-<set>` skill recorded in `gm.lock.json`,
-and the vendored engine references under `.claude/skills/`. With no recorded set, it installs no set skill.
-Workspace-only package metadata, TypeScript config, and skill tests stay in the platform repository. Relative links
-in `.codex/skills/` and `.agents/skills/` make the same skills discoverable to each worker; filesystems without symlink
-support receive copies and record `"linkMode": "copy"` in `skills.lock`.
+`--provenance <id>=<json|@file>` records what an option was built from — the packs and assets it used, its generator,
+when it was built, and its design aspect, kind, and view. The ledger check reads it; a game that carries a ledger
+refuses to open a checkpoint with an option the ledger rejects.
 
-The command preserves an installed file whose hash no longer matches the previous lock. Use `--check` to report any
-missing, outdated, or locally edited file without writing; it exits 1 when drift exists. `--force` refreshes locally
-edited pack files but still preserves files the pack did not install. `list` prints the discovery names currently
-recorded in the lock.
+## Record a creator rejection
 
-The optional `GM_SKILLS_DIR` path selects a platform skill-pack root. Normal installed use locates the pack beside
-`gm-cli`; tests and source checkouts can use the override without network access.
+```text
+gm options reject --words "<creator words>" --rule "<derived rule>" --scope <characters|look|options> [--must <json>]
+                  [--option <id>=<label>] [--provenance <id>=<json|@file>] [--command <id>] [--media <message-id>]
+                  [--withdraw <option-id>] [--withdraw-command <command-id>] [--design-version <version>] [--job <id>]
+gm options check --option <id>=<label> --option <id>=<label> [--provenance <id>=<json|@file>] [--command <id>]
+```
+
+`gm options reject` appends one entry to `design/feedback.json`, the game's creator rejection ledger: the creator's
+words verbatim, the rule the agent derived, its scope, the rejected options and the Command and media they were shown
+under, and the date and design version. Because the file lives in the game repository and is versioned with it, the
+rejection outlives the session, the agent, and the chat it was spoken in. The command also withdraws every open
+option whose provenance shares the rejected option's generator and packs, together with its Command, and prints what
+it withdrew. `--must` adds the machine-checkable side of the rule as JSON, for example `{"packs":["kaykit"]}`,
+`{"views":["player"]}`, or `{"kinds":["render","screenshot","clip"]}`; without it the rule stays words for the agent.
+
+`gm options check` fails an option that breaks a ledger rule, matches a rejected option by id or provenance, or
+predates a rule that applies to its scope. It exits 1 and names each violation, or prints `options ok`. Run it on any
+option set before the options reach the creator; gm-verify runs it as a gate.
 
 ## Agree a scope session
 
@@ -116,8 +141,9 @@ gm build [--json]
 
 Runs `pnpm build` in the game repository, then checks that `dist/` holds `manifest.json` and `design/design.json` and
 that both match the `@ogm/contracts` schemas the publisher and API read. The templates' Vite config writes both files
-(`@gm/sdk/vite`): the manifest from `src/manifest.ts`, and the design folded from every `design/*.json` (a key defined
-in two files fails the build). Exits 1 naming each missing or invalid file.
+(`@gm/sdk/vite`): the manifest from `src/manifest.ts`, and the design folded from every design-doc `design/*.json`
+(a key defined in two files fails the build). The creator feedback ledger `design/feedback.json` is skipped, so a game
+that carries one still builds. Exits 1 naming each missing or invalid file.
 
 ## Build game assets
 

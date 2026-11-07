@@ -20,6 +20,7 @@ const NAMESPACED_COMMANDS = new Set([
   'docs',
   'checkpoint',
   'chat',
+  'options',
   'scope',
   'skills',
   'check',

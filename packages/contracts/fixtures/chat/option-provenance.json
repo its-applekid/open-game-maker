@@ -1,0 +1,9 @@
+{
+  "packs": ["kaykit"],
+  "assets": ["kaykit/knight", "kaykit/door"],
+  "generator": "blender 4.2 + gm shot",
+  "built_at": "2026-11-07T16:20:00.000Z",
+  "aspect": "look",
+  "kind": "render",
+  "view": "player"
+}

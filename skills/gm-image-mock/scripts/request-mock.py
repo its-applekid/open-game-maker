@@ -8,8 +8,11 @@ import argparse, json, os, sys, time, uuid
 
 ap = argparse.ArgumentParser()
 ap.add_argument('--prompt-file', default=None, help='image prompt, or the line to speak for --kind voice')
-ap.add_argument('--kind', default='image', choices=['image', 'voice', 'voices'], help='voice: one ElevenLabs sample; voices: list the voices')
+ap.add_argument('--kind', default='image', choices=['image', 'voice', 'voices', 'look'], help='voice: one ElevenLabs sample; voices: list the voices; look: a vision model answers --prompt-file about the --ref images')
 ap.add_argument('--voice-id', default='')
+ap.add_argument('--voice-model', default='eleven_v3', help='eleven_v3 (expressive, takes [excited]-style tags), eleven_multilingual_v2 or eleven_flash_v2_5')
+ap.add_argument('--stability', default='', help='v3: 0.0 creative, 0.5 natural, 1.0 robust')
+ap.add_argument('--style', default='', help='v2 only: 0.0-1.0 style exaggeration')
 ap.add_argument('--out', required=True, help='workspace-relative output directory')
 ap.add_argument('--ref', action='append', default=[], help='workspace-relative reference image (free-licence only)')
 ap.add_argument('--aspect', default='9:16')
@@ -29,6 +32,9 @@ req = {
     'prompt': open(a.prompt_file, encoding='utf-8').read() if a.prompt_file else '',
     'kind': a.kind,
     'voice_id': a.voice_id,
+    'voice_model': a.voice_model,
+    'stability': a.stability,
+    'style': a.style,
     'out': os.path.relpath(os.path.abspath(a.out), root),
     'refs': [os.path.relpath(os.path.abspath(r), root) for r in a.ref],
     'aspect': a.aspect,

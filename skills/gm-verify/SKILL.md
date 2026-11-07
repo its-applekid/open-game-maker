@@ -12,7 +12,8 @@ Never report a visual result you have not looked at. Code, logs, and a passing c
 1. Run `gm check`; fix every L0 failure.
 2. Run `gm test --ticks 3600`; fix every L1 failure.
 3. Fix the first new console error before investigating anything after it.
-4. Only then run `gm run --viewport both --frames 0,2,5` and make the sheet with `gm shot --sheet shots/`.
+4. Run `gm options check` on any option set before it reaches the creator; a rejection in `design/feedback.json` blocks it.
+5. Only then run `gm run --viewport both --frames 0,2,5` and make the sheet with `gm shot --sheet shots/`.
 
 A report budget whose status is `over` blocks the PR. Name the tier and the measured value. `unknown` is not green:
 list it under unchecked.
@@ -64,3 +65,7 @@ Visual findings advise; `gm check`, `gm test`, console errors, and budgets block
 - After every `gm run`, send exactly one current still or clip with `gm chat post`.
 - Never install software or add a paid visual judge to verify a game.
 - Always list `iPhone Safari` and `sound` as unchecked unless an operator actually checked them.
+
+**Seeing your own output.** Numeric checks (luminance, colour counts, magenta) never prove a frame looks right. If
+you cannot view images yourself, run the `gm-image-mock` look request on each still beside its target mock and put
+its answers in the evidence; fix every defect it names before the PR.

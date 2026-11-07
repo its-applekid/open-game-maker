@@ -38,6 +38,14 @@ this section adds what is specific to games.
    starts now. Content tickets that need a creative choice (music direction, character look) open their own option
    Commands with samples (see the design skill's question protocol).
 
+## Always an audio options ticket
+
+Every new game gets one audio ticket from the start, worked by an agent with `gm-audio`, `gm-voiceover` and
+`gm-image-mock`. It sends the creator options, as review decks, in four categories tailored to the game: soundtrack
+(3–4 background-music styles), sound effects (2–3 juicy sets for the game's core actions), an announcer (short
+callouts such as "Nice one!") and character voices (expressive, never monotone). Options come from the resource
+packs first (`gm assets search`); generation (voices) is samples only until the creator picks.
+
 ## Evidence and review states
 
 - **Foundation before replication.** Prove the risky base first (one assembled structure at the right scale, actors,
