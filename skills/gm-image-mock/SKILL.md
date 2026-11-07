@@ -43,7 +43,8 @@ sending it (gm-verify): wrong genre, unreadable HUD, extra limbs or off-kit styl
 ## Show
 
 Raise one `decision.requested` Command: the mocks in `media[]` (option ids A to D), recommendation first, each option
-described as what the player sees in one line. Label them as mock-ups. Record the pick in the decision log; the pick
+described as what the player sees in one line. The creator answers per option (like or dislike, a note each) and
+with notes on the whole set; apply both. Label them as mock-ups. Record the pick in the decision log; the pick
 is the visual target for the diorama and build work that follows.
 
 ## Voice samples
@@ -51,4 +52,6 @@ is the visual target for the diorama and build work that follows.
 Same rule for audio: sample before you mint. `request-mock.py --kind voices --out <dir>` lists the voices;
 `--kind voice --voice-id <id> --prompt-file <line.txt> --out <dir>` makes one short sample (one line, under 300
 characters). Offer six voices per character choice, each speaking the same two lines in character, and let the
-creator like or dislike them in the review deck before generating any full set.
+creator like or dislike them in the review deck before generating any full set. Voices must be expressive, never
+monotone: use `--voice-model eleven_v3 --stability 0.0` with emotion tags in the line (`[excited] Nice one!`,
+`[laughs]`, `[shouting]`) and pick character or animation voices.
