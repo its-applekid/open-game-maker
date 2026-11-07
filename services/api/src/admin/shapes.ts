@@ -97,3 +97,33 @@ export const PatchSettingsBody = z
   .refine((body) => Object.keys(body).length > 0, { message: 'no changes' });
 export const PutAllowanceBody = z.object({ dailyMicroUsd: MicroUsd }).strict();
 export const FlagGameAbuseBody = z.object({ reason: AbuseFlagReason }).strict();
+// Registering a game whose repository already exists: the row names the repository and the game's folder in it, and
+// the register path writes no repository and no folder. The daemon block is the game's link to the aiur instance
+// already building that repository — its port and its checkout, and optionally its systemd unit and env file, which
+// default to the builder's own `ogm-aiur@<repository>` convention. `ownerId` defaults to the admin who registers it.
+export const RegisterGameBody = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    // A user id as the app stores it (`u_<uuid>`); not `Id` because the family's own member ids are what the route
+    // looks up and an unknown one must be a 404 from that lookup, not a 400 from the body.
+    ownerId: z.string().trim().min(1).max(64).optional(),
+    repo: z
+      .object({
+        owner: z.string().trim().min(1).max(100),
+        name: z.string().trim().min(1).max(100),
+        path: z.string().trim().min(1).max(200),
+      })
+      .strict(),
+    daemon: z
+      .object({
+        port: z.number().int().min(1).max(65_535),
+        checkoutPath: z.string().trim().min(1).max(4096),
+        unit: z.string().trim().min(1).max(200).optional(),
+        envFile: z.string().trim().min(1).max(4096).optional(),
+        status: z.enum(['stopped', 'starting', 'running', 'idle']).optional(),
+      })
+      .strict(),
+    visibility: z.enum(['listed', 'private']).optional(),
+    repoVisibility: z.enum(['public', 'private']).optional(),
+  })
+  .strict();

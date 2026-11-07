@@ -1,7 +1,8 @@
-import type { AiurClient } from '@ogm/aiur-client';
+import { AiurHttpError, type AiurClient, type Decision } from '@ogm/aiur-client';
 import { schema } from '@ogm/db';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import { HttpError } from '../../src/app/errors.js';
 import { insertChatRow } from '../../src/build-chat/store.js';
 import { asUser, installUsers, makeApp, makeDeps } from '../helpers.js';
 
@@ -273,5 +274,172 @@ describe('answering from the inbox', () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toMatchObject({ status: 'answered', option_id: 'wood' });
+  });
+});
+
+// A game registered from a repository that already exists has its aiur tickets and no jobs, so its open Commands are
+// read from the instance's own Decision API. A Command read there has no job, and its answer goes straight to aiur.
+const decision = (overrides: Partial<Decision> = {}): Decision => ({
+  decision_id: 'd_aiur_1',
+  version: 2,
+  ticket: { identifier: '478' },
+  kind: 'command',
+  authority: 'supervisor_allowed',
+  blocking: true,
+  reversibility: 'reversible',
+  question: 'Which blobs?',
+  options: [
+    { id: 'round', label: 'Round blobs' },
+    { id: 'square', label: 'Square blobs' },
+  ],
+  recommendation: { option_id: 'round' },
+  context: { short_summary: 'Blobs look' },
+  answer: null,
+  active_answer: null,
+  created_at: '2026-11-04T12:00:00.000Z',
+  decision_status: 'open',
+  ...overrides,
+});
+
+async function appWithAiur(decisions: Decision[], decide = vi.fn(async () => undefined)) {
+  const deps = seed();
+  deps.aiurClientForGame = async () => ({ decisions: async () => decisions, decide }) as unknown as AiurClient;
+  const { app } = await makeApp(deps);
+  return { app, deps, decide };
+}
+
+describe('a registered game’s own Commands', () => {
+  it('lists the open Commands its aiur instance holds when no job owns them', async () => {
+    const { app } = await appWithAiur([decision()]);
+
+    const body = (await (await get(app, ids.game)).json()) as {
+      commands: Array<Record<string, unknown>>;
+    };
+
+    expect(body.commands).toHaveLength(1);
+    expect(body.commands[0]).toMatchObject({
+      job_id: null,
+      ticket: '478',
+      title: 'Blobs look',
+      checkpoint_id: 'd_aiur_1',
+      decision_id: 'd_aiur_1',
+      version: 2,
+      question: 'Which blobs?',
+      recommend: 'round',
+      blocking: true,
+      opened_at: '2026-11-04T12:00:00.000Z',
+    });
+  });
+
+  it('leaves a job’s Command to the job and leaves answered and moot Commands out', async () => {
+    const { app, deps } = await appWithAiur([
+      decision({ decision_id: 'd_job', ticket: { identifier: '99' } }),
+      decision({ decision_id: 'd_answered', answer: { option_id: 'round' } }),
+      decision({ decision_id: 'd_moot', decision_status: 'moot' }),
+      decision({ decision_id: 'd_open', ticket: { identifier: '478' } }),
+    ]);
+    job(deps, ids.job, ids.game, '2026-11-04T09:00:00.000Z');
+    deps.db.update(schema.jobs).set({ aiurIssueNumber: 99 }).run();
+    checkpoint(deps, ids.job, ULID, { decision_id: 'd_job' });
+
+    const body = (await (await get(app, ids.game)).json()) as {
+      commands: Array<{ decision_id: string; job_id: string | null }>;
+    };
+
+    expect(body.commands).toContainEqual(expect.objectContaining({ decision_id: 'd_job', job_id: ids.job }));
+    expect(body.commands).toContainEqual(expect.objectContaining({ decision_id: 'd_open', job_id: null }));
+    expect(body.commands.map(({ decision_id }) => decision_id)).not.toContain('d_answered');
+    expect(body.commands.map(({ decision_id }) => decision_id)).not.toContain('d_moot');
+    // The job's own Command appears once, from its checkpoint.
+    expect(body.commands.filter(({ decision_id }) => decision_id === 'd_job')).toHaveLength(1);
+  });
+
+  it('drops a Command whose options fall outside the inbox contract', async () => {
+    const { app } = await appWithAiur([
+      decision({ decision_id: 'd_one_option', options: [{ id: 'round', label: 'Round blobs' }] }),
+      decision({
+        decision_id: 'd_bad_id',
+        options: [
+          { id: 'Round Blobs', label: 'Round blobs' },
+          { id: 'square', label: 'Square blobs' },
+        ],
+      }),
+      decision({ decision_id: 'd_ok' }),
+    ]);
+
+    const body = (await (await get(app, ids.game)).json()) as { commands: Array<{ decision_id: string }> };
+
+    expect(body.commands.map(({ decision_id }) => decision_id)).toEqual(['d_ok']);
+  });
+
+  it('still lists the jobs’ Commands when the instance cannot be reached', async () => {
+    const deps = seed();
+    deps.aiurClientForGame = async () => {
+      throw new Error('daemon unreachable');
+    };
+    job(deps, ids.job, ids.game, '2026-11-04T09:00:00.000Z');
+    const { app } = await makeApp(deps);
+    checkpoint(deps, ids.job, ULID);
+
+    const body = (await (await get(app, ids.game)).json()) as { commands: Array<{ job_id: string }> };
+
+    expect(body.commands.map(({ job_id }) => job_id)).toEqual([ids.job]);
+    expect(deps.lines.some((line) => line.event === 'game_commands_unavailable')).toBe(true);
+  });
+
+  it('answers a Command with no job through aiur’s Decision API', async () => {
+    const { app, decide } = await appWithAiur([decision()]);
+
+    const response = await app.request(`/api/v1/games/${ids.game}/commands/d_aiur_1/answer`, {
+      method: 'POST',
+      headers: { ...asUser(ids.user), 'content-type': 'application/json' },
+      body: JSON.stringify({ option_id: 'square', version: 2 }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      status: 'answered',
+      decision_id: 'd_aiur_1',
+      option_id: 'square',
+    });
+    expect(decide).toHaveBeenCalledWith(
+      'd_aiur_1',
+      expect.objectContaining({ option: 'square', expected_version: 2, idempotency_key: 'd_aiur_1:2' }),
+    );
+  });
+
+  it('reports another writer’s answer as a conflict', async () => {
+    const { app } = await appWithAiur(
+      [decision()],
+      vi.fn(async () => {
+        throw new AiurHttpError(409, 'conflict');
+      }),
+    );
+
+    const response = await app.request(`/api/v1/games/${ids.game}/commands/d_aiur_1/answer`, {
+      method: 'POST',
+      headers: { ...asUser(ids.user), 'content-type': 'application/json' },
+      body: JSON.stringify({ option_id: 'square', version: 2 }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ status: 'conflict', by: 'other' });
+  });
+
+  it('refuses an answer when the game has no aiur instance', async () => {
+    const deps = seed();
+    deps.aiurClientForGame = async () => {
+      throw new HttpError(409, 'daemon_not_found');
+    };
+    const { app } = await makeApp(deps);
+
+    const response = await app.request(`/api/v1/games/${ids.game}/commands/d_aiur_1/answer`, {
+      method: 'POST',
+      headers: { ...asUser(ids.user), 'content-type': 'application/json' },
+      body: JSON.stringify({ option_id: 'square', version: 2 }),
+    });
+
+    expect(response.status).toBe(409);
+    expect(await response.json()).toEqual({ error: 'daemon_not_found' });
   });
 });

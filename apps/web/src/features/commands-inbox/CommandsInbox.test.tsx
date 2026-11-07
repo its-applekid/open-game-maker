@@ -44,6 +44,13 @@ beforeEach(() => {
           headers: { 'content-type': 'application/json' },
         });
       }
+      // A Command with no job answers through the game's own route, which calls aiur's Decision API.
+      if (url.includes('/commands/')) {
+        return new Response(JSON.stringify(answerStatus === 200 ? { status: 'answered' } : { error: 'no' }), {
+          status: answerStatus,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
       return new Response(JSON.stringify({ error: 'unexpected' }), { status: 500 });
     }),
   );
@@ -89,6 +96,22 @@ describe('CommandsInbox', () => {
     fireEvent.click(await screen.findByRole('button', { name: 'Open Build the moon gate' }));
 
     expect(onOpenJob).toHaveBeenCalledWith('j_1');
+  });
+
+  it('answers a Command with no job through the game route and offers no conversation', async () => {
+    commands = [commandFixture({ job_id: null, checkpoint_id: 'd_1', decision_id: 'd_1' })];
+    renderInbox();
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Stone arch' }));
+
+    await waitFor(() =>
+      expect(calls).toContainEqual({
+        url: '/api/v1/games/g_1/commands/d_1/answer',
+        method: 'POST',
+        body: { option_id: 'stone', version: 3 },
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'Open Build the moon gate' })).not.toBeInTheDocument();
   });
 
   it('leaves the Command in place when the answer is refused', async () => {

@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 
 import type { Context } from 'hono';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
+import { daemonPaths, unitName } from '@ogm/builder';
 import { schema } from '@ogm/db';
 import { authorize, type Action, type Actor } from '@ogm/policy';
 import { and, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
@@ -23,6 +25,7 @@ import { markOpened } from '../auth/mail-admin-inbox.js';
 import { allowanceRemaining } from '../budget/allowance.js';
 import { getBudgetSettings } from '../budget/settings.js';
 import { findGame, findGameForFamily, gameResponse } from '../games/games.js';
+import { registerExistingGame } from '../games/register.js';
 import { invitationResponse } from '../invites/invites.js';
 import {
   budgetDefaults,
@@ -41,6 +44,7 @@ import {
   PatchMemberBody,
   PatchSettingsBody,
   PutAllowanceBody,
+  RegisterGameBody,
 } from './shapes.js';
 
 export const prefix = '/api/v1/admin';
@@ -208,6 +212,49 @@ const routes = new Hono<ApiBindings>()
       .orderBy(desc(schema.games.createdAt))
       .all();
     return c.json({ games: games.map(gameResponse) });
+  })
+  // Register a game whose repository already exists — a game living in an Open-Games monorepo — so the next game in
+  // that repository takes this path instead of a hand-edited row. The row names the repository and the game's
+  // `games/<slug>` folder in it; no provisioner runs and no repository or folder is created. The daemon block links
+  // the game to the aiur instance already building that repository.
+  .post('/games/import', async (c) => {
+    const actor = admin(c, 'game.create');
+    const deps = c.get('deps');
+    const body = await parseBody(c, RegisterGameBody);
+    const ownerId = body.ownerId ?? actor.userId;
+    const member = deps.db
+      .select({ userId: schema.familyMembers.userId })
+      .from(schema.familyMembers)
+      .where(and(eq(schema.familyMembers.familyId, actor.familyId), eq(schema.familyMembers.userId, ownerId)))
+      .get();
+    if (!member) throw new HttpError(404, 'member_not_found');
+    // The instance's unit and env file follow the builder's `ogm-aiur@<repository>` convention, so a registration that
+    // only names the port and checkout still lands on the daemon row the fleet and the Commands poller read.
+    const instance = body.repo.name.toLowerCase();
+    const unit = body.daemon.unit ?? unitName(instance);
+    const envFile = body.daemon.envFile ?? daemonPaths(homedir(), instance).envFile;
+    const game = registerExistingGame(deps.db, {
+      familyId: actor.familyId,
+      ownerId,
+      title: body.title,
+      repo: body.repo,
+      daemon: { ...body.daemon, unit, envFile },
+      ...(body.visibility === undefined ? {} : { visibility: body.visibility }),
+      ...(body.repoVisibility === undefined ? {} : { repoVisibility: body.repoVisibility }),
+    });
+    // The daemon row is the registration's other half: the operator sees which port and checkout now answer for it.
+    return c.json(
+      {
+        ...gameResponse(game),
+        daemon: {
+          slug: game.slug,
+          port: body.daemon.port,
+          repo: `${body.repo.owner}/${body.repo.name}`,
+          checkoutPath: body.daemon.checkoutPath,
+        },
+      },
+      201,
+    );
   })
   .post('/games/:id/delist', (c) => {
     const { db } = c.get('deps');
