@@ -91,7 +91,8 @@ export async function planBuild(
       kind,
       cacheKind: cacheKind(kind, item),
       slug: slugFromId(entry.id),
-      items: [item],
+      /* An image job encodes the sheets its card names beside the primary; other kinds build from one file. */
+      items: [kind === 'image' ? { ...item, files: resolution.files } : item],
       tiers,
       /* `unscaled` changes the cache key so builds cached while pixel art was still downscaled are not reused. */
       recipe: { ...recipe(kind, tiers, [item]), ...(pixelArt ? { pixel_art: true, unscaled: true } : {}) },

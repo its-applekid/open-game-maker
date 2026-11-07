@@ -2,15 +2,28 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { assertNoSymlinks, generatedPath, sha256, stableJson, writeIfChanged } from './files.js';
-import type { BuildJob, CacheIdentity, FreshJobResult, JobResult } from './types.js';
+import type { BuildItem, BuildJob, CacheIdentity, FreshJobResult, JobResult } from './types.js';
+
+/**
+ * One item's digest: a single-file item keeps the plain file digest it always had, so existing cache keys stay valid;
+ * a card with sheets folds every file's lock path and sha256 in, so a changed companion invalidates the build too.
+ */
+async function itemDigest(item: BuildItem, refresh: boolean): Promise<string> {
+  const files = item.files;
+  if (files === undefined || files.length <= 1) {
+    return !refresh && item.sourceHash ? item.sourceHash : sha256(await readFile(item.source));
+  }
+  const digests: Array<{ path: string; sha256: string }> = [];
+  for (const file of files) {
+    digests.push({ path: file.path, sha256: refresh ? sha256(await readFile(file.absolute)) : file.sha256 });
+  }
+  return sha256(stableJson(digests));
+}
 
 export async function sourceDigest(job: BuildJob, refresh = false): Promise<string> {
   const sources: Array<{ id: string; sha256: string }> = [];
   for (const item of job.items) {
-    sources.push({
-      id: item.entry.id,
-      sha256: !refresh && item.sourceHash ? item.sourceHash : sha256(await readFile(item.source)),
-    });
+    sources.push({ id: item.entry.id, sha256: await itemDigest(item, refresh) });
   }
   return sha256(stableJson(sources));
 }
@@ -24,6 +37,9 @@ function validateGeneratedNames(result: JobResult): void {
   for (const name of Object.keys(result.files)) generatedPath('.', name);
   for (const asset of Object.values(result.assets)) {
     for (const name of Object.values(asset.file)) if (name) generatedPath('.', name);
+  }
+  for (const names of Object.values(result.companions ?? {})) {
+    for (const name of names) generatedPath('.', name);
   }
 }
 

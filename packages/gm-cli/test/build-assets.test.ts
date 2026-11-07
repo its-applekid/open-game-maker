@@ -259,7 +259,17 @@ describe('gm build assets', () => {
       JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')),
     );
     expect(manifest.tiers).toEqual(['desktop', 'mobile', 'low']);
-    expect(manifest.assets['t3:fixture/image-sheet']?.meta).toEqual(meta);
+    /* The sheet path becomes the generated file name so a game reads the sheet through the manifest. */
+    const sheetFile = manifest.assets['t3:fixture/image-sheet']!.file['*']!;
+    const sheetName = sheetFile.slice('/a/'.length);
+    const [walk] = meta.sprite.animations;
+    expect(manifest.assets['t3:fixture/image-sheet']?.meta).toEqual({
+      sprite: {
+        ...meta.sprite,
+        animations: [{ ...walk, sheets: [{ ...walk.sheets[0], path: sheetName }] }],
+      },
+    });
+    expect(manifest.files[sheetFile]).toBeDefined();
     expect(manifest.assets['t3:fixture/model-grid']?.license).toEqual({
       id: 'LicenseRef-private',
       attribution: 'Private vendor',
@@ -370,7 +380,19 @@ describe('gm build assets', () => {
     const updatedManifest = assetManifestSchema.parse(
       JSON.parse(readFileSync(join(cwd, 'public/assets/manifest.json'), 'utf8')),
     );
-    expect(updatedManifest.assets['t3:fixture/image-sheet']?.meta).toEqual(updatedMeta);
+    const updatedSheetName = updatedManifest.assets['t3:fixture/image-sheet']!.file['*']!.slice('/a/'.length);
+    expect(updatedManifest.assets['t3:fixture/image-sheet']?.meta).toEqual({
+      ...updatedMeta,
+      sprite: {
+        ...updatedMeta.sprite,
+        animations: [
+          {
+            ...updatedMeta.sprite.animations[0],
+            sheets: [{ ...updatedMeta.sprite.animations[0].sheets[0], path: updatedSheetName }],
+          },
+        ],
+      },
+    });
     expect(updatedManifest.assets['t3:fixture/model-grid']?.license).toEqual({
       id: 'LicenseRef-updated',
       attribution: 'Updated vendor',

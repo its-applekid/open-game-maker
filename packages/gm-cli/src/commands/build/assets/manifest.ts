@@ -46,6 +46,8 @@ export function assembleManifest(
   const details: Record<string, BuiltFileInfo> = {};
   const assets: Record<string, ManifestAssetEntry> = {};
   const kinds = new Map<string, Set<CacheEntryKind>>();
+  /* A sprite card's extra sheets are reached through its rewritten meta paths, not its `file` tiers. */
+  const companionIds = new Map<string, Set<string>>();
   for (const { job, result } of completed) {
     for (const [name, file] of Object.entries(result.files)) {
       if (details[name] && stableJson(details[name]) !== stableJson(file)) {
@@ -55,6 +57,15 @@ export function assembleManifest(
       const fileKinds = kinds.get(name) ?? new Set<CacheEntryKind>();
       fileKinds.add(job.cacheKind);
       kinds.set(name, fileKinds);
+    }
+    for (const [id, names] of Object.entries(result.companions ?? {})) {
+      for (const name of names) {
+        if (!details[name]) throw new Error(`asset ${id} references missing generated file ${name}`);
+        const url = assetUrl(name);
+        const holders = companionIds.get(url) ?? new Set<string>();
+        holders.add(id);
+        companionIds.set(url, holders);
+      }
     }
     for (const [id, asset] of Object.entries(result.assets)) {
       if (assets[id]) throw new Error(`asset built more than once: ${id}`);
@@ -113,6 +124,12 @@ export function assembleManifest(
       current.ids.add(id);
       usage.set(url, current);
     }
+  }
+  for (const [url, ids] of companionIds) {
+    const current = usage.get(url);
+    /* A sheet is not a per-tier file: when it also serves as one, keep that file's tiers and only add the ids. */
+    if (current) for (const id of ids) current.ids.add(id);
+    else usage.set(url, { tiers: new Set<Tier | '*'>(['*']), ids: new Set(ids) });
   }
   const entries = Object.entries(details)
     .sort(([left], [right]) => left.localeCompare(right))
