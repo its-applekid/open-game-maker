@@ -111,6 +111,20 @@ describe('operator publish', () => {
     expect(existsSync(join(deps.config.gamesRoot, ids.game, first.buildId, '.complete'))).toBe(true);
   });
 
+  it('publishes one build when two uploads race for the same game', async () => {
+    const { app, deps } = operator();
+    const [first, second] = await Promise.all([
+      publish(app, 'castle-game', SHA, archiveOf(builtFiles())),
+      publish(app, 'castle-game', NEWER_SHA, archiveOf(builtFiles())),
+    ]);
+
+    expect([first.status, second.status]).toEqual([201, 201]);
+    const builds = deps.db.select().from(schema.builds).all();
+    expect(builds).toHaveLength(2);
+    expect(builds.map((build) => build.status)).toEqual(['tested', 'tested']);
+    expect(branchRow(deps).latestBuildId).not.toBeNull();
+  });
+
   it('refuses an archive it cannot unpack and leaves no unfinished job behind', async () => {
     const { app, deps } = operator();
     const response = await publish(app, 'castle-game', SHA, Buffer.from('not a gzip archive'));
